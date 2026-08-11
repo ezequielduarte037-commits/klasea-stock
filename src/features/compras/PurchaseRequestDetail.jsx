@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Paperclip,
+  Pencil,
   Printer,
   Send,
   Trash2,
@@ -552,6 +553,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [enviosPanol, setEnviosPanol] = useState([]); // envíos a pañol vinculados a este pedido
   const [savingFollowerWa, setSavingFollowerWa] = useState(false);
   const bottomRef = useRef(null);
+  const previousCommentCountRef = useRef(null);
   const commentFileRef = useRef(null);
   const commentFilesRef = useRef([]);
   const reloadTimer = useRef(null);
@@ -652,7 +654,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     }
   }
 
-  useEffect(() => { load(); }, [requestId]);
+  useEffect(() => {
+    previousCommentCountRef.current = null;
+    load();
+  }, [requestId]);
 
   useEffect(() => {
     if (!requestId) return undefined;
@@ -677,7 +682,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   }, [requestId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const nextCount = request?.comments?.length ?? 0;
+    if (previousCommentCountRef.current === null) {
+      previousCommentCountRef.current = nextCount;
+      return;
+    }
+    if (nextCount > previousCommentCountRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+    previousCommentCountRef.current = nextCount;
   }, [request?.comments?.length]);
 
   const involvedIds = useMemo(() => {
@@ -1200,6 +1213,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         }
         .pr-chat-scroll::-webkit-scrollbar { width: 4px; }
         .pr-chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        .pr-main-scroll { scrollbar-gutter: stable; overscroll-behavior: contain; }
+        .pr-main-scroll::-webkit-scrollbar { width: 7px; }
+        .pr-main-scroll::-webkit-scrollbar-track { background: transparent; }
+        .pr-main-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
         .pr-aside::-webkit-scrollbar { width: 4px; }
         .pr-aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -1209,6 +1226,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         }
         .pr-message { animation: pr-msg-in .22s ease-out both; }
         .icon-btn:hover { background: var(--panel-2) !important; color: var(--text) !important; }
+        .pr-item-card:hover {
+          border-color: rgba(96,165,250,0.24) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+          transform: translateY(-1px);
+        }
+        .pr-item-action:hover { background: var(--panel-2) !important; color: var(--text) !important; }
+        .pr-item-action:focus-visible, .pr-description-toggle:focus-visible {
+          outline: 2px solid rgba(96,165,250,0.55);
+          outline-offset: 2px;
+        }
 
         /* Estilos para renderizar el HTML enriquecido que viene de Quill */
         .quill-content ul, .quill-content ol { padding-left: 20px; margin: 6px 0; }
@@ -1745,15 +1772,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         // En mobile usamos flujo de bloque (no grid) para que sección y aside
         // se apilen sin pisarse. El contenedor scrollea como una sola página.
         display: isMobile ? "block" : "grid",
-        gridTemplateColumns: isMobile ? undefined : "minmax(0, 1fr) 300px",
+        gridTemplateColumns: isMobile ? undefined : "minmax(0, 1fr) minmax(300px, 324px)",
         overflow: isMobile ? "auto" : "hidden",
       }}>
         <section style={{
           minHeight: 0,
           display: isMobile ? "block" : "grid",
-          gridTemplateRows: isMobile ? undefined : "auto 1fr auto",
+          gridTemplateRows: isMobile ? undefined : "minmax(0, 1fr) auto",
           borderRight: isMobile ? "none" : `1px solid ${C.border}`,
         }}>
+
+          <div className="pr-main-scroll" style={{
+            minHeight: 0,
+            overflowY: isMobile ? "visible" : "auto",
+            overflowX: "hidden",
+          }}>
 
           <div style={{
             padding: isMobile ? 12 : 16,
@@ -1766,8 +1799,34 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           }}>
             <div>
               {ARCHIVED_STATUSES.includes(request.status) && <ArchivedBanner status={request.status} />}
-              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 7, fontWeight: 750 }}>
-                Descripción
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                  Descripción
+                </div>
+                <span style={{ flex: 1 }} />
+                {descriptionIsLong && (
+                  <button
+                    type="button"
+                    className="pr-description-toggle"
+                    onClick={() => setDescriptionOpen((value) => !value)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: `1px solid ${descriptionOpen ? C.blue + "55" : C.border}`,
+                      background: descriptionOpen ? `${C.blue}12` : C.panel,
+                      color: C.blue,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 750,
+                      fontFamily: C.sans,
+                    }}
+                  >
+                    {descriptionOpen ? <><X size={13} /> Replegar</> : <><FileText size={13} /> Ver completa</>}
+                  </button>
+                )}
               </div>
               
               {/* Las descripciones del editor rico son HTML; las que vienen de los
@@ -1780,12 +1839,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 fontSize: 14,
                 lineHeight: 1.6,
                 whiteSpace: "normal",
-                maxHeight: descriptionIsLong && !descriptionOpen ? 210 : "none",
+                maxHeight: descriptionIsLong && !descriptionOpen ? 190 : "none",
                 overflow: descriptionIsLong && !descriptionOpen ? "hidden" : "visible",
                 border: descriptionIsLong ? `1px solid ${C.border}` : "none",
                 background: descriptionIsLong ? C.panel : "transparent",
-                borderRadius: descriptionIsLong ? 9 : 0,
-                padding: descriptionIsLong ? "10px 12px" : 0,
+                borderRadius: descriptionIsLong ? 11 : 0,
+                padding: descriptionIsLong ? (isMobile ? "12px" : "14px 16px") : 0,
               }}>
                 {request.description ? (
                   /<[a-z!/][\s\S]*>/i.test(request.description) ? (
@@ -1797,30 +1856,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   <span style={{ fontStyle: "italic", color: C.dim }}>Sin descripción.</span>
                 )}
               </div>
-              {descriptionIsLong && (
-                <button
-                  type="button"
-                  onClick={() => setDescriptionOpen(v => !v)}
-                  style={{
-                    marginTop: 8,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "5px 9px",
-                    borderRadius: 7,
-                    border: `1px solid ${C.border}`,
-                    background: C.panel,
-                    color: C.blue,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 750,
-                    fontFamily: C.sans,
-                  }}
-                >
-                  {descriptionOpen ? "Replegar descripcion" : "Ver descripcion completa"}
-                </button>
-              )}
-
               {request.needed_at && (
                 <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.amber, fontSize: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
                   <Clock size={12} />
@@ -1887,13 +1922,29 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
           </div>
 
-          <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "12px" : "16px 18px" }}>
+          <div style={{ minHeight: 0, padding: isMobile ? "12px" : "18px 20px 24px" }}>
 
             {/* ─── ITEMS ──────────────────────────────────────────────── */}
-            <div style={{ marginBottom: items.length || showAddItem ? 20 : 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>Items</span>
-                {items.length > 0 && <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{items.length}</span>}
+            <div style={{ marginBottom: items.length || showAddItem ? 24 : 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
+                <span style={{ color: C.muted, fontSize: 12, letterSpacing: 0.7, textTransform: "uppercase", fontWeight: 800 }}>Ítems del pedido</span>
+                {items.length > 0 && (
+                  <span style={{
+                    minWidth: 24,
+                    height: 22,
+                    padding: "0 7px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    border: `1px solid ${C.border}`,
+                    background: C.panel,
+                    color: C.dim,
+                    fontSize: 11,
+                    fontFamily: C.mono,
+                    fontWeight: 750,
+                  }}>{items.length}</span>
+                )}
                 <span style={{ flex: 1 }} />
                 <button type="button" onClick={handleCopyPurchaseText} title="Copiar pedido para mail o mensaje" style={{
                   display: "inline-flex",
@@ -1922,9 +1973,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {showAddItem && (
                 <form onSubmit={handleAddItem} style={{
-                  display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) 78px" : "1fr 70px 100px auto",
-                  gap: 6, marginBottom: 10,
-                  padding: 10, borderRadius: 8, border: `1px solid ${C.border}`,
+                  display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) 86px" : "minmax(260px, 1fr) 90px 120px auto",
+                  gap: 8, marginBottom: 12,
+                  padding: isMobile ? 10 : 14, borderRadius: 10, border: `1px solid ${C.border}`,
                   background: C.panel,
                 }}>
                   <input value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)}
@@ -1960,16 +2011,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 const st = ITEM_STATUSES.find(s => s.value === item.status) || ITEM_STATUSES[0];
                 const isEditing = editingItem?.id === item.id;
                 return (
-                  <div key={item.id} style={{
-                    display: "grid", gap: 6,
-                    padding: "8px 10px", marginBottom: 4,
-                    borderRadius: 6, border: `1px solid ${isEditing ? C.blue + "55" : C.border}`,
+                  <div key={item.id} className="pr-item-card" style={{
+                    display: "grid", gap: isEditing ? 12 : 8,
+                    padding: isMobile ? "12px" : "13px 14px", marginBottom: 8,
+                    borderRadius: 10, border: `1px solid ${isEditing ? C.blue + "66" : C.border}`,
                     background: isEditing ? "rgba(59,130,246,0.04)" : C.panel,
-                    transition: "all .12s",
+                    transition: "border-color .16s ease, box-shadow .16s ease, transform .16s ease",
                   }}>
                     <div style={{
-                      display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto auto" : "auto 1fr auto auto",
-                      gap: 10, alignItems: "center",
+                      display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto auto" : "118px minmax(0, 1fr) 34px 34px",
+                      gap: isMobile ? 8 : 12, alignItems: "center",
                     }}>
                       <select
                         value={item.status}
@@ -1977,10 +2028,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         disabled={!canEditItems}
                         style={{
                           gridColumn: isMobile ? "1 / -1" : undefined,
-                          width: isMobile ? "100%" : undefined,
-                          minHeight: isMobile ? 34 : undefined,
-                          padding: "2px 22px 2px 8px",
-                          borderRadius: 5, fontSize: 11, fontWeight: 700,
+                          width: "100%",
+                          minHeight: 36,
+                          padding: "6px 24px 6px 9px",
+                          borderRadius: 8, fontSize: 11, fontWeight: 750,
                           border: `1px solid ${st.color}44`,
                           background: `${st.color}15`,
                           color: st.color,
@@ -1993,10 +2044,18 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         ))}
                       </select>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ color: C.text, fontSize: isMobile ? 14 : 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{item.description}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                        <div style={{ color: C.text, fontSize: isMobile ? 14 : 14, fontWeight: 750, lineHeight: 1.35, overflowWrap: "anywhere" }}>{item.description}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 5 }}>
                           {(item.quantity || item.unit) && (
-                            <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>
+                            <span style={{
+                              color: C.muted,
+                              fontSize: 11,
+                              fontFamily: C.mono,
+                              border: `1px solid ${C.border}`,
+                              background: C.panel2,
+                              borderRadius: 6,
+                              padding: "2px 7px",
+                            }}>
                               {item.quantity} {item.unit}
                             </span>
                           )}
@@ -2036,27 +2095,32 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       </div>
                       {canEditItems && (
                         <button type="button" onClick={() => isEditing ? setEditingItem(null) : startEditItem(item)}
+                          className="pr-item-action"
                           title="Editar ítem"
                           style={{
-                            padding: "3px 7px", borderRadius: 4, cursor: "pointer", fontSize: 11,
-                            border: `1px solid ${C.border}`, background: "transparent", color: isEditing ? C.blue : C.dim,
-                          }}>{isEditing ? "✕" : "✎"}</button>
+                            width: 34, height: 34, display: "grid", placeItems: "center",
+                            padding: 0, borderRadius: 8, cursor: "pointer",
+                            border: `1px solid ${isEditing ? C.blue + "55" : C.border}`,
+                            background: isEditing ? `${C.blue}12` : "transparent", color: isEditing ? C.blue : C.dim,
+                          }}>{isEditing ? <X size={15} /> : <Pencil size={14} />}</button>
                       )}
                       {canEditItems && (
                         <button type="button" onClick={() => handleDeleteItem(item.id)}
+                          className="pr-item-action"
                           title="Eliminar ítem"
                           style={{
-                            padding: 3, borderRadius: 4, cursor: "pointer", fontSize: 12,
-                            border: `1px solid transparent`, background: "transparent", color: C.dim,
-                          }}>✕</button>
+                            width: 34, height: 34, display: "grid", placeItems: "center",
+                            padding: 0, borderRadius: 8, cursor: "pointer",
+                            border: `1px solid ${C.border}`, background: "transparent", color: C.dim,
+                          }}><Trash2 size={14} /></button>
                       )}
                     </div>
 
                     {isEditing && (
                       <form onSubmit={handleSaveItem} style={{
-                        display: "grid", gap: 6,
-                        padding: "8px 10px", marginTop: 2,
-                        borderRadius: 6, border: `1px solid ${C.border}`,
+                        display: "grid", gap: 11,
+                        padding: isMobile ? 10 : 14, marginTop: 2,
+                        borderRadius: 9, border: `1px solid ${C.border}`,
                         background: C.panel2,
                       }}>
                         <div>
@@ -2067,7 +2131,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             placeholder="Ej: bisagra de inox pequeña"
                             style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13, fontWeight: 600 }} />
                         </div>
-                        <div style={{ display: "flex", gap: 6 }}>
+                        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
                               Cantidad
@@ -2076,7 +2140,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               placeholder="12"
                               style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                           </div>
-                          <div style={{ width: 130 }}>
+                          <div style={{ width: isMobile ? "100%" : 150 }}>
                             <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
                               Unidad
                             </div>
@@ -2231,6 +2295,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               })
             )}
             <div ref={bottomRef} />
+          </div>
+
           </div>
 
           <form

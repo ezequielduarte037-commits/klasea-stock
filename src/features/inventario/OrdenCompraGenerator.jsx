@@ -51,6 +51,71 @@ function fmtFechaLocal(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
+// ADS provee actualmente PQ7 y talco. El resto de los materiales de esta
+// orden se prepara para Plaquimet. Usamos los UUID del catálogo para que un
+// cambio de mayúsculas o descripción no mezcle los pedidos.
+const ADS_MATERIAL_IDS = new Set([
+  "863eb63f-663a-4881-91c4-12121ad3fa52", // PQ7
+  "c5128caa-51bb-4a62-b35a-864c4dd9faf0", // TALCO
+]);
+
+function proveedorDeItem(item) {
+  const materialId = String(item?.material_id ?? item?._mat?.id ?? "");
+  if (ADS_MATERIAL_IDS.has(materialId)) return "ads";
+
+  // Respaldo para filas históricas sin material_id.
+  const nombre = String(item?.descripcion ?? item?._mat?.nombre ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return /\bpq\s*7\b|\btalco\b|\bgel\s*coat\b/.test(nombre) ? "ads" : "plaquimet";
+}
+
+function generarPedidoProveedor({ proveedor, obraNumero, plantillaLabel, desmolde, items, stockKeys, extraKeys, extraItems = [], materiales = [] }) {
+  const nombreObra = obraNumero?.trim() || plantillaLabel || "Obra";
+  const desmoldeStr = desmolde ? ` · Desmolde estimado ${fmtFechaLocal(desmolde)}` : "";
+  const esExtra = (it) => extraKeys?.has?.(it._key);
+
+  const normales = items.filter((it) =>
+    !esExtra(it) && !stockKeys.has(it._key) && proveedorDeItem(it) === proveedor
+  );
+  const extrasPlantilla = items.filter((it) =>
+    esExtra(it) && !stockKeys.has(it._key) && proveedorDeItem(it) === proveedor
+  );
+  const extrasLibres = (extraItems ?? [])
+    .map((extra) => {
+      const mat = materiales.find((m) => String(m.id) === String(extra.material_id));
+      return {
+        material_id: extra.material_id,
+        cantidad: extra.cantidad,
+        descripcion: mat?.nombre ?? "Extra",
+        unidad: mat?.unidad ?? "unid",
+        total: null,
+        total_unidad: "unid",
+      };
+    })
+    .filter((it) => proveedorDeItem(it) === proveedor);
+  const extras = [...extrasPlantilla, ...extrasLibres];
+  const cantidadItems = normales.length + extras.length;
+
+  if (!cantidadItems) return { text: "", count: 0 };
+
+  const proveedorLabel = proveedor === "ads" ? "ADS" : "Plaquimet";
+  let txt = `PEDIDO ${proveedorLabel.toUpperCase()}\n\nObra ${nombreObra}${desmoldeStr}\n`;
+
+  if (normales.length) {
+    txt += "\nMateriales para la obra:\n";
+    normales.forEach((it) => { txt += `${fmtLinea(it)}\n`; });
+  }
+  if (extras.length) {
+    txt += "\nMateriales para stock:\n";
+    extras.forEach((it) => { txt += `${fmtLinea(it)}\n`; });
+  }
+
+  txt += "\nGracias,";
+  return { text: txt, count: cantidadItems };
+}
+
 function generarEmail({ obraNumero, plantillaLabel, desmolde, items, stockKeys, extraKeys, extraItems = [], materiales = [] }) {
   const nombreObra  = obraNumero?.trim() || plantillaLabel || "Obra";
   const desmoldeStr = desmolde ? ` (Fecha estimada de desmolde ${fmtFechaLocal(desmolde)})` : "";
@@ -61,7 +126,7 @@ function generarEmail({ obraNumero, plantillaLabel, desmolde, items, stockKeys, 
   const enStock  = normales.filter(it =>  stockKeys.has(it._key));
 
   // Extras = marcados en la plantilla + agregados libres → siempre al final.
-  const extrasPlantilla = items.filter(esExtra);
+  const extrasPlantilla = items.filter((it) => esExtra(it) && !stockKeys.has(it._key));
   const extrasLibres = (extraItems ?? []).map(e => {
     const mat = materiales.find(m => String(m.id) === String(e.material_id));
     return { cantidad: e.cantidad, descripcion: mat?.nombre ?? "Extra", unidad: mat?.unidad ?? "unid", total: null, total_unidad: "unid" };
@@ -228,6 +293,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
   const [selectedKeys, setSelectedKeys]     = useState(new Set());   // para pedido
   const [extraKeys, setExtraKeys]           = useState(new Set());   // items marcados como extra
   const [copiado, setCopiado]               = useState(false);
+  const [copiadoProveedor, setCopiadoProveedor] = useState("");
   const [vista, setVista]                   = useState("tabla");
   const [pedidosCreados, setPedidosCreados] = useState(new Set());
   const [creando, setCreando]               = useState(false);
@@ -272,7 +338,11 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       const next = { ...prev };
       if (matId) next[key] = matId;
       else delete next[key];
-      try { localStorage.setItem(`lam_mat_override_${plantillaId}`, JSON.stringify(next)); } catch {}
+      try {
+        localStorage.setItem(`lam_mat_override_${plantillaId}`, JSON.stringify(next));
+      } catch {
+        // El navegador puede bloquear localStorage; el vínculo sigue activo en memoria.
+      }
       return next;
     });
   }
@@ -354,13 +424,12 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       _stockActual: stockActual, _cantidadNecesaria: cantidadNecesaria, _aComprar: aComprar };
   }), [items, materiales, stockPorMaterial, overrides]);
 
-  const sinMatch     = itemsConStock.filter(it => it._matchMode === "none").length;
-  const enStockCount = items.filter(it => stockKeys.has(it._key)).length;
+  const sinMatch = itemsConStock.filter(it => it._matchMode === "none").length;
 
   // Qué va al pedido
   const itemsAGenerar = useMemo(() => {
     const dePlantilla = itemsConStock.filter(it =>
-      selectedKeys.has(it._key) && it._mat && !pedidosCreados.has(it._key)
+      selectedKeys.has(it._key) && !stockKeys.has(it._key) && it._mat && !pedidosCreados.has(it._key)
     );
     const deExtras = extraItems
       .filter(e => !pedidosCreados.has(e.uid) && e.material_id)
@@ -368,7 +437,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       .map(e => ({ ...e, _mat: materiales.find(m => String(m.id) === String(e.material_id)) ?? null }));
     // NO filtramos por _mat aquí — el insert solo necesita material_id
     return { dePlantilla, deExtras, total: dePlantilla.length + deExtras.length };
-  }, [itemsConStock, selectedKeys, extraItems, materiales, pedidosCreados]);
+  }, [itemsConStock, selectedKeys, stockKeys, extraItems, materiales, pedidosCreados]);
 
   // ── Ejecutar: una sola orden con todos los ítems ────────────
   async function _ejecutar() {
@@ -416,9 +485,29 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
     generarEmail({ obraNumero, plantillaLabel, desmolde, items: itemsParaEmail, stockKeys, extraKeys, extraItems, materiales }),
     [obraNumero, plantillaLabel, desmolde, itemsParaEmail, stockKeys, extraKeys, extraItems, materiales]);
 
+  const pedidosPorProveedor = useMemo(() => ({
+    ads: generarPedidoProveedor({
+      proveedor: "ads", obraNumero, plantillaLabel, desmolde,
+      items: itemsParaEmail, stockKeys, extraKeys, extraItems, materiales,
+    }),
+    plaquimet: generarPedidoProveedor({
+      proveedor: "plaquimet", obraNumero, plantillaLabel, desmolde,
+      items: itemsParaEmail, stockKeys, extraKeys, extraItems, materiales,
+    }),
+  }), [obraNumero, plantillaLabel, desmolde, itemsParaEmail, stockKeys, extraKeys, extraItems, materiales]);
+
   function copiar() {
     navigator.clipboard.writeText(emailText).then(() => {
       setCopiado(true); setTimeout(() => setCopiado(false), 2200);
+    });
+  }
+
+  function copiarProveedor(proveedor) {
+    const pedido = pedidosPorProveedor[proveedor];
+    if (!pedido?.text) return;
+    navigator.clipboard.writeText(pedido.text).then(() => {
+      setCopiadoProveedor(proveedor);
+      setTimeout(() => setCopiadoProveedor(""), 2200);
     });
   }
 
@@ -645,6 +734,52 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   style={{ width: "100%", minHeight: 340, background: "rgba(0,0,0,0.4)", border: `1px solid ${C.b0}`, color: C.t0, fontFamily: C.mono, fontSize: 13, padding: "16px", borderRadius: 10, resize: "vertical", outline: "none", boxSizing: "border-box", lineHeight: 1.7, marginBottom: 16 }}
                 />
               )}
+
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+                marginBottom: 12,
+                padding: "10px 12px",
+                border: `1px solid ${C.b0}`,
+                borderRadius: 10,
+                background: C.panel,
+              }}>
+                <div style={{ marginRight: 4 }}>
+                  <div style={{ color: C.t0, fontSize: 12, fontWeight: 800 }}>Copiar por proveedor</div>
+                  <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>Separa materiales de obra y materiales para stock.</div>
+                </div>
+                <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  disabled={!pedidosPorProveedor.ads.count}
+                  onClick={() => copiarProveedor("ads")}
+                  style={{
+                    ...S.btn(C.amber, copiadoProveedor === "ads"),
+                    opacity: pedidosPorProveedor.ads.count ? 1 : 0.45,
+                    cursor: pedidosPorProveedor.ads.count ? "pointer" : "default",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <Copy size={12} />
+                  {copiadoProveedor === "ads" ? "ADS copiado" : `ADS · ${pedidosPorProveedor.ads.count}`}
+                </button>
+                <button
+                  type="button"
+                  disabled={!pedidosPorProveedor.plaquimet.count}
+                  onClick={() => copiarProveedor("plaquimet")}
+                  style={{
+                    ...S.btn(C.blue, copiadoProveedor === "plaquimet"),
+                    opacity: pedidosPorProveedor.plaquimet.count ? 1 : 0.45,
+                    cursor: pedidosPorProveedor.plaquimet.count ? "pointer" : "default",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <Copy size={12} />
+                  {copiadoProveedor === "plaquimet" ? "Plaquimet copiado" : `Plaquimet · ${pedidosPorProveedor.plaquimet.count}`}
+                </button>
+              </div>
 
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
                 <button style={S.btn(C.green, true)} onClick={copiar}>

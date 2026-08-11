@@ -4490,7 +4490,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
-  async function regularizarEstadoRow(row, estado, nota = "") {
+  async function regularizarEstadoRow(row, estado, nota = "", retiradoPor = "") {
     if (!row || !estado || estadoBusy) return;
     setEstadoBusy(row.id);
     setFlowMsg(null);
@@ -4498,7 +4498,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       const saved = await ensureSnapshotForFlow();
       const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
       if (!snapId) throw new Error("No se pudo identificar el item de obra para guardar el estado.");
-      await cambiarEstadoObraSnapshot(snapId, estado, nota);
+      await cambiarEstadoObraSnapshot(snapId, estado, nota, retiradoPor);
       await cargarSnapshot();
       setFlowMsg({ type: "ok", text: `Estado actualizado: ${row.descripcion} -> ${SNAPSHOT_ESTADO_META[estado]?.label || estado}.` });
     } catch (e) {
@@ -6768,16 +6768,21 @@ function ObraEstadoControl({ row, busy = false, onChange }) {
   const current = estadoObraForRow(row);
   const [estadoDraft, setEstadoDraft] = useState("");
   const [nota, setNota] = useState("");
+  const [retira, setRetira] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const estado = estadoDraft || current;
+  // Sólo se pide la persona cuando el renglón PASA a egresado. Editar la nota de
+  // algo ya egresado no tiene por qué volver a pedirla.
+  const pasaAEgresado = estado === "egresado" && current !== "egresado";
   const changed = estado !== current || !!nota.trim();
-  const disabled = busy || !changed;
+  const disabled = busy || !changed || (pasaAEgresado && !retira.trim());
 
   async function save() {
-    await onChange?.(row, estado, nota);
+    await onChange?.(row, estado, nota, retira);
     setEstadoDraft("");
     setNota("");
+    setRetira("");
   }
 
   return (
@@ -6803,6 +6808,29 @@ function ObraEstadoControl({ row, busy = false, onChange }) {
           {busy ? "..." : "Guardar"}
         </button>
       </div>
+
+      {/* Marcar Egresado desde acá es una regularización: nadie pasó por el
+          mostrador. El stock se descuenta bien igual, pero sin la persona el
+          registro no sirve — dentro de tres meses la fila dice "egresado" y no
+          hay a quién preguntarle si salió de verdad. */}
+      {pasaAEgresado && (
+        <div style={{ display: "grid", gap: 5, border: `1px solid ${C.blue}55`, background: `${C.blue}10`, borderRadius: 8, padding: 7 }}>
+          <div style={{ fontSize: 10.5, color: C.t1, lineHeight: 1.4 }}>
+            Se va a descontar <strong style={{ color: C.t0 }}>{row.cantidad ?? ""} {row.unidad || ""}</strong> del stock de pañol
+            y queda marcado como regularización, no como un egreso del mostrador.
+          </div>
+          <input
+            value={retira}
+            onChange={(e) => setRetira(e.target.value)}
+            placeholder="¿Quién lo retiró? (nombre y apellido)"
+            disabled={busy}
+            style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, minWidth: 0, borderColor: retira.trim() ? C.b0 : C.red }}
+          />
+          {!retira.trim() && (
+            <span style={{ fontSize: 10, color: C.red, fontWeight: 800 }}>Obligatorio para marcar como egresado.</span>
+          )}
+        </div>
+      )}
       <button type="button" onClick={() => setHistoryOpen((open) => !open)} disabled={!row.snapshotId} style={{ ...BTN, justifySelf: "start", padding: "3px 7px", minHeight: 24, fontSize: 10.5, color: row.snapshotId ? C.blue : C.t3 }} title={row.snapshotId ? "Ver historial" : "Se crea historial al guardar estado"}>
         Historial
       </button>

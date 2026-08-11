@@ -1434,12 +1434,13 @@ export async function asignarVarianteObraSnapshot(snapshotId, variante = "") {
   return null;
 }
 
-export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "") {
+export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "", retiradoPor = "") {
   if (!snapshotId) throw new Error("Falta el item de obra.");
   const { data, error } = await supabase.rpc("panol_cambiar_estado_snapshot", {
     p_snapshot_id: snapshotId,
     p_estado: estado,
     p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
   });
   if (error) {
     if (
