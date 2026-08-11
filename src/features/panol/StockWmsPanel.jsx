@@ -50,6 +50,9 @@ import {
   registrarDevolucion,
   SEDES_PANOL,
   transferirProducto,
+  fetchVerificacionesMaterial,
+  PROBLEMA_LABEL,
+  VERIFICACION_PROBLEMAS,
   verificarMaterial,
   vincularMovimientosAMaterial,
 } from "@/features/panol/panolApi";
@@ -569,6 +572,7 @@ function emptyCatalogGroup(material, defaultSede = "Pampa", esAdicional = false)
     imagenUrl: material.imagen_url || null,
     notas: material.notas || null,
     verificacion: material.verificacion_estado || "pendiente",
+    verificacionProblemas: material.verificacion_problemas || [],
     verificadoAt: material.verificado_at || null,
     verificacionNota: material.verificacion_nota || null,
     total: 0,
@@ -638,6 +642,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
         imagenUrl: row.imagen_url || null,
         notas: row.notas || null,
         verificacion: row.verificacion_estado || "pendiente",
+        verificacionProblemas: row.verificacion_problemas || [],
         verificadoAt: row.verificado_at || null,
         verificacionNota: row.verificacion_nota || null,
         label: row.descripcion || "(sin descripcion)",
@@ -681,6 +686,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
     // estado vive en la ficha, no en el renglón de stock.
     if (group.verificacion === "pendiente" && row.verificacion_estado && row.verificacion_estado !== "pendiente") {
       group.verificacion = row.verificacion_estado;
+      group.verificacionProblemas = row.verificacion_problemas || [];
       group.verificadoAt = row.verificado_at || null;
       group.verificacionNota = row.verificacion_nota || null;
     }
@@ -821,14 +827,27 @@ function sortProductGroups(groups, orderBy) {
   });
 }
 
+// La etiqueta va DENTRO del control, no arriba: siete filtros con su rótulo
+// encima suman una franja entera de encabezado que se paga en tarjetas visibles.
+// Un filtro activo se marca en azul, así se ve cuál está aplicado sin leerlos.
 function SelectFilter({ label, value, onChange, options }) {
+  const activo = value !== undefined && value !== null
+    && value !== (options?.[0]?.[0] ?? "todos");
   return (
-    <label style={{ display: "grid", gap: 4, minWidth: 112, flex: "1 1 132px", maxWidth: 220 }}>
-      <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+    <label style={{
+      display: "flex", alignItems: "center", gap: 6, minWidth: 0,
+      flex: "1 1 148px", maxWidth: 230, height: 32,
+      padding: "0 8px 0 9px", borderRadius: 8,
+      border: `1px solid ${activo ? C.blueB : C.border}`,
+      background: activo ? C.blueL : C.panelSolid,
+    }}>
+      <span style={{ color: activo ? C.blue : C.dim, fontSize: 9, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
+        {label}
+      </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        style={{ width: "100%", minWidth: 0, background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 750, fontFamily: C.sans, outline: "none" }}
+        style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", color: C.text, padding: 0, fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, outline: "none", cursor: "pointer" }}
       >
         {options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}
       </select>
@@ -1100,9 +1119,12 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         transition: "border-color .12s, background .12s, box-shadow .12s",
       }}
     >
-      {/* Fila 1: nombre completo (hasta 2 líneas) + disponible */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 900, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: active ? 2 : 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
+      {/* Fila 1: foto + nombre completo (hasta 2 líneas) + disponible.
+          La miniatura va acá y no en una fila propia: en una grilla de tarjetas
+          cada fila extra se multiplica por todo lo que entra en pantalla. */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+        <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={40} />
+        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 900, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
         <div style={{ display: "grid", justifyItems: "end", gap: 1, flexShrink: 0 }}>
           <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 950, lineHeight: 1 }}>{fmtQty(group.total)}</span>
           <span style={{ color: C.dim, fontSize: 8, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.5 }}>{group.unidad || "u"}</span>
@@ -1110,6 +1132,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
       </div>
       {/* Fila 2: badges + ubicación / sin ubicación */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <VerificacionChip estado={group.verificacion} compact />
         <KindChip tipo={group.tipoPedido} />
         <StockLevelChip group={group} hideUnset />
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
@@ -1307,11 +1330,20 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
         )}
       </div>
 
+      {/* El tipo de problema se lee desde la lista: es lo que permite decidir a
+          cuál entrar sin abrirlos de a uno. */}
       <div style={{ minWidth: 0 }}>
         <VerificacionChip estado={group.verificacion} compact />
-        {group.verificacion === "problema" && group.verificacionNota && (
-          <div style={{ color: C.dim, fontSize: 9.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {group.verificacionNota}
+        {group.verificacion === "problema" && (group.verificacionProblemas || []).length > 0 && (
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3 }}>
+            {group.verificacionProblemas.slice(0, 2).map((clave) => (
+              <span key={clave} style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 5, padding: "0 5px", fontSize: 9, fontWeight: 900, whiteSpace: "nowrap" }}>
+                {PROBLEMA_LABEL[clave] || clave}
+              </span>
+            ))}
+            {group.verificacionProblemas.length > 2 && (
+              <span style={{ color: C.dim, fontSize: 9, fontWeight: 900 }}>+{group.verificacionProblemas.length - 2}</span>
+            )}
           </div>
         )}
       </div>
@@ -2315,39 +2347,72 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 // Panel de revisión del maestro. Es el lugar donde el pañolero, con la pieza en
 // la mano, arregla lo que está mal y lo deja marcado.
 //
-// Los tres campos están acá y no repartidos por la pantalla a propósito: la
-// revisión se hace de a un producto y de una sentada, y si para completar la
-// ubicación hay que abrir otra pestaña, no se completa.
+// Va en dos pasos y no en uno: primero se corrigen los datos, y recién si algo
+// no cierra se abre el bloque del problema. Antes había un botón "Tiene un
+// problema" al lado de un campo de texto suelto, y no se entendía qué había que
+// escribir ahí ni qué pasaba después de apretarlo.
 function VerificacionPanel({ group, canEdit, onDone, toast }) {
   const materialId = group?.material?.id || null;
   const [descripcion, setDescripcion] = useState(group?.label || "");
   const [ubicacion, setUbicacion] = useState(group?.ubicacion || "");
   const [ubicacionObs, setUbicacionObs] = useState(group?.ubicacion_obs || "");
   const [nota, setNota] = useState(group?.verificacionNota || "");
+  const [problemas, setProblemas] = useState(() => [...(group?.verificacionProblemas || [])]);
+  const [contada, setContada] = useState("");
+  const [abrirProblema, setAbrirProblema] = useState(() => (group?.verificacionProblemas || []).length > 0);
   const [guardando, setGuardando] = useState("");
+  const [historial, setHistorial] = useState([]);
+  const [verHistorial, setVerHistorial] = useState(false);
 
   const estado = group?.verificacion === "ok" || group?.verificacion === "problema" ? group.verificacion : "pendiente";
   const meta = VERIF_META[estado];
-  const sinUbicacion = !ubicacion.trim();
+  const sistema = qty(group?.total, 0);
+  const contadaNum = contada === "" ? null : Number(contada);
+  const difiere = contadaNum !== null && Number.isFinite(contadaNum) && Math.abs(contadaNum - sistema) > 0.0001;
 
-  async function marcar(nuevoEstado) {
+  useEffect(() => {
+    if (!verHistorial || !materialId) return;
+    fetchVerificacionesMaterial(materialId).then(setHistorial).catch(() => setHistorial([]));
+  }, [verHistorial, materialId]);
+
+  // Si al contar aparece una diferencia, el problema ya quedó identificado: se
+  // tilda solo, para que nadie tenga que acordarse de marcarlo.
+  function cambiarContada(valor) {
+    setContada(valor);
+    const num = valor === "" ? null : Number(valor);
+    const hayDiferencia = num !== null && Number.isFinite(num) && Math.abs(num - sistema) > 0.0001;
+    if (hayDiferencia) {
+      setAbrirProblema(true);
+      setProblemas((prev) => (prev.includes("cantidad") ? prev : [...prev, "cantidad"]));
+    }
+  }
+
+  function toggleProblema(clave) {
+    setProblemas((prev) => (prev.includes(clave) ? prev.filter((x) => x !== clave) : [...prev, clave]));
+  }
+
+  async function guardar(nuevoEstado) {
     if (!materialId) {
       toast?.warning?.("Este renglón no está vinculado al catálogo, no se puede revisar.");
-      return;
-    }
-    if (nuevoEstado === "problema" && !nota.trim()) {
-      toast?.warning?.("Escribí qué problema tiene antes de marcarlo.");
       return;
     }
     setGuardando(nuevoEstado);
     try {
       await verificarMaterial(materialId, nuevoEstado, {
-        nota: nuevoEstado === "problema" ? nota.trim() : (nota.trim() || null),
+        nota: nota.trim() || null,
         ubicacion: ubicacion.trim() || null,
         ubicacionObs,
         descripcion: descripcion.trim() || null,
+        problemas: nuevoEstado === "problema" ? problemas : [],
+        cantidadContada: contada,
+        cantidadSistema: sistema,
       });
-      toast?.success?.(nuevoEstado === "ok" ? "Producto revisado." : nuevoEstado === "problema" ? "Marcado con problema." : "Vuelve a sin revisar.");
+      toast?.success?.(
+        nuevoEstado === "ok" ? "Producto revisado y correcto."
+          : nuevoEstado === "problema" ? "Queda marcado con problema."
+            : "Vuelve a la lista de sin revisar.",
+      );
+      setVerHistorial(false);
       await onDone?.();
     } catch (error) {
       toast?.error?.(error.message || "No se pudo guardar la revisión.");
@@ -2356,73 +2421,223 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
     }
   }
 
-  if (!canEdit) return null;
+  // Sin permiso se muestra el estado pero no los controles. Devolver null hacía
+  // que el bloque desapareciera y no hubiera forma de saber si faltaba permiso
+  // o si el módulo estaba roto.
+  if (!canEdit) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "9px 12px" }}>
+        <ShieldCheck size={14} style={{ color: C.dim, flexShrink: 0 }} />
+        <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Revisión del maestro</span>
+        <VerificacionChip estado={estado} />
+        <span style={{ color: C.dim, fontSize: 11 }}>Tu usuario no puede revisar productos.</span>
+      </div>
+    );
+  }
+
+  const campo = { width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" };
+  const rotulo = { color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 };
+  const paso = { width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10, fontWeight: 950, flexShrink: 0 };
 
   return (
+    // SIN overflow:hidden. El contenedor del detalle es un grid, y un ítem de
+    // grid con overflow:hidden aporta 0 a la altura de su fila: la fila colapsaba
+    // a 2px —los dos bordes— y el panel quedaba renderizado en el DOM pero
+    // recortado a nada, sin dejar rastro de por qué. Medido en el navegador:
+    // con overflow hidden la fila da 2px; sin él, 413px.
+    // Las esquinas del encabezado se redondean a mano, que es lo único que el
+    // overflow estaba resolviendo.
     <div style={{
       border: `1px solid ${estado === "pendiente" ? C.blueB : meta.border}`,
-      background: estado === "pendiente" ? C.blueL : meta.bg === "transparent" ? C.panelSolid : meta.bg,
-      borderRadius: 12, padding: 12, display: "grid", gap: 10,
+      background: C.panelSolid,
+      borderRadius: 12,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+        padding: "9px 12px", borderBottom: `1px solid ${C.border}`,
+        borderRadius: "11px 11px 0 0",
+        background: estado === "pendiente" ? C.blueL : meta.bg === "transparent" ? C.panel : meta.bg,
+      }}>
         <ShieldCheck size={14} style={{ color: estado === "pendiente" ? C.blue : meta.color, flexShrink: 0 }} />
         <span style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Revisión del maestro</span>
         <VerificacionChip estado={estado} />
-        {group.verificadoAt && (
-          <span style={{ color: C.dim, fontSize: 10.5, marginLeft: "auto" }}>
-            {new Date(group.verificadoAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
-          </span>
+        <button type="button" onClick={() => setVerHistorial((v) => !v)}
+          style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11, fontWeight: 850, cursor: "pointer", fontFamily: C.sans, padding: 0 }}>
+          {verHistorial ? "Ocultar historial" : "Ver historial"}
+        </button>
+      </div>
+
+      <div style={{ padding: 12, display: "grid", gap: 11 }}>
+        {!materialId && (
+          <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 9, padding: "8px 10px", color: C.text, fontSize: 11.5, lineHeight: 1.45 }}>
+            Este renglón todavía no está vinculado al catálogo, así que no se puede
+            revisar. Creá la ficha desde <b>Ubicación física del producto</b>, más abajo.
+          </div>
         )}
-      </div>
 
-      <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.45 }}>
-        Con el producto en la mano: que la descripción alcance para reconocerlo y
-        que la ubicación diga dónde está de verdad.
-      </div>
-
-      <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
-        <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Descripción</span>
-        <input value={descripcion} size={1} onChange={(event) => setDescripcion(event.target.value)}
-          placeholder="Ej: Bisagra codo 18 + base con clip"
-          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
-      </label>
-
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.3fr)", gap: 8 }}>
-        <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
-          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Ubicación</span>
-          <input value={ubicacion} size={1} onChange={(event) => setUbicacion(event.target.value)}
-            placeholder="Ej: Estante C3"
-            style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${sinUbicacion ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
-        </label>
-        <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
-          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle de dónde está</span>
-          <input value={ubicacionObs} size={1} onChange={(event) => setUbicacionObs(event.target.value)}
-            placeholder="Ej: afuera, contra el portón"
-            style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
-        </label>
-      </div>
-
-      <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
-        <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué encontraste (si hay algo mal)</span>
-        <input value={nota} size={1} onChange={(event) => setNota(event.target.value)}
-          placeholder="Ej: el código no coincide con la etiqueta de la caja"
-          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
-      </label>
-
-      <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => marcar("ok")} disabled={!!guardando}
-          style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "9px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
-          <CheckCircle2 size={14} /> {guardando === "ok" ? "Guardando…" : "Está correcto"}
-        </button>
-        <button type="button" onClick={() => marcar("problema")} disabled={!!guardando}
-          style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "9px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
-          <AlertTriangle size={14} /> {guardando === "problema" ? "Guardando…" : "Tiene un problema"}
-        </button>
         {estado !== "pendiente" && (
-          <button type="button" onClick={() => marcar("pendiente")} disabled={!!guardando}
-            style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "9px 11px", cursor: guardando ? "default" : "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
-            Deshacer
-          </button>
+          <div style={{ color: C.dim, fontSize: 11, lineHeight: 1.45 }}>
+            Última revisión: {group.verificadoAt ? new Date(group.verificadoAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "sin fecha"}
+            {group.verificacionNota ? ` · ${group.verificacionNota}` : ""}
+          </div>
+        )}
+
+        {/* PASO 1 — los datos de la ficha */}
+        <div style={{ display: "grid", gap: 9 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={paso}>1</span>
+            <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Corregí la ficha con el producto en la mano</span>
+          </div>
+
+          <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+            <span style={rotulo}>Descripción · tiene que alcanzar para reconocerlo</span>
+            <input value={descripcion} size={1} onChange={(event) => setDescripcion(event.target.value)}
+              placeholder="Ej: Bisagra codo 18 + base con clip" style={campo} />
+          </label>
+
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.3fr)", gap: 8 }}>
+            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={rotulo}>Ubicación</span>
+              <input value={ubicacion} size={1} onChange={(event) => setUbicacion(event.target.value)}
+                placeholder="Ej: Estante C3"
+                style={{ ...campo, borderColor: ubicacion.trim() ? C.border : C.redB }} />
+            </label>
+            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={rotulo}>Dónde está exactamente</span>
+              <input value={ubicacionObs} size={1} onChange={(event) => setUbicacionObs(event.target.value)}
+                placeholder="Ej: afuera, contra el portón" style={campo} />
+            </label>
+          </div>
+
+          {/* Contar es opcional, pero es lo que convierte la revisión en un dato:
+              sin el número, "la cantidad no cierra" no se puede discutir. */}
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 8, alignItems: "end" }}>
+            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={rotulo}>¿Cuántos contaste? (opcional)</span>
+              <input value={contada} size={1} inputMode="decimal" onChange={(event) => cambiarContada(event.target.value)}
+                placeholder="Dejalo vacío si no contaste"
+                style={{ ...campo, fontFamily: C.mono, borderColor: difiere ? C.redB : C.border }} />
+            </label>
+            <div style={{ paddingBottom: 8, whiteSpace: "nowrap", color: difiere ? C.red : C.dim, fontSize: 11.5, fontWeight: difiere ? 900 : 750 }}>
+              {difiere
+                ? `Sistema ${fmtQty(sistema)} · difiere en ${fmtQty(Math.abs(contadaNum - sistema))}`
+                : `Sistema dice ${fmtQty(sistema)} ${group.unidad || "u"}`}
+            </div>
+          </div>
+        </div>
+
+        {/* PASO 2 — el veredicto */}
+        <div style={{ display: "grid", gap: 9, borderTop: `1px solid ${C.border}`, paddingTop: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={paso}>2</span>
+            <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>¿Quedó bien?</span>
+          </div>
+
+          {!abrirProblema ? (
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => guardar("ok")} disabled={!!guardando}
+                style={{ flex: "1 1 190px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
+                <CheckCircle2 size={14} /> {guardando === "ok" ? "Guardando…" : "Sí, guardar y marcar revisado"}
+              </button>
+              <button type="button" onClick={() => setAbrirProblema(true)} disabled={!!guardando}
+                style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+                <AlertTriangle size={14} /> No, hay algo mal
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 9, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 10, padding: 10 }}>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>¿Qué está mal? Marcá todo lo que corresponda</div>
+              <div style={{ display: "grid", gap: 5 }}>
+                {VERIFICACION_PROBLEMAS.map(([clave, label, ayuda]) => {
+                  const on = problemas.includes(clave);
+                  return (
+                    <button key={clave} type="button" onClick={() => toggleProblema(clave)}
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 8, textAlign: "left",
+                        border: `1px solid ${on ? C.redB : C.border}`,
+                        background: on ? C.panelSolid : "transparent",
+                        borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontFamily: C.sans, minWidth: 0,
+                      }}>
+                      <span style={{
+                        width: 15, height: 15, flexShrink: 0, marginTop: 1, borderRadius: 4,
+                        border: `1px solid ${on ? C.red : C.border2}`, background: on ? C.red : "transparent",
+                        display: "grid", placeItems: "center", color: "#fff", fontSize: 10, fontWeight: 950, lineHeight: 1,
+                      }}>{on ? "✓" : ""}</span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", color: on ? C.red : C.text, fontSize: 12, fontWeight: 900 }}>{label}</span>
+                        <span style={{ display: "block", color: C.dim, fontSize: 10.5, lineHeight: 1.35, marginTop: 1 }}>{ayuda}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+                <span style={rotulo}>
+                  {problemas.includes("otro") ? "Detalle · obligatorio porque elegiste Otro" : "Detalle (opcional)"}
+                </span>
+                <input value={nota} size={1} onChange={(event) => setNota(event.target.value)}
+                  placeholder="Ej: la etiqueta dice SC4348 pero la caja tiene SC4348E" style={campo} />
+              </label>
+
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                <button type="button" onClick={() => guardar("problema")} disabled={!!guardando || !problemas.length}
+                  style={{ flex: "1 1 190px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.redB}`, background: problemas.length ? C.red : C.panel, color: problemas.length ? "#fff" : C.dim, borderRadius: 9, padding: "10px 12px", cursor: guardando || !problemas.length ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
+                  <AlertTriangle size={14} />
+                  {guardando === "problema"
+                    ? "Guardando…"
+                    : problemas.length
+                      ? `Guardar con ${problemas.length} problema${problemas.length === 1 ? "" : "s"}`
+                      : "Elegí qué está mal"}
+                </button>
+                <button type="button" onClick={() => { setAbrirProblema(false); setProblemas([]); }} disabled={!!guardando}
+                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>
+                  Estaba bien
+                </button>
+              </div>
+            </div>
+          )}
+
+          {estado !== "pendiente" && (
+            <button type="button" onClick={() => guardar("pendiente")} disabled={!!guardando}
+              style={{ justifySelf: "start", border: "none", background: "transparent", color: C.dim, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: C.sans, textDecoration: "underline", padding: 0 }}>
+              Deshacer la revisión y volver a dejarlo pendiente
+            </button>
+          )}
+        </div>
+
+        {verHistorial && (
+          <div style={{ display: "grid", gap: 6, borderTop: `1px solid ${C.border}`, paddingTop: 11 }}>
+            <span style={rotulo}>Revisiones anteriores</span>
+            {historial.length === 0 ? (
+              <div style={{ color: C.dim, fontSize: 11.5 }}>Todavía no se revisó nunca.</div>
+            ) : historial.map((fila) => (
+              <div key={fila.id} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 9, padding: "7px 9px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                  <VerificacionChip estado={fila.estado} compact />
+                  <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>
+                    {new Date(fila.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </span>
+                  {fila.autor_nombre && <span style={{ color: C.dim, fontSize: 10.5 }}>· {fila.autor_nombre}</span>}
+                  {fila.cantidad_contada != null && (
+                    <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>
+                      · contó {fmtQty(fila.cantidad_contada)}{fila.cantidad_sistema != null ? ` / sistema ${fmtQty(fila.cantidad_sistema)}` : ""}
+                    </span>
+                  )}
+                </div>
+                {(fila.problemas || []).length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                    {fila.problemas.map((clave) => (
+                      <span key={clave} style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 6, padding: "1px 6px", fontSize: 9.5, fontWeight: 900 }}>
+                        {PROBLEMA_LABEL[clave] || clave}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {fila.nota && <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.4, marginTop: 4 }}>{fila.nota}</div>}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -2732,7 +2947,11 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         </div>
 
 
-        {mode !== "egreso" && !group.catalogOnly && (
+        {/* Sin la guarda de catalogOnly: escondía el panel en casos que no
+            valía la pena adivinar, y desaparecer sin decir nada es peor que
+            aparecer deshabilitado. Cuando no se puede revisar, el panel lo
+            explica adentro. */}
+        {mode !== "egreso" && (
           <VerificacionPanel group={group} canEdit={canReceive} onDone={onDone} toast={toast} />
         )}
 
@@ -3844,7 +4063,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   return (
     <>
-      <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "10px 12px" : "10px 18px", display: "grid", gap: 10, flexShrink: 0 }}>
+      <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "grid", gap: 7, flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 320 }}>
             <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
@@ -3942,66 +4161,59 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </button>
         </div>
 
+        {/* Una sola franja para todo lo que es "estado del maestro": nivel de
+            stock a la izquierda, avance de la revisión a la derecha. Eran dos
+            bandas apiladas y entre las dos se comían una fila de tarjetas. */}
         {showCatalogInventory && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", paddingTop: 2 }}>
-            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-              {[
-                ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],
-                ["alerta", "Bajos", stockLevelCounts.alerta, C.violet, C.violetL, C.violetB],
-                ["ok", "Correctos", stockLevelCounts.ok, C.green, C.greenL, C.greenB],
-                ["sin_minimo", "Sin mínimo", stockLevelCounts.sin_minimo, C.dim, C.panel2, C.border],
-              ].map(([key, label, count, color, background, border]) => (
-                <button key={key} type="button" onClick={() => setScope(scope === key ? "todos" : key)} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color, borderRadius: 999, padding: "5px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 999, background: color }} />
-                  {label} <span style={{ fontFamily: C.mono }}>{count}</span>
-                </button>
-              ))}
-            </div>
-            <div style={{ color: C.dim, fontSize: 10.5 }}>
-              Rojo: hasta 50% del mínimo · Violeta: hasta el mínimo · Verde: por encima
-            </div>
-          </div>
-        )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 6 }}>
+            {[
+              ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],
+              ["alerta", "Bajos", stockLevelCounts.alerta, C.violet, C.violetL, C.violetB],
+              ["ok", "Correctos", stockLevelCounts.ok, C.green, C.greenL, C.greenB],
+              ["sin_minimo", "Sin mínimo", stockLevelCounts.sin_minimo, C.dim, C.panel2, C.border],
+            ].map(([key, label, count, color, background, border]) => (
+              <button key={key} type="button" title="Filtrar por nivel de stock" onClick={() => setScope(scope === key ? "todos" : key)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color, borderRadius: 999, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
+                {label} <span style={{ fontFamily: C.mono }}>{count}</span>
+              </button>
+            ))}
 
-        {/* Avance de la revisión. Va arriba de todo y con barra porque una
-            pasada de cientos de productos no se termina si nadie ve si va por
-            la mitad o por el principio. */}
-        {showCatalogInventory && verifCounts.todos > 0 && (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-            border: `1px solid ${C.border}`, background: C.panelSolid,
-            borderRadius: 11, padding: "9px 12px",
-          }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-              <ShieldCheck size={14} style={{ color: C.blue }} />
-              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Revisión del maestro</span>
-            </div>
-            <div style={{ flex: "1 1 180px", minWidth: 140, height: 6, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
-              <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
-              <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
-            </div>
-            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 12, fontWeight: 950, flexShrink: 0 }}>
-              {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
+            {verifCounts.todos > 0 && (
+              <>
+                <span style={{ width: 1, alignSelf: "stretch", background: C.border, margin: "0 2px" }} />
+                <ShieldCheck size={13} style={{ color: C.blue, flexShrink: 0 }} />
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
+                <div style={{ flex: "0 1 120px", minWidth: 70, height: 5, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
+                  <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
+                  <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
+                </div>
+                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
+                  {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
+                </span>
+                {[
+                  ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
+                  ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
+                  ["ok", `${verifCounts.ok} ok`, C.green, C.greenB],
+                ].map(([key, label, color, border]) => (
+                  <button key={key} type="button" onClick={() => setVerifScope(verifScope === key ? "todos" : key)}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      border: `1px solid ${verifScope === key ? color : border}`,
+                      background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : C.panelSolid,
+                      color, borderRadius: 999, padding: "3px 9px", cursor: "pointer",
+                      fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                    }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
+                    {label}
+                  </button>
+                ))}
+              </>
+            )}
+
+            <span title="Rojo: hasta 50% del mínimo · Violeta: hasta el mínimo · Verde: por encima"
+              style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, cursor: "help", whiteSpace: "nowrap" }}>
+              ¿Qué significan los colores?
             </span>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[
-                ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
-                ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
-                ["ok", `${verifCounts.ok} revisados`, C.green, C.greenB],
-              ].map(([key, label, color, border]) => (
-                <button key={key} type="button" onClick={() => setVerifScope(verifScope === key ? "todos" : key)}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    border: `1px solid ${verifScope === key ? color : border}`,
-                    background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent",
-                    color, borderRadius: 999, padding: "4px 9px", cursor: "pointer",
-                    fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
-                  }}>
-                  <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
@@ -4018,11 +4230,13 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             detalle vuelve a la lista. En desktop conviven lado a lado. */}
         {!(isMobile && hasSelectedProduct) && (
         <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div>
-              <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : "Stock maestro"}</div>
-              <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-                {productGroups.length} productos visibles · {showCatalogInventory && stockView === "lista" ? "editá los mínimos directamente en la columna" : "click en un ítem para abrir egreso y kardex"}
+          {/* Título y ayuda en una sola línea: eran dos y el subtítulo repetía
+              algo que se aprende la primera vez que hacés click. */}
+          <div style={{ padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : "Stock maestro"}</div>
+              <div style={{ color: C.dim, fontSize: 11 }}>
+                {productGroups.length} visibles · {showCatalogInventory && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
               </div>
             </div>
             {showCatalogInventory && (

@@ -7061,7 +7061,7 @@ function obraRecepcionResumenMeta(resumen) {
 }
 
 function snapshotBucket(row) {
-  const key = row?.tipo || "base";
+  const key = row?.es_adicional === true ? "addon" : row?.tipo || "base";
   if (key === "linea_eje") return { key, label: row?.tipo_label || "Linea eje", color: C.violet };
   if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.amber };
   if (key === "condicionante") return { key, label: row?.tipo_label || "Condicionante", color: C.amber };
@@ -7089,13 +7089,15 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
   const pedidoOriginal = originalSnapshotLabel(row.descripcion, material?.descripcion);
   const obs = mergeNotes(material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
   const reason = reviewReasonForText(`${descripcion || ""} ${codigo || ""} ${obs || ""}`);
+  const esAdicional = row.es_adicional === true || row.tipo === "addon" || row.source === "addon";
   return {
     id: row.id,
     snapshotId: row.id,
     materialId: row.material_id,
     material,
-    source: row.source || "snapshot",
-    snapshot_tipo: row.tipo || null,
+    source: esAdicional ? "addon" : row.source || "snapshot",
+    snapshot_tipo: esAdicional ? "addon" : row.tipo || null,
+    es_adicional: esAdicional,
     descripcion,
     snapshotDescripcion: row.descripcion,
     descripcionOriginal: pedidoOriginal ? row.descripcion : "",
@@ -7164,7 +7166,7 @@ function snapshotMergeKey(row, index = 0) {
 }
 
 function isAddonRow(row) {
-  return row?.source === "addon" || row?.bucket?.key === "addon" || row?.snapshot_tipo === "addon";
+  return row?.es_adicional === true || row?.source === "addon" || row?.bucket?.key === "addon" || row?.snapshot_tipo === "addon";
 }
 
 function isRemitoSnapshot(row) {

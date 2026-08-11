@@ -338,7 +338,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       // no se aplicaron, mostrando menos en vez de romper.
       let res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota")
+        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas")
         .in("id", materialIds);
       if (res.error && isMissingColumn(res.error)) {
         res = await supabase
@@ -472,6 +472,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       verificacion_estado: meta?.verificacion_estado || "pendiente",
       verificado_at: meta?.verificado_at || null,
       verificacion_nota: meta?.verificacion_nota || null,
+      verificacion_problemas: meta?.verificacion_problemas || [],
       categoria_id: categoriaId,
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
@@ -1631,15 +1632,45 @@ export const VERIFICACION_META = {
   problema: { label: "Con problema", corto: "Problema" },
 };
 
+// Los problemas se tipifican y no se escriben libres. Un texto suelto obliga a
+// leer ítem por ítem para saber si hay que ir a buscar la pieza, corregir una
+// etiqueta o sacar una foto; y como cada uno lo escribe distinto, no se puede
+// contar. Al terminar la pasada la pregunta útil es "¿de qué tipo son?",
+// porque de ahí sale qué arreglar para que no vuelva a pasar.
+export const VERIFICACION_PROBLEMAS = [
+  ["ubicacion", "No está donde dice", "La ficha marca un lugar y la pieza está en otro."],
+  ["cantidad", "La cantidad no cierra", "Lo que hay en el estante no es lo que dice el sistema."],
+  ["descripcion", "No se entiende qué es", "El nombre no alcanza para reconocerlo con la pieza en la mano."],
+  ["codigo", "El código no coincide", "La etiqueta de la caja dice otra cosa, o no tiene."],
+  ["foto", "Falta la foto", "Sin imagen no se puede identificar desde la pantalla."],
+  ["duplicado", "Está cargado dos veces", "El mismo producto figura con dos fichas distintas."],
+  ["no_existe", "No se encontró", "Está en el sistema pero no aparece en el pañol."],
+  ["otro", "Otro", "Algo que no entra en los anteriores. Hay que explicarlo."],
+];
+
+export const PROBLEMA_LABEL = Object.fromEntries(
+  VERIFICACION_PROBLEMAS.map(([clave, label]) => [clave, label]),
+);
+
 /** Marca la revisión de un producto y de paso corrige sus datos. Un solo viaje:
  *  si fueran dos, la mitad de las veces se corrige y no se marca. */
 export async function verificarMaterial(materialId, estado, {
   nota = null, ubicacion = null, ubicacionObs = null, descripcion = null,
+  problemas = [], cantidadContada = null, cantidadSistema = null,
 } = {}) {
   if (!materialId) throw new Error("Falta el producto.");
-  if (estado === "problema" && !String(nota || "").trim()) {
-    throw new Error("Para marcar un problema hay que decir cuál es.");
+  const lista = Array.isArray(problemas) ? problemas.filter(Boolean) : [];
+  if (estado === "problema" && !lista.length) {
+    throw new Error("Elegí al menos un tipo de problema.");
   }
+  if (estado === "problema" && lista.includes("otro") && !String(nota || "").trim()) {
+    throw new Error('Si elegís "Otro" hay que escribir qué pasa.');
+  }
+  const num = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   const { error } = await supabase.rpc("panol_verificar_material", {
     p_material_id: materialId,
     p_estado: estado,
@@ -1647,6 +1678,9 @@ export async function verificarMaterial(materialId, estado, {
     p_ubicacion: ubicacion,
     p_ubicacion_obs: ubicacionObs,
     p_descripcion: descripcion,
+    p_problemas: lista,
+    p_cantidad_contada: num(cantidadContada),
+    p_cantidad_sistema: num(cantidadSistema),
   });
   if (error) throw error;
 }
@@ -1670,12 +1704,12 @@ export async function fetchVerificacionesMaterial(materialId) {
   if (!materialId) return [];
   const { data, error } = await supabase
     .from("panol_material_verificaciones")
-    .select("id, estado, nota, ubicacion, created_at, autor:verificado_por(username)")
+    .select("id, estado, nota, problemas, ubicacion, cantidad_contada, cantidad_sistema, created_at, autor:verificado_por(username)")
     .eq("material_id", materialId)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) {
-    if (isMissingTable(error)) return [];
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
     throw error;
   }
   return (data ?? []).map((fila) => ({ ...fila, autor_nombre: fila.autor?.username || "" }));

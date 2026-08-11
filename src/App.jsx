@@ -44,6 +44,7 @@ import TarjetasNfcScreen     from "@/features/panol/TarjetasNfcScreen";
 import PantallaEgresoScreen  from "@/features/panol/PantallaEgresoScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
+import AppVersionGuard from "@/components/AppVersionGuard";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import NotificacionesBell from "@/components/NotificacionesBell";
@@ -437,6 +438,10 @@ export default function App() {
       <TourProvider>
         <ToastProvider>
           <ConfirmProvider>
+            {/* Avisa cuando hubo un deploy nuevo mientras la pestaña estaba
+                abierta. Existía desde antes pero nunca se había montado, así que
+                nadie veía el aviso. */}
+            <AppVersionGuard />
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />

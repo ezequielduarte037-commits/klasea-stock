@@ -963,15 +963,17 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
           {!embedded && (
           <div style={{
             background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.border}`,
-            padding: isMobile ? "12px 12px 12px 54px" : "16px 18px",
-            display: "flex", alignItems: "center", gap: 12, flexShrink: 0,
+            padding: isMobile ? "9px 12px 9px 54px" : "10px 18px",
+            display: "flex", alignItems: "center", gap: 11, flexShrink: 0,
           }}>
             <div style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
               <Warehouse size={16} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 19, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Stock de pañol</div>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 750 }}>
+            {/* Título y bajada en la misma línea. La bajada explica de qué va la
+                pantalla: se lee una vez y después sólo ocupa alto útil. */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Stock de pañol</div>
+              <div style={{ fontSize: 10.5, color: C.dim, letterSpacing: 0.9, textTransform: "uppercase", fontWeight: 750 }}>
                 {sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría"}
               </div>
             </div>
@@ -995,7 +997,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 type="button"
                 onClick={() => handleTabChange(t.key)}
                 style={{
-                  padding: "10px 16px", cursor: "pointer", fontSize: 13, fontFamily: C.sans,
+                  padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: C.sans,
                   fontWeight: tab === t.key ? 800 : 500,
                   color: tab === t.key ? C.text : C.dim,
                   background: "transparent", border: "none",

@@ -1251,6 +1251,11 @@ function snapshotPayloadFromRows(obraId, rows = []) {
       moneda: row.precio?.moneda || row.moneda || null,
       notas: row.obs || row.notas || null,
       source: row.source || "matriz",
+      es_adicional:
+        row.es_adicional === true ||
+        row.source === "addon" ||
+        row.bucket?.key === "addon" ||
+        row.tipo === "addon",
       orden: index,
       estado: row.estadoObra || row.estado || "pendiente",
       variante: row.variante || row.variante_obra || null,
