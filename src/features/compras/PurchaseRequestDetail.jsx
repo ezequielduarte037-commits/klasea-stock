@@ -535,7 +535,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [sending, setSending] = useState(false);
   const [newFollowerId, setNewFollowerId] = useState("");
   const [items, setItems] = useState([]);
-  const [generatedMovements, setGeneratedMovements] = useState([]);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   const [newItemDesc, setNewItemDesc] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
@@ -618,25 +617,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setDescriptionOpen(false);
   }, [requestId]);
 
-  async function fetchGeneratedMovementsForRequest(id) {
-    const { data, error: movementsError } = await supabase
-      .from("laminacion_movimientos")
-      .select("id,material_id,tipo,cantidad,fecha,proveedor,obra,observaciones,created_at, laminacion_materiales(nombre,unidad)")
-      .ilike("observaciones", `%PR-${id}%`)
-      .order("created_at", { ascending: false });
-    if (movementsError) throw movementsError;
-    return data ?? [];
-  }
-
   async function load() {
     if (!requestId) return;
     setError("");
     setLoading(true);
     try {
-      const [data, itemsData, movementsData, enviosData, waPreference] = await Promise.all([
+      const [data, itemsData, enviosData, waPreference] = await Promise.all([
         fetchPurchaseRequestDetail(requestId),
         fetchRequestItems(requestId),
-        fetchGeneratedMovementsForRequest(requestId),
         fetchEnviosDePedido(requestId).catch(() => []),
         fetchRequestFollowerWhatsappPreference(requestId).catch(() => null),
       ]);
@@ -656,7 +644,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         : data;
       setRequest(requestData);
       setItems(itemsData);
-      setGeneratedMovements(movementsData);
       setEnviosPanol(enviosData);
     } catch (err) {
       setError(err.message || "No se pudo cargar la solicitud.");
@@ -757,20 +744,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             },
           });
 
-          try {
-            const { data: materialized, error: materializeError } = await supabase.functions.invoke("materialize-received", {
-              body: { requestId: request.id },
-            });
-            if (materializeError) throw materializeError;
-            const created = Number(materialized?.created ?? 0);
-            const skipped = Number(materialized?.skipped ?? 0);
-            toast.success(`Ingresos generados: ${created} creados, ${skipped} sin destino reconocido.`);
-            const nextMovements = await fetchGeneratedMovementsForRequest(request.id);
-            setGeneratedMovements(nextMovements);
-          } catch (materializeErr) {
-            console.warn("No se pudo materializar el pedido recibido:", materializeErr);
-            toast.warning("Pedido recibido, pero no se pudieron generar ingresos automáticos.");
-          }
+          // "Recibido" en Compras es únicamente un estado comercial.
+          // El ingreso físico y el stock de laminación se registran exclusivamente
+          // desde el panel de Laminación, donde se confirma la cantidad realmente recibida.
         }
       }
 
@@ -2161,69 +2137,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 );
               })}
             </div>
-
-            {request.status === "recibido" && (
-              <div style={{
-                marginBottom: 20,
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                background: C.panel,
-                overflow: "hidden",
-              }}>
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "9px 11px",
-                  borderBottom: `1px solid ${C.border}`,
-                  background: C.panel2,
-                  color: C.green,
-                  fontSize: 12,
-                  fontWeight: 850,
-                  letterSpacing: 1,
-                  textTransform: "uppercase",
-                }}>
-                  <CheckCircle2 size={14} />
-                  Ingresos generados
-                  <span style={{ marginLeft: "auto", color: C.dim, fontFamily: C.mono, fontSize: 11 }}>
-                    {generatedMovements.length}
-                  </span>
-                </div>
-                {generatedMovements.length === 0 ? (
-                  <div style={{ padding: 12, color: C.dim, fontSize: 13 }}>
-                    No hay ingresos automáticos registrados para este pedido.
-                  </div>
-                ) : (
-                  <div style={{ display: "grid" }}>
-                    {generatedMovements.map((mv) => (
-                      <div
-                        key={mv.id}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "minmax(0, 1fr) auto",
-                          gap: 10,
-                          padding: "9px 11px",
-                          borderTop: `1px solid ${C.border}`,
-                          alignItems: "center",
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ color: C.text, fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {mv.laminacion_materiales?.nombre || "Material de laminación"}
-                          </div>
-                          <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {mv.obra || "Sin obra"} · {mv.proveedor || "Sin proveedor"} · {mv.fecha ? new Date(`${mv.fecha}T00:00:00`).toLocaleDateString("es-AR") : "Sin fecha"}
-                          </div>
-                        </div>
-                        <div style={{ color: C.green, fontFamily: C.mono, fontSize: 12, fontWeight: 850, whiteSpace: "nowrap" }}>
-                          +{mv.cantidad} {mv.laminacion_materiales?.unidad || ""}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
             {comments.length === 0 ? (
               <div style={{
