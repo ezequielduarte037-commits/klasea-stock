@@ -1671,17 +1671,30 @@ export async function verificarMaterial(materialId, estado, {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   };
-  const { error } = await supabase.rpc("panol_verificar_material", {
+  const base = {
     p_material_id: materialId,
     p_estado: estado,
     p_nota: nota,
     p_ubicacion: ubicacion,
     p_ubicacion_obs: ubicacionObs,
     p_descripcion: descripcion,
+  };
+  let { error } = await supabase.rpc("panol_verificar_material", {
+    ...base,
     p_problemas: lista,
     p_cantidad_contada: num(cantidadContada),
     p_cantidad_sistema: num(cantidadSistema),
   });
+  // Si la base todavía tiene la firma vieja (sin tipos de problema ni conteo),
+  // se reintenta con los seis parámetros originales. Sin esto, la llamada falla
+  // entera y no se guarda NADA —ni la ubicación ni la revisión—, que es
+  // indistinguible de "el botón no anda". Mismo patrón que egresarProducto.
+  const faltaLaFuncion = error
+    && (error.code === "PGRST202"
+      || String(error.message || "").toLowerCase().includes("could not find the function"));
+  if (faltaLaFuncion) {
+    ({ error } = await supabase.rpc("panol_verificar_material", base));
+  }
   if (error) throw error;
 }
 
