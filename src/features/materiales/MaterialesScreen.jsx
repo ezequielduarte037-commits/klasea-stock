@@ -48,9 +48,10 @@ import {
   ensureObraMaterialSnapshotRow,
   reemplazarObraMaterialSnapshotSeguro,
   updateObraSnapshotRows,
-  asignarVarianteObraSnapshot,
   actualizarMaterialDatos,
 } from "./api";
+import ProductoAsignadoControl from "./ProductoAsignadoControl";
+import { asignarProductoObraSnapshot, fetchRequisitoProductos } from "./productosAsignadosApi";
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
@@ -167,12 +168,33 @@ function VariantNameInput({ value, onCommit, style }) {
   );
 }
 
-function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle, materialId = null }) {
+function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle, materialId = null, readOnly = true }) {
   const [draft, setDraft] = useState("");
   const [uploadingVariant, setUploadingVariant] = useState("");
   const variants = normalizeVariantList(value);
   const detected = extractBrandsFromTitle(description, proveedores).filter((name) => !variants.some((v) => norm(v) === norm(name)));
   const withPrices = !!onPreciosChange;
+
+  if (readOnly) {
+    return (
+      <div style={{ display: "grid", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: "9px 11px" }}>
+        <div style={{ color: C.blue, fontSize: 11.5, fontWeight: 900 }}>
+          Las variantes ahora son productos independientes del catálogo.
+        </div>
+        {variants.length > 0 ? (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {variants.map((variant) => (
+              <span key={variant} style={{ color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 850 }}>
+                {variant}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span style={{ color: C.t2, fontSize: 10.5 }}>Creá cada marca o modelo como producto y asignalo desde la lista de la obra.</span>
+        )}
+      </div>
+    );
+  }
 
   const setPrecio = (nombre, patch) => {
     const cur = precios?.[nombre] || { precio: "", moneda: "ARS" };
@@ -642,6 +664,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
     links: [],
     notas: "",
     revisado: true,
+    es_requisito: false,
   }), [selectedId]);
   const [draft, setDraft] = useState(() => emptyDraft());
   const [cantidades, setCantidades] = useState({ 37: "", 52: "", 55: "" });
@@ -719,17 +742,13 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
         <input placeholder="Codigo de barra principal" value={draft.codigo_barra || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo_barra: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
         <input placeholder="Proveedor texto libre" value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} style={INP} />
       </div>
-      <div style={{ marginBottom: 10 }}>
-        <VariantsEditor
-          value={variantes}
-          onChange={setVariantes}
-          precios={variantesPrecios}
-          onPreciosChange={setVariantesPrecios}
-          description={draft.descripcion}
-          proveedores={proveedores}
-          onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
-        />
-      </div>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 9, border: `1px solid ${draft.es_requisito ? C.blueB : C.b0}`, background: draft.es_requisito ? C.blueL : C.bg, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
+        <input type="checkbox" checked={!!draft.es_requisito} onChange={(e) => setDraft((current) => ({ ...current, es_requisito: e.target.checked }))} style={{ marginTop: 2 }} />
+        <span>
+          <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12.5, fontWeight: 900 }}>Es un requisito genérico de matriz</span>
+          <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>Ej.: “TV 32 pulgadas”. Los modelos Samsung, LG o Noblex se crean como productos separados y se asignan en cada obra.</span>
+        </span>
+      </label>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
         <input placeholder="Precio" type="number" step="any" value={draft.precio_unitario} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={INP} />
         <select value={draft.moneda} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={INP}>
@@ -1399,54 +1418,16 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
   const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).map((p) => ({ ...p })));
-  const [variantes, setVariantes] = useState(() => materialVariants(material));
-  const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
+  const variantes = materialVariants(material);
+  const variantesPrecios = material?.variantes_precios || {};
   const [saving, setSaving] = useState(false);
-  // Autoguardado de variantes: "" | "saving" | "ok" | "err"
-  const [varSave, setVarSave] = useState("");
-  const varTimer = useRef(null);
-  // Última versión de lista+precios. Renombrar dispara onChange y onPreciosChange
-  // seguidos: sin esta ref, la segunda llamada guardaría la lista vieja.
-  const varsRef = useRef({ list: materialVariants(material), precios: material?.variantes_precios || {} });
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
     setCantidades(toBomMap(material));
     setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
     setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
-    setVariantes(materialVariants(material));
-    setVariantesPrecios(material?.variantes_precios || {});
-    varsRef.current = { list: materialVariants(material), precios: material?.variantes_precios || {} };
   }, [material]);
-
-  useEffect(() => () => clearTimeout(varTimer.current), []);
-
-  /**
-   * Las variantes se guardan solas: antes había que acordarse de apretar Guardar
-   * y los cambios se perdían al cerrar la fila. No llamamos a onChanged() para no
-   * recargar la lista y pisar lo que se esté editando en los otros campos.
-   */
-  function aplicarVariantes({ list, precios }) {
-    if (!material?.id) return;
-    varsRef.current = {
-      list: list !== undefined ? list : varsRef.current.list,
-      precios: precios !== undefined ? precios : varsRef.current.precios,
-    };
-    if (list !== undefined) setVariantes(list);
-    if (precios !== undefined) setVariantesPrecios(precios);
-
-    clearTimeout(varTimer.current);
-    setVarSave("saving");
-    varTimer.current = setTimeout(async () => {
-      try {
-        await guardarVariantesMaterial(material.id, varsRef.current.list, varsRef.current.precios);
-        setVarSave("ok");
-        varTimer.current = setTimeout(() => setVarSave(""), 1800);
-      } catch {
-        setVarSave("err");
-      }
-    }, 700);
-  }
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
@@ -1556,6 +1537,13 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <input type="checkbox" checked={!!draft.es_consumible} onChange={(e) => setDraft((d) => ({ ...d, es_consumible: e.target.checked }))} style={{ width: 16, height: 16, cursor: "pointer" }} />
             Es consumible <span style={{ fontWeight: 400, color: C.t2, fontSize: 11 }}>(va al fondo del catálogo, fuera de la matriz del barco)</span>
           </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer", border: `1px solid ${draft.es_requisito ? C.blueB : C.b0}`, background: draft.es_requisito ? C.blueL : C.bg, borderRadius: 10, padding: "9px 11px" }}>
+            <input type="checkbox" checked={!!draft.es_requisito} onChange={(e) => setDraft((d) => ({ ...d, es_requisito: e.target.checked }))} style={{ marginTop: 2 }} />
+            <span>
+              <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12, fontWeight: 900 }}>Requisito genérico de matriz</span>
+              <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No suma stock por marca/modelo. En cada obra se le asigna un producto concreto del catálogo.</span>
+            </span>
+          </label>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
             <div>
               <span style={lbl}>Alias / nombre corto</span>
@@ -1567,24 +1555,13 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               <MaterialImageUploader material={material} onUploaded={onChanged} compact />
             </div>
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={lbl}>Variantes del item (marcas/modelos aceptables)</span>
-              {varSave === "saving" && <span style={{ fontSize: 10, color: C.t2, marginBottom: 4 }}>guardando…</span>}
-              {varSave === "ok" && <span style={{ fontSize: 10, color: C.green, fontWeight: 700, marginBottom: 4 }}>guardado ✓</span>}
-              {varSave === "err" && <span style={{ fontSize: 10, color: C.red, fontWeight: 700, marginBottom: 4 }}>no se pudo guardar</span>}
+          {savedVariants.length > 0 && (
+            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "9px 11px" }}>
+              <span style={{ display: "block", color: C.amber, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: .6 }}>Variantes legacy migradas</span>
+              <span style={{ display: "block", color: C.t1, fontSize: 11.5, marginTop: 4 }}>{savedVariants.join(" · ")}</span>
+              <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 3 }}>Se conservan sólo como historial. Los productos nuevos se gestionan como filas independientes.</span>
             </div>
-            <VariantsEditor
-              value={variantes}
-              onChange={(next) => aplicarVariantes({ list: next })}
-              precios={variantesPrecios}
-              onPreciosChange={(next) => aplicarVariantes({ precios: next })}
-              description={draft.descripcion}
-              proveedores={proveedores}
-              onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
-              materialId={material.id}
-            />
-          </div>
+          )}
           <div>
             <span style={lbl}>Proveedor principal</span>
             <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))} />
@@ -3789,7 +3766,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [exclusionesObra, setExclusionesObra] = useState([]);
   const [exclusionBusy, setExclusionBusy] = useState("");
   const [estadoBusy, setEstadoBusy] = useState("");
-  const [varianteBusy, setVarianteBusy] = useState("");
+  const [productoBusy, setProductoBusy] = useState("");
+  const [productosCompatibles, setProductosCompatibles] = useState([]);
   const [editingMaterialRowId, setEditingMaterialRowId] = useState("");
   // Fila con el panel de estado/acciones secundarias abierto (⋯). Una a la vez.
   const [openActionsRowId, setOpenActionsRowId] = useState("");
@@ -3901,7 +3879,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setSnapshotLinkBusy("");
     setExclusionBusy("");
     setEstadoBusy("");
-    setVarianteBusy("");
+    setProductoBusy("");
+    setProductosCompatibles([]);
     setAsignarEtapaBusy("");
     setEditingMaterialRowId("");
     setFiltersOpen(false);
@@ -3950,6 +3929,10 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       return {
         id: m.id,
         materialId: m.id,
+        requisitoMaterialId: m.id,
+        productoMaterialId: null,
+        producto: null,
+        esRequisito: m.es_requisito === true || materialVariants(m).length > 0,
         material: m,
         source: "matriz",
         descripcion: m.descripcion,
@@ -3973,6 +3956,28 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
     }), [materiales, linea, categorias, opciones]);
+
+  const requisitoIds = useMemo(
+    () => baseRows.filter((row) => row.esRequisito).map((row) => row.requisitoMaterialId),
+    [baseRows],
+  );
+  const cargarProductosCompatibles = useCallback(async () => {
+    try {
+      setProductosCompatibles(await fetchRequisitoProductos(requisitoIds));
+    } catch {
+      setProductosCompatibles([]);
+    }
+  }, [requisitoIds]);
+  useEffect(() => { cargarProductosCompatibles(); }, [cargarProductosCompatibles]);
+  const productosCompatiblesPorRequisito = useMemo(() => {
+    const map = new Map();
+    for (const link of productosCompatibles) {
+      const list = map.get(link.requisito_material_id) || [];
+      list.push(link);
+      map.set(link.requisito_material_id, list);
+    }
+    return map;
+  }, [productosCompatibles]);
 
   const liveRows = useMemo(() => {
     const baseAplicable = baseRows.filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId));
@@ -4232,6 +4237,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     if (estado === "en_panol") acc.enPanol += 1;
     if (estado === "egresado") acc.egresados += 1;
     if (row.review?.flag) acc.revisar += 1;
+    if (row.esRequisito && !row.productoMaterialId) acc.productosPendientes += 1;
     if (!row.precio.amount) acc.sinPrecio += 1;
     else if (row.precio.moneda === "USD") {
       if (row.bucket.key === "linea_eje") acc.ejeUsd += row.precio.amount * qty;
@@ -4240,29 +4246,48 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       acc.ars += row.precio.amount * qty;
     }
     return acc;
-  }, { items: 0, sinPrecio: 0, revisar: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+  }, { items: 0, sinPrecio: 0, revisar: 0, productosPendientes: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
     return base.map((r) => ({
       id: r.id,
       snapshotId: r.snapshotId,
       materialId: r.materialId,
+      requisitoMaterialId: r.requisitoMaterialId || r.materialId,
+      productoMaterialId: r.productoMaterialId || null,
+      producto: r.producto || null,
+      esRequisito: !!r.esRequisito,
       source: r.source,
       bucketKey: r.bucket.key,
-      descripcion: r.descripcion,
-      codigo: r.codigo,
+      descripcion: r.producto?.descripcion || r.descripcion,
+      requisitoDescripcion: r.descripcion,
+      codigo: r.producto?.codigo || r.codigo,
       cantidad: r.cantidad,
       baseCantidad: r.baseCantidad,
       condicionantes: r.condicionantes ?? [],
       unidad: r.unidad,
-      proveedor: r.proveedor,
+      proveedor: r.producto?.proveedor || r.proveedor,
       rubro: r.rubro,
       tipo: r.bucket.label,
-      variante: r.variante || "",
       precio: r.precio,
-      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.variante ? `Variante: ${r.variante}` : "", r.obs].filter(Boolean).join(" · "),
+      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.descripcion}` : "", r.obs].filter(Boolean).join(" · "),
     }));
   }, [visibleRows, selected]);
+  const productosPendientesOrden = useMemo(
+    () => orderRows.filter((row) => row.esRequisito && !row.productoMaterialId),
+    [orderRows],
+  );
+
+  function validarProductosConcretos() {
+    if (!productosPendientesOrden.length) return true;
+    const preview = productosPendientesOrden.slice(0, 3).map((row) => row.requisitoDescripcion || row.descripcion).join(", ");
+    const extra = productosPendientesOrden.length > 3 ? ` y ${productosPendientesOrden.length - 3} más` : "";
+    setFlowMsg({
+      type: "err",
+      text: `Falta elegir el producto real en ${productosPendientesOrden.length} ítem${productosPendientesOrden.length === 1 ? "" : "s"}: ${preview}${extra}.`,
+    });
+    return false;
+  }
 
   function toggleSelected(id) {
     setSelected((prev) => {
@@ -4364,6 +4389,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   // el pedido a mano si estaba mal— así que conviene ver qué se manda antes.
   function confirmarPedidoACompras() {
     if (!orderRows.length) return;
+    if (!validarProductosConcretos()) return;
     if (!pedidoObraTipo) {
       setFlowMsg({ type: "err", text: "Elegí el tipo de pedido." });
       return;
@@ -4373,6 +4399,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   async function pedirAComprasObra() {
     if (!orderRows.length) return;
+    if (!validarProductosConcretos()) return;
     if (!pedidoObraTipo) {
       setFlowMsg({ type: "err", text: "Elegí el tipo de pedido." });
       return;
@@ -4402,6 +4429,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           quantity: toNum(row.cantidad) || 1,
           unit: row.unidad || "unidad",
           destination: `Obra ${obra.codigo}`,
+          material_id: row.productoMaterialId || row.materialId || null,
+          requisito_material_id: row.requisitoMaterialId || row.materialId || null,
+          catalog_source: "panol",
+          notes: row.requisitoDescripcion && row.requisitoDescripcion !== row.descripcion
+            ? `Requisito de matriz: ${row.requisitoDescripcion}`
+            : row.obs || null,
         });
         const snapId = snapshotIdForOrderRow(row, saved);
         if (snapId) {
@@ -4424,6 +4457,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   async function abrirAvisoPanol() {
     if (!orderRows.length) return;
+    if (!validarProductosConcretos()) return;
     setActionBusy("panol");
     setFlowMsg(null);
     try {
@@ -4440,9 +4474,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           codigo: row.codigo || "",
           cantidad: row.cantidad,
           unidad: row.unidad || "unidad",
-          material_id: row.materialId || "",
+          material_id: row.productoMaterialId || row.materialId || "",
+          requisito_material_id: row.requisitoMaterialId || row.materialId || "",
           proveedor: row.proveedor || "",
-          variante: row.variante || "",
           precio_unitario: row.precio?.amount ?? "",
           moneda: row.precio?.moneda || "ARS",
           obra_snapshot_item_id: snapshotIdForOrderRow(row, saved),
@@ -4508,9 +4542,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
-  async function cambiarVarianteRow(row, variante = "") {
-    if (!row || varianteBusy) return;
-    setVarianteBusy(row.id);
+  async function cambiarProductoRow(row, productoMaterialId = null) {
+    if (!row || productoBusy) return;
+    setProductoBusy(row.id);
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
@@ -4522,19 +4556,21 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           setSnapshot((prev) => [...prev, created]);
         }
       }
-      if (!snapIds.length) throw new Error("No se pudo identificar el item de obra para guardar la variante.");
-      await Promise.all(snapIds.map((snapId) => asignarVarianteObraSnapshot(snapId, variante)));
-      const cleanVariante = String(variante || "").trim();
-      setSnapshot((prev) => prev.map((item) => snapIds.includes(item.id) ? { ...item, variante: cleanVariante || null } : item));
+      if (!snapIds.length) throw new Error("No se pudo identificar el ítem de obra para asignar el producto.");
+      await Promise.all(snapIds.map((snapId) => asignarProductoObraSnapshot(snapId, productoMaterialId)));
       await cargarSnapshot();
-      setFlowMsg({ type: "ok", text: variante ? `Variante guardada para ${row.descripcion}: ${variante}.` : `Variante limpiada para ${row.descripcion}.` });
+      await cargarProductosCompatibles();
+      const producto = materiales.find((material) => material.id === productoMaterialId);
+      setFlowMsg({
+        type: "ok",
+        text: producto
+          ? `${row.descripcion}: producto asignado ${producto.descripcion}.`
+          : `${row.descripcion}: producto concreto pendiente.`,
+      });
     } catch (e) {
-      const msg = String(e?.message || "");
-      const lower = msg.toLowerCase();
-      const missingSql = lower.includes("variante") && (lower.includes("column") || lower.includes("function") || lower.includes("schema cache") || lower.includes("could not find"));
-      setFlowMsg({ type: "err", text: missingSql ? "Falta correr el SQL de variante por obra para poder guardar esta marca." : msg || "No se pudo guardar la variante del item." });
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo asignar el producto del ítem." });
     } finally {
-      setVarianteBusy("");
+      setProductoBusy("");
     }
   }
 
@@ -4956,6 +4992,11 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               {kpis.sinPrecio ? (
                 <span style={{ fontSize: 11, fontWeight: 950, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 8px" }}>
                   {kpis.sinPrecio} sin precio
+                </span>
+              ) : null}
+              {kpis.productosPendientes ? (
+                <span title="Necesidades genéricas que todavía no tienen un producto real asignado" style={{ fontSize: 11, fontWeight: 950, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "4px 8px" }}>
+                  {kpis.productosPendientes} productos por definir
                 </span>
               ) : null}
               {!etapasObraError ? (
@@ -5594,8 +5635,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const total = row.precio.amount ? row.precio.amount * qty : null;
                 const etapasRow = etapasDeRow(row);
                 const materialForRow = row.material || materialById.get(row.materialId);
-                const variantOptions = materialVariants(materialForRow);
-                const rowImageUrl = materialVariantImageUrl(materialForRow, row.variante)
+                const rowImageUrl = row.producto?.imagen_url
+                  || materialVariantImageUrl(materialForRow, row.variante)
                   || String(row.imagen_url || materialForRow?.imagen_url || materialForRow?.imagenes?.[0]?.url || "").trim();
                 const editableAddon = addonForVisibleRow(row);
                 const addonPromotion = editableAddon ? addonPromotionMeta(editableAddon) : null;
@@ -5635,12 +5676,15 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
-                            <ObraVarianteControl
-                              row={row}
-                              options={variantOptions}
-                              busy={varianteBusy === row.id || snapshotBusy}
-                              onChange={cambiarVarianteRow}
-                            />
+                            {row.esRequisito && (
+                              <ProductoAsignadoControl
+                                row={row}
+                                materiales={materiales}
+                                compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []}
+                                busy={productoBusy === row.id || snapshotBusy}
+                                onAssign={cambiarProductoRow}
+                              />
+                            )}
                             <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
                               {row.bucket.label}
                             </span>
@@ -7111,23 +7155,33 @@ function originalSnapshotLabel(snapshotDescripcion, catalogDescripcion) {
 }
 
 function snapshotRowToView(row, materialById = new Map(), categorias = []) {
-  const material = row?.material_id ? materialById.get(row.material_id) || null : null;
-  const materialPrice = material ? priceInfo(material) : null;
+  const requisitoMaterialId = row?.requisito_material_id || row?.material_id || null;
+  const productoMaterialId = row?.material_id && row.material_id !== requisitoMaterialId ? row.material_id : null;
+  const requisito = requisitoMaterialId ? materialById.get(requisitoMaterialId) || null : null;
+  const producto = productoMaterialId ? materialById.get(productoMaterialId) || null : null;
+  const material = requisito || producto;
+  const priceMaterial = producto || material;
+  const materialPrice = priceMaterial ? priceInfo(priceMaterial) : null;
   const snapshotAmount = row?.precio_unitario != null && row.precio_unitario !== "" ? Number(row.precio_unitario) : null;
   const amount = Number.isFinite(materialPrice?.amount) && materialPrice.amount > 0 ? materialPrice.amount : snapshotAmount;
   const moneda = materialPrice?.moneda || (row?.moneda === "USD" ? "USD" : "ARS");
-  const descripcion = material?.descripcion || row.descripcion;
-  const codigo = material?.codigo || row.codigo;
-  const proveedor = row.proveedor || materialPrice?.proveedor || material?.proveedor || "Sin proveedor";
-  const rubro = material ? categoriaNombre(categorias, material.categoria_id) : row.rubro || "Sin rubro";
-  const pedidoOriginal = originalSnapshotLabel(row.descripcion, material?.descripcion);
-  const obs = mergeNotes(material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
+  const descripcion = requisito?.descripcion || row.descripcion || producto?.descripcion;
+  const codigo = requisito?.codigo || row.codigo;
+  const proveedor = producto?.proveedor || row.proveedor || materialPrice?.proveedor || material?.proveedor || "Sin proveedor";
+  const rubroMaterial = requisito || producto;
+  const rubro = rubroMaterial ? categoriaNombre(categorias, rubroMaterial.categoria_id) : row.rubro || "Sin rubro";
+  const pedidoOriginal = originalSnapshotLabel(row.descripcion, requisito?.descripcion || producto?.descripcion);
+  const obs = mergeNotes(producto?.notas || material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
   const reason = reviewReasonForText(`${descripcion || ""} ${codigo || ""} ${obs || ""}`);
   const esAdicional = row.es_adicional === true || row.tipo === "addon" || row.source === "addon";
   return {
     id: row.id,
     snapshotId: row.id,
-    materialId: row.material_id,
+    materialId: requisitoMaterialId,
+    requisitoMaterialId,
+    productoMaterialId,
+    producto,
+    esRequisito: requisito?.es_requisito === true || !!productoMaterialId || !!row.variante,
     material,
     source: esAdicional ? "addon" : row.source || "snapshot",
     snapshot_tipo: esAdicional ? "addon" : row.tipo || null,
@@ -7137,7 +7191,7 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     descripcionOriginal: pedidoOriginal ? row.descripcion : "",
     codigo,
     cantidad: row.cantidad || 1,
-    unidad: row.unidad || material?.unidad_medida || "unidad",
+    unidad: row.unidad || producto?.unidad_medida || material?.unidad_medida || "unidad",
     proveedor,
     rubro,
     precio: {
@@ -7188,7 +7242,7 @@ function isLedgerOnlySnapshot(row) {
 }
 
 function snapshotMergeKey(row, index = 0) {
-  const materialId = row?.materialId || row?.material_id;
+  const materialId = row?.requisitoMaterialId || row?.requisito_material_id || row?.materialId || row?.material_id;
   if (row?.source === "addon" || row?.bucket?.key === "addon") {
     const addonText = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
     if (addonText) return `addon:${addonText}`;
@@ -7263,6 +7317,10 @@ function mergeSnapshotIntoLive(live, snapshot) {
     id: live.id,
     snapshotId: snapshot.snapshotId,
     materialId: live.materialId || snapshot.materialId,
+    requisitoMaterialId: live.requisitoMaterialId || snapshot.requisitoMaterialId || live.materialId || snapshot.materialId,
+    productoMaterialId: snapshot.productoMaterialId || live.productoMaterialId || null,
+    producto: snapshot.producto || live.producto || null,
+    esRequisito: live.esRequisito || snapshot.esRequisito || false,
     material: live.material || snapshot.material || null,
     source: live.source || snapshot.source,
     snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),
@@ -7283,7 +7341,9 @@ function mergeSnapshotIntoLive(live, snapshot) {
     unidad: remitoDeAddon ? live.unidad || snapshot.unidad : snapshot.unidad || live.unidad,
     proveedor: linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
     rubro: linkedToCatalog ? live.rubro || snapshot.rubro : preferSnapshotText(snapshot.rubro, live.rubro, "Sin rubro"),
-    precio: linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
+    precio: snapshot.productoMaterialId
+      ? snapshot.precio
+      : linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
     bucket: live.bucket || snapshot.bucket,
     obs: mergeNotes(mergeNotes(live.obs, snapshot.obs), notaRecepcion),
     variante: snapshot.variante || live.variante || "",
@@ -7319,6 +7379,7 @@ function compareMatrizRows(a, b) {
 
 function snapshotMergePriority(row) {
   let score = 0;
+  if (row?.productoMaterialId) score += 1200;
   if (String(row?.variante || "").trim()) score += 1000;
   if (row?.recepcion_estado) score += 140;
   if (row?.panol_envio_id || row?.panol_envio_item_id) score += 120;
@@ -7360,42 +7421,6 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   });
 
   return [...merged.values()].sort(compareMatrizRows);
-}
-
-function ObraVarianteControl({ row, options = [], busy = false, onChange }) {
-  const cleanOptions = normalizeVariantList(options);
-  if (!cleanOptions.length) {
-    return row.variante ? (
-      <span style={{ fontSize: 10, fontWeight: 900, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
-        {row.variante}
-      </span>
-    ) : null;
-  }
-  return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${row.variante ? C.blueB : C.b0}`, background: row.variante ? C.blueL : C.s0, borderRadius: 999, padding: "2px 6px", minHeight: 21, maxWidth: "100%" }}>
-      <span style={{ fontSize: 9, fontWeight: 900, color: row.variante ? C.blue : C.t2, textTransform: "uppercase" }}>Var.</span>
-      <select
-        value={row.variante || ""}
-        disabled={busy}
-        onChange={(e) => onChange?.(row, e.target.value)}
-        style={{
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          color: row.variante ? C.blue : C.t1,
-          fontSize: 11,
-          fontWeight: 900,
-          fontFamily: C.sans,
-          cursor: busy ? "default" : "pointer",
-          maxWidth: 124,
-        }}
-        title="Variante/marca que lleva esta obra"
-      >
-        <option value="" style={OPT_ST}>Sin definir</option>
-        {cleanOptions.map((variant) => <option key={variant} value={variant} style={OPT_ST}>{variant}</option>)}
-      </select>
-    </label>
-  );
 }
 
 function LineaMetricDot({ label, value, color }) {

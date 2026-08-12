@@ -23,6 +23,7 @@ import {
   deleteCajaChicaEntry,
   fetchCajaChicaClosures,
   fetchCajaChicaEntries,
+  updateCajaChicaClosure,
 } from "@/features/compras/cajaChicaApi";
 import { fetchProfiles } from "@/features/compras/purchaseRequestsApi";
 import { C } from "@/theme";
@@ -525,6 +526,16 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       .sort((a, b) => String(a).localeCompare(String(b), "es"));
   }, [rows]);
 
+  // Cerrar es la acción que separa "esto ya está rendido" de "esto sigue vivo".
+  // Va detrás de un resumen porque cerrar sin ver el número que estás cerrando
+  // es exactamente cómo se llega a un cierre mal hecho.
+  const [cerrarOpen, setCerrarOpen] = useState(false);
+  // Reabrir pide motivo: que se pueda, pero que no sea un click. Si reabrir
+  // cuesta lo mismo que cerrar, el estado deja de significar algo.
+  const [reabrirMotivo, setReabrirMotivo] = useState("");
+  const [reabrirOpen, setReabrirOpen] = useState(false);
+  const [cierreBusy, setCierreBusy] = useState(false);
+
   const selectedCierre = useMemo(
     () => cierres.find((cierre) => cierre.id === selectedCierreId) || null,
     [cierres, selectedCierreId],
@@ -540,17 +551,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       return lowerText(`${row.fecha} ${row.proveedor} ${row.detalle} ${row.centro_costo}`).includes(q);
     });
   }, [centroFilter, dateFrom, dateTo, query, rows, tipoFilter]);
-
-  const stats = useMemo(() => {
-    const base = { ARS: { ingresos: 0, egresos: 0 }, USD: { ingresos: 0, egresos: 0 } };
-    filteredRows.forEach((row) => {
-      const currency = row.moneda === "USD" ? "USD" : "ARS";
-      const amount = Number(row.importe || 0);
-      if (row.tipo === "ingreso") base[currency].ingresos += amount;
-      else base[currency].egresos += amount;
-    });
-    return base;
-  }, [filteredRows]);
 
   const centrosTop = useMemo(() => {
     const map = new Map();
@@ -570,8 +570,70 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   const importReady = useMemo(() => importRows.filter((row) => rowIssues(row).length === 0), [importRows]);
   const importReview = importRows.length - importReady.length;
 
-  const saldoArs = stats.ARS.ingresos - stats.ARS.egresos;
-  const saldoUsd = stats.USD.ingresos - stats.USD.egresos;
+  const cajaCerrada = selectedCierre?.estado === "cerrado";
+
+  // Totales de la caja ENTERA, sin los filtros de la vista. Cerrar mirando un
+  // subtotal filtrado sería cerrar por un número que no es el de la caja.
+  const totalesCaja = useMemo(() => {
+    const base = { ARS: { ingresos: 0, egresos: 0 }, USD: { ingresos: 0, egresos: 0 } };
+    rows.forEach((row) => {
+      const cur = row.moneda === "USD" ? "USD" : "ARS";
+      const amount = Number(row.importe || 0);
+      if (row.tipo === "ingreso") base[cur].ingresos += amount;
+      else base[cur].egresos += amount;
+    });
+    return {
+      ...base,
+      movimientos: rows.length,
+      saldoArs: base.ARS.ingresos - base.ARS.egresos,
+      saldoUsd: base.USD.ingresos - base.USD.egresos,
+    };
+  }, [rows]);
+
+  async function confirmarCierre() {
+    if (!selectedCierre || cierreBusy) return;
+    setCierreBusy(true);
+    try {
+      await updateCajaChicaClosure(selectedCierre.id, {
+        estado: "cerrado",
+        fecha_hasta: selectedCierre.fecha_hasta || new Date().toISOString().slice(0, 10),
+      });
+      setCerrarOpen(false);
+      await refreshAll();
+      toast.success("Caja cerrada. No admite movimientos nuevos.");
+    } catch (error) {
+      toast.error(error?.message || "No se pudo cerrar la caja.");
+    } finally {
+      setCierreBusy(false);
+    }
+  }
+
+  async function confirmarReapertura() {
+    if (!selectedCierre || cierreBusy) return;
+    const motivo = reabrirMotivo.trim();
+    if (!motivo) {
+      toast.warning("Escribí por qué la reabrís.");
+      return;
+    }
+    setCierreBusy(true);
+    try {
+      // El motivo se apila en las notas con fecha: reabrir sin dejar rastro es
+      // lo mismo que no haberla cerrado nunca.
+      const sello = `[Reabierta ${new Date().toLocaleDateString("es-AR")}] ${motivo}`;
+      await updateCajaChicaClosure(selectedCierre.id, {
+        estado: "abierto",
+        notas: [selectedCierre.notas, sello].filter(Boolean).join("\n"),
+      });
+      setReabrirOpen(false);
+      setReabrirMotivo("");
+      await refreshAll();
+      toast.success("Caja reabierta. Queda registrado el motivo.");
+    } catch (error) {
+      toast.error(error?.message || "No se pudo reabrir la caja.");
+    } finally {
+      setCierreBusy(false);
+    }
+  }
 
   function patchForm(patch) {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -605,6 +667,12 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     const importe = parseMoney(form.importe);
     if (!selectedCierreId) {
       toast.warning("Primero seleccioná o creá un cierre.");
+      return;
+    }
+    // Una caja cerrada está rendida. Aceptar un movimiento más la vuelve a
+    // dejar mal sin que nadie se entere hasta el próximo arqueo.
+    if (cajaCerrada) {
+      toast.warning("Esta caja está cerrada. Reabrila si necesitás corregir algo.");
       return;
     }
     if (!form.detalle.trim()) {
@@ -801,9 +869,60 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
             ))}
           </div>
         )}
+        {/* Banda de caja activa. El problema que resuelve es concreto: no saber
+            en qué caja estás cargando. Va antes que todo lo demás y muestra las
+            dos cosas que definen el contexto: cuál es y cuánto tiene. */}
+        {selectedCierre && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            border: `1px solid ${cajaCerrada ? C.border : C.blueB}`,
+            background: cajaCerrada ? C.panel2 : C.blueL,
+            borderRadius: 12, padding: "10px 13px", marginBottom: 12,
+          }}>
+            <Wallet size={16} style={{ color: cajaCerrada ? C.dim : C.blue, flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, lineHeight: 1.15 }}>
+                {selectedCierre.nombre}
+              </div>
+              <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
+                {totalesCaja.movimientos} movimiento{totalesCaja.movimientos === 1 ? "" : "s"}
+                {cajaCerrada ? " · cerrada, no admite carga" : " · caja en uso"}
+              </div>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: C.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Saldo</div>
+                <div style={{ color: totalesCaja.saldoArs < 0 ? C.red : C.text, fontFamily: C.mono, fontSize: 16, fontWeight: 950 }}>
+                  {fmtMoney(totalesCaja.saldoArs, "ARS")}
+                </div>
+                {(totalesCaja.USD.ingresos > 0 || totalesCaja.USD.egresos > 0) && (
+                  <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{fmtMoney(totalesCaja.saldoUsd, "USD")}</div>
+                )}
+              </div>
+              {cajaCerrada ? (
+                <button type="button" onClick={() => setReabrirOpen(true)}
+                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  Reabrir
+                </button>
+              ) : (
+                <button type="button" onClick={() => setCerrarOpen(true)}
+                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  Cerrar caja
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12 }}>
           <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
-            {cierres.length ? cierres.map((cierre) => (
+            {/* Abiertas primero. Mezcladas, con una lista larga, terminás
+                cargando movimientos en una caja de hace tres meses. */}
+            {cierres.length ? [...cierres].sort((a, b) => {
+              const ra = a.estado === "cerrado" ? 1 : 0;
+              const rb = b.estado === "cerrado" ? 1 : 0;
+              return ra - rb;
+            }).map((cierre) => (
               <button
                 key={cierre.id}
                 type="button"
@@ -822,7 +941,10 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                   <strong style={{ fontSize: 13 }}>{cierre.nombre}</strong>
-                  <span style={pill(cierre.estado === "cerrado" ? C.green : C.amber)}>{cierre.estado === "cerrado" ? "Cerrado" : "Abierto"}</span>
+                  {/* Abierta = azul (está en uso), cerrada = gris apagado (ya
+                      está rendida). El verde sugería "correcta" y las dos lo
+                      son; lo que cambia es si admite movimientos. */}
+                  <span style={pill(cierre.estado === "cerrado" ? C.dim : C.blue)}>{cierre.estado === "cerrado" ? "Cerrada" : "Abierta"}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 12 }}>
                   <CalendarRange size={13} /> {cierreDateLabel(cierre)}
@@ -1079,6 +1201,90 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           </div>
         </aside>
       </div>
+
+      {/* Cerrar: el resumen va antes de la confirmación, no después. Es el
+          número por el que estás firmando. */}
+      {cerrarOpen && selectedCierre && (
+        <CajaModal
+          titulo={`Cerrar ${selectedCierre.nombre}`}
+          bajada="Después de cerrarla no se pueden cargar movimientos. Se puede reabrir, pero pide un motivo."
+          onClose={() => setCerrarOpen(false)}
+          pie={<>
+            <button type="button" onClick={() => setCerrarOpen(false)} style={ghostBtn()}>Cancelar</button>
+            <button type="button" onClick={confirmarCierre} disabled={cierreBusy}
+              style={{ ...primaryBtn(cierreBusy), background: C.greenL, color: C.green, borderColor: C.greenB }}>
+              {cierreBusy ? "Cerrando…" : "Cerrar la caja"}
+            </button>
+          </>}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+            {[
+              ["Movimientos", String(totalesCaja.movimientos), C.text],
+              ["Ingresos", fmtMoney(totalesCaja.ARS.ingresos, "ARS"), C.green],
+              ["Egresos", fmtMoney(totalesCaja.ARS.egresos, "ARS"), C.red],
+              ["Saldo", fmtMoney(totalesCaja.saldoArs, "ARS"), totalesCaja.saldoArs < 0 ? C.red : C.blue],
+            ].map(([label, valor, color]) => (
+              <div key={label} style={{ border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: "9px 11px" }}>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</div>
+                <div style={{ color, fontFamily: C.mono, fontSize: 16, fontWeight: 950, marginTop: 3 }}>{valor}</div>
+              </div>
+            ))}
+          </div>
+          {(totalesCaja.USD.ingresos > 0 || totalesCaja.USD.egresos > 0) && (
+            <div style={{ color: C.muted, fontSize: 12 }}>
+              En dólares: ingresos {fmtMoney(totalesCaja.USD.ingresos, "USD")} · egresos {fmtMoney(totalesCaja.USD.egresos, "USD")} · saldo <strong>{fmtMoney(totalesCaja.saldoUsd, "USD")}</strong>
+            </div>
+          )}
+          {totalesCaja.movimientos === 0 && (
+            <div style={{ color: C.red, fontSize: 12, fontWeight: 800 }}>
+              Ojo: esta caja no tiene ningún movimiento cargado.
+            </div>
+          )}
+        </CajaModal>
+      )}
+
+      {reabrirOpen && selectedCierre && (
+        <CajaModal
+          titulo={`Reabrir ${selectedCierre.nombre}`}
+          bajada="Queda registrado con fecha en las notas de la caja."
+          onClose={() => { setReabrirOpen(false); setReabrirMotivo(""); }}
+          pie={<>
+            <button type="button" onClick={() => { setReabrirOpen(false); setReabrirMotivo(""); }} style={ghostBtn()}>Cancelar</button>
+            <button type="button" onClick={confirmarReapertura} disabled={cierreBusy || !reabrirMotivo.trim()}
+              style={primaryBtn(cierreBusy || !reabrirMotivo.trim())}>
+              {cierreBusy ? "Reabriendo…" : "Reabrir"}
+            </button>
+          </>}
+        >
+          <label style={{ display: "grid", gap: 5 }}>
+            <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>¿Por qué la reabrís?</span>
+            <input
+              autoFocus
+              value={reabrirMotivo}
+              onChange={(event) => setReabrirMotivo(event.target.value)}
+              placeholder="Ej: faltó cargar el remito del 8/8"
+              style={inputStyle()}
+            />
+          </label>
+        </CajaModal>
+      )}
+    </div>
+  );
+}
+
+// Modal chico y propio: los de esta pantalla son dos preguntas cortas y no
+// justifican arrastrar un componente más pesado.
+function CajaModal({ titulo, bajada, onClose, children, pie }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.5)", display: "grid", placeItems: "center", padding: 16 }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(470px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", display: "grid" }}>
+        <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>{titulo}</div>
+          {bajada && <div style={{ color: C.dim, fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>{bajada}</div>}
+        </div>
+        <div style={{ padding: 16, display: "grid", gap: 11 }}>{children}</div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 16px", borderTop: `1px solid ${C.border}` }}>{pie}</div>
+      </div>
     </div>
   );
 }
@@ -1157,6 +1363,23 @@ function miniInput() {
     padding: "7px 8px",
     fontSize: 12,
     borderRadius: 7,
+  };
+}
+
+function ghostBtn() {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    border: `1px solid ${C.border}`,
+    background: C.panel,
+    color: C.muted,
+    borderRadius: 9,
+    padding: "9px 13px",
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: "pointer",
+    fontFamily: C.sans,
   };
 }
 

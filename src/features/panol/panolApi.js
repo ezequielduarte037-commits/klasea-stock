@@ -516,11 +516,11 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
 }
 
 const CATALOG_MINI_SELECT_FULL =
-  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios";
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,ubicacion,ubicacion_obs,variantes,variantes_precios";
 const CATALOG_MINI_SELECT_STOCK =
   `${CATALOG_MINI_SELECT_FULL},stock_minimo`;
 const CATALOG_MINI_SELECT_NOVARPRE =
-  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes";
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,ubicacion,ubicacion_obs,variantes";
 const CATALOG_MINI_SELECT_MIN =
   "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo";
 
@@ -617,6 +617,8 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       codigo_barra: row.codigo_barra || row.codigos_barra?.[0]?.codigo || "",
       codigos_barra: row.codigos_barra || [],
       descripcion: row.descripcion || "",
+      activo: row.activo !== false,
+      es_requisito: row.es_requisito === true,
       proveedor: row.proveedor || "",
       alias: row.alias || "",
       notas: row.notas || "",
@@ -626,6 +628,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       moneda: row.moneda || "ARS",
       ubicacion: row.ubicacion || null,
       ubicacion_obs: row.ubicacion_obs || null,
+      imagen_url: row.imagen_url || null,
       variantes: Array.isArray(row.variantes) ? row.variantes : [],
       variantes_precios: row.variantes_precios ?? {},
       stock_minimo: row.stock_minimo ?? null,
@@ -1429,6 +1432,7 @@ export async function crearEnvio({
       unidad: it.unidad ?? it.unit ?? "unidad",
       obra_id: it.obra_id ?? it.obraId ?? null,
       material_id: it.material_id ?? it.materialId ?? null,
+      requisito_material_id: it.requisito_material_id ?? it.requisitoMaterialId ?? null,
       proveedor: it.proveedor ?? null,
       rubro: it.rubro ?? null,
       tipo: it.tipo ?? null,

@@ -1,0 +1,47 @@
+{
+  "agents": {
+    "variants-db": {
+      "agentId": "variants-db",
+      "agentType": "researcher",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 1,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-08-12T16:14:35.211Z",
+      "domain": "database",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    },
+    "variants-flow": {
+      "agentId": "variants-flow",
+      "agentType": "researcher",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 1,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-08-12T16:14:45.278Z",
+      "domain": "integration",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    },
+    "variants-ui": {
+      "agentId": "variants-ui",
+      "agentType": "researcher",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 1,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-08-12T16:14:49.801Z",
+      "domain": "frontend",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    }
+  },
+  "version": "3.0.0"
+}

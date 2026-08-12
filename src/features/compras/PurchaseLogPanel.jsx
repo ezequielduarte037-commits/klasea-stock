@@ -131,7 +131,7 @@ async function fetchSnapshotLinksForPurchaseLog(entry) {
 
   let rows = [];
   try {
-    rows = await loadRows("id,obra_id,purchase_request_item_id,material_id,variante");
+    rows = await loadRows("id,obra_id,purchase_request_item_id,material_id,requisito_material_id,variante");
   } catch (error) {
     if (!isMissingVariantColumn(error)) throw error;
     rows = await loadRows("id,obra_id,purchase_request_item_id,material_id");
@@ -795,9 +795,9 @@ export default function PurchaseLogPanel({ profile }) {
               moneda: it.moneda || "ARS",
               obra_id: snapshot?.obra_id || entry.project_id || "",
               material_id: it.material_id || snapshot?.material_id || "",
+              requisito_material_id: snapshot?.requisito_material_id || it.requisito_material_id || it.material_id || snapshot?.material_id || "",
               purchase_request_item_id: it.purchase_request_item_id || snapshot?.purchase_request_item_id || null,
               obra_snapshot_item_id: snapshot?.id || null,
-              variante: snapshot?.variante || it.variante || "",
             };
           }),
         },

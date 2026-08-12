@@ -593,8 +593,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         cantidad: it.quantity,
         unidad: it.unit,
         material_id: it.material_id || "",
+        requisito_material_id: it.requisito_material_id || it.material_id || "",
         purchase_request_item_id: it.id,
-        variante: it.variante || "",
       })),
     };
   }, [request, itemsParaPanol]);

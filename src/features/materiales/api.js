@@ -51,9 +51,9 @@ async function fetchPaged(table, select, orderColumn = "id") {
 
 async function fetchMaterialesCatalogo() {
   const baseSelect =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   const baseSelectNoLinks =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   try {
     return (
       await fetchPaged(
@@ -95,6 +95,7 @@ async function fetchMaterialesCatalogo() {
         ubicacion: null,
         ubicacion_obs: null,
         es_consumible: row.es_consumible ?? false,
+        es_requisito: false,
       }));
     }
   }
@@ -1001,13 +1002,24 @@ export async function fetchObrasMaterialSnapshots(obraIds = []) {
   const allRows = [];
   const pageSize = 1000;
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("panol_obra_materiales_snapshot")
-      .select("id, obra_id, material_id, descripcion, codigo, cantidad, unidad, rubro, tipo, source, estado, created_at, updated_at")
+      .select("id, obra_id, material_id, requisito_material_id, descripcion, codigo, cantidad, unidad, rubro, tipo, source, estado, created_at, updated_at")
       .in("obra_id", ids)
       .order("obra_id", { ascending: true })
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
+    if (error && isMissingColumn(error)) {
+      const fallback = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select("id, obra_id, material_id, descripcion, codigo, cantidad, unidad, rubro, tipo, source, estado, created_at, updated_at")
+        .in("obra_id", ids)
+        .order("obra_id", { ascending: true })
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+      data = (fallback.data || []).map((row) => ({ ...row, requisito_material_id: row.material_id || null }));
+      error = fallback.error;
+    }
     if (error) throw error;
     const page = data ?? [];
     allRows.push(...page);
@@ -1233,8 +1245,10 @@ function snapshotPayloadFromRows(obraId, rows = []) {
         && row.baseCantidad != null;
       return ({
       obra_id: obraId,
+      requisito_material_id:
+        row.requisitoMaterialId ?? row.requisito_material_id ?? row.materialId ?? row.material_id ?? row.material?.id ?? null,
       material_id:
-        row.materialId ?? row.material_id ?? row.material?.id ?? null,
+        row.productoMaterialId ?? row.producto_material_id ?? row.materialId ?? row.material_id ?? row.material?.id ?? null,
       descripcion: String(row.descripcion || "").trim(),
       codigo: row.codigo || null,
       cantidad: toNullableNumber(hasConditionalAdjustment ? row.baseCantidad : row.cantidad),
@@ -1267,12 +1281,20 @@ function snapshotPayloadWithoutVariant(rows = []) {
   return rows.map((row) => {
     const clean = { ...row };
     delete clean.variante;
+    delete clean.requisito_material_id;
     return clean;
   });
 }
 
 function snapshotPayloadKey(row) {
-  const materialId = row?.material_id ?? row?.materialId ?? null;
+  // La identidad estable de una fila es el requisito de matriz. El producto
+  // concreto puede cambiar por obra y no debe crear un segundo snapshot.
+  const materialId =
+    row?.requisito_material_id ??
+    row?.requisitoMaterialId ??
+    row?.material_id ??
+    row?.materialId ??
+    null;
   const kind =
     row?.tipo || row?.tipo_key || row?.bucket?.key || row?.source || "";
   if (kind === "addon" || row?.source === "addon") {
@@ -1752,6 +1774,9 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     alias: material.alias || null,
     activo: material.activo ?? true,
     codigo_barra: material.codigo_barra || null,
+    ...(material.es_requisito !== undefined
+      ? { es_requisito: !!material.es_requisito }
+      : {}),
     // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
     ...(material.es_consumible !== undefined
       ? { es_consumible: !!material.es_consumible }
@@ -1769,6 +1794,7 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     delete fallbackPatch.variantes_precios;
     delete fallbackPatch.links;
     delete fallbackPatch.alias;
+    delete fallbackPatch.es_requisito;
     const retry = await supabase
       .from("panol_materiales")
       .update(fallbackPatch)
@@ -1804,6 +1830,9 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
     alias: material.alias || null,
     activo: material.activo ?? true,
     codigo_barra: material.codigo_barra || null,
+    ...(material.es_requisito !== undefined
+      ? { es_requisito: !!material.es_requisito }
+      : {}),
     // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
     ...(material.es_consumible !== undefined
       ? { es_consumible: !!material.es_consumible }
@@ -1821,6 +1850,7 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
     delete fallbackPatch.variantes_precios;
     delete fallbackPatch.links;
     delete fallbackPatch.alias;
+    delete fallbackPatch.es_requisito;
     const retry = await supabase
       .from("panol_materiales")
       .update(fallbackPatch)
@@ -1896,6 +1926,7 @@ export async function crearMaterial(material, cantidades = {}) {
       revisado: material.revisado ?? true,
       activo: true,
       es_consumible: !!material.es_consumible,
+      es_requisito: !!material.es_requisito,
     })
     .select("id")
     .single();

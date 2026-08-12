@@ -55,9 +55,6 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   const [precio, setPrecio] = useState("");
   const [moneda, setMoneda] = useState("ARS");
   const [notas, setNotas] = useState("");
-  const [variantes, setVariantes] = useState([]);
-  const [variantesPrecios, setVariantesPrecios] = useState({});
-  const [varDraft, setVarDraft] = useState("");
   const [esConsumible, setEsConsumible] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const imgRef = useRef(null);
@@ -83,21 +80,9 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
     fetchPanolCatalogMini({ q: "", limit: 5000 }).then((rows) => setCatalogo(rows ?? [])).catch(() => setCatalogo([]));
   }, []);
 
-  function addVariante() {
-    const names = varDraft.split(/[\n;]+/).flatMap((s) => s.split(/\s*\/\s*/)).map((s) => s.trim()).filter(Boolean);
-    if (!names.length) return;
-    setVariantes((list) => {
-      const seen = new Set(list.map((x) => x.toLowerCase()));
-      const next = [...list];
-      for (const n of names) if (!seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); next.push(n); }
-      return next;
-    });
-    setVarDraft("");
-  }
-
   function limpiar() {
     setDescripcion(""); setCategoriaId(""); setUnidad("unidad"); setProveedor(""); setCodigo("");
-    setPrecio(""); setMoneda("ARS"); setNotas(""); setVariantes([]); setVariantesPrecios({}); setVarDraft(""); setEsConsumible(false); setImageFile(null);
+    setPrecio(""); setMoneda("ARS"); setNotas(""); setEsConsumible(false); setImageFile(null);
     setDuplicateReview(null);
   }
 
@@ -153,8 +138,8 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
         precioUnitario: precio === "" ? null : precio,
         moneda,
         notas,
-        variantes,
-        variantesPrecios,
+        variantes: [],
+        variantesPrecios: {},
         esConsumible,
       });
       if (imageFile) {
@@ -263,30 +248,8 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
             </div>
           </label>
 
-          {/* Variantes con código y precio */}
-          <div>
-            <label style={LBL}>Variantes / marcas (con código y precio)</label>
-            {variantes.length > 0 && (
-              <div style={{ display: "grid", gap: 5, marginBottom: 6 }}>
-                {variantes.map((v) => {
-                  const p = variantesPrecios[v] || {};
-                  return (
-                    <div key={v} style={{ display: "grid", gridTemplateColumns: "minmax(64px,0.9fr) minmax(80px,1fr) 104px 62px minmax(120px,1fr) 28px", gap: 6, alignItems: "center" }}>
-                      <span style={{ color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
-                      <input value={p.codigo ?? ""} onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), codigo: e.target.value } }))} placeholder="Código" style={{ ...INP, padding: "6px 8px", fontSize: 12, fontFamily: C.mono }} />
-                      <input value={p.precio ?? ""} inputMode="decimal" onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), precio: e.target.value } }))} placeholder="Precio" style={{ ...INP, padding: "6px 8px", fontSize: 12, fontFamily: C.mono }} />
-                      <select value={p.moneda || "ARS"} onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || {}), moneda: e.target.value } }))} style={{ ...INP, padding: "6px 4px", fontSize: 12, cursor: "pointer" }}><option value="ARS">ARS</option><option value="USD">USD</option></select>
-                      <input value={p.imagen_url ?? ""} onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), imagen_url: e.target.value } }))} placeholder="URL foto/plano" style={{ ...INP, padding: "6px 8px", fontSize: 12 }} />
-                      <button type="button" title="Quitar" onClick={() => { setVariantes((l) => l.filter((x) => x !== v)); setVariantesPrecios((m) => { const c = { ...m }; delete c[v]; return c; }); }} style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 14 }}>×</button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 6 }}>
-              <input value={varDraft} onChange={(e) => setVarDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVariante(); } if (e.key === "," || e.code === "Comma") e.stopPropagation(); }} placeholder="Ej: 23L / 48L / LG. Enter agrega." style={{ ...INP, flex: 1 }} />
-              <button type="button" onClick={addVariante} disabled={!varDraft.trim()} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.violet, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 800, opacity: varDraft.trim() ? 1 : 0.5 }}>+ Variante</button>
-            </div>
+          <div style={{ border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: "9px 11px", color: C.t1, fontSize: 11.5, lineHeight: 1.45 }}>
+            Cada marca o modelo se crea como un producto independiente. Si cubre una necesidad genérica de una obra, después se vincula desde la lista de materiales.
           </div>
 
           {/* Foto */}

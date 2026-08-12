@@ -5,7 +5,7 @@ import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
-import { fetchProveedores, leerPresupuestoConIA, variantePrecio, varianteCodigo } from "@/features/materiales/api";
+import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, normalizeBarcode } from "@/features/materiales/materialBarcodes";
@@ -187,35 +187,6 @@ function normKey(value = "") {
     .replace(/[.]/g, "");
 }
 
-function normSearch(value = "") {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^\w\s.-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeVariantList(value) {
-  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;/]+/);
-  const seen = new Set();
-  return raw
-    .flatMap((item) => String(item || "").split(/\s*\/\s*/))
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item) => {
-      const key = normSearch(item);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-function materialVariants(material) {
-  return normalizeVariantList(material?.variantes);
-}
-
 function cleanNumber(value = "") {
   const raw = String(value || "").trim().replace(",", ".");
   if (!raw) return "";
@@ -229,6 +200,7 @@ function catalogScore(material, queryItem = {}) {
 
 function topCatalogMatches(catalog = [], queryItem = {}, limit = 8) {
   return [...catalog]
+    .filter((material) => material?.es_requisito !== true)
     .map((material) => ({ material, score: catalogScore(material, queryItem) }))
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || (a.material.descripcion || "").localeCompare(b.material.descripcion || "", "es"))
@@ -237,10 +209,9 @@ function topCatalogMatches(catalog = [], queryItem = {}, limit = 8) {
 }
 
 function itemPatchFromMaterial(material, item = {}) {
-  const variants = materialVariants(material);
-  const currentVariant = String(item.variante || "").trim();
   return {
     material_id: material?.id || "",
+    requisito_material_id: item.requisito_material_id || item.material_id || null,
     codigo: item.codigo || material?.codigo || "",
     codigo_barra: item.codigo_barra || material?.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
     unidad: item.unidad || material?.unidad || "unidad",
@@ -249,7 +220,7 @@ function itemPatchFromMaterial(material, item = {}) {
     moneda: item.moneda || material?.moneda || "ARS",
     ubicacion: item.ubicacion || material?.ubicacion || null,
     ubicacion_obs: item.ubicacion_obs || material?.ubicacion_obs || "",
-    variante: currentVariant && variants.some((variant) => normSearch(variant) === normSearch(currentVariant)) ? currentVariant : "",
+    variante: "",
     catalog_match_score: material?._score || null,
   };
 }
@@ -371,6 +342,7 @@ function normalizeItem(it) {
     moneda: it.moneda || "ARS",
     obra_id: it.obra_id ?? it.obraId ?? "",
     material_id: it.material_id ?? it.materialId ?? "",
+    requisito_material_id: it.requisito_material_id ?? it.requisitoMaterialId ?? "",
     proveedor: it.proveedor ?? "",
     rubro: it.rubro ?? "",
     ubicacion: it.ubicacion ?? it.ubicacionHabitual ?? "",
@@ -422,7 +394,9 @@ function matchToItem(match, material = null) {
 
 function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial = new Map(), sede = "", onLink, onClear, onCreate, creating = false }) {
   const [q, setQ] = useState("");
-  const selected = catalog.find((material) => material.id === item.material_id);
+  const currentMaterial = catalog.find((material) => material.id === item.material_id);
+  const linkedRequirement = currentMaterial?.es_requisito === true ? currentMaterial : null;
+  const selected = linkedRequirement ? null : currentMaterial;
   const selectedMeta = useMemo(() => proveedorMeta(selected?.proveedor, proveedores), [selected?.proveedor, proveedores]);
   const results = useMemo(() => {
     const query = q.trim() ? { descripcion: q } : item;
@@ -468,6 +442,11 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
           </>
         )}
       </div>
+      {linkedRequirement && (
+        <div style={{ marginLeft: 81, border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 8, padding: "8px 10px", fontSize: 11.5, fontWeight: 800 }}>
+          “{linkedRequirement.descripcion}” es una necesidad genérica. Elegí abajo el producto real que se compró o recibió.
+        </div>
+      )}
       {!selected && results.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginLeft: 81 }}>
           <div style={{ color: C.violet, fontSize: 11, fontWeight: 850 }}>
@@ -545,62 +524,6 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
           <circle cx={selectedLayout.x_cm + selectedLayout.w_cm / 2} cy={selectedLayout.y_cm + selectedLayout.h_cm / 2} r={Math.max(42, Math.min(78, Math.max(selectedLayout.w_cm, selectedLayout.h_cm) / 2))} fill="none" stroke={C.blue} strokeWidth={8} strokeDasharray="18 14" opacity={0.9} />
         )}
       </svg>
-    </div>
-  );
-}
-
-function ItemVariantRow({ item, material = null, onChange }) {
-  const variants = materialVariants(material);
-  const current = String(item.variante || "");
-  // Al elegir una variante, si tiene precio y/o código cargados se autocompletan en el ítem.
-  const pickVariant = (variant) => {
-    const p = variantePrecio(material, variant);
-    const cod = varianteCodigo(material, variant);
-    const patch = { variante: variant };
-    if (p) { patch.precio_unitario = p.amount; patch.moneda = p.moneda; }
-    if (cod) patch.codigo = cod;
-    onChange?.(patch);
-  };
-  return (
-    <div style={{ display: "flex", gap: 9, alignItems: "center", padding: "0 10px 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
-      <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Variante</span>
-      <input
-        value={current}
-        onChange={(e) => onChange?.({ variante: e.target.value })}
-        placeholder={variants.length ? "Marca/modelo comprado" : "Ej: Samsung, LG, Webasto"}
-        style={inp({ flex: "0 1 260px", minWidth: 170, padding: "8px 10px", fontSize: 12.5, background: C.panelSolid })}
-        title="Marca/modelo que se compró para este barco"
-      />
-      {variants.length > 0 && (
-        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
-          {variants.slice(0, 8).map((variant) => {
-            const active = normSearch(current) === normSearch(variant);
-            return (
-              <button
-                key={variant}
-                type="button"
-                onClick={() => pickVariant(variant)}
-                style={{
-                  border: `1px solid ${active ? C.blue : C.b0}`,
-                  background: active ? "var(--blue-soft)" : C.bg,
-                  color: active ? C.blue : C.t1,
-                  borderRadius: 999,
-                  padding: "5px 8px",
-                  fontSize: 11,
-                  fontWeight: 850,
-                  cursor: "pointer",
-                  fontFamily: C.sans,
-                }}
-              >
-                {variant}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <span style={{ color: C.t2, fontSize: 11.5, minWidth: 0 }}>
-        Queda guardada en la lista fija de la obra.
-      </span>
     </div>
   );
 }
@@ -1115,27 +1038,23 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     }));
   }
 
-  async function rememberSnapshotVariants(sourceItems) {
+  async function rememberSnapshotProducts(sourceItems) {
     const updates = sourceItems
-      .filter((item) => Object.prototype.hasOwnProperty.call(item, "variante"))
-      .map((item) => {
-        const query = supabase
-          .from("panol_obra_materiales_snapshot")
-          .update({ variante: String(item.variante || "").trim() || null });
-        if (item.obra_snapshot_item_id) return query.eq("id", item.obra_snapshot_item_id);
-        if (item.purchase_request_item_id) return query.eq("purchase_request_item_id", item.purchase_request_item_id);
-        return null;
-      })
-      .filter(Boolean);
+      .filter((item) => item.obra_snapshot_item_id && item.requisito_material_id && item.material_id)
+      .filter((item) => item.requisito_material_id !== item.material_id)
+      .map((item) => supabase.rpc("panol_asignar_producto_snapshot", {
+        p_snapshot_id: item.obra_snapshot_item_id,
+        p_producto_material_id: item.material_id,
+        p_origen: "panol",
+      }));
     if (!updates.length) return;
     const results = await Promise.all(updates);
     const error = results.find((result) => result.error)?.error;
     if (!error) return;
-    if (isMissingVariantColumn(error)) {
-      toast.warning("El envio se creo, pero falta correr el SQL de variante por obra.");
-      return;
+    if (isMissingVariantColumn(error) || String(error.message || "").toLowerCase().includes("function")) {
+      throw new Error("Falta aplicar la migración de productos por obra antes de continuar.");
     }
-    toast.warning(error.message || "El envio se creo, pero no se pudo guardar la variante de obra.");
+    throw new Error(error.message || "No se pudo guardar el producto concreto de la obra.");
   }
 
   function closeModal(saved = false) {
@@ -1204,7 +1123,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     const createdRows = [];
     const prepared = [];
     for (const item of sourceItems) {
-      if (item.material_id || !String(item.descripcion || "").trim()) {
+      const currentMaterial = catalogRows.find((material) => material.id === item.material_id) || null;
+      if (currentMaterial?.es_requisito === true) {
+        throw new Error(`Elegí el producto concreto para “${item.descripcion || currentMaterial.descripcion}” antes de continuar.`);
+      }
+      if ((item.material_id && currentMaterial) || !String(item.descripcion || "").trim()) {
         prepared.push(item);
         continue;
       }
@@ -1472,6 +1395,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       } catch (locationError) {
         toast.warning(locationError.message || "El ingreso sigue, pero no se pudo guardar la ubicacion habitual.");
       }
+      // Primero se fija el producto concreto en la obra. Así el trigger que
+      // crea el ítem de Pañol ya copia el SKU correcto y nunca el requisito.
+      await rememberSnapshotProducts(preparedItems);
       const linkedRecepcionItems = preparedItems
         .map((it) => ({
           id: it.panol_envio_item_id,
@@ -1512,7 +1438,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           return [{ ...base, obra_id: it.obra_id || obraId || null }];
         }),
       });
-      await rememberSnapshotVariants(preparedItems);
       for (const linked of linkedRecepcionItems) {
         await marcarItems([linked.id], "recibido", { cantidadRecibida: linked.cantidad || null });
       }
@@ -1805,9 +1730,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 <span style={{ ...lbl, marginBottom: 3, fontSize: ingresoDesktop ? 11 : lbl.fontSize }}>Productos a ingresar</span>
                 <div style={{ color: C.t2, fontSize: ingresoDesktop ? 12.5 : 11.5 }}>
                   {isCompraNotice
-                    ? "Confirmá el material del catálogo y la variante comprada antes de avisar a pañol."
+                    ? "Confirmá el producto real del catálogo antes de avisar a pañol."
                     : isObraNotice
-                      ? "Confirma el material del catalogo y la variante/marca que va a llevar esta obra."
+                      ? "Confirmá qué producto real del catálogo va a llevar esta obra."
                       : "Vincula cada producto al catalogo y asignale estanteria. La ubicacion queda recordada para proximos ingresos."}
                 </div>
               </div>
@@ -1824,7 +1749,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   </div>
                 )}
                 {items.map((it, i) => {
-                  const linkedMaterial = fullCatalog.find((material) => material.id === it.material_id) || null;
+                  const linkedCandidate = fullCatalog.find((material) => material.id === it.material_id) || null;
+                  const linkedMaterial = linkedCandidate?.es_requisito === true ? null : linkedCandidate;
                   return (
                   <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${scanFlashMat && it.material_id === scanFlashMat ? C.greenB : C.b0}`, borderRadius: 10, overflow: "hidden", transition: "border-color .25s, box-shadow .25s", boxShadow: scanFlashMat && it.material_id === scanFlashMat ? `0 0 0 2px ${C.greenL}` : "none" }}>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, alignItems: "center", padding: "10px" }}>
@@ -1861,13 +1787,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         onLink={(material) => linkCatalogMaterial(i, material)}
                         onClear={() => updateItem(i, { material_id: "", variante: "" })}
                         onCreate={isRemito ? undefined : () => createCatalogMaterialForItem(i)}
-                      />
-                    )}
-                    {needsCatalogLink && (
-                      <ItemVariantRow
-                        item={it}
-                        material={linkedMaterial}
-                        onChange={(patch) => updateItem(i, patch)}
                       />
                     )}
                     {isRemito && (

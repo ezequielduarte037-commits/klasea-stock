@@ -26,8 +26,10 @@ import {
   Crosshair,
   ExternalLink,
   AlertTriangle,
-  Recycle // ← ESTA LÍNEA ES LA QUE FALTABA
+  Recycle,
+  Activity
 } from "lucide-react";
+import AdminActivityPanel from "@/features/configuracion/AdminActivityPanel";
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -844,11 +846,13 @@ async function fnErrorMsg(res, fnError, fallback = "no se pudo completar la oper
 export default function ConfiguracionScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin || profile?.role === "admin";
+  const canViewAdminActivity = String(profile?.username || "").trim().toLowerCase() === "ezequiel.adm";
   const TABS = [
     { id:"usuarios", label:"Personal",   icon:<User size={12}/>  },
     { id:"clientes", label:"Clientes",   icon:<Ship size={12}/> },
     { id:"modelos",  label:"Modelos",    icon:<Wrench size={12}/> },
     { id:"sistema",  label:"Sistema",    icon:<Settings2 size={12}/> },
+    ...(canViewAdminActivity ? [{ id:"actividad",label:"Actividad",icon:<Activity size={12}/> }] : []),
   ];
   const [tab,      setTab]      = useState("usuarios");
   const [loading,  setLoading]  = useState(true);
@@ -972,6 +976,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
             backdropFilter:"blur(32px) saturate(130%)",
             WebkitBackdropFilter:"blur(32px) saturate(130%)",
             padding: isMobile ? "0 12px 0 52px" : "0 24px",
+            overflowX:"auto",
           }}>
             {TABS.map(t=>(
               <button key={t.id} onClick={()=>setTab(t.id)} style={{
@@ -989,7 +994,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
               </button>
             ))}
             <div style={{ flex:1 }} />
-            <div style={{ display:"flex", alignItems:"center", gap:8, paddingRight:20 }}>
+            <div style={{ display:isMobile ? "none" : "flex", alignItems:"center", gap:8, paddingRight:20 }}>
               {[
                 { n:stats.personal, l:"personal", c:"#3b82f6" },
                 { n:stats.clientes, l:"clientes", c:"#10b981" },
@@ -1010,6 +1015,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
             ) : (
               <>
                 {/* ══════ TAB: PERSONAL ══════ */}
+                {tab==="actividad" && <AdminActivityPanel />}
+
                 {tab==="usuarios" && (
                   <div style={{ flex:1, overflow:"auto", padding:"22px 28px" }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>

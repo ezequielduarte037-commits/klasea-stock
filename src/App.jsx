@@ -51,6 +51,8 @@ import NotificacionesBell from "@/components/NotificacionesBell";
 import { C } from "@/theme";
 import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
+import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
+import { endTrackedAdminSession } from "@/features/configuracion/adminActivityApi";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -398,7 +400,10 @@ export default function App() {
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
-  async function signOut() { await supabase.auth.signOut(); }
+  async function signOut() {
+    await endTrackedAdminSession(profile, window.location.pathname);
+    await supabase.auth.signOut();
+  }
 
   if (isInitializing) {
     return (
@@ -442,6 +447,7 @@ export default function App() {
                 abierta. Existía desde antes pero nunca se había montado, así que
                 nadie veía el aviso. */}
             <AppVersionGuard />
+            {session && profile && <AdminActivityTracker profile={profile} />}
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />

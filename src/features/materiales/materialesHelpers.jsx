@@ -879,7 +879,7 @@ const TABS_MORE = [
   { key: "revision", label: "Revisión guiada" },
   { key: "normalizacion", label: "Normalizar" },
   { key: "condicionantes", label: "Condicionantes" },
-  { key: "variantes", label: "Variantes / marcas" },
+  { key: "variantes", label: "Requisitos / productos" },
   { key: "proveedores", label: "Proveedores" },
   { key: "avance", label: "Avance" },
   { key: "resumen", label: "Resumen" },
