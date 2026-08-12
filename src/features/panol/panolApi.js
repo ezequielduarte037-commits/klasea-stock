@@ -450,12 +450,39 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     const transferActor = row.source === "transferencia_ingreso" ? transferActorByKey.get(transferMovementKey(row, "in")) || null : null;
     const envioReceivedActor = isUuidLike(row.panol_envio?.recibido_por) ? egresoActorById.get(row.panol_envio.recibido_por) || null : null;
     const envioCreatedActor = isUuidLike(row.panol_envio?.created_by) ? egresoActorById.get(row.panol_envio.created_by) || null : null;
-    const egresoActor = directActor || transferActor || envioReceivedActor || envioCreatedActor;
+    // Quién hizo ESTE movimiento. Sólo el actor directo o el de la transferencia
+    // son eso; los del envío son otra cosa —quién lo armó y quién lo recibió— y
+    // usarlos de reemplazo hacía que la pantalla atribuyera movimientos a gente
+    // que no los hizo: como los envíos los crea casi siempre la misma persona,
+    // aparecía "haciendo" egresos de todo el pañol.
+    //
+    // Cuando el dato no está, se dice que no está. Un nombre inventado es peor
+    // que un campo vacío: obliga a desconfiar también de los que sí son ciertos.
+    // egreso_por sólo significa algo si la fila ES una salida. Hay filas de
+    // ingreso —source 'matriz', estado 'pendiente'— que lo traen cargado igual,
+    // arrastrado de otro lado, y usarlo ahí hacía que un ingreso figurara hecho
+    // por alguien que no lo tocó.
+    //
+    // Se conserva quién RECIBIÓ el envío: en un ingreso esa persona sí es la que
+    // hizo el movimiento. Lo que se saca es quién lo CREÓ, que es otra cosa —
+    // armar un envío desde técnica no es moverlo en el pañol.
+    const esSalida = row.estado === "egresado"
+      || String(row.source || "").startsWith("egreso")
+      || String(row.source || "").startsWith("transferencia_egreso");
+    const egresoActor = (esSalida ? directActor : null) || transferActor || envioReceivedActor;
+    const envioActor = envioCreatedActor;
     return {
       ...row,
       obra: row.obra_id ? obrasById.get(row.obra_id) || null : null,
       egreso_actor: egresoActor,
-      egreso_por_nombre: egresoActor?.username || (isUuidLike(row.egreso_por) ? "" : row.egreso_por || ""),
+      // El texto crudo de egreso_por (cuentas viejas cargadas a mano) también se
+      // limita a las salidas, por lo mismo.
+      egreso_por_nombre: egresoActor?.username
+        || (esSalida && !isUuidLike(row.egreso_por) ? row.egreso_por || "" : ""),
+      // El dato del envío se conserva, pero etiquetado como lo que es. Sirve
+      // para rastrear de dónde salió el material sin fingir que esa persona
+      // hizo el movimiento.
+      envio_actor_nombre: envioActor?.username || "",
       request,
       es_adicional: row.es_adicional ?? request?.es_adicional ?? false,
       proveedor: row.proveedor || meta?.proveedor || "",
