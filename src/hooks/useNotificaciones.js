@@ -5,7 +5,6 @@ import useAlertas from "@/hooks/useAlertas";
 const CLOSED_ENVIO_STATES = ["recibido", "cerrado", "cancelado"];
 const COMPRA_ACTION_STATES = ["nuevo", "en_revision", "cotizando", "comprado"];
 const AVISO_ACTIVE_STATES = ["nuevo", "visto", "en_proceso"];
-const POLL_MS = 4 * 60 * 1000;
 
 const RECEPCION_ROLES = new Set(["panol", "admin"]);
 const PRODUCCION_ROLES = new Set(["admin", "oficina"]);
@@ -138,7 +137,7 @@ export default function useNotificaciones(profile) {
     loading: loadingAlertas,
     resolverAlerta,
     recargar: recargarAlertas,
-  } = useAlertas(null, { enabled: canProduccion(profile) });
+  } = useAlertas(null, { enabled: canProduccion(profile), summaryOnly: true });
 
   useEffect(() => {
     setLeidas(readLeidas(profile));
@@ -153,7 +152,7 @@ export default function useNotificaciones(profile) {
     try {
       let query = supabase
         .from("panol_envios")
-        .select("*")
+        .select("id,titulo,sede,destino,origen,estado,created_at,updated_at")
         .not("estado", "in", `("${CLOSED_ENVIO_STATES.join('","')}")`)
         .order("created_at", { ascending: false });
 
@@ -274,24 +273,40 @@ export default function useNotificaciones(profile) {
   }, [enabled, profile]);
 
   useEffect(() => {
-    cargarRecepcion();
-    cargarCompras();
-    cargarAvisos();
-    cargarLogistica();
+    const refreshAll = () => {
+      void cargarRecepcion();
+      void cargarCompras();
+      void cargarAvisos();
+      void cargarLogistica();
+    };
+    refreshAll();
 
-    const interval = window.setInterval(() => {
-      cargarRecepcion();
-      cargarCompras();
-      cargarAvisos();
-      cargarLogistica();
-    }, POLL_MS);
+    const refreshTimers = new Map();
+    const schedule = (fn) => {
+      if (document.visibilityState !== "visible") return;
+      window.clearTimeout(refreshTimers.get(fn));
+      refreshTimers.set(fn, window.setTimeout(() => {
+        refreshTimers.delete(fn);
+        void fn();
+      }, 500));
+    };
+
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") schedule(refreshAll);
+    };
+    const handleOnline = () => schedule(refreshAll);
+    document.addEventListener("visibilitychange", handleVisible);
+    window.addEventListener("online", handleOnline);
+    const safetyInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible") schedule(refreshAll);
+    }, 15 * 60 * 1000);
 
     const channels = [];
     if (enabled && canRecepcion(profile)) {
       channels.push(
         supabase
           .channel(`rt-notif-panol-envios-${profile?.id || "anon"}`)
-          .on("postgres_changes", { event: "*", schema: "public", table: "panol_envios" }, cargarRecepcion)
+          .on("postgres_changes", { event: "*", schema: "public", table: "panol_envios" }, () => schedule(cargarRecepcion))
           .subscribe(),
       );
     }
@@ -299,9 +314,9 @@ export default function useNotificaciones(profile) {
       channels.push(
         supabase
           .channel(`rt-notif-compras-${profile?.id || "anon"}`)
-          .on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests" }, cargarCompras)
-          .on("postgres_changes", { event: "*", schema: "public", table: "request_followers" }, cargarCompras)
-          .on("postgres_changes", { event: "*", schema: "public", table: "compras_avisos" }, cargarAvisos)
+          .on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests" }, () => schedule(cargarCompras))
+          .on("postgres_changes", { event: "*", schema: "public", table: "request_followers" }, () => schedule(cargarCompras))
+          .on("postgres_changes", { event: "*", schema: "public", table: "compras_avisos" }, () => schedule(cargarAvisos))
           .subscribe(),
       );
     }
@@ -309,13 +324,17 @@ export default function useNotificaciones(profile) {
       channels.push(
         supabase
           .channel(`rt-notif-logistica-${profile?.id || "anon"}`)
-          .on("postgres_changes", { event: "*", schema: "public", table: "calendario_eventos" }, cargarLogistica)
+          .on("postgres_changes", { event: "*", schema: "public", table: "calendario_eventos" }, () => schedule(cargarLogistica))
           .subscribe(),
       );
     }
 
     return () => {
-      window.clearInterval(interval);
+      refreshTimers.forEach((timer) => window.clearTimeout(timer));
+      refreshTimers.clear();
+      window.clearInterval(safetyInterval);
+      document.removeEventListener("visibilitychange", handleVisible);
+      window.removeEventListener("online", handleOnline);
       channels.forEach((channel) => supabase.removeChannel(channel));
     };
   }, [cargarAvisos, cargarCompras, cargarLogistica, cargarRecepcion, enabled, profile]);

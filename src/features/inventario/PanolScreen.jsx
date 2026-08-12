@@ -156,14 +156,35 @@ export default function PanolScreen({ profile, signOut }) {
   }
 
   useEffect(() => {
-    cargarMateriales();
-    cargarMovs();
-    cargarPedidos();
-    const ch1 = supabase.channel("rt-pan-materiales").on("postgres_changes", { event: "*", schema: "public", table: "materiales" }, cargarMateriales).subscribe();
-    const ch2 = supabase.channel("rt-pan-movs").on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, cargarMovs).subscribe();
-    const ch3 = supabase.channel("rt-pan-pedidos").on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, cargarPedidos).subscribe();
-    const ch4 = supabase.channel("rt-pan-peditems").on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, cargarPedidos).subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); supabase.removeChannel(ch4); };
+    void cargarMateriales();
+    void cargarMovs();
+    void cargarPedidos();
+    const timers = new Map();
+    const schedule = (key, fn) => {
+      if (document.visibilityState !== "visible") return;
+      window.clearTimeout(timers.get(key));
+      timers.set(key, window.setTimeout(() => {
+        timers.delete(key);
+        void fn();
+      }, 450));
+    };
+    const handleVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      schedule("materiales", cargarMateriales);
+      schedule("movimientos", cargarMovs);
+      schedule("pedidos", cargarPedidos);
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    const ch1 = supabase.channel("rt-pan-materiales").on("postgres_changes", { event: "*", schema: "public", table: "materiales" }, () => schedule("materiales", cargarMateriales)).subscribe();
+    const ch2 = supabase.channel("rt-pan-movs").on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, () => schedule("movimientos", cargarMovs)).subscribe();
+    const ch3 = supabase.channel("rt-pan-pedidos").on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => schedule("pedidos", cargarPedidos)).subscribe();
+    const ch4 = supabase.channel("rt-pan-peditems").on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, () => schedule("pedidos", cargarPedidos)).subscribe();
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+      document.removeEventListener("visibilitychange", handleVisible);
+      supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); supabase.removeChannel(ch4);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

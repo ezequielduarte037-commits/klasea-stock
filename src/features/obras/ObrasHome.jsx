@@ -153,11 +153,13 @@ function useLiveData(obrasProp) {
   const [data, setData] = useState({ activas:0,pausadas:0,terminadas:0,loaded:false });
   const load = useCallback(async () => {
     try {
-      const { data: rows } = await supabase.from("produccion_obras").select("estado");
-      const obras = rows ?? [];
-      setData({ activas:obras.filter(o=>o.estado==="activa").length,
-        pausadas:obras.filter(o=>o.estado==="pausada").length,
-        terminadas:obras.filter(o=>o.estado==="terminada").length, loaded:true });
+      const [activas, pausadas, terminadas] = await Promise.all([
+        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "activa"),
+        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "pausada"),
+        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "terminada"),
+      ]);
+      setData({ activas:activas.count??0, pausadas:pausadas.count??0,
+        terminadas:terminadas.count??0, loaded:true });
     } catch { setData(d=>({...d,loaded:true})); }
   },[]);
   useEffect(()=>{
@@ -168,8 +170,10 @@ function useLiveData(obrasProp) {
       return()=>clearTimeout(firstLoad);
     }
     const firstLoad = setTimeout(load,0);
-    const id=setInterval(load,30000);
-    return()=>{ clearTimeout(firstLoad); clearInterval(id); };
+    const handleVisible=()=>{ if(document.visibilityState==="visible") void load(); };
+    document.addEventListener("visibilitychange",handleVisible);
+    const id=setInterval(()=>{ if(document.visibilityState==="visible") void load(); },5*60*1000);
+    return()=>{ clearTimeout(firstLoad); clearInterval(id); document.removeEventListener("visibilitychange",handleVisible); };
   },[obrasProp,load]);
   return data;
 }

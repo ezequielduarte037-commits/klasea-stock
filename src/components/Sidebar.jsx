@@ -378,10 +378,17 @@ export default function Sidebar({ profile, signOut }) {
       }
     }
     loadComprasBadge();
-    const intervalId = window.setInterval(loadComprasBadge, 60000);
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") void loadComprasBadge();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadComprasBadge();
+    }, 5 * 60 * 1000);
     return () => {
       alive = false;
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisible);
     };
   }, [esCompras, realAdmin]);
 

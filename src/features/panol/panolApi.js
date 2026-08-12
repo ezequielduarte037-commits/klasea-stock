@@ -433,6 +433,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
   }
   const egresoActorById = await fetchProfilesMap([
     ...rows.map((row) => row.egreso_por),
+    ...rows.map((row) => row.created_by),
     ...rows.map((row) => row.panol_envio?.recibido_por),
     ...rows.map((row) => row.panol_envio?.created_by),
   ]);
@@ -469,7 +470,11 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     const esSalida = row.estado === "egresado"
       || String(row.source || "").startsWith("egreso")
       || String(row.source || "").startsWith("transferencia_egreso");
-    const egresoActor = (esSalida ? directActor : null) || transferActor || envioReceivedActor;
+    // Para un ingreso el autor es quien creó el renglón. Va último porque las
+    // otras fuentes son más específicas, pero es la única que existe en los
+    // ingresos generados desde Materiales.
+    const creadorActor = isUuidLike(row.created_by) ? egresoActorById.get(row.created_by) || null : null;
+    const egresoActor = (esSalida ? directActor : null) || transferActor || envioReceivedActor || creadorActor;
     const envioActor = envioCreatedActor;
     return {
       ...row,

@@ -577,24 +577,27 @@ function useLiveData() {
   const [data, setData] = useState({ activas:0, pausadas:0, terminadas:0, criticos:0, loaded:false });
   const load = useCallback(async () => {
     try {
-      const [r1, r2] = await Promise.all([
-        supabase.from("produccion_obras").select("estado"),
-        supabase.from("materiales_kpi").select("estado_ui").eq("estado_ui","CRITICO"),
+      const [activas, pausadas, terminadas, criticos] = await Promise.all([
+        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "activa"),
+        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "pausada"),
+        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "terminada"),
+        supabase.from("materiales_kpi").select("estado_ui", { count: "exact", head: true }).eq("estado_ui", "CRITICO"),
       ]);
-      const obras = r1.data ?? [];
       setData({
-        activas:    obras.filter(o=>o.estado==="activa").length,
-        pausadas:   obras.filter(o=>o.estado==="pausada").length,
-        terminadas: obras.filter(o=>o.estado==="terminada").length,
-        criticos:   (r2.data??[]).length,
+        activas: activas.count ?? 0,
+        pausadas: pausadas.count ?? 0,
+        terminadas: terminadas.count ?? 0,
+        criticos: criticos.count ?? 0,
         loaded: true,
       });
     } catch { setData(d=>({...d, loaded:true})); }
   }, []);
   useEffect(()=>{
     const firstLoad = setTimeout(load, 0);
-    const id=setInterval(load,30000);
-    return()=>{ clearTimeout(firstLoad); clearInterval(id); };
+    const handleVisible = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", handleVisible);
+    const id=setInterval(()=>{ if (document.visibilityState === "visible") void load(); },5*60*1000);
+    return()=>{ clearTimeout(firstLoad); clearInterval(id); document.removeEventListener("visibilitychange", handleVisible); };
   }, [load]);
   return data;
 }

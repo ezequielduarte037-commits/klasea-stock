@@ -256,15 +256,34 @@ export default function LaminacionScreen({ profile, signOut }) {
   }
 
   useEffect(() => {
-    cargar();
+    const initialTimer = window.setTimeout(() => { void cargar(); }, 0);
+    const timers = new Map();
+    const schedule = (key, fn) => {
+      if (document.visibilityState !== "visible") return;
+      window.clearTimeout(timers.get(key));
+      timers.set(key, window.setTimeout(() => {
+        timers.delete(key);
+        void fn();
+      }, 500));
+    };
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") schedule("all", cargar);
+    };
+    document.addEventListener("visibilitychange", handleVisible);
     const ch = supabase
       .channel("rt-laminacion")
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_movimientos" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_pedidos" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_materiales" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obras" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_movimientos" }, () => schedule("movimientos", cargarMovimientos))
+      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_pedidos" }, () => schedule("pedidos", cargarPedidos))
+      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_materiales" }, () => schedule("materiales", cargarMateriales))
+      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obras" }, () => schedule("obras", cargarObrasLam))
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      window.clearTimeout(initialTimer);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+      document.removeEventListener("visibilitychange", handleVisible);
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   const stockPorMaterial = useMemo(() => {
