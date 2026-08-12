@@ -5009,6 +5009,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             <button type="button" onClick={() => setEstadoFilter("en_panol")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "en_panol" ? C.green : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
               {kpis.enPanol} en pañol
             </button>
+            <span style={{ width: 4, height: 4, borderRadius: 999, background: C.b1 }} />
+            {/* Faltaba el atajo de egresados: es el que contesta "qué de esta
+                obra ya se consumió" sin tener que ir al KPI de arriba. */}
+            <button type="button" onClick={() => setEstadoFilter("egresado")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "egresado" ? C.violet : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
+              {kpis.egresados} egresados
+            </button>
           </div>
         </div>
       </div>
