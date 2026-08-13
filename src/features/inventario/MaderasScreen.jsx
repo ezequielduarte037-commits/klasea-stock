@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import useRealtimeReload from "@/hooks/useRealtimeReload";
 import { hasAdminAccess } from "@/lib/permissions";
 import AjusteMaderasModal from "@/features/inventario/AjusteMaderasModal";
 import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart, CreditCard } from "lucide-react";
@@ -585,19 +586,15 @@ export default function MaderasScreen({ profile, signOut }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void cargar(); }, 0);
-    const ch = supabase
-      .channel("rt-maderas")
-      .on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, () => { void cargar(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "materiales" }, () => { void cargar(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => { void cargar(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, () => { void cargar(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, () => { void cargar(); })
-      .subscribe();
-    return () => {
-      window.clearTimeout(timer);
-      supabase.removeChannel(ch);
-    };
+    return () => { window.clearTimeout(timer); };
   }, [cargar]);
+  // "movimientos" es la tabla de más movimiento del sistema: cualquier alta de
+  // stock en cualquier pantalla recargaba esta entera, incluso en segundo plano.
+  useRealtimeReload(
+    "rt-maderas",
+    ["movimientos", "materiales", "pedidos", "pedido_items", "produccion_obras"],
+    cargar,
+  );
 
   const stockPorMaterial = useMemo(() => {
     const map = {};

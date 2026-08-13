@@ -113,6 +113,28 @@ function normalizeComprobanteMoneda(value: unknown, fallback?: unknown): "ARS" |
   return null;
 }
 
+// Reglas comunes a las tres vías de extracción (foto, PDF y texto pegado). Vivían
+// duplicadas en cada prompt y se desincronizaban: una mejora aprendida de un
+// remito real sólo llegaba a una de las tres.
+const REGLAS_COMPROBANTE = `- No inventes datos. Si no se ve claro, dejalo null o vacio.
+- PROVEEDOR = QUIEN EMITE el documento, nunca el destinatario. Si el comprobante dice "CLIENTE:", "Senores:", "Facturar a:" o similar, ese nombre es el que RECIBE: no lo pongas como proveedor. El emisor esta en el membrete, el pie de pagina, la web o el CUIT del encabezado. Si no lo podes distinguir con seguridad, deja proveedor en null.
+- NUMEROS (clave): detecta el formato por el ULTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles -> 99100.00; en "1.234,56" la coma es decimal -> 1234.56. Nunca tomes la coma como decimal si despues hay un punto.
+- Si hay columnas Cantidad, Precio e Importe/Total, usa la relacion Cantidad x Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 -> precio_unitario = 33000 (no 33).
+- precio_unitario es POR UNIDAD, no el total. Sanity check: un repuesto nautico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe / cantidad. Un unitario con muchos decimales (295.7873) es VALIDO: no lo redondees ni lo descartes.
+- COLUMNA DE IVA POR LINEA: muchos presupuestos traen la alicuota en cada renglon ("21.00%", "21,00", "10.5"). Eso NO es cantidad, ni precio, ni total: ignorala. Distinto es un renglon final de IVA/subtotal/total general, que tampoco es un item.
+- Si no hay precio unitario pero si cantidad y total, deja precio_unitario null.
+- Si no hay cantidad clara, deja cantidad null.
+- CANTIDAD Y UNIDAD PEGADAS: es habitual leer "100.00 m.", "20,00 UN" o "5 nº" en una sola celda. Separalas: cantidad 100, unidad "m".
+- Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
+- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
+- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combina ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.`;
+
+// Muchos presupuestos escriben cada producto en DOS renglones: el de arriba con
+// los numeros y el de abajo con marca / codigo del proveedor / rubro. Sin esta
+// regla el modelo los toma como items distintos (o se traba y no devuelve ninguno).
+const REGLA_ITEM_MULTILINEA = `
+- ITEMS DE DOS RENGLONES (frecuente): un mismo producto puede ocupar dos renglones. El primero trae N°, codigo, cantidad, unidad, descripcion y precios. El segundo, debajo y sin numero de orden, trae marca, codigo del fabricante y rubro separados por barras o guiones (ej. "FEPLAST | 17005 NEG | Cables Electronica", "MH | 104 | UF-ECO"). Ese segundo renglon es CONTINUACION del item de arriba, NO un item nuevo: fusionalos en un solo objeto. La marca y el rubro van al principio de la descripcion ("FEPLAST Cables Electronica - Cable electronica 1x 0,75 NEG extraflexib") y el codigo del fabricante entre parentesis al final. Si un renglon no tiene numero de orden ni cantidad ni precio propio, casi seguro es continuacion del anterior.`;
+
 // Bloque de prompt para que la IA clasifique cada ítem en uno de los sectores dados.
 // Usa criterio náutico de astillero (bow/stern → propulsión, cable → electricidad, etc.).
 function clasificacionBloque(sectores?: string[]): string {
@@ -139,16 +161,7 @@ Objetivo:
 - items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
 
 Reglas:
-- No inventes datos. Si no se ve claro, dejalo null o vacío.
-- NÚMEROS (clave): detectá el formato por el ÚLTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles → 99100.00; en "1.234,56" la coma es decimal → 1234.56. Nunca tomes la coma como decimal si después hay un punto.
-- Si hay columnas Cantidad, Precio e Importe/Total, usá la relación Cantidad × Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 → precio_unitario = 33000 (no 33).
-- precio_unitario es POR UNIDAD, no el total. Hacé un sanity check: un repuesto náutico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe ÷ cantidad.
-- No pongas IVA, subtotales ni totales generales como ítems.
-- Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
-- Si no hay cantidad clara, deja cantidad null.
-- Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
-- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
-- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combiná ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.
+${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
 
 Formato:
 {
@@ -242,16 +255,7 @@ Objetivo:
 - items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
 
 Reglas:
-- No inventes datos. Si no se ve claro, dejalo null o vacío.
-- NÚMEROS (clave): detectá el formato por el ÚLTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles → 99100.00; en "1.234,56" la coma es decimal → 1234.56. Nunca tomes la coma como decimal si después hay un punto.
-- Si hay columnas Cantidad, Precio e Importe/Total, usá la relación Cantidad × Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 → precio_unitario = 33000 (no 33).
-- precio_unitario es POR UNIDAD, no el total. Hacé un sanity check: un repuesto náutico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe ÷ cantidad.
-- No pongas IVA, subtotales ni totales generales como ítems.
-- Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
-- Si no hay cantidad clara, deja cantidad null.
-- Moneda es obligatoria por item: "USD" o "ARS". Si el texto dice USD/U$S/US$, todos esos precios son USD. Si no hay señal de USD, usá ARS.
-- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
-- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combiná ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.
+${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
 
 Formato:
 {
@@ -347,16 +351,7 @@ Objetivo:
 - items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
 
 Reglas:
-- No inventes datos. Si no se ve claro, dejalo null o vacio.
-- NUMEROS (clave): detecta el formato por el ULTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles -> 99100.00; en "1.234,56" la coma es decimal -> 1234.56. Nunca tomes la coma como decimal si despues hay un punto.
-- Si hay columnas Cantidad, Precio e Importe/Total, usa la relacion Cantidad x Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 -> precio_unitario = 33000 (no 33).
-- precio_unitario es POR UNIDAD, no el total. Haces un sanity check: un repuesto nautico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe / cantidad.
-- No pongas IVA, subtotales ni totales generales como items.
-- Si no hay precio unitario pero si cantidad y total, deja precio_unitario null.
-- Si no hay cantidad clara, deja cantidad null.
-- Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
-- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
-- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combiná ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.
+${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
 
 Formato:
 {
@@ -368,59 +363,74 @@ Formato:
   ]
 }`;
 
-  const res = await fetch(`${OR_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": orAuth(),
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://klasea-stock.vercel.app",
-      "X-Title": "Klase A Comprobantes",
-    },
-    body: JSON.stringify({
-      model: OR_MODEL_EXTRACT,
-      temperature: 0,
-      max_tokens: 8000,
-      reasoning: { effort: "low" },
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system + exhaustiveTableProtocol + (input.contexto || "") },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Extrae TODOS los renglones de productos de este PDF, de punta a punta. Antes de devolver, conta los renglones fisicos de la tabla y verifica que items tenga esa misma cantidad. Devuelve un objeto por renglon: no agrupes, no resumas y no omitas renglones aunque repitan codigo o descripcion. Conserva los codigos, unidades y medidas tecnicas. Devolve JSON estricto." + clasificacionBloque(input.sectores) },
-            {
-              type: "file",
-              file: {
-                filename,
-                file_data: `data:${mimeType};base64,${input.base64}`,
+  // Los PDFs de sistemas de gestion (Electrobase, Tango, Bejerman…) vienen con
+  // capa de texto: "pdf-text" la lee tal cual, exacta y gratis. "mistral-ocr"
+  // rasteriza y adivina, que es peor y mas caro justo en el caso facil. Se usa
+  // OCR solo como plan B, para PDFs escaneados o exportados como imagen.
+  async function pedir(engine: "pdf-text" | "mistral-ocr") {
+    const res = await fetch(`${OR_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": orAuth(),
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://klasea-stock.vercel.app",
+        "X-Title": "Klase A Comprobantes",
+      },
+      body: JSON.stringify({
+        model: OR_MODEL_EXTRACT,
+        temperature: 0,
+        max_tokens: 16000,
+        reasoning: { effort: "low" },
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system + exhaustiveTableProtocol + (input.contexto || "") },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extrae TODOS los renglones de productos de este PDF, de punta a punta. Antes de devolver, conta los renglones fisicos de la tabla y verifica que items tenga esa misma cantidad. Devuelve un objeto por renglon: no agrupes, no resumas y no omitas renglones aunque repitan codigo o descripcion. Conserva los codigos, unidades y medidas tecnicas. Devolve JSON estricto." + clasificacionBloque(input.sectores) },
+              {
+                type: "file",
+                file: {
+                  filename,
+                  file_data: `data:${mimeType};base64,${input.base64}`,
+                },
               },
-            },
-          ],
-        },
-      ],
-      plugins: [
-        {
-          id: "file-parser",
-          pdf: { engine: "mistral-ocr" },
-        },
-      ],
-    }),
-  });
+            ],
+          },
+        ],
+        plugins: [{ id: "file-parser", pdf: { engine } }],
+      }),
+    });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter extraerComprobante PDF failed (${res.status}): ${errText.slice(0, 300)}`);
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`OpenRouter extraerComprobante PDF [${engine}] failed (${res.status}): ${errText.slice(0, 300)}`);
+    }
+
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new Error(`OpenRouter devolvio JSON invalido: ${String(content).slice(0, 200)}`);
+    }
+    return parsed;
   }
-
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
 
   let parsed: any;
   try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error(`OpenRouter devolvio JSON invalido: ${String(content).slice(0, 200)}`);
+    parsed = await pedir("pdf-text");
+  } catch (error) {
+    console.error("[extraerComprobantePDF] pdf-text falló, reintento con OCR", error);
+    parsed = null;
+  }
+  // Un PDF escaneado devuelve texto vacio y por lo tanto cero items: ahi si vale
+  // el OCR. Antes esta era la unica via y por eso fallaba con PDFs nativos.
+  if (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0) {
+    parsed = await pedir("mistral-ocr");
   }
 
   const items = Array.isArray(parsed.items)

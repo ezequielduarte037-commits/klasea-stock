@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import useRealtimeReload from "@/hooks/useRealtimeReload";
 import { hasAdminAccess } from "@/lib/permissions";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
@@ -506,17 +507,12 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
     setLoading(false);
   }
 
-  useEffect(() => {
-    queueMicrotask(cargar);
-    const ch = supabase.channel("rt-obras-lam")
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obras" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obra_materiales" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_movimientos" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "linea_plantillas" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "linea_plantilla_items" }, cargar)
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, []);
+  useEffect(() => { queueMicrotask(cargar); }, []);
+  useRealtimeReload(
+    "rt-obras-lam",
+    ["laminacion_obras", "laminacion_obra_materiales", "laminacion_movimientos", "linea_plantillas", "linea_plantilla_items"],
+    cargar,
+  );
 
   const obraSel = useMemo(() => obras.find(o => o.id === obraSelId), [obras, obraSelId]);
   const norm = (s) => (s ?? "").trim().toUpperCase().replace(/\s+/g, " ");

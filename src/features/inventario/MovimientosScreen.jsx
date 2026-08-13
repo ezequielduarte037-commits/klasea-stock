@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import useRealtimeReload from "@/hooks/useRealtimeReload";
 import { C } from "@/theme";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
@@ -68,14 +69,8 @@ export default function MovimientosScreen({ profile, signOut }) {
     setRows((r2.data ?? []).map(m => ({ ...m, obs_ui: m.obs ?? null, material_nombre: map.get(m.material_id) ?? "—" })));
   }
 
-  useEffect(() => {
-    cargar();
-    const ch = supabase
-      .channel("rt-movs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, cargar)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  useEffect(() => { queueMicrotask(() => { void cargar(); }); }, []);
+  useRealtimeReload("rt-movs", ["movimientos"], cargar);
 
   const filtrados = useMemo(() => {
     const qq = q.trim().toLowerCase();

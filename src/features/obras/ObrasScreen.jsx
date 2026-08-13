@@ -2780,13 +2780,63 @@ export default function ObrasScreen({ profile, signOut }) {
   useEffect(() => {
     cargar();
     cargarMapaConfig();
-    // Debounce para que múltiples eventos realtime seguidos (INSERT obra + etapas + tareas)
-    // no disparen N cargar() simultáneos → causa titileo en el mapa
+
+    // Antes CUALQUIER cambio en cualquiera de estas tablas volvía a correr cargar()
+    // entero: 9 queries, incluidas las ~3300 tareas de todas las obras (≈335 KB
+    // comprimidos). Con varias personas mirando el tablero, cada tilde de una tarea
+    // costaba esos 335 KB POR USUARIO conectado. Eso era el grueso del egress.
+    //
+    // Ahora los cambios de obras/etapas/tareas se aplican en memoria con la fila que
+    // ya viene en el propio evento realtime: costo de red CERO. Sólo se recarga de
+    // verdad cuando el evento no trae fila usable (p. ej. un DELETE sin replica
+    // identity) o cuando cambia una tabla que no tenemos mapeada.
     let debounceTimer = null;
     const cargarDebounced = () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(cargar, 350);
     };
+    // Si la pestaña está en segundo plano no tiene sentido traer datos que nadie
+    // está mirando: se marca pendiente y se refresca al volver.
+    let pendienteAlVolver = false;
+    const cargarSiVisible = () => {
+      if (document.hidden) { pendienteAlVolver = true; return; }
+      cargarDebounced();
+    };
+    const onVisible = () => {
+      if (document.hidden || !pendienteAlVolver) return;
+      pendienteAlVolver = false;
+      cargarDebounced();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    // Aplica INSERT/UPDATE/DELETE sobre una lista en memoria usando el payload del
+    // evento. Devuelve false si el payload no alcanza y hay que recargar de verdad.
+    // `pertenece` replica el WHERE de la query original: sin eso, un UPDATE podría
+    // meter en la lista una fila que la consulta excluye (o dejar una que ya no).
+    const aplicar = (setter, pertenece = () => true) => (payload) => {
+      const fila = payload.new && Object.keys(payload.new).length ? payload.new : null;
+      const viejaId = payload.old?.id ?? null;
+      if (payload.eventType === "DELETE") {
+        if (!viejaId) return false;
+        setter((prev) => prev.filter((r) => r.id !== viejaId));
+        return true;
+      }
+      if (!fila?.id) return false;
+      setter((prev) => {
+        const i = prev.findIndex((r) => r.id === fila.id);
+        if (!pertenece(fila)) return i === -1 ? prev : prev.filter((r) => r.id !== fila.id);
+        if (i === -1) return [...prev, fila];
+        const next = prev.slice();
+        next[i] = { ...next[i], ...fila };
+        return next;
+      });
+      return true;
+    };
+    const enMemoriaORecargar = (setter, pertenece) => (payload) => {
+      if (document.hidden) { pendienteAlVolver = true; return; }
+      if (!aplicar(setter, pertenece)(payload)) cargarDebounced();
+    };
+
     // Layout/memorias/notas del mapa viven en mapa_config (singleton). Suscribirse
     // hace que cuando OTRO usuario mueve puestos o edita memorias, se refleje en vivo.
     let mapaTimer = null;
@@ -2795,16 +2845,22 @@ export default function ObrasScreen({ profile, signOut }) {
       mapaTimer = setTimeout(cargarMapaConfig, 400);
     };
     const ch = supabase.channel("rt-obras-v8")
-      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras"    }, cargarDebounced)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"         }, cargarDebounced)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"         }, cargarDebounced)
-      .on("postgres_changes", { event: "*", schema: "public", table: "fechas_offsets"      }, cargarDebounced)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_compra"      }, cargarDebounced)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tarea_archivos" }, cargarDebounced)
-      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obra_periodos_no_laborables" }, cargarDebounced)
+      // Mismo filtro que la carga inicial: las obras "solo stock" no van al tablero.
+      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras"    }, enMemoriaORecargar(setObras, (o) => o.solo_stock === false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"         }, enMemoriaORecargar(setEtapas))
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"         }, enMemoriaORecargar(setTareas))
+      .on("postgres_changes", { event: "*", schema: "public", table: "fechas_offsets"      }, cargarSiVisible)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_compra"      }, cargarSiVisible)
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tarea_archivos" }, cargarSiVisible)
+      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obra_periodos_no_laborables" }, cargarSiVisible)
       .on("postgres_changes", { event: "*", schema: "public", table: "mapa_config"         }, cargarMapaDebounced)
       .subscribe();
-    return () => { clearTimeout(debounceTimer); clearTimeout(mapaTimer); supabase.removeChannel(ch); };
+    return () => {
+      clearTimeout(debounceTimer);
+      clearTimeout(mapaTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   // ── HELPERS ───────────────────────────────────────────────────
