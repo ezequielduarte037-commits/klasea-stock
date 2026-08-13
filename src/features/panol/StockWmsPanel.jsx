@@ -522,6 +522,8 @@ function rowUnitPriceUsd(row) {
 function rowSearchText(row) {
   return norm([
     row.descripcion,
+    row.requisito_descripcion,
+    row.opcion_asignada,
     row.codigo,
     row.codigo_barra,
     row.variante,
@@ -652,6 +654,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
         esRequisito: row.es_requisito === true,
         productosCompatibles: Array.isArray(row.productos_compatibles) ? row.productos_compatibles : [],
         variantesEnStock: new Set(),
+        opcionMap: new Map(),
         ubicacion: row.ubicacion || null,
         ubicacion_obs: row.ubicacion_obs || null,
         total: 0,
@@ -701,7 +704,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
         group.productosCompatibles = row.productos_compatibles;
       }
     }
-    const varChosen = String(row.variante || "").trim();
+    const varChosen = String(row.opcion_asignada || row.variante || "").trim();
     if (varChosen) group.variantesEnStock.add(varChosen);
     if (row.codigos_barra?.length) {
       group.material.codigos_barra = [
@@ -727,16 +730,22 @@ function buildProductGroups(rows = [], fObra = "todas") {
     const location = group.locationMap.get(locKey);
     location.available += delta;
     location.valueUsd += delta * rowUnitPriceUsd(row);
-    // Desglose por variante dentro de este depósito/obra (Samsung: 10 · LG: 10)
-    const vName = String(row.variante || "").trim();
+    // Desglose por opción dentro de este depósito/obra. `opcion_asignada`
+    // cubre los productos concretos nuevos y `variante` conserva los registros
+    // históricos (Samsung: 10 · LG: 10).
+    const vName = String(row.opcion_asignada || row.variante || "").trim();
     if (!location.variantMap.has(vName)) location.variantMap.set(vName, { available: 0, transitQty: 0 });
     const vAgg = location.variantMap.get(vName);
     vAgg.available += delta;
+    if (!group.opcionMap.has(vName)) group.opcionMap.set(vName, { available: 0, transitQty: 0 });
+    const optionAgg = group.opcionMap.get(vName);
+    optionAgg.available += delta;
     if (rowIsTransit(row)) {
       const transit = qty(row.cantidad, 1);
       location.transitQty += transit;
       group.transitQty += transit;
       vAgg.transitQty += transit;
+      optionAgg.transitQty += transit;
     }
     if (rowIsEgreso(row)) group.hasEgreso = true;
     location.rows.push(row);
@@ -768,6 +777,10 @@ function buildProductGroups(rows = [], fObra = "todas") {
     const hasPositiveStock = locations.some((loc) => loc.available > 0.0001);
     return {
       ...group,
+      opciones: [...group.opcionMap.entries()]
+        .filter(([name, agg]) => name && (Math.abs(agg.available) > 0.0001 || agg.transitQty > 0))
+        .map(([name, agg]) => ({ nombre: name, available: agg.available, transitQty: agg.transitQty }))
+        .sort((a, b) => b.available - a.available || a.nombre.localeCompare(b.nombre, "es", { numeric: true })),
       tipoPedido: groupTipoFromStock(group),
       locations,
       egresado: group.hasEgreso && !hasPositiveStock && group.transitQty <= 0,
@@ -1026,6 +1039,31 @@ function MinimumEditor({ group, canEdit, onSave }) {
   );
 }
 
+function OptionStockSummary({ group, compact = false, max = 3 }) {
+  const opciones = Array.isArray(group?.opciones) ? group.opciones : [];
+  if (!opciones.length) return null;
+  const visibles = opciones.slice(0, max);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", minWidth: 0 }}>
+      <span style={{ color: C.dim, fontSize: compact ? 8.5 : 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.65, flexShrink: 0 }}>
+        {opciones.length === 1 ? "Opción" : "Opciones"}
+      </span>
+      {visibles.map((opcion) => (
+        <span
+          key={opcion.nombre}
+          title={`${opcion.nombre}: ${fmtQty(opcion.available)} ${group.unidad || "u"}`}
+          style={{ maxWidth: compact ? 180 : 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: compact ? "1px 6px" : "2px 8px", fontSize: compact ? 9.5 : 10.5, fontWeight: 850 }}
+        >
+          {opcion.nombre} · {fmtQty(opcion.available)}
+        </span>
+      ))}
+      {opciones.length > visibles.length && (
+        <span style={{ color: C.dim, fontSize: compact ? 9 : 10, fontWeight: 900 }}>+{opciones.length - visibles.length}</span>
+      )}
+    </div>
+  );
+}
+
 // memo: al agregar al carrito (o seleccionar) solo se re-renderizan las tarjetas
 // afectadas, no las 300+ de la lista — el click se siente inmediato.
 const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, inCart = false, dense = false }) {
@@ -1094,6 +1132,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
             </span>
           )}
         </div>
+        <OptionStockSummary group={group} compact max={1} />
       </button>
     );
   }
@@ -1150,18 +1189,8 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
           <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} />
         )}
       </div>
-      {/* Variantes del producto (resaltadas las que están en stock) */}
-      {active && group.variantes?.length > 0 && (
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 8.5, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Variantes</span>
-          {group.variantes.slice(0, 8).map((v) => {
-            const enStock = group.variantesEnStock?.has?.(v);
-            return (
-              <span key={v} style={{ fontSize: 10, fontWeight: 850, color: C.violet, background: enStock ? "rgba(139,92,246,0.16)" : "transparent", border: `1px solid ${enStock ? "rgba(139,92,246,0.42)" : C.border}`, borderRadius: 999, padding: "1px 7px" }}>{v}</span>
-            );
-          })}
-        </div>
-      )}
+      {/* La opción asignada es dato operativo: siempre visible sin abrir. */}
+      <OptionStockSummary group={group} max={2} />
       {/* Fila 3: meta (código · proveedor · rubro · valor) + carrito inline.
           El chip de carrito va EN la misma fila: una fila propia le sumaba ~24px
           a cada card y con 300 productos eso es media pantalla menos de lista. */}
@@ -1303,6 +1332,7 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
           {sinCodigo && <FaltaChip>código</FaltaChip>}
           {descripcionPobre && <FaltaChip>descripción</FaltaChip>}
         </div>
+        <div style={{ marginTop: 5 }}><OptionStockSummary group={group} compact max={2} /></div>
       </div>
 
       <div>
@@ -1382,7 +1412,7 @@ function LocationButton({ location, active, onClick }) {
           <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
             {location.porVariante.map((pv) => (
               <span key={pv.variante} style={{ fontSize: 10, fontWeight: 850, color: C.violet, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "1px 7px" }}>
-                {pv.variante}: {fmtQty(pv.available)}{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
+                Opción · {pv.variante}: {fmtQty(pv.available)}{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
               </span>
             ))}
           </span>
@@ -3016,15 +3046,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
           </div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{detCode} · disponible {fmtQty(group.total)} {group.unidad}</div>
-          {group.variantes?.length > 0 && (
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-              <span style={{ fontSize: 9, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Variantes</span>
-              {group.variantes.map((v) => {
-                const enStock = group.variantesEnStock?.has?.(v);
-                return <span key={v} style={{ fontSize: 10.5, fontWeight: 850, color: C.violet, background: enStock ? "rgba(139,92,246,0.16)" : "transparent", border: `1px solid ${enStock ? "rgba(139,92,246,0.42)" : C.border}`, borderRadius: 999, padding: "2px 8px" }}>{v}{enStock ? " ✓" : ""}</span>;
-              })}
-            </div>
-          )}
+          <div style={{ marginTop: 6 }}><OptionStockSummary group={group} max={6} /></div>
         </div>
         <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850, cursor: "pointer", flexShrink: 0 }}>{isMobile ? "Lista" : "Cerrar"}</button>
       </div>

@@ -339,9 +339,14 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
   }
   if (error) throw error;
   const rows = data ?? [];
-  const materialIds = [...new Set(rows.map((row) => row.material_id).filter(Boolean))];
+  // Se necesitan ambas identidades: `requisito_material_id` es el ítem de la
+  // matriz (ej. "TV 32") y `material_id` es la opción concreta asignada
+  // (ej. Samsung). Si sólo hidratamos el segundo, el stock pierde el contexto
+  // necesario para mostrar la opción elegida en cada obra.
+  const materialIds = [...new Set(rows.flatMap((row) => [row.material_id, row.requisito_material_id]).filter(Boolean))];
   const materialById = new Map();
   const categoriaById = new Map();
+  const opcionLegacyByPair = new Map();
   if (materialIds.length) {
     let materiales = [];
     const fetchMaterialMetadata = async (select) => {
@@ -440,6 +445,12 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
         for (const link of links ?? []) {
           const producto = productoById.get(link.producto_material_id);
           if (!producto || producto.es_requisito) continue;
+          if (String(link.variante_legacy || "").trim()) {
+            opcionLegacyByPair.set(
+              `${link.requisito_material_id}:${link.producto_material_id}`,
+              String(link.variante_legacy).trim(),
+            );
+          }
           const list = compatiblesByRequisito.get(link.requisito_material_id) ?? [];
           list.push({
             id: producto.id,
@@ -532,6 +543,26 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
   }
   const hydrated = rows.map((row) => {
     const meta = materialById.get(row.material_id) || null;
+    const requisitoMeta = materialById.get(row.requisito_material_id) || null;
+    const tieneProductoConcreto = !!(
+      row.material_id
+      && row.requisito_material_id
+      && row.material_id !== row.requisito_material_id
+    );
+    const opcionLegacy = String(row.variante || "").trim();
+    const productoDescripcion = String(meta?.descripcion || row.descripcion || "").trim();
+    const requisitoDescripcion = String(requisitoMeta?.descripcion || "").trim();
+    const opcionVinculada = opcionLegacyByPair.get(`${row.requisito_material_id}:${row.material_id}`) || "";
+    const opcionDesdeDescripcion = requisitoDescripcion
+      && productoDescripcion.toLocaleLowerCase("es").startsWith(requisitoDescripcion.toLocaleLowerCase("es"))
+      ? productoDescripcion
+        .slice(requisitoDescripcion.length)
+        .replace(/^[\s·\-–—:|/]+/, "")
+        .trim()
+      : "";
+    const opcionAsignada = tieneProductoConcreto
+      ? (opcionVinculada || opcionDesdeDescripcion || productoDescripcion)
+      : (opcionLegacy && opcionLegacy.toLowerCase() !== "standard" ? opcionLegacy : "");
     const request = row.purchase_request_id ? requestById.get(row.purchase_request_id) || null : null;
     const categoriaId = row.categoria_id || meta?.categoria_id || null;
     const directActor = isUuidLike(row.egreso_por) ? egresoActorById.get(row.egreso_por) || null : null;
@@ -576,6 +607,10 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       // hizo el movimiento.
       envio_actor_nombre: envioActor?.username || "",
       request,
+      requisito_descripcion: requisitoMeta?.descripcion || "",
+      opcion_asignada: opcionAsignada,
+      opcion_producto_descripcion: tieneProductoConcreto ? productoDescripcion : "",
+      opcion_material_id: tieneProductoConcreto ? row.material_id : null,
       es_adicional: row.es_adicional ?? request?.es_adicional ?? false,
       proveedor: row.proveedor || meta?.proveedor || "",
       codigo_barra: row.codigo_barra || meta?.codigo_barra || meta?.codigos_barra?.[0]?.codigo || "",

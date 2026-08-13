@@ -856,6 +856,38 @@ function buildOrdenTexto({ obra, lineaNombre, rows, groupBy = "proveedor" }) {
   return lines.join("\n").trim();
 }
 
+// Recorta una descripción a las primeras palabras. Cortar por caracteres partía
+// medidas al medio ("Cable normalizado 1x 1,5 mm2…") y se comía justo el dato que
+// distingue un ítem de otro; por palabras queda "Cable normalizado", que se lee.
+function resumenDescripcion(texto = "", maxPalabras = 2, maxChars = 46) {
+  const limpio = String(texto || "").replace(/\s+/g, " ").trim();
+  if (!limpio) return "";
+  const palabras = limpio.split(" ");
+  const corto = palabras.length <= maxPalabras ? limpio : palabras.slice(0, maxPalabras).join(" ");
+  return corto.length > maxChars ? `${corto.slice(0, maxChars).trim()}…` : corto;
+}
+
+// Título sugerido para un pedido a compras. "Pedido 55-1 - 2 items" no dice nada
+// de lo que se pidió: quien lo recibe tiene que abrirlo para saber de qué se trata.
+// Nombrar los primeros productos hace que la lista se pueda leer de un vistazo.
+// El código de obra va adelante porque es por donde se busca.
+function buildPedidoTitulo({ obra, rows = [], maxItems = 2 }) {
+  const prefijo = obra?.codigo ? `${obra.codigo} · ` : "";
+  // Con un solo ítem entra la descripción entera; con varios hay que compactar
+  // para que el título siga siendo legible en una lista.
+  const unico = rows.length === 1;
+  const descripciones = rows
+    .map((row) => resumenDescripcion(row?.descripcion, unico ? 99 : 2))
+    .filter(Boolean);
+  if (!descripciones.length) {
+    const n = rows.length;
+    return `${prefijo}${n} ${n === 1 ? "ítem" : "ítems"}`.trim();
+  }
+  const visibles = descripciones.slice(0, maxItems);
+  const resto = descripciones.length - visibles.length;
+  return `${prefijo}${visibles.join(", ")}${resto > 0 ? ` +${resto}` : ""}`;
+}
+
 // Mapea el nombre de sector que sugiere la IA a una categoría real (por nombre).
 function catIdPorNombre(categorias, nombre) {
   if (!nombre) return "";
@@ -947,6 +979,7 @@ export {
   buildAiReviewText,
   copyTextToClipboard,
   buildOrdenTexto,
+  buildPedidoTitulo,
   catIdPorNombre,
   canonicalDuplicateToken,
   codeCandidatesFromText,

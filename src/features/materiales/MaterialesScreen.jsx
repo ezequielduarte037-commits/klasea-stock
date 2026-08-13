@@ -126,6 +126,7 @@ import {
   buildAiReviewText,
   copyTextToClipboard,
   buildOrdenTexto,
+  buildPedidoTitulo,
   catIdPorNombre,
   canonicalDuplicateToken,
   codeCandidatesFromText,
@@ -3769,6 +3770,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [panolPrefill, setPanolPrefill] = useState(null);
   const [pedidoObraTipo, setPedidoObraTipo] = useState(null);
   const [pedidoConfirm, setPedidoConfirm] = useState(null);
+  const [pedidoTitulo, setPedidoTitulo] = useState("");
   const [condicionantesMatriz, setCondicionantesMatriz] = useState([]);
   const [condicionantesObra, setCondicionantesObra] = useState(() => new Map());
   const [condicionanteBusy, setCondicionanteBusy] = useState("");
@@ -4431,6 +4433,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       setFlowMsg({ type: "err", text: "Elegí el tipo de pedido." });
       return;
     }
+    // El título se propone acá y queda editable en la confirmación: es el último
+    // momento donde quien pide todavía tiene el contexto de qué está mandando.
+    setPedidoTitulo(buildPedidoTitulo({ obra, rows: orderRows }));
     setPedidoConfirm({ rows: orderRows, tipo: pedidoObraTipo });
   }
 
@@ -4449,7 +4454,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       await fijarConfiguracionesParaFlujo(saved, orderRows);
       const req = await createPurchaseRequest({
         form: {
-          title: `Pedido ${obra.codigo} - ${selected.size ? `${selected.size} items` : "lista filtrada"}`,
+          // Si el usuario lo vació, se vuelve al sugerido antes que mandar un pedido sin nombre.
+          title: pedidoTitulo.trim() || buildPedidoTitulo({ obra, rows: orderRows }),
           description: buildOrdenTexto({ obra, lineaNombre, rows: orderRows, groupBy }),
           priority: "media",
           source: "materiales_obra",
@@ -5388,6 +5394,34 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 <X size={14} />
               </button>
             </div>
+
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", color: C.t2 }}>
+                Título del pedido
+              </span>
+              <input
+                value={pedidoTitulo}
+                onChange={(e) => setPedidoTitulo(e.target.value)}
+                placeholder={buildPedidoTitulo({ obra, rows: pedidoConfirm.rows })}
+                maxLength={120}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  border: `1px solid ${C.b0}`,
+                  borderRadius: 9,
+                  background: C.bg,
+                  color: C.t0,
+                  padding: "9px 10px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: C.sans,
+                  outline: "none",
+                }}
+              />
+              <span style={{ fontSize: 10.5, color: C.t3 }}>
+                Es lo que ve Compras en la lista. Podés cambiarlo.
+              </span>
+            </label>
 
             <div style={{ display: "grid", gap: 4, maxHeight: 280, overflowY: "auto", border: `1px solid ${C.b0}`, borderRadius: 10, padding: 8 }}>
               {pedidoConfirm.rows.map((row, index) => (
