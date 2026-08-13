@@ -350,12 +350,12 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       // no se aplicaron, mostrando menos en vez de romper.
       let res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas")
+        .select("id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas")
         .in("id", materialIds);
       if (res.error && isMissingColumn(res.error)) {
         res = await supabase
           .from("panol_materiales")
-          .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas")
+          .select("id,descripcion,codigo,unidad_medida,activo,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas")
           .in("id", materialIds);
       }
       if (res.error && isMissingColumn(res.error)) {
@@ -390,6 +390,58 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(materialIds);
     for (const mat of materiales) {
       materialById.set(mat.id, { ...mat, codigos_barra: codigosByMaterial.get(mat.id) ?? [] });
+    }
+    const requisitoIds = materiales.filter((mat) => mat.es_requisito).map((mat) => mat.id);
+    if (requisitoIds.length) {
+      try {
+        const { data: links, error: linksError } = await supabase
+          .from("panol_requisito_productos")
+          .select("requisito_material_id,producto_material_id,variante_legacy")
+          .in("requisito_material_id", requisitoIds)
+          .eq("activo", true);
+        if (linksError) throw linksError;
+
+        const productoIds = [...new Set((links ?? []).map((link) => link.producto_material_id).filter(Boolean))];
+        let productos = [];
+        if (productoIds.length) {
+          const { data: productoRows, error: productosError } = await supabase
+            .from("panol_materiales")
+            .select("id,descripcion,codigo,unidad_medida,proveedor,activo,es_requisito")
+            .in("id", productoIds)
+            .eq("activo", true);
+          if (productosError) throw productosError;
+          productos = productoRows ?? [];
+        }
+        const productoById = new Map(productos.map((producto) => [producto.id, producto]));
+        const compatiblesByRequisito = new Map();
+        for (const link of links ?? []) {
+          const producto = productoById.get(link.producto_material_id);
+          if (!producto || producto.es_requisito) continue;
+          const list = compatiblesByRequisito.get(link.requisito_material_id) ?? [];
+          list.push({
+            id: producto.id,
+            descripcion: producto.descripcion || "Producto sin nombre",
+            codigo: producto.codigo || "",
+            unidad_medida: producto.unidad_medida || "unidad",
+            proveedor: producto.proveedor || "",
+            variante_legacy: link.variante_legacy || "",
+          });
+          compatiblesByRequisito.set(link.requisito_material_id, list);
+        }
+        for (const requisitoId of requisitoIds) {
+          const meta = materialById.get(requisitoId);
+          if (!meta) continue;
+          materialById.set(requisitoId, {
+            ...meta,
+            productos_compatibles: (compatiblesByRequisito.get(requisitoId) ?? [])
+              .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es", { numeric: true })),
+          });
+        }
+      } catch (compatiblesError) {
+        // La compatibilidad es necesaria sólo para requisitos históricos.
+        // Si el esquema viejo no la tiene, el resto del stock debe seguir cargando.
+        if (!isMissingTable(compatiblesError) && !isMissingColumn(compatiblesError)) throw compatiblesError;
+      }
     }
     const categoriaIds = [...new Set(materiales.map((mat) => mat.categoria_id).filter(Boolean))];
     if (categoriaIds.length) {
@@ -511,6 +563,8 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       stock_minimo: meta?.stock_minimo ?? null,
       imagen_url: meta?.imagen_url || null,
       notas: meta?.notas || null,
+      es_requisito: meta?.es_requisito === true,
+      productos_compatibles: Array.isArray(meta?.productos_compatibles) ? meta.productos_compatibles : [],
       // Revisión del maestro. Si la migración todavía no corrió, meta no las
       // trae y todo queda "pendiente", que es la lectura correcta.
       verificacion_estado: meta?.verificacion_estado || "pendiente",
@@ -1275,6 +1329,7 @@ export async function egresarProducto({
   sectorDestino = null,
   esAdicional = false,
   variante = null,
+  productoMaterialId = null,
 } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   const desc = String(descripcion || material?.descripcion || "").trim();
@@ -1295,11 +1350,49 @@ export async function egresarProducto({
     p_es_adicional: !!esAdicional,
   };
   const varClean = String(variante || "").trim() || null;
-  let { data, error } = await supabase.rpc("panol_egresar_producto", { ...base, p_variante: varClean });
+  let { data, error } = await supabase.rpc("panol_egresar_producto", {
+    ...base,
+    p_variante: varClean,
+    p_producto_material_id: productoMaterialId || null,
+  });
   // Si el RPC todavía no tiene el parámetro p_variante, reintenta sin él (transición).
   if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
     ({ data, error } = await supabase.rpc("panol_egresar_producto", base));
   }
+  if (error) throw error;
+  return data;
+}
+
+export async function egresarProductosCarrito({
+  items = [],
+  destinoObraId = null,
+  nota = null,
+  retiradoPor = null,
+  sectorDestino = null,
+} = {}) {
+  if (!Array.isArray(items) || !items.length) throw new Error("El carrito está vacío.");
+  const payload = items.map((item) => ({
+    material_id: item.material?.id || item.material_id || null,
+    producto_material_id: item.productoMaterialId || null,
+    descripcion: String(item.label || item.descripcion || item.material?.descripcion || "").trim(),
+    codigo: String(item.codigo || item.material?.codigo || "").trim() || null,
+    cantidad: Number(String(item.cantidad ?? "").replace(",", ".")),
+    unidad: item.unidad || item.material?.unidad || item.material?.unidad_medida || "unidad",
+    sede: item.sede || null,
+    obra_id: item.obraId || null,
+    es_adicional: !!item.esAdicional,
+    variante: String(item.variante || "").trim() || null,
+  }));
+  if (payload.some((item) => !item.material_id || !Number.isFinite(item.cantidad) || item.cantidad <= 0)) {
+    throw new Error("Hay un renglón del carrito incompleto o con cantidad inválida.");
+  }
+  const { data, error } = await supabase.rpc("panol_egresar_carrito", {
+    p_items: payload,
+    p_destino_obra_id: destinoObraId || null,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_sector_destino: String(sectorDestino || "").trim() || null,
+  });
   if (error) throw error;
   return data;
 }
@@ -1380,6 +1473,7 @@ export async function transferirProducto({
   retiradoPor = null,
   esAdicional = false,
   variante = null,
+  productoMaterialId = null,
 } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   const desc = String(descripcion || material?.descripcion || "").trim();
@@ -1400,7 +1494,11 @@ export async function transferirProducto({
     p_es_adicional: !!esAdicional,
   };
   const varClean = String(variante || "").trim() || null;
-  let { data, error } = await supabase.rpc("panol_transferir_producto", { ...base, p_variante: varClean });
+  let { data, error } = await supabase.rpc("panol_transferir_producto", {
+    ...base,
+    p_variante: varClean,
+    p_producto_material_id: productoMaterialId || null,
+  });
   if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
     ({ data, error } = await supabase.rpc("panol_transferir_producto", base));
   }

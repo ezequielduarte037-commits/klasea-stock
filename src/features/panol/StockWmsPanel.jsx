@@ -35,6 +35,7 @@ import {
   crearPanolCatalogMaterialParaEgreso,
   actualizarStockMinimoPanol,
   egresarProducto,
+  egresarProductosCarrito,
   fetchMaterialesEgreso,
   fetchObrasEgreso,
   fetchPanolCatalogMini,
@@ -60,10 +61,11 @@ import {
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
 const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
 const RECEIVED_STATES = new Set(["recibido", "parcial"]);
-const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
+const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso", "reclasificacion_ingreso"]);
 const CATALOG_SEARCH_LIMIT = 12;
 const EGRESO_VIEW_STORAGE_KEY = "klasea.panol.egresoView";
 const STOCK_VIEW_STORAGE_KEY = "klasea.panol.stockView.v2";
+const PANOL_CART_STORAGE_KEY = "klasea:panol-carrito.v2";
 
 function readStoredEgresoView() {
   if (typeof window === "undefined") return "egresar";
@@ -399,6 +401,7 @@ function rowIsEgreso(row) {
   const source = rowSource(row);
   return source.startsWith("egreso")
     || source.startsWith("transferencia_egreso")
+    || source === "reclasificacion_egreso"
     || source === "conteo_fisico_reversion";
 }
 
@@ -629,6 +632,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
           stock_minimo: row.stock_minimo ?? null,
           imagen_url: row.imagen_url || null,
           notas: row.notas || null,
+          es_requisito: row.es_requisito === true,
         },
         imagenUrl: row.imagen_url || null,
         notas: row.notas || null,
@@ -645,6 +649,8 @@ function buildProductGroups(rows = [], fObra = "todas") {
         stockMinimo: row.stock_minimo ?? null,
         tipoPedido,
         variantes: Array.isArray(row.variantes) ? row.variantes.map((v) => (v && typeof v === "object" ? v.nombre : String(v || ""))).filter(Boolean) : [],
+        esRequisito: row.es_requisito === true,
+        productosCompatibles: Array.isArray(row.productos_compatibles) ? row.productos_compatibles : [],
         variantesEnStock: new Set(),
         ubicacion: row.ubicacion || null,
         ubicacion_obs: row.ubicacion_obs || null,
@@ -687,6 +693,13 @@ function buildProductGroups(rows = [], fObra = "todas") {
     }
     if ((!group.variantes || !group.variantes.length) && Array.isArray(row.variantes) && row.variantes.length) {
       group.variantes = row.variantes.map((v) => (v && typeof v === "object" ? v.nombre : String(v || ""))).filter(Boolean);
+    }
+    if (row.es_requisito === true) {
+      group.esRequisito = true;
+      group.material.es_requisito = true;
+      if ((!group.productosCompatibles || !group.productosCompatibles.length) && Array.isArray(row.productos_compatibles)) {
+        group.productosCompatibles = row.productos_compatibles;
+      }
     }
     const varChosen = String(row.variante || "").trim();
     if (varChosen) group.variantesEnStock.add(varChosen);
@@ -1599,6 +1612,9 @@ function normalizeStoredCartItem(item) {
     variante,
     locationAvailable: qty(item?.locationAvailable, qty(item?.available, 0)),
     porVariante: Array.isArray(item?.porVariante) ? item.porVariante : [],
+    esRequisito: item?.esRequisito === true,
+    productosCompatibles: Array.isArray(item?.productosCompatibles) ? item.productosCompatibles : [],
+    productoMaterialId: item?.productoMaterialId || "",
   };
 }
 
@@ -1657,6 +1673,9 @@ function makeCartItem(group, location, { cantidad, sede, codigo, unidad, variant
     esAdicional: !!group.esAdicional,
     variantes,
     variante: cleanVariant,
+    esRequisito: group.esRequisito === true,
+    productosCompatibles: Array.isArray(group.productosCompatibles) ? group.productosCompatibles : [],
+    productoMaterialId: "",
   };
 }
 
@@ -1805,6 +1824,13 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       cantidad: defaultEgresoQty({ available }),
     } : item));
   }
+  function updateCartItemProduct(key, productoMaterialId) {
+    setCart((prev) => prev.map((item) => item.key === key ? {
+      ...item,
+      productoMaterialId,
+      variante: "",
+    } : item));
+  }
 
   function addAnotherVariant(item, nextVariant) {
     if (!nextVariant) return;
@@ -1823,6 +1849,11 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
   async function submitBatch() {
     if (!canReceive || !cart.length) return;
+    const sinProducto = cart.find((item) => item.esRequisito && !item.productoMaterialId);
+    if (sinProducto) {
+      toast.warning(`${sinProducto.label}: elegí el producto concreto antes de confirmar.`);
+      return;
+    }
     const sinStock = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
     if (sinStock) {
       toast.warning(`${sinStock.label}: no hay stock suficiente. Corregí la cantidad o registrá el ingreso primero.`);
@@ -1851,8 +1882,8 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
         sectorDestino.trim() ? `Destino: ${sectorDestino.trim()}` : "",
         nota.trim(),
       ].filter(Boolean).join(" · ");
-      for (const item of cart) {
-        if (movementKind === "transferir") {
+      if (movementKind === "transferir") {
+        for (const item of cart) {
           await transferirProducto({
             material: item.material,
             descripcion: item.label,
@@ -1866,23 +1897,16 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
             retiradoPor,
             esAdicional: item.esAdicional,
             variante: item.variante || null,
+            productoMaterialId: item.productoMaterialId || null,
           });
-          continue;
         }
-        await egresarProducto({
-          material: item.material,
-          descripcion: item.label,
-          codigo: item.codigo,
-          unidad: item.unidad,
-          cantidad: item.cantidad,
-          sede: item.sede,
-          obraId: item.obraId,
+      } else {
+        await egresarProductosCarrito({
+          items: cart,
           destinoObraId,
           retiradoPor,
           sectorDestino,
           nota: egresoNota,
-          esAdicional: item.esAdicional,
-          variante: item.variante || null,
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
@@ -1998,7 +2022,21 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.locationLabel}{item.sede ? ` · ${item.sede}` : ""}{item.catalogOnly ? " · sin registro digital" : ""}
                 </div>
-                {item.variantes?.length > 0 && (
+                {item.esRequisito && (
+                  <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
+                    <select
+                      value={item.productoMaterialId || ""}
+                      onChange={(event) => updateCartItemProduct(item.key, event.target.value)}
+                      style={{ background: item.productoMaterialId ? C.greenL : C.violetL, border: `1px solid ${item.productoMaterialId ? C.greenB : C.violetB}`, color: item.productoMaterialId ? C.green : C.violet, borderRadius: 8, padding: "5px 7px", fontSize: 11, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: 850 }}
+                    >
+                      <option value="">Elegir producto concreto…</option>
+                      {(item.productosCompatibles || []).map((producto) => (
+                        <option key={producto.id} value={producto.id}>{producto.descripcion}{producto.codigo ? ` · ${producto.codigo}` : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {!item.esRequisito && item.variantes?.length > 0 && (
                   <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
                     <select
                       value={item.variante || ""}
@@ -3323,6 +3361,13 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
       cantidad: defaultEgresoQty({ available }),
     } : item));
   }
+  function updateCartItemProduct(key, productoMaterialId) {
+    setCart((prev) => prev.map((item) => item.key === key ? {
+      ...item,
+      productoMaterialId,
+      variante: "",
+    } : item));
+  }
   function addAnotherVariant(item, nextVariant) {
     if (!nextVariant) return;
     const nextItem = additionalVariantCartItem(item, nextVariant);
@@ -3356,6 +3401,11 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
   async function submitBatch() {
     if (!canReceive || !cart.length || saving) return;
+    const sinProducto = cart.find((item) => item.esRequisito && !item.productoMaterialId);
+    if (sinProducto) {
+      toast.warning(`${sinProducto.label}: elegí el producto concreto antes de confirmar.`);
+      return;
+    }
     const sinStock = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
     if (sinStock) {
       toast.warning(`${sinStock.label}: no hay stock suficiente. Corregí la cantidad o registrá el ingreso primero.`);
@@ -3393,8 +3443,8 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         sectorDestino.trim() ? `Destino: ${sectorDestino.trim()}` : "",
         nota.trim(),
       ].filter(Boolean).join(" · ");
-      for (const item of cart) {
-        if (movementKind === "transferir") {
+      if (movementKind === "transferir") {
+        for (const item of cart) {
           await transferirProducto({
             material: item.material,
             descripcion: item.label,
@@ -3408,23 +3458,16 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
             retiradoPor,
             esAdicional: item.esAdicional,
             variante: item.variante || null,
+            productoMaterialId: item.productoMaterialId || null,
           });
-          continue;
         }
-        await egresarProducto({
-          material: item.material,
-          descripcion: item.label,
-          codigo: item.codigo,
-          unidad: item.unidad,
-          cantidad: item.cantidad,
-          sede: item.sede,
-          obraId: item.obraId,
+      } else {
+        await egresarProductosCarrito({
+          items: cart,
           destinoObraId,
           retiradoPor,
           sectorDestino,
           nota: egresoNota,
-          esAdicional: item.esAdicional,
-          variante: item.variante || null,
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
@@ -3453,7 +3496,8 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
   const inp = { background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 };
   const invalidStockItem = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
-  const disabled = saving || !canReceive || !cart.length || !!invalidStockItem || (movementKind === "transferir" && !destinoObraId);
+  const unresolvedProductItem = cart.find((item) => item.esRequisito && !item.productoMaterialId);
+  const disabled = saving || !canReceive || !cart.length || !!invalidStockItem || !!unresolvedProductItem || (movementKind === "transferir" && !destinoObraId);
 
   // ── Carritos guardados con nombre ──
   function guardarCarrito() {
@@ -3552,7 +3596,26 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                       <div style={{ color: excede ? C.violet : C.dim, fontSize: 10.5, marginTop: 1 }}>
                         {item.catalogOnly ? "sin stock recibido" : `disponible ${fmtQty(item.available)} ${item.unidad || ""}`}{excede ? " · cantidad excedida" : ""}
                       </div>
-                      {item.variantes?.length > 0 && (
+                      {item.esRequisito && (
+                        <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
+                          <select
+                            value={item.productoMaterialId || ""}
+                            onChange={(event) => updateCartItemProduct(item.key, event.target.value)}
+                            style={{ ...inp, width: "100%", padding: "6px 7px", fontSize: 11, cursor: "pointer", color: item.productoMaterialId ? C.green : C.violet, borderColor: item.productoMaterialId ? C.greenB : C.violetB, background: item.productoMaterialId ? C.greenL : C.violetL, fontWeight: 850 }}
+                          >
+                            <option value="">Elegir producto concreto…</option>
+                            {(item.productosCompatibles || []).map((producto) => (
+                              <option key={producto.id} value={producto.id}>
+                                {producto.descripcion}{producto.codigo ? ` · ${producto.codigo}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          {!item.productosCompatibles?.length && (
+                            <span style={{ color: C.red, fontSize: 10.5, lineHeight: 1.3 }}>No hay productos compatibles configurados. Revisalo en Materiales.</span>
+                          )}
+                        </div>
+                      )}
+                      {!item.esRequisito && item.variantes?.length > 0 && (
                         <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
                           <select
                             value={item.variante || ""}
@@ -3689,15 +3752,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   // Se limpia solo al confirmar el movimiento o al tocar "Vaciar".
   const [cart, setCart] = useState(() => {
     try {
-      const raw = window.localStorage.getItem("klasea:panol-carrito");
+      const raw = window.localStorage.getItem(PANOL_CART_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed.map(normalizeStoredCartItem) : [];
     } catch { return []; }
   });
   useEffect(() => {
     try {
-      if (cart.length) window.localStorage.setItem("klasea:panol-carrito", JSON.stringify(cart));
-      else window.localStorage.removeItem("klasea:panol-carrito");
+      if (cart.length) window.localStorage.setItem(PANOL_CART_STORAGE_KEY, JSON.stringify(cart));
+      else window.localStorage.removeItem(PANOL_CART_STORAGE_KEY);
     } catch { /* almacenamiento lleno o bloqueado: seguimos sin persistir */ }
   }, [cart]);
   const [cartOpen, setCartOpen] = useState(false); // drawer flotante (modos stock/por obra)
