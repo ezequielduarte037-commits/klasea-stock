@@ -436,7 +436,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
                 type="button"
                 onClick={onCreate}
                 disabled={creating || !String(item.descripcion || "").trim()}
-                style={{ border: `1px solid ${C.violetB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+                style={{ border: `1px solid ${C.violetB ?? C.b0}`, background: C.violetL, color: creating ? C.dim : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
               >
                 {creating ? "Creando..." : "Crear nuevo"}
               </button>
@@ -447,14 +447,26 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
         )}
       </div>
       {linkedRequirement && (
-        <div style={{ marginLeft: 81, border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 8, padding: "8px 10px", fontSize: 11.5, fontWeight: 800 }}>
+        <div style={{ marginLeft: 81, border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 8, padding: "8px 10px", fontSize: 11.5, fontWeight: 800 }}>
           “{linkedRequirement.descripcion}” es una necesidad genérica. Elegí abajo el producto real que se compró o recibió.
+        </div>
+      )}
+      {/* Sin esto, un ítem que no vincula no dice NADA y es imposible saber si el
+          catálogo no lo tiene o si lo tiene pero el parecido no alcanzó. */}
+      {!selected && results.length === 0 && (
+        <div style={{ marginLeft: 81, color: C.t2, fontSize: 11.5 }}>
+          No hay nada parecido en el catálogo.{onCreate ? " Se crea nuevo al guardar." : " Creá el producto y volvé."}
         </div>
       )}
       {!selected && results.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginLeft: 81 }}>
           <div style={{ color: C.violet, fontSize: 11, fontWeight: 850 }}>
             Posibles coincidencias: elegí una para evitar duplicados.
+            {results[0]?._score < 88 && (
+              <span style={{ color: C.t2, fontWeight: 600 }}>
+                {" "}El mejor parecido da {results[0]._score} y hacen falta 88 para vincular solo.
+              </span>
+            )}
           </div>
           {results.map((material) => {
             const meta = proveedorMeta(material.proveedor, proveedores);
@@ -676,7 +688,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const isRemito = prefill?.origen === "remito" || prefill?.modo === "remito";
   const isCompraNotice = prefill?.origen === "compra";
   const isObraNotice = prefill?.origen === "obra_matriz";
-  const needsCatalogLink = isRemito || isCompraNotice || isObraNotice;
+  // Vincular al catálogo sirve en TODOS los modos: es lo que evita duplicados y lo
+  // que le permite a Pañol saber qué producto es. Antes estaba limitado a remito /
+  // aviso de compra / matriz de obra, pero el botón "Leer remito" está disponible
+  // siempre: en un envío normal la IA cargaba 20 ítems con coincidencias y la fila
+  // para elegirlas no se renderizaba, así que no había forma de vincularlos.
+  const needsCatalogLink = true;
   const sedeLocked = lockedSedeForProfile(profile);
   const sedesDisponibles = sedeLocked ? [sedeLocked] : SEDES_PANOL;
 
@@ -1378,9 +1395,16 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           recepcion_estado: isRemito ? "recibido" : null,
         }))
         .filter((it) => it.descripcion);
+      // Se guarda si hubo candidatos aunque no alcanzaran el umbral: no es lo mismo
+      // "el catálogo no lo tiene" (producto nuevo, se crea al guardar) que "lo tiene
+      // pero el parecido quedó corto" (hay que elegir a mano). Antes las dos cosas
+      // se mostraban igual, como "0% de detección", y parecía que la IA había fallado.
+      let conSugerencia = 0;
       const hydratedItems = aiItems.map((item) => {
         const [best] = topCatalogMatches(catalogRows, item, 1);
-        return best && materialMatchIsStrong(best._score) ? { ...item, ...itemPatchFromMaterial(best, item) } : item;
+        if (best && materialMatchIsStrong(best._score)) return { ...item, ...itemPatchFromMaterial(best, item) };
+        if (best) conSugerencia += 1;
+        return item;
       });
       if (!hydratedItems.length) {
         toast.warning("La IA no detecto items.");
@@ -1390,12 +1414,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       if (!titulo.trim() && (proveedorHint || data?.proveedor)) setTitulo(`Remito ${proveedorHint || data.proveedor}`);
       const suggested = hydratedItems.filter((item) => item.material_id).length;
       const linkedPercent = Math.round((suggested / hydratedItems.length) * 100);
+      const nuevos = hydratedItems.length - suggested - conSugerencia;
       const currencies = hydratedItems.reduce((counts, item) => {
         const currency = item.moneda === "USD" ? "USD" : "ARS";
         counts[currency] = (counts[currency] || 0) + 1;
         return counts;
       }, {});
-      setAiSummary({ detected: hydratedItems.length, linked: suggested, linkedPercent, currencies });
+      setAiSummary({ detected: hydratedItems.length, linked: suggested, linkedPercent, conSugerencia, nuevos, currencies });
       toast.success(`IA leyo ${hydratedItems.length} item${hydratedItems.length === 1 ? "" : "s"} - ${suggested} vinculado${suggested === 1 ? "" : "s"} al catalogo.`);
       window.setTimeout(() => itemsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     } catch (err) {
@@ -1588,6 +1613,22 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
               </label>
             </div>
 
+            {/* "Leer remito" está disponible en todos los modos, pero fuera del modo
+                remito lo que se guarda es un AVISO: los ítems quedan con
+                recepcion_estado null y NO son stock hasta que Pañol los reciba.
+                Sin este cartel uno carga 20 ítems de un remito real, guarda, y
+                después el egreso falla con "Disponible 0" sin explicación. */}
+            {!isRemito && items.length > 0 && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 10px", border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 700 }}>
+                <PackageSearch size={14} style={{ color: C.cyan, flexShrink: 0, marginTop: 1 }} />
+                <span>
+                  Esto crea un <strong>aviso a Pañol</strong>, no ingresa stock: los ítems no se pueden egresar
+                  hasta que Pañol los marque recibidos en Recepción. Si el material <strong>ya está físicamente
+                  en el pañol</strong>, cargalo desde <strong>Pañol → Ingresar</strong>.
+                </span>
+              </div>
+            )}
+
             {isRemito && (
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) auto", gap: 10, padding: ingresoDesktop ? "11px 12px" : "9px 10px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg }}>
                 <div>
@@ -1613,7 +1654,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             {aiSummary && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.violetB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.violetL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 750 }}>
                 <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.violet, flexShrink: 0 }} />
-                <span>IA detecto <strong>{aiSummary.detected}</strong> items. <strong>{aiSummary.linked}/{aiSummary.detected}</strong> vinculados al catalogo ({aiSummary.linkedPercent}% de deteccion). {aiSummary.currencies?.ARS ? <strong>ARS {aiSummary.currencies.ARS}</strong> : null}{aiSummary.currencies?.ARS && aiSummary.currencies?.USD ? " · " : null}{aiSummary.currencies?.USD ? <strong>USD {aiSummary.currencies.USD}</strong> : null}</span>
+                <span>
+                  IA leyó <strong>{aiSummary.detected}</strong> ítems.
+                  {" "}<strong>{aiSummary.linked}</strong> vinculados solos
+                  {aiSummary.conSugerencia > 0 ? <>, <strong>{aiSummary.conSugerencia}</strong> con coincidencias para elegir abajo</> : null}
+                  {aiSummary.nuevos > 0 ? <>, <strong>{aiSummary.nuevos}</strong> sin nada parecido en el catálogo (se crean al guardar)</> : null}.
+                  {aiSummary.currencies?.ARS ? <> {" "}<strong>ARS {aiSummary.currencies.ARS}</strong></> : null}{aiSummary.currencies?.ARS && aiSummary.currencies?.USD ? " · " : null}{aiSummary.currencies?.USD ? <><strong>USD {aiSummary.currencies.USD}</strong></> : null}
+                </span>
               </div>
             )}
 
