@@ -139,6 +139,24 @@ export function materialMatchScore(material = {}, query = {}) {
   const matchRatio = matched.length / queryTokens.length;
 
   if (matched.length === queryTokens.length) return Math.round(88 + coverage * 12);
+
+  // Cobertura inversa: el nombre del catálogo entra ENTERO dentro de la consulta.
+  // Sin esto, un remito que agrega marca o código de fabricante ("FEPLAST … 17005")
+  // nunca llegaba a 88 —los tokens de más no existen en el catálogo— y el producto
+  // quedaba sin vincular aunque su nombre estuviera completo y textual.
+  // Los guardas (nombre de 4+ palabras, y que la consulta no sea mayormente ruido)
+  // evitan que un ítem corto y genérico se enganche con cualquier cosa.
+  const descTokens = meaningfulTokens(description);
+  if (descTokens.length >= 4 && matchRatio >= 0.6) {
+    const reverse = descTokens.map((descToken) => Math.max(
+      ...queryTokens.map((queryToken) => tokenSimilarity(descToken, queryToken)),
+      0,
+    ));
+    if (reverse.every((score) => score >= 0.68)) {
+      return Math.round(88 + (reverse.reduce((sum, score) => sum + score, 0) / reverse.length) * 10);
+    }
+  }
+
   if (matched.length >= 2) return Math.round(54 + matchRatio * 28 + coverage * 8);
   if (matched.length === 1 && queryTokens.length === 1) return Math.round(62 + coverage * 28);
   return 0;

@@ -5,7 +5,7 @@ import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
-import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
+import { fetchProveedores, leerPresupuestoConIA, normalizeUnidadMedida } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, normalizeBarcode } from "@/features/materiales/materialBarcodes";
@@ -1367,7 +1367,10 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           descripcion: it.descripcion || it.description || it.nombre || "",
           codigo: it.codigo || it.code || "",
           cantidad: it.cantidad ?? it.quantity ?? "",
-          unidad: it.unidad || it.unit || "unidad",
+          // El remito escribe "m.", "UN", "mts"; el select sólo acepta la lista
+          // canónica. Sin normalizar, "m" no matcheaba ninguna opción y la fila
+          // se mostraba como "unidad": 100 metros de cable entraban como 100 unidades.
+          unidad: normalizeUnidadMedida(it.unidad || it.unit, "unidad"),
           precio_unitario: it.precio_unitario ?? it.precio ?? "",
           moneda: String(it.moneda || data?.moneda || aiMoneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
           obra_id: obraId || "",
