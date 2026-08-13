@@ -344,31 +344,40 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
   const categoriaById = new Map();
   if (materialIds.length) {
     let materiales = [];
+    const fetchMaterialMetadata = async (select) => {
+      const metadata = [];
+      // PostgREST puede rechazar o truncar filtros `in` demasiado grandes. El
+      // stock maestro hoy supera ampliamente los 1.000 materiales, así que la
+      // metadata se busca por lotes igual que los códigos de barra.
+      for (let from = 0; from < materialIds.length; from += 400) {
+        const { data: batch, error: batchError } = await supabase
+          .from("panol_materiales")
+          .select(select)
+          .in("id", materialIds.slice(from, from + 400));
+        if (batchError) return { data: null, error: batchError };
+        metadata.push(...(batch ?? []));
+      }
+      return { data: metadata, error: null };
+    };
     try {
       // Escalera de selects de más completo a más viejo: la pantalla tiene que
       // seguir funcionando en un entorno donde las migraciones nuevas todavía
       // no se aplicaron, mostrando menos en vez de romper.
-      let res = await supabase
-        .from("panol_materiales")
-        .select("id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas")
-        .in("id", materialIds);
+      let res = await fetchMaterialMetadata("id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas");
       if (res.error && isMissingColumn(res.error)) {
-        res = await supabase
-          .from("panol_materiales")
-          .select("id,descripcion,codigo,unidad_medida,activo,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas")
-          .in("id", materialIds);
+        res = await fetchMaterialMetadata(
+          // `es_requisito` es parte de la identidad operativa del material, no
+          // metadata opcional. Antes se perdia en este fallback cuando faltaba
+          // alguna columna de verificacion; el carrito parecia un producto
+          // normal y el RPC recien lo rechazaba al confirmar.
+          "id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas",
+        );
       }
       if (res.error && isMissingColumn(res.error)) {
-        res = await supabase
-          .from("panol_materiales")
-          .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo")
-          .in("id", materialIds);
+        res = await fetchMaterialMetadata("id,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo");
       }
       if (res.error && isMissingColumn(res.error)) {
-        res = await supabase
-          .from("panol_materiales")
-          .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes")
-          .in("id", materialIds);
+        res = await fetchMaterialMetadata("id,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes");
       }
       if (res.error) throw res.error;
       materiales = res.data ?? [];
@@ -377,15 +386,29 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
         materiales = [];
       } else {
         try {
-          const res = await supabase
-            .from("panol_materiales")
-            .select("id,proveedor")
-            .in("id", materialIds);
+          const res = await fetchMaterialMetadata("id,es_requisito,proveedor");
           if (!res.error) materiales = res.data ?? [];
         } catch {
           materiales = [];
         }
       }
+    }
+    // Esta consulta mínima es deliberadamente independiente de toda la
+    // metadata opcional. Aunque una instalación vieja obligue a usar alguno de
+    // los fallbacks anteriores, el cliente siempre necesita saber si el ID es
+    // un requisito genérico: de eso depende mostrar el selector de producto y
+    // enviar `producto_material_id` al RPC de egreso.
+    try {
+      const { data: identityRows, error: identityError } = await fetchMaterialMetadata("id,es_requisito");
+      if (!identityError) {
+        const currentById = new Map(materiales.map((material) => [material.id, material]));
+        for (const identity of identityRows ?? []) {
+          currentById.set(identity.id, { ...(currentById.get(identity.id) ?? {}), ...identity });
+        }
+        materiales = [...currentById.values()];
+      }
+    } catch {
+      // El RPC seguirá siendo la última protección si la conexión falla.
     }
     const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(materialIds);
     for (const mat of materiales) {

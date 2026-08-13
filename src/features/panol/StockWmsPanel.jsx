@@ -1618,6 +1618,56 @@ function normalizeStoredCartItem(item) {
   };
 }
 
+function refreshCartRequirementMetadata(cart = [], stockRows = []) {
+  if (!cart.length || !stockRows.length) return cart;
+
+  const metaByMaterialId = new Map();
+  for (const row of stockRows) {
+    if (!row?.material_id) continue;
+    const current = metaByMaterialId.get(row.material_id);
+    const compatibles = Array.isArray(row.productos_compatibles) ? row.productos_compatibles : [];
+    if (!current || compatibles.length > current.productosCompatibles.length) {
+      metaByMaterialId.set(row.material_id, {
+        esRequisito: row.es_requisito === true,
+        productosCompatibles: compatibles,
+      });
+    } else if (row.es_requisito === true && !current.esRequisito) {
+      metaByMaterialId.set(row.material_id, { ...current, esRequisito: true });
+    }
+  }
+
+  let changed = false;
+  const next = cart.map((item) => {
+    const materialId = item?.material?.id || item?.material_id || item?.materialId || null;
+    const meta = materialId ? metaByMaterialId.get(materialId) : null;
+    if (!meta) return item;
+
+    const compatibles = meta.productosCompatibles;
+    const selectedStillValid = compatibles.some((producto) => producto.id === item.productoMaterialId);
+    const productoMaterialId = selectedStillValid
+      ? item.productoMaterialId
+      : (compatibles.length === 1 ? compatibles[0].id : "");
+    const materialNeedsUpdate = item?.material?.es_requisito !== meta.esRequisito;
+    const compatiblesChanged = JSON.stringify(item.productosCompatibles || []) !== JSON.stringify(compatibles);
+    if (
+      item.esRequisito === meta.esRequisito
+      && item.productoMaterialId === productoMaterialId
+      && !materialNeedsUpdate
+      && !compatiblesChanged
+    ) return item;
+
+    changed = true;
+    return {
+      ...item,
+      esRequisito: meta.esRequisito,
+      productosCompatibles: compatibles,
+      productoMaterialId,
+      material: item.material ? { ...item.material, es_requisito: meta.esRequisito } : item.material,
+    };
+  });
+  return changed ? next : cart;
+}
+
 function remainingCartVariants(item, cart = []) {
   const baseKey = cartBaseKey(item);
   const used = new Set(
@@ -3763,6 +3813,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       else window.localStorage.removeItem(PANOL_CART_STORAGE_KEY);
     } catch { /* almacenamiento lleno o bloqueado: seguimos sin persistir */ }
   }, [cart]);
+  // Un carrito puede haber quedado guardado antes de que cargara la metadata
+  // requisito -> productos. Al hidratarlo con el stock actual evitamos que un
+  // renglon viejo llegue al RPC sin selector ni producto concreto.
+  useEffect(() => {
+    setCart((current) => refreshCartRequirementMetadata(current, rows));
+  }, [rows]);
   const [cartOpen, setCartOpen] = useState(false); // drawer flotante (modos stock/por obra)
   // Carritos GUARDADOS con nombre (además del actual): para pausar un egreso a
   // medio armar cuando surge otra cosa, y retomarlo después.
