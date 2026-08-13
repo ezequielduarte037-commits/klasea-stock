@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
@@ -62,6 +62,25 @@ const MaterialesScreen = lazy(() => import("@/features/materiales/MaterialesScre
 // Clientes:  usuario  → usuario@klasea.client
 function toLocalEmail(u)  { return `${String(u||"").trim().toLowerCase()}@klasea.local`;  }
 function toClientEmail(u) { return `${String(u||"").trim().toLowerCase()}@klasea.client`; }
+
+const STARTUP_TIMEOUT_MS = 12_000;
+
+function withStartupTimeout(request, label) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(`${label}: tiempo de espera agotado`)), STARTUP_TIMEOUT_MS);
+  });
+  return Promise.race([Promise.resolve(request), timeout])
+    .finally(() => window.clearTimeout(timer));
+}
+
+function startupErrorMessage(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  if (message.includes("tiempo de espera") || message.includes("failed to fetch") || message.includes("network")) {
+    return "Supabase está tardando demasiado en responder. Tu sesión sigue guardada; reintentá en unos segundos.";
+  }
+  return "No pudimos validar tu sesión y perfil. Reintentá para volver a conectarte.";
+}
 
 // Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
 // superpone con los controles y rompe el layout, así que ahí no va.
@@ -343,61 +362,121 @@ export default function App() {
   const [session,        setSession]        = useState(null);
   const [profile,        setProfile]        = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [startupError,   setStartupError]   = useState("");
+  const profileLoadIdRef = useRef(0);
 
   async function loadProfile(s) {
-    if (!s?.user?.id) { setProfile(null); setIsInitializing(false); return; }
+    const loadId = ++profileLoadIdRef.current;
+    setStartupError("");
 
-    // Buscar en profiles (personal interno)
-    let { data: pData, error: pErr } = await supabase
-      .from("profiles")
-      .select("id,username,role,is_admin,sede,must_change_password")
-      .eq("id", s.user.id)
-      .single();
-    if (pErr && String(pErr.message || "").includes("must_change_password")) {
-      const retry = await supabase
-        .from("profiles")
-        .select("id,username,role,is_admin,sede")
-        .eq("id", s.user.id)
-        .single();
-      pData = retry.data;
-    }
-
-    if (pData) {
-      setProfile(pData);
+    if (!s?.user?.id) {
+      setProfile(null);
       setIsInitializing(false);
       return;
     }
 
-    // Buscar en clientes (propietarios de barcos)
-    const { data: cData } = await supabase
-      .from("clientes")
-      .select("id,username,nombre_completo,modelo_barco")
-      .eq("id", s.user.id)
-      .single();
+    try {
+      // Buscar en profiles (personal interno). El timeout evita que una caída
+      // de Postgres deje toda la aplicación congelada en "Cargando…".
+      let { data: pData, error: pErr } = await withStartupTimeout(
+        supabase
+          .from("profiles")
+          .select("id,username,role,is_admin,sede,must_change_password")
+          .eq("id", s.user.id)
+          .maybeSingle(),
+        "Carga del perfil",
+      );
+      if (pErr && String(pErr.message || "").includes("must_change_password")) {
+        const retry = await withStartupTimeout(supabase
+          .from("profiles")
+          .select("id,username,role,is_admin,sede")
+          .eq("id", s.user.id)
+          .maybeSingle(), "Carga del perfil");
+        pData = retry.data;
+        pErr = retry.error;
+      }
+      if (pErr) throw pErr;
 
-    if (cData) {
-      setProfile({
-        id:       cData.id,
-        username: cData.username ?? cData.nombre_completo,
-        role:     "cliente",
-        is_admin: false,
-      });
-    } else {
+      if (pData) {
+        if (loadId === profileLoadIdRef.current) setProfile(pData);
+        return;
+      }
+
+      // Buscar en clientes (propietarios de barcos)
+      const { data: cData, error: cErr } = await withStartupTimeout(supabase
+        .from("clientes")
+        .select("id,username,nombre_completo,modelo_barco")
+        .eq("id", s.user.id)
+        .maybeSingle(), "Carga del perfil de cliente");
+      if (cErr) throw cErr;
+
+      if (loadId !== profileLoadIdRef.current) return;
+      if (cData) {
+        setProfile({
+          id:       cData.id,
+          username: cData.username ?? cData.nombre_completo,
+          role:     "cliente",
+          is_admin: false,
+        });
+      } else {
+        setProfile(null);
+      }
+    } catch (error) {
+      if (loadId !== profileLoadIdRef.current) return;
+      console.error("No se pudo inicializar el perfil", error);
       setProfile(null);
+      setStartupError(startupErrorMessage(error));
+    } finally {
+      if (loadId === profileLoadIdRef.current) setIsInitializing(false);
     }
-    setIsInitializing(false);
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session ?? null);
-      loadProfile(data.session);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    let active = true;
+    let initialEventReceived = false;
+    const pendingTimers = new Set();
+
+    const scheduleSession = (s) => {
+      if (!active) return;
       setSession(s ?? null);
-      loadProfile(s);
+      const timer = window.setTimeout(() => {
+        pendingTimers.delete(timer);
+        if (active) void loadProfile(s);
+      }, 0);
+      pendingTimers.add(timer);
+    };
+
+    // La callback de Supabase debe terminar inmediatamente. Consultar tablas
+    // dentro de onAuthStateChange puede retener el lock de autenticación y
+    // dejar getSession (y toda la app) esperando indefinidamente.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "INITIAL_SESSION") initialEventReceived = true;
+      scheduleSession(s);
     });
-    return () => sub?.subscription?.unsubscribe?.();
+
+    // Respaldo para navegadores donde INITIAL_SESSION no llegue. No duplica la
+    // carga normal y también tiene un límite de espera explícito.
+    const fallbackTimer = window.setTimeout(() => {
+      if (!active || initialEventReceived) return;
+      withStartupTimeout(supabase.auth.getSession(), "Validación de sesión")
+        .then(({ data, error }) => {
+          if (error) throw error;
+          scheduleSession(data.session ?? null);
+        })
+        .catch((error) => {
+          if (!active) return;
+          console.error("No se pudo inicializar la sesión", error);
+          setStartupError(startupErrorMessage(error));
+          setIsInitializing(false);
+        });
+    }, 1_500);
+
+    return () => {
+      active = false;
+      window.clearTimeout(fallbackTimer);
+      pendingTimers.forEach((timer) => window.clearTimeout(timer));
+      sub?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   async function signOut() {
@@ -414,6 +493,28 @@ export default function App() {
         fontFamily:"'Outfit',system-ui",
       }}>
         Cargando…
+      </div>
+    );
+  }
+  if (startupError) {
+    return (
+      <div style={{
+        background:C.bg, color:C.text,
+        minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+        fontFamily:"'Outfit',system-ui", padding:24,
+      }}>
+        <div style={{ width:"min(440px, 100%)", padding:24, borderRadius:16, background:C.panelSolid, border:`1px solid ${C.border}`, boxShadow:`0 22px 70px ${C.shadow}` }}>
+          <div style={{ color:C.red, fontSize:12, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>Conexión demorada</div>
+          <div style={{ color:C.text, fontSize:18, fontWeight:850, marginBottom:8 }}>No pudimos terminar de cargar Klase A</div>
+          <div style={{ color:C.muted, fontSize:13, lineHeight:1.55, marginBottom:18 }}>{startupError}</div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{ width:"100%", border:0, borderRadius:10, padding:"11px 14px", background:C.blue, color:"var(--inverse-text)", fontWeight:900, cursor:"pointer" }}
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }
