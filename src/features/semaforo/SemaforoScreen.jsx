@@ -58,8 +58,16 @@ export default function SemaforoScreen({ profile, signOut }) {
 
   useEffect(() => {
     fetchData();
-    const id = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(id);
+    // En un cartelera/TV el documento sigue "visible" y refresca igual; lo que se
+    // evita es que una pestaña olvidada en segundo plano siga invocando la edge
+    // function cada 5 minutos para siempre.
+    const id = setInterval(() => { if (!document.hidden) fetchData(); }, 5 * 60 * 1000);
+    const alVolver = () => { if (!document.hidden) fetchData(); };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
   }, []);
 
   const getColor = (estado) => {

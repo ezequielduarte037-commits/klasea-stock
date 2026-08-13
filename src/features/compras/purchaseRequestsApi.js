@@ -375,6 +375,19 @@ export async function fetchPurchaseRequests() {
   return data || [];
 }
 
+// Versión liviana para widgets que sólo cuentan pedidos (ComprasBicho): sin los
+// cuatro joins ni el `select *`. La consulta completa se bajaba en un poll cada
+// 60s por usuario de compras y era el grueso del egress.
+export async function fetchPurchaseRequestsResumen({ limit = 400 } = {}) {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("id,status,priority,title,description,created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function fetchPurchaseRequestDetail(requestId) {
   let { data, error } = await supabase
     .from("purchase_requests")

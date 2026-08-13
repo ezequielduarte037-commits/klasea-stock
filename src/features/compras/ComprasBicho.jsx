@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Bell, ChevronRight, Clock3, RefreshCw, Send, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { C } from "@/theme";
-import { fetchComprasAvisos, fetchPurchaseRequests } from "@/features/compras/purchaseRequestsApi";
+import { fetchComprasAvisos, fetchPurchaseRequestsResumen } from "@/features/compras/purchaseRequestsApi";
+
+// Cerrado el widget sólo muestra un titular; no hace falta refrescarlo seguido.
+const POLL_ABIERTO_MS = 60_000;
+const POLL_CERRADO_MS = 10 * 60_000;
 
 const ARCHIVED = new Set(["recibido", "cancelado"]);
 const STATUS_LABELS = {
@@ -105,11 +109,11 @@ export default function ComprasBicho({ profile }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([{ from: "bicho", text: "Hola. Soy Bicho, tu copiloto de Compras. Preguntame qué necesita atención y te ayudo a encontrarlo." }]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [nextRequests, nextAvisos] = await Promise.all([
-        fetchPurchaseRequests(),
+        fetchPurchaseRequestsResumen(),
         fetchComprasAvisos().catch(() => []),
       ]);
       setRequests(nextRequests || []);
@@ -117,14 +121,39 @@ export default function ComprasBicho({ profile }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Este poll corría cada 60s para siempre, con la pestaña oculta y con el widget
+  // cerrado, bajando TODOS los pedidos con cuatro joins. Multiplicado por cada
+  // usuario de compras con la app abierta, era la fuga principal de egress.
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
 
   useEffect(() => {
     if (profile?.role !== "compras") return undefined;
-    load().catch(() => {});
-    const timer = window.setInterval(() => load().catch(() => {}), 60000);
-    return () => window.clearInterval(timer);
-  }, [profile?.role]);
+    let timer = null;
+    let ultimo = 0;
+    const tick = () => {
+      if (!document.hidden) {
+        ultimo = Date.now();
+        load().catch(() => {});
+      }
+      timer = window.setTimeout(tick, openRef.current ? POLL_ABIERTO_MS : POLL_CERRADO_MS);
+    };
+    tick();
+    // Al volver a la pestaña, refrescar sólo si los datos ya están viejos.
+    const alVolver = () => {
+      if (document.hidden) return;
+      if (Date.now() - ultimo < POLL_ABIERTO_MS) return;
+      ultimo = Date.now();
+      load().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [profile?.role, load]);
 
   const metrics = useMemo(() => buildMetrics(requests, avisos), [requests, avisos]);
   const mood = metrics.overdue.length || metrics.urgent.length ? "alerta" : metrics.byStatus.nuevo?.length >= 8 ? "atento" : metrics.byStatus.nuevo?.length ? "curioso" : "feliz";
