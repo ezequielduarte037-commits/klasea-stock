@@ -38,10 +38,9 @@ export function rowSource(row = {}) {
 
 export function rowIsEgreso(row = {}) {
   const source = rowSource(row);
-  return !!row.egreso_destino_obra_id
-    || row.estado === "egresado"
-    || source.startsWith("egreso")
-    || source.startsWith("transferencia_egreso");
+  return source.startsWith("egreso")
+    || source.startsWith("transferencia_egreso")
+    || source === "conteo_fisico_reversion";
 }
 
 export function rowIsLocationChange(row = {}) {

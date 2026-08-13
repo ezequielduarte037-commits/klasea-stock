@@ -2730,7 +2730,7 @@ export default function ObrasScreen({ profile, signOut }) {
   async function cargar() {
     setLoading(true);
     const [r1, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
-      safeQuery(supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })),
+      safeQuery(supabase.from("produccion_obras").select("*").eq("solo_stock", false).order("created_at", { ascending: false })),
       safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden").limit(5000)),
       safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden").limit(10000)),
       supabase.from("lineas_produccion").select("*").eq("activa", true).order("orden"),

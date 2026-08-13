@@ -115,7 +115,9 @@ function rowSource(row) {
 
 function rowIsEgreso(row) {
   const source = rowSource(row);
-  return row?.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+  return source.startsWith("egreso")
+    || source.startsWith("transferencia_egreso")
+    || source === "conteo_fisico_reversion";
 }
 
 function rowCountsAsStock(row) {

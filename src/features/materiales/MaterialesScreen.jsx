@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -51,7 +51,16 @@ import {
   actualizarMaterialDatos,
 } from "./api";
 import ProductoAsignadoControl from "./ProductoAsignadoControl";
-import { asignarProductoObraSnapshot, fetchRequisitoProductos } from "./productosAsignadosApi";
+import {
+  fetchRequisitoProductos,
+  guardarConfiguracionProductoLinea,
+  guardarConfiguracionProductoObra,
+} from "./productosAsignadosApi";
+import {
+  normalizeProductSpecs,
+  productSpecEntries,
+  productSpecsNote,
+} from "./especificacionesProducto";
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
@@ -3924,27 +3933,37 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     .filter(materialActivo)
     .filter((m) => materialQty(m, linea) > 0)
     .map((m) => {
-      const precio = priceInfo(m);
+      const modeloConfig = (m.modelos ?? []).find((item) => (
+        String(item.modelo) === String(linea)
+        && String(item.variante || "standard") === "standard"
+      )) || null;
+      const producto = modeloConfig?.producto_predeterminado_id
+        ? materialById.get(modeloConfig.producto_predeterminado_id) || null
+        : null;
+      const precio = priceInfo(producto || m);
       const bucket = materialBucket(m, opciones);
       return {
         id: m.id,
         materialId: m.id,
         requisitoMaterialId: m.id,
-        productoMaterialId: null,
-        producto: null,
-        esRequisito: m.es_requisito === true || materialVariants(m).length > 0,
+        productoMaterialId: producto?.id || null,
+        producto,
+        productoEstandar: !!producto,
+        esRequisito: m.es_requisito === true || materialVariants(m).length > 0 || !!producto,
+        especificaciones: normalizeProductSpecs(modeloConfig?.especificaciones_defecto),
+        especificacionesOrigen: modeloConfig ? "matriz_linea" : null,
         material: m,
         source: "matriz",
         descripcion: m.descripcion,
         codigo: m.codigo,
         cantidad: materialQty(m, linea),
         unidad: m.unidad_medida || "unidad",
-        proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
+        proveedor: precio.proveedor || producto?.proveedor || m.proveedor || "Sin proveedor",
         rubro: categoriaNombre(categorias, m.categoria_id),
         precio,
         bucket,
         obs: m.notas || "",
-        imagen_url: m.imagen_url || "",
+        imagen_url: producto?.imagen_url || m.imagen_url || "",
         links: normalizeMaterialLinks(m.links),
         revisado: !!m.revisado,
         review: reviewInfoForMaterial(m),
@@ -3955,7 +3974,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
-    }), [materiales, linea, categorias, opciones]);
+    }), [materiales, linea, categorias, opciones, materialById]);
 
   const requisitoIds = useMemo(
     () => baseRows.filter((row) => row.esRequisito).map((row) => row.requisitoMaterialId),
@@ -4256,7 +4275,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       requisitoMaterialId: r.requisitoMaterialId || r.materialId,
       productoMaterialId: r.productoMaterialId || null,
       producto: r.producto || null,
+      productoEstandar: !!r.productoEstandar,
       esRequisito: !!r.esRequisito,
+      especificaciones: normalizeProductSpecs(r.especificaciones),
       source: r.source,
       bucketKey: r.bucket.key,
       descripcion: r.producto?.descripcion || r.descripcion,
@@ -4270,7 +4291,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       rubro: r.rubro,
       tipo: r.bucket.label,
       precio: r.precio,
-      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.descripcion}` : "", r.obs].filter(Boolean).join(" · "),
+      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.descripcion}` : "", productSpecsNote(r.especificaciones), r.obs].filter(Boolean).join(" · "),
     }));
   }, [visibleRows, selected]);
   const productosPendientesOrden = useMemo(
@@ -4353,6 +4374,22 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
+  async function fijarConfiguracionesParaFlujo(saved, flowRows = []) {
+    const jobs = [];
+    for (const row of flowRows) {
+      if (!row?.esRequisito && !productSpecEntries(row?.especificaciones).length) continue;
+      const snapshotId = snapshotIdForOrderRow(row, saved);
+      if (!snapshotId) continue;
+      jobs.push(guardarConfiguracionProductoObra({
+        snapshotId,
+        productoMaterialId: row.productoMaterialId || null,
+        especificaciones: normalizeProductSpecs(row.especificaciones),
+        origen: row.productoEstandar ? "matriz_linea" : "asignacion_obra",
+      }));
+    }
+    if (jobs.length) await Promise.all(jobs);
+  }
+
   function snapshotIdForOrderRow(row, saved = snapshot) {
     return snapshotIdsForOrderRow(row, saved)[0] || null;
   }
@@ -4409,6 +4446,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
+      await fijarConfiguracionesParaFlujo(saved, orderRows);
       const req = await createPurchaseRequest({
         form: {
           title: `Pedido ${obra.codigo} - ${selected.size ? `${selected.size} items` : "lista filtrada"}`,
@@ -4431,10 +4469,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           destination: `Obra ${obra.codigo}`,
           material_id: row.productoMaterialId || row.materialId || null,
           requisito_material_id: row.requisitoMaterialId || row.materialId || null,
+          especificaciones: normalizeProductSpecs(row.especificaciones),
           catalog_source: "panol",
-          notes: row.requisitoDescripcion && row.requisitoDescripcion !== row.descripcion
-            ? `Requisito de matriz: ${row.requisitoDescripcion}`
-            : row.obs || null,
+          notes: [
+            row.requisitoDescripcion && row.requisitoDescripcion !== row.descripcion
+              ? `Requisito de matriz: ${row.requisitoDescripcion}`
+              : "",
+            row.obs,
+          ].filter(Boolean).join(" · ") || null,
         });
         const snapId = snapshotIdForOrderRow(row, saved);
         if (snapId) {
@@ -4462,6 +4504,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
+      await fijarConfiguracionesParaFlujo(saved, orderRows);
       setPanolPrefill({
         titulo: `Recepcion ${obra.codigo} - ${selected.size ? `${selected.size} items` : "lista filtrada"}`,
         sede: obra.sede || "Pampa",
@@ -4476,6 +4519,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           unidad: row.unidad || "unidad",
           material_id: row.productoMaterialId || row.materialId || "",
           requisito_material_id: row.requisitoMaterialId || row.materialId || "",
+          especificaciones: normalizeProductSpecs(row.especificaciones),
           proveedor: row.proveedor || "",
           precio_unitario: row.precio?.amount ?? "",
           moneda: row.precio?.moneda || "ARS",
@@ -4542,11 +4586,41 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
-  async function cambiarProductoRow(row, productoMaterialId = null) {
+  async function cambiarProductoRow(row, configuracion = {}) {
     if (!row || productoBusy) return;
+    const productoMaterialId = configuracion.productoMaterialId || null;
+    const especificaciones = normalizeProductSpecs(configuracion.especificaciones);
+    const alcance = configuracion.alcance === "linea" ? "linea" : "obra";
     setProductoBusy(row.id);
     setFlowMsg(null);
     try {
+      if (alcance === "linea") {
+        const resultado = await guardarConfiguracionProductoLinea({
+          requisitoMaterialId: row.requisitoMaterialId || row.materialId,
+          modelo: linea,
+          productoMaterialId,
+          especificaciones,
+          aplicarObrasExistentes: configuracion.aplicarObrasExistentes,
+        });
+        await onChanged?.();
+        await cargarSnapshot();
+        await cargarProductosCompatibles();
+        const producto = materiales.find((material) => material.id === productoMaterialId);
+        const actualizadas = Number(resultado?.obras_actualizadas || 0);
+        const omitidas = Number(resultado?.obras_omitidas || 0);
+        setFlowMsg({
+          type: "ok",
+          text: [
+            `${producto?.descripcion || "Producto pendiente"} quedó como estándar de K${linea}.`,
+            configuracion.aplicarObrasExistentes
+              ? `${actualizadas} obra${actualizadas === 1 ? "" : "s"} actualizada${actualizadas === 1 ? "" : "s"}.`
+              : "Se aplicará automáticamente a las obras nuevas.",
+            omitidas ? `${omitidas} con compras o movimientos quedaron intactas.` : "",
+          ].filter(Boolean).join(" "),
+        });
+        return;
+      }
+
       const saved = await ensureSnapshotForFlow();
       let snapIds = snapshotIdsForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
       if (!snapIds.length && obra?.id) {
@@ -4557,18 +4631,23 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         }
       }
       if (!snapIds.length) throw new Error("No se pudo identificar el ítem de obra para asignar el producto.");
-      await Promise.all(snapIds.map((snapId) => asignarProductoObraSnapshot(snapId, productoMaterialId)));
+      await Promise.all(snapIds.map((snapshotId) => guardarConfiguracionProductoObra({
+        snapshotId,
+        productoMaterialId,
+        especificaciones,
+        origen: "asignacion_obra",
+      })));
       await cargarSnapshot();
       await cargarProductosCompatibles();
       const producto = materiales.find((material) => material.id === productoMaterialId);
       setFlowMsg({
         type: "ok",
         text: producto
-          ? `${row.descripcion}: producto asignado ${producto.descripcion}.`
-          : `${row.descripcion}: producto concreto pendiente.`,
+          ? `${row.descripcion}: producto asignado ${producto.descripcion} para ${obra?.codigo || "esta obra"}.`
+          : `${row.descripcion}: producto concreto pendiente para ${obra?.codigo || "esta obra"}.`,
       });
     } catch (e) {
-      setFlowMsg({ type: "err", text: e?.message || "No se pudo asignar el producto del ítem." });
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo guardar la configuración del ítem." });
     } finally {
       setProductoBusy("");
     }
@@ -5649,6 +5728,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const rowBg = rowSelected ? C.blueL : C.bg;
                 const miniBtn = { ...BTN, padding: "5px 9px", minHeight: 27, borderRadius: 8, fontSize: 11, gap: 5 };
                 const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
+                const specificationEntries = productSpecEntries(row.especificaciones);
                 return (
                   <div key={row.id} style={{ display: "grid", gap: 6 }}>
                     <div
@@ -5676,13 +5756,16 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
-                            {row.esRequisito && (
+                            {(row.esRequisito || row.source === "matriz") && (
                               <ProductoAsignadoControl
                                 row={row}
                                 materiales={materiales}
                                 compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []}
                                 busy={productoBusy === row.id || snapshotBusy}
-                                onAssign={cambiarProductoRow}
+                                obraCodigo={obra?.codigo || "esta obra"}
+                                linea={linea}
+                                specOnly={!row.esRequisito}
+                                onSave={cambiarProductoRow}
                               />
                             )}
                             <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
@@ -5723,6 +5806,16 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                           <div style={{ fontSize: 10.8, color: C.t2, marginTop: 3, lineHeight: 1.3 }}>
                             {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
                           </div>
+                          {specificationEntries.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                              {specificationEntries.map((specification) => (
+                                <span key={specification.key} title={`${specification.label}: ${specification.value}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, maxWidth: 230, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 800 }}>
+                                  <Settings2 size={10} />
+                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{specification.label}: {specification.value}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {row.condicionantes?.length ? (
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
                               {row.baseCantidad != null && row.baseCantidad !== row.cantidad && (
@@ -7181,7 +7274,11 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     requisitoMaterialId,
     productoMaterialId,
     producto,
+    productoEstandar: row.producto_asignacion_origen === "matriz_linea",
+    productoConfiguracionOrigen: row.producto_asignacion_origen || null,
     esRequisito: requisito?.es_requisito === true || !!productoMaterialId || !!row.variante,
+    especificaciones: normalizeProductSpecs(row.especificaciones),
+    especificacionesOrigen: row.especificaciones_origen || null,
     material,
     source: esAdicional ? "addon" : row.source || "snapshot",
     snapshot_tipo: esAdicional ? "addon" : row.tipo || null,
@@ -7311,6 +7408,8 @@ function mergeSnapshotIntoLive(live, snapshot) {
   const notaRecepcion = remitoDeAddon && cantidadRecibida != null
     ? `RecepciÃ³n por remito: ${qtyText(cantidadRecibida, snapshot.unidad || live.unidad)}`
     : "";
+  const snapshotDefineProducto = !!snapshot.productoConfiguracionOrigen || !!snapshot.productoMaterialId;
+  const snapshotDefineEspecificaciones = !!snapshot.especificacionesOrigen;
   return {
     ...live,
     ...snapshot,
@@ -7318,9 +7417,15 @@ function mergeSnapshotIntoLive(live, snapshot) {
     snapshotId: snapshot.snapshotId,
     materialId: live.materialId || snapshot.materialId,
     requisitoMaterialId: live.requisitoMaterialId || snapshot.requisitoMaterialId || live.materialId || snapshot.materialId,
-    productoMaterialId: snapshot.productoMaterialId || live.productoMaterialId || null,
-    producto: snapshot.producto || live.producto || null,
+    productoMaterialId: snapshotDefineProducto ? (snapshot.productoMaterialId || null) : (live.productoMaterialId || null),
+    producto: snapshotDefineProducto ? (snapshot.producto || null) : (live.producto || null),
+    productoEstandar: snapshotDefineProducto ? !!snapshot.productoEstandar : !!live.productoEstandar,
+    productoConfiguracionOrigen: snapshot.productoConfiguracionOrigen || live.productoConfiguracionOrigen || null,
     esRequisito: live.esRequisito || snapshot.esRequisito || false,
+    especificaciones: snapshotDefineEspecificaciones
+      ? normalizeProductSpecs(snapshot.especificaciones)
+      : normalizeProductSpecs(live.especificaciones),
+    especificacionesOrigen: snapshot.especificacionesOrigen || live.especificacionesOrigen || null,
     material: live.material || snapshot.material || null,
     source: live.source || snapshot.source,
     snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),

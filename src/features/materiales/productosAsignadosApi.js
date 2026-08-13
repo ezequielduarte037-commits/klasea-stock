@@ -49,6 +49,52 @@ export async function asignarProductoObraSnapshot(snapshotId, productoMaterialId
   return data;
 }
 
+export async function guardarConfiguracionProductoObra({
+  snapshotId,
+  productoMaterialId = null,
+  especificaciones = {},
+  origen = "asignacion_obra",
+} = {}) {
+  if (!snapshotId) throw new Error("Falta el ítem de obra.");
+  const { data, error } = await supabase.rpc("panol_guardar_configuracion_snapshot", {
+    p_snapshot_id: snapshotId,
+    p_producto_material_id: productoMaterialId || null,
+    p_especificaciones: especificaciones || {},
+    p_origen: origen,
+  });
+  if (error) {
+    if (schemaMissing(error)) {
+      throw new Error("Falta aplicar la migración de productos y especificaciones por obra.");
+    }
+    throw error;
+  }
+  return data;
+}
+
+export async function guardarConfiguracionProductoLinea({
+  requisitoMaterialId,
+  modelo,
+  productoMaterialId = null,
+  especificaciones = {},
+  aplicarObrasExistentes = false,
+} = {}) {
+  if (!requisitoMaterialId || !modelo) throw new Error("Falta el requisito o la línea.");
+  const { data, error } = await supabase.rpc("panol_guardar_configuracion_matriz", {
+    p_requisito_material_id: requisitoMaterialId,
+    p_modelo: String(modelo),
+    p_producto_material_id: productoMaterialId || null,
+    p_especificaciones: especificaciones || {},
+    p_aplicar_obras_existentes: !!aplicarObrasExistentes,
+  });
+  if (error) {
+    if (schemaMissing(error)) {
+      throw new Error("Falta aplicar la migración de productos y especificaciones por línea.");
+    }
+    throw error;
+  }
+  return data || {};
+}
+
 export async function marcarMaterialComoRequisito(materialId, esRequisito = true) {
   if (!materialId) throw new Error("Falta el material.");
   const { data, error } = await supabase
@@ -78,4 +124,3 @@ export async function fetchEstadoMigracionProductos() {
   }
   return data || [];
 }
-

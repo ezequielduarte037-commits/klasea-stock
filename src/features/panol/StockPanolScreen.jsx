@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Scale, ScanLine, Warehouse } from "lucide-react";
+import { AlertTriangle, ChevronRight, DollarSign, Inbox, Plus, RefreshCw, Scale, ScanLine, ShipWheel, Warehouse, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -9,7 +9,7 @@ import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
-import { canonicalPanolSede, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations, registrarDevolucion } from "@/features/panol/panolApi";
+import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations, registrarDevolucion } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -64,21 +64,30 @@ function rowCountsAsStock(row) {
 function rowDelta(row) {
   if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
   const src = rowSource(row);
-  if (row.estado === "egresado" && (src.startsWith("egreso") || src.startsWith("transferencia_egreso") || row.egreso_destino_obra_id)) {
+  if (src.startsWith("egreso") || src.startsWith("transferencia_egreso") || src === "conteo_fisico_reversion") {
     return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
   }
   return 0;
 }
 
 function lineaKeyFromObra(obra = {}) {
-  const modelo = String(obra.modelo || "").trim().toUpperCase();
+  const normalizeLine = (value) => {
+    const raw = String(value || "").trim().toUpperCase();
+    if (!raw) return "";
+    const numeric = raw.match(/^K?(\d+)$/);
+    return numeric ? numeric[1] : raw;
+  };
+  const modelo = normalizeLine(obra.modelo || obra.linea_nombre);
   if (modelo) return modelo;
-  const match = String(obra.codigo || "").trim().toUpperCase().match(/^([A-Z]*\d+)/);
-  return match?.[1] || LINEA_FALLBACK;
+  const prefix = String(obra.codigo || "").trim().toUpperCase().split("-")[0];
+  return normalizeLine(prefix) || LINEA_FALLBACK;
 }
 
 function lineaLabel(key) {
-  return key === LINEA_FALLBACK ? "Sin linea" : key;
+  if (key === LINEA_FALLBACK) return "Sin línea";
+  const raw = String(key || "").trim().toUpperCase();
+  if (/^\d+$/.test(raw)) return `K${raw}`;
+  return raw.charAt(0) + raw.slice(1).toLowerCase();
 }
 
 /**
@@ -223,6 +232,8 @@ function GlobalKpiBar({ rows, consumidoUsd = 0 }) {
 function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 0 }) {
   const hasNeg = stats.negativos > 0;
   const accent = hasNeg ? C.red : C.blue;
+  const isExternal = !/^K\d+$/i.test(String(codigo || ""));
+  const shortCode = isExternal ? String(codigo || "").slice(0, 1) : String(codigo || "").replace(/^K/i, "");
   const [hover, setHover] = useState(false);
   // Barra comparativa: proporción del consumo de esta línea vs. la línea que más consumió.
   const share = canSeePrices && maxCostoUsd > 0 && stats.costoUsd > 0
@@ -250,17 +261,17 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
     >
       {/* Watermark del modelo */}
       <div aria-hidden style={{ position: "absolute", right: -8, top: -18, fontFamily: C.mono, fontSize: 96, fontWeight: 950, color: accent, opacity: hover ? 0.12 : 0.07, lineHeight: 1, pointerEvents: "none", userSelect: "none", transition: "opacity .2s" }}>
-        K{codigo}
+        {codigo}
       </div>
       <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}22)` }} />
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 13, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", color: "#fff", fontWeight: 950, fontSize: 17, fontFamily: C.mono, flexShrink: 0, background: hasNeg ? "linear-gradient(135deg, #f87171, #ef4444)" : "linear-gradient(135deg, #60a5fa, #3b82f6)", boxShadow: hasNeg ? "0 4px 12px rgba(239,68,68,0.3)" : "0 4px 12px rgba(59,130,246,0.3)" }}>
-            {codigo}
+            {shortCode}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1.2 }}>Línea de producción</div>
-            <div style={{ fontFamily: C.mono, fontSize: 23, fontWeight: 950, color: C.text, lineHeight: 1.05 }}>K{codigo}</div>
+            <div style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1.2 }}>{isExternal ? "Barcos externos · solo stock" : "Línea de producción"}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 23, fontWeight: 950, color: C.text, lineHeight: 1.05 }}>{codigo}</div>
           </div>
           <div style={{ flex: 1 }} />
           <ChevronRight size={18} style={{ color: hover ? C.blue : C.dim, flexShrink: 0, transition: "color .2s", transform: hover ? "translateX(3px)" : "none" }} />
@@ -790,6 +801,112 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
+function NuevaObraExternaModal({ onClose, onCreated }) {
+  const [modelo, setModelo] = useState("HUNTER");
+  const [codigo, setCodigo] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !busy) onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, onClose]);
+
+  const cleanCode = String(codigo || "").trim().toUpperCase();
+  const finalCode = cleanCode
+    ? (cleanCode.startsWith(modelo) ? cleanCode : `${modelo}-${cleanCode}`)
+    : `${modelo}-…`;
+  const fieldStyle = {
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    border: `1px solid ${C.border}`,
+    background: C.panel,
+    color: C.text,
+    borderRadius: 10,
+    padding: "10px 11px",
+    fontSize: 13,
+    fontFamily: C.sans,
+    outline: "none",
+  };
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!cleanCode || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const obra = await crearObraExterna({ codigo: cleanCode, modelo, descripcion });
+      onCreated(obra);
+    } catch (err) {
+      setError(err?.message || "No se pudo crear el barco.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      role="presentation"
+      onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.48)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 16 }}
+    >
+      <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="nueva-obra-externa-titulo" style={{ width: "min(470px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", overflow: "hidden" }}>
+        <div style={{ padding: "15px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", gap: 11 }}>
+          <div style={{ width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 10, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue }}>
+            <ShipWheel size={17} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div id="nueva-obra-externa-titulo" style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Nuevo barco externo</div>
+            <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3, lineHeight: 1.45 }}>Se podrá usar en ingresos, egresos y movimientos de Pañol. No crea matriz ni planificación de producción.</div>
+          </div>
+          <button type="button" aria-label="Cerrar" onClick={onClose} disabled={busy} style={{ border: "none", background: "transparent", color: C.dim, padding: 4, cursor: busy ? "default" : "pointer", display: "grid", placeItems: "center" }}><X size={17} /></button>
+        </div>
+
+        <div style={{ padding: 16, display: "grid", gap: 13 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Tipo de barco</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+              {["HUNTER", "ANTAGO"].map((option) => {
+                const selected = modelo === option;
+                return (
+                  <button key={option} type="button" onClick={() => setModelo(option)} style={{ border: `1px solid ${selected ? C.blueB : C.border}`, background: selected ? C.blueL : C.panel, color: selected ? C.blue : C.muted, borderRadius: 10, padding: "9px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+                    {option === "HUNTER" ? "Hunter" : "Antago"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Código o identificación *</span>
+            <input autoFocus required value={codigo} onChange={(event) => setCodigo(event.target.value)} placeholder="Ej.: 01, CLIENTE-5 o HUNTER-01" style={{ ...fieldStyle, fontFamily: C.mono, textTransform: "uppercase" }} />
+            <span style={{ color: C.dim, fontSize: 10.5 }}>Se guardará como <b style={{ color: C.text, fontFamily: C.mono }}>{finalCode}</b></span>
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle opcional</span>
+            <input value={descripcion} onChange={(event) => setDescripcion(event.target.value)} placeholder="Cliente, procedencia o referencia" style={fieldStyle} />
+          </label>
+
+          {error && <div style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 11px", fontSize: 11.5 }}>{error}</div>}
+        </div>
+
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button type="button" onClick={onClose} disabled={busy} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 13px", cursor: busy ? "default" : "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>Cancelar</button>
+          <button type="submit" disabled={busy || !cleanCode} style={{ border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: busy || !cleanCode ? "default" : "pointer", opacity: busy || !cleanCode ? 0.55 : 1, fontSize: 12, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Plus size={14} /> {busy ? "Creando…" : "Crear barco"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function StockPanolScreen({ profile, signOut, embedded = false, mode = "stock" }) {
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -812,6 +929,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
   const [soloActivas, setSoloActivas] = useState(false); // filtro nivel 2 (obras de la línea)
+  const [showNuevaObraExterna, setShowNuevaObraExterna] = useState(false);
 
   // ── Datos ──
   const [rows, setRows] = useState([]);
@@ -1144,9 +1262,20 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               <div style={{ flex: 1, overflowY: "auto" }}>
                 <div style={{ padding: "18px 18px 32px" }}>
                   <GlobalKpiBar rows={rows} consumidoUsd={canSeePrices ? globalExtras.consumidoUsd : 0} />
-                  <div style={{ margin: "2px 0 12px" }}>
-                    <div style={{ fontSize: 15, fontWeight: 950, color: C.text }}>Líneas de producción</div>
-                    <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>Tocá una línea para ver el stock de sus obras.</div>
+                  <div style={{ margin: "2px 0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 950, color: C.text }}>Barcos por línea</div>
+                      <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>Entrá a una línea para ver el stock de cada barco.</div>
+                    </div>
+                    {(isAdmin || role === "panol") && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNuevaObraExterna(true)}
+                        style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        <Plus size={14} /> Nuevo Hunter / Antago
+                      </button>
+                    )}
                   </div>
                   {loading ? (
                     <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando stock...</div>
@@ -1194,6 +1323,19 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               <MapaPanolTab isMobile={isMobile} toast={toast} canEdit={isManager} />
             )}
           </div>
+          {showNuevaObraExterna && (
+            <NuevaObraExternaModal
+              onClose={() => setShowNuevaObraExterna(false)}
+              onCreated={async (obra) => {
+                setShowNuevaObraExterna(false);
+                await cargar();
+                setTab("obra");
+                setSelLinea(lineaKeyFromObra(obra));
+                setSelObraId(obra.id);
+                toast.success(`${obra.codigo} ya está disponible para ingresos y egresos.`);
+              }}
+            />
+          )}
         </div>
   );
 

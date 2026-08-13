@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
-  Calendar,
   ChevronRight,
   ClipboardList,
   DollarSign,
@@ -12,9 +11,9 @@ import {
   PackageCheck,
   Plus,
   ReceiptText,
+  Search,
   Send,
   Sparkles,
-  Store,
   Trash2,
   Upload,
   Warehouse,
@@ -27,6 +26,7 @@ import {
   fetchAdditionalItems,
   fetchProjects,
   fetchPurchaseLog,
+  updatePurchaseLogItem,
   uploadPurchaseLogInvoice,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
@@ -41,12 +41,18 @@ import {
 } from "@/features/panol/panolApi";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { parsePanolLine } from "@/features/panol/panolParsing";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 
 const EMPTY = [];
+
+// Color de "requiere atención" (falta precio, item a revisar). Cyan, no ámbar.
+const WARN = C.cyan;
+const WARN_SOFT = C.cyanL;
+const WARN_BORDER = C.cyanB;
 
 function fmtMoney(value, currency = "ARS") {
   const n = Number(value || 0);
@@ -94,6 +100,26 @@ function purchaseLogItemTotal(item) {
     currency: item.moneda === "USD" ? "USD" : "ARS",
     value: price * qty,
   };
+}
+
+// El header de purchase_log guarda un `amount` que sólo contempla ARS y queda en
+// null si al cargar todavía no había precios. Para mostrar, preferimos siempre el
+// total derivado de los items (ARS + USD) y caemos al header sólo si no hay items.
+function purchaseLogEntryTotals(entry) {
+  const items = entry?.items || EMPTY;
+  if (items.length) {
+    return items.reduce((acc, item) => {
+      const total = purchaseLogItemTotal(item);
+      if (!total) {
+        acc.sinPrecio += 1;
+        return acc;
+      }
+      acc[total.currency] += total.value;
+      return acc;
+    }, { ARS: 0, USD: 0, sinPrecio: 0 });
+  }
+  const amount = Number(entry?.amount);
+  return { ARS: Number.isFinite(amount) ? amount : 0, USD: 0, sinPrecio: 0 };
 }
 
 function isMissingVariantColumn(error) {
@@ -173,14 +199,85 @@ function totalsLabel(totals) {
   return parts.join(" · ") || "Sin precios";
 }
 
+// El gasto de una obra llega por tres caminos distintos (ítems de pedidos a Pañol,
+// ítems de cargas de compra y adicionales). Para el que mira la obra es una sola
+// cosa: plata gastada. Esto los aplana a una forma común para poder listarlos en
+// una tabla única, filtrable por origen, en vez de tres bloques apilados.
+function obraCostLines(row) {
+  const lines = [];
+
+  for (const item of row.items || EMPTY) {
+    const unit = item.precio_unitario == null || item.precio_unitario === "" ? null : Number(item.precio_unitario);
+    lines.push({
+      key: `panol:${item.id}`,
+      origen: "panol",
+      origenLabel: "Pañol",
+      origenColor: item.tipo === "adicional" ? C.violet : C.blue,
+      adicional: item.tipo === "adicional",
+      titulo: item.descripcion,
+      subtitulo: [item.pedido, item.codigo, item.nota].filter(Boolean).join(" · "),
+      cantidad: item.cantidad,
+      unidad: item.unidad,
+      unit: Number.isFinite(unit) ? unit : null,
+      editable: { id: item.id, source: "panol", moneda: item.moneda },
+      total: item.total,
+      revisar: false,
+      cuentaCobertura: true,
+    });
+  }
+
+  for (const item of row.manuales || EMPTY) {
+    const unit = item.unitPrice == null || item.unitPrice === "" ? null : Number(item.unitPrice);
+    lines.push({
+      key: `carga:${item.id}`,
+      origen: "carga",
+      origenLabel: "Carga",
+      origenColor: C.teal,
+      adicional: false,
+      titulo: item.description,
+      subtitulo: [item.header, item.codigo, item.provider || "Sin proveedor", item.fecha ? fmtDate(item.fecha) : ""].filter(Boolean).join(" · "),
+      cantidad: item.cantidad,
+      unidad: item.unidad,
+      unit: Number.isFinite(unit) ? unit : null,
+      // Sólo los ítems de carga (source "log") son editables; el fallback de
+      // cabecera sin ítems no tiene una fila propia que actualizar.
+      editable: item.source === "log" ? { id: item.id, source: "log", moneda: item.currency } : null,
+      total: item.amount ? { value: item.amount, currency: item.currency } : null,
+      revisar: Boolean(item.revisar),
+      cuentaCobertura: true,
+    });
+  }
+
+  for (const item of row.adicionales || EMPTY) {
+    lines.push({
+      key: `adic:${item.id}`,
+      origen: "adicional",
+      origenLabel: "Adicional",
+      origenColor: C.violet,
+      adicional: true,
+      titulo: item.detail,
+      subtitulo: [item.provider || "Sin proveedor", item.requestTitle, item.linkedToPanol ? "ya contado en Pañol" : ""].filter(Boolean).join(" · "),
+      cantidad: item.cantidad,
+      unidad: "",
+      unit: null,
+      editable: null,
+      total: item.amount ? { value: item.amount, currency: item.currency } : null,
+      revisar: false,
+      // Los adicionales ya vinculados a Pañol no suman plata; no tiene sentido
+      // exigirles precio ni contarlos como "falta cargar".
+      cuentaCobertura: false,
+    });
+  }
+
+  return lines;
+}
+
 // Cobertura de precios consistente entre la tarjeta de la obra y su detalle:
-// cuenta TODAS las líneas (ítems de pañol + ítems de cargas de compra), no solo pañol.
+// cuenta las líneas que sí deben tener precio (pañol + cargas de compra).
 function priceCoverage(row) {
-  const manuales = row.manuales || EMPTY;
-  const total = (row.items || EMPTY).length + manuales.length;
-  const priced = (row.items || EMPTY).filter((i) => i.total).length
-    + manuales.filter((m) => m.amount != null && m.amount !== "").length;
-  return { total, priced, sinPrecio: Math.max(0, total - priced) };
+  const contables = obraCostLines(row).filter((line) => line.cuentaCobertura);
+  const priced = contables.filter((line) => line.total).length;
+  return { total: contables.length, priced, sinPrecio: Math.max(0, contables.length - priced) };
 }
 
 function chip(color, label) {
@@ -206,38 +303,41 @@ function chip(color, label) {
   );
 }
 
-function StatCard({ icon: IconComponent, label, value, detail, color }) {
-  const icon = IconComponent ? <IconComponent size={16} /> : null;
+// Celda de la tira de KPIs: densa, sin caja de icono, separada por hairlines del
+// grid contenedor (gap 1px sobre fondo `border`).
+function KpiCell({ icon: IconComponent, label, value, detail, color, loading }) {
   return (
-    <div style={{
-      border: `1px solid ${C.border}`,
-      background: C.panelSolid,
-      borderRadius: 12,
-      padding: 14,
-      display: "flex",
-      gap: 11,
-      alignItems: "center",
-      minWidth: 0,
-    }}>
-      <div style={{
-        width: 32,
-        height: 32,
-        borderRadius: 9,
-        display: "grid",
-        placeItems: "center",
-        background: `${color}14`,
-        border: `1px solid ${color}35`,
-        color,
-        flexShrink: 0,
-      }}>
-        {icon}
+    <div style={{ background: C.panelSolid, padding: "10px 12px", display: "grid", gap: 3, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase" }}>
+        {IconComponent && <IconComponent size={12} style={{ color, flexShrink: 0 }} />}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color, fontFamily: C.mono, fontSize: 20, fontWeight: 900, lineHeight: 1 }}>{value}</div>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 850, marginTop: 4 }}>{label}</div>
-        {detail && <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</div>}
-      </div>
+      {loading ? (
+        <Skeleton width={90} height={19} radius={6} />
+      ) : (
+        <div style={{ color, fontFamily: C.mono, fontSize: 19, fontWeight: 900, lineHeight: 1.05, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      )}
+      {detail && <div style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</div>}
     </div>
+  );
+}
+
+// Hover/focus no se pueden expresar con estilos inline, así que van en una hoja
+// local acotada al prefijo `plp-`.
+function PanelStyles() {
+  return (
+    <style>{`
+      .plp-card { transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease, background .15s ease; }
+      .plp-card:hover { border-color: var(--border-2); transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow); }
+      .plp-btn { transition: border-color .15s ease, filter .15s ease, transform .12s ease; }
+      .plp-btn:hover:not(:disabled) { border-color: var(--border-2); filter: brightness(1.08); }
+      .plp-btn:active:not(:disabled) { transform: translateY(1px); }
+      .plp-row { transition: background .12s ease; }
+      .plp-row:hover { background: var(--panel-2); }
+      .plp-field { transition: border-color .15s ease, box-shadow .15s ease; }
+      .plp-field:focus, .plp-field:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+      .plp-btn:focus-visible, .plp-card:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    `}</style>
   );
 }
 
@@ -472,6 +572,22 @@ function resolveEnvioObra(envio, obraCodeList) {
   return { key: normalizeSearch(fallback) || "sin-obra", label: fallback };
 }
 
+// Misma idea que resolveEnvioObra pero para la carga manual: busca el código de
+// obra dentro de lo que el usuario escribió (título, notas, líneas pegadas) para
+// preseleccionar la obra sin que tenga que ir al select.
+function guessObraId(text, obras = EMPTY) {
+  const hay = ` ${normalizeSearch(text)} `;
+  if (hay.trim().length < 2) return "";
+  const sorted = [...obras]
+    .map((o) => ({ id: o.id, norm: normalizeSearch(o.codigo || "") }))
+    .filter((o) => o.norm.length >= 2)
+    .sort((a, b) => b.norm.length - a.norm.length);
+  for (const obra of sorted) {
+    if (hay.includes(` ${obra.norm} `)) return obra.id;
+  }
+  return "";
+}
+
 function looksAdditional(envio, item, additionalByItem, additionalByRequest) {
   if (item?.purchase_request_item_id && additionalByItem.has(item.purchase_request_item_id)) return true;
   if (envio?.purchase_request_id && additionalByRequest.has(envio.purchase_request_id)) return true;
@@ -594,6 +710,7 @@ function buildCostosPorObra(envios, additionalBoards, additionalItems, entries =
         }
         row.manuales.push({
           id: item.id,
+          source: "log",
           logId: entry.id,
           description: item.descripcion,
           codigo: item.codigo || "",
@@ -616,6 +733,8 @@ function buildCostosPorObra(envios, additionalBoards, additionalItems, entries =
       const hasAmount = Number.isFinite(amount) && amount > 0;
       row.manuales.push({
         id: entry.id,
+        source: "log-header",
+        logId: entry.id,
         description: entry.description,
         provider: entry.provider || "",
         amount: hasAmount ? amount : null,
@@ -836,23 +955,28 @@ export default function PurchaseLogPanel({ profile }) {
     }
   }
 
-  async function handleApplyBudgetRows(rows) {
-    const toApply = rows
-      .map((row) => ({ ...row, precio: normalizePriceInput(row.precio_unitario) }))
-      .filter((row) => row.itemId && row.precio !== null);
-
+  // Los precios del modal pueden ir a dos tablas distintas: items de envío a
+  // pañol o items de una carga de compra. El `source` del candidato decide cuál.
+  async function applyPriceRows(toApply) {
     if (!toApply.length) {
       toast.warning("No hay precios listos para aplicar.");
       return;
     }
-
     setSavingPrices(true);
     try {
       for (const row of toApply) {
-        await updateEnvioItemPrice(row.itemId, {
-          precio_unitario: row.precio,
-          moneda: row.moneda,
-        });
+        if (row.source === "log") {
+          await updatePurchaseLogItem(row.id, {
+            precio_unitario: row.precio,
+            moneda: row.moneda,
+            revisar: false,
+          });
+        } else {
+          await updateEnvioItemPrice(row.id, {
+            precio_unitario: row.precio,
+            moneda: row.moneda,
+          });
+        }
       }
       toast.success(`${toApply.length} precio${toApply.length === 1 ? "" : "s"} cargado${toApply.length === 1 ? "" : "s"}.`);
       setBudgetModal(null);
@@ -864,32 +988,27 @@ export default function PurchaseLogPanel({ profile }) {
     }
   }
 
+  async function handleApplyBudgetRows(rows) {
+    const sourceById = new Map(budgetCandidates.map((c) => [c.id, c.source]));
+    await applyPriceRows(rows
+      .map((row) => ({
+        id: row.itemId,
+        source: sourceById.get(row.itemId) || "panol",
+        moneda: row.moneda,
+        precio: normalizePriceInput(row.precio_unitario),
+      }))
+      .filter((row) => row.id && row.precio !== null));
+  }
+
   async function handleApplyManualPriceRows(rows) {
-    const toApply = rows
-      .map((row) => ({ ...row, precio: normalizePriceInput(row.precio_unitario) }))
-      .filter((row) => row.id && row.precio !== null);
-
-    if (!toApply.length) {
-      toast.warning("No hay precios listos para aplicar.");
-      return;
-    }
-
-    setSavingPrices(true);
-    try {
-      for (const row of toApply) {
-        await updateEnvioItemPrice(row.id, {
-          precio_unitario: row.precio,
-          moneda: row.moneda,
-        });
-      }
-      toast.success(`${toApply.length} precio${toApply.length === 1 ? "" : "s"} cargado${toApply.length === 1 ? "" : "s"}.`);
-      setBudgetModal(null);
-      await load();
-    } catch (err) {
-      toast.error(err.message || "No se pudieron aplicar los precios.");
-    } finally {
-      setSavingPrices(false);
-    }
+    await applyPriceRows(rows
+      .map((row) => ({
+        id: row.id,
+        source: row.source || "panol",
+        moneda: row.moneda,
+        precio: normalizePriceInput(row.precio_unitario),
+      }))
+      .filter((row) => row.id && row.precio !== null));
   }
 
   async function handleSetItemPrice(itemId, pricePatch) {
@@ -914,14 +1033,48 @@ export default function PurchaseLogPanel({ profile }) {
     }
   }
 
-  const thisMonth = entries.filter((e) => {
-    const d = new Date(e.purchased_at);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
+  // Corrige el precio de un item de una carga de compra (los que quedan marcados
+  // "Revisar") sin tener que borrar y volver a cargar la compra entera.
+  async function handleSetManualItemPrice(itemId, pricePatch) {
+    const precio = normalizePriceInput(pricePatch?.precio_unitario);
+    if (precio === null) {
+      toast.warning("Cargá un precio válido.");
+      return;
+    }
+    setSavingPrices(true);
+    try {
+      await updatePurchaseLogItem(itemId, {
+        precio_unitario: precio,
+        moneda: pricePatch.moneda,
+        revisar: false,
+      });
+      toast.success("Precio actualizado.");
+      await load();
+    } catch (err) {
+      toast.error(err.message || "No se pudo actualizar el precio.");
+    } finally {
+      setSavingPrices(false);
+    }
+  }
 
-  const manualTotal = entries.reduce((s, e) => s + Number(e.amount || 0), 0);
-  const monthlyTotal = thisMonth.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const { monthlyTotal, monthlyCount, manualTotal, sinPrecioCargas } = useMemo(() => {
+    const now = new Date();
+    let mTotal = 0;
+    let mCount = 0;
+    let total = 0;
+    let sinPrecio = 0;
+    for (const entry of entries) {
+      const totals = purchaseLogEntryTotals(entry);
+      total += totals.ARS;
+      sinPrecio += totals.sinPrecio;
+      const d = new Date(entry.purchased_at);
+      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+        mTotal += totals.ARS;
+        mCount += 1;
+      }
+    }
+    return { monthlyTotal: mTotal, monthlyCount: mCount, manualTotal: total, sinPrecioCargas: sinPrecio };
+  }, [entries]);
 
   const filteredEnvios = useMemo(() => {
     let rows = envios;
@@ -952,64 +1105,110 @@ export default function PurchaseLogPanel({ profile }) {
     return { enviados, recibidos, itemsPendientes, novedades };
   }, [envios]);
 
-  const gastoPorObra = costosPorObra.slice(0, 8);
-
+  // Candidatos para el modal de precios: items de pañol + items de cargas de
+  // compra (que son justamente los que quedan marcados "Revisar"). La obra sale
+  // de la fila que los contiene, sin volver a recorrer todas las filas por item.
   const budgetCandidates = useMemo(() => {
     const rows = budgetModal?.obraKey
-      ? (costosPorObra.find((row) => row.key === budgetModal.obraKey)?.items || EMPTY)
-      : costosPorObra.flatMap((row) => row.items);
-    return rows.map((item) => ({
-      id: item.id,
-      descripcion: item.descripcion,
-      codigo: item.codigo,
-      cantidad: item.cantidad,
-      unidad: item.unidad,
-      precio_unitario: item.precio_unitario,
-      moneda: item.moneda || "ARS",
-      pedido: item.pedido,
-      obra: costosPorObra.find((row) => row.items.some((it) => it.id === item.id))?.label || "",
-    }));
+      ? costosPorObra.filter((row) => row.key === budgetModal.obraKey)
+      : costosPorObra;
+    const out = [];
+    for (const row of rows) {
+      for (const item of row.items || EMPTY) {
+        out.push({
+          id: item.id,
+          source: "panol",
+          descripcion: item.descripcion,
+          codigo: item.codigo,
+          cantidad: item.cantidad,
+          unidad: item.unidad,
+          precio_unitario: item.precio_unitario,
+          moneda: item.moneda || "ARS",
+          pedido: item.pedido,
+          obra: row.label,
+        });
+      }
+      for (const item of row.manuales || EMPTY) {
+        if (item.source !== "log") continue;
+        out.push({
+          id: item.id,
+          source: "log",
+          descripcion: item.description,
+          codigo: item.codigo,
+          cantidad: item.cantidad,
+          unidad: item.unidad,
+          precio_unitario: item.unitPrice,
+          moneda: item.currency || "ARS",
+          pedido: item.header || "Carga de compra",
+          obra: row.label,
+        });
+      }
+    }
+    return out;
   }, [budgetModal, costosPorObra]);
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <header style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div style={{ display: "grid", gap: 12 }}>
+      <PanelStyles />
+      <SkeletonStyles />
+
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+        border: `1px solid ${C.border}`,
+        background: C.topbarSoft,
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        borderRadius: 13,
+        padding: "9px 11px",
+      }}>
         <div style={{
-          width: 34,
-          height: 34,
-          borderRadius: 10,
+          width: 30,
+          height: 30,
+          borderRadius: 9,
           display: "grid",
           placeItems: "center",
-          background: "var(--blue-soft)",
+          background: C.blueL,
           border: `1px solid ${C.blueB}`,
           color: C.blue,
+          flexShrink: 0,
         }}>
-          <ClipboardList size={17} />
+          <ClipboardList size={16} />
         </div>
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <div style={{ color: C.text, fontSize: 19, fontWeight: 900 }}>Registro de compras</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
-            Compras manuales, pedidos enviados a pañol, seguimiento y gasto por obra.
-          </div>
+        <div style={{ minWidth: 160, marginRight: "auto" }}>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 900, lineHeight: 1.15 }}>Registro de compras</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Cargas, pedidos a Pañol y gasto por obra.</div>
         </div>
         <ViewTabs value={view} onChange={setView} />
-        <button type="button" onClick={() => setPanolModal({ prefill: null })} style={primaryButton(C.blue)}>
-          <Plus size={14} /> Nuevo envío a pañol
-        </button>
-        <button type="button" onClick={() => setBudgetModal({ obraKey: view === "costos" ? selectedObraKey : "" })} style={secondaryButton()}>
-          <Sparkles size={14} /> Cargar precios
-        </button>
-        <button type="button" onClick={() => setShowForm((v) => !v)} style={secondaryButton()}>
-          {showForm ? <X size={14} /> : <ReceiptText size={14} />}
-          {showForm ? "Cerrar carga" : "Cargar compra"}
-        </button>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          <button type="button" className="plp-btn" onClick={() => setShowForm((v) => !v)} style={secondaryButton()}>
+            {showForm ? <X size={14} /> : <ReceiptText size={14} />}
+            {showForm ? "Cerrar carga" : "Cargar compra"}
+          </button>
+          <button type="button" className="plp-btn" onClick={() => setBudgetModal({ obraKey: view === "costos" ? selectedObraKey : "" })} style={secondaryButton()}>
+            <Sparkles size={14} /> Cargar precios
+          </button>
+          <button type="button" className="plp-btn" onClick={() => setPanolModal({ prefill: null })} style={primaryButton(C.blue)}>
+            <Plus size={14} /> Envío a Pañol
+          </button>
+        </div>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
-        <StatCard icon={DollarSign} label="Este mes" value={fmtMoney(monthlyTotal)} detail={`${thisMonth.length} cargas registradas`} color={C.green} />
-        <StatCard icon={FileText} label="Registrado" value={fmtMoney(manualTotal)} detail={`${entries.length} registros`} color={C.blue} />
-        <StatCard icon={Warehouse} label="A pañol activos" value={panolKpis.enviados} detail={`${panolKpis.itemsPendientes} items pendientes`} color={C.amber} />
-        <StatCard icon={AlertTriangle} label="Novedades pañol" value={panolKpis.novedades} detail="faltantes, sin info o rechazados" color={C.red} />
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
+        gap: 1,
+        background: C.border,
+        border: `1px solid ${C.border}`,
+        borderRadius: 12,
+        overflow: "hidden",
+      }}>
+        <KpiCell icon={DollarSign} label="Este mes" value={fmtMoney(monthlyTotal)} detail={`${monthlyCount} carga${monthlyCount === 1 ? "" : "s"}`} color={C.green} loading={loading} />
+        <KpiCell icon={FileText} label="Registrado" value={fmtMoney(manualTotal)} detail={sinPrecioCargas > 0 ? `${sinPrecioCargas} items sin precio` : `${entries.length} registros`} color={sinPrecioCargas > 0 ? WARN : C.blue} loading={loading} />
+        <KpiCell icon={Warehouse} label="A Pañol activos" value={panolKpis.enviados} detail={`${panolKpis.itemsPendientes} items pendientes`} color={C.violet} loading={loading} />
+        <KpiCell icon={AlertTriangle} label="Novedades Pañol" value={panolKpis.novedades} detail="faltantes, sin info o rechazados" color={panolKpis.novedades > 0 ? C.red : C.dim} loading={loading} />
       </div>
 
       {showForm && (
@@ -1050,90 +1249,8 @@ export default function PurchaseLogPanel({ profile }) {
           onSendLogToPanol={handleSendLogToPanol}
           onOpenBudget={(obraKey) => setBudgetModal({ obraKey })}
           onSetItemPrice={handleSetItemPrice}
+          onSetManualPrice={handleSetManualItemPrice}
         />
-      )}
-
-      {view === "__legacy" && (
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.55fr) minmax(300px, 0.9fr)", gap: 12, alignItems: "start" }}>
-        <section style={panelStyle()}>
-          <div style={sectionHeaderStyle()}>
-            <div>
-              <div style={sectionTitleStyle()}>Seguimiento de pedidos a pañol</div>
-              <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Lo que compras mandó y el estado que informó pañol.</div>
-            </div>
-            <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 12 }}>{filteredEnvios.length}/{envios.length}</span>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar obra, item, destino..."
-              style={{ ...inp(), flex: "1 1 230px", minWidth: 0 }}
-            />
-            <select value={estado} onChange={(e) => setEstado(e.target.value)} style={{ ...inp(), flex: "0 0 150px" }}>
-              <option value="activos">Activos</option>
-              <option value="enviado">Enviado</option>
-              <option value="parcial">Parcial</option>
-              <option value="recibido">Recibido</option>
-              <option value="cancelado">Cancelado</option>
-              <option value="todos">Todos</option>
-            </select>
-          </div>
-
-          {loading ? (
-            <EmptyState text="Cargando seguimiento..." />
-          ) : filteredEnvios.length === 0 ? (
-            <EmptyState text="No hay pedidos a pañol para ese filtro." />
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(270px, 0.9fr) minmax(340px, 1.1fr)", gap: 10, minHeight: 420 }}>
-              <div style={{ display: "grid", gap: 7, alignContent: "start", maxHeight: 560, overflowY: "auto", paddingRight: 3 }}>
-                {filteredEnvios.map((envio) => (
-                  <EnvioRow
-                    key={envio.id}
-                    envio={envio}
-                    active={selectedEnvio?.id === envio.id}
-                    onClick={() => setSelectedEnvioId(envio.id)}
-                  />
-                ))}
-              </div>
-              <EnvioDetail envio={selectedEnvio} onDelete={handleDeleteEnvio} />
-            </div>
-          )}
-        </section>
-
-        <aside style={{ display: "grid", gap: 12 }}>
-          <section style={panelStyle()}>
-            <div style={sectionHeaderStyle()}>
-              <div>
-                <div style={sectionTitleStyle()}>Gasto por obra / destino</div>
-                <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Calculado desde items enviados a pañol con precio cargado.</div>
-              </div>
-            </div>
-            {gastoPorObra.length === 0 ? (
-              <EmptyState text="Todavía no hay precios cargados en items de pañol." compact />
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {gastoPorObra.map((row) => (
-                  <div key={row.key} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10 }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                      <div style={{ flex: 1, color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.key}</div>
-                      <div style={{ color: C.dim, fontSize: 11 }}>{row.pedidos} ped.</div>
-                    </div>
-                    <div style={{ color: C.green, fontFamily: C.mono, fontSize: 14, fontWeight: 850, marginTop: 5 }}>
-                      {totalsLabel(row)}
-                    </div>
-                    {row.sinPrecio > 0 && <div style={{ color: C.amber, fontSize: 11, marginTop: 4 }}>{row.sinPrecio} items sin precio</div>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <ManualLogList entries={entries} loading={loading} onDelete={handleDeleteLog} onSendToPanol={handleSendLogToPanol} />
-        </aside>
-      </div>
-
       )}
 
       {panolModal && (
@@ -1175,14 +1292,16 @@ function ViewTabs({ value, onChange }) {
           <button
             key={v}
             type="button"
+            className="plp-btn"
+            aria-pressed={active}
             onClick={() => onChange(v)}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              border: `1px solid ${active ? C.border2 : "transparent"}`,
-              background: active ? C.panelSolid : "transparent",
-              color: active ? C.text : C.dim,
+              border: `1px solid ${active ? C.blueB : "transparent"}`,
+              background: active ? C.blueL : "transparent",
+              color: active ? C.blue : C.dim,
               borderRadius: 8,
               padding: "7px 10px",
               cursor: "pointer",
@@ -1217,23 +1336,31 @@ function PedidosPanolView({
   return (
     <section style={panelStyle()}>
       <div style={sectionHeaderStyle()}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={sectionTitleStyle()}>Pedidos a Pañol</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
-            Lo que Compras mando, con recepcion y mensajes de Pañol en el mismo lugar.
+            Lo que Compras mandó, con recepción y mensajes de Pañol en el mismo lugar.
           </div>
         </div>
-        <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 12 }}>{filteredEnvios.length}/{envios.length}</span>
+        <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 12, whiteSpace: "nowrap" }}>{filteredEnvios.length}/{envios.length}</span>
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar obra, item, destino..."
-          style={{ ...inp(), flex: "1 1 260px", minWidth: 0 }}
-        />
-        <select value={estado} onChange={(e) => setEstado(e.target.value)} style={{ ...inp(), flex: "0 0 160px", background: C.panelSolid }}>
+        <div className="plp-field" style={{ ...inp({ display: "flex", alignItems: "center", gap: 8, padding: "0 11px" }), flex: "1 1 260px", minWidth: 0 }}>
+          <Search size={14} style={{ color: C.dim, flexShrink: 0 }} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar obra, item, destino..."
+            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: C.text, fontFamily: C.sans, fontSize: 13, outline: "none", padding: "10px 0" }}
+          />
+          {q && (
+            <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}>
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        <select value={estado} onChange={(e) => setEstado(e.target.value)} className="plp-field" style={{ ...inp(), flex: "0 0 160px", background: C.panelSolid, cursor: "pointer" }}>
           <option value="activos">Activos</option>
           <option value="enviado">Enviado</option>
           <option value="parcial">Parcial</option>
@@ -1244,9 +1371,9 @@ function PedidosPanolView({
       </div>
 
       {loading ? (
-        <EmptyState text="Cargando pedidos..." />
+        <ListSkeleton rows={5} />
       ) : filteredEnvios.length === 0 ? (
-        <EmptyState text="No hay pedidos a Pañol para ese filtro." />
+        <EmptyState text={envios.length ? "No hay pedidos a Pañol para ese filtro." : "Todavía no hay pedidos a Pañol."} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 0.8fr) minmax(420px, 1.2fr)", gap: 10, minHeight: 520 }}>
           <div style={{ display: "grid", gap: 8, alignContent: "start", maxHeight: 650, overflowY: "auto", paddingRight: 3 }}>
@@ -1266,34 +1393,51 @@ function PedidosPanolView({
   );
 }
 
-function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, onDeleteLog, onSendLogToPanol, onOpenBudget, onSetItemPrice }) {
+function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, onDeleteLog, onSendLogToPanol, onOpenBudget, onSetItemPrice, onSetManualPrice }) {
   const selected = rows.find((row) => row.key === selectedKey) || rows[0] || null;
+
+  // La lista de cargas se acota sola a la obra abierta: los logId ya vienen en
+  // row.manuales, así que no hace falta un filtro aparte ni volver a consultar.
+  const { visibleEntries, scoped } = useMemo(() => {
+    if (!selected) return { visibleEntries: entries, scoped: false };
+    const logIds = new Set((selected.manuales || EMPTY).map((m) => m.logId).filter(Boolean));
+    if (!logIds.size) return { visibleEntries: EMPTY, scoped: true };
+    return { visibleEntries: entries.filter((e) => logIds.has(e.id)), scoped: true };
+  }, [entries, selected]);
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.45fr) minmax(520px, 1fr)", gap: 12, alignItems: "start" }}>
       <section style={panelStyle()}>
         <div style={sectionHeaderStyle()}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={sectionTitleStyle()}>Gasto por obra</div>
-            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Entrar a cada barco, ver items y separar adicionales.</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Entrá a cada barco, mirá los items y separá adicionales.</div>
           </div>
+          {!loading && rows.length > 0 && (
+            <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 12, whiteSpace: "nowrap" }}>{rows.length}</span>
+          )}
         </div>
         {loading ? (
-          <EmptyState text="Cargando costos..." compact />
+          <ListSkeleton rows={4} />
         ) : rows.length === 0 ? (
-          <EmptyState text="Todavia no hay pedidos ni precios para agrupar." compact />
+          <EmptyState text="Todavía no hay pedidos ni precios para agrupar." compact />
         ) : (
           <div style={{ display: "grid", gap: 8, maxHeight: 680, overflowY: "auto", paddingRight: 3 }}>
             {rows.map((row) => {
               const active = selected?.key === row.key;
+              const cov = priceCoverage(row);
               return (
                 <button
                   key={row.key}
                   type="button"
+                  className="plp-card"
+                  aria-pressed={active}
                   onClick={() => setSelectedKey(row.key)}
                   style={{
                     textAlign: "left",
-                    border: `1px solid ${active ? C.blue : C.border}`,
-                    background: active ? "var(--blue-soft)" : C.panel,
+                    border: `1px solid ${active ? C.blueB : C.border}`,
+                    borderLeft: `3px solid ${active ? C.blue : "transparent"}`,
+                    background: active ? C.blueL : C.panel,
                     color: C.text,
                     borderRadius: 11,
                     padding: 11,
@@ -1307,13 +1451,16 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
                     <strong style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</strong>
                     <ChevronRight size={14} color={active ? C.blue : C.dim} />
                   </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", color: C.dim, fontSize: 11 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", color: C.dim, fontSize: 11, flexWrap: "wrap" }}>
                     <span>{row.pedidos} pedidos</span>
                     <span>{row.items.length} items</span>
                     {row.adicionalItems > 0 && <span style={{ color: C.violet }}>{row.adicionalItems} adicionales</span>}
                   </div>
-                  <div style={{ color: row.ARS || row.USD ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>{totalsLabel(row)}</div>
-                  {priceCoverage(row).sinPrecio > 0 && <div style={{ color: C.amber, fontSize: 11, fontWeight: 800 }}>{priceCoverage(row).sinPrecio} items sin precio</div>}
+                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <span style={{ color: row.ARS || row.USD ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>{totalsLabel(row)}</span>
+                    {cov.sinPrecio > 0 && <span style={{ color: WARN, fontSize: 11, fontWeight: 800 }}>{cov.sinPrecio} sin precio</span>}
+                  </div>
+                  <CoverageBar priced={cov.priced} total={cov.total} />
                 </button>
               );
             })}
@@ -1322,34 +1469,82 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
       </section>
 
       <section style={panelStyle()}>
-        {!selected ? (
-          <EmptyState text="Selecciona una obra para ver el detalle." />
+        {loading ? (
+          <ListSkeleton rows={6} />
+        ) : !selected ? (
+          <EmptyState text="Seleccioná una obra para ver el detalle." />
         ) : (
-          <ObraCostDetail row={selected} onOpenBudget={onOpenBudget} onSetItemPrice={onSetItemPrice} />
+          <ObraCostDetail row={selected} onOpenBudget={onOpenBudget} onSetItemPrice={onSetItemPrice} onSetManualPrice={onSetManualPrice} />
         )}
       </section>
 
       <div style={{ gridColumn: "1 / -1" }}>
-        <ManualLogList entries={entries} loading={loading} onDelete={onDeleteLog} onSendToPanol={onSendLogToPanol} />
+        <ManualLogList
+          entries={visibleEntries}
+          loading={loading}
+          scopeLabel={scoped ? selected?.label : ""}
+          onDelete={onDeleteLog}
+          onSendToPanol={onSendLogToPanol}
+        />
       </div>
     </div>
   );
 }
 
-function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
+// Barra fina de cobertura de precios: verde lo que ya tiene precio, cyan lo que falta.
+function CoverageBar({ priced, total }) {
+  if (!total) return null;
+  const pct = Math.round((priced / total) * 100);
+  return (
+    <div style={{ height: 4, borderRadius: 99, background: WARN_SOFT, overflow: "hidden" }} title={`${priced}/${total} con precio`}>
+      <div style={{ width: `${pct}%`, height: "100%", background: C.green, transition: "width .25s ease" }} />
+    </div>
+  );
+}
+
+const OBRA_COLS = "minmax(200px,1.5fr) 92px 84px 152px 108px";
+
+function ObraCostDetail({ row, onOpenBudget, onSetItemPrice, onSetManualPrice }) {
+  const [filtro, setFiltro] = useState("todos");
   const cov = priceCoverage(row);
   const hasAdicionales = (row.adicionales?.length || 0) > 0 || (row.adicionalItems || 0) > 0;
+
+  const lines = useMemo(() => obraCostLines(row), [row]);
+  const counts = useMemo(() => ({
+    todos: lines.length,
+    panol: lines.filter((l) => l.origen === "panol").length,
+    carga: lines.filter((l) => l.origen === "carga").length,
+    adicional: lines.filter((l) => l.origen === "adicional").length,
+    sinPrecio: lines.filter((l) => l.cuentaCobertura && !l.total).length,
+  }), [lines]);
+
+  const visibles = useMemo(() => {
+    if (filtro === "todos") return lines;
+    if (filtro === "sinPrecio") return lines.filter((l) => l.cuentaCobertura && !l.total);
+    return lines.filter((l) => l.origen === filtro);
+  }, [lines, filtro]);
+
+  // Al quedarse sin resultados (p. ej. se completaron todos los precios), el filtro
+  // vuelve solo a "todos" en vez de dejar una tabla vacía sin explicación.
+  const filtros = [
+    ["todos", "Todos", counts.todos, C.blue],
+    ["panol", "Pañol", counts.panol, C.blue],
+    ["carga", "Cargas", counts.carga, C.teal],
+    ["adicional", "Adicionales", counts.adicional, C.violet],
+    ["sinPrecio", "Sin precio", counts.sinPrecio, WARN],
+  ].filter(([key, , n]) => key === "todos" || n > 0);
+
   return (
-    <div style={{ display: "grid", gap: 13 }}>
+    <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ color: C.text, fontSize: 18, fontWeight: 950 }}>{row.label}</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
-            {row.items.length} items de pedidos a Pañol · {row.adicionales.length} registros de adicionales
+            {row.pedidos} pedido{row.pedidos === 1 ? "" : "s"} · {lines.length} línea{lines.length === 1 ? "" : "s"} de gasto
           </div>
         </div>
-        <button type="button" onClick={() => onOpenBudget(row.key)} style={primaryButton(C.violet)}>
-          <Sparkles size={14} /> Cargar presupuesto
+        <button type="button" className="plp-btn" onClick={() => onOpenBudget(row.key)} style={primaryButton(cov.sinPrecio ? C.violet : C.blue)}>
+          <Sparkles size={14} /> {cov.sinPrecio > 0 ? `Completar ${cov.sinPrecio} precio${cov.sinPrecio === 1 ? "" : "s"}` : "Cargar presupuesto"}
         </button>
       </div>
 
@@ -1357,82 +1552,96 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
         <MiniMetric label="Total" value={totalsLabel(row)} color={C.green} />
         <MiniMetric label="Normal" value={totalsLabel({ ARS: row.baseARS, USD: row.baseUSD })} color={C.blue} />
         <MiniMetric label="Adicionales" value={hasAdicionales ? totalsLabel({ ARS: row.adicionalARS, USD: row.adicionalUSD }) : "—"} color={C.violet} />
-        <MiniMetric label="Precios cargados" value={`${cov.priced}/${cov.total}`} color={cov.sinPrecio ? C.amber : C.green} />
+        <MiniMetric label="Precios cargados" value={`${cov.priced}/${cov.total}`} color={cov.sinPrecio ? WARN : C.green} />
+      </div>
+
+      {/* Un solo listado para los tres orígenes de gasto, filtrable. Antes eran tres
+          bloques apilados con formatos distintos y no se podían comparar. */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {filtros.map(([key, label, n, color]) => {
+          const active = filtro === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              className="plp-btn"
+              aria-pressed={active}
+              onClick={() => setFiltro(key)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                border: `1px solid ${active ? color : C.border}`,
+                background: active ? `${color}14` : C.panel,
+                color: active ? color : C.dim,
+                borderRadius: 999,
+                padding: "5px 11px",
+                cursor: "pointer",
+                fontSize: 11.5,
+                fontWeight: 850,
+                fontFamily: C.sans,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {label}
+              <span style={{ fontFamily: C.mono, fontSize: 10.5, opacity: 0.8 }}>{n}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(200px,1.4fr) 84px 80px 156px 104px", gap: 8, padding: "9px 11px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
-          <span>Item</span><span>Tipo</span><span>Cantidad</span><span>Unitario</span><span>Total</span>
+        <div style={{ display: "grid", gridTemplateColumns: OBRA_COLS, gap: 8, padding: "9px 11px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+          <span>Item</span><span>Origen</span><span>Cantidad</span><span>Unitario</span><span>Total</span>
         </div>
-        <div style={{ maxHeight: 460, overflowY: "auto" }}>
-          {row.items.length === 0 ? (
-            <EmptyState text="No hay items enviados a Pañol para esta obra." compact />
-          ) : row.items.map((item) => {
-            const unit = item.precio_unitario == null || item.precio_unitario === "" ? null : Number(item.precio_unitario);
-            return (
-              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(200px,1.4fr) 84px 80px 156px 104px", gap: 8, alignItems: "center", padding: "10px 11px", borderTop: `1px solid ${C.border}` }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
-                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{item.pedido}{item.codigo ? ` · ${item.codigo}` : ""}{item.nota ? ` · ${item.nota}` : ""}</div>
+        <div style={{ maxHeight: 520, overflowY: "auto" }}>
+          {visibles.length === 0 ? (
+            <EmptyState text={lines.length ? "Nada para ese filtro." : "Esta obra todavía no tiene gasto cargado."} compact />
+          ) : visibles.map((line) => (
+            <div
+              key={line.key}
+              className="plp-row"
+              style={{
+                display: "grid",
+                gridTemplateColumns: OBRA_COLS,
+                gap: 8,
+                alignItems: "center",
+                padding: "10px 11px",
+                borderTop: `1px solid ${C.border}`,
+                background: line.revisar ? WARN_SOFT : "transparent",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
+                  <span style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line.titulo}</span>
+                  {line.revisar && chip(WARN, "Revisar")}
                 </div>
-                {item.tipo === "adicional" ? chip(C.violet, "Adicional") : chip(C.blue, "Normal")}
-                <div style={{ color: C.muted, fontSize: 12 }}>{item.cantidad || "-"} {item.unidad || ""}</div>
-                <InlinePriceEditor item={item} unit={unit} onSave={onSetItemPrice} />
-                <div style={{ color: item.total ? C.green : C.amber, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.total ? fmtMoney(item.total.value, item.total.currency) : "Sin precio"}</div>
+                {line.subtitulo && (
+                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line.subtitulo}</div>
+                )}
               </div>
-            );
-          })}
+              {chip(line.origenColor, line.adicional && line.origen === "panol" ? "Pañol adic." : line.origenLabel)}
+              <div style={{ color: C.muted, fontSize: 12 }}>{line.cantidad || "-"} {line.unidad || ""}</div>
+              <InlinePriceEditor
+                item={line.editable || { id: null, source: "readonly", moneda: line.total?.currency }}
+                unit={line.unit}
+                onSave={line.editable?.source === "log" ? onSetManualPrice : onSetItemPrice}
+              />
+              <div style={{ color: line.total ? C.green : line.cuentaCobertura ? WARN : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>
+                {line.total ? fmtMoney(line.total.value, line.total.currency) : line.cuentaCobertura ? "Sin precio" : "—"}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-
-      {row.adicionales.length > 0 && (
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Adicionales vinculados</div>
-          {row.adicionales.map((item) => (
-            <div key={item.id} style={{ border: `1px solid ${C.border}`, background: item.linkedToPanol ? C.panel : "var(--violet-soft)", borderRadius: 10, padding: 10, display: "flex", gap: 10, alignItems: "center" }}>
-              <ReceiptText size={15} color={C.violet} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.detail}</div>
-                <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{item.provider || "Sin proveedor"}{item.requestTitle ? ` · ${item.requestTitle}` : ""}{item.linkedToPanol ? " · conectado a pedido a Pañol" : ""}</div>
-              </div>
-              <div style={{ color: item.amount ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.amount ? fmtMoney(item.amount, item.currency) : "Sin monto"}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {row.manuales && row.manuales.length > 0 && (
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Cargas de compra</div>
-          {row.manuales.map((item) => (
-            <div key={item.id} style={{ border: `1px solid ${item.revisar ? C.amberB : C.border}`, background: item.revisar ? "var(--amber-soft)" : C.panel, borderRadius: 10, padding: 10, display: "flex", gap: 10, alignItems: "center" }}>
-              <FileText size={15} color={item.revisar ? C.amber : C.blue} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", gap: 7, alignItems: "center", minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
-                  {item.revisar && chip(C.amber, "Revisar")}
-                </div>
-                {(item.header || item.codigo || item.cantidad) && (
-                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-                    {item.header ? `${item.header} · ` : ""}{item.codigo ? `${item.codigo} · ` : ""}{item.cantidad ? `${item.cantidad} ${item.unidad || ""}` : ""}
-                  </div>
-                )}
-                <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{item.provider || "Sin proveedor"}{item.fecha ? ` · ${fmtDate(item.fecha)}` : ""}</div>
-              </div>
-              <div style={{ display: "grid", gap: 3, justifyItems: "end" }}>
-                {item.unitPrice != null && item.unitPrice !== "" && <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{fmtMoney(item.unitPrice, item.currency)} c/u</div>}
-                <div style={{ color: item.amount ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.amount ? fmtMoney(item.amount, item.currency) : "Sin precio"}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
 function InlinePriceEditor({ item, unit, onSave }) {
-  const canEdit = item.source === "panol" && item.id;
+  // Editable tanto para items de envío a pañol como para items de carga de compra:
+  // el handler que llega por onSave sabe a qué tabla escribir.
+  const canEdit = Boolean(item.id) && (item.source === "panol" || item.source === "log");
   const [value, setValue] = useState(unit != null ? String(unit) : "");
   const [moneda, setMoneda] = useState(item.moneda || "ARS");
   const [saving, setSaving] = useState(false);
@@ -1474,11 +1683,12 @@ function InlinePriceEditor({ item, unit, onSave }) {
 
   return (
     <div
+      className="plp-field"
       style={{
         display: "flex",
         alignItems: "center",
         gap: 2,
-        border: `1px solid ${changed ? C.greenB : C.border}`,
+        border: `1px solid ${changed ? C.greenB : unit == null ? WARN_BORDER : C.border}`,
         background: C.panelSolid,
         borderRadius: 8,
         padding: "3px 3px 3px 8px",
@@ -1546,55 +1756,75 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
   const [text, setText] = useState("");
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
+  const [onlyMissing, setOnlyMissing] = useState(true);
+  // El precio actual viene precargado: así se edita lo que ya hay en vez de
+  // tener que volver a tipearlo, y "listos para aplicar" cuenta sólo lo que cambió.
   const [manualRows, setManualRows] = useState(() => [...candidates]
     .sort((a, b) => {
       const aHasPrice = a.precio_unitario !== null && a.precio_unitario !== undefined && a.precio_unitario !== "";
       const bHasPrice = b.precio_unitario !== null && b.precio_unitario !== undefined && b.precio_unitario !== "";
       return Number(aHasPrice) - Number(bHasPrice) || String(a.descripcion || "").localeCompare(String(b.descripcion || ""));
     })
-    .map((item) => ({
-      ...item,
-      precioActual: item.precio_unitario,
-      precio_unitario: "",
-      moneda: item.moneda || "ARS",
-    })));
+    .map((item) => {
+      const actual = normalizePriceInput(item.precio_unitario);
+      return {
+        ...item,
+        precioActual: actual,
+        precio_unitario: actual === null ? "" : String(actual),
+        moneda: item.moneda || "ARS",
+        monedaActual: item.moneda || "ARS",
+      };
+    }));
 
-  function analyze(nextText = text) {
+  const analyze = useCallback((nextText) => {
     setRows(parseBudgetText(nextText, candidates));
-  }
+  }, [candidates]);
+
+  // Analiza solo mientras se escribe/pega: no hace falta apretar "Analizar".
+  useEffect(() => {
+    if (mode !== "paste") return undefined;
+    const id = setTimeout(() => analyze(text.trim() ? text : ""), text.trim() ? 400 : 0);
+    return () => clearTimeout(id);
+  }, [text, mode, analyze]);
 
   async function readFile(file) {
     if (!file) return;
     setFileName(file.name);
-    const body = await file.text();
-    setText(body);
-    setRows(parseBudgetText(body, candidates));
+    setText(await file.text());
   }
 
   function updateRow(index, patch) {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
-  function updateManualRow(index, patch) {
-    setManualRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  function updateManualRow(id, patch) {
+    setManualRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  function manualRowChanged(row) {
+    const draft = normalizePriceInput(row.precio_unitario);
+    if (draft === null) return false;
+    return draft !== row.precioActual || row.moneda !== row.monedaActual;
+  }
+
+  const visibleManualRows = onlyMissing ? manualRows.filter((row) => row.precioActual === null) : manualRows;
+  const missingCount = manualRows.filter((row) => row.precioActual === null).length;
   const ready = rows.filter((row) => row.itemId && normalizePriceInput(row.precio_unitario) !== null).length;
-  const manualReady = manualRows.filter((row) => row.id && normalizePriceInput(row.precio_unitario) !== null).length;
+  const manualReady = manualRows.filter((row) => row.id && manualRowChanged(row)).length;
   const activeReady = mode === "manual" ? manualReady : ready;
 
   return (
-    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 18 }}>
-      <div style={{ width: "min(1100px, 100%)", maxHeight: "90vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto auto 1fr auto", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 14, boxShadow: `0 20px 70px ${C.shadow || "rgba(0,0,0,0.35)"}` }}>
-        <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: "var(--violet-soft)", color: C.violet, border: `1px solid ${C.border}` }}>
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)", display: "grid", placeItems: "center", padding: 18 }}>
+      <div style={{ width: "min(1100px, 100%)", maxHeight: "90vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto auto 1fr auto", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 14, boxShadow: "0 24px 70px var(--shadow-strong)" }}>
+        <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 12, alignItems: "center", background: C.topbarSoft }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: C.violetL, color: C.violet, border: `1px solid ${C.violetB}` }}>
             <Sparkles size={17} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 950 }}>Cargar precios desde presupuesto</div>
-            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Alcance: {scopeLabel}. Pega texto o subi CSV/TXT, revisa matches y aplica.</div>
+            <div style={{ fontSize: 16, fontWeight: 950 }}>Cargar precios</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Alcance: {scopeLabel}. Editá a mano o pegá el presupuesto y se analiza solo.</div>
           </div>
-          <button type="button" onClick={onClose} style={iconButton(C.dim)}><X size={15} /></button>
+          <button type="button" className="plp-btn" onClick={onClose} style={iconButton(C.dim)}><X size={15} /></button>
         </div>
 
         <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -1607,10 +1837,12 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
               <button
                 key={value}
                 type="button"
+                className="plp-btn"
+                aria-pressed={active}
                 onClick={() => setMode(value)}
                 style={{
-                  border: `1px solid ${active ? C.blue : C.border}`,
-                  background: active ? "var(--blue-soft)" : C.panel,
+                  border: `1px solid ${active ? C.blueB : C.border}`,
+                  background: active ? C.blueL : C.panel,
                   color: active ? C.blue : C.text,
                   borderRadius: 999,
                   padding: "8px 12px",
@@ -1624,6 +1856,27 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
               </button>
             );
           })}
+          {mode === "manual" && missingCount > 0 && (
+            <button
+              type="button"
+              className="plp-btn"
+              aria-pressed={onlyMissing}
+              onClick={() => setOnlyMissing((v) => !v)}
+              style={{
+                border: `1px solid ${onlyMissing ? WARN_BORDER : C.border}`,
+                background: onlyMissing ? WARN_SOFT : C.panel,
+                color: onlyMissing ? WARN : C.text,
+                borderRadius: 999,
+                padding: "8px 12px",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 900,
+                fontFamily: C.sans,
+              }}
+            >
+              Sólo sin precio ({missingCount})
+            </button>
+          )}
           <div style={{ marginLeft: "auto", color: C.dim, fontSize: 12 }}>
             {mode === "manual" ? "Carga directa por item" : "Detecta precios desde texto"}
           </div>
@@ -1636,34 +1889,38 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
                 <span>Item</span><span>Precio unit.</span><span>Moneda</span>
               </div>
               <div style={{ maxHeight: 540, overflowY: "auto" }}>
-                {manualRows.length === 0 ? (
-                  <EmptyState text="No hay items candidatos para cargar precios." compact />
-                ) : manualRows.map((row, index) => {
-                  const currentPrice = normalizePriceInput(row.precioActual);
-                  const draftReady = normalizePriceInput(row.precio_unitario) !== null;
+                {visibleManualRows.length === 0 ? (
+                  <EmptyState text={manualRows.length ? "Todos los items ya tienen precio." : "No hay items candidatos para cargar precios."} compact />
+                ) : visibleManualRows.map((row) => {
+                  const changed = manualRowChanged(row);
                   return (
-                    <div key={row.id || `${row.descripcion}-${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: currentPrice !== null ? C.panelSolid : "transparent" }}>
+                    <div key={row.id} className="plp-row" style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: row.precioActual === null ? WARN_SOFT : "transparent" }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ color: C.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
+                          <div style={{ color: C.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                          {row.source === "log" ? chip(C.blue, "Carga") : chip(C.violet, "Pañol")}
+                        </div>
                         <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
                           {row.obra || "Sin obra"}{row.codigo ? ` · ${row.codigo}` : ""} · {row.cantidad || "-"} {row.unidad || ""}
                         </div>
-                        {currentPrice !== null && (
-                          <div style={{ color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 850, marginTop: 4 }}>
-                            Actual: {fmtMoney(currentPrice, row.moneda)}
+                        {row.precioActual !== null && (
+                          <div style={{ color: changed ? C.dim : C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 850, marginTop: 4, textDecoration: changed ? "line-through" : "none" }}>
+                            Actual: {fmtMoney(row.precioActual, row.monedaActual)}
                           </div>
                         )}
                       </div>
                       <input
                         value={row.precio_unitario}
-                        onChange={(e) => updateManualRow(index, { precio_unitario: e.target.value })}
-                        placeholder={currentPrice !== null ? String(row.precioActual) : "$ unit."}
+                        onChange={(e) => updateManualRow(row.id, { precio_unitario: e.target.value })}
+                        placeholder="$ unit."
                         inputMode="decimal"
-                        style={inp({ padding: "8px 9px", fontSize: 12, fontFamily: C.mono, textAlign: "right", borderColor: draftReady ? C.greenB : C.border, background: C.panelSolid })}
+                        className="plp-field"
+                        style={inp({ padding: "8px 9px", fontSize: 12, fontFamily: C.mono, textAlign: "right", borderColor: changed ? C.greenB : C.border, background: C.panelSolid })}
                       />
                       <select
                         value={row.moneda}
-                        onChange={(e) => updateManualRow(index, { moneda: e.target.value })}
+                        onChange={(e) => updateManualRow(row.id, { moneda: e.target.value })}
+                        className="plp-field"
                         style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })}
                       >
                         <option value="ARS">ARS</option>
@@ -1682,37 +1939,41 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={14}
-              placeholder={"Pega el presupuesto aca...\n20 mtrs Antirruido $ 1200\n1 INODORO Ovalado I14388 USD 45"}
+              placeholder={"Pegá el presupuesto acá...\n20 mtrs Antirruido $ 1200\n1 INODORO Ovalado I14388 USD 45"}
+              className="plp-field"
               style={inp({ resize: "vertical", minHeight: 260, fontFamily: C.mono, fontSize: 12 })}
             />
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button type="button" onClick={() => analyze()} disabled={!text.trim()} style={{ ...primaryButton(C.violet), opacity: text.trim() ? 1 : 0.5 }}>
-                <Sparkles size={14} /> Analizar texto
-              </button>
-              <label style={{ ...secondaryButton(), cursor: "pointer" }}>
+              <label className="plp-btn" style={{ ...secondaryButton(), cursor: "pointer" }}>
                 <Upload size={14} /> {fileName || "Subir TXT/CSV"}
                 <input type="file" accept=".txt,.csv,text/plain,text/csv" onChange={(e) => readFile(e.target.files?.[0])} style={{ display: "none" }} />
               </label>
+              {text.trim() && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 12 }}>
+                  <Sparkles size={13} style={{ color: C.violet }} />
+                  {rows.length ? `${rows.length} línea${rows.length === 1 ? "" : "s"} detectada${rows.length === 1 ? "" : "s"}` : "Analizando..."}
+                </span>
+              )}
             </div>
             <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45 }}>
-              Detecta cantidad, unidad, codigo final, moneda y precio. Si el match no es correcto, elegi el item manualmente antes de aplicar.
+              Se analiza solo mientras escribís: detecta cantidad, unidad, código, moneda y precio. Si el match no es correcto, elegí el item a mano antes de aplicar.
             </div>
           </div>
 
           <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", minWidth: 0 }}>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(170px,1fr) minmax(210px,1.1fr) 90px 78px", gap: 8, padding: "9px 10px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
-              <span>Linea detectada</span><span>Item del pedido</span><span>Precio</span><span>Moneda</span>
+              <span>Línea detectada</span><span>Item del pedido</span><span>Precio</span><span>Moneda</span>
             </div>
             <div style={{ maxHeight: 430, overflowY: "auto" }}>
               {rows.length === 0 ? (
-                <EmptyState text="Analiza un texto para ver las correcciones." compact />
+                <EmptyState text="Pegá o subí un texto para ver las coincidencias." compact />
               ) : rows.map((row, index) => (
-                <div key={`${row.raw}-${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(170px,1fr) minmax(210px,1.1fr) 90px 78px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}` }}>
+                <div key={`${row.raw}-${index}`} className="plp-row" style={{ display: "grid", gridTemplateColumns: "minmax(170px,1fr) minmax(210px,1.1fr) 90px 78px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: row.itemId ? "transparent" : WARN_SOFT }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
                     <div style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>{row.cantidad || "-"} {row.unidad}{row.codigo ? ` · ${row.codigo}` : ""}</div>
                   </div>
-                  <select value={row.itemId} onChange={(e) => updateRow(index, { itemId: e.target.value })} style={inp({ padding: "7px 8px", background: C.panelSolid, fontSize: 12 })}>
+                  <select value={row.itemId} onChange={(e) => updateRow(index, { itemId: e.target.value })} className="plp-field" style={inp({ padding: "7px 8px", background: C.panelSolid, fontSize: 12, borderColor: row.itemId ? C.border : WARN_BORDER })}>
                     <option value="">Elegir item...</option>
                     {candidates.map((it) => (
                       <option key={it.id} value={it.id}>
@@ -1720,8 +1981,8 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
                       </option>
                     ))}
                   </select>
-                  <input value={row.precio_unitario} onChange={(e) => updateRow(index, { precio_unitario: e.target.value })} placeholder="Unit." style={inp({ padding: "7px 8px", fontSize: 12, fontFamily: C.mono })} />
-                  <select value={row.moneda} onChange={(e) => updateRow(index, { moneda: e.target.value })} style={inp({ padding: "7px 8px", background: C.panelSolid, fontSize: 12 })}>
+                  <input value={row.precio_unitario} onChange={(e) => updateRow(index, { precio_unitario: e.target.value })} placeholder="Unit." inputMode="decimal" className="plp-field" style={inp({ padding: "7px 8px", fontSize: 12, fontFamily: C.mono, textAlign: "right" })} />
+                  <select value={row.moneda} onChange={(e) => updateRow(index, { moneda: e.target.value })} className="plp-field" style={inp({ padding: "7px 8px", background: C.panelSolid, fontSize: 12 })}>
                     <option value="ARS">ARS</option>
                     <option value="USD">USD</option>
                   </select>
@@ -1732,14 +1993,17 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
         </div>
         )}
 
-        <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
-          <div style={{ marginRight: "auto", color: activeReady ? C.green : C.dim, fontSize: 12, fontWeight: 850 }}>{activeReady} precios listos para aplicar</div>
-          <button type="button" onClick={onClose} style={secondaryButton()}>Cancelar</button>
+        <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ marginRight: "auto", color: activeReady ? C.green : C.dim, fontSize: 12, fontWeight: 850 }}>
+            {activeReady === 0 ? "Nada para aplicar todavía" : `${activeReady} precio${activeReady === 1 ? "" : "s"} listo${activeReady === 1 ? "" : "s"} para aplicar`}
+          </div>
+          <button type="button" className="plp-btn" onClick={onClose} style={secondaryButton()}>Cancelar</button>
           <button
             type="button"
-            onClick={() => (mode === "manual" ? onApplyManual?.(manualRows) : onApply(rows))}
+            className="plp-btn"
+            onClick={() => (mode === "manual" ? onApplyManual?.(manualRows.filter(manualRowChanged)) : onApply(rows))}
             disabled={saving || activeReady === 0}
-            style={{ ...primaryButton(C.green), opacity: saving || activeReady === 0 ? 0.55 : 1 }}
+            style={{ ...primaryButton(C.green), opacity: saving || activeReady === 0 ? 0.55 : 1, cursor: saving || activeReady === 0 ? "default" : "pointer" }}
           >
             {saving ? "Aplicando..." : "Aplicar precios"}
           </button>
@@ -1763,8 +2027,21 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
     return acc;
   }, { ARS: 0, USD: 0 });
   const itemCount = items.filter((item) => String(item.descripcion || "").trim()).length;
+  const revisarCount = items.filter((item) => String(item.descripcion || "").trim() && needsPurchaseItemReview(item)).length;
   const canSave = (Boolean(form.description.trim()) || itemCount > 0) && !saving;
   const selectedObra = obras.find((obra) => obra.id === form.project_id);
+
+  // Si el título trae un código de obra ("Sanitarios 52-23") la obra se elige
+  // sola. Sólo mientras el usuario no haya tocado el select a mano.
+  const obraTouched = useRef(false);
+  const [autoObra, setAutoObra] = useState(false);
+  useEffect(() => {
+    if (obraTouched.current || form.project_id) return;
+    const guessed = guessObraId(form.description, obras);
+    if (!guessed) return;
+    setAutoObra(true);
+    setForm((f) => (f.project_id ? f : { ...f, project_id: guessed }));
+  }, [form.description, form.project_id, obras, setForm]);
 
   function setField(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -1786,8 +2063,8 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
     setItems([...items, makePurchaseLogItem(patch)]);
   }
 
-  function analyzeBulk() {
-    const parsedRows = bulkText
+  function analyzeBulk(sourceText = bulkText) {
+    const parsedRows = String(sourceText || "")
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -1860,31 +2137,39 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
   return (
     <form onSubmit={onSubmit} style={{ ...panelStyle(), display: "grid", gap: 14 }}>
       <div style={sectionHeaderStyle()}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={sectionTitleStyle()}>Cargar compra</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
             Presupuesto, remito o factura con items; lo dudoso queda marcado para revisar.
           </div>
         </div>
-        <button type="button" onClick={onCancel} style={iconButton(C.dim)}><X size={14} /></button>
+        <button type="button" className="plp-btn" onClick={onCancel} style={iconButton(C.dim)}><X size={14} /></button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.3fr) minmax(180px, 0.8fr) minmax(150px, 0.6fr) minmax(200px, 0.9fr)", gap: 10 }}>
         <label style={inputLabel}>
-          <span style={labelStyle}>Titulo / descripcion</span>
-          <input value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Ej: Sanitarios 52-23" style={inp({ background: C.panelSolid, fontWeight: 750 })} />
+          <span style={labelStyle}>Título / descripción</span>
+          <input value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Ej: Sanitarios 52-23" className="plp-field" style={inp({ background: C.panelSolid, fontWeight: 750 })} />
         </label>
         <label style={inputLabel}>
           <span style={labelStyle}>Proveedor</span>
-          <input value={form.provider} onChange={(e) => setField("provider", e.target.value)} placeholder="Proveedor" style={inp({ background: C.panelSolid })} />
+          <input value={form.provider} onChange={(e) => setField("provider", e.target.value)} placeholder="Proveedor" className="plp-field" style={inp({ background: C.panelSolid })} />
         </label>
         <label style={inputLabel}>
           <span style={labelStyle}>Fecha</span>
-          <input value={form.purchased_at} onChange={(e) => setField("purchased_at", e.target.value)} type="date" style={inp({ background: C.panelSolid })} />
+          <input value={form.purchased_at} onChange={(e) => setField("purchased_at", e.target.value)} type="date" className="plp-field" style={inp({ background: C.panelSolid })} />
         </label>
         <label style={inputLabel}>
-          <span style={labelStyle}>Obra / barco</span>
-          <select value={form.project_id || ""} onChange={(e) => setField("project_id", e.target.value)} style={inp({ background: C.panelSolid, cursor: "pointer" })}>
+          <span style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6 }}>
+            Obra / barco
+            {autoObra && <span style={{ color: C.blue, fontSize: 9, fontWeight: 900 }}>· detectada</span>}
+          </span>
+          <select
+            value={form.project_id || ""}
+            onChange={(e) => { obraTouched.current = true; setAutoObra(false); setField("project_id", e.target.value); }}
+            className="plp-field"
+            style={inp({ background: C.panelSolid, cursor: "pointer", borderColor: autoObra ? C.blueB : C.border })}
+          >
             <option value="">Sin obra (gasto general)</option>
             {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}{o.descripcion ? ` - ${o.descripcion}` : ""}</option>)}
           </select>
@@ -1893,39 +2178,43 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
 
       <label style={inputLabel}>
         <span style={labelStyle}>Notas</span>
-        <textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Notas internas (opcional)" rows={2} style={inp({ resize: "vertical", minHeight: 48, background: C.panelSolid })} />
+        <textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Notas internas (opcional)" rows={2} className="plp-field" style={inp({ resize: "vertical", minHeight: 48, background: C.panelSolid })} />
       </label>
 
       <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
-          <div>
-            <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Items</div>
-            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Total: {fmtMoney(totals.ARS, "ARS")} {totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Items</span>
+              {revisarCount > 0 && chip(WARN, `${revisarCount} a revisar`)}
+            </div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Total: {fmtMoney(totals.ARS, "ARS")}{totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}</div>
           </div>
-          <button type="button" onClick={() => addItem()} style={secondaryButton()}><Plus size={14} /> Agregar item</button>
+          <button type="button" className="plp-btn" onClick={() => addItem()} style={secondaryButton()}><Plus size={14} /> Agregar item</button>
         </div>
 
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden", minWidth: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, padding: "9px 10px", background: C.panelSolid, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
-            <span>Descripcion</span><span>Codigo</span><span>Cantidad</span><span>Unidad</span><span>Precio unit.</span><span>Moneda</span><span />
+            <span>Descripción</span><span>Código</span><span>Cantidad</span><span>Unidad</span><span>Precio unit.</span><span>Moneda</span><span />
           </div>
           {items.map((item) => {
             const revisar = needsPurchaseItemReview(item);
+            const empty = !String(item.descripcion || "").trim();
             return (
-              <div key={item.localId} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: revisar ? "var(--amber-soft)" : C.panel }}>
+              <div key={item.localId} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: revisar && !empty ? WARN_SOFT : C.panel }}>
                 <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
-                  <input value={item.descripcion} onChange={(e) => updateItem(item.localId, { descripcion: e.target.value })} placeholder="Descripcion del item" style={inp({ padding: "8px 9px", background: C.panelSolid, fontWeight: 750 })} />
-                  {revisar && <span style={{ justifySelf: "start", color: C.amber, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>Revisar</span>}
+                  <input value={item.descripcion} onChange={(e) => updateItem(item.localId, { descripcion: e.target.value })} placeholder="Descripción del item" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontWeight: 750 })} />
+                  {revisar && !empty && <span style={{ justifySelf: "start", color: WARN, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>Revisar</span>}
                 </div>
-                <input value={item.codigo || ""} onChange={(e) => updateItem(item.localId, { codigo: e.target.value })} placeholder="Codigo" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
-                <input value={item.cantidad || ""} onChange={(e) => updateItem(item.localId, { cantidad: e.target.value })} placeholder="Cant." inputMode="decimal" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono })} />
-                <input value={item.unidad || ""} onChange={(e) => updateItem(item.localId, { unidad: e.target.value })} placeholder="unidad" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
-                <input value={item.precio_unitario || ""} onChange={(e) => updateItem(item.localId, { precio_unitario: e.target.value })} placeholder="$ unit." inputMode="decimal" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono, textAlign: "right" })} />
-                <select value={item.moneda || "ARS"} onChange={(e) => updateItem(item.localId, { moneda: e.target.value })} style={inp({ padding: "8px 7px", background: C.panelSolid, fontSize: 12 })}>
+                <input value={item.codigo || ""} onChange={(e) => updateItem(item.localId, { codigo: e.target.value })} placeholder="Código" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
+                <input value={item.cantidad || ""} onChange={(e) => updateItem(item.localId, { cantidad: e.target.value })} placeholder="Cant." inputMode="decimal" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono })} />
+                <input value={item.unidad || ""} onChange={(e) => updateItem(item.localId, { unidad: e.target.value })} placeholder="unidad" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
+                <input value={item.precio_unitario || ""} onChange={(e) => updateItem(item.localId, { precio_unitario: e.target.value })} placeholder="$ unit." inputMode="decimal" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono, textAlign: "right" })} />
+                <select value={item.moneda || "ARS"} onChange={(e) => updateItem(item.localId, { moneda: e.target.value })} className="plp-field" style={inp({ padding: "8px 7px", background: C.panelSolid, fontSize: 12 })}>
                   <option value="ARS">ARS</option>
                   <option value="USD">USD</option>
                 </select>
-                <button type="button" onClick={() => removeItem(item.localId)} style={iconButton(C.red)} title="Quitar item"><X size={13} /></button>
+                <button type="button" className="plp-btn" onClick={() => removeItem(item.localId)} style={iconButton(C.red)} title="Quitar item"><X size={13} /></button>
               </div>
             );
           })}
@@ -1935,11 +2224,26 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
       <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
         <div>
           <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Pegar presupuesto / remito / factura</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una linea por item. Tambien acepta: DESCRIP | CODIGO | CANT | UNIDAD | $PRECIO.</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una línea por item. También acepta: DESCRIP | CODIGO | CANT | UNIDAD | $PRECIO.</div>
         </div>
-        <textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={5} placeholder={"20 mtrs Antirruido\nINODORO Ovalado | I14388 | 1 | unidad | $120.000"} style={inp({ resize: "vertical", minHeight: 110, background: C.panelSolid, fontFamily: C.mono, fontSize: 12 })} />
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <label style={{ ...secondaryButton(), cursor: ocrLoading ? "default" : "pointer", opacity: ocrLoading ? 0.65 : 1 }}>
+        <textarea
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+          onPaste={(e) => {
+            // Pegar ya carga los items: no hace falta apretar "Analizar" después.
+            const pasted = e.clipboardData?.getData("text") || "";
+            if (!pasted.includes("\n")) return;
+            e.preventDefault();
+            analyzeBulk(pasted);
+          }}
+          rows={5}
+          placeholder={"20 mtrs Antirruido\nINODORO Ovalado | I14388 | 1 | unidad | $120.000"}
+          className="plp-field"
+          style={inp({ resize: "vertical", minHeight: 110, background: C.panelSolid, fontFamily: C.mono, fontSize: 12 })}
+        />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ marginRight: "auto", color: C.dim, fontSize: 11 }}>Al pegar varias líneas se cargan solas.</span>
+          <label className="plp-btn" style={{ ...secondaryButton(), cursor: ocrLoading ? "default" : "pointer", opacity: ocrLoading ? 0.65 : 1 }}>
             <ImagePlus size={14} /> {ocrLoading ? "Leyendo comprobante..." : "Subir comprobante"}
             <input
               type="file"
@@ -1952,7 +2256,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
               style={{ display: "none" }}
             />
           </label>
-          <button type="button" onClick={analyzeBulk} disabled={!bulkText.trim()} style={{ ...primaryButton(C.violet), opacity: bulkText.trim() ? 1 : 0.55 }}>
+          <button type="button" className="plp-btn" onClick={() => analyzeBulk()} disabled={!bulkText.trim()} style={{ ...primaryButton(C.violet), opacity: bulkText.trim() ? 1 : 0.55 }}>
             <Sparkles size={14} /> Analizar
           </button>
         </div>
@@ -1964,15 +2268,20 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
           <div style={{ color: C.text, fontSize: 13, fontWeight: 850, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {itemCount} item{itemCount === 1 ? "" : "s"} · {selectedObra?.codigo || "Sin obra"} · {fmtMoney(totals.ARS, "ARS")}{totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}
           </div>
+          {revisarCount > 0 && (
+            <div style={{ color: WARN, fontSize: 11, fontWeight: 800, marginTop: 3 }}>
+              {revisarCount} item{revisarCount === 1 ? "" : "s"} sin cantidad o precio — se guardan igual, marcados para revisar.
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <label style={{ ...secondaryButton(), cursor: "pointer", maxWidth: 260 }}>
+          <label className="plp-btn" style={{ ...secondaryButton(), cursor: "pointer", maxWidth: 260 }}>
             <ImagePlus size={14} />
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invoiceFile ? invoiceFile.name : "Adjuntar factura"}</span>
             <input type="file" accept="image/*,.pdf" onChange={(e) => setInvoiceFile(e.target.files[0])} style={{ display: "none" }} />
           </label>
-          {invoiceFile && <button type="button" onClick={() => setInvoiceFile(null)} style={{ ...secondaryButton(), color: C.red }}>Quitar</button>}
-          <button type="submit" disabled={!canSave} style={{ ...primaryButton(C.green), opacity: canSave ? 1 : 0.55 }}>
+          {invoiceFile && <button type="button" className="plp-btn" onClick={() => setInvoiceFile(null)} style={{ ...secondaryButton(), color: C.red }}>Quitar</button>}
+          <button type="submit" className="plp-btn" disabled={!canSave} style={{ ...primaryButton(C.green), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "default" }}>
             {saving ? "Guardando..." : <><Upload size={14} /> Guardar carga</>}
           </button>
         </div>
@@ -1981,147 +2290,17 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
   );
 }
 
-function LegacySingleAmountForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoiceFile, saving, onSubmit, onCancel }) {
-  const selectedObra = obras.find((obra) => obra.id === form.project_id);
-  const amountText = String(form.amount || "").trim();
-  const amountNumber = Number(form.amount);
-  const amountInvalid = amountText && !(amountNumber > 0);
-  const canSave = Boolean(form.description.trim()) && !amountInvalid && !saving;
-  const preview = [
-    amountText && !amountInvalid ? fmtMoney(amountNumber, "ARS") : "$0",
-    form.provider.trim() || "Sin proveedor",
-    selectedObra?.codigo || "Sin obra",
-    form.purchased_at ? fmtDate(form.purchased_at) : "Sin fecha",
-  ].join(" · ");
-  const labelStyle = {
-    color: C.dim,
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  };
-  const inputLabel = { display: "grid", gap: 6, alignContent: "start" };
-
-  return (
-    <form onSubmit={onSubmit} style={{ ...panelStyle(), display: "grid", gap: 14 }}>
-      <div style={sectionHeaderStyle()}>
-        <div>
-          <div style={sectionTitleStyle()}>Carga anterior</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una compra, un monto total y una obra opcional.</div>
-        </div>
-        <button type="button" onClick={onCancel} style={iconButton(C.dim)}><X size={14} /></button>
-      </div>
-
-      <label style={inputLabel}>
-        <span style={labelStyle}>Descripcion</span>
-        <input
-          value={form.description}
-          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-          placeholder="Que compraste?"
-          required
-          style={inp({ background: C.panelSolid, fontWeight: 750 })}
-        />
-      </label>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-      <label style={inputLabel}>
-        <span style={labelStyle}>Obra / barco</span>
-        <select value={form.project_id || ""} onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
-          style={inp({ background: C.panelSolid, cursor: "pointer" })}>
-          <option value="">Sin obra (gasto general)</option>
-          {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}{o.descripcion ? ` — ${o.descripcion}` : ""}</option>)}
-        </select>
-      </label>
-
-        <label style={inputLabel}>
-          <span style={labelStyle}>Proveedor</span>
-          <div style={{ position: "relative" }}>
-            <Store size={14} color={C.dim} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-            <input
-              value={form.provider}
-              onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
-              placeholder="Proveedor"
-              style={inp({ background: C.panelSolid, paddingLeft: 34 })}
-            />
-          </div>
-        </label>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-        <label style={inputLabel}>
-          <span style={labelStyle}>Monto</span>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: amountInvalid ? C.red : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>$</span>
-            <input
-              value={form.amount}
-              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="0"
-              style={inp({ background: C.panelSolid, paddingLeft: 30, textAlign: "right", fontFamily: C.mono, fontWeight: 850, borderColor: amountInvalid ? C.red : C.border })}
-            />
-          </div>
-          {amountInvalid && <span style={{ color: C.red, fontSize: 11, fontWeight: 800 }}>El monto tiene que ser mayor a 0.</span>}
-        </label>
-        <label style={inputLabel}>
-          <span style={labelStyle}>Fecha</span>
-          <div style={{ position: "relative" }}>
-            <Calendar size={14} color={C.dim} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-            <input
-              value={form.purchased_at}
-              onChange={(e) => setForm((f) => ({ ...f, purchased_at: e.target.value }))}
-              type="date"
-              style={inp({ background: C.panelSolid, paddingLeft: 34 })}
-            />
-          </div>
-        </label>
-      </div>
-
-      <label style={inputLabel}>
-        <span style={labelStyle}>Notas</span>
-        <textarea
-          value={form.notes}
-          onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-          placeholder="Notas (opcional)"
-          rows={2}
-          style={inp({ resize: "vertical", minHeight: 54, background: C.panelSolid })}
-        />
-      </label>
-
-      <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "minmax(240px, 1fr) auto", gap: 12, alignItems: "center" }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={labelStyle}>Resumen</div>
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 850, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {preview}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <label style={{ ...secondaryButton(), cursor: "pointer", maxWidth: 260 }}>
-            <ImagePlus size={14} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invoiceFile ? invoiceFile.name : "Adjuntar factura"}</span>
-            <input type="file" accept="image/*,.pdf" onChange={(e) => setInvoiceFile(e.target.files[0])} style={{ display: "none" }} />
-          </label>
-          {invoiceFile && <button type="button" onClick={() => setInvoiceFile(null)} style={{ ...secondaryButton(), color: C.red }}>Quitar</button>}
-          <button type="submit" disabled={!canSave} style={{ ...primaryButton(C.green), opacity: canSave ? 1 : 0.55 }}>
-            {saving ? "Guardando..." : <><Upload size={14} /> Guardar</>}
-          </button>
-        </div>
-      </div>
-    </form>
-  );
-}
 
 function EnvioRow({ envio, active, onClick }) {
   const resumen = resumenItems(envio.items || EMPTY);
   const meta = ENVIO_ESTADO_META[envio.estado] ?? { label: envio.estado, color: C.dim };
   const totals = envioTotals(envio);
   return (
-    <button type="button" onClick={onClick} style={{
+    <button type="button" className="plp-card" aria-pressed={active} onClick={onClick} style={{
       textAlign: "left",
-      border: `1px solid ${active ? C.border2 : C.border}`,
+      border: `1px solid ${active ? C.blueB : C.border}`,
       borderLeft: `4px solid ${meta.color}`,
-      background: active ? C.panelSolid2 : C.panelSolid,
+      background: active ? C.blueL : C.panelSolid,
       borderRadius: 11,
       padding: 11,
       cursor: "pointer",
@@ -2172,14 +2351,14 @@ function EnvioDetail({ envio, onDelete, onComment }) {
             </div>
           </div>
           {chip(meta.color, meta.label)}
-          <button type="button" onClick={() => onDelete(envio)} title="Borrar pedido a pañol" style={iconButton(C.red)}>
+          <button type="button" className="plp-btn" onClick={() => onDelete(envio)} title="Borrar pedido a Pañol" style={iconButton(C.red)}>
             <Trash2 size={14} />
           </button>
         </div>
         <Progress resumen={resumen} />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", color: C.dim, fontSize: 12 }}>
           <span><strong style={{ color: C.green }}>{totalsLabel(totals)}</strong></span>
-          {totals.sinPrecio > 0 && <span style={{ color: C.amber }}>{totals.sinPrecio} items sin precio</span>}
+          {totals.sinPrecio > 0 && <span style={{ color: WARN }}>{totals.sinPrecio} items sin precio</span>}
         </div>
       </div>
 
@@ -2187,7 +2366,7 @@ function EnvioDetail({ envio, onDelete, onComment }) {
         {(envio.items || EMPTY).map((item) => {
           const itemMoney = itemTotal(item);
           return (
-            <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 92px", gap: 9, alignItems: "center", padding: "9px 13px", borderBottom: `1px solid ${C.border}` }}>
+            <div key={item.id} className="plp-row" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 92px", gap: 9, alignItems: "center", padding: "9px 13px", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
                 <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
@@ -2222,9 +2401,10 @@ function EnvioDetail({ envio, onDelete, onComment }) {
             onChange={(e) => setComment(e.target.value)}
             rows={2}
             placeholder="Escribir mensaje para Pañol / Compras..."
+            className="plp-field"
             style={inp({ resize: "vertical", minHeight: 54, fontSize: 12 })}
           />
-          <button type="button" onClick={sendComment} disabled={!comment.trim()} style={{ ...primaryButton(C.green), justifySelf: "end", opacity: comment.trim() ? 1 : 0.55 }}>
+          <button type="button" className="plp-btn" onClick={sendComment} disabled={!comment.trim()} style={{ ...primaryButton(C.green), justifySelf: "end", opacity: comment.trim() ? 1 : 0.55, cursor: comment.trim() ? "pointer" : "default" }}>
             <MessageSquare size={14} /> Comentar
           </button>
         </div>
@@ -2270,57 +2450,97 @@ function EventLine({ ev }) {
   );
 }
 
-function ManualLogList({ entries, loading, onDelete, onSendToPanol }) {
+function ManualLogList({ entries, loading, scopeLabel, onDelete, onSendToPanol }) {
   return (
     <section style={panelStyle()}>
       <div style={sectionHeaderStyle()}>
-        <div>
-          <div style={sectionTitleStyle()}>Cargas de compra</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Presupuestos, remitos y facturas cargadas por items.</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={sectionTitleStyle()}>Cargas de compra{scopeLabel ? ` · ${scopeLabel}` : ""}</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+            {scopeLabel ? "Sólo las cargas de la obra abierta." : "Presupuestos, remitos y facturas cargadas por items."}
+          </div>
         </div>
+        {!loading && entries.length > 0 && (
+          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 12, whiteSpace: "nowrap" }}>{entries.length}</span>
+        )}
       </div>
       {loading ? (
-        <EmptyState text="Cargando compras..." compact />
+        <ListSkeleton rows={3} />
       ) : entries.length === 0 ? (
-        <EmptyState text="No hay cargas de compra registradas." compact />
+        <EmptyState text={scopeLabel ? "Esta obra no tiene cargas de compra." : "No hay cargas de compra registradas."} compact />
       ) : (
         <div style={{ display: "grid", gap: 7, maxHeight: 360, overflowY: "auto", paddingRight: 3 }}>
-          {entries.map((entry) => (
-            <div key={entry.id} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10, display: "grid", gap: 5 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.description}</div>
-                  <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
-                    {entry.provider || "Sin proveedor"} · {new Date(entry.purchased_at).toLocaleDateString("es-AR")} · {usernameOf(entry.creator)}
+          {entries.map((entry) => {
+            // El monto que se muestra sale de los items (ARS + USD), no del
+            // header: así una carga con precios cargados nunca dice "Sin monto".
+            const totals = purchaseLogEntryTotals(entry);
+            const hasMoney = totals.ARS > 0 || totals.USD > 0;
+            return (
+              <div key={entry.id} className="plp-card" style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10, display: "grid", gap: 5 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.description}</div>
+                    <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
+                      {entry.provider || "Sin proveedor"} · {fmtDate(entry.purchased_at)} · {usernameOf(entry.creator)}
+                      {entry.items?.length ? ` · ${entry.items.length} item${entry.items.length === 1 ? "" : "s"}` : ""}
+                    </div>
                   </div>
-                </div>
-                {entry.items?.length > 0 && (
-                  <button type="button" onClick={() => onSendToPanol?.(entry)} style={secondaryButton()} title="Enviar a Pañol">
-                    <Send size={13} /> Enviar a pañol
+                  {entry.items?.length > 0 && (
+                    <button type="button" className="plp-btn" onClick={() => onSendToPanol?.(entry)} style={secondaryButton()} title="Enviar a Pañol">
+                      <Send size={13} /> Enviar a Pañol
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="plp-btn"
+                    onClick={() => onDelete(entry.id)}
+                    style={{ ...secondaryButton(), color: C.red, borderColor: `${C.red}55` }}
+                    title="Borrar carga"
+                  >
+                    <Trash2 size={13} /> Borrar
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onDelete(entry.id)}
-                  style={{ ...secondaryButton(), color: C.red, borderColor: `${C.red}55` }}
-                  title="Borrar carga"
-                >
-                  <Trash2 size={13} /> Borrar
-                </button>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <span style={{ color: hasMoney ? C.green : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 850 }}>
+                      {hasMoney ? totalsLabel(totals) : "Sin monto"}
+                    </span>
+                    {totals.sinPrecio > 0 && <span style={{ color: WARN, fontSize: 11, fontWeight: 800 }}>{totals.sinPrecio} sin precio</span>}
+                  </span>
+                  {entry.invoice_url && (
+                    <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: C.blue, fontSize: 11, fontWeight: 800 }}>
+                      Factura
+                    </a>
+                  )}
+                </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                <span style={{ color: C.green, fontFamily: C.mono, fontSize: 13, fontWeight: 850 }}>{entry.amount ? fmtMoney(entry.amount) : "Sin monto"}</span>
-                {entry.invoice_url && (
-                  <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: C.blue, fontSize: 11, fontWeight: 800 }}>
-                    Factura
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
+  );
+}
+
+// Placeholder de carga con la misma silueta que las tarjetas reales, para que la
+// pantalla no salte cuando llegan los datos.
+function ListSkeleton({ rows = 4 }) {
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11, padding: 11, display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Skeleton width="55%" height={13} />
+            <Skeleton width={62} height={16} radius={99} style={{ marginLeft: "auto" }} />
+          </div>
+          <Skeleton width="100%" height={6} radius={99} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <Skeleton width={70} height={11} />
+            <Skeleton width={90} height={11} style={{ marginLeft: "auto" }} />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

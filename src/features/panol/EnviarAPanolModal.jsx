@@ -1,10 +1,10 @@
 import { C } from "@/theme";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Link2, MapPin, PackageSearch, ScanLine, Search } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
@@ -16,7 +16,9 @@ import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import { parseUbicacion } from "@/features/panol/ubicacionUtils";
 import { PANOL_REFERENCE_LAYOUT, PANOL_ROOM_H, PANOL_ROOM_W, applyPanolReferenceLayout } from "@/features/panol/panolLayout";
+import { normalizeProductSpecs, productSpecEntries } from "@/features/materiales/especificacionesProducto";
 
+const EMPTY_ARR = [];
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
 const CURRENCIES = ["ARS", "USD"];
 const STOCK_LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
@@ -353,6 +355,7 @@ function normalizeItem(it) {
     panol_envio_item_id: it.panol_envio_item_id ?? it.panolEnvioItemId ?? null,
     obra_snapshot_item_id: it.obra_snapshot_item_id ?? it.obraSnapshotItemId ?? null,
     variante: it.variante ?? it.variant ?? "",
+    especificaciones: normalizeProductSpecs(it.especificaciones),
   };
 }
 
@@ -389,6 +392,7 @@ function matchToItem(match, material = null) {
     obra_snapshot_item_id: match.obra_snapshot_item_id || null,
     es_adicional: match.es_adicional ?? match.request?.es_adicional ?? null,
     variante: match.variante || "",
+    especificaciones: normalizeProductSpecs(match.especificaciones),
   };
 }
 
@@ -704,9 +708,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   // Multi-selección del catálogo: Map id→material. Acumula entre búsquedas para
   // agregar varios de una (tildar y después "Agregar N" abajo).
   const [checkedCatalog, setCheckedCatalog] = useState(() => new Map());
-  const [matches, setMatches] = useState([]);
-  const [selectedMatches, setSelectedMatches] = useState(() => new Set());
-  const [dragMatch, setDragMatch] = useState(null);
   const [aiReading, setAiReading] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiProveedorId, setAiProveedorId] = useState("");
@@ -714,8 +715,10 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [creatingCatalogIndex, setCreatingCatalogIndex] = useState(null);
   const [scanCode, setScanCode] = useState("");
   const [scanFlashMat, setScanFlashMat] = useState(null);
+  const [avisoFocusMat, setAvisoFocusMat] = useState(null); // último producto escaneado/elegido, resaltado en los avisos
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchTab, setSearchTab] = useState("materiales"); // "materiales" | "avisos"
+  const [avisoQ, setAvisoQ] = useState("");
   const [avisos, setAvisos] = useState([]);
   const [avisosLoading, setAvisosLoading] = useState(false);
   const [expandedAviso, setExpandedAviso] = useState(null);
@@ -751,9 +754,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setStockRows([]);
     setSelectedMaterial(null);
     setCheckedCatalog(new Map());
-    setMatches([]);
-    setSelectedMatches(new Set());
-    setDragMatch(null);
+    setAvisoFocusMat(null);
+    setAvisoQ("");
     setAiSummary(null);
     setAiProveedorId("");
     setAiMoneda("");
@@ -823,31 +825,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   }, [open, catalogQ]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const term = selectedMaterial?.descripcion || catalogQ;
-    if (!selectedMaterial && term.trim().length < 3) {
-      setMatches([]);
-      return undefined;
-    }
-    let alive = true;
-    const timer = setTimeout(async () => {
-      try {
-        const rows = await fetchRecepcionPedidoMatches({ material: selectedMaterial, q: term, limit: 80, sede });
-        if (alive) {
-          setMatches(rows);
-          setSelectedMatches((prev) => new Set([...prev].filter((id) => rows.some((row) => row.id === id))));
-        }
-      } catch {
-        if (alive) setMatches([]);
-      }
-    }, 220);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [open, selectedMaterial, catalogQ, sede]);
-
-  useEffect(() => {
     if (!open || !isRemito || saving) return undefined;
     const payload = { titulo, sede, obraId, prioridad, observaciones, items };
     if (!draftHasContent(payload)) return undefined;
@@ -863,17 +840,37 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return () => clearTimeout(timer);
   }, [open, isRemito, saving, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
 
+  // El autoguardado de arriba tiene 900ms de debounce y su cleanup cancela el
+  // timer pendiente. Si el componente se desmonta dentro de esa ventana (cambio
+  // de pestaña, navegación, retomar otro borrador) lo último cargado se perdía.
+  // Este ref guarda siempre el payload vigente para poder volcarlo sin debounce.
+  const draftPayloadRef = useRef(null);
   useEffect(() => {
-    if (!open || !isRemito) return undefined;
-    const handler = () => {
-      const payload = { titulo, sede, obraId, prioridad, observaciones, items };
-      if (!draftHasContent(payload)) return;
-      const id = guardarIngresoPendiente(payload, autoDraftIdRef.current || prefill?.draftId || null);
+    draftPayloadRef.current = open && isRemito
+      ? { titulo, sede, obraId, prioridad, observaciones, items, draftId: prefill?.draftId || null }
+      : null;
+  }, [open, isRemito, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
+
+  useEffect(() => {
+    const flush = () => {
+      const payload = draftPayloadRef.current;
+      if (!payload || !draftHasContent(payload)) return;
+      const { draftId, ...draft } = payload;
+      const id = guardarIngresoPendiente(draft, autoDraftIdRef.current || draftId || null);
       if (id) autoDraftIdRef.current = id;
     };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [open, isRemito, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
+    window.addEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flush);
+    // Cierre de la pestaña del navegador, navegación interna y desmontaje: en los
+    // tres casos el borrador queda escrito antes de que el componente muera.
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flush);
+      flush();
+    };
+  }, []);
 
   // Todos los avisos/pedidos de compra abiertos, para la pestaña "Avisos de recepción"
   useEffect(() => {
@@ -908,6 +905,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return rows.length ? rows : obras;
   }, [obras]);
 
+  // Producto real del catálogo detrás de un ítem de aviso (el aviso guarda el
+  // texto libre del pedido; el pañolero necesita ver qué producto es).
+  const catalogById = useMemo(() => new Map(fullCatalog.map((m) => [m.id, m])), [fullCatalog]);
+  const productoDeAviso = useCallback(
+    (m) => catalogById.get(m.material_id) || catalogById.get(m.requisito_material_id) || null,
+    [catalogById],
+  );
+
   const avisosAgrupados = useMemo(() => {
     const byReq = new Map();
     for (const m of avisos) {
@@ -921,6 +926,22 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return filtrados.sort((a, b) => String(b.request_id ?? "").localeCompare(String(a.request_id ?? "")));
   }, [avisos, obraId]);
 
+  // Buscador propio de la pestaña de avisos: filtra por título del pedido, obra,
+  // descripción del ítem y también por el producto del catálogo al que apunta.
+  const avisosVisibles = useMemo(() => {
+    const term = avisoQ.trim().toLowerCase();
+    if (!term) return avisosAgrupados;
+    const matchItem = (m) => {
+      const prod = catalogById.get(m.material_id) || catalogById.get(m.requisito_material_id) || null;
+      return [m.description, m.obra_codigo, m.request_title, prod?.descripcion, prod?.codigo]
+        .filter(Boolean).join(" ").toLowerCase().includes(term);
+    };
+    return avisosAgrupados
+      .map((av) => ({ ...av, items: av.items.filter(matchItem) }))
+      .filter((av) => av.items.length
+        || `${av.request_title || ""} ${av.obra_codigo || ""}`.toLowerCase().includes(term));
+  }, [avisosAgrupados, avisoQ, catalogById]);
+
   const addedPedidoIds = useMemo(() => {
     const s = new Set();
     for (const it of items) {
@@ -930,6 +951,25 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return s;
   }, [items]);
   const avisoItemAdded = (m) => addedPedidoIds.has(m.panol_envio_item_id) || addedPedidoIds.has(m.purchase_request_item_id);
+
+  // Índice material → avisos abiertos donde aparece. Es lo que permite que al
+  // buscar o escanear un producto se vea en qué aviso está esperando.
+  const avisosPorMaterial = useMemo(() => {
+    const byMat = new Map();
+    for (const m of avisos) {
+      const key = m.material_id || m.requisito_material_id;
+      if (!key) continue;
+      if (!byMat.has(key)) byMat.set(key, []);
+      byMat.get(key).push(m);
+    }
+    return byMat;
+  }, [avisos]);
+
+  // Material bajo foco (recién escaneado o tildado en el catálogo): se resalta en
+  // los avisos para que se vea dónde está esperando ese producto.
+  const focusMaterialId = avisoFocusMat || selectedMaterial?.id || null;
+  const avisosDelFoco = focusMaterialId ? (avisosPorMaterial.get(focusMaterialId) || EMPTY_ARR) : EMPTY_ARR;
+  const avisosDelFocoPendientes = avisosDelFoco.filter((m) => !avisoItemAdded(m));
 
   if (!open) return null;
 
@@ -1058,7 +1098,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   }
 
   function closeModal(saved = false) {
-    if (!saved && isRemito) persistDraftNow();
+    if (saved) {
+      // El ingreso ya se guardó y su borrador se borró: hay que apagar el volcado
+      // de desmontaje, si no lo resucita como borrador apenas se remonta el form.
+      draftPayloadRef.current = null;
+    } else if (isRemito) {
+      persistDraftNow();
+    }
     onClose(saved);
   }
 
@@ -1220,6 +1266,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   function flashMaterial(matId) {
     if (!matId) return;
     setScanFlashMat(matId);
+    // El borde parpadea 1,3s, pero el resaltado en los avisos queda hasta el
+    // próximo escaneo: si no, el pañolero no llega a ver en qué aviso cayó.
+    setAvisoFocusMat(matId);
     setTimeout(() => setScanFlashMat((cur) => (cur === matId ? null : cur)), 1300);
   }
 
@@ -1299,14 +1348,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     const linked = fullCatalog.find((mm) => mm.id === m.material_id) || null;
     const nuevo = matchToItem(m, linked);
     setItems((prev) => [...prev, showPrices ? nuevo : stripItemPrice(nuevo)]);
-  }
-
-  function addMatches(targets = matches.filter((match) => selectedMatches.has(match.id))) {
-    if (!targets.length) return;
-    const next = targets.map((match) => matchToItem(match, selectedMaterial));
-    setItems((prev) => [...prev, ...(showPrices ? next : next.map(stripItemPrice))]);
-    setSelectedMatches(new Set());
-    toast.success(`${targets.length} item${targets.length === 1 ? "" : "s"} de pedido marcado${targets.length === 1 ? "" : "s"} para recepcionar.`);
   }
 
   async function readRemitoWithAI(file) {
@@ -1617,6 +1658,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                     const checked = checkedCatalog.has(mat.id);
                     const meta = proveedorMeta(mat.proveedor, proveedores);
                     const barcode = materialBarcodeList(mat)[0]?.codigo || "";
+                    // ¿Este producto está esperando en algún aviso de recepción?
+                    const enAvisos = (avisosPorMaterial.get(mat.id) || EMPTY_ARR).filter((m) => !avisoItemAdded(m));
+                    const obrasAviso = [...new Set(enAvisos.map((m) => m.obra_codigo).filter(Boolean))];
                     return (
                       <button
                         key={mat.id}
@@ -1648,6 +1692,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                             <ProveedorTipoBadge meta={meta} compact />
                             <UbicacionChip ubicacion={mat.ubicacion} obs={mat.ubicacion_obs} />
                             <StockActualBadge material={mat} stockByMaterial={stockByMaterial} sede={sede} compact />
+                            {enAvisos.length > 0 && (
+                              <span
+                                title={`Esperando en ${enAvisos.length} ítem${enAvisos.length === 1 ? "" : "s"} de aviso · ${obrasAviso.join(", ")}`}
+                                style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}
+                              >
+                                En aviso{obrasAviso.length === 1 ? ` · ${obrasAviso[0]}` : ` · ${enAvisos.length}`}
+                              </span>
+                            )}
                             {catalogQ.trim() && mat._score >= 88 && (
                               <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
                                 Coincidencia
@@ -1661,6 +1713,31 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                     <div style={{ color: C.t2, fontSize: 12, padding: 12, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 8 }}>Sin resultados</div>
                   )}
                 </div>
+                {/* El producto que buscaste/escaneaste, y en qué aviso está esperando.
+                    Se puede recepcionar directo desde acá sin ir a la pestaña de avisos. */}
+                {avisosDelFocoPendientes.length > 0 && (
+                  <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, padding: 9, display: "grid", gap: 7 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 11.5, fontWeight: 900 }}>
+                      <PackageSearch size={14} style={{ flexShrink: 0 }} />
+                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {(selectedMaterial?.descripcion || catalogById.get(focusMaterialId)?.descripcion || "Este producto")} está en {avisosDelFocoPendientes.length} aviso{avisosDelFocoPendientes.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {avisosDelFocoPendientes.map((m) => (
+                      <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "7px 9px" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.obra_codigo}{m.es_adicional ? " · adicional" : ""}</div>
+                          <div style={{ fontSize: 10.5, color: C.t2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.request_title}</div>
+                        </div>
+                        <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t1, whiteSpace: "nowrap" }}>{m.quantity || "-"} {m.unit || ""}</div>
+                        <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                          Recepcionar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={addCheckedCatalogMaterials}
@@ -1671,45 +1748,105 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 </button>
               </div>
             ) : (
-              <div style={{ display: "grid", gap: 8, minWidth: 0, maxHeight: matchesListHeight, overflowY: "auto", paddingRight: 2 }}>
+              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+                <div style={{ position: "relative" }}>
+                  <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+                  <input
+                    value={avisoQ}
+                    onChange={(e) => setAvisoQ(e.target.value)}
+                    placeholder="Buscar en los avisos: producto, código, obra o pedido"
+                    style={inp({ paddingLeft: 36, background: C.bg, height: ingresoDesktop ? 42 : 36, fontSize: ingresoDesktop ? 13.5 : 13 })}
+                  />
+                </div>
+                <div style={{ display: "grid", gap: 8, minWidth: 0, maxHeight: matchesListHeight, overflowY: "auto", paddingRight: 2 }}>
                 {avisosLoading ? (
                   <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center" }}>Cargando avisos...</div>
-                ) : avisosAgrupados.length ? avisosAgrupados.map((av) => {
+                ) : avisosVisibles.length ? avisosVisibles.map((av) => {
                   const abierto = expandedAviso === av.key;
                   const pendientes = av.items.filter((m) => !avisoItemAdded(m));
                   const agregados = av.items.length - pendientes.length;
+                  // Si el producto escaneado/buscado está en este aviso, se marca el grupo
+                  // para que no haya que abrir uno por uno buscando dónde cae.
+                  const tieneFoco = Boolean(focusMaterialId) && av.items.some((m) => (m.material_id || m.requisito_material_id) === focusMaterialId);
+                  const completo = pendientes.length === 0;
                   return (
-                    <div key={av.key} style={{ border: `1px solid ${abierto ? C.blueB : C.b0}`, borderRadius: 10, background: C.bg }}>
+                    <div key={av.key} style={{ border: `1px solid ${tieneFoco ? C.violetB : abierto ? C.blueB : C.b0}`, borderLeft: `3px solid ${completo ? C.green : tieneFoco ? C.violet : C.blueB}`, borderRadius: 10, background: tieneFoco ? C.violetL : C.bg }}>
                       <div role="button" tabIndex={0} onClick={() => setExpandedAviso(abierto ? null : av.key)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 11px", cursor: "pointer" }}>
                         <span style={{ color: C.t2, fontSize: 12, width: 12, flexShrink: 0 }}>{abierto ? "▾" : "▸"}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: ingresoDesktop ? 13.2 : 12.5, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.request_title || "Pedido sin título"}</div>
-                          <div style={{ fontSize: 11, color: C.t2, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.obra_codigo}{av.linea_nombre ? ` · ${av.linea_nombre}` : ""} · {av.items.length} ítem{av.items.length === 1 ? "" : "s"}{agregados ? ` · ${agregados} agregados` : ""}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                            <span style={{ fontSize: ingresoDesktop ? 13.4 : 12.6, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.obra_codigo || "Sin obra"}</span>
+                            {tieneFoco && <span style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>Acá está</span>}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: C.t1, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {av.request_title || "Pedido sin título"}{av.linea_nombre ? ` · ${av.linea_nombre}` : ""}
+                          </div>
                         </div>
-                        {pendientes.length === 0 && <span style={{ color: C.green, fontSize: 12, fontWeight: 900, flexShrink: 0 }}>✓ completo</span>}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                          {completo
+                            ? <span style={{ color: C.green, fontSize: 11.5, fontWeight: 900 }}>✓ completo</span>
+                            : <span style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", color: C.t1, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>
+                                {pendientes.length} por recibir{agregados ? ` · ${agregados} ✓` : ""}
+                              </span>}
+                        </div>
                       </div>
                       {abierto && (
                         <div style={{ display: "grid", gap: 6, padding: "0 10px 10px" }}>
                           {av.items.map((m) => {
                             const added = avisoItemAdded(m);
+                            const prod = productoDeAviso(m);
+                            const esFoco = Boolean(focusMaterialId) && (m.material_id || m.requisito_material_id) === focusMaterialId;
+                            const barcode = prod ? materialBarcodeList(prod)[0]?.codigo || "" : "";
                             return (
-                              <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", padding: "8px 9px", border: `1px solid ${added ? C.greenB : C.b0}`, background: added ? C.greenL : "var(--panel)", borderRadius: 8 }}>
-                                <div style={{ minWidth: 0, fontSize: 12.5, fontWeight: 750, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.description}</div>
+                              <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", padding: "8px 9px", border: `1px solid ${added ? C.greenB : esFoco ? C.violetB : C.b0}`, background: added ? C.greenL : esFoco ? C.violetL : "var(--panel)", borderRadius: 8 }}>
+                                <div style={{ minWidth: 0 }}>
+                                  {/* El producto del catálogo primero: es lo que el pañolero
+                                      tiene en la mano. El texto del pedido queda de referencia. */}
+                                  <div style={{ fontSize: 12.8, fontWeight: 850, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {prod?.descripcion || m.description || "Ítem sin descripción"}
+                                  </div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, marginTop: 3, fontSize: 10.8, color: C.t2 }}>
+                                    {prod ? (
+                                      <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {prod.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}
+                                      </span>
+                                    ) : (
+                                      <span style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>
+                                        Sin producto vinculado
+                                      </span>
+                                    )}
+                                    {prod && <UbicacionChip ubicacion={prod.ubicacion} obs={prod.ubicacion_obs} />}
+                                    {m.es_adicional && <span style={{ color: C.violet, fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 }}>adicional</span>}
+                                    {m.variante && <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>· {m.variante}</span>}
+                                  </div>
+                                  {prod && m.description && prod.descripcion !== m.description && (
+                                    <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      Pedido: {m.description}
+                                    </div>
+                                  )}
+                                </div>
                                 <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t1, whiteSpace: "nowrap" }}>{m.quantity || "-"} {m.unit || ""}</div>
                                 {added
                                   ? <span style={{ color: C.green, fontSize: 13, fontWeight: 900, padding: "0 4px" }}>✓</span>
-                                  : <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>Agregar</button>}
+                                  : <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>Recibir</button>}
                               </div>
                             );
                           })}
-                          <button type="button" onClick={() => pendientes.forEach(agregarPedidoItem)} disabled={pendientes.length === 0} style={{ justifySelf: "start", border: `1px solid ${C.greenB}`, background: pendientes.length ? C.greenL : C.bg, color: pendientes.length ? C.green : C.t2, borderRadius: 7, padding: "6px 12px", cursor: pendientes.length ? "pointer" : "default", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>Agregar todos los pendientes ({pendientes.length})</button>
+                          <button type="button" onClick={() => pendientes.forEach(agregarPedidoItem)} disabled={pendientes.length === 0} style={{ justifySelf: "start", border: `1px solid ${C.greenB}`, background: pendientes.length ? C.greenL : C.bg, color: pendientes.length ? C.green : C.t2, borderRadius: 7, padding: "6px 12px", cursor: pendientes.length ? "pointer" : "default", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>Recibir todos los pendientes ({pendientes.length})</button>
                         </div>
                       )}
                     </div>
                   );
                 }) : (
-                  <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 8 }}>{obraId ? "No hay avisos de recepción para la obra seleccionada." : "No hay avisos de recepción abiertos. Escaneá el producto o cargalo como ingreso directo."}</div>
+                  <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 8 }}>
+                    {avisoQ.trim()
+                      ? "Ningún aviso coincide con esa búsqueda."
+                      : obraId
+                        ? "No hay avisos de recepción para la obra seleccionada."
+                        : "No hay avisos de recepción abiertos. Escaneá el producto o cargalo como ingreso directo."}
+                  </div>
                 )}
+                </div>
               </div>
             )}
           </div>
@@ -1717,13 +1854,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           <div
             ref={itemsSectionRef}
             style={isRemito ? { border: `1px solid ${C.b0}`, background: "rgba(96,165,250,0.035)", borderRadius: 14, padding: ingresoDesktop ? 16 : 10, display: "grid", gap: 10 } : undefined}
-            onDragOver={(e) => { if (dragMatch) e.preventDefault(); }}
-            onDrop={(e) => {
-              if (!dragMatch) return;
-              e.preventDefault();
-              addMatches([dragMatch]);
-              setDragMatch(null);
-            }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
               <div>
@@ -1751,6 +1881,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 {items.map((it, i) => {
                   const linkedCandidate = fullCatalog.find((material) => material.id === it.material_id) || null;
                   const linkedMaterial = linkedCandidate?.es_requisito === true ? null : linkedCandidate;
+                  const itemSpecs = productSpecEntries(it.especificaciones);
                   return (
                   <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${scanFlashMat && it.material_id === scanFlashMat ? C.greenB : C.b0}`, borderRadius: 10, overflow: "hidden", transition: "border-color .25s, box-shadow .25s", boxShadow: scanFlashMat && it.material_id === scanFlashMat ? `0 0 0 2px ${C.greenL}` : "none" }}>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, alignItems: "center", padding: "10px" }}>
@@ -1805,6 +1936,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Proveedor: {it.proveedor}</span>
                         <ProveedorTipoBadge meta={proveedorMeta(it.proveedor, proveedores)} compact />
+                      </div>
+                    )}
+                    {itemSpecs.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", padding: "0 7px 8px" }}>
+                        {itemSpecs.map((specification) => (
+                          <span key={specification.key} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 800 }}>
+                            {specification.label}: {specification.value}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>

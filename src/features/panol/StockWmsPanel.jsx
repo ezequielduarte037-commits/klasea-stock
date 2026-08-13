@@ -397,7 +397,9 @@ function rowSource(row) {
 
 function rowIsEgreso(row) {
   const source = rowSource(row);
-  return !!row.egreso_destino_obra_id || row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+  return source.startsWith("egreso")
+    || source.startsWith("transferencia_egreso")
+    || source === "conteo_fisico_reversion";
 }
 
 function rowIsAsignacionStock(row) {
@@ -590,17 +592,6 @@ function emptyCatalogGroup(material, defaultSede = "Pampa", esAdicional = false)
   };
 }
 
-function manualEgresoGroup(text, defaultSede = "Pampa", esAdicional = false) {
-  const descripcion = String(text || "").trim();
-  return emptyCatalogGroup({
-    id: null,
-    descripcion,
-    codigo: "",
-    proveedor: "",
-    unidad: "unidad",
-  }, defaultSede, esAdicional);
-}
-
 // El tipo del grupo se decide por el STOCK DISPONIBLE, no por el primer renglón
 // (que podía ser un tránsito suelto y forzaba "Estándar"). Si hay stock general
 // disponible → Stock pañol; si el stock disponible está reservado a obra → Estándar.
@@ -767,7 +758,8 @@ function buildProductGroups(rows = [], fObra = "todas") {
       tipoPedido: groupTipoFromStock(group),
       locations,
       egresado: group.hasEgreso && !hasPositiveStock && group.transitQty <= 0,
-      negativo: group.total < 0 || locations.some((loc) => loc.available < 0),
+      negativo: group.total < -0.0001,
+      locationImbalance: group.total >= -0.0001 && locations.some((loc) => loc.available < -0.0001),
       inTransit: group.transitQty > 0,
     };
   }).sort((a, b) => {
@@ -855,12 +847,12 @@ function SelectFilter({ label, value, onChange, options }) {
   );
 }
 
-function StateChip({ negative, catalogOnly = false, transit = false, egresado = false, compact = false }) {
-  if (compact && !egresado && !transit && !catalogOnly && !negative) return null;
-  const color = egresado ? C.red : transit ? C.violet : catalogOnly ? C.violet : negative ? C.red : C.green;
-  const border = egresado ? C.redB : transit ? C.violetB : catalogOnly ? C.violetB : negative ? C.redB : C.greenB;
-  const background = egresado ? C.redL : transit ? C.violetL : catalogOnly ? C.violetL : negative ? C.redL : C.greenL;
-  const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : "Disponible";
+function StateChip({ negative, imbalance = false, catalogOnly = false, transit = false, egresado = false, compact = false }) {
+  if (compact && !egresado && !transit && !catalogOnly && !negative && !imbalance) return null;
+  const color = egresado ? C.red : transit ? C.violet : catalogOnly ? C.violet : negative ? C.red : imbalance ? C.violet : C.green;
+  const border = egresado ? C.redB : transit ? C.violetB : catalogOnly ? C.violetB : negative ? C.redB : imbalance ? C.violetB : C.greenB;
+  const background = egresado ? C.redL : transit ? C.violetL : catalogOnly ? C.violetL : negative ? C.redL : imbalance ? C.violetL : C.greenL;
+  const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : imbalance ? "Ubicación a revisar" : "Disponible";
   return (
     <span style={{
       color,
@@ -1048,7 +1040,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
   // ── Variante DENSA (lista angosta con detalle abierto): 2 líneas, micro-chips ──
   if (dense) {
     const asigs = groupAsignaciones(group);
-    const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
+    const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.locationImbalance ? ["REVISAR UBIC.", C.violet] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
     const micro = (label, color) => (
       <span style={{ fontSize: 8.5, fontWeight: 950, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
     );
@@ -1136,7 +1128,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         <KindChip tipo={group.tipoPedido} />
         <StockLevelChip group={group} hideUnset />
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
-        <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} compact />
+        <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} imbalance={group.locationImbalance} compact />
         {sinUbicacion ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
             <MapPin size={11} /> Sin ubicación
@@ -1740,7 +1732,6 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
   ].filter(Boolean))];
   const availableActual = availableForVariant(selectedLocation, variante);
   const cantidadNum = qty(cantidad, 0);
-  const projected = availableActual - cantidadNum;
   const willGoNegative = !!group && cantidadNum > availableActual;
   const transitOnly = !!group && !isCatalogOnly && availableActual <= 0 && (selectedLocation?.transitQty || 0) > 0;
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
@@ -1773,6 +1764,10 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
   function addCurrentToCart() {
     if (!group || cantidadNum <= 0 || transitOnly) return;
+    if (isCatalogOnly || willGoNegative) {
+      toast.warning("No hay stock suficiente. Registrá primero el ingreso o la recepción física.");
+      return;
+    }
     const item = makeCartItem(group, selectedLocation, {
       cantidad,
       sede: sedeLocked || sede,
@@ -1828,6 +1823,11 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
   async function submitBatch() {
     if (!canReceive || !cart.length) return;
+    const sinStock = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
+    if (sinStock) {
+      toast.warning(`${sinStock.label}: no hay stock suficiente. Corregí la cantidad o registrá el ingreso primero.`);
+      return;
+    }
     if (movementKind === "transferir" && !destinoObraId) {
       toast.warning("Elegí la obra a la que asignar el stock.");
       return;
@@ -1918,7 +1918,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Egreso multiple</div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Agrega varios productos y confirma todo junto. Si no hay stock, queda negativo para reconciliar.</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Agregá varios productos y confirmalos juntos. Sólo se puede retirar stock físicamente recibido.</div>
         </div>
         <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
           <MonitorUp size={14} /> Pantalla
@@ -1965,19 +1965,19 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
               <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Cantidad</span>
               <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.panelSolid, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
             </label>
-            <button type="button" onClick={addCurrentToCart} disabled={!canReceive || cantidadNum <= 0} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: !canReceive || cantidadNum <= 0 ? "default" : "pointer", opacity: !canReceive || cantidadNum <= 0 ? 0.55 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
+            <button type="button" onClick={addCurrentToCart} disabled={!canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? "default" : "pointer", opacity: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? 0.55 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
               Agregar
             </button>
           </div>
           {transitOnly && (
             <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 9px", fontSize: 12, lineHeight: 1.35 }}>
-              Este material está por recibir (aún no lo recepcionó pañol). Podés egresarlo igual: queda negativo para reconciliar cuando cargues el ingreso.
+              Este material está por recibir. Todavía no puede egresarse: pañol debe confirmar primero la recepción física.
             </div>
           )}
           {willGoNegative && (
             <div style={{ display: "flex", gap: 8, alignItems: "flex-start", border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "8px 9px", fontSize: 12, lineHeight: 1.35 }}>
               <AlertTriangle size={14} style={{ marginTop: 1, flexShrink: 0 }} />
-              <span>Este producto quedara negativo ({fmtQty(projected)}).</span>
+              <span>Stock insuficiente: disponible {fmtQty(availableActual)}. Corregí la cantidad o registrá el ingreso primero.</span>
             </div>
           )}
         </div>
@@ -2110,8 +2110,9 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   const isCatalogOnly = !!group?.catalogOnly;
   const cantidadNum = qty(cantidad, 0);
   const movementSede = action === "egresar" && isCatalogOnly ? (sedeLocked || sede) : (selectedLocation?.sede || sede);
-  const projected = (selectedLocation?.available || 0) - cantidadNum;
   const willGoNegative = action === "egresar" && cantidadNum > (selectedLocation?.available || 0);
+  const insufficientStock = (action === "egresar" || action === "asignar")
+    && (isCatalogOnly || cantidadNum > (selectedLocation?.available || 0) + 0.0001);
   const transitOnly = action === "egresar" && !isCatalogOnly && (selectedLocation?.available || 0) <= 0 && (selectedLocation?.transitQty || 0) > 0;
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
   const originIsObra = !!selectedLocation?.obraId; // el stock origen ya está asignado a una obra
@@ -2134,6 +2135,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
     if (!canReceive) return;
     if (!group) {
       toast.warning("Elegí un producto.");
+      return;
+    }
+    if (insufficientStock || transitOnly) {
+      toast.warning("No hay stock suficiente. Registrá primero el ingreso o la recepción física.");
       return;
     }
     if (action === "asignar" && !destinoObraId) {
@@ -2171,7 +2176,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           esAdicional: group.esAdicional,
           variante: varianteEgreso || null,
         });
-        toast.success(willGoNegative ? "Egreso registrado. Queda a reconciliar con stock negativo." : "Egreso registrado.");
+        toast.success("Egreso registrado.");
       } else if (action === "asignar") {
         const baseMov = {
           material: group.material,
@@ -2220,7 +2225,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
         <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
       </div>
       {isCatalogOnly && (
-        <div style={{ color: C.violet, fontSize: 11, lineHeight: 1.35 }}>Sin registro digital: el egreso queda negativo a reconciliar.</div>
+        <div style={{ color: C.violet, fontSize: 11, lineHeight: 1.35 }}>Sin stock recibido: registrá el ingreso físico antes de intentar un egreso.</div>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso</button>
@@ -2301,7 +2306,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       {!transitOnly && willGoNegative && (
         <div style={{ display: "flex", gap: 8, alignItems: "flex-start", border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.35 }}>
           <AlertTriangle size={15} style={{ marginTop: 1, flexShrink: 0 }} />
-          <span>Esto dejará stock negativo ({fmtQty(projected)}). Queda marcado para reconciliar cargando el ingreso faltante.</span>
+          <span>Stock insuficiente: disponible {fmtQty(selectedLocation?.available || 0)}. Corregí la cantidad o registrá el ingreso primero.</span>
         </div>
       )}
 
@@ -2332,7 +2337,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (opcional)" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
 
       {(() => {
-        const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || (action === "asignar" && !destinoObraId);
+        const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || insufficientStock || (action === "asignar" && !destinoObraId);
         return (
           <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 950, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
             {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
@@ -2919,7 +2924,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             <div style={{ color: C.text, fontSize: 17, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
             <KindChip tipo={group.tipoPedido} />
             <AsignadoChip asignaciones={groupAsignaciones(group)} />
-            <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} catalogOnly={group.catalogOnly} />
+            <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} imbalance={group.locationImbalance} catalogOnly={group.catalogOnly} />
             <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
           </div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{detCode} · disponible {fmtQty(group.total)} {group.unidad}</div>
@@ -2967,17 +2972,18 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         )}
 
         {negativeLocations.length > 0 && (
-          <div style={{ border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
-            <div style={{ color: C.red, fontSize: 12.5, fontWeight: 950 }}>Pendiente de reconciliar</div>
+          <div style={{ border: `1px solid ${group.negativo ? C.redB : C.violetB}`, background: group.negativo ? C.redL : C.violetL, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
+            <div style={{ color: group.negativo ? C.red : C.violet, fontSize: 12.5, fontWeight: 950 }}>{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
+            {!group.negativo && <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4 }}>El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
             {negativeLocations.map((loc) => (
               <div key={loc.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, alignItems: "center" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: C.text, fontSize: 12, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{loc.label}</div>
-                  <div style={{ color: C.red, fontFamily: C.mono, fontSize: 11, fontWeight: 900 }}>faltan {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
+                  <div style={{ color: group.negativo ? C.red : C.violet, fontFamily: C.mono, fontSize: 11, fontWeight: 900 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
                 </div>
-                <button type="button" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key} style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, padding: "8px 10px", cursor: reconcilingKey === loc.key ? "default" : "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans, opacity: reconcilingKey === loc.key ? 0.65 : 1 }}>
+                {group.negativo && <button type="button" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key} style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, padding: "8px 10px", cursor: reconcilingKey === loc.key ? "default" : "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans, opacity: reconcilingKey === loc.key ? 0.65 : 1 }}>
                   {reconcilingKey === loc.key ? "Cargando..." : "Cargar ingreso faltante"}
-                </button>
+                </button>}
               </div>
             ))}
           </div>
@@ -3033,7 +3039,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             />
           )) : (
             <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>
-              {(ocultarAnulados && sortedRows.length) ? "Todos los movimientos están anulados. Desactivá el filtro para verlos." : "Producto sin movimientos todavía. Podés egresarlo igual y quedará como negativo a reconciliar."}
+              {(ocultarAnulados && sortedRows.length) ? "Todos los movimientos están anulados. Desactivá el filtro para verlos." : "Producto sin movimientos todavía. Registrá un ingreso o una recepción antes de egresarlo."}
             </div>
           )}
         </div>
@@ -3350,6 +3356,11 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
   async function submitBatch() {
     if (!canReceive || !cart.length || saving) return;
+    const sinStock = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
+    if (sinStock) {
+      toast.warning(`${sinStock.label}: no hay stock suficiente. Corregí la cantidad o registrá el ingreso primero.`);
+      return;
+    }
     if (movementKind === "transferir" && !destinoObraId) {
       toast.warning("Elegí la obra a la que asignar el stock.");
       return;
@@ -3441,7 +3452,8 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   }
 
   const inp = { background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 };
-  const disabled = saving || !canReceive || !cart.length || (movementKind === "transferir" && !destinoObraId);
+  const invalidStockItem = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
+  const disabled = saving || !canReceive || !cart.length || !!invalidStockItem || (movementKind === "transferir" && !destinoObraId);
 
   // ── Carritos guardados con nombre ──
   function guardarCarrito() {
@@ -3538,7 +3550,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
                       <div style={{ color: excede ? C.violet : C.dim, fontSize: 10.5, marginTop: 1 }}>
-                        {item.catalogOnly ? "sin registro digital" : `disponible ${fmtQty(item.available)} ${item.unidad || ""}`}{excede ? " · queda negativo" : ""}
+                        {item.catalogOnly ? "sin stock recibido" : `disponible ${fmtQty(item.available)} ${item.unidad || ""}`}{excede ? " · cantidad excedida" : ""}
                       </div>
                       {item.variantes?.length > 0 && (
                         <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
@@ -3714,8 +3726,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   // re-rendericen todas en cada cambio de estado del panel.
   const quickAddToCart = useCallback((group) => {
     if (!canReceive) return;
-    const loc = (group.locations || []).find((l) => l.available > 0.0001) || group.locations?.[0];
-    if (!loc) return;
+    const loc = (group.locations || []).find((l) => l.available > 0.0001);
+    if (!loc) {
+      toast?.warning?.(`${group.label}: no hay stock recibido para egresar.`);
+      return;
+    }
     const item = makeCartItem(group, loc, {
       cantidad: loc.available > 0 ? Number(loc.available.toFixed(2)) : 1,
       sede: sedeLocked || loc.sede,
@@ -4023,14 +4038,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     setSelectedKey(group.key);
   }
 
-  function selectManualMaterial() {
-    const desc = q.trim();
-    if (!desc) return;
-    const group = manualEgresoGroup(desc, defaultSede, kindScope === "adicional");
-    setDraftGroup(group);
-    setSelectedKey(group.key);
-  }
-
   function applyScanCode(rawCode) {
     const code = String(rawCode || "").trim();
     if (!code) return;
@@ -4041,7 +4048,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       toast?.success?.(`${mode === "egreso" ? "Listo para egresar" : "Producto detectado"}: ${exact.label}`);
     } else {
       setSelectedKey(null);
-      if (mode === "egreso") toast?.warning?.("No esta en stock. Buscando en catalogo para egresarlo igual.");
+      if (mode === "egreso") toast?.warning?.("No está en stock. Podés identificarlo en el catálogo, pero primero hay que registrar su ingreso.");
     }
     setTimeout(() => searchInputRef.current?.focus(), 60);
   }
@@ -4295,7 +4302,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               <div style={{ border: `1px dashed ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: 10, display: "grid", gap: 7 }}>
                 <div>
                   <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900 }}>Catalogo completo</div>
-                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Si no aparece en stock, elegilo del catalogo y egresalo igual. El saldo queda negativo para reconciliar.</div>
+                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Usá el catálogo para identificar el producto. Si no tiene stock, primero registrá su ingreso o recepción física.</div>
                 </div>
                 {catalogMatches.map((mat) => (
                   <button key={mat.id} type="button" onClick={() => selectCatalogMaterial(mat)} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 10px", textAlign: "left", cursor: "pointer", fontFamily: C.sans }}>
@@ -4305,11 +4312,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 ))}
                 {!catalogMatches.length && (
                   <div style={{ color: C.dim, fontSize: 12, padding: "4px 2px" }}>No hay coincidencias en el catalogo.</div>
-                )}
-                {canReceive && (
-                  <button type="button" onClick={selectManualMaterial} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans, textAlign: "left" }}>
-                    Egresar "{q.trim()}" sin stock virtual
-                  </button>
                 )}
                 <button type="button" onClick={createFromSearch} disabled={creating || !canCreateCatalog} style={{ border: `1px solid ${canCreateCatalog ? C.blueB : C.border}`, background: C.panelSolid, color: canCreateCatalog ? C.blue : C.dim, borderRadius: 9, padding: "8px 10px", cursor: creating || !canCreateCatalog ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
                   {!canCreateCatalog ? "Crear nuevo requiere administrador" : creating ? "Creando..." : `Crear "${q.trim()}" en catalogo`}

@@ -13,6 +13,7 @@ import {
   PackageOpen,
   Printer,
   RefreshCw,
+  RotateCcw,
   Search,
   Warehouse,
   X,
@@ -28,7 +29,7 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
 import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
-import { leerIngresosPendientes, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import { leerIngresosPendientes, borrarIngresoPendiente, leerPapeleraIngresos, restaurarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import StockPanolScreen from "@/features/panol/StockPanolScreen";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -2144,7 +2145,11 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   }, [searchParams, setSearchParams]);
   const [modalPrefill, setModalPrefill] = useState(null);
   const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
-  const refreshPendientes = useCallback(() => setPendientes(leerIngresosPendientes()), []);
+  const [papelera, setPapelera] = useState(() => leerPapeleraIngresos());
+  const refreshPendientes = useCallback(() => {
+    setPendientes(leerIngresosPendientes());
+    setPapelera(leerPapeleraIngresos());
+  }, []);
   // Identidad estable: si fuera un objeto inline, cualquier re-render del padre
   // (p. ej. un toast) reiniciaría el form del modal y borraría los ítems cargados.
   const modalPrefillEstable = useMemo(
@@ -2475,11 +2480,13 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           {/* Tira de borradores para retomar (solo si hay) */}
-          {pendientes.length > 0 && (
+          {(pendientes.length > 0 || papelera.length > 0) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "8px 12px" : "8px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, ...GLASS, overflowX: "auto", flexShrink: 0 }}>
-              <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
-                Borradores ({pendientes.length}):
-              </span>
+              {pendientes.length > 0 && (
+                <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  Borradores ({pendientes.length}):
+                </span>
+              )}
               {pendientes.map((d) => {
                 const nItems = Array.isArray(d.items) ? d.items.length : 0;
                 return (
@@ -2492,14 +2499,41 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                       style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", padding: 0 }}>
                       {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
                     </button>
-                    <button type="button" title="Borrar borrador"
-                      onClick={() => { borrarIngresoPendiente(d.id); refreshPendientes(); }}
+                    <button type="button" title="Mandar a la papelera (se puede recuperar)"
+                      onClick={() => {
+                        borrarIngresoPendiente(d.id);
+                        refreshPendientes();
+                        toast.success("Borrador a la papelera. Podés recuperarlo acá al lado.");
+                      }}
                       style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 2, flexShrink: 0 }}>
                       <X size={13} />
                     </button>
                   </div>
                 );
               })}
+              {/* Papelera: borrar un borrador no lo destruye, se puede volver atrás. */}
+              {papelera.length > 0 && (
+                <>
+                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0, marginLeft: pendientes.length ? 6 : 0 }}>
+                    Papelera:
+                  </span>
+                  {papelera.map((d) => {
+                    const nItems = Array.isArray(d.items) ? d.items.length : 0;
+                    return (
+                      <button key={d.id} type="button" title="Recuperar este borrador"
+                        onClick={() => {
+                          restaurarIngresoPendiente(d.id);
+                          refreshPendientes();
+                          toast.success("Borrador recuperado.");
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", border: `1px dashed ${C.border2}`, background: "transparent", borderRadius: 999, color: C.dim, cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        <RotateCcw size={12} />
+                        {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
           {/* Form de ingreso inline (reemplaza al modal) */}

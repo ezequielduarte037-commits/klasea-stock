@@ -133,12 +133,24 @@ const SEARCH_STOPWORDS = new Set(["de", "del", "la", "el", "los", "las", "con", 
 // Match por palabras: cada palabra "\u00fatil" del t\u00e9rmino debe estar en el texto (en
 // cualquier orden). As\u00ed "caja de" encuentra "caja ducha 800 gph". T\u00e9rminos muy cortos
 // (ej. un c\u00f3digo) caen a substring simple.
+function canonicalObraLine(value = "") {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return "";
+  const numeric = raw.match(/^K?(\d+)$/);
+  if (numeric) return numeric[1];
+  return raw.replace(/\s+/g, " ");
+}
+
 function modeloFromObraCodigo(codigo = "") {
-  return String(codigo || "").trim().toUpperCase().match(/^([A-Z]*\d+)/)?.[1] || "";
+  const prefix = String(codigo || "").trim().toUpperCase().split("-")[0] || "";
+  return canonicalObraLine(prefix);
 }
 
 function withDerivedModelo(obra = {}) {
-  return { ...obra, modelo: obra.modelo || modeloFromObraCodigo(obra.codigo) };
+  return {
+    ...obra,
+    modelo: canonicalObraLine(obra.modelo || obra.linea_nombre) || modeloFromObraCodigo(obra.codigo),
+  };
 }
 
 function toNullableNumber(value = "") {
@@ -677,27 +689,38 @@ export function invalidatePanolCatalogFullCache() {
   _panolCatalogFullAt = 0;
 }
 
-async function fetchDefaultPanolCategoriaId() {
-  try {
-    const { data, error } = await supabase
-      .from("panol_categorias")
-      .select("id,nombre,orden")
-      .order("orden", { ascending: true })
-      .order("nombre", { ascending: true })
-      .limit(80);
-    if (error) throw error;
-    const rows = data ?? [];
-    const preferred = rows.find((row) => {
-      const key = normalizeSearch(row.nombre);
-      return ["sin categoria", "varios", "otros", "general"].includes(key);
-    });
-    // Nunca clasificar por posición: la primera categoría puede ser cualquier
-    // rubro real (por ejemplo "Cintas y film"). Sin una categoría genérica
-    // explícita, el producto queda sin clasificar para revisión humana.
-    return preferred?.id || null;
-  } catch {
-    return null;
+const CATEGORIA_GENERICA_NOMBRE = "Sin categoría";
+const CATEGORIAS_GENERICAS = ["sin categoria", "varios", "otros", "general"];
+
+// Rubro donde caen los productos creados automáticamente al recepcionar.
+// Nunca clasificamos por posición: la primera categoría puede ser cualquier rubro
+// real (por ejemplo "Cintas y film") y el producto quedaría mal etiquetado.
+// Pero `panol_materiales.categoria_id` es NOT NULL, así que devolver null hacía
+// fallar el insert entero. Si no hay una categoría genérica, la creamos.
+async function ensurePanolCategoriaGenericaId() {
+  const { data, error } = await supabase
+    .from("panol_categorias")
+    .select("id,nombre,orden")
+    .order("orden", { ascending: true })
+    .order("nombre", { ascending: true })
+    .limit(200);
+  if (error) throw error;
+  const rows = data ?? [];
+  const preferred = rows.find((row) => CATEGORIAS_GENERICAS.includes(normalizeSearch(row.nombre)));
+  if (preferred?.id) return preferred.id;
+
+  const { data: created, error: createError } = await supabase
+    .from("panol_categorias")
+    .insert({ nombre: CATEGORIA_GENERICA_NOMBRE, orden: 999 })
+    .select("id")
+    .single();
+  if (createError) {
+    throw new Error(
+      `No hay un rubro "${CATEGORIA_GENERICA_NOMBRE}" en el catálogo y no se pudo crear (${createError.message}). `
+      + "Creá ese rubro en Materiales y volvé a intentar.",
+    );
   }
+  return created.id;
 }
 
 export async function crearPanolCatalogMaterial({
@@ -714,7 +737,7 @@ export async function crearPanolCatalogMaterial({
 } = {}) {
   const cleanDesc = String(descripcion || "").trim();
   if (!cleanDesc) throw new Error("Cargá una descripción para crear el material.");
-  const categoriaId = categoria_id || await fetchDefaultPanolCategoriaId();
+  const categoriaId = categoria_id || await ensurePanolCategoriaGenericaId();
   const patch = {
     categoria_id: categoriaId,
     codigo: String(codigo || "").trim().toUpperCase() || null,
@@ -928,7 +951,7 @@ function scorePedidoMaterial(item, material, query) {
 
 async function fetchPedidoItemsForRecepcion() {
   const fullSelect = `
-    id, request_id, description, quantity, unit, status, destination, material_id, catalog_source, notes, created_at,
+    id, request_id, description, quantity, unit, status, destination, material_id, requisito_material_id, especificaciones, catalog_source, notes, created_at,
     request:purchase_requests(id,title,status,priority,project_id,created_at,description,es_adicional,project:produccion_obras(id,codigo,linea_nombre))
   `;
   const fallbackSelect = `
@@ -945,7 +968,7 @@ async function fetchPedidoItemsForRecepcion() {
 
 async function fetchPanolEnvioItemsForRecepcion({ sede = null } = {}) {
   const fullSelect = `
-    id, envio_id, purchase_request_item_id, obra_snapshot_item_id, codigo, descripcion, cantidad, unidad, estado, nota, created_at, updated_at,
+    id, envio_id, purchase_request_item_id, obra_snapshot_item_id, material_id, requisito_material_id, especificaciones, codigo, descripcion, cantidad, unidad, estado, nota, created_at, updated_at,
     envio:panol_envios(id,titulo,sede,destino,origen,estado,obra_id,created_at)
   `;
   const fallbackSelect = `
@@ -992,7 +1015,7 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
     try {
       const { data, error } = await supabase
         .from("panol_obra_materiales_snapshot")
-        .select("id,obra_id,estado,cantidad,unidad,material_id,es_adicional,variante")
+        .select("id,obra_id,estado,cantidad,unidad,material_id,requisito_material_id,especificaciones,es_adicional,variante")
         .in("id", snapshotIds);
       if (error) throw error;
       for (const row of data ?? []) snapshotById.set(row.id, row);
@@ -1049,6 +1072,8 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
       status: item.estado || "",
       destination: item.envio?.destino || "",
       material_id: snapshot?.material_id || null,
+      requisito_material_id: snapshot?.requisito_material_id || item.requisito_material_id || null,
+      especificaciones: snapshot?.especificaciones || item.especificaciones || {},
       obra_id: obraId,
       obra_codigo: obra?.codigo || item.envio?.destino || "Sin obra",
       linea_nombre: obra?.linea_nombre || obra?.modelo || "",
@@ -1082,7 +1107,7 @@ export async function fetchRecepcionPedidoMatches({ material = null, q = "", lim
     try {
       const { data, error } = await supabase
         .from("panol_obra_materiales_snapshot")
-        .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,es_adicional,variante")
+        .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,especificaciones,es_adicional,variante")
         .in("purchase_request_item_id", itemIds);
       if (error) throw error;
       for (const row of data ?? []) snapshotByItem.set(row.purchase_request_item_id, row);
@@ -1123,6 +1148,8 @@ export async function fetchRecepcionPedidoMatches({ material = null, q = "", lim
       status: item.status || "",
       destination: item.destination || "",
       material_id: item.material_id || null,
+      requisito_material_id: item.requisito_material_id || null,
+      especificaciones: snapshot?.especificaciones || item.especificaciones || {},
       obra_id: snapshot?.obra_id || item.request?.project_id || null,
       obra_codigo: obra?.codigo || item.destination || "Sin obra",
       linea_nombre: obra?.linea_nombre || obra?.modelo || "",
@@ -1165,6 +1192,22 @@ export async function fetchObrasEgreso() {
     if (fallbackError) throw fallbackError;
     return (data ?? []).map(withDerivedModelo);
   }
+}
+
+export async function crearObraExterna({ codigo, modelo, descripcion = null } = {}) {
+  const cleanModel = String(modelo || "").trim().toUpperCase();
+  let cleanCode = String(codigo || "").trim().toUpperCase();
+  if (!cleanModel) throw new Error("Elegí Hunter o Antago.");
+  if (!cleanCode) throw new Error("Ingresá el código o identificación del barco.");
+  if (!cleanCode.startsWith(cleanModel)) cleanCode = `${cleanModel}-${cleanCode}`;
+
+  const { data, error } = await supabase.rpc("panol_crear_obra_externa", {
+    p_codigo: cleanCode,
+    p_modelo: cleanModel,
+    p_descripcion: String(descripcion || "").trim() || null,
+  });
+  if (error) throw error;
+  return withDerivedModelo((Array.isArray(data) ? data[0] : data) || {});
 }
 
 export async function ingresarStockGeneral({ material = null, cantidad, sede = null, nota = null, esAdicional = false, obraId = null, variante = null } = {}) {
@@ -1433,6 +1476,10 @@ export async function crearEnvio({
       obra_id: it.obra_id ?? it.obraId ?? null,
       material_id: it.material_id ?? it.materialId ?? null,
       requisito_material_id: it.requisito_material_id ?? it.requisitoMaterialId ?? null,
+      especificaciones:
+        it.especificaciones && typeof it.especificaciones === "object" && !Array.isArray(it.especificaciones)
+          ? it.especificaciones
+          : {},
       proveedor: it.proveedor ?? null,
       rubro: it.rubro ?? null,
       tipo: it.tipo ?? null,

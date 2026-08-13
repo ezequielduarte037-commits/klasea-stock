@@ -1002,6 +1002,34 @@ export async function createPurchaseLogConItems({ header, items = [] }) {
   return fullLog;
 }
 
+// Corregir un item de una carga de compra sin volver a cargarla entera: se usa
+// desde el detalle de obra para completar los precios que quedaron "a revisar".
+export async function updatePurchaseLogItem(itemId, patch = {}) {
+  const fields = {};
+  if ("precio_unitario" in patch) {
+    const price = patch.precio_unitario === null || patch.precio_unitario === undefined || patch.precio_unitario === ""
+      ? null
+      : Number(patch.precio_unitario);
+    fields.precio_unitario = Number.isFinite(price) ? price : null;
+  }
+  if ("moneda" in patch) {
+    fields.moneda = patch.moneda === "USD" || patch.moneda === "ARS" ? patch.moneda : null;
+  }
+  if ("cantidad" in patch) {
+    fields.cantidad = patch.cantidad == null ? null : String(patch.cantidad).trim() || null;
+  }
+  if ("revisar" in patch) fields.revisar = Boolean(patch.revisar);
+
+  const { data, error } = await supabase
+    .from("purchase_log_items")
+    .update(fields)
+    .eq("id", itemId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function updatePurchaseLog(id, patch) {
   const { data, error } = await supabase
     .from("purchase_log")

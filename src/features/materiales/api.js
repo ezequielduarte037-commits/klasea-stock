@@ -542,6 +542,28 @@ export async function fetchComprobantes() {
     );
 }
 
+async function fetchMaterialModelosCatalogo() {
+  try {
+    return await fetchPaged(
+      "panol_material_modelo",
+      "id, material_id, modelo, cantidad, variante, producto_predeterminado_id, especificaciones_defecto",
+      "id",
+    );
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    const rows = await fetchPaged(
+      "panol_material_modelo",
+      "id, material_id, modelo, cantidad, variante",
+      "id",
+    );
+    return rows.map((row) => ({
+      ...row,
+      producto_predeterminado_id: null,
+      especificaciones_defecto: {},
+    }));
+  }
+}
+
 export async function fetchCatalogo() {
   const [
     categorias,
@@ -560,11 +582,7 @@ export async function fetchCatalogo() {
     fetchCategorias(),
     fetchMaterialesCatalogo(),
     fetchMaterialCodigosBarraRows(),
-    fetchPaged(
-      "panol_material_modelo",
-      "id, material_id, modelo, cantidad, variante",
-      "id",
-    ),
+    fetchMaterialModelosCatalogo(),
     fetchBatches(),
     fetchPaged(
       "panol_precios",
@@ -1273,6 +1291,15 @@ function snapshotPayloadFromRows(obraId, rows = []) {
       orden: index,
       estado: row.estadoObra || row.estado || "pendiente",
       variante: row.variante || row.variante_obra || null,
+      especificaciones:
+        row.especificaciones && typeof row.especificaciones === "object" && !Array.isArray(row.especificaciones)
+          ? row.especificaciones
+          : {},
+      especificaciones_origen: row.especificacionesOrigen || row.especificaciones_origen || null,
+      producto_asignacion_origen:
+        row.productoConfiguracionOrigen
+        || row.producto_asignacion_origen
+        || (row.productoEstandar ? "matriz_linea" : null),
       });
     });
 }
@@ -1282,6 +1309,9 @@ function snapshotPayloadWithoutVariant(rows = []) {
     const clean = { ...row };
     delete clean.variante;
     delete clean.requisito_material_id;
+    delete clean.especificaciones;
+    delete clean.especificaciones_origen;
+    delete clean.producto_asignacion_origen;
     return clean;
   });
 }
