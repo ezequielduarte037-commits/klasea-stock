@@ -2,47 +2,6 @@ import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
-import PedidosScreen         from "@/features/inventario/PedidosScreen";
-import MarmoleriaScreen      from "@/features/marmoleria/MarmoleriaScreen";
-import MueblesScreen         from "@/features/muebles/MueblesScreen";
-import TorneriaScreen        from "@/features/torneria/TorneriaScreen";
-import PanolScreen           from "@/features/inventario/PanolScreen";
-import AdminDashboard        from "@/features/admin/AdminDashboard";
-import MovimientosScreen     from "@/features/inventario/MovimientosScreen";
-import LaminacionScreen      from "@/features/laminacion/LaminacionScreen";
-import ObrasLaminacionScreen from "@/features/laminacion/ObrasLaminacionScreen";
-import PlantillasLineaScreen from "@/features/laminacion/PlantillasLineaScreen";
-import ObrasScreen           from "@/features/obras/ObrasScreen";
-import ConfiguracionScreen   from "@/features/configuracion/ConfiguracionScreen";
-import ProcedimientosScreen  from "@/features/procedimientos/ProcedimientosScreen";
-import PostVentaScreen       from "@/features/postventa/PostVentaScreen";
-import ClientePanelScreen    from "@/features/cliente/ClientePanelScreen";
-import HomeScreen            from "@/features/home/HomeScreen";
-import PanolOperativoHome    from "@/features/panol/PanolOperativoHome";
-import CalendarioScreen      from "@/features/calendario/LogisticaCalendarioScreen";
-import CalendarioProduccionScreen from "@/features/calendario/CalendarioScreen";
-import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
-import MaderasScreen         from "@/features/inventario/MaderasScreen";
-import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
-import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
-import BalanzaDebugScreen    from "@/features/inventario/BalanzaDebugScreen";
-import ScanPedidoScreen      from "@/features/inventario/ScanPedidoScreen";
-import ColectorHomeScreen    from "@/features/inventario/ColectorHomeScreen";
-import CalibrarPesosScreen   from "@/features/panol/CalibrarPesosScreen";
-import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
-import RrhhScreen            from "@/features/rrhh/RrhhScreen";
-import PreciosScreen         from "@/features/precios/PreciosScreen";
-import ComprasEtapasScreen   from "@/features/produccion/ComprasEtapasScreen";
-import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
-import SolicitudesPanolScreen from "@/features/panol/SolicitudesPanolScreen";
-import StockPanolScreen      from "@/features/panol/StockPanolScreen";
-import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
-import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
-import SemaforoScreen        from "@/features/semaforo/SemaforoScreen";
-import CadeteRutaScreen      from "@/features/cadete/CadeteRutaScreen";
-import TarjetasNfcScreen     from "@/features/panol/TarjetasNfcScreen";
-import PantallaEgresoScreen  from "@/features/panol/PantallaEgresoScreen";
-
 import { ToastProvider } from "@/components/ui/Toast";
 import AppVersionGuard from "@/components/AppVersionGuard";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -56,7 +15,47 @@ import { endTrackedAdminSession } from "@/features/configuracion/adminActivityAp
 
 import logoK from "@/assets/logos/logo-k.png";
 
+// Cada pantalla vive en su propio chunk. Antes App importaba todos los módulos
+// al arrancar y el navegador descargaba/parseaba varios MB aunque el usuario
+// sólo fuera al inicio o al pañol. Con lazy cada ruta paga únicamente su módulo.
+const PedidosScreen = lazy(() => import("@/features/inventario/PedidosScreen"));
+const MarmoleriaScreen = lazy(() => import("@/features/marmoleria/MarmoleriaScreen"));
+const MueblesScreen = lazy(() => import("@/features/muebles/MueblesScreen"));
+const TorneriaScreen = lazy(() => import("@/features/torneria/TorneriaScreen"));
+const AdminDashboard = lazy(() => import("@/features/admin/AdminDashboard"));
+const LaminacionScreen = lazy(() => import("@/features/laminacion/LaminacionScreen"));
+const ObrasLaminacionScreen = lazy(() => import("@/features/laminacion/ObrasLaminacionScreen"));
+const PlantillasLineaScreen = lazy(() => import("@/features/laminacion/PlantillasLineaScreen"));
+const ObrasScreen = lazy(() => import("@/features/obras/ObrasScreen"));
+const ConfiguracionScreen = lazy(() => import("@/features/configuracion/ConfiguracionScreen"));
+const ProcedimientosScreen = lazy(() => import("@/features/procedimientos/ProcedimientosScreen"));
+const PostVentaScreen = lazy(() => import("@/features/postventa/PostVentaScreen"));
+const ClientePanelScreen = lazy(() => import("@/features/cliente/ClientePanelScreen"));
+const HomeScreen = lazy(() => import("@/features/home/HomeScreen"));
+const PanolOperativoHome = lazy(() => import("@/features/panol/PanolOperativoHome"));
+const CalendarioScreen = lazy(() => import("@/features/calendario/LogisticaCalendarioScreen"));
+const CalendarioProduccionScreen = lazy(() => import("@/features/calendario/CalendarioScreen"));
+const MaderasScreen = lazy(() => import("@/features/inventario/MaderasScreen"));
+const PurchaseRequestsScreen = lazy(() => import("@/features/compras/PurchaseRequestsScreen"));
+const ScanEgresoScreen = lazy(() => import("@/features/inventario/ScanEgresoScreen"));
+const BalanzaDebugScreen = lazy(() => import("@/features/inventario/BalanzaDebugScreen"));
+const ScanPedidoScreen = lazy(() => import("@/features/inventario/ScanPedidoScreen"));
+const ColectorHomeScreen = lazy(() => import("@/features/inventario/ColectorHomeScreen"));
+const CalibrarPesosScreen = lazy(() => import("@/features/panol/CalibrarPesosScreen"));
+const EtiquetasScreen = lazy(() => import("@/features/inventario/EtiquetasScreen"));
+const RrhhScreen = lazy(() => import("@/features/rrhh/RrhhScreen"));
+const PreciosScreen = lazy(() => import("@/features/precios/PreciosScreen"));
+const ComprasEtapasScreen = lazy(() => import("@/features/produccion/ComprasEtapasScreen"));
+const RecepcionPanolScreen = lazy(() => import("@/features/panol/RecepcionPanolScreen"));
+const SolicitudesPanolScreen = lazy(() => import("@/features/panol/SolicitudesPanolScreen"));
+const StockPanolScreen = lazy(() => import("@/features/panol/StockPanolScreen"));
+const PortalProveedorScreen = lazy(() => import("@/features/proveedores/PortalProveedorScreen"));
 const MaterialesScreen = lazy(() => import("@/features/materiales/MaterialesScreen"));
+const MemoriasScreen = lazy(() => import("@/features/memorias/MemoriasScreen"));
+const SemaforoScreen = lazy(() => import("@/features/semaforo/SemaforoScreen"));
+const CadeteRutaScreen = lazy(() => import("@/features/cadete/CadeteRutaScreen"));
+const TarjetasNfcScreen = lazy(() => import("@/features/panol/TarjetasNfcScreen"));
+const PantallaEgresoScreen = lazy(() => import("@/features/panol/PantallaEgresoScreen"));
 
 // Internos:  usuario  → usuario@klasea.local
 // Clientes:  usuario  → usuario@klasea.client
@@ -549,6 +548,7 @@ export default function App() {
                 nadie veía el aviso. */}
             <AppVersionGuard />
             {session && profile && <AdminActivityTracker profile={profile} />}
+      <Suspense fallback={<RouteLoader />}>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
@@ -614,6 +614,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       <ChangePasswordModal
         open={!!session && !!profile && profile.role !== "cliente" && profile.must_change_password === true}
         forced

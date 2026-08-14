@@ -14,6 +14,8 @@ import {
   actualizarNotasMaterial,
   agregarCodigoBarraMaterial,
   fetchCatalogo,
+  fetchBatches,
+  fetchComprobantes,
   fetchMaterialDuplicateDecisions,
   fetchMaterialAudit,
   fetchObrasAvance,
@@ -146,6 +148,42 @@ import {
   SubsectorSelect,
   SetupPendienteMateriales,
 } from "./materialesSharedComponents";
+
+const CATALOG_RENDER_BATCH = 30;
+const OBRA_RENDER_BATCH = 24;
+const LINEA_RENDER_BATCH = 36;
+const CATALOG_INITIAL_RENDER = 18;
+const OBRA_INITIAL_RENDER = 16;
+const LINEA_INITIAL_RENDER = 24;
+
+function limitGroupedRows(groups = [], limit = LINEA_RENDER_BATCH) {
+  let remaining = Math.max(0, limit);
+  const visible = [];
+  for (const group of groups) {
+    if (remaining <= 0) break;
+    const groupRows = group.rows ?? [];
+    const rows = groupRows.slice(0, remaining);
+    if (!rows.length) continue;
+    visible.push({ ...group, totalRows: groupRows.length, rows });
+    remaining -= rows.length;
+  }
+  return visible;
+}
+
+function MaterialLoadMore({ hiddenCount, batchSize, onMore }) {
+  if (!hiddenCount) return null;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 4px" }}>
+      <button
+        type="button"
+        onClick={onMore}
+        style={{ ...BTN, minHeight: 40, padding: "8px 16px", color: C.blue, borderColor: C.blueB, background: C.blueL, fontWeight: 900 }}
+      >
+        Mostrar {Math.min(batchSize, hiddenCount)} más · quedan {hiddenCount}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Nombre de variante editable. Usa borrador local y commitea en blur/Enter: si
@@ -2484,7 +2522,9 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
   const searchValue = externalQuery ?? q;
+  const deferredSearchValue = useDeferredValue(searchValue);
   const setSearchValue = onExternalQueryChange ?? setQ;
+  const [renderState, setRenderState] = useState({ key: "", limit: CATALOG_INITIAL_RENDER });
   // Stock libre de pañol (sin obra asignada) por material, para verlo en el catálogo
   // antes de comprar. Un solo fetch por montaje; si falla, simplemente no se muestra.
   const [stockLibre, setStockLibre] = useState(() => new Map());
@@ -2534,10 +2574,15 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       .filter((m) => proveedorTipo === "todos" || proveedorMeta(m.proveedor, proveedores)?.tipo === proveedorTipo)
       .filter((m) => consumFiltro === "todos" || (consumFiltro === "solo" ? m.es_consumible : !m.es_consumible))
       .filter((m) => !soloPendientes || !priceInfo(m).amount)
-      .filter((m) => matchesFlexibleSearch(searchValue, ...materialSearchFields(m)))
+      .filter((m) => matchesFlexibleSearch(deferredSearchValue, ...materialSearchFields(m)))
       // Consumibles al fondo (no molestan entre los ítems del barco). Sort estable: mantiene el orden por descripción dentro de cada grupo.
       .sort((a, b) => (a.es_consumible ? 1 : 0) - (b.es_consumible ? 1 : 0));
-  }, [materiales, categorias, searchValue, selectedId, soloPendientes, lineaLista, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
+  }, [materiales, categorias, deferredSearchValue, selectedId, soloPendientes, lineaLista, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
+
+  const renderFilterKey = `${deferredSearchValue}|${selectedId}|${soloPendientes}|${lineaLista}|${prov}|${rubro}|${proveedorTipo}|${consumFiltro}`;
+  const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : CATALOG_INITIAL_RENDER;
+  const renderedVisibles = useMemo(() => visibles.slice(0, effectiveRenderLimit), [visibles, effectiveRenderLimit]);
+  const hiddenVisibleCount = Math.max(0, visibles.length - renderedVisibles.length);
 
   // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
   const modelos = lineaLista ? [lineaLista] : MODELOS;
@@ -2674,7 +2719,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       <div key={listaTransitionKey} className="materiales-list-transition">
       {compact ? (
         <div>
-          {visibles.map((material) => (
+          {renderedVisibles.map((material) => (
             <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={lineaLista} stockInfo={stockInfoFor(material)} />
           ))}
           {!visibles.length && (
@@ -2701,7 +2746,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
             </tr>
           </thead>
           <tbody>
-            {visibles.map((material) => (
+            {renderedVisibles.map((material) => (
               <MaterialRow key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} modelos={modelos} compact={compact} />
             ))}
             {!visibles.length && (
@@ -2716,6 +2761,14 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       </div>
       )}
       </div>
+      <MaterialLoadMore
+        hiddenCount={hiddenVisibleCount}
+        batchSize={CATALOG_RENDER_BATCH}
+        onMore={() => setRenderState((current) => ({
+          key: renderFilterKey,
+          limit: (current.key === renderFilterKey ? current.limit : CATALOG_INITIAL_RENDER) + CATALOG_RENDER_BATCH,
+        }))}
+      />
     </div>
   );
 }
@@ -3740,6 +3793,8 @@ function snapshotLockReason(row = {}) {
 function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
+  const [renderState, setRenderState] = useState({ key: "", limit: OBRA_INITIAL_RENDER });
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [rubroFilter, setRubroFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
@@ -4182,7 +4237,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         return estado === estadoFilter;
       })
       .filter((row) => matchesFlexibleSearch(
-        q,
+        deferredQ,
         row.descripcion,
         row.codigo,
         row.proveedor,
@@ -4205,7 +4260,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           cantidadOrigenEtapa: true,
         };
       });
-  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter, estadoFilter, etapaFilter, etapasDeRow]);
+  }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, estadoFilter, etapaFilter, etapasDeRow]);
 
   const groupedRows = useMemo(() => {
     const map = new Map();
@@ -4245,6 +4300,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       return b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es");
     });
   }, [visibleRows, groupBy, etapaFilter, etapasDeRow]);
+
+  const renderFilterKey = `${obra?.id || ""}|${deferredQ}|${proveedorFilter}|${rubroFilter}|${tipoFilter}|${estadoFilter}|${etapaFilter}|${groupBy}`;
+  const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : OBRA_INITIAL_RENDER;
+  const renderedGroupedRows = useMemo(
+    () => limitGroupedRows(groupedRows, effectiveRenderLimit),
+    [groupedRows, effectiveRenderLimit],
+  );
+  const hiddenRowCount = Math.max(0, visibleRows.length - Math.min(effectiveRenderLimit, visibleRows.length));
 
   const kpis = useMemo(() => rows.reduce((acc, row) => {
     const qty = toNum(row.cantidad) || 1;
@@ -5724,7 +5787,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
-        {groupedRows.map((group) => (
+        {renderedGroupedRows.map((group) => (
           <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", overflow: "hidden", boxShadow: "0 16px 48px -44px rgba(15,23,42,0.75)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
@@ -5733,7 +5796,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                   <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
                 </div>
                 <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
-                  {group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
+                  {group.totalRows ?? group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -6032,6 +6095,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             </div>
           </section>
         ))}
+        <MaterialLoadMore
+          hiddenCount={hiddenRowCount}
+          batchSize={OBRA_RENDER_BATCH}
+          onMore={() => setRenderState((current) => ({
+            key: renderFilterKey,
+            limit: (current.key === renderFilterKey ? current.limit : OBRA_INITIAL_RENDER) + OBRA_RENDER_BATCH,
+          }))}
+        />
         {!groupedRows.length && (
           <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
             No hay items con esos filtros.
@@ -6056,6 +6127,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
 function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiales, proveedores = [], opciones = [], ums, onChanged, onBack, onSelectObra, onSelectLinea }) {
   const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [proveedorTipoFilter, setProveedorTipoFilter] = useState("todos");
   const [rubroFilter, setRubroFilter] = useState("");
@@ -6071,11 +6143,13 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   const [showAddItem, setShowAddItem] = useState(false);
   const [lineSnapshots, setLineSnapshots] = useState([]);
   const [lineSnapshotsLoading, setLineSnapshotsLoading] = useState(false);
+  const [lineSnapshotsLoaded, setLineSnapshotsLoaded] = useState(false);
   const [lineSnapshotsError, setLineSnapshotsError] = useState("");
   const [outOfMatrixOpen, setOutOfMatrixOpen] = useState(false);
   const [outOfMatrixResolver, setOutOfMatrixResolver] = useState(null);
   const [outOfMatrixResolveBusy, setOutOfMatrixResolveBusy] = useState(false);
   const [outOfMatrixResolveError, setOutOfMatrixResolveError] = useState("");
+  const [renderState, setRenderState] = useState({ key: "", limit: LINEA_INITIAL_RENDER });
   const code = String(linea?.codigo || "").replace(/^K/i, "");
   const title = linea?.nombre || `K${code}`;
   const lineObras = useMemo(() => (obras ?? []).filter((obra) => obra?.id), [obras]);
@@ -6091,10 +6165,9 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       setLineSnapshotsError(error?.message || "No se pudieron revisar las listas de las obras.");
     } finally {
       setLineSnapshotsLoading(false);
+      setLineSnapshotsLoaded(true);
     }
   }, [lineObraIds]);
-
-  useEffect(() => { cargarLineSnapshots(); }, [cargarLineSnapshots]);
 
   useEffect(() => {
     setSelected(new Set());
@@ -6103,6 +6176,8 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     setOutOfMatrixOpen(false);
     setOutOfMatrixResolver(null);
     setOutOfMatrixResolveError("");
+    setLineSnapshots([]);
+    setLineSnapshotsLoaded(false);
   }, [code]);
 
   const rows = useMemo(() => (materiales ?? [])
@@ -6219,7 +6294,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
       .filter((row) => matchesFlexibleSearch(
-        q,
+        deferredQ,
         row.descripcion,
         row.codigo,
         row.proveedor,
@@ -6227,7 +6302,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         row.obs,
         ...materialSearchFields(row.material),
       ));
-  }, [rows, q, proveedorFilter, proveedorTipoFilter, rubroFilter, tipoFilter]);
+  }, [rows, deferredQ, proveedorFilter, proveedorTipoFilter, rubroFilter, tipoFilter]);
 
   const groupedRows = useMemo(() => {
     const map = new Map();
@@ -6248,6 +6323,14 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     });
     return [...map.values()].sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es"));
   }, [visibleRows, groupBy]);
+
+  const renderFilterKey = `${code}|${deferredQ}|${proveedorFilter}|${proveedorTipoFilter}|${rubroFilter}|${tipoFilter}|${groupBy}`;
+  const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : LINEA_INITIAL_RENDER;
+  const renderedGroupedRows = useMemo(
+    () => limitGroupedRows(groupedRows, effectiveRenderLimit),
+    [groupedRows, effectiveRenderLimit],
+  );
+  const hiddenRowCount = Math.max(0, visibleRows.length - Math.min(effectiveRenderLimit, visibleRows.length));
 
   const kpis = useMemo(() => rows.reduce((acc, row) => {
     const qty = toNum(row.cantidad) || 1;
@@ -6454,6 +6537,15 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             ) : lineSnapshotsError ? (
               <button type="button" onClick={cargarLineSnapshots} style={{ ...BTN, height: 38, padding: "0 11px", color: C.red, borderColor: C.redB, background: "rgba(239,68,68,0.08)" }} title={lineSnapshotsError}>
                 <AlertTriangle size={14} /> Reintentar control
+              </button>
+            ) : !lineSnapshotsLoaded ? (
+              <button
+                type="button"
+                onClick={() => { setOutOfMatrixOpen(true); cargarLineSnapshots(); }}
+                style={{ ...BTN, height: 38, padding: "0 11px", color: C.t2 }}
+                title="Comparar las listas históricas de las obras con la matriz viva"
+              >
+                <RefreshCw size={14} /> Revisar matriz
               </button>
             ) : outOfMatrixItems.length ? (
               <button
@@ -6668,7 +6760,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
-        {groupedRows.map((group) => (
+        {renderedGroupedRows.map((group) => (
           <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", overflow: "hidden", boxShadow: "0 16px 48px -44px rgba(15,23,42,0.75)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
@@ -6677,7 +6769,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                   <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
                 </div>
                 <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
-                  {group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
+                  {group.totalRows ?? group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -6766,6 +6858,14 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             </div>
           </section>
         ))}
+        <MaterialLoadMore
+          hiddenCount={hiddenRowCount}
+          batchSize={LINEA_RENDER_BATCH}
+          onMore={() => setRenderState((current) => ({
+            key: renderFilterKey,
+            limit: (current.key === renderFilterKey ? current.limit : LINEA_INITIAL_RENDER) + LINEA_RENDER_BATCH,
+          }))}
+        />
         {!groupedRows.length && (
           <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
             No hay items con esos filtros.
@@ -8826,8 +8926,17 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
     root,
     subs: hijosDe(categorias, root.id),
   })), [raices, categorias]);
-  const duplicateGroups = useMemo(() => findDuplicateGroups(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
-  const cleanupCandidates = useMemo(() => findCleanupCandidates(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
+  // La detección de duplicados compara pares de productos (O(n²)). No debe
+  // ejecutarse al abrir la lista diaria: se calcula solamente cuando el usuario
+  // entra de forma explícita al modo Duplicados.
+  const duplicateGroups = useMemo(
+    () => (modo === "duplicados" ? findDuplicateGroups(materialesCatalogo ?? [], categorias, sel) : []),
+    [modo, materialesCatalogo, categorias, sel],
+  );
+  const cleanupCandidates = useMemo(
+    () => (modo === "duplicados" ? findCleanupCandidates(materialesCatalogo ?? [], categorias, sel) : []),
+    [modo, materialesCatalogo, categorias, sel],
+  );
   const catalogStats = useMemo(() => {
     const activos = (materialesCatalogo ?? []).filter(materialActivo);
     const scope = sel ? idsScope(categorias, sel) : null;
@@ -8957,7 +9066,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
               <FileText size={14} /> Lista
             </button>
             <button type="button" onClick={() => { setCatalogQ(""); setModo("duplicados"); }} style={actionStyle(modo === "duplicados", C.amber, C.amberL, C.amberB)}>
-              <RefreshCw size={14} /> Duplicados <span style={{ fontFamily: C.mono, marginLeft: 2 }}>{duplicateGroups.length}</span>
+              <RefreshCw size={14} /> Duplicados {modo === "duplicados" ? <span style={{ fontFamily: C.mono, marginLeft: 2 }}>{duplicateGroups.length}</span> : null}
             </button>
             <button type="button" onClick={() => setShowCatTools((v) => !v)} style={actionStyle(showCatTools, C.violet, "var(--violet-soft)", `${C.violet}55`)}>
               <Plus size={14} /> Organizar
@@ -9101,8 +9210,10 @@ export default function MaterialesScreen({ profile, signOut }) {
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
   const [batches, setBatches] = useState([]);
+  const [batchesLoaded, setBatchesLoaded] = useState(false);
   const [proveedores, setProveedores] = useState([]);
   const [comprobantes, setComprobantes] = useState([]);
+  const [comprobantesLoaded, setComprobantesLoaded] = useState(false);
   const [obrasAvance, setObrasAvance] = useState([]);
   const [opciones, setOpciones] = useState([]);
   const [setupPendiente, setSetupPendiente] = useState(false);
@@ -9111,43 +9222,76 @@ export default function MaterialesScreen({ profile, signOut }) {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      const data = await fetchCatalogo();
+      const [data, obrasRows, ops, nextBatches, nextComprobantes] = await Promise.all([
+        fetchCatalogo({ force: true, includeExtras: false, includeDetails: true }),
+        fetchObrasAvance(),
+        fetchOpciones(),
+        batchesLoaded ? fetchBatches() : Promise.resolve(null),
+        comprobantesLoaded ? fetchComprobantes() : Promise.resolve(null),
+      ]);
       setCategorias(data.categorias);
       setMateriales(data.materiales);
-      setBatches(data.batches);
       setProveedores(data.proveedores ?? []);
-      setComprobantes(data.comprobantes ?? []);
-      setObrasAvance(await fetchObrasAvance());
-      const ops = await fetchOpciones();      // tolerante: [] si falta el SQL
+      if (nextBatches) setBatches(nextBatches);
+      if (nextComprobantes) setComprobantes(nextComprobantes);
+      setObrasAvance(obrasRows);
       setOpciones(ops.opciones ?? []);
       setSetupPendiente(false);
     } catch (e) {
       if (isMissingTable(e)) setSetupPendiente(true);
       else setError(e);
     }
+  }, [batchesLoaded, comprobantesLoaded]);
+
+  useEffect(() => {
+    let active = true;
+    let baseCatalogLoaded = false;
+    fetchOpciones().then((r) => { if (active) setOpciones(r.opciones ?? []); }).catch(() => {});
+    fetchObrasAvance().then((rows) => { if (active) setObrasAvance(rows); }).catch(() => {});
+    const applyCatalogo = (data) => {
+      if (!active) return;
+      baseCatalogLoaded = true;
+      setCategorias(data.categorias);
+      setMateriales(data.materiales);
+      setProveedores(data.proveedores ?? []);
+      setSetupPendiente(false);
+    };
+    fetchCatalogo({ includeExtras: false, includeDetails: false })
+      .then((baseData) => {
+        applyCatalogo(baseData);
+        return fetchCatalogo({ includeExtras: false, includeDetails: true });
+      })
+      .then(applyCatalogo)
+      .catch((e) => {
+        if (!active) return;
+        if (isMissingTable(e)) setSetupPendiente(true);
+        else if (!baseCatalogLoaded) setError(e);
+      });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     let active = true;
-    fetchOpciones().then((r) => { if (active) setOpciones(r.opciones ?? []); }).catch(() => {});
-    fetchObrasAvance().then((rows) => { if (active) setObrasAvance(rows); }).catch(() => {});
-    fetchCatalogo()
-      .then((data) => {
-        if (!active) return;
-        setCategorias(data.categorias);
-        setMateriales(data.materiales);
-        setBatches(data.batches);
-        setProveedores(data.proveedores ?? []);
-        setComprobantes(data.comprobantes ?? []);
-        setSetupPendiente(false);
-      })
-      .catch((e) => {
-        if (!active) return;
-        if (isMissingTable(e)) setSetupPendiente(true);
-        else setError(e);
-      });
+    if ((tab === "importar" || tab === "avance") && !batchesLoaded) {
+      fetchBatches()
+        .then((rows) => {
+          if (!active) return;
+          setBatches(rows ?? []);
+          setBatchesLoaded(true);
+        })
+        .catch(() => {});
+    }
+    if (tab === "comprobantes" && !comprobantesLoaded) {
+      fetchComprobantes()
+        .then((rows) => {
+          if (!active) return;
+          setComprobantes(rows ?? []);
+          setComprobantesLoaded(true);
+        })
+        .catch(() => {});
+    }
     return () => { active = false; };
-  }, []);
+  }, [tab, batchesLoaded, comprobantesLoaded]);
 
   const switchTab = useCallback((nextTab) => {
     setMoreOpen(false);

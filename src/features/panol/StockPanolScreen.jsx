@@ -1064,7 +1064,18 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     }
   }
 
-  const wmsProps = { sedeLocked, isMobile, toast, mode, canReceive, canCreateCatalog: isManager, canSeePrices };
+  const wmsProps = {
+    sedeLocked,
+    isMobile,
+    toast,
+    mode,
+    canReceive,
+    canCreateCatalog: isManager,
+    canSeePrices,
+    sharedRows: rows,
+    sharedObras: obras,
+    sharedLoading: loading,
+  };
   const isLevel3 = tab === "obra" && selObraId != null;
 
   const refreshBtn = (

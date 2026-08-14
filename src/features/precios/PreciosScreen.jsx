@@ -2188,7 +2188,7 @@ export default function PreciosScreen({ profile, signOut }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setCatalog(await fetchCatalogo());
+      setCatalog(await fetchCatalogo({ force: true }));
       setError("");
     } catch (reason) {
       setError(reason.message || "No se pudo cargar la información.");

@@ -12,6 +12,18 @@ const PAGE = 1000;
 const VARIANTE_BASE = "standard";
 const BUCKET_COMPROBANTES = "panol-comprobantes";
 const BUCKET_MATERIALES = "panol-materiales";
+const CATALOGO_CACHE_TTL_MS = 30_000;
+const STOCK_LIBRE_CACHE_TTL_MS = 20_000;
+
+const catalogoCache = new Map();
+const catalogoCacheAt = new Map();
+const catalogoEnVuelo = new Map();
+let catalogoBaseRawCache = null;
+let catalogoBaseRawCacheAt = 0;
+let catalogoBaseRawEnVuelo = null;
+let stockLibreCache = null;
+let stockLibreCacheAt = 0;
+let stockLibreEnVuelo = null;
 
 export function isMissingTable(error) {
   if (!error) return false;
@@ -564,42 +576,78 @@ async function fetchMaterialModelosCatalogo() {
   }
 }
 
-export async function fetchCatalogo() {
+async function fetchCatalogoBaseRaw({ force = false } = {}) {
+  const now = Date.now();
+  if (
+    !force &&
+    catalogoBaseRawCache &&
+    now - catalogoBaseRawCacheAt < CATALOGO_CACHE_TTL_MS
+  ) {
+    return catalogoBaseRawCache;
+  }
+  if (!force && catalogoBaseRawEnVuelo) return catalogoBaseRawEnVuelo;
+
+  const request = Promise.all([
+    fetchCategorias(),
+    fetchMaterialesCatalogo(),
+    fetchMaterialModelosCatalogo(),
+    fetchProveedores(),
+  ])
+    .then(([categorias, materiales, modelos, proveedores]) => {
+      const data = { categorias, materiales, modelos, proveedores };
+      catalogoBaseRawCache = data;
+      catalogoBaseRawCacheAt = Date.now();
+      return data;
+    })
+    .finally(() => {
+      if (catalogoBaseRawEnVuelo === request) catalogoBaseRawEnVuelo = null;
+    });
+
+  catalogoBaseRawEnVuelo = request;
+  return request;
+}
+
+async function fetchCatalogoFresh({
+  includeExtras = true,
+  includeDetails = true,
+  force = false,
+} = {}) {
   const [
-    categorias,
-    materiales,
+    base,
     codigosBarra,
-    modelos,
     batches,
     precios,
     imagenes,
-    proveedores,
     comprobantes,
     areasRes,
     condRes,
     provMatRes,
   ] = await Promise.all([
-    fetchCategorias(),
-    fetchMaterialesCatalogo(),
-    fetchMaterialCodigosBarraRows(),
-    fetchMaterialModelosCatalogo(),
-    fetchBatches(),
-    fetchPaged(
-      "panol_precios",
-      "id, material_id, proveedor_id, proveedor, precio_unitario, moneda, fuente, comprobante_id, fecha, created_at",
-      "created_at",
-    ),
-    fetchPaged(
-      "panol_material_imagenes",
-      "id, material_id, url, nombre, created_at",
-      "created_at",
-    ),
-    fetchProveedores(),
-    fetchComprobantes(),
-    fetchAreasMap(), // tolerante: {} si la tabla aún no existe
-    fetchCondicionMap(), // tolerante
-    fetchProveedoresMaterialMap(), // tolerante: proveedores alternativos por material
+    fetchCatalogoBaseRaw({ force }),
+    includeExtras ? fetchMaterialCodigosBarraRows() : Promise.resolve([]),
+    includeExtras ? fetchBatches() : Promise.resolve([]),
+    includeDetails
+      ? fetchPaged(
+        "panol_precios",
+        "id, material_id, proveedor_id, proveedor, precio_unitario, moneda, fuente, comprobante_id, fecha, created_at",
+        "created_at",
+      )
+      : Promise.resolve([]),
+    includeExtras
+      ? fetchPaged(
+        "panol_material_imagenes",
+        "id, material_id, url, nombre, created_at",
+        "created_at",
+      )
+      : Promise.resolve([]),
+    includeExtras ? fetchComprobantes() : Promise.resolve([]),
+    includeDetails ? fetchAreasMap() : Promise.resolve({ map: new Map() }),
+    includeDetails ? fetchCondicionMap() : Promise.resolve({ map: new Map() }),
+    includeDetails
+      ? fetchProveedoresMaterialMap()
+      : Promise.resolve({ map: new Map() }),
   ]);
+  const { categorias, materiales, modelos, proveedores } = base;
 
   const modelosByMaterial = new Map();
   for (const row of modelos) {
@@ -672,6 +720,46 @@ export async function fetchCatalogo() {
     proveedores,
     comprobantes,
   };
+}
+
+export async function fetchCatalogo({
+  force = false,
+  includeExtras = true,
+  includeDetails = true,
+} = {}) {
+  const now = Date.now();
+  const key = includeExtras ? "full" : includeDetails ? "core" : "base";
+  const fullCached = catalogoCache.get("full");
+  const fullCachedAt = catalogoCacheAt.get("full") || 0;
+  if (!force && !includeExtras && fullCached && now - fullCachedAt < CATALOGO_CACHE_TTL_MS) {
+    return fullCached;
+  }
+  const coreCached = catalogoCache.get("core");
+  const coreCachedAt = catalogoCacheAt.get("core") || 0;
+  if (
+    !force &&
+    key === "base" &&
+    coreCached &&
+    now - coreCachedAt < CATALOGO_CACHE_TTL_MS
+  ) {
+    return coreCached;
+  }
+  const cached = catalogoCache.get(key);
+  const cachedAt = catalogoCacheAt.get(key) || 0;
+  if (!force && cached && now - cachedAt < CATALOGO_CACHE_TTL_MS) return cached;
+  if (!force && catalogoEnVuelo.has(key)) return catalogoEnVuelo.get(key);
+
+  const request = fetchCatalogoFresh({ includeExtras, includeDetails, force })
+    .then((data) => {
+      catalogoCache.set(key, data);
+      catalogoCacheAt.set(key, Date.now());
+      return data;
+    })
+    .finally(() => {
+      if (catalogoEnVuelo.get(key) === request) catalogoEnVuelo.delete(key);
+    });
+  catalogoEnVuelo.set(key, request);
+  return request;
 }
 
 export async function agregarCodigoBarraMaterial(
@@ -1057,7 +1145,7 @@ function stockLibreSnapshotKey(row) {
   return textKey ? `text:${textKey}` : "";
 }
 
-export async function fetchStockLibrePanolMateriales() {
+async function fetchStockLibrePanolMaterialesFresh() {
   try {
     const { data, error } = await supabase
       .from("panol_obra_materiales_snapshot")
@@ -1118,6 +1206,26 @@ export async function fetchStockLibrePanolMateriales() {
   } catch {
     return [];
   }
+}
+
+export async function fetchStockLibrePanolMateriales({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && stockLibreCache && now - stockLibreCacheAt < STOCK_LIBRE_CACHE_TTL_MS) {
+    return stockLibreCache;
+  }
+  if (!force && stockLibreEnVuelo) return stockLibreEnVuelo;
+
+  const request = fetchStockLibrePanolMaterialesFresh()
+    .then((rows) => {
+      stockLibreCache = rows;
+      stockLibreCacheAt = Date.now();
+      return rows;
+    })
+    .finally(() => {
+      if (stockLibreEnVuelo === request) stockLibreEnVuelo = null;
+    });
+  stockLibreEnVuelo = request;
+  return request;
 }
 
 function snapshotEstadoFromRecepcion(estado) {

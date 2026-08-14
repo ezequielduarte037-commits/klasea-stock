@@ -324,7 +324,26 @@ export async function fetchLinkedPurchaseRequestForEnvio(envioId) {
   return data ?? null;
 }
 
+const materialesEgresoEnVuelo = new Map();
+
+// Varias vistas de Pañol se montan juntas y necesitan el mismo ledger. Compartir
+// únicamente la promesa en curso evita consultas duplicadas sin cachear saldos:
+// una lectura posterior a un ingreso/egreso siempre vuelve a Supabase.
 export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol", "recibido", "parcial", "problema"] } = {}) {
+  const key = JSON.stringify([
+    canonicalPanolSede(sede) || "todas",
+    [...new Set(estados || [])].sort(),
+  ]);
+  const existing = materialesEgresoEnVuelo.get(key);
+  if (existing) return existing;
+
+  const request = fetchMaterialesEgresoSinCache({ sede, estados })
+    .finally(() => materialesEgresoEnVuelo.delete(key));
+  materialesEgresoEnVuelo.set(key, request);
+  return request;
+}
+
+async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol", "recibido", "parcial", "problema"] } = {}) {
   let data;
   let error;
   const runSelect = (select) => supabase
@@ -702,14 +721,16 @@ async function fetchPanolCatalogSearchRows(term) {
   return null;
 }
 
-export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
+export async function fetchPanolCatalogMini({ q = "", limit = 80, includeAdditionalBarcodes = true } = {}) {
   const term = normalizeSearch(q);
 
   let rows = null;
   if (term) rows = await fetchPanolCatalogSearchRows(term);
   if (rows == null) rows = await fetchPanolCatalogAllRows(); // sin término, o si la búsqueda server-side falló
 
-  const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id));
+  const codigosByMaterial = includeAdditionalBarcodes
+    ? await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id))
+    : new Map();
   const withCodes = rows.map((row) => ({ ...row, codigos_barra: codigosByMaterial.get(row.id) ?? [] }));
   const active = withCodes.filter((row) => row.activo !== false);
   let filtered = term
@@ -720,7 +741,9 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   // porque quedo escrito "para brisas", hacemos una segunda pasada completa.
   if (term && !filtered.length && rows.length < 5000) {
     const allRows = await fetchPanolCatalogAllRows();
-    const allCodes = await fetchBarcodeRowsForMaterialIds(allRows.map((row) => row.id));
+    const allCodes = includeAdditionalBarcodes
+      ? await fetchBarcodeRowsForMaterialIds(allRows.map((row) => row.id))
+      : new Map();
     const allWithCodes = allRows.map((row) => ({ ...row, codigos_barra: allCodes.get(row.id) ?? [] }));
     filtered = allWithCodes
       .filter((row) => row.activo !== false)
@@ -782,23 +805,34 @@ export async function actualizarStockMinimoPanol(materialId, stockMinimo) {
 // auto-vincular; y esa pantalla se remonta seguido (cada guardado/borrador). Sin cache
 // rebajaba ~todos los materiales cada vez → era la espera de ~30s que se repetía.
 let _panolCatalogFullCache = null;
+let _panolCatalogLiteCache = null;
 let _panolCatalogFullAt = 0;
+let _panolCatalogLiteAt = 0;
 const PANOL_CATALOG_FULL_TTL_MS = 3 * 60 * 1000;
 
-export async function fetchPanolCatalogFull({ force = false } = {}) {
-  if (!force && _panolCatalogFullCache && Date.now() - _panolCatalogFullAt < PANOL_CATALOG_FULL_TTL_MS) {
-    return _panolCatalogFullCache;
+export async function fetchPanolCatalogFull({ force = false, includeAdditionalBarcodes = true } = {}) {
+  const cached = includeAdditionalBarcodes ? _panolCatalogFullCache : _panolCatalogLiteCache;
+  const cachedAt = includeAdditionalBarcodes ? _panolCatalogFullAt : _panolCatalogLiteAt;
+  if (!force && cached && Date.now() - cachedAt < PANOL_CATALOG_FULL_TTL_MS) {
+    return cached;
   }
-  const rows = await fetchPanolCatalogMini({ q: "", limit: 5000 });
-  _panolCatalogFullCache = rows;
-  _panolCatalogFullAt = Date.now();
+  const rows = await fetchPanolCatalogMini({ q: "", limit: 5000, includeAdditionalBarcodes });
+  if (includeAdditionalBarcodes) {
+    _panolCatalogFullCache = rows;
+    _panolCatalogFullAt = Date.now();
+  } else {
+    _panolCatalogLiteCache = rows;
+    _panolCatalogLiteAt = Date.now();
+  }
   return rows;
 }
 
 // Llamar tras crear/editar un material para que el próximo fetch traiga los cambios.
 export function invalidatePanolCatalogFullCache() {
   _panolCatalogFullCache = null;
+  _panolCatalogLiteCache = null;
   _panolCatalogFullAt = 0;
+  _panolCatalogLiteAt = 0;
 }
 
 const CATEGORIA_GENERICA_NOMBRE = "Sin categoría";

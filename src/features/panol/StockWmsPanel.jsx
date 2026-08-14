@@ -63,6 +63,7 @@ const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
 const RECEIVED_STATES = new Set(["recibido", "parcial"]);
 const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso", "reclasificacion_ingreso"]);
 const CATALOG_SEARCH_LIMIT = 12;
+const PRODUCT_RENDER_BATCH = 80;
 const EGRESO_VIEW_STORAGE_KEY = "klasea.panol.egresoView";
 const STOCK_VIEW_STORAGE_KEY = "klasea.panol.stockView.v2";
 const PANOL_CART_STORAGE_KEY = "klasea:panol-carrito.v2";
@@ -1101,7 +1102,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         onClick={() => onOpen(group.key)}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, border: `1px solid ${active || hover ? C.blueB : level.border}`, borderLeft: `3px solid ${level.color}`, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transition: "border-color .12s, background .12s" }}
+        style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, borderStyle: "solid", borderTopColor: active || hover ? C.blueB : level.border, borderRightColor: active || hover ? C.blueB : level.border, borderBottomColor: active || hover ? C.blueB : level.border, borderLeftColor: level.color, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderLeftWidth: 3, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transition: "border-color .12s, background .12s" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, minWidth: 0 }}>
           <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
@@ -1148,8 +1149,15 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         display: "flex",
         flexDirection: "column",
         gap: 7,
-        border: `1px solid ${active || hover ? C.blueB : level.border}`,
-        borderLeft: `3px solid ${level.color}`,
+        borderStyle: "solid",
+        borderTopColor: active || hover ? C.blueB : level.border,
+        borderRightColor: active || hover ? C.blueB : level.border,
+        borderBottomColor: active || hover ? C.blueB : level.border,
+        borderTopWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderLeftWidth: 3,
+        borderLeftColor: level.color,
         background: active ? C.blueL : level.key === "critico" ? C.redL : level.key === "alerta" ? C.violetL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
         borderRadius: 11,
         padding: "9px 10px",
@@ -3798,12 +3806,12 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", showCatalogInventory = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
-  const [obras, setObras] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [obras, setObras] = useState(() => Array.isArray(sharedObras) ? sharedObras : []);
+  const [loading, setLoading] = useState(() => sharedLoading || !Array.isArray(sharedRows));
   const [q, setQ] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [fSede, setFSede] = useState(sedeLocked || "todas");
@@ -3813,6 +3821,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [scope, setScope] = useState(initialScope);
   const [verifScope, setVerifScope] = useState("todos");
   const [orderBy, setOrderBy] = useState(showCatalogInventory ? "estado" : "default");
+  const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
   const [stockView, setStockView] = useState(() => readStoredStockView());
   const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
   const [selectedKey, setSelectedKey] = useState(null);
@@ -3917,14 +3926,24 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   // Los refresh posteriores (tras un egreso/asignación) actualizan los datos por
   // detrás sin blanquear la pantalla — se siente instantáneo.
   const hasLoadedRef = useRef(false);
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async ({ force = false } = {}) => {
+    // StockPanolScreen ya carga el ledger para sus KPIs, movimientos y vista por
+    // obra. Reutilizar ese snapshot evita pedir e hidratar miles de filas otra
+    // vez al entrar a Stock maestro o a una obra.
+    if (!force && sharedLoading) {
+      if (!hasLoadedRef.current) setLoading(true);
+      return;
+    }
     if (!hasLoadedRef.current) setLoading(true);
     try {
       const sede = sedeLocked || (fSede !== "todas" ? fSede : null);
+      const useSharedSnapshot = !force && Array.isArray(sharedRows) && Array.isArray(sharedObras);
       const [stockRows, obraRows, catalog] = await Promise.all([
-        fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
-        fetchObrasEgreso().catch(() => []),
-        showCatalogInventory ? fetchPanolCatalogFull().catch(() => []) : Promise.resolve([]),
+        useSharedSnapshot ? Promise.resolve(sharedRows) : fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
+        useSharedSnapshot ? Promise.resolve(sharedObras) : fetchObrasEgreso().catch(() => []),
+        // El maestro sólo muestra el código principal. Los códigos alternativos
+        // siguen cargándose en recepción/escaneo, donde sí son necesarios.
+        showCatalogInventory ? fetchPanolCatalogFull({ includeAdditionalBarcodes: false }).catch(() => []) : Promise.resolve([]),
       ]);
       setRows(stockRows);
       setObras(obraRows);
@@ -3935,7 +3954,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     } finally {
       setLoading(false);
     }
-  }, [fSede, sedeLocked, showCatalogInventory, toast]);
+  }, [fSede, sedeLocked, sharedLoading, sharedObras, sharedRows, showCatalogInventory, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -4057,6 +4076,19 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
     return sortProductGroups(base, orderBy);
   }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, verifScope]);
+
+  // Renderizar cientos de tarjetas a la vez bloqueaba el hilo principal varios
+  // segundos. Los cálculos y contadores siguen usando el conjunto completo;
+  // sólo el DOM se entrega en bloques para que la pantalla responda enseguida.
+  const renderedProductGroups = useMemo(
+    () => productGroups.slice(0, renderLimit),
+    [productGroups, renderLimit],
+  );
+  const hiddenProductCount = Math.max(0, productGroups.length - renderedProductGroups.length);
+
+  useEffect(() => {
+    setRenderLimit(PRODUCT_RENDER_BATCH);
+  }, [fCategoria, fObra, fSede, kindScope, orderBy, q, scope, stockView, verifScope]);
 
   const historyRows = useMemo(
     () => searchedRows
@@ -4384,7 +4416,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
               <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : "Stock maestro"}</div>
               <div style={{ color: C.dim, fontSize: 11 }}>
-                {productGroups.length} visibles · {showCatalogInventory && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
+                {productGroups.length} resultados{hiddenProductCount ? ` · mostrando ${renderedProductGroups.length}` : ""} · {showCatalogInventory && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
               </div>
             </div>
             {showCatalogInventory && (
@@ -4424,11 +4456,34 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 ))}
               </>
             ) : productGroups.length ? (
-              productGroups.map((group) => (
-                showCatalogInventory && stockView === "lista"
-                  ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} />
-                  : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />
-              ))
+              <>
+                {renderedProductGroups.map((group) => (
+                  showCatalogInventory && stockView === "lista"
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} />
+                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />
+                ))}
+                {hiddenProductCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRenderLimit((current) => current + PRODUCT_RENDER_BATCH)}
+                    style={{
+                      gridColumn: "1 / -1",
+                      minWidth: showCatalogInventory && stockView === "lista" ? STOCK_ROW_MIN : 0,
+                      border: `1px solid ${C.blueB}`,
+                      background: C.blueL,
+                      color: C.blue,
+                      borderRadius: showCatalogInventory && stockView === "lista" ? 0 : 10,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 900,
+                      fontFamily: C.sans,
+                    }}
+                  >
+                    Mostrar {Math.min(PRODUCT_RENDER_BATCH, hiddenProductCount)} más · quedan {hiddenProductCount}
+                  </button>
+                )}
+              </>
             ) : (
               <div style={{ padding: "26px 18px", border: `1px dashed ${C.border}`, borderRadius: 10, textAlign: "center", display: "grid", justifyItems: "center", gap: 8 }}>
                 <Warehouse size={26} style={{ color: C.dim, opacity: 0.7 }} />
@@ -4491,7 +4546,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               setCart={setCart}
               obras={obras}
               canReceive={canReceive}
-              onDone={async () => { setCartOpen(false); await cargar(); }}
+              onDone={async () => { setCartOpen(false); await cargar({ force: true }); }}
               toast={toast}
               isMobile={isMobile}
               onClose={() => setCartOpen(false)}
