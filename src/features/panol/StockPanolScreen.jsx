@@ -874,7 +874,7 @@ function NuevaObraExternaModal({ onClose, onCreated }) {
   );
 }
 
-export default function StockPanolScreen({ profile, signOut, embedded = false, mode = "stock" }) {
+export default function StockPanolScreen({ profile, signOut, embedded = false, mode = "stock", screenTitle = "", screenSubtitle = "" }) {
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = embedded ? "" : (searchParams.get("tab") || "");
@@ -1104,9 +1104,9 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* Título y bajada en la misma línea. La bajada explica de qué va la
                 pantalla: se lee una vez y después sólo ocupa alto útil. */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Stock de pañol</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>{screenTitle || "Stock de pañol"}</div>
               <div style={{ fontSize: 10.5, color: C.dim, letterSpacing: 0.9, textTransform: "uppercase", fontWeight: 750 }}>
-                {sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría"}
+                {screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
               </div>
             </div>
             <button

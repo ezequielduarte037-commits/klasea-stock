@@ -12,6 +12,7 @@ import {
   ScanLine,
   Search,
   Send,
+  Settings2,
   Trash2,
   X,
 } from "lucide-react";
@@ -462,6 +463,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const [scanResult, setScanResult] = useState(null);
   const [scanFlashId, setScanFlashId] = useState(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [estanterias, setEstanterias] = useState([]);
   const [itemLocations, setItemLocations] = useState({});
   const initialFocusHandled = useRef("");
@@ -516,7 +518,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const items = envio?.items || EMPTY_ITEMS;
   const resumen = useMemo(() => resumenItems(items), [items]);
   const cerrado = envio && ["cerrado", "cancelado"].includes(envio.estado);
-  const scanEnabled = !!canReceive && !cerrado && !loading;
+  const scanEnabled = !!canReceive && !cerrado && !loading && showAdvanced;
 
   const filteredItems = useMemo(() => {
     const term = itemQ.trim().toLowerCase();
@@ -981,9 +983,11 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           <ActionButton estado="recibido" disabled={saving} onClick={() => aplicar("recibido", bulkIds)}>
             Confirmar ingreso ({bulkIds.length})
           </ActionButton>
-          <ActionButton estado="parcial" disabled={saving} onClick={() => pedirParcial(bulkIds)}>
-            Ingreso parcial
-          </ActionButton>
+          {showAdvanced && (
+            <ActionButton estado="parcial" disabled={saving} onClick={() => pedirParcial(bulkIds)}>
+              Ingreso parcial
+            </ActionButton>
+          )}
           <button
             type="button"
             onClick={() => setSel(new Set())}
@@ -1089,21 +1093,37 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       </button>
                     )}
                   </div>
+                  {canReceive && !cerrado && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (showAdvanced) setItemEstado("todos");
+                        setShowAdvanced((current) => !current);
+                      }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${showAdvanced ? C.violetB : C.border}`, background: showAdvanced ? C.violetL : C.panelSolid, color: showAdvanced ? C.violet : C.dim, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                    >
+                      <Settings2 size={14} /> {showAdvanced ? "Ocultar opciones" : "Parcial / escaneo"}
+                    </button>
+                  )}
                 </div>
 
-                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 1 }}>
-                  {statusFilters.map(([estado, label]) => (
-                    <FilterButton key={estado} active={itemEstado === estado} onClick={() => setItemEstado(estado)}>{label}</FilterButton>
-                  ))}
-                </div>
+                {showAdvanced && (
+                  <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 1 }}>
+                    {statusFilters.map(([estado, label]) => (
+                      <FilterButton key={estado} active={itemEstado === estado} onClick={() => setItemEstado(estado)}>{label}</FilterButton>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {!isMobile && (
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: canReceive && !cerrado
+                  gridTemplateColumns: canReceive && !cerrado && showAdvanced
                     ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px"
-                    : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
+                    : canReceive && !cerrado
+                      ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)"
+                      : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
                   gap: 10,
                   alignItems: "center",
                   padding: "10px 18px",
@@ -1121,7 +1141,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                   <span>Codigo / barra</span>
                   <span>Estado</span>
                   <span>Nota</span>
-                  {canReceive && !cerrado && <span>Accion</span>}
+                  {canReceive && !cerrado && showAdvanced && <span>Acción especial</span>}
                 </div>
               )}
 
@@ -1140,6 +1160,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       selected={sel.has(item.id)}
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
+                      showAdvanced={showAdvanced}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
                       onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
@@ -1156,6 +1177,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       selected={sel.has(item.id)}
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
+                      showAdvanced={showAdvanced}
                       canSeePrices={canSeePrices}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
@@ -1386,16 +1408,18 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
   );
 }
 
-function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, showAdvanced, canSeePrices, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
   return (
     <div id={`panol-envio-item-${item.id}`} style={{
       display: "grid",
-      gridTemplateColumns: canEdit
+      gridTemplateColumns: canEdit && showAdvanced
         ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px"
-        : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
+        : canEdit
+          ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)"
+          : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
       gap: 10,
       alignItems: "center",
       padding: "9px 18px",
@@ -1404,7 +1428,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
       background: flash ? "var(--green-soft)" : selected ? "var(--blue-soft)" : C.bg,
       borderLeft: `3px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
     }}>
-      {canEdit && (
+      {canEdit && showAdvanced && (
         <input
           type="checkbox"
           checked={selected}
@@ -1538,7 +1562,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
   );
 }
 
-function MobileItemCard({ item, location, estanterias, selected, flash, canEdit, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+function MobileItemCard({ item, location, estanterias, selected, flash, canEdit, showAdvanced, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
@@ -1584,7 +1608,7 @@ function MobileItemCard({ item, location, estanterias, selected, flash, canEdit,
               outline: "none",
             }}
           />
-          <div style={{ display: "flex", gap: 7 }}>
+          {showAdvanced && <div style={{ display: "flex", gap: 7 }}>
             {item.estado !== "recibido" && <ActionButton estado="recibido" disabled={saving} onClick={() => onApply("recibido")}>Recibir</ActionButton>}
             <select
               value={item.estado}
@@ -1603,8 +1627,8 @@ function MobileItemCard({ item, location, estanterias, selected, flash, canEdit,
             >
               {RECEP_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
             </select>
-          </div>
-          {item.estado === "parcial" && (
+          </div>}
+          {showAdvanced && item.estado === "parcial" && (
             <input
               type="number"
               min="0"
