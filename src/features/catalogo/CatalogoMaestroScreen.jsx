@@ -14,7 +14,7 @@ import { rowDelta, rowIsTransit, rowMovementAt } from "@/features/panol/panolMov
 import CatalogoProductoOperacion from "./CatalogoProductoOperacion";
 
 const PAGE_SIZE = 100;
-const IDENTITY_FIELDS = ["descripcion", "codigo", "codigo_barra", "activo"];
+const IDENTITY_FIELDS = ["unidad_medida", "activo"];
 
 function norm(value = "") {
   return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s.-]+/g, " ").replace(/\s+/g, " ").trim();
@@ -195,7 +195,7 @@ export default function CatalogoMaestroScreen({ profile, signOut }) {
   const dirty = selected && Object.keys(draft).some((field) => fieldChanged(selected, draft, field));
   const identityChanges = selected ? IDENTITY_FIELDS.filter((field) => fieldChanged(selected, draft, field)) : [];
   const impactChanges = identityChanges.map((field) => ({
-    label: ({ descripcion: "Nombre", codigo: "Código", codigo_barra: "Código barra", activo: "Estado" })[field],
+    label: ({ unidad_medida: "Unidad", activo: "Estado" })[field],
     before: field === "activo" ? (selected.activo !== false ? "Activo" : "Archivado") : String(selected[field] || ""),
     after: field === "activo" ? (draft.activo ? "Activo" : "Archivado") : String(draft[field] || ""),
   }));

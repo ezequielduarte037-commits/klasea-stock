@@ -1,5 +1,6 @@
 import { supabase } from "@/supabaseClient";
 import { materialMatchScore } from "@/features/panol/materialMatch";
+import { rowDelta, rowMovementAt } from "@/features/panol/panolMovimientos";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API del módulo Pedidos / Recepción a Pañol.
@@ -1614,6 +1615,69 @@ export async function registrarConteoFisico({ material = null, cantidad, sede = 
   return data;
 }
 
+const EGRESO_PLAN_EPSILON = 0.0001;
+
+function egresoPlanNumber(value, fallback = 0) {
+  const number = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function egresoPlanVariant(value) {
+  return String(value || "").trim().toLocaleLowerCase("es");
+}
+
+// Vincula el egreso con las filas recibidas que originaron el stock. Las salidas
+// manuales historicas no apuntan a una entrada concreta, por eso primero se
+// consumen virtualmente contra las entradas mas antiguas y recien despues se
+// arma el lote que el RPC puede estampar como entregado.
+export function buildSnapshotEgresoPlan(sourceRows = [], requestedQuantity, variante = "") {
+  const requested = egresoPlanNumber(requestedQuantity, NaN);
+  if (!Number.isFinite(requested) || requested <= 0) return null;
+
+  const selectedVariant = egresoPlanVariant(variante);
+  const rows = [...new Map((sourceRows || [])
+    .filter((row) => row?.id)
+    .filter((row) => {
+      if (!selectedVariant) return true;
+      return egresoPlanVariant(row.opcion_asignada || row.variante) === selectedVariant;
+    })
+    .map((row) => [row.id, row])).values()];
+
+  const totalAvailable = rows.reduce((sum, row) => sum + rowDelta(row), 0);
+  if (requested > totalAvailable + EGRESO_PLAN_EPSILON) return null;
+
+  let historicalOutputs = rows.reduce((sum, row) => {
+    const delta = rowDelta(row);
+    return delta < 0 ? sum + Math.abs(delta) : sum;
+  }, 0);
+  let remaining = requested;
+  const allocations = [];
+  const positiveRows = rows
+    .filter((row) => rowDelta(row) > EGRESO_PLAN_EPSILON)
+    .sort((left, right) => {
+      const leftAt = new Date(rowMovementAt(left) || 0).getTime();
+      const rightAt = new Date(rowMovementAt(right) || 0).getTime();
+      return leftAt - rightAt || String(left.id).localeCompare(String(right.id));
+    });
+
+  for (const row of positiveRows) {
+    let available = rowDelta(row);
+    if (historicalOutputs > EGRESO_PLAN_EPSILON) {
+      const alreadyConsumed = Math.min(available, historicalOutputs);
+      available -= alreadyConsumed;
+      historicalOutputs -= alreadyConsumed;
+    }
+    if (available <= EGRESO_PLAN_EPSILON) continue;
+    const quantity = Math.min(available, remaining);
+    allocations.push({ id: row.id, cantidad: quantity });
+    remaining -= quantity;
+    if (remaining <= EGRESO_PLAN_EPSILON) break;
+  }
+
+  if (remaining > EGRESO_PLAN_EPSILON) return null;
+  return allocations;
+}
+
 export async function egresarProducto({
   material = null,
   descripcion = "",
@@ -1629,6 +1693,7 @@ export async function egresarProducto({
   esAdicional = false,
   variante = null,
   productoMaterialId = null,
+  sourceRows = [],
 } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   const desc = String(descripcion || material?.descripcion || "").trim();
@@ -1649,6 +1714,19 @@ export async function egresarProducto({
     p_es_adicional: !!esAdicional,
   };
   const varClean = String(variante || "").trim() || null;
+  const snapshotPlan = material?.es_requisito === true || productoMaterialId
+    ? null
+    : buildSnapshotEgresoPlan(sourceRows, qty, varClean);
+  if (snapshotPlan?.length) {
+    const cantidades = Object.fromEntries(snapshotPlan.map((row) => [row.id, row.cantidad]));
+    return egresarMaterialesObra(snapshotPlan.map((row) => row.id), {
+      nota,
+      retiradoPor,
+      sectorDestino,
+      destinoObraId,
+      cantidades,
+    });
+  }
   let { data, error } = await supabase.rpc("panol_egresar_producto", {
     ...base,
     p_variante: varClean,
@@ -1684,6 +1762,29 @@ export async function egresarProductosCarrito({
   }));
   if (payload.some((item) => !item.material_id || !Number.isFinite(item.cantidad) || item.cantidad <= 0)) {
     throw new Error("Hay un renglón del carrito incompleto o con cantidad inválida.");
+  }
+  const snapshotPlans = items.map((item, index) => (
+    item.esRequisito || item.productoMaterialId
+      ? null
+      : buildSnapshotEgresoPlan(item.sourceRows, payload[index].cantidad, payload[index].variante)
+  ));
+  const directPlanAvailable = snapshotPlans.every((plan) => Array.isArray(plan) && plan.length > 0);
+  if (directPlanAvailable) {
+    const allocations = snapshotPlans.flat();
+    const ids = allocations.map((row) => row.id);
+    // Dos renglones no deben gastar la misma entrada en planes separados. Si
+    // ocurre, conserva el RPC atomico moderno para que valide el lote completo.
+    if (new Set(ids).size === ids.length) {
+      const cantidades = Object.fromEntries(allocations.map((row) => [row.id, row.cantidad]));
+      const count = await egresarMaterialesObra(ids, {
+        nota,
+        retiradoPor,
+        sectorDestino,
+        destinoObraId,
+        cantidades,
+      });
+      return { cantidad: count, snapshot_ids: ids };
+    }
   }
   const { data, error } = await supabase.rpc("panol_egresar_carrito", {
     p_items: payload,

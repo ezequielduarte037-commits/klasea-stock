@@ -1758,6 +1758,23 @@ function additionalVariantCartItem(item, variante) {
   };
 }
 
+function compactEgresoSourceRows(location) {
+  return (location?.rows || []).map((row) => ({
+    id: row.id,
+    material_id: row.material_id || null,
+    requisito_material_id: row.requisito_material_id || null,
+    cantidad: row.cantidad,
+    cantidad_egresada: row.cantidad_egresada,
+    estado: row.estado,
+    recepcion_estado: row.recepcion_estado,
+    source: row.source,
+    variante: row.variante || "",
+    opcion_asignada: row.opcion_asignada || "",
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+  }));
+}
+
 function makeCartItem(group, location, { cantidad, sede, codigo, unidad, variante = "" } = {}) {
   const isCatalogOnly = !!group?.catalogOnly;
   const itemSede = isCatalogOnly ? sede : (location?.sede || sede);
@@ -1791,6 +1808,7 @@ function makeCartItem(group, location, { cantidad, sede, codigo, unidad, variant
     esRequisito: group.esRequisito === true,
     productosCompatibles: Array.isArray(group.productosCompatibles) ? group.productosCompatibles : [],
     productoMaterialId: "",
+    sourceRows: compactEgresoSourceRows(location),
   };
 }
 
@@ -2328,6 +2346,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           nota: egresoNota,
           esAdicional: group.esAdicional,
           variante: varianteEgreso || null,
+          sourceRows: compactEgresoSourceRows(selectedLocation),
         });
         toast.success("Egreso registrado.");
       } else if (action === "asignar") {

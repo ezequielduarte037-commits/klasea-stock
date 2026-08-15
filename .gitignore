@@ -41,5 +41,6 @@ tools/nfc-bridge/obj/
 .swarm/
 .agents/
 .codex/
+.claude-flow/
 ruvector.db
 *.ruvector.db
