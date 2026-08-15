@@ -4,7 +4,7 @@ import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 import { guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
 import { parseUbicacion } from "./ubicacionUtils";
-import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowDelta, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
 
 // Mapa digital del pañol (Chubut 2120) — plano a escala real (1965×950 cm).
 // Buscás un producto y se ilumina la estantería donde vive; click → ficha con la
@@ -94,44 +94,10 @@ function mapaColor(codigo) {
 }
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado"];
-const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
-const RECEIVED_STATES = new Set(["recibido", "parcial"]);
-const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
-
-function qty(value, fallback = 0) {
-  const n = Number(String(value ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function fmtQty(value) {
   const n = Number(value || 0);
   if (!Number.isFinite(n)) return "0";
   return Number(Math.round(n * 100) / 100).toLocaleString("es-AR");
-}
-
-function rowSource(row) {
-  return String(row?.source || "").trim().toLowerCase();
-}
-
-function rowIsEgreso(row) {
-  const source = rowSource(row);
-  return source.startsWith("egreso")
-    || source.startsWith("transferencia_egreso")
-    || source === "conteo_fisico_reversion";
-}
-
-function rowCountsAsStock(row) {
-  if (!IN_STOCK_STATES.has(row?.estado)) return false;
-  const recepcion = String(row?.recepcion_estado || "").trim();
-  const source = rowSource(row);
-  if (RECEIVED_STATES.has(recepcion)) return true;
-  return DIRECT_STOCK_SOURCES.has(source) || source.startsWith("stock_") || source.startsWith("transferencia_ingreso");
-}
-
-function stockDelta(row) {
-  if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
-  if (rowIsEgreso(row)) return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  return 0;
 }
 
 function KpiChip({ icon, label, value, color }) {
@@ -195,7 +161,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
       const nextStock = {};
       for (const row of stockRows ?? []) {
         if (!row.material_id) continue;
-        nextStock[row.material_id] = (nextStock[row.material_id] || 0) + stockDelta(row);
+        nextStock[row.material_id] = (nextStock[row.material_id] || 0) + rowDelta(row);
       }
       setStockByMaterialId(nextStock);
     } catch (e) {

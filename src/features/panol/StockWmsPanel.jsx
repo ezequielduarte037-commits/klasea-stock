@@ -28,7 +28,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
 import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
-import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowCountsAsStock, rowDelta, rowIsAnulado, rowIsEgreso, rowIsLocationChange, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import {
   crearEnvio,
@@ -59,9 +59,6 @@ import {
 } from "@/features/panol/panolApi";
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
-const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
-const RECEIVED_STATES = new Set(["recibido", "parcial"]);
-const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso", "reclasificacion_ingreso"]);
 const CATALOG_SEARCH_LIMIT = 12;
 const PRODUCT_RENDER_BATCH = 80;
 const EGRESO_VIEW_STORAGE_KEY = "klasea.panol.egresoView";
@@ -394,18 +391,6 @@ function productKey(row, fObra) {
   return `${rowTipoPedido(row)}::${identity}`;
 }
 
-function rowSource(row) {
-  return String(row.source || "").trim();
-}
-
-function rowIsEgreso(row) {
-  const source = rowSource(row);
-  return source.startsWith("egreso")
-    || source.startsWith("transferencia_egreso")
-    || source === "reclasificacion_egreso"
-    || source === "conteo_fisico_reversion";
-}
-
 function rowIsAsignacionStock(row) {
   return rowSource(row) === "transferencia_ingreso";
 }
@@ -477,41 +462,6 @@ function rowMovimientoRetira(row) {
 
 function rowMovimientoUsuario(row) {
   return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "");
-}
-
-function rowIsLocationChange(row) {
-  return rowSource(row) === "ajuste_ubicacion";
-}
-
-function rowIsDirectStock(row) {
-  const source = rowSource(row);
-  return DIRECT_STOCK_SOURCES.has(source) || source.startsWith("stock_") || source.startsWith("transferencia_ingreso");
-}
-
-function rowCountsAsStock(row) {
-  if (rowIsLocationChange(row)) return false;
-  if (!IN_STOCK_STATES.has(row.estado)) return false;
-  const recepcion = String(row.recepcion_estado || "").trim();
-  if (RECEIVED_STATES.has(recepcion)) return true;
-  if (rowIsDirectStock(row)) return true;
-  if (!recepcion && rowIsDirectStock(row)) return true;
-  return false;
-}
-
-function rowIsTransit(row) {
-  if (rowIsLocationChange(row)) return false;
-  return row.reliable_transit === true
-    && rowSource(row) === "panol_envio_pendiente"
-    && IN_STOCK_STATES.has(row.estado)
-    && !rowCountsAsStock(row);
-}
-
-function rowDelta(row) {
-  if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
-  if (rowIsEgreso(row)) {
-    return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  }
-  return 0;
 }
 
 function rowEgresoQuantity(row) {

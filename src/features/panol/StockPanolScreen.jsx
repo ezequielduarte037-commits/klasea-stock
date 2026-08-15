@@ -10,7 +10,7 @@ import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolMaterialCreations, fetchPanolReplenishmentCatalog, registrarDevolucion } from "@/features/panol/panolApi";
-import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowDelta, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
 
@@ -20,9 +20,6 @@ const GLASS = {
 };
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
-const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
-const RECEIVED_STATES = new Set(["recibido", "parcial"]);
-const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
 const LINEA_FALLBACK = "OTROS";
 
 // ─── Helpers (replican la lógica local de StockWmsPanel sin importarla) ────────
@@ -49,25 +46,6 @@ function rowTipoPedido(row) {
   // Stock pañol = stock general sin obra asignada; Estándar = asignado a una obra.
   if (!rowObraId(row)) return "stock";
   return "estandar";
-}
-
-function rowSource(row) { return String(row.source || "").trim(); }
-function rowIsDirectStock(row) {
-  const s = rowSource(row);
-  return DIRECT_STOCK_SOURCES.has(s) || s.startsWith("stock_") || s.startsWith("transferencia_ingreso");
-}
-function rowCountsAsStock(row) {
-  if (!IN_STOCK_STATES.has(row.estado)) return false;
-  const rec = String(row.recepcion_estado || "").trim();
-  return RECEIVED_STATES.has(rec) || rowIsDirectStock(row);
-}
-function rowDelta(row) {
-  if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
-  const src = rowSource(row);
-  if (src.startsWith("egreso") || src.startsWith("transferencia_egreso") || src === "conteo_fisico_reversion") {
-    return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  }
-  return 0;
 }
 
 function lineaKeyFromObra(obra = {}) {
@@ -101,7 +79,7 @@ function calcObraStats(obraRows) {
     if (!productMap.has(key)) productMap.set(key, { total: 0, tipo, transit: 0 });
     const g = productMap.get(key);
     g.total += rowDelta(row);
-    if (IN_STOCK_STATES.has(row.estado) && !rowCountsAsStock(row)) g.transit += qty(row.cantidad, 1);
+    if (rowIsTransit(row)) g.transit += qty(row.cantidad, 1);
   }
   let itemsStock = 0, itemsStd = 0, itemsAdd = 0, negativos = 0, costoUsdStock = 0, costoUsdStd = 0, costoUsdAdd = 0;
   for (const [, g] of productMap) {

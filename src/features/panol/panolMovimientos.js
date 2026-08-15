@@ -17,29 +17,28 @@ export function rowIsAnulado(row = {}) {
  * El stock no se guarda: se calcula sumando el ledger (panol_obra_materiales_snapshot).
  * Estas funciones definen QUÉ fila suma, cuál resta y cuál no cuenta.
  *
- * Viven acá para que todas las pantallas den EL MISMO número. Antes cada pantalla
- * tenía su copia y alcanzaba con que una divergiera para mostrar un stock distinto
- * al de al lado. Ojo: StockWmsPanel / StockPanolScreen / MapaPanolTab todavía
- * tienen su copia local y habría que migrarlas a estas.
+ * Viven acá para que todas las pantallas den EL MISMO número. Ninguna pantalla
+ * debe volver a copiar esta lógica localmente.
  */
 
 const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
 const RECEIVED_STATES = new Set(["recibido", "parcial"]);
-const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
+const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso", "reclasificacion_ingreso"]);
 
 function qtyNum(value, fallback = 0) {
-  const n = Number(value);
+  const n = Number(String(value ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : fallback;
 }
 
 export function rowSource(row = {}) {
-  return String(row.source || "").trim();
+  return String(row.source || "").trim().toLowerCase();
 }
 
 export function rowIsEgreso(row = {}) {
   const source = rowSource(row);
   return source.startsWith("egreso")
     || source.startsWith("transferencia_egreso")
+    || source === "reclasificacion_egreso"
     || source === "conteo_fisico_reversion";
 }
 
@@ -59,6 +58,15 @@ export function rowCountsAsStock(row = {}) {
   if (RECEIVED_STATES.has(recepcion)) return true;
   if (rowIsDirectStock(row)) return true;
   return false;
+}
+
+/** Un envío pendiente verificable: no infiere tránsito desde texto libre. */
+export function rowIsTransit(row = {}) {
+  if (rowIsLocationChange(row)) return false;
+  return row.reliable_transit === true
+    && rowSource(row) === "panol_envio_pendiente"
+    && IN_STOCK_STATES.has(row.estado)
+    && !rowCountsAsStock(row);
 }
 
 /**
