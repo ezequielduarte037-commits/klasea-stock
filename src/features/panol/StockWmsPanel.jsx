@@ -4448,10 +4448,70 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </button>
         </div>
 
-        {/* Una sola franja para todo lo que es "estado del maestro": nivel de
-            stock a la izquierda, avance de la revisión a la derecha. Eran dos
-            bandas apiladas y entre las dos se comían una fila de tarjetas. */}
-        {stockManagement && (
+        {stockMaster && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30 }}>
+            {[
+              ["existencia", "Hay", kpis.productos, C.green, C.greenL, C.greenB],
+              ["reponer", "Reponer", kpis.reponer || 0, C.red, C.redL, C.redB],
+              ["en_camino", "En camino", productGroupsBase.filter((group) => group.buckets?.has("en_camino")).length, C.blue, C.blueL, C.blueB],
+              ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, C.violet, C.violetL, C.violetB],
+              ["reconciliar", "A reconciliar", kpis.negativos, C.red, C.redL, C.redB],
+            ].map(([key, label, count, color, background, border]) => {
+              const active = scope === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setScope(active ? "todos" : key)}
+                  aria-pressed={active}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    border: `1px solid ${active ? color : border}`,
+                    background: active ? background : C.panelSolid,
+                    color: active ? color : C.text,
+                    borderRadius: 999,
+                    padding: "5px 10px",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    fontFamily: C.sans,
+                    whiteSpace: "nowrap",
+                    boxShadow: active ? `0 0 0 2px ${background}` : "none",
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: color, flexShrink: 0 }} />
+                  {label}
+                  <span style={{ fontFamily: C.mono, color, fontWeight: 950 }}>{count}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setScope("todos")}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: scope === "todos" ? C.blue : C.dim,
+                padding: "5px 7px",
+                cursor: "pointer",
+                fontSize: 10.5,
+                fontWeight: 850,
+                fontFamily: C.sans,
+              }}
+            >
+              Ver todo operativo ({productGroupsBase.length})
+            </button>
+            <span style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>
+              Un producto puede aparecer en más de una señal.
+            </span>
+          </div>
+        )}
+
+        {/* La banda histórica de niveles queda disponible para otros usos del
+            panel, pero el Stock maestro trabaja con las cubetas operativas. */}
+        {showCatalogInventory && !stockMaster && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 6 }}>
             {[
               ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],

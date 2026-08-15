@@ -168,63 +168,52 @@ function IconBox({ color, children }) {
   );
 }
 
-function GlobalKpiBar({ rows, consumidoUsd = 0 }) {
+function GlobalKpiBar({ rows, consumidoUsd = 0, onSelectScope }) {
   const kpis = useMemo(() => {
     const productMap = new Map();
     for (const row of rows) {
       const key = (rowIsAdditional(row) ? "add" : "std") + "::" + (row.material_id || row.descripcion || row.id || "?");
-      if (!productMap.has(key)) productMap.set(key, { total: 0, transit: 0 });
+      if (!productMap.has(key)) productMap.set(key, { total: 0 });
       const g = productMap.get(key);
       g.total += rowDelta(row);
-      if (IN_STOCK_STATES.has(row.estado) && !rowCountsAsStock(row)) g.transit += qty(row.cantidad, 1);
     }
-    let enStock = 0, negativos = 0, transito = 0;
+    let enStock = 0, negativos = 0;
     for (const [, g] of productMap) {
       if (g.total > 0) enStock++;
       if (g.total < 0) negativos++;
-      transito += g.transit;
     }
-    return { enStock, negativos, transito: fmtQty(transito) };
+    return { enStock, negativos };
   }, [rows]);
 
-  const kpiStyle = { border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, minWidth: 0 };
-
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 20 }}>
-      <div style={kpiStyle}>
-        <IconBox color={C.blue}><Warehouse size={14} /></IconBox>
-        <div>
-          <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.blue, lineHeight: 1 }}>{kpis.enStock}</div>
-          <div style={{ color: C.text, fontSize: 11, fontWeight: 800, marginTop: 3 }}>Productos en stock</div>
-          <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>saldo positivo</div>
-        </div>
-      </div>
-      <div style={kpiStyle}>
-        <IconBox color={kpis.negativos ? C.red : C.dim}><AlertTriangle size={14} /></IconBox>
-        <div>
-          <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: kpis.negativos ? C.red : C.dim, lineHeight: 1 }}>{kpis.negativos}</div>
-          <div style={{ color: C.text, fontSize: 11, fontWeight: 800, marginTop: 3 }}>A reconciliar</div>
-          <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>saldo negativo</div>
-        </div>
-      </div>
-      <div style={kpiStyle}>
-        <IconBox color={C.violet}><Inbox size={14} /></IconBox>
-        <div>
-          <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.violet, lineHeight: 1 }}>{kpis.transito}</div>
-          <div style={{ color: C.text, fontSize: 11, fontWeight: 800, marginTop: 3 }}>Por recibir</div>
-          <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>en tránsito</div>
-        </div>
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+      {[
+        ["existencia", "En stock", kpis.enStock, C.green],
+        ["reconciliar", "A reconciliar", kpis.negativos, kpis.negativos ? C.red : C.dim],
+      ].map(([scope, label, value, color]) => (
+        <button
+          key={scope}
+          type="button"
+          onClick={() => onSelectScope?.(scope)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            border: `1px solid ${color}44`, background: `${color}0d`, color,
+            borderRadius: 999, padding: "5px 9px", cursor: "pointer",
+            fontSize: 10.5, fontWeight: 900, fontFamily: C.sans,
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
+          {label} <span style={{ fontFamily: C.mono }}>{value}</span>
+        </button>
+      ))}
       {consumidoUsd > 0 && (
-        <div style={kpiStyle}>
-          <IconBox color={C.green}><DollarSign size={14} /></IconBox>
-          <div>
-            <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.green, lineHeight: 1 }}>{fmtQty(consumidoUsd)}</div>
-            <div style={{ color: C.text, fontSize: 11, fontWeight: 800, marginTop: 3 }}>Consumido USD</div>
-            <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>egresos valorizados</div>
-          </div>
-        </div>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.dim, fontSize: 10.5, padding: "5px 8px" }}>
+          <DollarSign size={12} style={{ color: C.green }} /> Consumido USD <b style={{ color: C.text, fontFamily: C.mono }}>{fmtQty(consumidoUsd)}</b>
+        </span>
       )}
+      <span style={{ color: C.dim, fontSize: 10.5, marginLeft: "auto" }}>
+        Abrí Stock maestro para ver reposición, tránsito y ubicaciones.
+      </span>
     </div>
   );
 }
@@ -928,6 +917,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
   // ── Navegación ──
   const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === requestedTab) ? requestedTab : "obra");
+  const [maestroScope, setMaestroScope] = useState("existencia");
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
   const [soloActivas, setSoloActivas] = useState(false); // filtro nivel 2 (obras de la línea)
@@ -1070,6 +1060,11 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       nextParams.set("tab", key);
       setSearchParams(nextParams, { replace: true });
     }
+  }
+
+  function openStockMasterScope(scope) {
+    setMaestroScope(scope);
+    handleTabChange("maestro");
   }
 
   const wmsProps = {
@@ -1286,7 +1281,11 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {tab === "obra" && !selLinea && !selObraId && (
               <div style={{ flex: 1, overflowY: "auto" }}>
                 <div style={{ padding: "18px 18px 32px" }}>
-                  <GlobalKpiBar rows={rows} consumidoUsd={canSeePrices ? globalExtras.consumidoUsd : 0} />
+                  <GlobalKpiBar
+                    rows={rows}
+                    consumidoUsd={canSeePrices ? globalExtras.consumidoUsd : 0}
+                    onSelectScope={openStockMasterScope}
+                  />
                   <div style={{ margin: "2px 0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 950, color: C.text }}>Barcos por línea</div>
@@ -1328,9 +1327,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* ── TAB: Stock maestro ── */}
             {tab === "maestro" && (
               <StockWmsPanel
-                key={`maestro-${requestedMaterialId || "todos"}`}
+                key={`maestro-${requestedMaterialId || "todos"}-${maestroScope}`}
                 {...wmsProps}
                 stockMaster
+                initialScope={maestroScope}
                 initialQuery={requestedQuery}
                 initialMaterialId={requestedMaterialId}
               />
