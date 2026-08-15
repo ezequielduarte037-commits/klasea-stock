@@ -1095,9 +1095,50 @@ function OptionStockSummary({ group, compact = false, max = 3 }) {
   );
 }
 
+function ProductPrimaryAction({ action, compact = false }) {
+  if (!action?.onClick) return null;
+  const Icon = action.Icon || ArrowUpRight;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      title={action.title || action.label}
+      onClick={(event) => { event.stopPropagation(); action.onClick(); }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          action.onClick();
+        }
+      }}
+      style={{
+        flexShrink: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: compact ? 0 : 5,
+        minWidth: compact ? 26 : 0,
+        height: compact ? 24 : 26,
+        border: `1px solid ${action.border}`,
+        background: action.background,
+        color: action.color,
+        borderRadius: 8,
+        padding: compact ? "0 6px" : "0 9px",
+        fontSize: 10.5,
+        fontWeight: 900,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <Icon size={compact ? 12 : 13} />
+      {!compact && action.label}
+    </span>
+  );
+}
+
 // memo: al agregar al carrito (o seleccionar) solo se re-renderizan las tarjetas
 // afectadas, no las 300+ de la lista — el click se siente inmediato.
-const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, inCart = false, dense = false }) {
+const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, primaryAction, inCart = false, dense = false }) {
   const [cartHover, setCartHover] = useState(false);
   const [hover, setHover] = useState(false);
   const breakdown = group.locations
@@ -1148,7 +1189,9 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
           <span style={{ flex: 1, minWidth: 0, color: C.dim, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {group.ubicacion ? `${group.ubicacion} · ` : ""}{codeLabel !== "sin código" ? `${group.codigo || barcode} · ` : ""}{stockDetail}
           </span>
-          {onAddToCart && group.total > 0.0001 && (
+          {primaryAction ? (
+            <ProductPrimaryAction action={primaryAction} compact />
+          ) : onAddToCart && group.total > 0.0001 && (
             <span
               role="button"
               tabIndex={0}
@@ -1237,7 +1280,9 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
           {codeLabel}{group.proveedor ? ` · ${group.proveedor}` : ""}{group.categorias.size ? ` · ${[...group.categorias][0]}` : ""}
           {canSeePrices && group.valueUsd > 0 ? ` · USD ${fmtQty(group.valueUsd)}` : ""}
         </span>
-        {onAddToCart && group.total > 0.0001 && (
+        {primaryAction ? (
+          <ProductPrimaryAction action={primaryAction} />
+        ) : onAddToCart && group.total > 0.0001 && (
           <span
             role="button"
             tabIndex={0}
@@ -1272,8 +1317,8 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
 
 // Grilla compartida por el encabezado y las filas. Una sola constante para que
 // no se desalineen cuando se toca una y se olvida la otra.
-const STOCK_ROW_COLS = "48px minmax(240px,2.1fr) 92px 132px 96px minmax(140px,1.1fr) 108px";
-const STOCK_ROW_MIN = 940;
+const STOCK_ROW_COLS = "48px minmax(230px,2.1fr) 82px 116px 84px minmax(130px,1.1fr) 104px 116px";
+const STOCK_ROW_MIN = 1010;
 
 const VERIF_META = {
   ok: { label: "Revisado", Icon: CheckCircle2, color: C.green, bg: C.greenL, border: C.greenB },
@@ -1311,7 +1356,7 @@ function FaltaChip({ children }) {
   );
 }
 
-const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum }) {
+const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, primaryAction }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
   const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
@@ -1420,6 +1465,8 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
           </div>
         )}
       </div>
+
+      <ProductPrimaryAction action={primaryAction} />
     </div>
   );
 });
@@ -3843,7 +3890,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
@@ -3936,6 +3983,69 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     setCartOpen(true);
     toast?.success?.(`${group.label} → carrito`);
   }, [canReceive, sedeLocked, toast]);
+
+  const primaryActionFor = useCallback((group) => {
+    if (!stockMaster) return null;
+    const hasStock = Number(group?.total || 0) > 0.0001;
+    const shouldReceive = group?.buckets?.has("en_camino") && (scope === "en_camino" || !hasStock);
+    const shouldReplenish = group?.buckets?.has("reponer") && (scope === "reponer" || (!hasStock && !shouldReceive));
+
+    if (shouldReceive && onReceiveStock) {
+      return {
+        label: "Recibir",
+        title: "Abrir los avisos pendientes de recepción",
+        Icon: PackagePlus,
+        color: C.blue,
+        border: C.blueB,
+        background: C.blueL,
+        onClick: () => onReceiveStock(group),
+      };
+    }
+    if (shouldReplenish && onRequestReplenishment) {
+      return {
+        label: "Pedir reposición",
+        title: "Crear un pedido interno de reposición",
+        Icon: ShoppingCart,
+        color: C.violet,
+        border: C.violetB,
+        background: C.violetL,
+        onClick: () => onRequestReplenishment(group),
+      };
+    }
+    if (hasStock && canReceive) {
+      const alreadyInCart = cartGroupKeys.has(group.key);
+      return {
+        label: alreadyInCart ? "En carrito" : "Egresar",
+        title: alreadyInCart ? "Actualizar el producto en el carrito" : "Agregar al egreso",
+        Icon: ArrowUpRight,
+        color: C.green,
+        border: C.greenB,
+        background: C.greenL,
+        onClick: () => quickAddToCart(group),
+      };
+    }
+    if (group?.buckets?.has("en_camino") && onReceiveStock) {
+      return {
+        label: "Recibir",
+        Icon: PackagePlus,
+        color: C.blue,
+        border: C.blueB,
+        background: C.blueL,
+        onClick: () => onReceiveStock(group),
+      };
+    }
+    if (group?.buckets?.has("reponer") && onRequestReplenishment) {
+      return {
+        label: "Pedir reposición",
+        Icon: ShoppingCart,
+        color: C.violet,
+        border: C.violetB,
+        background: C.violetL,
+        onClick: () => onRequestReplenishment(group),
+      };
+    }
+    return null;
+  }, [canReceive, cartGroupKeys, onReceiveStock, onRequestReplenishment, quickAddToCart, scope, stockMaster]);
 
   const defaultSede = sedeLocked || (fSede !== "todas" ? fSede : "Pampa");
   const canShowHistory = mode === "egreso" || fObra !== "todas";
@@ -4607,6 +4717,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 <span>Faltante</span>
                 <span>Ubicación</span>
                 <span>Revisión</span>
+                <span>Acción</span>
               </div>
             )}
             {loading ? (
@@ -4624,11 +4735,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               </>
             ) : productGroups.length ? (
               <>
-                {renderedProductGroups.map((group) => (
-                  stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} />
-                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />
-                ))}
+                {renderedProductGroups.map((group) => {
+                  const primaryAction = primaryActionFor(group);
+                  return stockManagement && stockView === "lista"
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} primaryAction={primaryAction} />
+                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />;
+                })}
                 {hiddenProductCount > 0 && (
                   <button
                     type="button"

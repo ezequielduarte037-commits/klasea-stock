@@ -1080,6 +1080,14 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     sharedTransitRows: transitRows,
     sharedReplenishmentCatalog: replenishmentCatalog,
     sharedLoading: loading,
+    onReceiveStock: () => nav("/recepcion-panol?tab=recepcion"),
+    onRequestReplenishment: (group) => {
+      const materialId = group?.material?.id || group?.material_id || "";
+      const params = new URLSearchParams();
+      if (materialId) params.set("material", materialId);
+      if (group?.label) params.set("q", group.label);
+      nav(`/scan-pedido${params.size ? `?${params.toString()}` : ""}`);
+    },
     onOpenCatalog: (materialId) => {
       if (materialId) nav(`/catalogo-maestro?material=${materialId}`);
       else nav("/catalogo-maestro");

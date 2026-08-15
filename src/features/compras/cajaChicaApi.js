@@ -151,6 +151,39 @@ export async function createCajaChicaEntries(entries = []) {
   return data || [];
 }
 
+// Marca del recibo dentro de las notas del movimiento. Va acá y no en una
+// tabla nueva porque el movimiento ES el registro: la marca sólo dice si el
+// papel está todavía en borrador o si ya salió impreso para firmar.
+// Mismo criterio que el sello de reapertura de un cierre.
+const RECIBO_MARCA = /\[Recibo\s+([A-Za-z0-9-]+)\s*·\s*(borrador|emitido)\]/;
+
+export function leerReciboDeNotas(notas) {
+  const match = RECIBO_MARCA.exec(String(notas || ""));
+  if (!match) return null;
+  return { numero: match[1], estado: match[2] };
+}
+
+export function notasConRecibo(notas, { numero, estado }) {
+  const marca = `[Recibo ${numero} · ${estado}]`;
+  const texto = String(notas || "");
+  if (RECIBO_MARCA.test(texto)) return texto.replace(RECIBO_MARCA, marca);
+  return [texto.trim(), marca].filter(Boolean).join("\n");
+}
+
+// Patch parcial y crudo (se usa para actualizar sólo las notas): normalizar
+// acá pisaría campos que el que llama no mandó.
+export async function updateCajaChicaEntry(id, patch) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteCajaChicaEntry(id) {
   const { error } = await supabase
     .from(TABLE)

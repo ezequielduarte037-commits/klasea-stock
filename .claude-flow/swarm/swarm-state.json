@@ -27,7 +27,7 @@
       "swarmId": "swarm-1786642307808-sxb1gq",
       "topology": "hierarchical",
       "maxAgents": 3,
-      "status": "running",
+      "status": "terminated",
       "agents": [],
       "tasks": [],
       "config": {
@@ -39,13 +39,14 @@
         "consensusMechanism": "majority"
       },
       "createdAt": "2026-08-13T17:31:47.809Z",
-      "updatedAt": "2026-08-13T17:31:47.809Z"
+      "updatedAt": "2026-08-15T11:44:41.891Z",
+      "terminationReason": "no pid recorded and heartbeat is 42h stale"
     },
     "swarm-1786705908590-ci4ehr": {
       "swarmId": "swarm-1786705908590-ci4ehr",
       "topology": "hierarchical",
       "maxAgents": 3,
-      "status": "running",
+      "status": "terminated",
       "agents": [],
       "tasks": [],
       "config": {
@@ -57,10 +58,30 @@
         "consensusMechanism": "majority"
       },
       "createdAt": "2026-08-14T11:11:48.590Z",
-      "updatedAt": "2026-08-14T11:11:48.590Z"
+      "updatedAt": "2026-08-15T11:44:41.891Z",
+      "terminationReason": "no pid recorded and heartbeat is 25h stale"
     },
     "swarm-1786708686584-rua9zr": {
       "swarmId": "swarm-1786708686584-rua9zr",
+      "topology": "hierarchical",
+      "maxAgents": 3,
+      "status": "terminated",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical",
+        "maxAgents": 3,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-08-14T11:58:06.584Z",
+      "updatedAt": "2026-08-15T13:17:27.419Z",
+      "terminationReason": "no pid recorded and heartbeat is 25h stale"
+    },
+    "swarm-1786794281889-lch0pt": {
+      "swarmId": "swarm-1786794281889-lch0pt",
       "topology": "hierarchical",
       "maxAgents": 3,
       "status": "running",
@@ -74,8 +95,26 @@
         "autoScaling": true,
         "consensusMechanism": "majority"
       },
-      "createdAt": "2026-08-14T11:58:06.584Z",
-      "updatedAt": "2026-08-14T11:58:06.584Z"
+      "createdAt": "2026-08-15T11:44:41.890Z",
+      "updatedAt": "2026-08-15T11:44:41.890Z"
+    },
+    "swarm-1786799847418-dqsczq": {
+      "swarmId": "swarm-1786799847418-dqsczq",
+      "topology": "hierarchical",
+      "maxAgents": 3,
+      "status": "running",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical",
+        "maxAgents": 3,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-08-15T13:17:27.418Z",
+      "updatedAt": "2026-08-15T13:17:27.418Z"
     }
   },
   "version": "3.0.0"

@@ -6,6 +6,7 @@ import {
   CalendarRange,
   FileDown,
   Plus,
+  Receipt,
   RefreshCw,
   Search,
   Trash2,
@@ -21,11 +22,16 @@ import {
   createCajaChicaEntries,
   createCajaChicaEntry,
   deleteCajaChicaEntry,
+  ensureCajaChicaCierreAbierto,
   fetchCajaChicaClosures,
   fetchCajaChicaEntries,
+  leerReciboDeNotas,
+  notasConRecibo,
   updateCajaChicaClosure,
+  updateCajaChicaEntry,
 } from "@/features/compras/cajaChicaApi";
 import { fetchProfiles } from "@/features/compras/purchaseRequestsApi";
+import ReciboModal from "@/features/compras/ReciboModal";
 import { C } from "@/theme";
 
 // null = caja de compras (histórica, sin dueño). Un uuid = la caja de ese cadete.
@@ -454,6 +460,9 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   const [dateTo, setDateTo] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [importRows, setImportRows] = useState([]);
+  // Recibo imprimible: el mismo papel que se llenaba a mano. Sale de un
+  // movimiento ya cargado, o se arma suelto y de paso queda asentado.
+  const [recibo, setRecibo] = useState(null);
 
   // null = caja de compras; uuid = caja del cadete seleccionado.
   const ownerId = lockedOwnerId != null ? lockedOwnerId : (ownerSel === CAJA_COMPRAS ? null : ownerSel);
@@ -571,6 +580,12 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   const importReview = importRows.length - importReady.length;
 
   const cajaCerrada = selectedCierre?.estado === "cerrado";
+
+  // Sólo las abiertas: un recibo no puede ir a parar a una caja ya rendida.
+  const cajasAbiertas = useMemo(
+    () => cierres.filter((cierre) => cierre.estado !== "cerrado").map((cierre) => ({ id: cierre.id, nombre: cierre.nombre })),
+    [cierres],
+  );
 
   // Totales de la caja ENTERA, sin los filtros de la vista. Cerrar mirando un
   // subtotal filtrado sería cerrar por un número que no es el de la caja.
@@ -746,6 +761,70 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     setDateTo(range.to);
   }
 
+  // Desde un movimiento el gasto ya está cargado: sólo falta el papel. Por eso
+  // no vuelve a ofrecer registrarlo, y si ya tenía un recibo en borrador
+  // reusa su número en vez de inventar otro.
+  function abrirReciboDeMovimiento(row) {
+    const marca = leerReciboDeNotas(row.notas);
+    setRecibo({
+      puedeRegistrar: false,
+      initial: {
+        entryId: row.id,
+        numero: marca?.numero,
+        estado: marca?.estado,
+        semilla: row.id,
+        fecha: row.fecha,
+        proveedor: row.proveedor || "",
+        // El movimiento guarda el concepto en una línea (unido con " · ").
+        // Al volver al recibo se separa de nuevo en renglones.
+        concepto: String(row.detalle || "").split(" · ").join("\n"),
+        centroCosto: row.centro_costo || "",
+        importe: row.importe,
+        moneda: row.moneda,
+      },
+    });
+  }
+
+  function abrirReciboNuevo() {
+    setRecibo({
+      puedeRegistrar: !missingTable,
+      initial: { fecha: TODAY },
+    });
+  }
+
+  // Si no hay ninguna caja abierta se crea una: que falte el cierre no puede
+  // ser el motivo por el que un gasto quede sin registrar.
+  async function registrarEgresoDeRecibo({ movimiento, cajaId, recibo: marca }) {
+    let destino = cajaId;
+    if (!destino) {
+      const caja = await ensureCajaChicaCierreAbierto({
+        ownerId,
+        nombre: `Caja chica ${new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" })}`,
+      });
+      destino = caja?.id;
+    }
+    if (!destino) throw new Error("No se pudo determinar la caja donde registrar el egreso.");
+
+    const creado = await createCajaChicaEntry({
+      ...movimiento,
+      notas: notasConRecibo(movimiento.notas, marca),
+      cierre_id: destino,
+      owner_id: ownerId,
+    });
+    await loadCierres(destino);
+    await loadEntries(destino);
+    return creado;
+  }
+
+  async function marcarReciboEmitido({ entryId, numero }) {
+    const row = rows.find((item) => item.id === entryId);
+    if (!row) return;
+    const notas = notasConRecibo(row.notas, { numero, estado: "emitido" });
+    if (notas === row.notas) return;
+    await updateCajaChicaEntry(entryId, { notas });
+    await loadEntries(selectedCierreId);
+  }
+
   async function handleDelete(row) {
     const ok = window.confirm(`¿Borrar movimiento "${row.detalle}"?`);
     if (!ok) return;
@@ -815,6 +894,14 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
             Movimientos organizados por cierres semanales o por período.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={abrirReciboNuevo}
+          style={{ ...smallBtn(), border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 900 }}
+          title="Armar un recibo para que lo firmen"
+        >
+          <Receipt size={14} /> Recibo
+        </button>
         <button type="button" onClick={refreshAll} style={smallBtn()}>
           <RefreshCw size={14} /> Actualizar
         </button>
@@ -1154,11 +1241,24 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={7} style={emptyCell()}>Cargando caja chica...</td></tr>
-                ) : filteredRows.length ? filteredRows.map((row) => (
+                ) : filteredRows.length ? filteredRows.map((row) => {
+                  const marcaRecibo = leerReciboDeNotas(row.notas);
+                  return (
                   <tr key={row.id} style={{ borderTop: `1px solid ${C.border}` }}>
                     <td style={tdStyle({ whiteSpace: "nowrap", color: C.dim })}>{fmtDate(row.fecha)}</td>
                     <td style={tdStyle({ fontWeight: 750 })}>{row.proveedor || "-"}</td>
-                    <td style={tdStyle()}>{row.detalle}</td>
+                    <td style={tdStyle()}>
+                      <div>{row.detalle}</div>
+                      {/* Borrador = el gasto está asentado pero el papel todavía
+                          no salió. Es la lista de lo que falta imprimir. */}
+                      {marcaRecibo && (
+                        <div style={{ marginTop: 5 }}>
+                          <span style={pill(marcaRecibo.estado === "borrador" ? C.blue : C.dim)}>
+                            {marcaRecibo.estado === "borrador" ? "Recibo en borrador" : `Recibo ${marcaRecibo.numero}`}
+                          </span>
+                        </div>
+                      )}
+                    </td>
                     <td style={tdStyle()}>
                       <span style={pill(C.blue)}>{row.centro_costo || "Sin centro"}</span>
                     </td>
@@ -1168,13 +1268,22 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
                     <td style={tdStyle({ color: C.green, fontFamily: C.mono, fontWeight: 800 })}>
                       {row.tipo === "ingreso" ? fmtMoney(row.importe, row.moneda) : "-"}
                     </td>
-                    <td style={tdStyle({ textAlign: "right" })}>
+                    <td style={tdStyle({ textAlign: "right", whiteSpace: "nowrap" })}>
+                      <button
+                        type="button"
+                        onClick={() => abrirReciboDeMovimiento(row)}
+                        style={{ ...iconBtn(C.blue), marginRight: 6 }}
+                        title={marcaRecibo?.estado === "borrador" ? "Completar e imprimir el recibo pendiente" : "Imprimir recibo de este movimiento"}
+                      >
+                        <Receipt size={14} />
+                      </button>
                       <button type="button" onClick={() => handleDelete(row)} style={iconBtn(C.red)} title="Borrar">
                         <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
-                )) : (
+                  );
+                }) : (
                   <tr><td colSpan={7} style={emptyCell()}>No hay movimientos para mostrar.</td></tr>
                 )}
               </tbody>
@@ -1267,6 +1376,18 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
             />
           </label>
         </CajaModal>
+      )}
+
+      {recibo && (
+        <ReciboModal
+          initial={recibo.initial}
+          puedeRegistrar={recibo.puedeRegistrar}
+          cajas={cajasAbiertas}
+          cajaIdInicial={cajaCerrada ? "" : selectedCierreId}
+          onRegistrar={registrarEgresoDeRecibo}
+          onEmitido={marcarReciboEmitido}
+          onClose={() => setRecibo(null)}
+        />
       )}
     </div>
   );
