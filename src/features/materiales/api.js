@@ -63,9 +63,9 @@ async function fetchPaged(table, select, orderColumn = "id") {
 
 async function fetchMaterialesCatalogo() {
   const baseSelect =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
   const baseSelectNoLinks =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
   try {
     return (
       await fetchPaged(
@@ -106,6 +106,7 @@ async function fetchMaterialesCatalogo() {
         variantes_precios: {},
         ubicacion: null,
         ubicacion_obs: null,
+        stock_minimo: null,
         es_consumible: row.es_consumible ?? false,
         es_requisito: false,
       }));

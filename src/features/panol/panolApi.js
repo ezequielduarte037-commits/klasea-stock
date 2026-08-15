@@ -834,7 +834,7 @@ export async function fetchPanolCatalogFull({ force = false, includeAdditionalBa
 // para presentar un saldo de solo lectura y una vista previa de impacto.
 export async function fetchPanolCatalogMaterialImpact(materialId) {
   if (!materialId) return [];
-  const select = "id,obra_id,material_id,requisito_material_id,estado,recepcion_estado,cantidad,cantidad_egresada,source,stock_sede,updated_at,created_at";
+  const select = "id,obra_id,obra_origen_id,egreso_destino_obra_id,material_id,requisito_material_id,descripcion,codigo,estado,recepcion_estado,cantidad,cantidad_egresada,recepcion_cantidad_recibida,source,stock_sede,stock_nota,notas,recepcion_nota,egreso_nota,retirado_por,sector_destino,purchase_request_id,purchase_request_item_id,panol_envio_id,panol_envio_item_id,egreso_at,egreso_por,created_by,updated_at,created_at";
   let { data, error } = await supabase
     .from("panol_obra_materiales_snapshot")
     .select(select)
@@ -845,7 +845,7 @@ export async function fetchPanolCatalogMaterialImpact(materialId) {
   if (error && isMissingColumn(error)) {
     const retry = await supabase
       .from("panol_obra_materiales_snapshot")
-      .select("id,obra_id,material_id,estado,recepcion_estado,cantidad,cantidad_egresada,source,stock_sede,updated_at,created_at")
+      .select("id,obra_id,material_id,descripcion,codigo,estado,recepcion_estado,cantidad,cantidad_egresada,source,stock_sede,purchase_request_id,panol_envio_id,egreso_at,egreso_por,created_by,updated_at,created_at")
       .eq("material_id", materialId)
       .order("updated_at", { ascending: false })
       .limit(5000);
@@ -853,7 +853,110 @@ export async function fetchPanolCatalogMaterialImpact(materialId) {
     error = retry.error;
   }
   if (error) throw error;
-  return data ?? [];
+
+  const ledgerRows = data ?? [];
+  let transitItems = [];
+  try {
+    const transit = await supabase
+      .from("panol_envio_items")
+      .select("id,envio_id,material_id,requisito_material_id,descripcion,codigo,cantidad,cantidad_recibida,unidad,estado,updated_at,created_at,envio:panol_envios!inner(id,obra_id,purchase_request_id,titulo,sede,destino,origen,estado,created_by,recibido_por,created_at,recibido_at)")
+      .or(`material_id.eq.${materialId},requisito_material_id.eq.${materialId}`)
+      .eq("estado", "pendiente")
+      .in("envio.estado", ["enviado", "parcial"])
+      .limit(200);
+    if (transit.error) {
+      if (!isMissingTable(transit.error) && !isMissingColumn(transit.error)) throw transit.error;
+    } else {
+      transitItems = (transit.data ?? []).filter((item) => numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0) > 0.0001);
+    }
+  } catch (transitError) {
+    if (!isMissingTable(transitError) && !isMissingColumn(transitError)) throw transitError;
+  }
+
+  const requestIds = [...new Set([
+    ...ledgerRows.map((row) => row.purchase_request_id),
+    ...transitItems.map((item) => item.envio?.purchase_request_id),
+  ].filter(Boolean))];
+  const envioIds = [...new Set(ledgerRows.map((row) => row.panol_envio_id).filter(Boolean))];
+  const obraIds = [...new Set([
+    ...ledgerRows.flatMap((row) => [row.obra_id, row.obra_origen_id, row.egreso_destino_obra_id]),
+    ...transitItems.map((item) => item.envio?.obra_id),
+  ].filter(Boolean))];
+
+  const [requestsResult, enviosResult, obrasResult] = await Promise.all([
+    requestIds.length
+      ? supabase.from("purchase_requests").select("id,title,description,status,project_id,destino,created_at").in("id", requestIds)
+      : Promise.resolve({ data: [], error: null }),
+    envioIds.length
+      ? supabase.from("panol_envios").select("id,obra_id,purchase_request_id,titulo,sede,destino,origen,estado,created_by,recibido_por,created_at,recibido_at").in("id", envioIds)
+      : Promise.resolve({ data: [], error: null }),
+    obraIds.length
+      ? supabase.from("produccion_obras").select("id,codigo,linea_nombre,estado").in("id", obraIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const ignorable = (result) => result?.error && !isMissingTable(result.error) && !isMissingColumn(result.error);
+  if (ignorable(requestsResult)) throw requestsResult.error;
+  if (ignorable(enviosResult)) throw enviosResult.error;
+  if (ignorable(obrasResult)) throw obrasResult.error;
+
+  const requestById = new Map((requestsResult.data ?? []).map((row) => [row.id, row]));
+  const envioById = new Map((enviosResult.data ?? []).map((row) => [row.id, row]));
+  const obraById = new Map((obrasResult.data ?? []).map((row) => [row.id, row]));
+  const allEnvios = [
+    ...(enviosResult.data ?? []),
+    ...transitItems.map((item) => item.envio).filter(Boolean),
+  ];
+  const profileById = await fetchProfilesMap([
+    ...ledgerRows.flatMap((row) => [row.created_by, row.egreso_por]),
+    ...allEnvios.flatMap((envio) => [envio.created_by, envio.recibido_por]),
+  ]);
+
+  const decorateEnvio = (envio) => envio ? {
+    ...envio,
+    created_by_nombre: profileById.get(envio.created_by)?.username || "",
+    recibido_por_nombre: profileById.get(envio.recibido_por)?.username || "",
+  } : null;
+
+  const hydratedLedger = ledgerRows.map((row) => ({
+    ...row,
+    request: requestById.get(row.purchase_request_id) || null,
+    panol_envio: decorateEnvio(envioById.get(row.panol_envio_id) || null),
+    obra: obraById.get(row.obra_id) || null,
+    obra_origen: obraById.get(row.obra_origen_id) || null,
+    egreso_destino_obra: obraById.get(row.egreso_destino_obra_id) || null,
+    created_by_nombre: profileById.get(row.created_by)?.username || (!isUuidLike(row.created_by) ? row.created_by || "" : ""),
+    egreso_por_nombre: profileById.get(row.egreso_por)?.username || (!isUuidLike(row.egreso_por) ? row.egreso_por || "" : ""),
+  }));
+
+  const hydratedTransit = transitItems.map((item) => {
+    const envio = decorateEnvio(item.envio);
+    return {
+      id: `transit:${item.id}`,
+      material_id: item.material_id || item.requisito_material_id || materialId,
+      requisito_material_id: item.requisito_material_id || null,
+      descripcion: item.descripcion || "Material por recibir",
+      codigo: item.codigo || "",
+      cantidad: numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0),
+      cantidad_egresada: 0,
+      unidad: item.unidad || "unidad",
+      obra_id: envio?.obra_id || null,
+      obra: obraById.get(envio?.obra_id) || null,
+      stock_sede: envio?.sede || null,
+      estado: "en_panol",
+      recepcion_estado: "pendiente",
+      source: "panol_envio_pendiente",
+      reliable_transit: true,
+      panol_envio_id: item.envio_id,
+      panol_envio_item_id: item.id,
+      panol_envio: envio,
+      request: requestById.get(envio?.purchase_request_id) || null,
+      updated_at: item.updated_at || item.created_at || envio?.created_at || null,
+      created_at: item.created_at || envio?.created_at || null,
+    };
+  });
+
+  return [...hydratedLedger, ...hydratedTransit];
 }
 
 // "En camino" sólo existe cuando hay un aviso de Pañol verificable: envío en

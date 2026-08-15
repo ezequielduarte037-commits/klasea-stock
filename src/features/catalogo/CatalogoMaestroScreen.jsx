@@ -9,12 +9,11 @@ import { hasAdminAccess } from "@/lib/permissions";
 import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { actualizarMaterialDatos, fetchCatalogo } from "@/features/materiales/api";
 import { materialMatchScore } from "@/features/panol/materialMatch";
-import { fetchPanolCatalogMaterialImpact, invalidatePanolCatalogFullCache } from "@/features/panol/panolApi";
+import { actualizarStockMinimoPanol, fetchPanolCatalogMaterialImpact, invalidatePanolCatalogFullCache } from "@/features/panol/panolApi";
+import { rowDelta, rowIsTransit, rowMovementAt } from "@/features/panol/panolMovimientos";
+import CatalogoProductoOperacion from "./CatalogoProductoOperacion";
 
 const PAGE_SIZE = 100;
-const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
-const RECEIVED_STATES = new Set(["recibido", "parcial"]);
-const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso", "reclasificacion_ingreso"]);
 const IDENTITY_FIELDS = ["descripcion", "codigo", "codigo_barra", "activo"];
 
 function norm(value = "") {
@@ -31,27 +30,6 @@ function fmtQty(value) {
   return Number(Math.round(number * 100) / 100).toLocaleString("es-AR");
 }
 
-function rowSource(row) {
-  return String(row?.source || "").trim();
-}
-
-function rowCountsAsStock(row) {
-  if (rowSource(row) === "ajuste_ubicacion") return false;
-  if (!IN_STOCK_STATES.has(row.estado)) return false;
-  return RECEIVED_STATES.has(String(row.recepcion_estado || "").trim())
-    || DIRECT_STOCK_SOURCES.has(rowSource(row))
-    || rowSource(row).startsWith("stock_")
-    || rowSource(row).startsWith("transferencia_ingreso");
-}
-
-function rowIsEgreso(row) {
-  const source = rowSource(row);
-  return source.startsWith("egreso")
-    || source.startsWith("transferencia_egreso")
-    || source === "reclasificacion_egreso"
-    || source === "conteo_fisico_reversion";
-}
-
 function impactSummary(rows = []) {
   let saldo = 0;
   let enCamino = 0;
@@ -59,15 +37,14 @@ function impactSummary(rows = []) {
   const sedes = new Set();
   let ultimoMovimiento = null;
   rows.forEach((row) => {
-    if (rowCountsAsStock(row)) saldo += qty(row.cantidad, 1);
-    else if (rowIsEgreso(row)) saldo -= Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-    else if (IN_STOCK_STATES.has(row.estado)) enCamino += qty(row.cantidad, 1);
+    if (rowIsTransit(row)) enCamino += qty(row.cantidad);
+    else saldo += rowDelta(row);
     if (row.obra_id) obras.add(row.obra_id);
     if (row.stock_sede) sedes.add(row.stock_sede);
-    const date = row.updated_at || row.created_at;
+    const date = rowMovementAt(row);
     if (date && (!ultimoMovimiento || new Date(date) > new Date(ultimoMovimiento))) ultimoMovimiento = date;
   });
-  return { saldo, enCamino, obras: obras.size, sedes: [...sedes], movimientos: rows.length, ultimoMovimiento };
+  return { saldo, enCamino, obras: obras.size, sedes: [...sedes], movimientos: rows.filter((row) => !rowIsTransit(row)).length, ultimoMovimiento };
 }
 
 function emptyDraft(material = {}) {
@@ -81,6 +58,7 @@ function emptyDraft(material = {}) {
     proveedor: material.proveedor || "",
     unidad_medida: material.unidad_medida || "unidad",
     notas: material.notas || "",
+    stock_minimo: material.stock_minimo ?? "",
     activo: material.activo !== false,
   };
 }
@@ -226,7 +204,13 @@ export default function CatalogoMaestroScreen({ profile, signOut }) {
     if (!selected || !dirty || saving) return;
     setSaving(true);
     try {
-      await actualizarMaterialDatos({ ...selected, ...draft, descripcion: draft.descripcion.trim() });
+      const minimumChanged = fieldChanged(selected, draft, "stock_minimo");
+      const fichaChanged = Object.keys(draft).some((field) => field !== "stock_minimo" && fieldChanged(selected, draft, field));
+      if (fichaChanged) {
+        const { stock_minimo: _stockMinimo, ...draftFicha } = draft;
+        await actualizarMaterialDatos({ ...selected, ...draftFicha, descripcion: draft.descripcion.trim() });
+      }
+      if (minimumChanged) await actualizarStockMinimoPanol(selected.id, draft.stock_minimo);
       invalidatePanolCatalogFullCache();
       await load({ force: true });
       setEditing(false);
@@ -292,6 +276,7 @@ export default function CatalogoMaestroScreen({ profile, signOut }) {
               <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase" }}>Rubro</span><select value={draft.categoria_id} onChange={(event) => setDraft((current) => ({ ...current, categoria_id: event.target.value }))} style={inputStyle}><option value="">Sin rubro</option>{data.categorias.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
               <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase" }}>Proveedor</span><input list="catalogo-proveedores" value={draft.proveedor} onChange={(event) => setDraft((current) => ({ ...current, proveedor: event.target.value }))} style={inputStyle} /><datalist id="catalogo-proveedores">{data.proveedores.filter((item) => item.activo !== false).map((item) => <option key={item.id} value={item.nombre} />)}</datalist></label>
             </div>
+            <label style={{ display: "grid", gap: 5, maxWidth: isMobile ? "none" : 220 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase" }}>Stock mínimo</span><input inputMode="decimal" value={draft.stock_minimo} onChange={(event) => setDraft((current) => ({ ...current, stock_minimo: event.target.value }))} placeholder="Sin mínimo" style={inputStyle} /><span style={{ color: C.dim, fontSize: 9.5 }}>Define la alerta de reposición; no modifica el saldo.</span></label>
             <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase" }}>Notas y palabras de búsqueda</span><textarea rows={3} value={draft.notas} onChange={(event) => setDraft((current) => ({ ...current, notas: event.target.value }))} style={{ ...inputStyle, resize: "vertical" }} /></label>
             <label style={{ display: "flex", alignItems: "center", gap: 8, color: C.text, fontSize: 12, fontWeight: 850 }}><input type="checkbox" checked={draft.activo} onChange={(event) => setDraft((current) => ({ ...current, activo: event.target.checked }))} />Producto activo</label>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -302,10 +287,17 @@ export default function CatalogoMaestroScreen({ profile, signOut }) {
         ) : (
           <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 9 }}>
             {[
-              ["Alias", selected.alias || "Sin alias"], ["Proveedor", selected.proveedor || "Sin proveedor"], ["Unidad", selected.unidad_medida || "unidad"], ["Código de barras", selected.codigo_barra || "Sin código"], ["Notas", selected.notas || "Sin notas"],
+              ["Alias", selected.alias || "Sin alias"], ["Proveedor", selected.proveedor || "Sin proveedor"], ["Unidad", selected.unidad_medida || "unidad"], ["Stock mínimo", selected.stock_minimo == null ? "Sin mínimo" : `${fmtQty(selected.stock_minimo)} ${selected.unidad_medida || "unidad"}`], ["Código de barras", selected.codigo_barra || "Sin código"], ["Notas", selected.notas || "Sin notas"],
             ].map(([label, value]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 9, fontSize: 11.5 }}><span style={{ color: C.dim, fontWeight: 850 }}>{label}</span><span style={{ color: C.text, lineHeight: 1.4 }}>{value}</span></div>)}
           </div>
         )}
+        <CatalogoProductoOperacion
+          material={selected}
+          rows={impactRows}
+          loading={impactLoading}
+          onOpenStock={() => nav(`/stock-panol?tab=maestro&material=${selected.id}&q=${encodeURIComponent(selected.descripcion)}`)}
+          onReceive={(row) => nav(`/recepcion-panol?tab=recepcion&envio=${encodeURIComponent(row.panol_envio_id || "")}&material=${encodeURIComponent(selected.id)}&item=${encodeURIComponent(row.panol_envio_item_id || "")}`)}
+        />
         {!canEdit && <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11.5, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: "9px 10px" }}><Eye size={14} />Consulta de catálogo. Técnica, Compras y Administración pueden editar fichas.</div>}
       </div>
     </section>
