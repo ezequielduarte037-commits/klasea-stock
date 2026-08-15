@@ -911,6 +911,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = embedded ? "" : (searchParams.get("tab") || "");
+  const requestedMaterialId = embedded ? "" : (searchParams.get("material") || "");
+  const requestedQuery = embedded ? "" : (searchParams.get("q") || "");
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
   // desbordaba y "rompía" la pantalla. Por debajo de 1180 usamos el layout apilado.
   const { isMobile } = useResponsive(1180);
@@ -1075,6 +1077,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     sharedRows: rows,
     sharedObras: obras,
     sharedLoading: loading,
+    onOpenCatalog: (materialId) => {
+      if (materialId) nav(`/catalogo-maestro?material=${materialId}`);
+      else nav("/catalogo-maestro");
+    },
   };
   const isLevel3 = tab === "obra" && selObraId != null;
 
@@ -1313,7 +1319,12 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
             {/* ── TAB: Stock maestro ── */}
             {tab === "maestro" && (
-              <StockWmsPanel key="maestro" {...wmsProps} showCatalogInventory />
+              <StockWmsPanel
+                key={`maestro-${requestedMaterialId || "todos"}`}
+                {...wmsProps}
+                initialQuery={requestedQuery}
+                initialMaterialId={requestedMaterialId}
+              />
             )}
 
             {/* ── TAB: Movimientos (historial general de ingresos/egresos) ── */}

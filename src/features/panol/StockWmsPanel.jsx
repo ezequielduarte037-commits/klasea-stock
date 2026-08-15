@@ -2775,7 +2775,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
   );
 }
 
-function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, onDone, toast, setSelectedKey, cart, setCart }) {
+function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog }) {
   const initialLocationKey = group
     ? (group.locations.find((loc) => loc.available > 0) || group.locations[0] || defaultLocation(sedeLocked || "Pampa")).key
     : "";
@@ -3056,7 +3056,14 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{detCode} · disponible {fmtQty(group.total)} {group.unidad}</div>
           <div style={{ marginTop: 6 }}><OptionStockSummary group={group} max={6} /></div>
         </div>
-        <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850, cursor: "pointer", flexShrink: 0 }}>{isMobile ? "Lista" : "Cerrar"}</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+          {group.material?.id && onOpenCatalog && (
+            <button type="button" onClick={() => onOpenCatalog(group.material.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "7px 9px", fontSize: 11.5, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>
+              <ArrowUpRight size={13} />{!isMobile && "Ver ficha del producto"}
+            </button>
+          )}
+          <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>{isMobile ? "Lista" : "Cerrar"}</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
@@ -3806,13 +3813,14 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
   const [obras, setObras] = useState(() => Array.isArray(sharedObras) ? sharedObras : []);
   const [loading, setLoading] = useState(() => sharedLoading || !Array.isArray(sharedRows));
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery || "");
+  const [focusedMaterialId, setFocusedMaterialId] = useState(initialMaterialId || "");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [fSede, setFSede] = useState(sedeLocked || "todas");
   const [fObra, setFObra] = useState(initialFObra);
@@ -3922,6 +3930,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     setFObra(initialFObra || "todas");
   }, [initialFObra]);
 
+  useEffect(() => {
+    setQ(initialQuery || "");
+    setFocusedMaterialId(initialMaterialId || "");
+  }, [initialMaterialId, initialQuery]);
+
   // Refresh SILENCIOSO: el spinner de "Cargando" solo aparece la primera vez.
   // Los refresh posteriores (tras un egreso/asignación) actualizan los datos por
   // detrás sin blanquear la pantalla — se siente instantáneo.
@@ -3961,6 +3974,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const baseFilteredRows = useMemo(() => {
     const term = norm(q);
     let filtered = rows;
+    if (focusedMaterialId) {
+      filtered = filtered.filter((row) => row.material_id === focusedMaterialId || row.requisito_material_id === focusedMaterialId);
+    }
     if (term) {
       filtered = filtered.filter((row) => materialMatchScore({
         ...row,
@@ -3970,7 +3986,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
     if (fCategoria !== "todos") filtered = filtered.filter((row) => categoryLabel(row) === fCategoria);
     return filtered;
-  }, [rows, q, fObra, fCategoria]);
+  }, [rows, q, fObra, fCategoria, focusedMaterialId]);
 
   const kindCounts = useMemo(() => {
     const groups = buildProductGroups(baseFilteredRows, fObra);
@@ -4106,6 +4122,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   useEffect(() => {
     if (selectedKey && !productGroups.some((group) => group.key === selectedKey)) setSelectedKey(null);
   }, [productGroups, selectedKey]);
+
+  useEffect(() => {
+    if (!focusedMaterialId || selectedKey || !productGroups.length) return;
+    const focused = productGroups.find((group) => group.material?.id === focusedMaterialId || group.rows?.some((row) => row.material_id === focusedMaterialId || row.requisito_material_id === focusedMaterialId));
+    if (focused) setSelectedKey(focused.key);
+  }, [focusedMaterialId, productGroups, selectedKey]);
 
   useEffect(() => {
     // Solo resetear si los datos ya cargaron, para que initialFObra no se pierda antes de que lleguen las rows
@@ -4250,7 +4272,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <input
               ref={searchInputRef}
               value={q}
-              onChange={(event) => setQ(event.target.value)}
+              onChange={(event) => { setQ(event.target.value); setFocusedMaterialId(""); }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === "Tab") {
                   event.preventDefault();
@@ -4262,7 +4284,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "9px 34px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }}
             />
             {q && (
-              <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 4 }}>
+              <button type="button" onClick={() => { setQ(""); setFocusedMaterialId(""); }} title="Limpiar" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 4 }}>
                 <X size={14} />
               </button>
             )}
@@ -4532,6 +4554,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             setSelectedKey={setSelectedKey}
             cart={cart}
             setCart={setCart}
+            onOpenCatalog={onOpenCatalog}
           />
         )}
       </div>

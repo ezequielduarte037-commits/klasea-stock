@@ -112,6 +112,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="7" width="12" height="7" rx="1" {...p}/>
       <path d="M5 10h6M5 12h4" {...p}/>
     </>,
+    "/catalogo-maestro": <>
+      <rect x="1.5" y="2" width="13" height="12" rx="2" {...p}/>
+      <path d="M4.5 5h7M4.5 8h7M4.5 11h4" {...p}/>
+      <circle cx="12.5" cy="11.5" r="2" fill="var(--bg, transparent)" {...p}/>
+      <path d="M14 13l1 1" {...p}/>
+    </>,
     "/stock-panol": <>
       <path d="M2 5l6-3 6 3-6 3z" {...p}/>
       <path d="M2 5v6l6 3 6-3V5" {...p}/>
@@ -312,6 +318,7 @@ export default function Sidebar({ profile, signOut }) {
   const puedeEditarPlantillas = broadAccess || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const puedeVerMateriales = esGestion || esCompras;
+  const puedeVerCatalogo = esGestion || esCompras || esPanol;
   // Administración entra sólo a Precios (no al catálogo completo de Materiales).
   const puedeVerPrecios = esGestion || esCompras || esAdministracion;
   const comprasLabel = esCompras || realAdmin ? "Gestión de Compras" : "Pedidos";
@@ -583,6 +590,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("panol-consulta")}
             {group("Consultar", SC.movimientos, 120)}
             {item("/stock-panol?tab=maestro", "Stock maestro", SC.movimientos, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
+            {item("/catalogo-maestro", "Catálogo maestro", SC.movimientos, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
             {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.movimientos, true, 140, "Plano de estanterías y productos ubicados.")}
             {item("/stock-panol?tab=movimientos", "Movimientos", SC.movimientos, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
             {item("/compras", "Pedidos a compras", SC.compras, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
@@ -640,10 +648,11 @@ export default function Sidebar({ profile, signOut }) {
             {item("/stock-panol", "Stock", SC.panol_catalogo, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
           </>}
 
-          {puedeVerMateriales && <>
+          {puedeVerCatalogo && !esPanol && <>
             {divider("panol-cat")}
-            {group("Pañol · Catálogo", SC.panol_catalogo, 218)}
-            {item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Carga y curación del catálogo de materiales por sector y modelo.")}
+            {group("Catálogo", SC.panol_catalogo, 218)}
+            {item("/catalogo-maestro", "Catálogo maestro", SC.panol_catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
+            {puedeVerMateriales && item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
           </>}
 
           {puedeVerPrecios && <>

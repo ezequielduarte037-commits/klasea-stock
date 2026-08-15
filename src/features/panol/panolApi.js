@@ -828,6 +828,34 @@ export async function fetchPanolCatalogFull({ force = false, includeAdditionalBa
 }
 
 // Llamar tras crear/editar un material para que el próximo fetch traiga los cambios.
+// Lectura puntual para la ficha del Catálogo Maestro. Mantenerla separada del
+// catálogo evita bajar e hidratar todo el ledger sólo para mostrar el impacto de
+// un producto. No calcula ni modifica stock: devuelve los movimientos vinculados
+// para presentar un saldo de solo lectura y una vista previa de impacto.
+export async function fetchPanolCatalogMaterialImpact(materialId) {
+  if (!materialId) return [];
+  const select = "id,obra_id,material_id,requisito_material_id,estado,recepcion_estado,cantidad,cantidad_egresada,source,stock_sede,updated_at,created_at";
+  let { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .select(select)
+    .or(`material_id.eq.${materialId},requisito_material_id.eq.${materialId}`)
+    .order("updated_at", { ascending: false })
+    .limit(5000);
+
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id,obra_id,material_id,estado,recepcion_estado,cantidad,cantidad_egresada,source,stock_sede,updated_at,created_at")
+      .eq("material_id", materialId)
+      .order("updated_at", { ascending: false })
+      .limit(5000);
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return data ?? [];
+}
+
 export function invalidatePanolCatalogFullCache() {
   _panolCatalogFullCache = null;
   _panolCatalogLiteCache = null;
