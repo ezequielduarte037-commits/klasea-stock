@@ -500,7 +500,10 @@ function rowCountsAsStock(row) {
 
 function rowIsTransit(row) {
   if (rowIsLocationChange(row)) return false;
-  return IN_STOCK_STATES.has(row.estado) && !rowCountsAsStock(row);
+  return row.reliable_transit === true
+    && rowSource(row) === "panol_envio_pendiente"
+    && IN_STOCK_STATES.has(row.estado)
+    && !rowCountsAsStock(row);
 }
 
 function rowDelta(row) {
@@ -975,6 +978,33 @@ function stockLevel(group) {
     return { key: "alerta", label: "Bajo", color: C.violet, bg: C.violetL, border: C.violetB, minimum, configured: true, faltante: Math.max(0, minimum - current) };
   }
   return { key: "ok", label: "OK", color: C.green, bg: C.greenL, border: C.greenB, minimum, configured: true, faltante: 0 };
+}
+
+const REPLENISHMENT_RECENT_MONTHS = 6;
+
+function groupOperationalBuckets(group) {
+  const buckets = new Set();
+  const current = qty(group?.total, 0);
+  const minimum = group?.stockMinimo == null || group.stockMinimo === "" ? null : Math.max(0, qty(group.stockMinimo, 0));
+  const recentCutoff = new Date();
+  recentCutoff.setMonth(recentCutoff.getMonth() - REPLENISHMENT_RECENT_MONTHS);
+  const recentlyMoved = !!group?.updatedAt && new Date(group.updatedAt) >= recentCutoff;
+  const hasExistence = current > 0.0001;
+  const atConfiguredMinimum = current >= -0.0001 && minimum != null && minimum > 0 && current <= minimum + 0.0001;
+  const recentlyDepleted = current >= -0.0001 && current <= 0.0001 && recentlyMoved;
+  const needsReplenishment = atConfiguredMinimum || recentlyDepleted;
+  const needsConcreteProduct = group?.esRequisito === true && (group.rows || []).some((row) => (
+    rowCountsAsStock(row)
+    && !row.opcion_material_id
+    && (!row.requisito_material_id || row.material_id === row.requisito_material_id)
+  ));
+
+  if (hasExistence) buckets.add("existencia");
+  if (needsReplenishment) buckets.add("reponer");
+  if (group?.inTransit) buckets.add("en_camino");
+  if (!group?.ubicacion && (hasExistence || needsReplenishment || group?.inTransit)) buckets.add("sin_ubicacion");
+  if (group?.negativo || needsConcreteProduct) buckets.add("reconciliar");
+  return { buckets, needsConcreteProduct, recentlyMoved, needsReplenishment };
 }
 
 function StockLevelChip({ group, compact = false, hideUnset = false }) {
@@ -3813,10 +3843,12 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
+  const [transitRows, setTransitRows] = useState(() => Array.isArray(sharedTransitRows) ? sharedTransitRows : []);
+  const [replenishmentCatalog, setReplenishmentCatalog] = useState(() => Array.isArray(sharedReplenishmentCatalog) ? sharedReplenishmentCatalog : []);
   const [obras, setObras] = useState(() => Array.isArray(sharedObras) ? sharedObras : []);
   const [loading, setLoading] = useState(() => sharedLoading || !Array.isArray(sharedRows));
   const [q, setQ] = useState(initialQuery || "");
@@ -3826,9 +3858,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fObra, setFObra] = useState(initialFObra);
   const [fCategoria, setFCategoria] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
-  const [scope, setScope] = useState(initialScope);
+  const [scope, setScope] = useState(stockMaster && initialScope === "todos" ? "existencia" : initialScope);
   const [verifScope, setVerifScope] = useState("todos");
-  const [orderBy, setOrderBy] = useState(showCatalogInventory ? "estado" : "default");
+  const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
   const [stockView, setStockView] = useState(() => readStoredStockView());
   const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
@@ -3836,6 +3868,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [catalogMatches, setCatalogMatches] = useState([]);
   const [creating, setCreating] = useState(false);
   const [draftGroup, setDraftGroup] = useState(null);
+  const stockManagement = stockMaster || showCatalogInventory;
   // Carrito PERSISTENTE (localStorage): si estás egresando y surge otra cosa,
   // el carrito queda guardado y te espera — sobrevive recargas y cambios de pantalla.
   // Se limpia solo al confirmar el movimiento o al tocar "Vaciar".
@@ -3951,29 +3984,38 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     try {
       const sede = sedeLocked || (fSede !== "todas" ? fSede : null);
       const useSharedSnapshot = !force && Array.isArray(sharedRows) && Array.isArray(sharedObras);
-      const [stockRows, obraRows, catalog] = await Promise.all([
+      const [stockRows, obraRows, catalog, pendingRows, replenishRows] = await Promise.all([
         useSharedSnapshot ? Promise.resolve(sharedRows) : fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
         useSharedSnapshot ? Promise.resolve(sharedObras) : fetchObrasEgreso().catch(() => []),
         // El maestro sólo muestra el código principal. Los códigos alternativos
         // siguen cargándose en recepción/escaneo, donde sí son necesarios.
         showCatalogInventory ? fetchPanolCatalogFull({ includeAdditionalBarcodes: false }).catch(() => []) : Promise.resolve([]),
+        Array.isArray(sharedTransitRows) ? Promise.resolve(sharedTransitRows) : Promise.resolve([]),
+        Array.isArray(sharedReplenishmentCatalog) ? Promise.resolve(sharedReplenishmentCatalog) : Promise.resolve([]),
       ]);
       setRows(stockRows);
       setObras(obraRows);
       setCatalogRows(catalog);
+      setTransitRows(pendingRows);
+      setReplenishmentCatalog(replenishRows);
       hasLoadedRef.current = true;
     } catch (error) {
       toast.error(error.message || "No se pudo cargar el stock.");
     } finally {
       setLoading(false);
     }
-  }, [fSede, sedeLocked, sharedLoading, sharedObras, sharedRows, showCatalogInventory, toast]);
+  }, [fSede, sedeLocked, sharedLoading, sharedObras, sharedReplenishmentCatalog, sharedRows, sharedTransitRows, showCatalogInventory, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  const inventoryRows = useMemo(
+    () => stockMaster ? [...rows, ...transitRows] : rows,
+    [rows, stockMaster, transitRows],
+  );
+
   const baseFilteredRows = useMemo(() => {
     const term = norm(q);
-    let filtered = rows;
+    let filtered = inventoryRows;
     if (focusedMaterialId) {
       filtered = filtered.filter((row) => row.material_id === focusedMaterialId || row.requisito_material_id === focusedMaterialId);
     }
@@ -3983,10 +4025,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         notas: [row.notas, row.stock_nota, row.egreso_nota, row.sector_destino].filter(Boolean).join(" "),
       }, q) >= 42 || rowSearchText(row).includes(term));
     }
+    if (fSede !== "todas") filtered = filtered.filter((row) => norm(rowSede(row)) === norm(fSede));
     if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
     if (fCategoria !== "todos") filtered = filtered.filter((row) => categoryLabel(row) === fCategoria);
     return filtered;
-  }, [rows, q, fObra, fCategoria, focusedMaterialId]);
+  }, [inventoryRows, q, fObra, fCategoria, fSede, focusedMaterialId]);
 
   const kindCounts = useMemo(() => {
     const groups = buildProductGroups(baseFilteredRows, fObra);
@@ -4018,7 +4061,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     return [["todas", "Todas"], ...[...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es", { numeric: true }))];
   }, [obras, rows]);
 
-  const categoriaOptions = useMemo(() => filterOptions(rows, categoryLabel), [rows]);
+  const categoriaOptions = useMemo(() => filterOptions(inventoryRows, categoryLabel), [inventoryRows]);
   const scanRows = useMemo(() => {
     let filtered = rows;
     if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
@@ -4032,6 +4075,25 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   const productGroupsBase = useMemo(() => {
     const stockGroups = buildProductGroups(searchedRows, fObra);
+    if (stockMaster) {
+      const stockedIds = new Set(stockGroups.map((group) => group.material?.id).filter(Boolean));
+      const term = norm(q);
+      const policyOnly = (fObra === "todas" && ["todos", "stock"].includes(kindScope) ? replenishmentCatalog : [])
+        .filter((material) => !stockedIds.has(material.id))
+        .filter((material) => !focusedMaterialId || material.id === focusedMaterialId)
+        .filter((material) => !term || materialMatchScore(material, q) >= 42)
+        .filter(() => fCategoria === "todos")
+        .map((material) => {
+          const group = emptyCatalogGroup(material, sedeLocked || (fSede !== "todas" ? fSede : "Pampa"));
+          group.catalogOnly = false;
+          group.replenishmentOnly = true;
+          group.tipoPedido = "stock";
+          return group;
+        });
+      return [...stockGroups, ...policyOnly]
+        .map((group) => ({ ...group, ...groupOperationalBuckets(group) }))
+        .filter((group) => group.buckets.size > 0);
+    }
     if (!showCatalogInventory || fObra !== "todas" || !["todos", "stock"].includes(kindScope)) return stockGroups;
     const stockedIds = new Set(stockGroups.map((group) => group.material?.id).filter(Boolean));
     const term = norm(q);
@@ -4052,7 +4114,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       })
       .filter((group) => fCategoria === "todos" || group.categorias.has(fCategoria));
     return [...stockGroups, ...catalogOnly];
-  }, [catalogRows, fCategoria, fObra, fSede, kindScope, q, rows, searchedRows, sedeLocked, showCatalogInventory]);
+  }, [catalogRows, fCategoria, fObra, fSede, focusedMaterialId, kindScope, q, replenishmentCatalog, rows, searchedRows, sedeLocked, showCatalogInventory, stockMaster]);
   const stockLevelCounts = useMemo(() => {
     const counts = { critico: 0, alerta: 0, ok: 0, sin_minimo: 0 };
     productGroupsBase.forEach((group) => { counts[stockLevel(group).key] += 1; });
@@ -4079,9 +4141,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       const estado = group.verificacion === "ok" || group.verificacion === "problema" ? group.verificacion : "pendiente";
       return estado === verifScope;
     });
+    if (stockMaster && ["existencia", "reponer", "en_camino", "sin_ubicacion", "reconciliar"].includes(scope)) {
+      return sortProductGroups(base.filter((group) => group.buckets?.has(scope)), orderBy);
+    }
     if (scope === "sin_ubicacion") return sortProductGroups(base.filter((group) => !group.ubicacion), orderBy);
     if (scope === "negativos") {
-      const negatives = base.filter((group) => group.negativo);
+      const negatives = base.filter((group) => group.negativo || (stockMaster && group.needsConcreteProduct));
       if (draftGroup && selectedKey === draftGroup.key && !negatives.some((group) => group.key === draftGroup.key)) {
         return [draftGroup, ...sortProductGroups(negatives, orderBy)];
       }
@@ -4091,7 +4156,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return sortProductGroups(base.filter((group) => stockLevel(group).key === scope), orderBy);
     }
     return sortProductGroups(base, orderBy);
-  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, verifScope]);
+  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, verifScope]);
 
   // Renderizar cientos de tarjetas a la vez bloqueaba el hilo principal varios
   // segundos. Los cálculos y contadores siguen usando el conjunto completo;
@@ -4141,7 +4206,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   useEffect(() => {
     let alive = true;
     const term = q.trim();
-    if (term.length < 2) {
+    if (stockMaster || term.length < 2) {
       setCatalogMatches([]);
       return undefined;
     }
@@ -4159,9 +4224,22 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       alive = false;
       clearTimeout(timer);
     };
-  }, [q, productGroupsBase]);
+  }, [q, productGroupsBase, stockMaster]);
 
   const kpis = useMemo(() => {
+    if (stockMaster) {
+      const count = (bucket) => productGroupsBase.filter((group) => group.buckets?.has(bucket)).length;
+      return {
+        productos: count("existencia"),
+        unidades: fmtQty(productGroupsBase.reduce((sum, group) => sum + Math.max(0, group.total || 0), 0)),
+        negativos: count("reconciliar"),
+        sinUbicacion: count("sin_ubicacion"),
+        transito: fmtQty(productGroupsBase.filter((group) => group.buckets?.has("en_camino")).reduce((sum, group) => sum + group.transitQty, 0)),
+        reponer: count("reponer"),
+        valorUsd: fmtQty(productGroupsBase.reduce((sum, group) => sum + Math.max(0, group.valueUsd || 0), 0)),
+        hoy: 0,
+      };
+    }
     const allGroups = buildProductGroups(rows, fObra);
     const totalUnits = allGroups.reduce((sum, group) => sum + group.total, 0);
     const negativos = allGroups.filter((group) => group.negativo).length;
@@ -4178,7 +4256,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       valorUsd: fmtQty(valorUsd),
       hoy: today,
     };
-  }, [rows, fObra]);
+  }, [fObra, productGroupsBase, rows, stockMaster]);
 
   async function createFromSearch() {
     const desc = q.trim();
@@ -4329,7 +4407,14 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", minWidth: 0 }}>
-          <SelectFilter label="Estado" value={scope} onChange={setScope} options={[
+          <SelectFilter label="Estado" value={scope} onChange={setScope} options={stockMaster ? [
+            ["existencia", `Hay (${kpis.productos})`],
+            ["reponer", `Reponer (${kpis.reponer || 0})`],
+            ["en_camino", `En camino (${productGroupsBase.filter((group) => group.buckets?.has("en_camino")).length})`],
+            ["sin_ubicacion", `Sin ubicación (${kpis.sinUbicacion})`],
+            ["reconciliar", `A reconciliar (${kpis.negativos})`],
+            ["todos", `Todo operativo (${productGroupsBase.length})`],
+          ] : [
             ["todos", "Todos"],
             ...(showCatalogInventory ? [
               ["critico", `Críticos (${stockLevelCounts.critico})`],
@@ -4340,7 +4425,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ["negativos", "A reconciliar"],
             ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
           ]} />
-          {showCatalogInventory && (
+          {stockManagement && (
             <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
               ["todos", `Todos (${verifCounts.todos})`],
               ["pendiente", `Sin revisar (${verifCounts.pendiente})`],
@@ -4350,7 +4435,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ]} />
           )}
           <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
-            ...(showCatalogInventory ? [["estado", "Estado de stock"], ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
+            ...(stockManagement ? [["estado", "Estado de stock"], ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
             ["default", "Stock primero"],
             ["recientes", "Más recientes"],
           ]} />
@@ -4366,7 +4451,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         {/* Una sola franja para todo lo que es "estado del maestro": nivel de
             stock a la izquierda, avance de la revisión a la derecha. Eran dos
             bandas apiladas y entre las dos se comían una fila de tarjetas. */}
-        {showCatalogInventory && (
+        {stockManagement && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 6 }}>
             {[
               ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],
@@ -4438,10 +4523,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
               <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : "Stock maestro"}</div>
               <div style={{ color: C.dim, fontSize: 11 }}>
-                {productGroups.length} resultados{hiddenProductCount ? ` · mostrando ${renderedProductGroups.length}` : ""} · {showCatalogInventory && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
+                {productGroups.length} resultados{hiddenProductCount ? ` · mostrando ${renderedProductGroups.length}` : ""} · {stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
               </div>
             </div>
-            {showCatalogInventory && (
+            {stockManagement && (
               <div style={{ display: "inline-flex", gap: 3, padding: 3, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel }}>
                 <button type="button" onClick={() => setStockView("lista")} title="Ver como lista" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "lista" ? C.blueB : "transparent"}`, background: stockView === "lista" ? C.blueL : "transparent", color: stockView === "lista" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
                   <List size={13} /> {!isMobile && "Lista"}
@@ -4452,8 +4537,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               </div>
             )}
           </div>
-          <div style={{ padding: showCatalogInventory && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!showCatalogInventory || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: showCatalogInventory && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: showCatalogInventory && stockView === "lista" ? "auto" : "hidden" }}>
-            {showCatalogInventory && stockView === "lista" && !loading && productGroups.length > 0 && (
+          <div style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
+            {stockManagement && stockView === "lista" && !loading && productGroups.length > 0 && (
               <div style={{ minWidth: STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: STOCK_ROW_COLS, gap: 12, padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
                 <span />
                 <span>Producto</span>
@@ -4480,7 +4565,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ) : productGroups.length ? (
               <>
                 {renderedProductGroups.map((group) => (
-                  showCatalogInventory && stockView === "lista"
+                  stockManagement && stockView === "lista"
                     ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} />
                     : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />
                 ))}
@@ -4490,11 +4575,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                     onClick={() => setRenderLimit((current) => current + PRODUCT_RENDER_BATCH)}
                     style={{
                       gridColumn: "1 / -1",
-                      minWidth: showCatalogInventory && stockView === "lista" ? STOCK_ROW_MIN : 0,
+                      minWidth: stockManagement && stockView === "lista" ? STOCK_ROW_MIN : 0,
                       border: `1px solid ${C.blueB}`,
                       background: C.blueL,
                       color: C.blue,
-                      borderRadius: showCatalogInventory && stockView === "lista" ? 0 : 10,
+                      borderRadius: stockManagement && stockView === "lista" ? 0 : 10,
                       padding: "10px 14px",
                       cursor: "pointer",
                       fontSize: 12,
@@ -4511,12 +4596,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 <Warehouse size={26} style={{ color: C.dim, opacity: 0.7 }} />
                 <div style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>No hay stock para estos filtros</div>
                 <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, maxWidth: 250 }}>
-                  {q.trim() ? "Probá con menos palabras, o buscalo abajo en el catálogo completo." : "Cambiá los filtros de tipo, obra o categoría para ver más productos."}
+                  {q.trim() ? (stockMaster ? "Probá con menos palabras o abrí el Catálogo maestro desde el menú." : "Probá con menos palabras, o buscalo abajo en el catálogo completo.") : "Cambiá los filtros de tipo, obra o categoría para ver más productos."}
                 </div>
               </div>
             )}
 
-            {q.trim().length >= 2 && (
+            {!stockMaster && q.trim().length >= 2 && (
               <div style={{ border: `1px dashed ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: 10, display: "grid", gap: 7 }}>
                 <div>
                   <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900 }}>Catalogo completo</div>

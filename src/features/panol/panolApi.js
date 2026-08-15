@@ -856,6 +856,82 @@ export async function fetchPanolCatalogMaterialImpact(materialId) {
   return data ?? [];
 }
 
+// "En camino" sólo existe cuando hay un aviso de Pañol verificable: envío en
+// estado enviado/parcial + ítem pendiente. No se infiere desde textos ni desde
+// estados ambiguos del snapshot.
+export async function fetchPanolInTransitInventory() {
+  const { data, error } = await supabase
+    .from("panol_envio_items")
+    .select("id,envio_id,material_id,requisito_material_id,descripcion,codigo,cantidad,cantidad_recibida,unidad,estado,updated_at,created_at,envio:panol_envios!inner(id,obra_id,sede,destino,estado,created_at)")
+    .eq("estado", "pendiente")
+    .in("envio.estado", ["enviado", "parcial"])
+    .limit(1000);
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
+  }
+  const items = (data ?? []).filter((item) => numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0) > 0.0001);
+  const materialIds = [...new Set(items.flatMap((item) => [item.material_id, item.requisito_material_id]).filter(Boolean))];
+  const materialById = new Map();
+  for (let from = 0; from < materialIds.length; from += 300) {
+    const { data: materials, error: materialsError } = await supabase
+      .from("panol_materiales")
+      .select("id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,stock_minimo,ubicacion,ubicacion_obs,imagen_url,notas,es_requisito")
+      .in("id", materialIds.slice(from, from + 300));
+    if (materialsError) throw materialsError;
+    (materials ?? []).forEach((material) => materialById.set(material.id, material));
+  }
+  return items.map((item) => {
+    const material = materialById.get(item.material_id) || materialById.get(item.requisito_material_id) || null;
+    const remaining = numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0);
+    return {
+      id: `transit:${item.id}`,
+      material_id: item.material_id || item.requisito_material_id || null,
+      requisito_material_id: item.requisito_material_id || null,
+      descripcion: material?.descripcion || item.descripcion || "Material por recibir",
+      codigo: material?.codigo || item.codigo || "",
+      codigo_barra: material?.codigo_barra || "",
+      cantidad: remaining,
+      cantidad_egresada: 0,
+      unidad: material?.unidad_medida || item.unidad || "unidad",
+      proveedor: material?.proveedor || "",
+      categoria_id: material?.categoria_id || null,
+      stock_minimo: material?.stock_minimo ?? null,
+      ubicacion: material?.ubicacion || null,
+      ubicacion_obs: material?.ubicacion_obs || null,
+      imagen_url: material?.imagen_url || null,
+      notas: material?.notas || null,
+      es_requisito: material?.es_requisito === true,
+      obra_id: item.envio?.obra_id || null,
+      stock_sede: item.envio?.sede || null,
+      panol_envio: item.envio || null,
+      estado: "en_panol",
+      recepcion_estado: "pendiente",
+      source: "panol_envio_pendiente",
+      reliable_transit: true,
+      updated_at: item.updated_at || item.created_at || item.envio?.created_at || null,
+      created_at: item.created_at || item.envio?.created_at || null,
+    };
+  });
+}
+
+// Sólo fichas con política de reposición. Esto evita volver a descargar el
+// catálogo completo dentro del stock maestro.
+export async function fetchPanolReplenishmentCatalog() {
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,stock_minimo,ubicacion,ubicacion_obs,imagen_url,notas,activo")
+    .eq("activo", true)
+    .not("stock_minimo", "is", null)
+    .order("descripcion")
+    .limit(5000);
+  if (error) {
+    if (isMissingColumn(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((material) => ({ ...material, unidad: material.unidad_medida || "unidad" }));
+}
+
 export function invalidatePanolCatalogFullCache() {
   _panolCatalogFullCache = null;
   _panolCatalogLiteCache = null;

@@ -9,7 +9,7 @@ import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
-import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations, registrarDevolucion } from "@/features/panol/panolApi";
+import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolMaterialCreations, fetchPanolReplenishmentCatalog, registrarDevolucion } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -937,20 +937,26 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const [rows, setRows] = useState([]);
   const [obras, setObras] = useState([]);
   const [materialCreations, setMaterialCreations] = useState([]);
+  const [transitRows, setTransitRows] = useState([]);
+  const [replenishmentCatalog, setReplenishmentCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
       const sede = sedeLocked || null;
-      const [stockRows, obraRows, creationRows] = await Promise.all([
+      const [stockRows, obraRows, creationRows, transitInventory, replenishmentRows] = await Promise.all([
         fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
         fetchObrasEgreso().catch(() => []),
         fetchPanolMaterialCreations().catch(() => []),
+        fetchPanolInTransitInventory().catch(() => []),
+        fetchPanolReplenishmentCatalog().catch(() => []),
       ]);
       setRows(stockRows);
       setObras(obraRows);
       setMaterialCreations(creationRows);
+      setTransitRows(transitInventory);
+      setReplenishmentCatalog(replenishmentRows);
     } catch (e) {
       toast.error(e.message || "No se pudo cargar el stock.");
     } finally {
@@ -1076,6 +1082,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     canSeePrices,
     sharedRows: rows,
     sharedObras: obras,
+    sharedTransitRows: transitRows,
+    sharedReplenishmentCatalog: replenishmentCatalog,
     sharedLoading: loading,
     onOpenCatalog: (materialId) => {
       if (materialId) nav(`/catalogo-maestro?material=${materialId}`);
@@ -1322,6 +1330,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               <StockWmsPanel
                 key={`maestro-${requestedMaterialId || "todos"}`}
                 {...wmsProps}
+                stockMaster
                 initialQuery={requestedQuery}
                 initialMaterialId={requestedMaterialId}
               />
