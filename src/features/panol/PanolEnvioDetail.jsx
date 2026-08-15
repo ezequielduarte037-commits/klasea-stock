@@ -32,7 +32,6 @@ import { applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
-const ACCIONES = ["recibido", "parcial"];
 const RECEP_ESTADOS = ["pendiente", "recibido", "parcial"];
 const EMPTY_ITEMS = [];
 
@@ -443,7 +442,7 @@ function SideLabel({ label, value }) {
   );
 }
 
-export default function PanolEnvioDetail({ envioId, profile, canReceive, isManager, onBack }) {
+export default function PanolEnvioDetail({ envioId, initialMaterialId = "", initialItemId = "", profile, canReceive, isManager, onBack }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const canSeePrices = !!profile?.is_admin || profile?.role === "admin";
@@ -465,6 +464,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const [scannerOpen, setScannerOpen] = useState(false);
   const [estanterias, setEstanterias] = useState([]);
   const [itemLocations, setItemLocations] = useState({});
+  const initialFocusHandled = useRef("");
 
   const focusScanInput = useCallback(() => {
     setTimeout(() => scanInputRef.current?.focus(), 60);
@@ -531,6 +531,22 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const selectedVisible = useMemo(() => visibleIds.filter((id) => sel.has(id)).length, [visibleIds, sel]);
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
   const scanReadyCount = useMemo(() => items.filter((item) => barcodesOfItem(item).length).length, [items]);
+
+  useEffect(() => {
+    if (!items.length || (!initialItemId && !initialMaterialId)) return;
+    const focusKey = `${envioId}:${initialItemId}:${initialMaterialId}`;
+    if (initialFocusHandled.current === focusKey) return;
+    const target = items.find((item) => item.id === initialItemId)
+      || items.find((item) => getItemMaterialId(item) === initialMaterialId || item.requisito_material_id === initialMaterialId);
+    if (!target) return;
+    initialFocusHandled.current = focusKey;
+    setItemEstado("todos");
+    setItemQ("");
+    setSel(new Set([target.id]));
+    window.requestAnimationFrame(() => {
+      document.getElementById(`panol-envio-item-${target.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }, [envioId, initialItemId, initialMaterialId, items]);
 
   function updateItemLocation(itemId, patch) {
     setItemLocations((prev) => ({
@@ -962,9 +978,12 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
             <ClipboardCheck size={15} />
             {sel.size} seleccionado{sel.size === 1 ? "" : "s"}
           </span>
-          {ACCIONES.map((estado) => (
-            <ActionButton key={estado} estado={estado} disabled={saving} onClick={() => (estado === "parcial" ? pedirParcial(bulkIds) : aplicar(estado, bulkIds))} />
-          ))}
+          <ActionButton estado="recibido" disabled={saving} onClick={() => aplicar("recibido", bulkIds)}>
+            Confirmar ingreso ({bulkIds.length})
+          </ActionButton>
+          <ActionButton estado="parcial" disabled={saving} onClick={() => pedirParcial(bulkIds)}>
+            Ingreso parcial
+          </ActionButton>
           <button
             type="button"
             onClick={() => setSel(new Set())}
@@ -1372,7 +1391,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
   return (
-    <div style={{
+    <div id={`panol-envio-item-${item.id}`} style={{
       display: "grid",
       gridTemplateColumns: canEdit
         ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px"
@@ -1524,7 +1543,7 @@ function MobileItemCard({ item, location, estanterias, selected, flash, canEdit,
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
   return (
-    <div style={{
+    <div id={`panol-envio-item-${item.id}`} style={{
       border: `1px solid ${flash ? C.greenB : selected ? C.blueB : C.border}`,
       borderLeft: `4px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
       borderRadius: 12,

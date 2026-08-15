@@ -2114,6 +2114,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") || "";
   const requestedEnvio = searchParams.get("envio") || "";
+  const requestedMaterial = searchParams.get("material") || "";
+  const requestedItem = searchParams.get("item") || "";
 
 
   const role = profile?.role;
@@ -2141,6 +2143,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", value);
     nextParams.delete("envio");
+    nextParams.delete("material");
+    nextParams.delete("item");
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams]);
   const [modalPrefill, setModalPrefill] = useState(null);
@@ -2226,6 +2230,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
     return shell(
       <PanolEnvioDetail
         envioId={sel}
+        initialMaterialId={requestedMaterial}
+        initialItemId={requestedItem}
         profile={profile}
         canReceive={canReceive}
         isManager={isManager}
@@ -2233,6 +2239,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           setSel(null);
           const nextParams = new URLSearchParams(searchParams);
           nextParams.delete("envio");
+          nextParams.delete("material");
+          nextParams.delete("item");
           setSearchParams(nextParams, { replace: true });
           cargar();
         }}

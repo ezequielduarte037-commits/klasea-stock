@@ -1058,7 +1058,15 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     sharedTransitRows: transitRows,
     sharedReplenishmentCatalog: replenishmentCatalog,
     sharedLoading: loading,
-    onReceiveStock: () => nav("/recepcion-panol?tab=recepcion"),
+    onReceiveStock: (group) => {
+      const transitRow = (group?.rows || []).find((row) => rowIsTransit(row));
+      const params = new URLSearchParams({ tab: "recepcion" });
+      if (transitRow?.panol_envio_id) params.set("envio", transitRow.panol_envio_id);
+      const materialId = transitRow?.material_id || transitRow?.requisito_material_id || group?.material?.id;
+      if (materialId) params.set("material", materialId);
+      if (transitRow?.panol_envio_item_id) params.set("item", transitRow.panol_envio_item_id);
+      nav(`/recepcion-panol?${params.toString()}`);
+    },
     onRequestReplenishment: (group) => {
       const materialId = group?.material?.id || group?.material_id || "";
       const params = new URLSearchParams();
