@@ -1765,8 +1765,11 @@ export async function egresarProductosCarrito({
     es_adicional: !!item.esAdicional,
     variante: String(item.variante || "").trim() || null,
   }));
-  if (payload.some((item) => !item.material_id || !Number.isFinite(item.cantidad) || item.cantidad <= 0)) {
-    throw new Error("Hay un renglón del carrito incompleto o con cantidad inválida.");
+  // La cantidad siempre tiene que ser un número: sin eso no hay egreso posible.
+  const sinCantidad = payload.findIndex((item) => !Number.isFinite(item.cantidad) || item.cantidad <= 0);
+  if (sinCantidad >= 0) {
+    const nombre = payload[sinCantidad].descripcion || "Un renglón del carrito";
+    throw new Error(`${nombre}: la cantidad no es válida.`);
   }
   const snapshotPlans = items.map((item, index) => (
     item.esRequisito || item.productoMaterialId
@@ -1790,6 +1793,21 @@ export async function egresarProductosCarrito({
       });
       return { cantidad: count, snapshot_ids: ids };
     }
+  }
+  // Recién acá hace falta el producto del catálogo: la RPC egresa por material,
+  // no por fila. El camino de arriba egresa por id de fila y no lo necesita —
+  // por eso la exigencia va después de haberlo intentado y no antes.
+  //
+  // El caso real: material asignado a una obra por transferencia, con la fila
+  // sin vincular al catálogo. Estaba fisicamente ahí y disponible, pero el
+  // carrito lo rechazaba con "renglón incompleto" sin decir cuál ni por qué.
+  const sinMaterial = payload.findIndex((item) => !item.material_id);
+  if (sinMaterial >= 0) {
+    const nombre = payload[sinMaterial].descripcion || "Un renglón del carrito";
+    throw new Error(
+      `${nombre} no está vinculado a un producto del catálogo y no se pudo egresar por su movimiento. ` +
+      "Abrí el producto y asignale uno concreto, o egresalo desde la ficha.",
+    );
   }
   const { data, error } = await supabase.rpc("panol_egresar_carrito", {
     p_items: payload,
