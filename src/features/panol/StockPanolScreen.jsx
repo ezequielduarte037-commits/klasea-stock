@@ -400,6 +400,15 @@ const MOV_SALIDA = new Set(["egreso", "solicitud", "asignacion_egreso", "reasign
 function rowMovementKind(row) {
   const src = rowSource(row);
   const label = String(row.tipo_label || "").toLowerCase();
+  // Mover algo a la obra donde ya estaba no es una reasignación: es un egreso
+  // comun. Aparecia como "REASIGNACION 52-23 -> 52-23", un movimiento que no
+  // mueve nada de lugar y que no habia forma de entender leyendolo.
+  // Se evalua acá y no sólo al guardar para que los ya registrados tambien se
+  // lean bien.
+  const destinoRedundante = row.egreso_destino_obra_id
+    && row.obra_id
+    && row.egreso_destino_obra_id === row.obra_id;
+  if (destinoRedundante) return "egreso";
   if (src === "solicitud_consumible_retiro") return "consumible";
   if (src === "egreso_solicitud") return "solicitud";
   if (rowIsAsignacionStock(row)) return row.obra_origen_id ? "reasignacion" : "asignacion";

@@ -1704,6 +1704,9 @@ export async function egresarProducto({
   const desc = String(descripcion || material?.descripcion || "").trim();
   if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  // Mandarlo a la obra donde ya estaba no es una reasignación: sin destino, se
+  // registra como el egreso comun que realmente es.
+  const destinoDistinto = destinoObraId && destinoObraId !== obraId ? destinoObraId : null;
   const base = {
     p_material_id: material?.id || null,
     p_descripcion: desc || null,
@@ -1712,7 +1715,7 @@ export async function egresarProducto({
     p_unidad: unidad || material?.unidad || material?.unidad_medida || "unidad",
     p_sede: sede || null,
     p_obra_id: obraId || null,
-    p_destino_obra_id: destinoObraId || null,
+    p_destino_obra_id: destinoDistinto,
     p_nota: String(nota || "").trim() || null,
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_sector_destino: String(sectorDestino || "").trim() || null,
@@ -1771,6 +1774,12 @@ export async function egresarProductosCarrito({
     const nombre = payload[sinCantidad].descripcion || "Un renglón del carrito";
     throw new Error(`${nombre}: la cantidad no es válida.`);
   }
+  // Si todo lo que sale ya pertenece a la obra de destino, el destino sobra:
+  // se registra como egreso a secas y no como reasignacion a si misma.
+  const destinoEsRedundante = destinoObraId
+    && items.length > 0
+    && items.every((item) => item.obraId && item.obraId === destinoObraId);
+  const destinoReal = destinoEsRedundante ? null : destinoObraId;
   const snapshotPlans = items.map((item, index) => (
     item.esRequisito || item.productoMaterialId
       ? null
@@ -1788,7 +1797,7 @@ export async function egresarProductosCarrito({
         nota,
         retiradoPor,
         sectorDestino,
-        destinoObraId,
+        destinoObraId: destinoReal,
         cantidades,
       });
       return { cantidad: count, snapshot_ids: ids };
@@ -1811,7 +1820,7 @@ export async function egresarProductosCarrito({
   }
   const { data, error } = await supabase.rpc("panol_egresar_carrito", {
     p_items: payload,
-    p_destino_obra_id: destinoObraId || null,
+    p_destino_obra_id: destinoReal || null,
     p_nota: String(nota || "").trim() || null,
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_sector_destino: String(sectorDestino || "").trim() || null,
