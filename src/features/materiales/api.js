@@ -1242,7 +1242,10 @@ function estadoListadoObra(row) {
     row?.estado ||
     "pendiente";
   if (estado === "egresado") return "egresado";
-  if (estado === "pedido" || estado === "comprado") return "comprado";
+  // "pedido" (enviado a compras) y "comprado" son estados distintos: juntarlos
+  // hacía que un item recien mandado a comprar figurara como ya comprado.
+  if (estado === "pedido") return "pedido";
+  if (estado === "comprado") return "comprado";
   if (
     [
       "en_panol",
@@ -2390,7 +2393,7 @@ export async function deleteMaterialImage(imageId, url) {
       const path = urlParts[1];
       await supabase.storage.from(BUCKET_MATERIALES).remove([path]);
     }
-  } catch (e) {
+  } catch {
     // Ignorar si falla storage
   }
   const { error } = await supabase

@@ -1127,6 +1127,11 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, minWidth: 0 }}>
           <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
+          {/* Misma marca que en la vista de lista: un requisito no es una
+              pieza que se pueda ir a buscar al estante. */}
+          {group.esRequisito && (
+            <span title="Requisito de matriz: es generico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
+          )}
           <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 950, flexShrink: 0 }}>
             {fmtQty(group.total)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 800, marginLeft: 3 }}>{group.unidad || "u"}</span>
           </span>
@@ -1357,6 +1362,18 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
             {group.label}
           </span>
           <StockLevelChip group={group} compact hideUnset />
+          {/* Un requisito de matriz y un producto concreto se ven casi iguales
+              en la lista —mismo nombre, mismo codigo— y el de arriba no es algo
+              que se pueda agarrar del estante. Sin esta marca, el del galpon no
+              tiene como distinguirlos. */}
+          {group.esRequisito && (
+            <span
+              title="Requisito de matriz: es generico, no un producto concreto. El stock real vive en los productos que lo resuelven."
+              style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}
+            >
+              MATRIZ
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
           <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>{group.codigo || "sin código"}</span>

@@ -4270,11 +4270,15 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       .filter((row) => {
         if (estadoFilter === "todos") return true;
         const estado = estadoObraForRow(row);
-        // "Falta entregar" no es un estado guardado: es todo lo que ya se
-        // compró o ya está en pañol pero la obra todavía no recibió. La
-        // distinción con "falta comprar" es la que evita comprar dos veces lo
-        // mismo: una se compra, la otra se va a buscar.
-        if (estadoFilter === "falta_entregar") return estado === "comprado" || estado === "en_panol";
+        // Tres cosas distintas que antes eran una sola:
+        //   · falta comprar  → nadie hizo nada. Se compra.
+        //   · en compras     → salió de la obra, todavía no llegó. Se espera.
+        //   · falta entregar → está en el pañol. Se va a buscar.
+        // Lo que estaba comprado pero no recibido NO es "falta entregar":
+        // mandar a alguien al pañol a buscar algo que no llegó es el viaje al
+        // pedo que este casillero evita.
+        if (estadoFilter === "en_compras") return estado === "pedido" || estado === "comprado";
+        if (estadoFilter === "falta_entregar") return estado === "en_panol";
         return estado === estadoFilter;
       })
       .filter((row) => matchesFlexibleSearch(
@@ -4364,6 +4368,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     if (row.bucket.key === "condicionante" || row.condicionantes?.length) acc.condicionantes += 1;
     const estado = estadoObraForRow(row);
     if (estado === "pendiente") acc.pendientes += 1;
+    if (estado === "pedido") acc.pedidos += 1;
     if (estado === "comprado") acc.comprados += 1;
     if (estado === "en_panol") acc.enPanol += 1;
     if (estado === "egresado") acc.egresados += 1;
@@ -4377,7 +4382,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       acc.ars += row.precio.amount * qty;
     }
     return acc;
-  }, { items: 0, sinPrecio: 0, revisar: 0, productosPendientes: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+  }, { items: 0, sinPrecio: 0, revisar: 0, productosPendientes: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, pedidos: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
     return base.map((r) => ({
@@ -5253,9 +5258,20 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               active={estadoFilter === "pendiente"}
               onClick={() => setEstadoFilter(estadoFilter === "pendiente" ? "todos" : "pendiente")}
             />
+            {/* En el medio de "hay que comprarlo" y "hay que ir a buscarlo"
+                está esto: ya salió de la obra pero todavía no llegó al pañol.
+                Sin este casillero, un ítem enviado a compras figuraba como
+                comprado y nadie volvía a mirarlo. */}
+            <CompactStat
+              label="En compras"
+              value={kpis.pedidos + kpis.comprados}
+              color={C.cyan}
+              active={estadoFilter === "en_compras"}
+              onClick={() => setEstadoFilter(estadoFilter === "en_compras" ? "todos" : "en_compras")}
+            />
             <CompactStat
               label="Falta entregar"
-              value={kpis.comprados + kpis.enPanol}
+              value={kpis.enPanol}
               color={C.violet}
               active={estadoFilter === "falta_entregar"}
               onClick={() => setEstadoFilter(estadoFilter === "falta_entregar" ? "todos" : "falta_entregar")}
@@ -6983,6 +6999,11 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
 
 const SNAPSHOT_ESTADO_META = {
   pendiente: { label: "Pendiente", color: C.t2, bg: C.s0, border: C.b0 },
+  // "Enviado a compras" y "comprado" son dos cosas distintas: en el medio puede
+  // pasar cualquier cosa —que no consigan el material, que no haya precio, que
+  // quede frenado—. Mostrarlos igual hacía que la obra creyera que algo ya
+  // estaba comprado cuando todavía nadie lo había comprado.
+  pedido: { label: "En compras", color: C.cyan, bg: C.cyanL, border: C.cyanB },
   comprado: { label: "Comprado", color: C.blue, bg: C.blueL, border: C.blueB },
   en_panol: { label: "En pañol", color: C.green, bg: C.greenL, border: C.greenB },
   egresado: { label: "Egresado", color: C.violet, bg: "var(--violet-soft)", border: `${C.violet}55` },
@@ -7000,11 +7021,12 @@ function estadoFromRecepcion(estado) {
 // queda congelado en "recibido" para siempre —porque efectivamente se recibió—,
 // así que no puede mandar sobre el estado real: si lo hace, un material ya
 // entregado sigue figurando "En pañol" el resto de su vida.
-const ORDEN_ESTADO_OBRA = { pendiente: 0, comprado: 1, en_panol: 2, egresado: 3 };
+const ORDEN_ESTADO_OBRA = { pendiente: 0, pedido: 1, comprado: 2, en_panol: 3, egresado: 4 };
 
 function normalizarEstadoObra(estado) {
   if (estado === "egresado") return "egresado";
-  if (estado === "pedido" || estado === "comprado") return "comprado";
+  if (estado === "pedido") return "pedido";
+  if (estado === "comprado") return "comprado";
   if (["en_panol", "recibido", "parcial", "problema", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
   return "pendiente";
 }
@@ -7042,7 +7064,13 @@ function cantidadesDeFila(row) {
     ? (Number.isFinite(egresadoDeclarado) && egresadoDeclarado > 0 ? egresadoDeclarado : necesita)
     : 0;
 
-  const tienePedido = !!(row?.purchase_request_id || row?.purchase_request_item_id);
+  // Acá el estado escrito a mano SÍ vale, y es la única excepción a la regla.
+  // Motivo: "está en compras" no tiene evidencia dura posible —no existe un
+  // hecho registrable que lo pruebe— y si lo ignoramos, un ítem ya enviado
+  // vuelve a decir COMPRAR y termina comprado dos veces. Ojo con lo que NO
+  // hace: no dice que esté comprado ni recibido; esos siguen exigiendo prueba.
+  const enviadoACompras = estado === "pedido" || estado === "comprado";
+  const tienePedido = !!(row?.purchase_request_id || row?.purchase_request_item_id) || enviadoACompras;
   const cubierto = Math.max(panol, entregado);
   const faltaComprar = tienePedido || cubierto >= necesita ? 0 : Math.max(0, necesita - cubierto);
   const faltaEntregar = Math.max(0, Math.min(panol, necesita) - entregado);
@@ -7200,6 +7228,7 @@ function RecepcionDetalle({ row }) {
 
 const OBRA_ESTADO_OPTIONS = [
   ["pendiente", "Pendiente"],
+  ["pedido", "En compras (enviado, sin comprar)"],
   ["comprado", "Comprado"],
   ["en_panol", "En panol"],
   ["egresado", "Egresado"],

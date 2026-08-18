@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, Info, X, AlertCircle } from "lucide-react";
 import { C } from "@/theme";
 
@@ -28,13 +28,18 @@ export function ToastProvider({ children }) {
     return id;
   }, [dismiss]);
 
-  const api = {
+  // Memoizado a proposito. Sin esto, `api` es un objeto nuevo en cada render
+  // del provider —o sea cada vez que aparece o se va un toast— y como media app
+  // tiene `toast` en las dependencias de sus useCallback/useEffect, mostrar un
+  // cartelito invalidaba esos hooks y disparaba recargas completas. En el stock
+  // de panol eso significaba volver a pedir 1.850 filas y 835 materiales.
+  const api = useMemo(() => ({
     success: (m, o) => push("success", m, o),
     error:   (m, o) => push("error",   m, o),
     warning: (m, o) => push("warning", m, o),
     info:    (m, o) => push("info",    m, o),
     dismiss,
-  };
+  }), [push, dismiss]);
 
   return (
     <ToastCtx.Provider value={api}>
