@@ -15,49 +15,77 @@ import { endTrackedAdminSession } from "@/features/configuracion/adminActivityAp
 
 import logoK from "@/assets/logos/logo-k.png";
 
+// Un deploy le cambia el hash a cada chunk. Una pestaña que quedó abierta desde
+// antes tiene el index viejo en memoria, pide un archivo que ya no existe, y el
+// import falla dejando la pantalla en negro —que es exactamente lo que pasó en
+// el deploy del 18/08—. Recargar una sola vez trae el index nuevo y se resuelve
+// solo, sin que nadie tenga que saber qué es un chunk.
+const RECARGA_HECHA = "klasea.chunk-recargado";
+
+function pantalla(importar) {
+  return lazy(() => importar()
+    .then((modulo) => {
+      // Cargó bien: se limpia la marca para que un problema futuro también
+      // tenga derecho a su recarga.
+      try { sessionStorage.removeItem(RECARGA_HECHA); } catch { /* modo privado */ }
+      return modulo;
+    })
+    .catch((error) => {
+      let yaRecargamos = false;
+      try { yaRecargamos = sessionStorage.getItem(RECARGA_HECHA) === "1"; } catch { /* modo privado */ }
+      // Si ya recargamos y sigue fallando, no es una versión vieja: es un error
+      // de verdad y hay que dejarlo explotar en vez de recargar para siempre.
+      if (yaRecargamos) throw error;
+      try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
+      window.location.reload();
+      // No se resuelve nunca a propósito: la página se está yendo.
+      return new Promise(() => {});
+    }));
+}
+
 // Cada pantalla vive en su propio chunk. Antes App importaba todos los módulos
 // al arrancar y el navegador descargaba/parseaba varios MB aunque el usuario
 // sólo fuera al inicio o al pañol. Con lazy cada ruta paga únicamente su módulo.
-const PedidosScreen = lazy(() => import("@/features/inventario/PedidosScreen"));
-const MarmoleriaScreen = lazy(() => import("@/features/marmoleria/MarmoleriaScreen"));
-const MueblesScreen = lazy(() => import("@/features/muebles/MueblesScreen"));
-const TorneriaScreen = lazy(() => import("@/features/torneria/TorneriaScreen"));
-const AdminDashboard = lazy(() => import("@/features/admin/AdminDashboard"));
-const LaminacionScreen = lazy(() => import("@/features/laminacion/LaminacionScreen"));
-const ObrasLaminacionScreen = lazy(() => import("@/features/laminacion/ObrasLaminacionScreen"));
-const PlantillasLineaScreen = lazy(() => import("@/features/laminacion/PlantillasLineaScreen"));
-const ObrasScreen = lazy(() => import("@/features/obras/ObrasScreen"));
-const ConfiguracionScreen = lazy(() => import("@/features/configuracion/ConfiguracionScreen"));
-const ProcedimientosScreen = lazy(() => import("@/features/procedimientos/ProcedimientosScreen"));
-const PostVentaScreen = lazy(() => import("@/features/postventa/PostVentaScreen"));
-const ClientePanelScreen = lazy(() => import("@/features/cliente/ClientePanelScreen"));
-const HomeScreen = lazy(() => import("@/features/home/HomeScreen"));
-const PanolOperativoHome = lazy(() => import("@/features/panol/PanolOperativoHome"));
-const CalendarioScreen = lazy(() => import("@/features/calendario/LogisticaCalendarioScreen"));
-const CalendarioProduccionScreen = lazy(() => import("@/features/calendario/CalendarioScreen"));
-const MaderasScreen = lazy(() => import("@/features/inventario/MaderasScreen"));
-const PurchaseRequestsScreen = lazy(() => import("@/features/compras/PurchaseRequestsScreen"));
-const ScanEgresoScreen = lazy(() => import("@/features/inventario/ScanEgresoScreen"));
-const BalanzaDebugScreen = lazy(() => import("@/features/inventario/BalanzaDebugScreen"));
-const ScanPedidoScreen = lazy(() => import("@/features/inventario/ScanPedidoScreen"));
-const ColectorHomeScreen = lazy(() => import("@/features/inventario/ColectorHomeScreen"));
-const CalibrarPesosScreen = lazy(() => import("@/features/panol/CalibrarPesosScreen"));
-const EtiquetasScreen = lazy(() => import("@/features/inventario/EtiquetasScreen"));
-const RrhhScreen = lazy(() => import("@/features/rrhh/RrhhScreen"));
-const PreciosScreen = lazy(() => import("@/features/precios/PreciosScreen"));
-const ComprasEtapasScreen = lazy(() => import("@/features/produccion/ComprasEtapasScreen"));
-const RecepcionPanolScreen = lazy(() => import("@/features/panol/RecepcionPanolScreen"));
-const SolicitudesPanolScreen = lazy(() => import("@/features/panol/SolicitudesPanolScreen"));
-const StockPanolScreen = lazy(() => import("@/features/panol/StockPanolScreen"));
-const CatalogoMaestroScreen = lazy(() => import("@/features/catalogo/CatalogoMaestroScreen"));
-const EgresosPanolScreen = lazy(() => import("@/features/panol/EgresosPanolScreen"));
-const PortalProveedorScreen = lazy(() => import("@/features/proveedores/PortalProveedorScreen"));
-const MaterialesScreen = lazy(() => import("@/features/materiales/MaterialesScreen"));
-const MemoriasScreen = lazy(() => import("@/features/memorias/MemoriasScreen"));
-const SemaforoScreen = lazy(() => import("@/features/semaforo/SemaforoScreen"));
-const CadeteRutaScreen = lazy(() => import("@/features/cadete/CadeteRutaScreen"));
-const TarjetasNfcScreen = lazy(() => import("@/features/panol/TarjetasNfcScreen"));
-const PantallaEgresoScreen = lazy(() => import("@/features/panol/PantallaEgresoScreen"));
+const PedidosScreen = pantalla(() => import("@/features/inventario/PedidosScreen"));
+const MarmoleriaScreen = pantalla(() => import("@/features/marmoleria/MarmoleriaScreen"));
+const MueblesScreen = pantalla(() => import("@/features/muebles/MueblesScreen"));
+const TorneriaScreen = pantalla(() => import("@/features/torneria/TorneriaScreen"));
+const AdminDashboard = pantalla(() => import("@/features/admin/AdminDashboard"));
+const LaminacionScreen = pantalla(() => import("@/features/laminacion/LaminacionScreen"));
+const ObrasLaminacionScreen = pantalla(() => import("@/features/laminacion/ObrasLaminacionScreen"));
+const PlantillasLineaScreen = pantalla(() => import("@/features/laminacion/PlantillasLineaScreen"));
+const ObrasScreen = pantalla(() => import("@/features/obras/ObrasScreen"));
+const ConfiguracionScreen = pantalla(() => import("@/features/configuracion/ConfiguracionScreen"));
+const ProcedimientosScreen = pantalla(() => import("@/features/procedimientos/ProcedimientosScreen"));
+const PostVentaScreen = pantalla(() => import("@/features/postventa/PostVentaScreen"));
+const ClientePanelScreen = pantalla(() => import("@/features/cliente/ClientePanelScreen"));
+const HomeScreen = pantalla(() => import("@/features/home/HomeScreen"));
+const PanolOperativoHome = pantalla(() => import("@/features/panol/PanolOperativoHome"));
+const CalendarioScreen = pantalla(() => import("@/features/calendario/LogisticaCalendarioScreen"));
+const CalendarioProduccionScreen = pantalla(() => import("@/features/calendario/CalendarioScreen"));
+const MaderasScreen = pantalla(() => import("@/features/inventario/MaderasScreen"));
+const PurchaseRequestsScreen = pantalla(() => import("@/features/compras/PurchaseRequestsScreen"));
+const ScanEgresoScreen = pantalla(() => import("@/features/inventario/ScanEgresoScreen"));
+const BalanzaDebugScreen = pantalla(() => import("@/features/inventario/BalanzaDebugScreen"));
+const ScanPedidoScreen = pantalla(() => import("@/features/inventario/ScanPedidoScreen"));
+const ColectorHomeScreen = pantalla(() => import("@/features/inventario/ColectorHomeScreen"));
+const CalibrarPesosScreen = pantalla(() => import("@/features/panol/CalibrarPesosScreen"));
+const EtiquetasScreen = pantalla(() => import("@/features/inventario/EtiquetasScreen"));
+const RrhhScreen = pantalla(() => import("@/features/rrhh/RrhhScreen"));
+const PreciosScreen = pantalla(() => import("@/features/precios/PreciosScreen"));
+const ComprasEtapasScreen = pantalla(() => import("@/features/produccion/ComprasEtapasScreen"));
+const RecepcionPanolScreen = pantalla(() => import("@/features/panol/RecepcionPanolScreen"));
+const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/SolicitudesPanolScreen"));
+const StockPanolScreen = pantalla(() => import("@/features/panol/StockPanolScreen"));
+const CatalogoMaestroScreen = pantalla(() => import("@/features/catalogo/CatalogoMaestroScreen"));
+const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolScreen"));
+const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
+const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
+const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
+const SemaforoScreen = pantalla(() => import("@/features/semaforo/SemaforoScreen"));
+const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScreen"));
+const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScreen"));
+const PantallaEgresoScreen = pantalla(() => import("@/features/panol/PantallaEgresoScreen"));
 
 // Internos:  usuario  → usuario@klasea.local
 // Clientes:  usuario  → usuario@klasea.client
