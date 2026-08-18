@@ -879,10 +879,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = embedded ? "" : (searchParams.get("tab") || "");
   const requestedMaterialId = embedded ? "" : (searchParams.get("material") || "");
-  // Qué producto estaba abierto. Va en la URL para que recargar la página no te
-  // devuelva al principio de la lista: los del pañol trabajan sobre un ítem
-  // durante varios minutos y una recarga les hacía perder el lugar.
-  const productoAbierto = embedded ? "" : (searchParams.get("sel") || "");
   const requestedQuery = embedded ? "" : (searchParams.get("q") || "");
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
   // desbordaba y "rompía" la pantalla. Por debajo de 1180 usamos el layout apilado.
@@ -1049,19 +1045,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     handleTabChange("maestro");
   }
 
-  // replace y no push: la selección no es navegación, no tiene que llenar el
-  // historial ni hacer que "atrás" recorra ítem por ítem.
-  const recordarSeleccion = useCallback((materialId) => {
-    if (embedded) return;
-    setSearchParams((actuales) => {
-      const siguiente = new URLSearchParams(actuales);
-      if (materialId) siguiente.set("sel", materialId);
-      else siguiente.delete("sel");
-      if (siguiente.toString() === actuales.toString()) return actuales;
-      return siguiente;
-    }, { replace: true });
-  }, [embedded, setSearchParams]);
-
   const wmsProps = {
     sedeLocked,
     isMobile,
@@ -1091,8 +1074,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       if (group?.label) params.set("q", group.label);
       nav(`/scan-pedido${params.size ? `?${params.toString()}` : ""}`);
     },
-    initialSelectedMaterialId: productoAbierto,
-    onSelectionChange: recordarSeleccion,
     onOpenCatalog: (materialId) => {
       if (materialId) nav(`/catalogo-maestro?material=${materialId}`);
       else nav("/catalogo-maestro");

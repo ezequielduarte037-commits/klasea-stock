@@ -3909,7 +3909,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", initialSelectedMaterialId = "", onSelectionChange, onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
@@ -4352,24 +4352,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const focused = productGroups.find((group) => group.material?.id === focusedMaterialId || group.rows?.some((row) => row.material_id === focusedMaterialId || row.requisito_material_id === focusedMaterialId));
     if (focused) setSelectedKey(focused.key);
   }, [focusedMaterialId, productGroups, selectedKey]);
-
-  // Volver a abrir el producto que estaba mirando antes de recargar. Es distinto
-  // de focusedMaterialId: ese viene del catálogo y además FILTRA la lista a ese
-  // material; esto sólo reabre la ficha y deja la lista completa.
-  const restaurada = useRef(false);
-  useEffect(() => {
-    if (restaurada.current || !initialSelectedMaterialId || selectedKey || !productGroups.length) return;
-    const previo = productGroups.find((group) => group.material?.id === initialSelectedMaterialId);
-    restaurada.current = true;
-    if (previo) setSelectedKey(previo.key);
-  }, [initialSelectedMaterialId, productGroups, selectedKey]);
-
-  // Y avisar hacia afuera qué producto está abierto, para que quede en la URL.
-  const grupoAbierto = productGroups.find((group) => group.key === selectedKey) || null;
-  const materialAbierto = grupoAbierto?.material?.id || "";
-  useEffect(() => {
-    onSelectionChange?.(materialAbierto);
-  }, [materialAbierto, onSelectionChange]);
 
   useEffect(() => {
     // Solo resetear si los datos ya cargaron, para que initialFObra no se pierda antes de que lleguen las rows
