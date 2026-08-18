@@ -1311,7 +1311,7 @@ function FaltaChip({ children }) {
   );
 }
 
-const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, primaryAction }) {
+const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
   const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
@@ -1373,6 +1373,16 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
             >
               MATRIZ
             </span>
+          )}
+          {group.esRequisito && onArchivarMatriz && group.verificacion !== "ok" && (
+            <button
+              type="button"
+              onClick={(event) => { event.stopPropagation(); onArchivarMatriz(group); }}
+              title="Marcarlo como revisado y sacarlo de la lista: es un requisito, no una pieza del estante."
+              style={{ flexShrink: 0, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 6, padding: "1px 6px", fontSize: 9, fontWeight: 900, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+            >
+              ARCHIVAR
+            </button>
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
@@ -2545,6 +2555,14 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 // no cierra se abre el bloque del problema. Antes había un botón "Tiene un
 // problema" al lado de un campo de texto suelto, y no se entendía qué había que
 // escribir ahí ni qué pasaba después de apretarlo.
+// Un requisito de matriz ya revisado deja de ser algo que buscar en el estante:
+// no es una pieza, es el enunciado de una necesidad. Mientras se hace la
+// revision fisica se van archivando, y la lista queda solo con lo que se puede
+// agarrar con la mano.
+function esMatrizArchivada(group) {
+  return group?.esRequisito === true && group?.verificacion === "ok";
+}
+
 function VerificacionPanel({ group, canEdit, onDone, toast }) {
   const materialId = group?.material?.id || null;
   const [descripcion, setDescripcion] = useState(group?.label || "");
@@ -3893,6 +3911,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [kindScope, setKindScope] = useState("todos");
   const [scope, setScope] = useState(stockMaster && initialScope === "todos" ? "existencia" : initialScope);
   const [verifScope, setVerifScope] = useState("todos");
+  const [verArchivados, setVerArchivados] = useState(false);
   const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
   const [stockView, setStockView] = useState(() => readStoredStockView());
@@ -4226,17 +4245,46 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     return counts;
   }, [productGroupsBase]);
 
+  const archivarMatriz = useCallback(async (group) => {
+    const materialId = group?.material?.id;
+    if (!materialId) {
+      toast?.warning?.("Este renglón no está vinculado al catálogo.");
+      return;
+    }
+    try {
+      // Se reusa la revisión que ya existe en vez de inventar un estado nuevo:
+      // archivar ES el resultado de revisarlo y confirmar que no es stock.
+      await verificarMaterial(materialId, "ok", {
+        nota: "Requisito de matriz: no es un producto físico del pañol.",
+      });
+      toast?.success?.("Archivado. Sale de la lista operativa.");
+      await cargar({ force: true });
+    } catch (error) {
+      toast?.error?.(error.message || "No se pudo archivar.");
+    }
+  }, [cargar, toast]);
+
+  const matrizArchivadas = useMemo(
+    () => productGroupsBase.filter(esMatrizArchivada).length,
+    [productGroupsBase],
+  );
+
   const productGroups = useMemo(() => {
     const withDraft = draftGroup && norm(q) && norm(draftGroup.label).includes(norm(q))
       ? [draftGroup, ...productGroupsBase.filter((group) => group.key !== draftGroup.key)]
       : productGroupsBase;
     // La revisión es una dimensión aparte del nivel de stock: se puede querer
     // "lo crítico que además nadie revisó", así que se aplica encima.
-    const base = verifScope === "todos" ? withDraft : withDraft.filter((group) => {
+    const conVerif = verifScope === "todos" ? withDraft : withDraft.filter((group) => {
       if (verifScope === "sin_datos") return !group.ubicacion || !group.codigo;
       const estado = group.verificacion === "ok" || group.verificacion === "problema" ? group.verificacion : "pendiente";
       return estado === verifScope;
     });
+    // Se ocultan solo cuando no hay un filtro de revision puesto: si alguien
+    // pide ver "Revisados", los archivados son justamente lo que busca.
+    const base = stockMaster && !verArchivados && verifScope === "todos"
+      ? conVerif.filter((group) => !esMatrizArchivada(group))
+      : conVerif;
     if (stockMaster && ["existencia", "reponer", "en_camino", "sin_ubicacion", "reconciliar"].includes(scope)) {
       return sortProductGroups(base.filter((group) => group.buckets?.has(scope)), orderBy);
     }
@@ -4252,7 +4300,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return sortProductGroups(base.filter((group) => stockLevel(group).key === scope), orderBy);
     }
     return sortProductGroups(base, orderBy);
-  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, verifScope]);
+  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, verArchivados, verifScope]);
 
   // Renderizar cientos de tarjetas a la vez bloqueaba el hilo principal varios
   // segundos. Los cálculos y contadores siguen usando el conjunto completo;
@@ -4644,6 +4692,20 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
               {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
             </span>
+            {matrizArchivadas > 0 && (
+              <button type="button" onClick={() => setVerArchivados((v) => !v)}
+                title="Requisitos de matriz ya revisados. Están fuera de la lista para no confundirlos con productos."
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  border: `1px solid ${verArchivados ? C.violet : C.border}`,
+                  background: verArchivados ? "var(--violet-soft)" : C.panelSolid,
+                  color: verArchivados ? C.violet : C.dim, borderRadius: 999,
+                  padding: "3px 9px", cursor: "pointer", fontSize: 10.5,
+                  fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                }}>
+                {matrizArchivadas} de matriz archivados
+              </button>
+            )}
             {[
               ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
               ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
@@ -4728,7 +4790,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {renderedProductGroups.map((group) => {
                   const primaryAction = primaryActionFor(group);
                   return stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} primaryAction={primaryAction} />
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={stockMaster ? archivarMatriz : undefined} primaryAction={primaryAction} />
                     : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />;
                 })}
                 {hiddenProductCount > 0 && (
