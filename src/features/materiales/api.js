@@ -634,13 +634,11 @@ async function fetchCatalogoFresh({
         "created_at",
       )
       : Promise.resolve([]),
-    includeExtras
-      ? fetchPaged(
-        "panol_material_imagenes",
-        "id, material_id, url, nombre, created_at",
-        "created_at",
-      )
-      : Promise.resolve([]),
+    fetchPaged(
+      "panol_material_imagenes",
+      "id, material_id, url, nombre, created_at",
+      "created_at",
+    ),
     includeExtras ? fetchComprobantes() : Promise.resolve([]),
     includeDetails ? fetchAreasMap() : Promise.resolve({ map: new Map() }),
     includeDetails ? fetchCondicionMap() : Promise.resolve({ map: new Map() }),
@@ -2372,6 +2370,34 @@ export async function uploadMaterialImage(materialId, file) {
     .eq("id", materialId);
   if (matError) throw matError;
   return row;
+}
+
+export async function setMainMaterialImage(materialId, url) {
+  if (!materialId || !url) throw new Error("Falta material o URL.");
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ imagen_url: url })
+    .eq("id", materialId);
+  if (error) throw error;
+}
+
+export async function deleteMaterialImage(imageId, url) {
+  if (!imageId || !url) throw new Error("Falta imagen o URL.");
+  // Intentar borrar de storage si es una URL del bucket
+  try {
+    const urlParts = url.split(`/${BUCKET_MATERIALES}/`);
+    if (urlParts.length > 1) {
+      const path = urlParts[1];
+      await supabase.storage.from(BUCKET_MATERIALES).remove([path]);
+    }
+  } catch (e) {
+    // Ignorar si falla storage
+  }
+  const { error } = await supabase
+    .from("panol_material_imagenes")
+    .delete()
+    .eq("id", imageId);
+  if (error) throw error;
 }
 
 export async function uploadMaterialVariantImage(

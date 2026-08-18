@@ -115,6 +115,24 @@
       },
       "createdAt": "2026-08-15T13:17:27.418Z",
       "updatedAt": "2026-08-15T13:17:27.418Z"
+    },
+    "swarm-1786808021308-aokrfv": {
+      "swarmId": "swarm-1786808021308-aokrfv",
+      "topology": "hierarchical",
+      "maxAgents": 3,
+      "status": "running",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical",
+        "maxAgents": 3,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-08-15T15:33:41.309Z",
+      "updatedAt": "2026-08-15T15:33:41.309Z"
     }
   },
   "version": "3.0.0"

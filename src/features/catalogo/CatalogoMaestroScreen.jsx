@@ -12,6 +12,7 @@ import { materialMatchScore } from "@/features/panol/materialMatch";
 import { actualizarStockMinimoPanol, fetchPanolCatalogMaterialImpact, invalidatePanolCatalogFullCache } from "@/features/panol/panolApi";
 import { rowDelta, rowIsTransit, rowMovementAt } from "@/features/panol/panolMovimientos";
 import CatalogoProductoOperacion from "./CatalogoProductoOperacion";
+import CatalogoProductoModelos from "./CatalogoProductoModelos";
 
 const PAGE_SIZE = 100;
 const IDENTITY_FIELDS = ["unidad_medida", "activo"];
@@ -298,6 +299,7 @@ export default function CatalogoMaestroScreen({ profile, signOut }) {
           onOpenStock={() => nav(`/stock-panol?tab=maestro&material=${selected.id}&q=${encodeURIComponent(selected.descripcion)}`)}
           onReceive={(row) => nav(`/recepcion-panol?tab=recepcion&envio=${encodeURIComponent(row.panol_envio_id || "")}&material=${encodeURIComponent(selected.id)}&item=${encodeURIComponent(row.panol_envio_item_id || "")}`)}
         />
+        <CatalogoProductoModelos materialId={selected.id} unidad={selected.unidad_medida || "unidad"} />
         {!canEdit && <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11.5, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: "9px 10px" }}><Eye size={14} />Consulta de catálogo. Técnica, Compras y Administración pueden editar fichas.</div>}
       </div>
     </section>

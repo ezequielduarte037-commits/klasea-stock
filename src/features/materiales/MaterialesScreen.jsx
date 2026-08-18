@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -169,6 +169,42 @@ function limitGroupedRows(groups = [], limit = LINEA_RENDER_BATCH) {
   }
   return visible;
 }
+
+// Buscador aislado. El input guarda su propio texto y sólo avisa al padre
+// cuando dejaste de escribir. Antes cada tecla re-renderizaba la obra entera
+// —hasta 400 filas con todos sus hijos, ~10.000 nodos— y se sentía el retraso
+// entre la letra y la pantalla. Ahora tipear sólo redibuja este input.
+const BuscadorDiferido = memo(function BuscadorDiferido({ value, onChange, placeholder, style, delay = 220 }) {
+  const [texto, setTexto] = useState(value || "");
+  const [valorExterno, setValorExterno] = useState(value || "");
+  const [emitido, setEmitido] = useState(value || "");
+
+  // Si el valor cambia desde afuera (limpiar filtros, cambiar de obra) el input
+  // acompaña. Pero si el cambio es el eco de lo que acabamos de emitir, no se
+  // toca: si no, lo que tipeaste en esos milisegundos se pierde.
+  if (value !== valorExterno) {
+    setValorExterno(value || "");
+    if (value !== emitido) setTexto(value || "");
+  }
+
+  useEffect(() => {
+    if (texto === value) return undefined;
+    const id = setTimeout(() => {
+      setEmitido(texto);
+      onChange(texto);
+    }, delay);
+    return () => clearTimeout(id);
+  }, [texto, value, delay, onChange]);
+
+  return (
+    <input
+      value={texto}
+      onChange={(event) => setTexto(event.target.value)}
+      placeholder={placeholder}
+      style={style}
+    />
+  );
+});
 
 function MaterialLoadMore({ hiddenCount, batchSize, onMore }) {
   if (!hiddenCount) return null;
@@ -4234,6 +4270,11 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       .filter((row) => {
         if (estadoFilter === "todos") return true;
         const estado = estadoObraForRow(row);
+        // "Falta entregar" no es un estado guardado: es todo lo que ya se
+        // compró o ya está en pañol pero la obra todavía no recibió. La
+        // distinción con "falta comprar" es la que evita comprar dos veces lo
+        // mismo: una se compra, la otra se va a buscar.
+        if (estadoFilter === "falta_entregar") return estado === "comprado" || estado === "en_panol";
         return estado === estadoFilter;
       })
       .filter((row) => matchesFlexibleSearch(
@@ -4301,7 +4342,13 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     });
   }, [visibleRows, groupBy, etapaFilter, etapasDeRow]);
 
-  const renderFilterKey = `${obra?.id || ""}|${deferredQ}|${proveedorFilter}|${rubroFilter}|${tipoFilter}|${estadoFilter}|${etapaFilter}|${groupBy}`;
+  // Sólo la obra resetea cuántas filas hay pintadas. Antes lo hacía cualquier
+  // filtro: una obra tiene 250 a 450 ítems, se pintan 16 por vez, y llegar al
+  // final cuesta trece clicks en "mostrar más" — que se perdían enteros apenas
+  // tocabas un chip. Filtrar es lo que hacés PARA llegar a algo; castigarte por
+  // filtrar es exactamente al revés. El límite es un techo: si el filtro deja
+  // menos filas, no molesta que esté alto.
+  const renderFilterKey = obra?.id || "";
   const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : OBRA_INITIAL_RENDER;
   const renderedGroupedRows = useMemo(
     () => limitGroupedRows(groupedRows, effectiveRenderLimit),
@@ -5186,24 +5233,40 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               );
             })}
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.t2, fontSize: 11.5, flexWrap: "wrap" }}>
-            <button type="button" onClick={() => setEstadoFilter("todos")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "todos" ? C.blue : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
-              {kpis.items} items
-            </button>
-            <span style={{ width: 4, height: 4, borderRadius: 999, background: C.b1 }} />
-            <button type="button" onClick={() => setEstadoFilter("pendiente")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "pendiente" ? C.blue : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
-              {kpis.pendientes} pendientes
-            </button>
-            <span style={{ width: 4, height: 4, borderRadius: 999, background: C.b1 }} />
-            <button type="button" onClick={() => setEstadoFilter("en_panol")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "en_panol" ? C.green : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
-              {kpis.enPanol} en pañol
-            </button>
-            <span style={{ width: 4, height: 4, borderRadius: 999, background: C.b1 }} />
-            {/* Faltaba el atajo de egresados: es el que contesta "qué de esta
-                obra ya se consumió" sin tener que ir al KPI de arriba. */}
-            <button type="button" onClick={() => setEstadoFilter("egresado")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "egresado" ? C.violet : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
-              {kpis.egresados} egresados
-            </button>
+          {/* La lista de una obra no es un inventario: es trabajo por hacer.
+              Por eso arriba no van estados sino las dos preguntas que se
+              contestan mirándola —qué hay que comprar y qué hay que ir a
+              buscar—, que son cosas distintas y confundirlas cuesta comprar dos
+              veces lo mismo. Cada uno filtra, y volver a tocarlo lo saca. */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <CompactStat
+              label="Todo"
+              value={kpis.items}
+              color={C.t2}
+              active={estadoFilter === "todos"}
+              onClick={() => setEstadoFilter("todos")}
+            />
+            <CompactStat
+              label="Falta comprar"
+              value={kpis.pendientes}
+              color={C.blue}
+              active={estadoFilter === "pendiente"}
+              onClick={() => setEstadoFilter(estadoFilter === "pendiente" ? "todos" : "pendiente")}
+            />
+            <CompactStat
+              label="Falta entregar"
+              value={kpis.comprados + kpis.enPanol}
+              color={C.violet}
+              active={estadoFilter === "falta_entregar"}
+              onClick={() => setEstadoFilter(estadoFilter === "falta_entregar" ? "todos" : "falta_entregar")}
+            />
+            <CompactStat
+              label="Entregado"
+              value={kpis.egresados}
+              color={C.green}
+              active={estadoFilter === "egresado"}
+              onClick={() => setEstadoFilter(estadoFilter === "egresado" ? "todos" : "egresado")}
+            />
           </div>
         </div>
       </div>
@@ -5579,7 +5642,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 260 }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
           </div>
           {[
             ["todos", `Todo (${kpis.items})`, C.blue],
@@ -5800,7 +5863,10 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "4px 9px", background: C.amberL }}>{group.revisar} a revisar</span> : null}
+                {/* Teal y no ámbar: "a revisar" no es una alarma, es una tarea
+                    pendiente, y tiene que distinguirse del azul (comprar) y del
+                    violeta (ir a buscar) de un vistazo. */}
+                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.teal, border: `1px solid ${C.tealB}`, borderRadius: 999, padding: "4px 9px", background: C.tealL }}>{group.revisar} a revisar</span> : null}
                 {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.usd, "USD")}</span> : null}
                 {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
               </div>
@@ -5809,6 +5875,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
+                const cant = cantidadesDeFila(row);
+                const accion = accionDeFila(row);
                 const etapasRow = etapasDeRow(row);
                 const materialForRow = row.material || materialById.get(row.materialId);
                 const rowImageUrl = row.producto?.imagen_url
@@ -5821,7 +5889,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const editingMaterial = editingMaterialRowId === row.id;
                 const actionsOpen = openActionsRowId === row.id;
                 const rowSelected = selected.has(row.id);
-                const rowBorder = rowSelected ? C.blueB : row.review?.flag ? C.amberB : actionsOpen ? C.b1 : C.b0;
+                // El borde de "a revisar" acompaña al chip del grupo: mismo
+                // color, misma idea. Antes eran dos ámbares distintos peleando.
+                const rowBorder = rowSelected ? C.blueB : row.review?.flag ? C.tealB : actionsOpen ? C.b1 : C.b0;
                 const rowBg = rowSelected ? C.blueL : C.bg;
                 const miniBtn = { ...BTN, padding: "5px 9px", minHeight: 27, borderRadius: 8, fontSize: 11, gap: 5 };
                 const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
@@ -5831,9 +5901,15 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                     <div
                       style={{
                         display: "grid",
+                        // La tablet de 1024 en horizontal —el aparato real del
+                        // galpón— deja 684px útiles con el sidebar puesto, y
+                        // esta grilla pedía ~806. Resultado: la columna de
+                        // acción y el "⋯" quedaban fuera de pantalla, detrás de
+                        // un scroll horizontal. Justo la columna que se lee en
+                        // diagonal. Ahora entra en ~570.
                         gridTemplateColumns: isMobile
                           ? "24px minmax(0, 1fr) auto"
-                          : "24px minmax(260px, 1fr) minmax(84px, .2fr) minmax(150px, .34fr) minmax(96px, .24fr) auto",
+                          : "24px minmax(150px, 1fr) 104px 108px 78px auto",
                         gap: isMobile ? 8 : 12,
                         alignItems: "start",
                         padding: isMobile ? "8px 10px" : "8px 12px",
@@ -5930,8 +6006,22 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                           <RecepcionDetalle row={row} />
                         </div>
                       </div>
-                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Cantidad">
-                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: tieneAjusteCondicionante(row) ? C.amber : C.t0, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                      {/* overflow hidden: el desglose del condicionante es un
+                          renglón largo ("0 unidad base + 1 = 1 unidad") y sin
+                          esto se desbordaba encima de la acción y del
+                          proveedor de la fila. */}
+                      <div style={{ minWidth: 0, overflow: "hidden", gridColumn: isMobile ? "2 / -1" : undefined }} title={`Necesita ${fmtQtyCorto(cant.necesita)} · en pañol ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`}>
+                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: tieneAjusteCondicionante(row) ? C.teal : C.t0, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                        {/* El recorrido en números, y sólo cuando pasó algo: una
+                            fila que todavía no se movió no gana nada mostrando
+                            "pañol 0 · entr 0" cuatrocientas veces. */}
+                        {(cant.panol > 0 || cant.entregado > 0) && (
+                          <div style={{ fontFamily: C.mono, fontSize: 10, whiteSpace: "nowrap", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                            <span style={{ color: cant.panol > 0 ? C.green : C.t3 }}>pañol {fmtQtyCorto(cant.panol)}</span>
+                            <span style={{ color: C.t3 }}> · </span>
+                            <span style={{ color: cant.entregado > 0 ? C.violet : C.t3 }}>entr {fmtQtyCorto(cant.entregado)}</span>
+                          </div>
+                        )}
                         {/* La cuenta a la vista. Sin esto no hay forma de saber
                             si el número ya incluye lo que suma el condicionante
                             o si todavía le falta, que es exactamente la duda que
@@ -5939,9 +6029,15 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                         <DesgloseCantidad row={row} />
                         {row.cantidadOrigenEtapa ? <div style={{ fontSize: 9.5, color: C.blue, marginTop: 2 }}>en esta etapa</div> : null}
                       </div>
-                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Proveedor · rubro">
-                        <div style={{ fontSize: 11.5, fontWeight: 750, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
-                        <div style={{ fontSize: 10.5, color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
+                      {/* Qué hay que hacer con esta fila, en un verbo y un
+                          número. Es la única columna que se lee en diagonal
+                          cuando la lista tiene cuatrocientos ítems. El proveedor
+                          baja a segunda línea: informa, pero no decide. */}
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Qué hacer · proveedor">
+                        <div style={{ fontSize: 11, fontWeight: 950, letterSpacing: 0.3, color: accion.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: isMobile ? 0 : 2 }}>
+                          {accion.texto}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
                       </div>
                       <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Precio unitario">
                         <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, color: row.precio.amount ? C.t2 : C.amber, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{row.precio.text}</div>
@@ -6711,7 +6807,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 320px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
           </div>
           {[
             ["todos", "Todo", C.blue],
@@ -6773,7 +6869,10 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "4px 9px", background: C.amberL }}>{group.revisar} a revisar</span> : null}
+                {/* Teal y no ámbar: "a revisar" no es una alarma, es una tarea
+                    pendiente, y tiene que distinguirse del azul (comprar) y del
+                    violeta (ir a buscar) de un vistazo. */}
+                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.teal, border: `1px solid ${C.tealB}`, borderRadius: 999, padding: "4px 9px", background: C.tealL }}>{group.revisar} a revisar</span> : null}
                 {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.usd, "USD")}</span> : null}
                 {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
               </div>
@@ -6789,7 +6888,13 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                       className="linea-data-row"
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "28px minmax(280px, 1.45fr) minmax(120px, .45fr) minmax(170px, .65fr) minmax(142px, .55fr) 72px",
+                        // Seis columnas SIEMPRE. Colapsarlas a tres en pantalla
+                        // angosta no achica la fila: envuelve las celdas que
+                        // sobran y cada ítem pasa a medir varios renglones.
+                        // Lo que sí entra es bajar los mínimos: de 862px a
+                        // ~600, que es lo que hace falta para que el precio no
+                        // quede fuera de pantalla en una tablet.
+                        gridTemplateColumns: "24px minmax(190px, 1.6fr) minmax(74px, .2fr) minmax(116px, .4fr) minmax(92px, .26fr) 60px",
                         gap: 12,
                         alignItems: "center",
                         minWidth: 900,
@@ -6911,6 +7016,65 @@ function estadoObraForRow(row) {
   const propio = normalizarEstadoObra(row?.estadoObra);
   const porRecepcion = normalizarEstadoObra(estadoFromRecepcion(row?.recepcion_estado));
   return ORDEN_ESTADO_OBRA[propio] >= ORDEN_ESTADO_OBRA[porRecepcion] ? propio : porRecepcion;
+}
+
+// Las cuatro cantidades de un material en la obra, calculadas SÓLO con
+// evidencia: lo que se recibió en pañol y lo que se egresó quedan registrados,
+// el estado escrito a mano no cuenta como prueba de nada.
+//
+// De ahí salen los dos faltantes, que no son el mismo problema:
+//   · falta comprar  → no hay pedido enganchado. Se compra.
+//   · falta entregar → ya está en pañol pero la obra no lo tiene. Se va a buscar.
+function cantidadesDeFila(row) {
+  const necesita = Math.max(0, toNum(row?.cantidad) || 0);
+  const estado = estadoObraForRow(row);
+
+  // Lo recibido viene como texto libre en el campo de recepción ("12", "12 u").
+  // Si no se puede leer un número pero la fila cuenta como recibida, se asume
+  // completa: es lo que la pantalla venía mostrando y no conviene contradecirla
+  // sin dato mejor.
+  const recibidoDeclarado = toNum(String(row?.recepcion_cantidad_recibida ?? "").replace(",", "."));
+  const llego = estado === "en_panol" || estado === "egresado";
+  const panol = llego ? (Number.isFinite(recibidoDeclarado) && recibidoDeclarado > 0 ? recibidoDeclarado : necesita) : 0;
+
+  const egresadoDeclarado = toNum(row?.cantidad_egresada);
+  const entregado = estado === "egresado"
+    ? (Number.isFinite(egresadoDeclarado) && egresadoDeclarado > 0 ? egresadoDeclarado : necesita)
+    : 0;
+
+  const tienePedido = !!(row?.purchase_request_id || row?.purchase_request_item_id);
+  const cubierto = Math.max(panol, entregado);
+  const faltaComprar = tienePedido || cubierto >= necesita ? 0 : Math.max(0, necesita - cubierto);
+  const faltaEntregar = Math.max(0, Math.min(panol, necesita) - entregado);
+  const enCompras = tienePedido && cubierto < necesita ? Math.max(0, necesita - cubierto) : 0;
+
+  return { necesita, panol, entregado, faltaComprar, faltaEntregar, enCompras, tienePedido };
+}
+
+// Un verbo y un número: qué hay que hacer con esta fila hoy. Se lee de arriba
+// hacia abajo y gana la primera condición — lo trabado antes que lo pendiente,
+// porque es lo que necesita que alguien intervenga.
+function accionDeFila(row) {
+  const q = cantidadesDeFila(row);
+  const recepcion = String(row?.recepcion_estado || "").toLowerCase();
+
+  if (recepcion === "rechazado") return { texto: "RECHAZADO", color: C.red, trabado: true };
+  if (recepcion === "falta_stock") return { texto: "SIN STOCK", color: C.red, trabado: true };
+  if (recepcion === "problema" || recepcion === "sin_info") return { texto: "PROBLEMA", color: C.red, trabado: true };
+  if (row?.esRequisito && !row?.productoMaterialId && q.panol === 0) {
+    return { texto: "DEFINIR PRODUCTO", color: C.red, trabado: true };
+  }
+  if (q.faltaEntregar > 0) return { texto: `RETIRAR ${fmtQtyCorto(q.faltaEntregar)}`, color: C.violet };
+  if (q.faltaComprar > 0) return { texto: `COMPRAR ${fmtQtyCorto(q.faltaComprar)}`, color: C.blue };
+  if (q.enCompras > 0) return { texto: `EN COMPRAS ${fmtQtyCorto(q.enCompras)}`, color: C.cyan };
+  if (q.entregado > 0 && q.entregado >= q.necesita) return { texto: "LISTO", color: C.t3 };
+  return { texto: "—", color: C.t3 };
+}
+
+// En una columna angosta, "1" pesa distinto que "1,00".
+function fmtQtyCorto(value) {
+  const n = Number(value || 0);
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace(".", ",");
 }
 
 function recepcionMetaForRow(row) {
@@ -7443,6 +7607,12 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     // ambos la hace estadoObraForRow, que sabe cuál de los dos va más adelante.
     estadoObra: row.estado || "pendiente",
     purchase_request_id: row.purchase_request_id || null,
+    // Estos dos ya venían en la tabla y no llegaban a la pantalla: sin ellos no
+    // se puede decir cuánto se entregó ni si el ítem está enganchado a un
+    // pedido concreto, que son las dos mitades de "falta comprar / falta
+    // entregar".
+    purchase_request_item_id: row.purchase_request_item_id || null,
+    cantidad_egresada: row.cantidad_egresada ?? null,
     panol_envio_id: row.panol_envio_id || null,
     panol_envio_item_id: row.panol_envio_item_id || null,
     recepcion_estado: row.recepcion_estado || null,
