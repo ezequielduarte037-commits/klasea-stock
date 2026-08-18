@@ -431,6 +431,54 @@ export function resolverEntradaSalida(m) {
   return { entrada, salida };
 }
 
+// Dos fichadas casi pegadas son la misma: pasa cuando alguien apoya la tarjeta
+// dos veces o el lector la lee doble. No es una salida y una entrada.
+const FICHADA_DUPLICADA_MIN = 3;
+// Cuánto tiene que durar un hueco para considerarse una salida de verdad. 45
+// minutos deja pasar el café y el baño, y engancha la ida al médico o al banco,
+// que es lo que interesa ver.
+const AUSENCIA_MIN = 45;
+
+/**
+ * Reconstruye el día a partir de las fichadas crudas: en qué tramos estuvo y en
+ * qué huecos no. entrada/salida sólo guardan la primera y la última, así que un
+ * día de 07 · 10 · 12 · 16 se veía igual que uno de 07 a 16 corrido.
+ *
+ * Devuelve tramos (bloques trabajados) y ausencias (huecos largos entre tramos).
+ * Un día normal de dos fichadas devuelve un tramo y ninguna ausencia.
+ */
+export function tramosDelDia(fichadas) {
+  const arr = normalizePunches(fichadas);
+  if (arr.length < 2) return { tramos: [], ausencias: [], impar: arr.length === 1 };
+
+  // Colapsar las repetidas antes de emparejar: si no, un doble fichaje parte el
+  // día en dos tramos falsos.
+  const limpias = [];
+  for (const t of arr) {
+    const previa = limpias[limpias.length - 1];
+    if (previa && timeToMin(t) - timeToMin(previa) <= FICHADA_DUPLICADA_MIN) continue;
+    limpias.push(t);
+  }
+
+  // Se emparejan de a dos en orden: entra, sale, entra, sale.
+  const tramos = [];
+  for (let i = 0; i + 1 < limpias.length; i += 2) {
+    tramos.push({ desde: limpias[i], hasta: limpias[i + 1] });
+  }
+  // Cantidad impar: la última quedó sin cerrar (se olvidó de fichar la salida).
+  const impar = limpias.length % 2 === 1;
+
+  const ausencias = [];
+  for (let i = 1; i < tramos.length; i++) {
+    const desde = tramos[i - 1].hasta;
+    const hasta = tramos[i].desde;
+    const minutos = timeToMin(hasta) - timeToMin(desde);
+    if (minutos >= AUSENCIA_MIN) ausencias.push({ desde, hasta, minutos });
+  }
+
+  return { tramos, ausencias, impar };
+}
+
 // Duración trabajada de una marcación (min) — null si no tiene salida.
 export function duracionMin(m) {
   const e = timeToMin(m.entrada);

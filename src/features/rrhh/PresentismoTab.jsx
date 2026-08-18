@@ -27,6 +27,7 @@ import {
   diaSemana,
   downloadCsv,
   duracionMin,
+  tramosDelDia,
   fetchJustificaciones,
   fetchMarcaciones,
   fetchMarcacionesEmpleado,
@@ -522,6 +523,10 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
         sinSalida: !!entrada && !salida,
         tarde: esDiaHabil && entrada != null && timeToMin(entrada) > tardeMin,
         fichadas: Array.isArray(m.fichadas) ? m.fichadas : [],
+        // entrada/salida sólo guardan la primera y la última fichada, así que un
+        // día partido —salió al médico y volvió— se veía igual que uno corrido.
+        // Acá se reconstruye desde las fichadas crudas.
+        dia: tramosDelDia(m.fichadas),
         justificacion: justByKey.get(keyJust(emp.id, m.fecha)) ?? null,
       });
     }
@@ -953,6 +958,25 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                         {r.tarde && <span style={{ fontSize: 10, fontWeight: 700, color: C.amber, background: C.amberL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Tarde</span>}
                         {r.sinEntrada && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin entrada</span>}
                         {r.sinSalida && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin salida</span>}
+                        {/* Sólo aparece cuando hubo una salida larga en el medio
+                            del día. Un día normal no muestra nada: la columna ya
+                            tiene bastante. */}
+                        {r.dia?.ausencias?.length > 0 && (
+                          <span
+                            title={[
+                              "Estuvo en:",
+                              ...r.dia.tramos.map((t) => `   ${t.desde} a ${t.hasta}`),
+                              "",
+                              "Ausente:",
+                              ...r.dia.ausencias.map((a) => `   ${a.desde} a ${a.hasta}  (${minToHM(a.minutos)})`),
+                            ].join(String.fromCharCode(10))}
+                            style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}44`, borderRadius: 5, padding: "2px 5px", marginRight: 5, cursor: "help" }}
+                          >
+                            {r.dia.ausencias.length === 1
+                              ? `Salió ${r.dia.ausencias[0].desde}–${r.dia.ausencias[0].hasta}`
+                              : `${r.dia.ausencias.length} salidas`}
+                          </span>
+                        )}
                         {r.marcacion?.editado_por && <span title="Horario corregido manualmente" style={{ fontSize: 10, fontWeight: 700, color: C.blue, background: C.blueL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Manual</span>}
                         {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 10, fontWeight: 700, color: C.green, background: C.greenL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Justificada</span>}
                         <button
