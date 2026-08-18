@@ -4621,42 +4621,46 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               </button>
             ))}
 
-            {verifCounts.todos > 0 && (
-              <>
-                <span style={{ width: 1, alignSelf: "stretch", background: C.border, margin: "0 2px" }} />
-                <ShieldCheck size={13} style={{ color: C.blue, flexShrink: 0 }} />
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
-                <div style={{ flex: "0 1 120px", minWidth: 70, height: 5, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
-                  <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
-                  <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
-                </div>
-                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
-                  {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
-                </span>
-                {[
-                  ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
-                  ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
-                  ["ok", `${verifCounts.ok} ok`, C.green, C.greenB],
-                ].map(([key, label, color, border]) => (
-                  <button key={key} type="button" onClick={() => setVerifScope(verifScope === key ? "todos" : key)}
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 5,
-                      border: `1px solid ${verifScope === key ? color : border}`,
-                      background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : C.panelSolid,
-                      color, borderRadius: 999, padding: "3px 9px", cursor: "pointer",
-                      fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
-                    }}>
-                    <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
-                    {label}
-                  </button>
-                ))}
-              </>
-            )}
 
             <span title="Rojo: hasta 50% del mínimo · Violeta: hasta el mínimo · Verde: por encima"
               style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, cursor: "help", whiteSpace: "nowrap" }}>
               ¿Qué significan los colores?
             </span>
+          </div>
+        )}
+
+        {/* El avance de revision vivia adentro de la banda de niveles de
+            stock, que el Stock maestro dejo de mostrar. Se llevo puesto de
+            paso la barrita y los filtros de revisado, que contestan otra
+            pregunta distinta. Ahora van por su cuenta. */}
+        {stockManagement && verifCounts.todos > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 6, marginTop: 6 }}>
+            <ShieldCheck size={13} style={{ color: C.blue, flexShrink: 0 }} />
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
+            <div style={{ flex: "0 1 120px", minWidth: 70, height: 5, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
+              <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
+              <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
+            </div>
+            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
+              {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
+            </span>
+            {[
+              ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
+              ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
+              ["ok", `${verifCounts.ok} ok`, C.green, C.greenB],
+            ].map(([key, label, color, border]) => (
+              <button key={key} type="button" onClick={() => setVerifScope(verifScope === key ? "todos" : key)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  border: `1px solid ${verifScope === key ? color : border}`,
+                  background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : C.panelSolid,
+                  color, borderRadius: 999, padding: "3px 9px", cursor: "pointer",
+                  fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
