@@ -3659,13 +3659,19 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
       setNota("");
       await onDone?.();
     } catch (error) {
+      // "No tiene stock disponible" casi nunca es un error del que está
+      // operando: es que otro se llevó la última unidad mientras este tenía el
+      // carrito abierto. La pantalla seguía mostrando la cantidad vieja, así
+      // que se refresca sola y se dice lo que pasó en criollo.
+      const seLoLlevaronAntes = /no tiene stock disponible/i.test(String(error?.message || ""));
+      const mensaje = seLoLlevaronAntes
+        ? "Ese material ya no está disponible: alguien lo retiró mientras tenías el carrito abierto. Actualicé la pantalla; fijate las cantidades antes de reintentar."
+        : (error.message || "No se pudo registrar el movimiento.");
       if (movementKind === "consumir") {
-        publishEgresoDisplay({
-          status: "error",
-          error: error.message || "No se pudo registrar el movimiento.",
-        });
+        publishEgresoDisplay({ status: "error", error: mensaje });
       }
-      toast.error(error.message || "No se pudo registrar el movimiento.");
+      toast.error(mensaje);
+      if (seLoLlevaronAntes) await onDone?.();
     } finally {
       setSaving(false);
     }
