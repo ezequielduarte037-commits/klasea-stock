@@ -7035,6 +7035,9 @@ function estadoObraForRow(row) {
   // Una fecha de egreso es un hecho: alguien se lo llevó y quedó registrado.
   // Vale más que cualquier estado, que puede haber quedado sin actualizar.
   if (row?.egreso_at) return "egresado";
+  // Un movimiento de egreso contra este material también es un hecho, aunque
+  // haya quedado en una fila aparte sin tocar la del requerimiento.
+  if ((toNum(row?.egresadoLedger) || 0) > 0) return "egresado";
   const propio = normalizarEstadoObra(row?.estadoObra);
   const porRecepcion = normalizarEstadoObra(estadoFromRecepcion(row?.recepcion_estado));
   return ORDEN_ESTADO_OBRA[propio] >= ORDEN_ESTADO_OBRA[porRecepcion] ? propio : porRecepcion;
@@ -7059,10 +7062,13 @@ function cantidadesDeFila(row) {
   const llego = estado === "en_panol" || estado === "egresado";
   const panol = llego ? (Number.isFinite(recibidoDeclarado) && recibidoDeclarado > 0 ? recibidoDeclarado : necesita) : 0;
 
-  const egresadoDeclarado = toNum(row?.cantidad_egresada);
-  const entregado = estado === "egresado"
-    ? (Number.isFinite(egresadoDeclarado) && egresadoDeclarado > 0 ? egresadoDeclarado : necesita)
-    : 0;
+  // Los movimientos mandan. El fallback a "se entregó todo" queda sólo para las
+  // filas viejas que se marcaron como egresadas sin anotar cuánto.
+  const egresadoLedger = Math.max(0, toNum(row?.egresadoLedger) || 0);
+  const egresadoDeclarado = Math.max(0, toNum(row?.cantidad_egresada) || 0);
+  const entregado = egresadoLedger > 0
+    ? egresadoLedger
+    : (estado === "egresado" ? (egresadoDeclarado > 0 ? egresadoDeclarado : necesita) : 0);
 
   // Acá el estado escrito a mano SÍ vale, y es la única excepción a la regla.
   // Motivo: "está en compras" no tiene evidencia dura posible —no existe un
@@ -7846,10 +7852,23 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
     merged.set(snapshotMergeKey(row, index), row);
   });
 
+  // Un egreso no modifica la fila del requerimiento: queda como una fila aparte.
+  // Si se descarta sin sumarla, la obra muestra "no se entregó nada" aunque el
+  // material ya se haya ido —era el caso de la 37-40, con 18 egresos
+  // registrados y la lista entera en cero—. Se suman antes de descartarlas.
+  const egresadoPorKey = new Map();
   snapshotRows.forEach((row, index) => {
     const addon = addonRemitoMatch(liveRows, row);
     const key = addon ? snapshotMergeKey(addon) : snapshotMergeKey(row, index);
-    if (!key || isLedgerOnlySnapshot(row)) return;
+    if (!key) return;
+    if (isLedgerOnlySnapshot(row)) {
+      // Sólo las salidas hacia la obra. Una transferencia entre sedes o una
+      // reversión de conteo no son material entregado.
+      if (!String(row?.source || "").toLowerCase().startsWith("egreso")) return;
+      const cantidad = Math.abs(toNum(row?.cantidad_egresada) || toNum(row?.cantidad) || 0);
+      if (cantidad > 0) egresadoPorKey.set(key, (egresadoPorKey.get(key) || 0) + cantidad);
+      return;
+    }
     snapshotsByKey.set(key, pickSnapshotForMerge(snapshotsByKey.get(key), row));
   });
 
@@ -7858,7 +7877,12 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
     merged.set(key, live ? mergeSnapshotIntoLive(live, row) : row);
   });
 
-  return [...merged.values()].sort(compareMatrizRows);
+  return [...merged.entries()]
+    .map(([key, row]) => {
+      const egresado = egresadoPorKey.get(key) || 0;
+      return egresado > 0 ? { ...row, egresadoLedger: egresado } : row;
+    })
+    .sort(compareMatrizRows);
 }
 
 function LineaMetricDot({ label, value, color }) {
