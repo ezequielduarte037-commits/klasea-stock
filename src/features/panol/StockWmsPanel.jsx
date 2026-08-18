@@ -4284,6 +4284,51 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     [productGroupsBase],
   );
 
+  // Los que todavía ensucian la lista. Van a seguir apareciendo a medida que se
+  // carguen matrices nuevas, así que hacerlo de a uno no escala.
+  const matrizPendientes = useMemo(
+    () => productGroupsBase.filter((group) => group.esRequisito === true && group.verificacion !== "ok" && group.material?.id),
+    [productGroupsBase],
+  );
+
+  const [archivandoLote, setArchivandoLote] = useState(false);
+  const archivarTodaLaMatriz = useCallback(async () => {
+    if (!matrizPendientes.length || archivandoLote) return;
+    const total = matrizPendientes.length;
+    if (!window.confirm(
+      `¿Archivar ${total} requisito${total === 1 ? "" : "s"} de matriz?
+
+`
+      + "Salen de la lista operativa pero no se borran: siguen en el catálogo, en las "
+      + "matrices de los modelos y en el historial. Se pueden volver a mostrar cuando quieras.",
+    )) return;
+    setArchivandoLote(true);
+    let hechos = 0;
+    const errores = [];
+    try {
+      // De a cinco: treinta y tres llamadas en paralelo es una forma rápida de
+      // que la base empiece a rechazarlas.
+      for (let i = 0; i < matrizPendientes.length; i += 5) {
+        const tanda = matrizPendientes.slice(i, i + 5);
+        const resultados = await Promise.allSettled(tanda.map((group) => verificarMaterial(group.material.id, "ok", {
+          nota: "Requisito de matriz: no es un producto físico del pañol.",
+        })));
+        resultados.forEach((r, indice) => {
+          if (r.status === "fulfilled") hechos += 1;
+          else errores.push(tanda[indice].label);
+        });
+      }
+      if (errores.length) {
+        toast?.warning?.(`Archivé ${hechos} de ${total}. No pude con: ${errores.slice(0, 3).join(", ")}${errores.length > 3 ? "…" : ""}`);
+      } else {
+        toast?.success?.(`${hechos} requisito${hechos === 1 ? "" : "s"} archivado${hechos === 1 ? "" : "s"}. La lista queda con lo que se puede agarrar del estante.`);
+      }
+      await cargar({ force: true });
+    } finally {
+      setArchivandoLote(false);
+    }
+  }, [archivandoLote, cargar, matrizPendientes, toast]);
+
   const productGroups = useMemo(() => {
     const withDraft = draftGroup && norm(q) && norm(draftGroup.label).includes(norm(q))
       ? [draftGroup, ...productGroupsBase.filter((group) => group.key !== draftGroup.key)]
@@ -4707,6 +4752,19 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
               {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
             </span>
+            {matrizPendientes.length > 0 && (
+              <button type="button" onClick={archivarTodaLaMatriz} disabled={archivandoLote}
+                title="Los requisitos de matriz no son piezas del estante. Archivarlos los saca de la lista sin borrarlos."
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  border: `1px solid ${C.violet}66`, background: "var(--violet-soft)",
+                  color: C.violet, borderRadius: 999, padding: "3px 10px",
+                  cursor: archivandoLote ? "default" : "pointer", opacity: archivandoLote ? 0.6 : 1,
+                  fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                }}>
+                {archivandoLote ? "Archivando…" : `Archivar ${matrizPendientes.length} de matriz`}
+              </button>
+            )}
             {matrizArchivadas > 0 && (
               <button type="button" onClick={() => setVerArchivados((v) => !v)}
                 title="Requisitos de matriz ya revisados. Están fuera de la lista para no confundirlos con productos."
