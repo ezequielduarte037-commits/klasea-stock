@@ -596,7 +596,10 @@ function buildProductGroups(rows = [], fObra = "todas") {
         verificacionProblemas: row.verificacion_problemas || [],
         verificadoAt: row.verificado_at || null,
         verificacionNota: row.verificacion_nota || null,
-        label: row.descripcion || "(sin descripcion)",
+        // Manda el nombre actual del catálogo; la copia del movimiento queda
+        // como respaldo para las filas viejas que no tienen material vinculado.
+        label: row.descripcion_catalogo || row.descripcion || "(sin descripcion)",
+        labelHistorico: row.descripcion && row.descripcion_catalogo && row.descripcion !== row.descripcion_catalogo ? row.descripcion : "",
         codigo: row.codigo || "",
         codigo_barra: row.codigo_barra || "",
         codigos_barra: row.codigos_barra || [],
@@ -1358,7 +1361,13 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
 
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {/* Si el producto se renombró, el nombre viejo queda a mano: es el
+              que figura en los movimientos y en los papeles impresos de antes,
+              y sin esto nadie entiende por qué no coinciden. */}
+          <span
+            title={group.labelHistorico ? `Antes se llamaba: ${group.labelHistorico}` : undefined}
+            style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: group.labelHistorico ? `1px dotted ${C.border2}` : "none" }}
+          >
             {group.label}
           </span>
           <StockLevelChip group={group} compact hideUnset />

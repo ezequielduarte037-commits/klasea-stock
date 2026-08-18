@@ -628,6 +628,11 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
       envio_actor_nombre: envioActor?.username || "",
       request,
       requisito_descripcion: requisitoMeta?.descripcion || "",
+      // El nombre vivo del catálogo. `descripcion` a secas es la copia que se
+      // congeló cuando se registró el movimiento: sirve para saber cómo se
+      // llamaba ese día, pero si se muestra como nombre actual, renombrar el
+      // producto en la ficha no se ve en ningún lado.
+      descripcion_catalogo: productoDescripcion,
       opcion_asignada: opcionAsignada,
       opcion_producto_descripcion: tieneProductoConcreto ? productoDescripcion : "",
       opcion_material_id: tieneProductoConcreto ? row.material_id : null,

@@ -7664,6 +7664,23 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
   };
 }
 
+// Qué cuenta como material que la obra ya tiene en la mano. Sigue la misma
+// definición que usa la pantalla de Movimientos (MOV_SALIDA): salió del pañol
+// hacia una persona o hacia la obra.
+//
+// Queda AFUERA la asignación (transferencia_ingreso): reservar material para una
+// obra no es entregárselo — puede seguir en el estante. Contarla como entregada
+// diría que la obra tiene cosas que todavía no fue a buscar.
+function esEntregaAObra(row) {
+  const source = String(row?.source || "").toLowerCase();
+  if (source.startsWith("egreso")) return true;
+  if (source === "solicitud_consumible_retiro") return true;
+  // "Asign. -> egreso" y "Reasig. -> egreso": el source dice transferencia pero
+  // el destino delata que salió hacia una obra.
+  if (row?.egreso_destino_obra_id) return true;
+  return false;
+}
+
 function isLedgerOnlySnapshot(row) {
   const source = String(row?.source || "").toLowerCase();
   const tipo = String(row?.snapshot_tipo || row?.bucket?.key || "").toLowerCase();
@@ -7862,9 +7879,7 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
     const key = addon ? snapshotMergeKey(addon) : snapshotMergeKey(row, index);
     if (!key) return;
     if (isLedgerOnlySnapshot(row)) {
-      // Sólo las salidas hacia la obra. Una transferencia entre sedes o una
-      // reversión de conteo no son material entregado.
-      if (!String(row?.source || "").toLowerCase().startsWith("egreso")) return;
+      if (!esEntregaAObra(row)) return;
       const cantidad = Math.abs(toNum(row?.cantidad_egresada) || toNum(row?.cantidad) || 0);
       if (cantidad > 0) egresadoPorKey.set(key, (egresadoPorKey.get(key) || 0) + cantidad);
       return;
