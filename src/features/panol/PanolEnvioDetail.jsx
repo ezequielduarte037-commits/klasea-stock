@@ -1119,11 +1119,11 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
               {!isMobile && (
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: canReceive && !cerrado && showAdvanced
-                    ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px"
-                    : canReceive && !cerrado
-                      ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)"
-                      : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
+                  // Siete columnas cuando se puede editar (casillero + acciones) y
+                  // cinco cuando es de lectura. Antes esto dependia de
+                  // showAdvanced pero la fila dibujaba las mismas celdas igual, y
+                  // el encabezado quedaba corrido respecto de los datos.
+                  gridTemplateColumns: canReceive && !cerrado ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px" : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
                   gap: 10,
                   alignItems: "center",
                   padding: "10px 18px",
@@ -1141,7 +1141,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                   <span>Codigo / barra</span>
                   <span>Estado</span>
                   <span>Nota</span>
-                  {canReceive && !cerrado && showAdvanced && <span>Acción especial</span>}
+                  {canReceive && !cerrado && <span>{showAdvanced ? "Acción especial" : "Acciones"}</span>}
                 </div>
               )}
 
@@ -1177,7 +1177,6 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       selected={sel.has(item.id)}
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
-                      showAdvanced={showAdvanced}
                       canSeePrices={canSeePrices}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
@@ -1408,18 +1407,14 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
   );
 }
 
-function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, showAdvanced, canSeePrices, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
   return (
     <div id={`panol-envio-item-${item.id}`} style={{
       display: "grid",
-      gridTemplateColumns: canEdit && showAdvanced
-        ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px"
-        : canEdit
-          ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)"
-          : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
+      gridTemplateColumns: canEdit ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px" : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
       gap: 10,
       alignItems: "center",
       padding: "9px 18px",
@@ -1428,7 +1423,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
       background: flash ? "var(--green-soft)" : selected ? "var(--blue-soft)" : C.bg,
       borderLeft: `3px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
     }}>
-      {canEdit && showAdvanced && (
+      {canEdit && (
         <input
           type="checkbox"
           checked={selected}
