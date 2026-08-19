@@ -571,6 +571,26 @@ function ItemObrasRow({ item, obras = [], onChange }) {
   const setRow = (idx, patch) => onChange({ distribucion: dist.map((d, k) => (k === idx ? { ...d, ...patch } : d)) });
   const addRow = () => onChange({ distribucion: [...dist, { obra_id: "", cantidad: resto > 0 ? String(resto) : "" }] });
   const removeRow = (idx) => { const next = dist.filter((_, k) => k !== idx); onChange({ distribucion: next.length ? next : null }); };
+  // El caso comun es "lo mismo para cada obra": 24 pistones entre 4 obras. El
+  // resto de la division va a la primera para que la suma cierre exacta y no
+  // quede un sobrante que despues nadie sabe donde imputar.
+  const conObra = dist.filter((d) => d.obra_id);
+  const repartirIgual = () => {
+    if (!conObra.length) return;
+    const base = Math.floor((total / conObra.length) * 100) / 100;
+    let asignadoIgual = 0;
+    const partes = dist.map((d) => {
+      if (!d.obra_id) return { ...d, cantidad: "" };
+      asignadoIgual += base;
+      return { ...d, cantidad: String(base) };
+    });
+    const sobra = Math.round((total - asignadoIgual) * 100) / 100;
+    if (sobra > 0) {
+      const primera = partes.findIndex((d) => d.obra_id);
+      if (primera >= 0) partes[primera] = { ...partes[primera], cantidad: String(Math.round((base + sobra) * 100) / 100) };
+    }
+    onChange({ distribucion: partes });
+  };
 
   return (
     <div style={{ display: "grid", gap: 6, padding: "0 10px 10px", minWidth: 0 }}>
@@ -580,6 +600,12 @@ function ItemObrasRow({ item, obras = [], onChange }) {
           asignado {asignado} / {total}
           {resto > 0 ? ` · resto ${resto} → ${item.obra_id ? "obra por defecto" : "stock general"}` : asignado > total ? " · te pasaste" : " ✓"}
         </span>
+        {conObra.length > 1 && (
+          <button type="button" onClick={repartirIgual}
+            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 11, fontWeight: 850, fontFamily: C.sans }}>
+            Partes iguales
+          </button>
+        )}
         <button type="button" onClick={() => onChange({ distribucion: null })} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11, textDecoration: "underline" }}>quitar reparto</button>
       </div>
       {dist.map((d, k) => (
@@ -1994,7 +2020,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         onChange={(patch) => updateItem(i, patch)}
                       />
                     )}
-                    {isRemito && !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && (
+                    {/* El reparto existia solo en el ingreso de remito. En el aviso
+                        a Panol no aparecia, y por eso una compra para cuatro obras
+                        obligaba a cargar cuatro avisos iguales. La imputacion es
+                        por item, asi que un aviso puede llevar material de varias
+                        obras sin problema. */}
+                    {!it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && (
                       <ItemObrasRow item={it} obras={obrasActivas} onChange={(patch) => updateItem(i, patch)} />
                     )}
                     {it.proveedor && (
