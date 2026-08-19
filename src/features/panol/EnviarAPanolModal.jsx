@@ -726,6 +726,10 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [titulo, setTitulo] = useState("");
   const [sede, setSede] = useState("");
   const [obraId, setObraId] = useState("");
+  // Obras extra del aviso. Una compra que llega junta suele ir a varias obras;
+  // se eligen una sola vez acá arriba y cada renglon despues solo pide cuanto
+  // va a cada una.
+  const [obrasExtra, setObrasExtra] = useState([]);
   const [prioridad, setPrioridad] = useState("media");
   const [observaciones, setObservaciones] = useState("");
   const [items, setItems] = useState([]);
@@ -1086,6 +1090,36 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
   function updateItem(i, patch) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  }
+
+  // Las obras del aviso: la principal primero, después las agregadas. Sin memo
+  // a propósito: son dos o tres elementos y memorizarlo cuesta más que armarlo.
+  const obrasDelAviso = [obraId, ...obrasExtra].filter(Boolean);
+
+  // Al elegir una segunda obra, cada renglon que se pueda repartir arranca con
+  // las obras ya puestas y las cantidades en blanco. Asi el que carga solo
+  // completa numeros en vez de volver a elegir obra por renglon.
+  function sembrarReparto(obrasIds) {
+    if (obrasIds.length < 2) return;
+    setItems((prev) => prev.map((it) => {
+      const puedeRepartirse = !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id;
+      if (!puedeRepartirse || Array.isArray(it.distribucion)) return it;
+      return { ...it, distribucion: obrasIds.map((id) => ({ obra_id: id, cantidad: "" })) };
+    }));
+  }
+
+  function agregarObraExtra(id) {
+    if (!id || id === obraId || obrasExtra.includes(id)) return;
+    const siguiente = [...obrasExtra, id];
+    setObrasExtra(siguiente);
+    sembrarReparto([obraId, ...siguiente].filter(Boolean));
+  }
+
+  function quitarObraExtra(id) {
+    const siguiente = obrasExtra.filter((x) => x !== id);
+    setObrasExtra(siguiente);
+    // El reparto ya cargado no se toca: si alguien puso cantidades y saca la
+    // obra de arriba, borrarselas seria peor que dejarlas a la vista.
   }
 
   async function getCatalogForMatching() {
@@ -1628,6 +1662,36 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 <option value="">- Sin obra -</option>
                 {obrasActivas.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
               </select>
+
+              {/* Varias obras en un mismo aviso: la compra llega en una caja y se
+                  reparte. Se eligen acá una vez y cada renglón después sólo pide
+                  cuánto va a cada una. */}
+              {obraId && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
+                  {obrasExtra.map((id) => {
+                    const obra = obrasActivas.find((o) => o.id === id);
+                    return (
+                      <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.primary, borderRadius: 999, padding: "3px 6px 3px 10px", fontSize: 12, fontWeight: 850 }}>
+                        {obra?.codigo || "obra"}
+                        <button type="button" onClick={() => quitarObraExtra(id)} title="Quitar del aviso"
+                          style={{ border: "none", background: "transparent", color: C.primary, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "0 2px" }}>×</button>
+                      </span>
+                    );
+                  })}
+                  <select value="" onChange={(e) => agregarObraExtra(e.target.value)}
+                    style={inp({ background: C.panelSolid, cursor: "pointer", width: "auto", padding: "5px 8px", fontSize: 12 })}>
+                    <option value="">+ Sumar otra obra</option>
+                    {obrasActivas
+                      .filter((o) => o.id !== obraId && !obrasExtra.includes(o.id))
+                      .map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+                  </select>
+                </div>
+              )}
+              {obrasDelAviso.length > 1 && (
+                <div style={{ color: C.t2, fontSize: 11, marginTop: 5, lineHeight: 1.35 }}>
+                  Aviso para {obrasDelAviso.length} obras. En cada renglón poné cuánto va a cada una.
+                </div>
+              )}
             </div>
           </div>
 
