@@ -740,6 +740,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [avisosLoading, setAvisosLoading] = useState(false);
   const [expandedAviso, setExpandedAviso] = useState(null);
   const [scanChoice, setScanChoice] = useState(null); // { material, options } cuando el escaneo es ambiguo
+  // El cierre por click en el fondo tenía una trampa cara: al borrar un renglón,
+  // el elemento desaparece entre el mousedown y el mouseup y el navegador le
+  // atribuye el click al ancestro que quedó — el fondo. Resultado: borrabas una
+  // línea y el modal se cerraba solo, con todo lo cargado adentro.
+  // Con esto sólo cierra si el click EMPEZÓ en el fondo.
+  const clickArrancoEnElFondo = useRef(false);
   const autoDraftIdRef = useRef(null);
   const lastAutosaveRef = useRef("");
   const scanInputRef = useRef(null);
@@ -842,7 +848,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   }, [open, catalogQ]);
 
   useEffect(() => {
-    if (!open || !isRemito || saving) return undefined;
+    // Antes esto era solo para el remito. El aviso a panol no guardaba nada, asi
+    // que cualquier cierre accidental se llevaba puesto todo lo cargado.
+    if (!open || saving) return undefined;
     const payload = { titulo, sede, obraId, prioridad, observaciones, items };
     if (!draftHasContent(payload)) return undefined;
     const serialized = JSON.stringify(payload);
@@ -863,10 +871,10 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   // Este ref guarda siempre el payload vigente para poder volcarlo sin debounce.
   const draftPayloadRef = useRef(null);
   useEffect(() => {
-    draftPayloadRef.current = open && isRemito
+    draftPayloadRef.current = open
       ? { titulo, sede, obraId, prioridad, observaciones, items, draftId: prefill?.draftId || null }
       : null;
-  }, [open, isRemito, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
+  }, [open, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
 
   useEffect(() => {
     const flush = () => {
@@ -1119,7 +1127,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       // El ingreso ya se guardó y su borrador se borró: hay que apagar el volcado
       // de desmontaje, si no lo resucita como borrador apenas se remonta el form.
       draftPayloadRef.current = null;
-    } else if (isRemito) {
+    } else {
+      // Vale para las dos formas: si cerraste sin guardar, lo cargado queda como
+      // borrador y se retoma despues.
       persistDraftNow();
     }
     onClose(saved);
@@ -1541,7 +1551,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
   return (
     <div
-      onClick={embedded ? undefined : (e) => { if (e.target === e.currentTarget) closeModal(false); }}
+      onMouseDown={embedded ? undefined : (e) => { clickArrancoEnElFondo.current = e.target === e.currentTarget; }}
+      onClick={embedded ? undefined : (e) => {
+        const cerrar = clickArrancoEnElFondo.current && e.target === e.currentTarget;
+        clickArrancoEnElFondo.current = false;
+        if (cerrar) closeModal(false);
+      }}
       style={embedded
         ? { height: "100%", minHeight: 0, display: "grid", justifyItems: "center", fontFamily: C.sans }
         : { position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(6px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : ingresoDesktop ? 14 : 20, fontFamily: C.sans }}
