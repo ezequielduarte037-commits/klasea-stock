@@ -233,7 +233,39 @@ export async function fetchEnvio(id) {
     .eq("id", id)
     .single();
   if (error) throw error;
-  return hydrateEnvioItemMaterials(data);
+  return hydrateEnvioItemObras(await hydrateEnvioItemMaterials(data));
+}
+
+// Un aviso puede repartirse entre varias obras: cada renglón apunta al
+// requerimiento de la suya. Sin esto, en la recepción los renglones se ven
+// iguales y no hay forma de saber cuál va a qué obra —ni cuál recibir si llega
+// uno solo—. Es una consulta más y sólo cuando hay renglones con obra.
+async function hydrateEnvioItemObras(envio) {
+  const items = envio?.items || [];
+  const snapshotIds = [...new Set(items.map((item) => item.obra_snapshot_item_id).filter(Boolean))];
+  if (!snapshotIds.length) return envio;
+
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, obra_id, obra:produccion_obras(id,codigo)")
+      .in("id", snapshotIds);
+    if (error) throw error;
+    const porSnapshot = new Map((data ?? []).map((row) => [row.id, row]));
+    return {
+      ...envio,
+      items: items.map((item) => {
+        const fila = item.obra_snapshot_item_id ? porSnapshot.get(item.obra_snapshot_item_id) : null;
+        return fila
+          ? { ...item, obra_id: fila.obra_id, obra_codigo: fila.obra?.codigo || "" }
+          : item;
+      }),
+    };
+  } catch {
+    // Si falla, el aviso se abre igual: la obra por renglón es información
+    // extra, no un requisito para recibir.
+    return envio;
+  }
 }
 
 async function hydrateEnvioItemMaterials(envio) {

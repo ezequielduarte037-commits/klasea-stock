@@ -516,6 +516,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   }, []);
 
   const items = envio?.items || EMPTY_ITEMS;
+  // Obras distintas dentro del mismo aviso. Si es una sola, la etiqueta por
+  // renglón sobra: ya está en la cabecera y repetirla cien veces es ruido.
+  const obrasDelEnvio = useMemo(
+    () => [...new Set(items.map((item) => item.obra_codigo).filter(Boolean))],
+    [items],
+  );
   const resumen = useMemo(() => resumenItems(items), [items]);
   const cerrado = envio && ["cerrado", "cancelado"].includes(envio.estado);
   const scanEnabled = !!canReceive && !cerrado && !loading && showAdvanced;
@@ -1178,6 +1184,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
                       canSeePrices={canSeePrices}
+                      mostrarObraPorItem={obrasDelEnvio.length > 1}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
                       onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
@@ -1407,7 +1414,7 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
   );
 }
 
-function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, mostrarObraPorItem = false, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
@@ -1433,8 +1440,18 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
       )}
 
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {item.descripcion}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.descripcion}
+          </span>
+          {/* A qué obra va este renglón. Un aviso puede repartirse entre varias
+              y sin esto los renglones se ven idénticos: no se puede decidir cuál
+              recibir cuando llega uno solo. */}
+          {mostrarObraPorItem && item.obra_codigo && (
+            <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
+              {item.obra_codigo}
+            </span>
+          )}
         </div>
         {canSeePrices && item.precio_unitario !== null && item.precio_unitario !== undefined && (
           <div style={{ color: C.green, fontSize: 11, marginTop: 3, fontFamily: C.mono }}>

@@ -975,6 +975,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       if (!byReq.has(key)) byReq.set(key, { key, request_id: m.request_id, request_title: m.request_title, obra_codigo: m.obra_codigo, linea_nombre: m.linea_nombre, items: [] });
       byReq.get(key).items.push(m);
     }
+    // Un aviso repartido entre varias obras mostraba la del primer renglón y
+    // escondía el resto: el pañolero veía "52-24" en algo que también iba al
+    // 52-23 y no tenía forma de saber cuál renglón era de cuál.
+    for (const grupo of byReq.values()) {
+      const codigos = [...new Set(grupo.items.map((it) => it.obra_codigo).filter(Boolean))];
+      grupo.obras_codigos = codigos;
+      if (codigos.length > 1) grupo.obra_codigo = codigos.join(" · ");
+    }
     // Si hay obra seleccionada arriba, se muestran SOLO los avisos de esa obra.
     const grupos = [...byReq.values()];
     const filtrados = obraId ? grupos.filter((g) => g.items.some((it) => it.obra_id === obraId)) : grupos;
@@ -1971,6 +1979,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                                       </span>
                                     )}
                                     {prod && <UbicacionChip ubicacion={prod.ubicacion} obs={prod.ubicacion_obs} />}
+                                    {/* La obra del renglón, sólo cuando el aviso va a
+                                        varias: si no, repetiría la del encabezado en
+                                        cada línea sin aportar nada. Sin esto no se
+                                        puede decidir cuál recibir si llega una sola. */}
+                                    {av.obras_codigos?.length > 1 && m.obra_codigo && (
+                                      <span style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.primary, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>
+                                        {m.obra_codigo}
+                                      </span>
+                                    )}
                                     {m.es_adicional && <span style={{ color: C.violet, fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 }}>adicional</span>}
                                     {m.variante && <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>· {m.variante}</span>}
                                   </div>
