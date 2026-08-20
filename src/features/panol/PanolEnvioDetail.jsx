@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
   ClipboardCheck,
   Clock3,
   MapPin,
@@ -30,6 +31,8 @@ import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/
 import { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import { parseUbicacion } from "@/features/panol/ubicacionUtils";
 import { applyPanolReferenceLayout } from "@/features/panol/panolLayout";
+import { leerPresupuestoConIA } from "@/features/materiales/api";
+import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
@@ -328,6 +331,117 @@ function ActionButton({ estado, children, onClick, disabled }) {
   );
 }
 
+// Lectura del remito dentro de Recepcion. El pañolero tiene el papel en la mano
+// y el aviso en pantalla: la IA lee el remito y propone que renglon del aviso
+// tacha cada linea. No marca nada solo — se revisa y se confirma, porque un
+// falso positivo mete stock que no llego.
+function RemitoIaPanel({ resultado, onToggle, onCantidad, onConfirmar, onCerrar, guardando, isMobile }) {
+  const { propuestas = [], sinMatch = [], total = 0 } = resultado || {};
+  const elegidas = propuestas.filter((p) => p.marcar);
+  const parciales = elegidas.filter((p) => !p.completo).length;
+  const dudosas = propuestas.filter((p) => p.score < 88).length;
+
+  return (
+    <div style={{
+      border: `1px solid ${C.violetB}`,
+      background: C.violetL,
+      borderRadius: 12,
+      margin: isMobile ? "0 12px 10px" : "0 18px 10px",
+      overflow: "hidden",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderBottom: `1px solid ${C.violetB}`, flexWrap: "wrap" }}>
+        <Bot size={16} style={{ color: C.violet, flexShrink: 0 }} />
+        <span style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>
+          La IA leyó {total} línea{total === 1 ? "" : "s"} del remito
+        </span>
+        <span style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>
+          · {propuestas.length} cruzan con este aviso
+          {sinMatch.length > 0 && ` · ${sinMatch.length} sin coincidencia`}
+        </span>
+        <button type="button" onClick={onCerrar} title="Descartar la lectura"
+          style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "grid", placeItems: "center" }}>
+          <X size={15} />
+        </button>
+      </div>
+
+      {propuestas.length === 0 ? (
+        <div style={{ padding: "14px 12px", color: C.muted, fontSize: 12.5 }}>
+          Ninguna línea del remito se parece a lo que falta recibir en este aviso. Revisá que sea el remito correcto.
+        </div>
+      ) : (
+        <>
+        {dudosas > 0 && (
+          <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.violetB}`, color: C.muted, fontSize: 11.5 }}>
+            Vienen tildadas las {propuestas.length - dudosas} que coinciden claro.{" "}
+            <strong style={{ color: C.text }}>Las otras {dudosas} tildalas vos</strong> si de verdad llegaron: el parecido no alcanza para darlas por buenas.
+          </div>
+        )}
+        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+          {propuestas.map((p) => (
+            <label key={p.item.id} style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "24px 1fr" : "24px 1fr 132px",
+              gap: 9,
+              alignItems: "center",
+              padding: "9px 12px",
+              borderTop: `1px solid ${C.violetB}`,
+              cursor: "pointer",
+            }}>
+              <input type="checkbox" checked={p.marcar} onChange={() => onToggle(p.item.id)} style={{ accentColor: C.violet }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.item.descripcion}
+                </div>
+                {/* Que leyo la IA, para poder desconfiar de una coincidencia floja. */}
+                <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  remito: {p.linea.descripcion}
+                  {p.score < 88 && <span style={{ color: C.violet, fontWeight: 850 }}> · parecido flojo, revisá</span>}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, justifySelf: isMobile ? "start" : "end", gridColumn: isMobile ? "2" : undefined }}>
+                <input
+                  value={p.cantidad}
+                  onChange={(e) => onCantidad(p.item.id, e.target.value)}
+                  inputMode="decimal"
+                  onClick={(e) => e.preventDefault()}
+                  style={{ width: 62, background: C.panelSolid, border: `1px solid ${p.completo ? C.border : C.violetB}`, color: C.text, borderRadius: 7, padding: "5px 8px", fontSize: 12.5, fontFamily: C.mono, outline: "none", textAlign: "right" }}
+                />
+                <span style={{ color: C.dim, fontSize: 11, whiteSpace: "nowrap" }}>
+                  / {p.item.cantidad} {p.item.unidad || ""}
+                </span>
+              </div>
+            </label>
+          ))}
+        </div>
+        </>
+      )}
+
+      {sinMatch.length > 0 && (
+        <div style={{ padding: "9px 12px", borderTop: `1px solid ${C.violetB}`, color: C.muted, fontSize: 11.5 }}>
+          <strong style={{ color: C.text }}>Sin coincidencia:</strong>{" "}
+          {sinMatch.map((l) => l.descripcion).slice(0, 6).join(" · ")}
+          {sinMatch.length > 6 && ` y ${sinMatch.length - 6} más`}
+          {". "}Si de verdad llegaron, cargalos por Pañol → Ingresar.
+        </div>
+      )}
+
+      {propuestas.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderTop: `1px solid ${C.violetB}`, flexWrap: "wrap" }}>
+          <button type="button" onClick={onConfirmar} disabled={guardando || !elegidas.length}
+            style={{ border: "none", background: elegidas.length ? C.violet : C.panelSolid, color: elegidas.length ? "#fff" : C.dim, borderRadius: 9, padding: "8px 14px", cursor: elegidas.length && !guardando ? "pointer" : "default", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+            {guardando ? "Marcando…" : `Recibir ${elegidas.length} ítem${elegidas.length === 1 ? "" : "s"}`}
+          </button>
+          {parciales > 0 && (
+            <span style={{ color: C.muted, fontSize: 11.5 }}>
+              {parciales} entra{parciales === 1 ? "" : "n"} como parcial: el remito trae menos de lo pedido.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScanReceiptPanel({
   value,
   onChange,
@@ -452,6 +566,8 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(new Set());
+  const [remitoLeyendo, setRemitoLeyendo] = useState(false);
+  const [remitoIa, setRemitoIa] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [itemQ, setItemQ] = useState("");
@@ -660,6 +776,94 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
       setScanBusy(false);
       focusScanInput();
     }
+  }
+
+  // Lee el remito y propone que renglon del aviso tacha cada linea. Los ids ya
+  // usados se descartan para que dos lineas parecidas del remito no caigan sobre
+  // el mismo renglon y una quede sin recibir.
+  async function leerRemitoDeRecepcion(file) {
+    if (!file) return;
+    setRemitoLeyendo(true);
+    setRemitoIa(null);
+    try {
+      const data = await leerPresupuestoConIA({ file });
+      const lineas = (data?.items || data?.lineas || [])
+        .map((it) => ({
+          descripcion: String(it.descripcion || it.description || it.nombre || "").trim(),
+          codigo: String(it.codigo || it.code || "").trim(),
+          cantidad: it.cantidad ?? it.quantity ?? "",
+        }))
+        .filter((it) => it.descripcion);
+      if (!lineas.length) {
+        toast.warning("La IA no detecto items en el remito.");
+        return;
+      }
+      const pendientes = (envio?.items || []).filter((it) => it.estado !== "recibido");
+      if (!pendientes.length) {
+        toast.warning("Este aviso ya no tiene nada pendiente de recibir.");
+        return;
+      }
+      const usados = new Set();
+      const propuestas = [];
+      const sinMatch = [];
+      for (const linea of lineas) {
+        const mejor = pendientes
+          .filter((it) => !usados.has(it.id))
+          .map((it) => ({ item: it, score: materialMatchScore(it, linea) }))
+          .filter((row) => row.score >= 62)
+          .sort((a, b) => b.score - a.score)[0];
+        if (!mejor) { sinMatch.push(linea); continue; }
+        usados.add(mejor.item.id);
+        const pedido = Number(String(mejor.item.cantidad ?? "").replace(",", ".")) || 0;
+        const leido = Number(String(linea.cantidad ?? "").replace(",", ".")) || 0;
+        // Si el remito no trae cantidad legible se asume que llego todo lo pedido:
+        // es lo mas comun y el pañolero igual lo ve y lo puede corregir.
+        const cantidad = leido > 0 ? leido : pedido;
+        propuestas.push({
+          item: mejor.item,
+          linea,
+          score: mejor.score,
+          cantidad: String(cantidad || ""),
+          completo: !(pedido > 0) || cantidad >= pedido,
+          // Solo viene tildado lo que coincide fuerte. Probado contra el remito
+          // real del Baron: de 36 cruces, 13 eran flojas y algunas erradas
+          // -CABO RETORCIDO caia en DEFENSAS-. Recibir algo que no llego es
+          // peor que un click de mas, asi que lo dudoso lo tilda una persona.
+          marcar: materialMatchIsStrong(mejor.score),
+        });
+      }
+      propuestas.sort((a, b) => b.score - a.score);
+      setRemitoIa({ propuestas, sinMatch, total: lineas.length });
+      if (!propuestas.length) toast.warning("Ninguna linea del remito coincide con lo que falta recibir.");
+    } catch (err) {
+      toast.error(err.message || "No se pudo leer el remito.");
+    } finally {
+      setRemitoLeyendo(false);
+    }
+  }
+
+  function recalcularPropuesta(id, cantidad) {
+    setRemitoIa((prev) => {
+      if (!prev) return prev;
+      return { ...prev, propuestas: prev.propuestas.map((row) => {
+        if (row.item.id !== id) return row;
+        const pedido = Number(String(row.item.cantidad ?? "").replace(",", ".")) || 0;
+        const n = Number(String(cantidad).replace(",", ".")) || 0;
+        return { ...row, cantidad, completo: !(pedido > 0) || n >= pedido };
+      }) };
+    });
+  }
+
+  async function confirmarRemitoIa() {
+    const elegidas = (remitoIa?.propuestas || []).filter((row) => row.marcar);
+    if (!elegidas.length) return;
+    const completos = elegidas.filter((row) => row.completo).map((row) => row.item.id);
+    const parciales = elegidas
+      .filter((row) => !row.completo)
+      .map((row) => ({ id: row.item.id, cantidadRecibida: String(row.cantidad ?? "").trim() }));
+    if (completos.length) await aplicar("recibido", completos);
+    if (parciales.length) await aplicarParciales(parciales);
+    setRemitoIa(null);
   }
 
   function submitScan() {
@@ -1024,6 +1228,18 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
         />
       )}
 
+      {remitoIa && (
+        <RemitoIaPanel
+          resultado={remitoIa}
+          guardando={saving}
+          isMobile={isMobile}
+          onToggle={(id) => setRemitoIa((prev) => (prev ? { ...prev, propuestas: prev.propuestas.map((row) => (row.item.id === id ? { ...row, marcar: !row.marcar } : row)) } : prev))}
+          onCantidad={recalcularPropuesta}
+          onConfirmar={confirmarRemitoIa}
+          onCerrar={() => setRemitoIa(null)}
+        />
+      )}
+
       <div style={{
         flex: 1,
         minHeight: 0,
@@ -1116,6 +1332,22 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                     >
                       <Settings2 size={14} /> {showAdvanced ? "Ocultar opciones" : "Parcial / escaneo"}
                     </button>
+                  )}
+                  {/* El pañolero tiene el remito de papel en la mano: que la IA lo
+                      lea aca evita ir a Ingresar y cargar todo de nuevo, que es lo
+                      que terminaba duplicando el material. */}
+                  {canReceive && !cerrado && (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.violetB}`, background: remitoLeyendo ? C.panelSolid : C.violetL, color: remitoLeyendo ? C.dim : C.violet, borderRadius: 9, padding: "7px 10px", cursor: remitoLeyendo ? "default" : "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                      <Bot size={14} />
+                      {remitoLeyendo ? "Leyendo…" : "Leer remito"}
+                      <input
+                        type="file"
+                        accept="image/*,.pdf,application/pdf"
+                        disabled={remitoLeyendo}
+                        onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; leerRemitoDeRecepcion(file); }}
+                        style={{ display: "none" }}
+                      />
+                    </label>
                   )}
                 </div>
 
