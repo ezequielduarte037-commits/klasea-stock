@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { canViewEmpleados } from "@/lib/permissions";
 import { C } from "@/theme";
 import { fetchConfig, fetchContratistas, fetchEmpleados, isMissingTable } from "./api";
 import DashboardTab from "./DashboardTab";
@@ -23,10 +24,16 @@ const TABS = [
   { key: "dashboard",   label: "Dashboard", icon: BarChart3 },
 ];
 
+// Lo que ve cualquiera que entre a RRHH sin ser de RRHH.
+const BASICAS = ["presentismo", "extras", "dashboard"];
+
 export default function RrhhScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   // 'administracion' opera RRHH igual que 'rrhh' (ver y editar legajos, presentismo y extras).
   const esAdmin = profile?.is_admin || ["admin", "rrhh", "administracion"].includes(profile?.role);
+  // Técnica ve el legajo pero no lo toca: EmpleadosTab con esAdmin en false ya
+  // esconde alta, baja, edición y selección múltiple.
+  const verEmpleados = canViewEmpleados(profile);
 
   const [tab, setTab] = useState("presentismo");
   const [empleados, setEmpleados] = useState(null);
@@ -93,7 +100,7 @@ export default function RrhhScreen({ profile, signOut }) {
             <>
               {/* Tabs */}
               <div style={{ display: "flex", gap: 3, marginBottom: 16, padding: 4, width: "fit-content", maxWidth: "100%", overflowX: "auto", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10 }}>
-                {TABS.filter(t => esAdmin || ["presentismo", "extras", "dashboard"].includes(t.key)).map(t => {
+                {TABS.filter(t => esAdmin || BASICAS.includes(t.key) || (verEmpleados && t.key === "empleados")).map(t => {
                   const on = tab === t.key;
                   const Icon = t.icon;
                   return (

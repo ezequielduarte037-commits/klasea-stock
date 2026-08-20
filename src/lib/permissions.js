@@ -48,6 +48,20 @@ export function canAccessRrhh(profile) {
   return ["admin", "rrhh", "tecnica", "administracion"].includes(profile.role);
 }
 
+/**
+ * Quién puede VER el legajo de empleados en RRHH (nombre, DNI, sede, grupo,
+ * si ficha o no). Editarlo es otra cosa y sigue siendo de RRHH y
+ * administración: ver esAdmin en RrhhScreen.
+ *
+ * Técnica entra a mirar: necesita saber quién está y en qué sede para
+ * planificar, pero no da de alta ni de baja gente.
+ */
+export function canViewEmpleados(profile) {
+  if (!profile) return false;
+  if (profile.is_admin) return true;
+  return ["admin", "rrhh", "administracion", "tecnica"].includes(profile.role);
+}
+
 /** Quién puede entrar a la pantalla de Precios (carga de remitos y actualización). */
 export function canAccessPrecios(profile) {
   if (!profile) return false;
