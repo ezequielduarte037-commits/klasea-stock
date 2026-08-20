@@ -8,6 +8,7 @@ import {
   Clock3,
   MapPin,
   MessageSquare,
+  PackageCheck,
   PackageOpen,
   Printer,
   ScanLine,
@@ -898,6 +899,26 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
     setPartialModal({ ids: cleanIds });
   }
 
+  // Recibir renglon por renglon con 40 items es inviable, y la seleccion
+  // multiple queda escondida atras de un checkbox que nadie ve. Este boton hace
+  // lo mismo que apretar "Recibir" en cada uno: los deja en stock del pañol.
+  async function ingresarTodoAPanol() {
+    // Solo lo pendiente. Un renglon en parcial ya lo marco alguien a mano
+    // -"llegaron 2 de 4"- y darlo por completo le borraria ese dato; lo mismo
+    // con los estados problema. Ademas asi el numero del boton es exactamente
+    // lo que se va a recibir.
+    const pendientes = items.filter((item) => item.estado === "pendiente");
+    if (!pendientes.length) return;
+    const n = pendientes.length;
+    const ok = window.confirm(
+      `Ingresar ${n} ítem${n === 1 ? "" : "s"} al pañol de ${envio?.sede || "la sede"}.\n\n`
+      + `Quedan como recibidos y pasan a ser stock disponible: se van a poder egresar.\n\n`
+      + `Si de algo llegó menos de lo pedido, cerrá esto y cargá ese renglón con "Parcial / escaneo".\n\n¿Ingresar todo?`,
+    );
+    if (!ok) return;
+    await aplicar("recibido", pendientes.map((item) => item.id));
+  }
+
   async function aplicar(estado, ids, opts = {}) {
     if (!ids.length) return;
     if (estado === "parcial" && !String(opts.cantidadRecibida ?? "").trim()) {
@@ -1120,6 +1141,22 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
 
           {envio && <EnvioStatusChip estado={envio.estado} />}
 
+          {/* La accion principal de esta pantalla: que lo que llego quede como
+              stock. Antes habia que apretar "Recibir" renglon por renglon y nada
+              confirmaba que hubiera entrado al pañol. */}
+          {envio && canReceive && !cerrado && resumen.pendientes > 0 && (
+            <button
+              type="button"
+              onClick={ingresarTodoAPanol}
+              disabled={saving}
+              title="Marca todo lo pendiente como recibido y lo deja como stock del pañol"
+              style={{ border: "none", background: saving ? C.panelSolid : C.green, color: saving ? C.dim : "#04231a", borderRadius: 9, cursor: saving ? "default" : "pointer", padding: "8px 13px", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
+            >
+              <PackageCheck size={15} />
+              {saving ? "Ingresando…" : `Ingresar todo a pañol (${resumen.pendientes})`}
+            </button>
+          )}
+
           {envio && (
             <button
               type="button"
@@ -1167,7 +1204,8 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
 
         {envio && (
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(150px, 1fr))", gap: 9 }}>
-            <HeaderStat icon={ClipboardCheck} label="Recibidos" value={`${resumen.recibidos}/${resumen.total}`} color={C.green} />
+            {/* "Recibidos" no decia si eso ya era stock o seguia en el limbo. */}
+            <HeaderStat icon={ClipboardCheck} label={resumen.recibidos > 0 ? `Ya son stock en ${envio?.sede || "Pañol"}` : "Recibidos"} value={`${resumen.recibidos}/${resumen.total}`} color={C.green} />
             <HeaderStat icon={Clock3} label="Pendientes" value={resumen.pendientes} color={C.violet} />
             <HeaderStat icon={AlertTriangle} label="Problemas" value={resumen.problemas} color={C.red} />
             <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "10px 12px", display: "grid", alignContent: "center", gap: 7 }}>
