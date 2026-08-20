@@ -4,6 +4,9 @@ const PENDIENTES_KEY = "panol-ingresos-pendientes";
 const PAPELERA_KEY = "panol-ingresos-papelera";
 const MAX_PENDIENTES = 20;
 const MAX_PAPELERA = 10;
+// Una papelera que no se vacía sola deja de ser una papelera: a la semana lo
+// borrado ya no se recupera, sólo estorba arriba de la pantalla.
+const DIAS_PAPELERA = 7;
 
 function leerLista(key) {
   try {
@@ -23,8 +26,22 @@ function escribirLista(key, list) {
   }
 }
 
+// Un borrador sin items ni observaciones no tiene nada que retomar: era el
+// "Malacate . 0 items" que quedaba colgado arriba de la pantalla por haber
+// tipeado una referencia y salir. Se limpian al leer, no solo al escribir,
+// porque los que ya quedaron guardados nadie los va a sacar a mano.
+function tieneAlgo(d) {
+  return !!(
+    String(d?.observaciones || "").trim()
+    || (Array.isArray(d?.items) && d.items.some((it) => String(it?.descripcion || it?.codigo || it?.cantidad || "").trim()))
+  );
+}
+
 export function leerIngresosPendientes() {
-  return leerLista(PENDIENTES_KEY);
+  const list = leerLista(PENDIENTES_KEY);
+  const utiles = list.filter(tieneAlgo);
+  if (utiles.length !== list.length) escribirLista(PENDIENTES_KEY, utiles);
+  return utiles;
 }
 
 // Borrar un borrador NO lo destruye: pasa a la papelera. Un click de más en la X
@@ -38,8 +55,25 @@ export function borrarIngresoPendiente(id) {
   escribirLista(PAPELERA_KEY, [{ ...victima, deletedAt: new Date().toISOString() }, ...papelera].slice(0, MAX_PAPELERA));
 }
 
+// El borrador que YA se convirtió en un aviso real no va a la papelera: no hay
+// trabajo que recuperar, y si alguien lo recupera lo vuelve a enviar duplicado.
+// Antes se usaba borrarIngresoPendiente acá y la papelera terminaba llena de
+// avisos ya cargados, que es justo lo que no hay que ofrecer restaurar.
+export function olvidarIngresoPendiente(id) {
+  const list = leerIngresosPendientes();
+  escribirLista(PENDIENTES_KEY, list.filter((d) => d.id !== id));
+}
+
 export function leerPapeleraIngresos() {
-  return leerLista(PAPELERA_KEY);
+  const list = leerLista(PAPELERA_KEY);
+  const limite = Date.now() - DIAS_PAPELERA * 24 * 60 * 60 * 1000;
+  const vigentes = list.filter((d) => {
+    const t = Date.parse(d.deletedAt || "");
+    // Sin fecha no se puede saber la edad: se conserva, el tope igual lo acota.
+    return Number.isNaN(t) || t >= limite;
+  });
+  if (vigentes.length !== list.length) escribirLista(PAPELERA_KEY, vigentes);
+  return vigentes;
 }
 
 // Devuelve el borrador a la lista activa. Retorna el borrador restaurado o null.

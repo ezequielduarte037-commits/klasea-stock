@@ -10,7 +10,7 @@ import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, normalizeBarcode } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
-import { guardarIngresoPendiente, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import { guardarIngresoPendiente, olvidarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import { UbicacionChip } from "@/features/panol/UbicacionPicker";
@@ -232,10 +232,12 @@ function isMissingVariantColumn(error) {
   return error?.code === "42703" || (msg.includes("column") && msg.includes("variante"));
 }
 
+// Que cuenta como "hay algo que perder". El titulo solo no: escribir una
+// referencia y salir dejaba un borrador de 0 items imposible de retomar, y
+// volver a tipearlo cuesta menos que verlo colgado arriba para siempre.
 function draftHasContent(payload = {}) {
   return !!(
-    String(payload.titulo || "").trim()
-    || String(payload.observaciones || "").trim()
+    String(payload.observaciones || "").trim()
     || (Array.isArray(payload.items) && payload.items.some((item) => String(item.descripcion || item.codigo || item.cantidad || "").trim()))
   );
 }
@@ -712,6 +714,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const { isMobile } = useResponsive();
   const toast = useToast();
   const isRemito = prefill?.origen === "remito" || prefill?.modo === "remito";
+  // Queda guardado en el borrador para poder retomarlo en el modo correcto.
+  const modoDraft = isRemito ? "remito" : "aviso";
   const isCompraNotice = prefill?.origen === "compra";
   const isObraNotice = prefill?.origen === "obra_matriz";
   // Vincular al catálogo sirve en TODOS los modos: es lo que evita duplicados y lo
@@ -881,7 +885,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     // Antes esto era solo para el remito. El aviso a panol no guardaba nada, asi
     // que cualquier cierre accidental se llevaba puesto todo lo cargado.
     if (!open || saving) return undefined;
-    const payload = { titulo, sede, obraId, prioridad, observaciones, items };
+    const payload = { titulo, sede, obraId, prioridad, observaciones, items, modo: modoDraft };
     if (!draftHasContent(payload)) return undefined;
     const serialized = JSON.stringify(payload);
     if (serialized === lastAutosaveRef.current) return undefined;
@@ -893,7 +897,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       }
     }, 900);
     return () => clearTimeout(timer);
-  }, [open, isRemito, saving, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
+  }, [open, isRemito, modoDraft, saving, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
 
   // El autoguardado de arriba tiene 900ms de debounce y su cleanup cancela el
   // timer pendiente. Si el componente se desmonta dentro de esa ventana (cambio
@@ -902,9 +906,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const draftPayloadRef = useRef(null);
   useEffect(() => {
     draftPayloadRef.current = open
-      ? { titulo, sede, obraId, prioridad, observaciones, items, draftId: prefill?.draftId || null }
+      ? { titulo, sede, obraId, prioridad, observaciones, items, modo: modoDraft, draftId: prefill?.draftId || null }
       : null;
-  }, [open, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
+  }, [open, titulo, sede, obraId, prioridad, observaciones, items, modoDraft, prefill?.draftId]);
 
   useEffect(() => {
     const flush = () => {
@@ -1138,8 +1142,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   }
 
   function persistDraftNow() {
-    if (!isRemito) return null;
-    const payload = { titulo, sede, obraId, prioridad, observaciones, items };
+    const payload = { titulo, sede, obraId, prioridad, observaciones, items, modo: modoDraft };
     if (!draftHasContent(payload)) return null;
     const id = guardarIngresoPendiente(payload, autoDraftIdRef.current || prefill?.draftId || null);
     if (id) {
@@ -1590,7 +1593,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       }
       toast.success(`${isRemito ? "Materiales ingresados" : `Envío a Pañol ${sede} creado`} · ${preparedItems.length} ítem${preparedItems.length > 1 ? "s" : ""}`);
       const draftId = autoDraftIdRef.current || prefill?.draftId;
-      if (draftId) borrarIngresoPendiente(draftId);
+      if (draftId) olvidarIngresoPendiente(draftId);
       closeModal(true);
     } catch (err) {
       toast.error(err.message || "No se pudo crear el envío.");

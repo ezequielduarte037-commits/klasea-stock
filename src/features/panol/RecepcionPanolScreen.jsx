@@ -13,6 +13,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Trash2,
   Warehouse,
   X,
 } from "lucide-react";
@@ -27,7 +28,7 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
 import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
-import { leerIngresosPendientes, borrarIngresoPendiente, leerPapeleraIngresos, restaurarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import { leerIngresosPendientes, borrarIngresoPendiente, leerPapeleraIngresos, restaurarIngresoPendiente, vaciarPapeleraIngresos } from "@/features/panol/ingresosPendientes";
 import { hasAdminAccess } from "@/lib/permissions";
 
 const GLASS = {
@@ -497,6 +498,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [modalPrefill, setModalPrefill] = useState(null);
   const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
   const [papelera, setPapelera] = useState(() => leerPapeleraIngresos());
+  // Cerrada por defecto: son borradores descartados, no trabajo pendiente.
+  const [papeleraAbierta, setPapeleraAbierta] = useState(false);
   const refreshPendientes = useCallback(() => {
     setPendientes(leerIngresosPendientes());
     setPapelera(leerPapeleraIngresos());
@@ -847,46 +850,67 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           {/* Tira de borradores para retomar (solo si hay) */}
           {(pendientes.length > 0 || papelera.length > 0) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "8px 12px" : "8px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, ...GLASS, overflowX: "auto", flexShrink: 0 }}>
-              {pendientes.length > 0 && (
-                <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
-                  Borradores ({pendientes.length}):
-                </span>
-              )}
-              {pendientes.map((d) => {
-                const nItems = Array.isArray(d.items) ? d.items.length : 0;
-                return (
-                  <div key={d.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 5px 4px 11px", border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", borderRadius: 999, flexShrink: 0 }}>
-                    <button type="button" title="Retomar este borrador"
-                      onClick={() => {
-                        setModalPrefill({ origen: "remito", modo: "remito", draftId: d.id, titulo: d.titulo, sede: d.sede, obraId: d.obraId, prioridad: d.prioridad, observaciones: d.observaciones, items: d.items });
-                        setIngresoKey((k) => k + 1);
-                      }}
-                      style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", padding: 0 }}>
-                      {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
-                    </button>
-                    <button type="button" title="Mandar a la papelera (se puede recuperar)"
-                      onClick={() => {
-                        borrarIngresoPendiente(d.id);
-                        refreshPendientes();
-                        toast.success("Borrador a la papelera. Podés recuperarlo acá al lado.");
-                      }}
-                      style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 2, flexShrink: 0 }}>
-                      <X size={13} />
-                    </button>
-                  </div>
-                );
-              })}
-              {/* Papelera: borrar un borrador no lo destruye, se puede volver atrás. */}
-              {papelera.length > 0 && (
-                <>
-                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0, marginLeft: pendientes.length ? 6 : 0 }}>
-                    Papelera:
+            <div style={{ borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, ...GLASS, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "8px 12px" : "8px 18px", overflowX: "auto" }}>
+                {pendientes.length > 0 && (
+                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    Borradores ({pendientes.length}):
                   </span>
+                )}
+                {pendientes.map((d) => {
+                  const nItems = Array.isArray(d.items) ? d.items.length : 0;
+                  const esAviso = d.modo === "aviso";
+                  return (
+                    <div key={d.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 5px 4px 11px", border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", borderRadius: 999, flexShrink: 0 }}>
+                      <button type="button" title={esAviso ? "Retomar este aviso a pañol" : "Retomar este ingreso"}
+                        onClick={() => {
+                          // El borrador se retoma como se cargó. Abrir un aviso en
+                          // modo remito lo daría por recibido solo, sin que el
+                          // pañolero llegue a verlo entrar.
+                          const comun = { draftId: d.id, titulo: d.titulo, sede: d.sede, obraId: d.obraId, prioridad: d.prioridad, observaciones: d.observaciones, items: d.items };
+                          setModalPrefill(esAviso ? { origen: "manual", ...comun } : { origen: "remito", modo: "remito", ...comun });
+                          setIngresoKey((k) => k + 1);
+                        }}
+                        style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", padding: 0 }}>
+                        {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
+                      </button>
+                      {esAviso && (
+                        <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>aviso</span>
+                      )}
+                      <button type="button" title="Mandar a la papelera (se puede recuperar)"
+                        onClick={() => {
+                          borrarIngresoPendiente(d.id);
+                          refreshPendientes();
+                          toast.success("Borrador a la papelera. Podés recuperarlo desde el botón Papelera.");
+                        }}
+                        style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 2, flexShrink: 0 }}>
+                        <X size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {/* La papelera vive detrás de un botón: importa que esté, no que se
+                    vea. Abierta siempre empujaba los borradores de verdad fuera de
+                    la pantalla y dejaba la barra con scroll horizontal. */}
+                {papelera.length > 0 && (
+                  <button type="button" onClick={() => setPapeleraAbierta((v) => !v)}
+                    title={papeleraAbierta ? "Ocultar la papelera" : "Borradores que mandaste a la papelera"}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", border: `1px solid ${papeleraAbierta ? C.border2 : "transparent"}`, background: papeleraAbierta ? C.panelSolid : "transparent", borderRadius: 999, color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0, marginLeft: pendientes.length ? 4 : 0 }}>
+                    <Trash2 size={12} />
+                    Papelera ({papelera.length})
+                  </button>
+                )}
+              </div>
+              {papeleraAbierta && papelera.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "0 12px 8px" : "0 18px 8px", overflowX: "auto" }}>
                   {papelera.map((d) => {
                     const nItems = Array.isArray(d.items) ? d.items.length : 0;
+                    const cuando = d.deletedAt ? new Date(d.deletedAt) : null;
+                    const fecha = cuando && !Number.isNaN(cuando.getTime())
+                      ? cuando.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                      : null;
                     return (
-                      <button key={d.id} type="button" title="Recuperar este borrador"
+                      <button key={d.id} type="button" title={fecha ? `Recuperar · lo borraste el ${fecha}` : "Recuperar este borrador"}
                         onClick={() => {
                           restaurarIngresoPendiente(d.id);
                           refreshPendientes();
@@ -898,7 +922,22 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                       </button>
                     );
                   })}
-                </>
+                  <button type="button"
+                    onClick={() => {
+                      const n = papelera.length;
+                      if (!window.confirm(`¿Vaciar la papelera?\n\nSe pierden ${n} borrador${n === 1 ? "" : "es"} descartado${n === 1 ? "" : "s"}. Los ingresos ya cargados no se tocan.`)) return;
+                      vaciarPapeleraIngresos();
+                      refreshPendientes();
+                      setPapeleraAbierta(false);
+                      toast.success("Papelera vacía.");
+                    }}
+                    style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, textDecoration: "underline", whiteSpace: "nowrap", flexShrink: 0, padding: "4px 2px" }}>
+                    Vaciar
+                  </button>
+                  <span style={{ color: C.dim, fontSize: 11, whiteSpace: "nowrap", flexShrink: 0, opacity: 0.75 }}>
+                    se vacía sola a los 7 días
+                  </span>
+                </div>
               )}
             </div>
           )}
