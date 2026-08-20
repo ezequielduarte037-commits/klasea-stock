@@ -385,7 +385,17 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
     .in("estado", estados)
     .order("updated_at", { ascending: false });
 
-  ({ data, error } = await runSelect("*, panol_envio:panol_envios(id,titulo,sede,destino,created_at,created_by,recibido_por)"));
+  // `marcado_por` del renglon del aviso es QUIEN LO RECIBIO, que es el unico
+  // dato fiable de quien hizo el movimiento en el pañol: el envio se arma en
+  // tecnica y `recibido_por` del envio esta vacio en toda la base. Hay dos FK
+  // entre estas tablas, asi que hay que nombrar la que va.
+  const CON_RECEPTOR = "*, panol_envio:panol_envios(id,titulo,sede,destino,created_at,created_by,recibido_por), panol_envio_item:panol_envio_items!panol_obra_materiales_snapshot_panol_envio_item_id_fkey(id,marcado_por,marcado_at)";
+  ({ data, error } = await runSelect(CON_RECEPTOR));
+  if (error) {
+    // Si el embed no resuelve, el stock se muestra igual: se pierde el nombre
+    // del que recibio, no las existencias.
+    ({ data, error } = await runSelect("*, panol_envio:panol_envios(id,titulo,sede,destino,created_at,created_by,recibido_por)"));
+  }
   if (error && isMissingColumn(error)) {
     ({ data, error } = await runSelect("*"));
   }
@@ -586,6 +596,7 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
     ...rows.map((row) => row.created_by),
     ...rows.map((row) => row.panol_envio?.recibido_por),
     ...rows.map((row) => row.panol_envio?.created_by),
+    ...rows.map((row) => row.panol_envio_item?.marcado_por),
   ]);
   const transferActorByKey = new Map();
   for (const row of rows) {
@@ -619,6 +630,11 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
     const categoriaId = row.categoria_id || meta?.categoria_id || null;
     const directActor = isUuidLike(row.egreso_por) ? egresoActorById.get(row.egreso_por) || null : null;
     const transferActor = row.source === "transferencia_ingreso" ? transferActorByKey.get(transferMovementKey(row, "in")) || null : null;
+    // El que apreto "Recibir" en este renglon. Es el movimiento de verdad:
+    // el material entro al pañol cuando esta persona lo dio por recibido.
+    const recepcionActor = isUuidLike(row.panol_envio_item?.marcado_por)
+      ? egresoActorById.get(row.panol_envio_item.marcado_por) || null
+      : null;
     const envioReceivedActor = isUuidLike(row.panol_envio?.recibido_por) ? egresoActorById.get(row.panol_envio.recibido_por) || null : null;
     const envioCreatedActor = isUuidLike(row.panol_envio?.created_by) ? egresoActorById.get(row.panol_envio.created_by) || null : null;
     // Quién hizo ESTE movimiento. Sólo el actor directo o el de la transferencia
@@ -644,7 +660,10 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
     // otras fuentes son más específicas, pero es la única que existe en los
     // ingresos generados desde Materiales.
     const creadorActor = isUuidLike(row.created_by) ? egresoActorById.get(row.created_by) || null : null;
-    const egresoActor = (esSalida ? directActor : null) || transferActor || envioReceivedActor || creadorActor;
+    // El receptor va antes que el creador: un ingreso lo hace el que lo recibe
+    // en el pañol, no el que armo el aviso desde tecnica. Sin esto todos los
+    // ingresos figuraban a nombre de quien carga los avisos.
+    const egresoActor = (esSalida ? directActor : null) || transferActor || recepcionActor || envioReceivedActor || creadorActor;
     const envioActor = envioCreatedActor;
     return {
       ...row,
