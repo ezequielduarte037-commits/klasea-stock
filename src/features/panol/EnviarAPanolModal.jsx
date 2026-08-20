@@ -1032,6 +1032,24 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   }, [items]);
   const avisoItemAdded = (m) => addedPedidoIds.has(m.panol_envio_item_id) || addedPedidoIds.has(m.purchase_request_item_id);
 
+  // Renglones que se estan por cargar a mano y que YA vienen en un aviso abierto
+  // de la misma obra: es el caso que duplica stock. Se calcula mientras se carga
+  // para poder avisarlo a tiempo, no recien al apretar Guardar.
+  const duplicadosConAvisos = useMemo(() => {
+    if (!isRemito || !obraId) return EMPTY_ARR;
+    const esperando = new Set(
+      avisos
+        .filter((a) => a.obra_id === obraId && !avisoItemAdded(a))
+        .map((a) => a.material_id || a.requisito_material_id)
+        .filter(Boolean),
+    );
+    if (!esperando.size) return EMPTY_ARR;
+    // El renglon ya vinculado a un aviso no duplica nada: es justamente el que
+    // se esta recepcionando.
+    return items.filter((it) => it.material_id && !it.panol_envio_item_id && esperando.has(it.material_id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRemito, obraId, avisos, items, addedPedidoIds]);
+
   // Índice material → avisos abiertos donde aparece. Es lo que permite que al
   // buscar o escanear un producto se vea en qué aviso está esperando.
   const avisosPorMaterial = useMemo(() => {
@@ -1549,24 +1567,23 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       toast.warning(`Repartiste más unidades de las que hay en "${sobreAsignado.descripcion || "un ítem"}". Ajustá el reparto por obra.`);
       return;
     }
-    // Si la obra ya tiene material esperando en Recepcion, cargarlo de nuevo por
-    // Ingreso lo mete dos veces: entra como stock nuevo y el aviso queda pendiente
-    // para siempre. Paso con el Baron 37-41 -45 items ingresados a mano mientras
-    // 41 seguian esperando en su aviso-, asi que conviene frenar y preguntar.
-    if (isRemito && obraId) {
-      const esperando = avisos.filter((a) => a.obra_id === obraId && !avisoItemAdded(a));
-      if (esperando.length) {
-        const codigo = obrasActivas.find((o) => o.id === obraId)?.codigo || "esta obra";
-        const n = esperando.length;
-        const ok = window.confirm(
-          `${codigo} tiene ${n} ítem${n === 1 ? "" : "s"} esperando en Recepción.\n\n`
-          + `Si es el mismo material, marcalo en la pestaña "Avisos de recepción" en vez de cargarlo de nuevo: `
-          + `si no, entra dos veces al stock y el aviso queda pendiente para siempre.\n\n¿Guardar igual?`,
-        );
-        if (!ok) {
-          setSearchTab("avisos");
-          return;
-        }
+    // Solo frena si de verdad se esta por cargar DOS VECES el mismo producto:
+    // uno que ya viene esperando en un aviso de esta obra. Preguntar por
+    // cualquier pendiente de la obra hacia saltar el cartel en cada ingreso, y
+    // cancelarlo abortaba el guardado sin decir nada.
+    if (duplicadosConAvisos.length) {
+      const nombres = duplicadosConAvisos.slice(0, 4).map((it) => it.descripcion || "un ítem").join(", ");
+      const n = duplicadosConAvisos.length;
+      const ok = window.confirm(
+        `${n === 1 ? "Este producto ya está" : `Estos ${n} productos ya están`} esperando en Recepción para esta obra:\n\n`
+        + `${nombres}${n > 4 ? ` y ${n - 4} más` : ""}\n\n`
+        + `Si es el mismo material, marcalo en la pestaña "Avisos de recepción" en vez de cargarlo de nuevo: si no, entra dos veces al stock.\n\n¿Guardar igual?`,
+      );
+      if (!ok) {
+        // Sin este aviso, Cancelar se veia igual que un boton roto.
+        toast.warning("No se guardó nada. Marcá lo que llegó en la pestaña «Avisos de recepción».");
+        setSearchTab("avisos");
+        return;
       }
     }
     setSaving(true);
@@ -1634,6 +1651,18 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       setSaving(false);
     }
   }
+
+  // Por que el boton de guardar esta apagado. Sin esto el pañolero lo aprieta,
+  // no pasa nada y da por hecho que el sistema no anda.
+  const faltaParaGuardar = saving
+    ? ""
+    : !titulo.trim() && !items.length
+      ? "Falta el título y al menos un ítem"
+      : !titulo.trim()
+        ? "Falta el título arriba"
+        : !items.length
+          ? "Agregá al menos un ítem"
+          : "";
 
   const gridCols = isMobile
     ? "1fr 92px"
@@ -2075,6 +2104,22 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             ref={itemsSectionRef}
             style={isRemito ? { border: `1px solid ${C.b0}`, background: "rgba(96,165,250,0.035)", borderRadius: 14, padding: ingresoDesktop ? 16 : 10, display: "grid", gap: 10 } : undefined}
           >
+            {duplicadosConAvisos.length > 0 && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 10px", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                <PackageSearch size={14} style={{ color: C.violet, flexShrink: 0, marginTop: 1 }} />
+                <span style={{ minWidth: 0 }}>
+                  {duplicadosConAvisos.length === 1 ? "Este producto ya está" : `Estos ${duplicadosConAvisos.length} productos ya están`}{" "}
+                  esperando en un aviso de esta obra:{" "}
+                  <strong>{duplicadosConAvisos.slice(0, 4).map((it) => it.descripcion).join(" · ")}</strong>
+                  {duplicadosConAvisos.length > 4 && ` y ${duplicadosConAvisos.length - 4} más`}.{" "}
+                  <button type="button" onClick={() => { setSearchTab("avisos"); }}
+                    style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, textDecoration: "underline", padding: 0 }}>
+                    Marcalos ahí
+                  </button>{" "}
+                  en vez de cargarlos de nuevo, o entran dos veces al stock.
+                </span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
               <div>
                 <span style={{ ...lbl, marginBottom: 3, fontSize: ingresoDesktop ? 11 : lbl.fontSize }}>Productos a ingresar</span>
@@ -2233,6 +2278,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             </button>
           )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {faltaParaGuardar && (
+            <span style={{ color: C.t2, fontSize: 11.5, fontWeight: 750, textAlign: "right" }}>{faltaParaGuardar}</span>
+          )}
           <button type="button" onClick={() => closeModal(false)} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700, fontFamily: C.sans }}>Cancelar</button>
           <button type="submit" disabled={saving || !titulo.trim() || items.length === 0} style={{ border: "none", background: saving || !titulo.trim() || !items.length ? "var(--panel-2)" : C.blue, color: saving || !titulo.trim() || !items.length ? C.dim : "#fff", borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || !titulo.trim() || !items.length ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}>{saving ? "Guardando..." : isRemito ? "Ingresar a stock" : "Enviar a Pañol"}</button>
           </div>
