@@ -210,13 +210,26 @@ function topCatalogMatches(catalog = [], queryItem = {}, limit = 8) {
     .map((row) => ({ ...row.material, _score: row.score }));
 }
 
+// Cuando se vincula un renglon al catalogo, la unidad del producto tiene que
+// ganarle al "unidad" que trae por defecto todo renglon nuevo. Antes la
+// condicion era `item.unidad || material.unidad`, y como "unidad" nunca es
+// vacio el catalogo jamas se aplicaba: la cadena de 6mm, que en el catalogo
+// esta en metro, entraba como 50 unidades. Lo que el usuario elige a mano
+// (unidad_touched) sigue mandando sobre todo lo demas.
+function unidadDeItemYMaterial(item = {}, material = null) {
+  if (item.unidad_touched && item.unidad) return item.unidad;
+  const propia = String(item.unidad || "").trim();
+  if (propia && propia !== "unidad") return propia;
+  return material?.unidad || propia || "unidad";
+}
+
 function itemPatchFromMaterial(material, item = {}) {
   return {
     material_id: material?.id || "",
     requisito_material_id: item.requisito_material_id || item.material_id || null,
     codigo: item.codigo || material?.codigo || "",
     codigo_barra: item.codigo_barra || material?.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
-    unidad: item.unidad || material?.unidad || "unidad",
+    unidad: unidadDeItemYMaterial(item, material),
     proveedor: item.proveedor || material?.proveedor || "",
     precio_unitario: item.precio_unitario !== "" && item.precio_unitario != null ? item.precio_unitario : material?.precio_unitario ?? "",
     moneda: item.moneda || material?.moneda || "ARS",
@@ -1536,6 +1549,26 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       toast.warning(`Repartiste más unidades de las que hay en "${sobreAsignado.descripcion || "un ítem"}". Ajustá el reparto por obra.`);
       return;
     }
+    // Si la obra ya tiene material esperando en Recepcion, cargarlo de nuevo por
+    // Ingreso lo mete dos veces: entra como stock nuevo y el aviso queda pendiente
+    // para siempre. Paso con el Baron 37-41 -45 items ingresados a mano mientras
+    // 41 seguian esperando en su aviso-, asi que conviene frenar y preguntar.
+    if (isRemito && obraId) {
+      const esperando = avisos.filter((a) => a.obra_id === obraId && !avisoItemAdded(a));
+      if (esperando.length) {
+        const codigo = obrasActivas.find((o) => o.id === obraId)?.codigo || "esta obra";
+        const n = esperando.length;
+        const ok = window.confirm(
+          `${codigo} tiene ${n} ítem${n === 1 ? "" : "s"} esperando en Recepción.\n\n`
+          + `Si es el mismo material, marcalo en la pestaña "Avisos de recepción" en vez de cargarlo de nuevo: `
+          + `si no, entra dos veces al stock y el aviso queda pendiente para siempre.\n\n¿Guardar igual?`,
+        );
+        if (!ok) {
+          setSearchTab("avisos");
+          return;
+        }
+      }
+    }
     setSaving(true);
     try {
       const preparedItems = await ensureCatalogLinksForItems(items);
@@ -1632,7 +1665,19 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         ? { height: "100%", minHeight: 0, display: "grid", justifyItems: "center", fontFamily: C.sans }
         : { position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(6px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : ingresoDesktop ? 14 : 20, fontFamily: C.sans }}
     >
-      <form onSubmit={submit} style={embedded
+      <form
+        onSubmit={submit}
+        onKeyDown={(e) => {
+          // Enter en cualquier input mandaba el ingreso entero. Cargando 40
+          // renglones a mano, un Enter de mas guardaba un aviso de 1 item y no
+          // habia forma de volver atras: quedaba creado y habia que empezar de
+          // nuevo. Solo guarda el boton Guardar.
+          if (e.key !== "Enter" || e.shiftKey) return;
+          const tag = e.target?.tagName;
+          if (tag === "TEXTAREA" || tag === "BUTTON") return;
+          e.preventDefault();
+        }}
+        style={embedded
         ? { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: "100%", maxHeight: "100%", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0 }
         : { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: ingresoDesktop ? "18px 22px" : "16px 18px", borderBottom: `1px solid ${C.border}` }}>
@@ -2063,7 +2108,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                     <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "", variante: "" })} placeholder="Descripción" style={inp({ padding: "8px 10px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
                     <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "", variante: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "8px 10px", fontSize: 13, fontFamily: C.mono })} />
                     <input value={it.cantidad || ""} onChange={(e) => updateItem(i, { cantidad: e.target.value })} placeholder="Cant." style={inp({ padding: "8px 10px", fontSize: 13 })} />
-                    <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value })} style={inp({ padding: "8px 10px", fontSize: 13, background: C.panelSolid })}>
+                    <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value, unidad_touched: true })} style={inp({ padding: "8px 10px", fontSize: 13, background: C.panelSolid })}>
                       {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                     </select>
                     {isRemito && (

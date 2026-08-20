@@ -726,6 +726,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
         }
       }
       setSel(new Set());
+      if (estado === "recibido" || estado === "parcial") {
+        const n = ids.length;
+        toast.success(n === 1
+          ? `Recibido. Ya es stock en ${envio?.sede || "Pañol"}.`
+          : `${n} ítems recibidos. Ya son stock en ${envio?.sede || "Pañol"}.`);
+      }
     } catch (err) {
       toast.error(err.message || "No se pudo actualizar.");
     } finally {
