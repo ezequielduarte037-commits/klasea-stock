@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, CheckCheck, ClipboardList, FileText, Loader2, Package, Plus, Printer,
+  AlertTriangle, Archive, ArrowLeft, CheckCheck, ClipboardList, FileText, Loader2, Package, Plus, Printer,
   Search, Send, Ship, Trash2, X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -381,7 +381,8 @@ function SolicitudCard({ s, activa, onSelect }) {
       onClick={onSelect}
       className="sp-card"
       style={{
-        width: "100%", textAlign: "left", display: "flex", alignItems: "stretch", gap: 0, padding: 0,
+        width: "100%", minHeight: 82, flex: "0 0 auto", textAlign: "left",
+        display: "flex", alignItems: "stretch", gap: 0, padding: 0,
         borderRadius: 12, overflow: "hidden", cursor: "pointer",
         border: `1px solid ${activa ? tint(meta.color, 45) : C.border}`,
         background: activa ? `linear-gradient(135deg, ${tint(meta.color, 13)}, ${tint(meta.color, 3)})` : C.panelSolid,
@@ -389,32 +390,93 @@ function SolicitudCard({ s, activa, onSelect }) {
       }}
     >
       <span style={{ width: 4, flexShrink: 0, background: urgente ? "#ef4444" : meta.color }} />
-      <span style={{ flex: 1, minWidth: 0, padding: "9px 11px", display: "block" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-          <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 900, fontFamily: C.mono, color: activa ? C.text : C.muted }}>
+      <span style={{ flex: 1, minWidth: 0, padding: "9px 11px 8px", display: "grid", gap: 4 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 950, fontFamily: C.mono, color: activa ? C.text : C.muted }}>
             N°{s.numero}
           </span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 800, color: activa ? C.text : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {nombreObra(s)}
-          </span>
           {urgente && <AlertTriangle size={12} color={C.red} style={{ flexShrink: 0 }} />}
-          <span style={{ flexShrink: 0, width: 7, height: 7, borderRadius: 999, background: meta.color }} title={meta.label} />
+          <span style={{
+            marginLeft: "auto", minWidth: 0, maxWidth: 146, display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "2px 7px", borderRadius: 999, border: `1px solid ${tint(meta.color, 28)}`,
+            background: tint(meta.color, 10), color: meta.color, fontSize: 9.5, fontWeight: 900,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: 999, background: meta.color }} />
+            {meta.label}
+          </span>
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.dim, flexWrap: "wrap" }}>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>
+        <span style={{
+          minWidth: 0, fontSize: 13, fontWeight: 900, color: activa ? C.text : C.muted,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {nombreObra(s)}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, fontSize: 10.5, color: C.dim }}>
+          <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {s.solicita || "sin firmar"}
           </span>
-          <span>· {fmtFecha(s.fecha_pedido)}</span>
-          <span style={{ fontFamily: C.mono }}>· {s.itemsListos}/{s.totalItems}</span>
-          {s.itemsFaltantes > 0 && <span style={{ color: C.red, fontWeight: 800 }}>· {s.itemsFaltantes} falta</span>}
+          <span style={{ flexShrink: 0 }}>· {fmtFecha(s.fecha_pedido)}</span>
+          <span style={{ flexShrink: 0, fontFamily: C.mono, color: s.itemsFaltantes > 0 ? C.red : C.dim }}>
+            · {s.itemsListos}/{s.totalItems}
+          </span>
         </span>
         {s.totalItems > 0 && (
-          <span style={{ display: "block", marginTop: 6 }}>
+          <span style={{ display: "block", marginTop: 1 }}>
             <Progreso pct={pct} ancho="100%" color={s.itemsFaltantes ? C.violet : undefined} />
           </span>
         )}
       </span>
     </button>
+  );
+}
+
+function ResumenSolicitud({ s }) {
+  const datos = [
+    ["Obra", nombreObra(s)],
+    ["Sale del pañol", s.sede_origen],
+    ["Sector", s.sector],
+    ["Prioridad", PRIORIDADES.find((p) => p.value === s.prioridad)?.label || s.prioridad],
+    ["Fecha del pedido", fmtFecha(s.fecha_pedido)],
+    ["Fecha de retiro", fmtFecha(s.fecha_retiro)],
+    ["Solicitó", s.solicita],
+    ["Retiró", s.retirado_por_nombre || s.retira],
+    ["Preparó", s.preparado_por],
+    ["Tipo", Array.isArray(s.tipo) ? s.tipo.join(" · ") : s.tipo],
+  ].filter(([, valor]) => valor && valor !== "—");
+
+  return (
+    <div style={{ padding: "11px 14px 13px", borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <CheckCheck size={14} color={C.green} />
+        <span style={{ ...LBL, color: C.muted }}>Resumen del pedido entregado</span>
+        <span style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5 }}>Sólo lectura</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))", gap: 7 }}>
+        {datos.map(([etiqueta, valor]) => (
+          <div key={etiqueta} style={{ minWidth: 0, padding: "7px 9px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel }}>
+            <div style={{ ...LBL, marginBottom: 3 }}>{etiqueta}</div>
+            <div style={{ color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={String(valor)}>
+              {valor}
+            </div>
+          </div>
+        ))}
+      </div>
+      {(s.tarea || s.notas_panol) && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 7 }}>
+          {s.tarea && (
+            <div style={{ padding: "8px 10px", borderRadius: 9, background: C.panel2, color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
+              <span style={LBL}>Tarea / observaciones</span><br />{s.tarea}
+            </div>
+          )}
+          {s.notas_panol && (
+            <div style={{ padding: "8px 10px", borderRadius: 9, background: C.panel2, color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
+              <span style={LBL}>Notas de pañol</span><br />{s.notas_panol}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -605,6 +667,10 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
           {puedeEditarSolicitud && <IconBtn icon={Trash2} title="Borrar solicitud" tono="rojo" onClick={borrar} />}
         </div>
 
+        {entregada ? (
+          <ResumenSolicitud s={s} />
+        ) : (
+          <>
         {/* datos del papel */}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderTop: `1px solid ${C.border}` }}>
           <label style={{ display: "grid", gap: 3, flex: "1 1 170px", minWidth: 0 }}>
@@ -712,6 +778,8 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
             />
           </label>
         </div>
+          </>
+        )}
       </div>
 
       {/* Fotos del papel. Va ARRIBA de los ítems a propósito: el circuito real
@@ -853,7 +921,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
 
   const [solicitudes, setSolicitudes] = useState([]);
   const [obras, setObras] = useState([]);
-  const [estado, setEstado] = useState("");
+  const [estado, setEstado] = useState("activas");
   const [q, setQ] = useState("");
   const [selId, setSelId] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -924,8 +992,16 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
           ? `Solicitud N° ${numero} creada. Cargale los ítems.`
           : `Pedido N° ${numero} creado. Agregale los materiales y mandalo a pañol.`
       );
-      await cargar();
-      setSelId(id);
+      // Un alta siempre vuelve a la bandeja operativa. Si se crea mientras se
+      // revisa el archivo o un estado puntual, el nuevo pedido no debe quedar
+      // oculto por el filtro anterior.
+      if (estado !== "activas") {
+        setEstado("activas");
+        setSelId(id);
+      } else {
+        await cargar();
+        setSelId(id);
+      }
     } catch (err) { toast?.error(err.message || "No se pudo crear la solicitud."); }
   }
 
@@ -951,7 +1027,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
         @keyframes sp-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
         .sp-surface{background:var(--panel-solid);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow);animation:sp-fade .24s ease both}
         .sp-card{transition:transform .16s cubic-bezier(.4,0,.2,1),box-shadow .16s ease,border-color .16s ease}
-        .sp-card:hover{transform:translateX(2px);border-color:var(--border-2)}
+        .sp-card:hover{transform:translateX(2px);border-color:var(--border-2);box-shadow:0 7px 18px -12px var(--shadow-strong)}
         .sp-row{transition:background .14s ease}
         .sp-row:hover{background:var(--panel)}
         .sp-chip{transition:background .14s ease,border-color .14s ease,color .14s ease}
@@ -995,7 +1071,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
               display: "flex", alignItems: "center", justifyContent: isMobile ? "flex-end" : "initial",
               gap: 7, flexWrap: "wrap",
             }}>
-              {!isMobile && (
+              {!isMobile && estado !== "archivadas" && (
                 <>
                   <Kpi icon={ClipboardList} valor={abiertas} label="En curso" color="var(--violet)" soft="var(--violet-soft)" borde="var(--violet-border)" />
                   <Kpi icon={CheckCheck} valor={listas} label="Para retirar" color="var(--blue)" soft="var(--blue-soft)" borde="var(--blue-border)" />
@@ -1003,6 +1079,9 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
                     <Kpi icon={AlertTriangle} valor={urgentes} label="Urgentes" color="var(--red)" soft="var(--red-soft)" borde="var(--red-border)" />
                   )}
                 </>
+              )}
+              {!isMobile && estado === "archivadas" && (
+                <Kpi icon={Archive} valor={solicitudes.length} label="Archivadas" color="var(--muted)" soft="var(--panel-2)" borde="var(--border-2)" />
               )}
               <Ghost icon={Printer} size="sm" onClick={() => setEnBlanco(true)} title="Imprimir la hoja vacía para completar a mano">{isMobile ? "Hoja" : "Hoja en blanco"}</Ghost>
               <Cta icon={Plus} size={isMobile ? "sm" : undefined} tono="azul" onClick={() => setNueva(true)}>{isMobile ? "Nuevo" : textoAlta}</Cta>
@@ -1012,79 +1091,104 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
 
         <div style={{ position: "relative", flex: 1, minHeight: 0, padding: `14px ${pad}px ${pad}px`, display: "flex", gap: 13, flexDirection: isMobile ? "column" : "row" }}>
           {/* lista */}
-          <div
-            className="sp-list-scroll"
+          <aside
             style={{
               width: isMobile ? "100%" : 296,
               flex: isMobile ? 1 : "0 0 auto",
-              display: isMobile && selId ? "none" : "grid",
-              gap: 8, alignContent: "start", minHeight: 0, maxHeight: "100%",
-              overflowY: "auto", paddingRight: 2,
+              display: isMobile && selId ? "none" : "flex",
+              flexDirection: "column", gap: 8, minHeight: 0, maxHeight: "100%",
             }}
           >
-            <div style={{ position: "relative" }}>
-              <Search size={14} color={C.dim} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="N° pañol, quién pide, obra…"
-                style={{ ...INPUT, padding: "8px 10px 8px 30px", fontSize: 12.5 }}
-              />
-            </div>
-
-            {/* filtro por estado: chips y no un select, porque el 90% del uso es
-                "mostrame las que están para retirar" y tiene que ser un toque */}
-            {/* Envuelven en dos renglones en vez de scrollear: la columna mide
-                296px y los chips no entran en una línea. Una barra horizontal
-                acá esconde estados y obliga a arrastrar para algo que se usa a
-                cada rato. */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: 3, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 11 }}>
-              {[{ value: "", label: "Todas" }, ...SOLICITUD_ESTADOS.filter((e) => e.value !== "borrador")].map((e) => {
-                const on = estado === e.value;
-                return (
-                  <button
-                    key={e.value || "todas"}
-                    type="button"
-                    onClick={() => setEstado(e.value)}
-                    className="sp-seg"
-                    style={{
-                      flex: "0 0 auto", padding: "5px 9px", borderRadius: 8, border: "none", cursor: "pointer",
-                      fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap",
-                      background: on ? C.panelSolid : "transparent",
-                      color: on ? (e.color || C.text) : C.dim,
-                      boxShadow: on ? "0 2px 6px -2px var(--shadow)" : "none",
-                    }}
-                  >
-                    {e.value === "listo" ? "Listas" : e.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {cargando && !solicitudes.length && (
-              <div style={{ display: "flex", alignItems: "center", gap: 9, color: C.dim, fontSize: 13, padding: 6 }}>
-                <Loader2 size={16} className="spin" /> Cargando…
+            <div className="sp-surface" style={{ flexShrink: 0, padding: 8, display: "grid", gap: 7, borderRadius: 12 }}>
+              <div style={{ position: "relative" }}>
+                <Search size={14} color={C.dim} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="N° pañol, persona u obra…"
+                  style={{ ...INPUT, padding: "8px 10px 8px 30px", fontSize: 12.5, background: C.panel }}
+                />
               </div>
-            )}
 
-            {!cargando && !solicitudes.length && (
-              <EmptyState
-                icon={ClipboardList}
-                accent="#3b82f6"
-                title={q || estado ? "Nada con ese filtro" : esPanol ? "Sin solicitudes cargadas" : "Todavía no pediste nada"}
-                subtitle={q || estado
-                  ? "Probá sacando el filtro o buscando por el N° de pañol."
-                  : esPanol
-                    ? "Cuando llegue un papel al mostrador, cargalo acá y empezá a armar el pedido."
-                    : "Armá tu pedido buscando los materiales en el catálogo y mandalo a pañol."}
-                action={!q && !estado ? <Cta icon={Plus} size="sm" tono="azul" onClick={() => setNueva(true)}>{textoAlta}</Cta> : null}
-              />
-            )}
+              {/* Filtros siempre visibles; el listado es el único sector que
+                  scrollea. Así las tarjetas nunca se comprimen para entrar. */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {[
+                  { value: "activas", label: "Activas", color: C.blue },
+                  ...SOLICITUD_ESTADOS.filter((e) => ["enviada", "preparando", "listo"].includes(e.value)),
+                  { value: "archivadas", label: "Archivadas", color: C.dim, icon: Archive },
+                ].map((e) => {
+                  const on = estado === e.value;
+                  const FilterIcon = e.icon;
+                  return (
+                    <button
+                      key={e.value || "todas"}
+                      type="button"
+                      onClick={() => setEstado(e.value)}
+                      className="sp-seg"
+                      style={{
+                        flex: "0 0 auto", padding: "5px 8px", borderRadius: 8, border: `1px solid ${on ? (e.color ? tint(e.color, 28) : C.border2) : "transparent"}`,
+                        cursor: "pointer", fontSize: 11, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap",
+                        background: on ? (e.color ? tint(e.color, 9) : C.panel2) : "transparent",
+                        color: on ? (e.color || C.text) : C.dim,
+                      }}
+                    >
+                      {FilterIcon && <FilterIcon size={11} style={{ marginRight: 4, verticalAlign: -2 }} />}
+                      {e.value === "listo" ? "Listas" : e.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-            {solicitudes.map((s) => (
-              <SolicitudCard key={s.id} s={s} activa={s.id === selId} onSelect={() => seleccionar(s.id)} />
-            ))}
-          </div>
+            <div
+              className="sp-list-scroll"
+              style={{
+                flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 3, paddingBottom: 4,
+                display: "flex", flexDirection: "column", gap: 8,
+              }}
+            >
+              {!cargando && solicitudes.length > 0 && (
+                <div style={{ padding: "0 3px 1px", fontSize: 10.5, color: C.dim, fontWeight: 750 }}>
+                  {solicitudes.length} solicitud{solicitudes.length === 1 ? "" : "es"}
+                </div>
+              )}
+
+              {cargando && !solicitudes.length && (
+                <div style={{ display: "flex", alignItems: "center", gap: 9, color: C.dim, fontSize: 13, padding: 6 }}>
+                  <Loader2 size={16} className="spin" /> Cargando…
+                </div>
+              )}
+
+              {!cargando && !solicitudes.length && (
+                <EmptyState
+                  icon={estado === "archivadas" ? Archive : ClipboardList}
+                  accent="#3b82f6"
+                  title={q
+                    ? "Nada con esa búsqueda"
+                    : estado === "archivadas"
+                      ? "Todavía no hay solicitudes archivadas"
+                      : estado !== "activas"
+                        ? "Nada con ese estado"
+                        : esPanol ? "Sin solicitudes activas" : "No tenés pedidos activos"}
+                  subtitle={q
+                    ? "Probá con otro número, persona u obra."
+                    : estado === "archivadas"
+                      ? "Las solicitudes aparecerán acá automáticamente cuando se entreguen o cancelen."
+                      : estado !== "activas"
+                        ? "Volvé a Activas o elegí otro estado."
+                        : esPanol
+                          ? "Cuando llegue un papel al mostrador, cargalo acá y empezá a armar el pedido."
+                          : "Armá tu pedido buscando los materiales en el catálogo y mandalo a pañol."}
+                  action={!q && estado === "activas" ? <Cta icon={Plus} size="sm" tono="azul" onClick={() => setNueva(true)}>{textoAlta}</Cta> : null}
+                />
+              )}
+
+              {solicitudes.map((s) => (
+                <SolicitudCard key={s.id} s={s} activa={s.id === selId} onSelect={() => seleccionar(s.id)} />
+              ))}
+            </div>
+          </aside>
 
           {/* detalle */}
           <div style={{

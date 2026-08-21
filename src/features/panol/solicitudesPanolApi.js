@@ -77,14 +77,22 @@ async function actorId() {
 // Listado para la barra lateral. Trae sólo el conteo de ítems por estado (no
 // los ítems enteros): la lista muestra el progreso "12/18 preparados" y con
 // traer las filas completas de 200 solicitudes el payload se iba de las manos.
-export async function fetchSolicitudes({ estado = "", obraId = "", q = "", limit = 200, soloMias = false } = {}) {
+export async function fetchSolicitudes({ estado = "activas", obraId = "", q = "", limit = 200, soloMias = false } = {}) {
   let query = supabase
     .from("panol_solicitudes")
     .select(`${SOLICITUD_COLS}, obra:produccion_obras(id, codigo, descripcion), items:panol_solicitud_items(id, estado)`)
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (estado) query = query.eq("estado", estado);
+  // La bandeja operativa no mezcla trabajo pendiente con historial. No se
+  // borra nada: las entregadas y canceladas se consultan desde "Archivadas".
+  if (estado === "activas") {
+    query = query.not("estado", "in", "(entregado,cancelado)");
+  } else if (estado === "archivadas") {
+    query = query.in("estado", ["entregado", "cancelado"]);
+  } else if (estado) {
+    query = query.eq("estado", estado);
+  }
   if (obraId) query = query.eq("obra_id", obraId);
   // El que pide ve sólo lo suyo. La RLS ya lo obliga, pero filtrar acá también
   // evita mostrarle una lista vacía sin explicación cuando la policy recorta.
