@@ -202,7 +202,14 @@ export default function LaminacionScreen({ profile, signOut }) {
     fecha: hoyLocal(),
     destino: "", nombre_persona: "", observaciones: "",
   });
-  const [formPedido, setFormPedido] = useState({ material_id: "", cantidad: "", observaciones: "", categoria: "estándar" });
+  // Pedido de stock: destino + varios renglones. El alta de un material suelto
+  // no servía —no llevaba obra ni llegaba a Compras— y un pedido real lleva
+  // ocho o diez materiales.
+  const [pedidoStock, setPedidoStock] = useState({
+    destino: "", observaciones: "", material_id: "", cantidad: "", categoria: "estándar", renglones: [],
+  });
+  const [pedidoStockErr, setPedidoStockErr] = useState("");
+  const [enviandoPedido, setEnviandoPedido] = useState(false);
   const [formMaterial, setFormMaterial] = useState({ nombre: "", categoria: "", unidad: "unidad", stock_minimo: 0 });
 
   // Modal de recepción de pedidos (pañolero)
@@ -815,24 +822,155 @@ export default function LaminacionScreen({ profile, signOut }) {
     cargar();
   }
 
-  async function crearPedido(e) {
-    e.preventDefault();
-    if (!formPedido.material_id) return setErr("Seleccioná un material");
-    if (!formPedido.cantidad || num(formPedido.cantidad) <= 0) return setErr("Cantidad inválida");
-    setErr("");
+  // Alta de una orden de laminación, en un solo lugar. Crea las tres cosas que
+  // tienen que existir juntas o no existir: el pedido en Compras, un renglón de
+  // Compras por material, y el pedido de laminación de cada uno atado a ese
+  // renglón. Sin ese vínculo el pedido queda huérfano —se ve en laminación y
+  // Compras no se entera nunca—, que es lo que pasaba con el alta manual: 37 de
+  // los 133 pedidos de la base quedaron así.
+  //
+  // La usan el generador por plantilla y el pedido de stock manual. Una sola
+  // implementación: dos que hagan "lo mismo" terminan haciendo cosas distintas.
+  async function crearOrdenLaminacion({
+    items,
+    obraDestino = null,
+    tituloCompras,
+    descripcionCompras,
+    observaciones,
+    ordenRef,
+  }) {
+    const limpios = (items ?? []).filter((it) => it.material_id && num(it.cantidad) > 0);
+    if (!limpios.length) return { ok: 0, fallidos: 0, enCompras: false, ordenRef };
+
+    // Compras primero, best-effort: si falla, los pedidos de laminación se crean
+    // igual y el pañolero puede escalarlos a mano. Perder la carga sería peor.
+    let request = null;
+    try {
+      request = await createPurchaseRequest({
+        form: {
+          title: tituloCompras,
+          description: descripcionCompras || observaciones || tituloCompras,
+          priority: "media",
+          project_id: null,
+          source: "laminacion",
+          source_ref: ordenRef,
+        },
+      });
+    } catch (e) {
+      console.warn("[Laminacion] no se pudo crear el pedido a Compras:", e);
+    }
+
     const userId = await getUserId();
-    const { error } = await supabase.from("laminacion_pedidos").insert({
-      material_id: formPedido.material_id,
-      cantidad: num(formPedido.cantidad),
-      estado: "pendiente",
-      solicitado_por: userId,
-      observaciones: formPedido.observaciones.trim() || null,
-      categoria: formPedido.categoria || "estándar",
+    let ok = 0;
+    let fallidos = 0;
+
+    for (const it of limpios) {
+      const esExtra = it.categoria === "extra";
+      const mat = materiales.find((m) => String(m.id) === String(it.material_id));
+      const destino = esExtra ? "Stock Pampa 1050" : obraDestino;
+      let reqItemId = null;
+
+      if (request) {
+        try {
+          const reqItem = await addRequestItem(request.id, {
+            description: it.descripcion || mat?.nombre || "Material laminación",
+            quantity: num(it.cantidad),
+            unit: mat?.unidad || "unidad",
+            destination: destino ? (/^Stock\s/i.test(destino) ? destino : `Obra ${String(destino).replace(/^Obra\s+/i, "")}`) : null,
+            notes: esExtra ? "EXTRA - Stock Pampa 1050" : null,
+            material_id: it.material_id || null,
+            catalog_source: "laminacion",
+          });
+          reqItemId = reqItem?.id || null;
+        } catch (e) {
+          console.warn("[Laminacion] no se pudo crear el ítem en Compras:", e);
+        }
+      }
+
+      const { error } = await supabase.from("laminacion_pedidos").insert({
+        material_id: it.material_id,
+        cantidad: num(it.cantidad),
+        observaciones,
+        estado: "pendiente",
+        categoria: it.categoria || "estándar",
+        obra_destino: destino,
+        purchase_request_item_id: reqItemId,
+        solicitado_por: userId,
+      });
+      if (error) { fallidos += 1; console.warn("[Laminacion] pedido falló:", error); }
+      else ok += 1;
+    }
+
+    if (request) {
+      notifyComprasEmail({
+        type: "new_request",
+        requestId: request.id,
+        requestTitle: tituloCompras,
+        changedBy: profile?.id,
+        createdByName: profile?.username || "Usuario",
+        source: "laminacion",
+      });
+    }
+
+    cargarPedidos();
+    return { ok, fallidos, enCompras: !!request, ordenRef };
+  }
+
+
+  function agregarRenglonPedido() {
+    setPedidoStockErr("");
+    if (!pedidoStock.material_id) return setPedidoStockErr("Elegí un material.");
+    if (num(pedidoStock.cantidad) <= 0) return setPedidoStockErr("La cantidad tiene que ser mayor a cero.");
+    setPedidoStock((f) => {
+      // Si el material ya está en la lista se suman las cantidades en vez de
+      // repetirlo: dos renglones del mismo material confunden a Compras.
+      const i = f.renglones.findIndex((r) => r.material_id === f.material_id && r.categoria === f.categoria);
+      const renglones = i >= 0
+        ? f.renglones.map((r, k) => (k === i ? { ...r, cantidad: num(r.cantidad) + num(f.cantidad) } : r))
+        : [...f.renglones, { material_id: f.material_id, cantidad: num(f.cantidad), categoria: f.categoria }];
+      return { ...f, renglones, material_id: "", cantidad: "" };
     });
-    if (error) return setErr(error.message);
-    flash("Pedido creado");
-    setFormPedido({ material_id: "", cantidad: "", observaciones: "", categoria: "estándar" });
-    cargar();
+  }
+
+  function quitarRenglonPedido(i) {
+    setPedidoStock((f) => ({ ...f, renglones: f.renglones.filter((_, k) => k !== i) }));
+  }
+
+  async function enviarPedidoStock() {
+    setPedidoStockErr("");
+    if (!pedidoStock.destino) return setPedidoStockErr("Elegí para qué barco es, o Stock Pampa 1050.");
+    if (!pedidoStock.renglones.length) return setPedidoStockErr("Agregá al menos un material.");
+    setEnviandoPedido(true);
+    try {
+      const hoy = hoyLocal().replace(/-/g, "");
+      const ordenRef = `OC-${hoy}-${String(Date.now()).slice(-4)}`;
+      const esStock = /^Stock\s/i.test(pedidoStock.destino);
+      const obs = `${ordenRef} | Pedido de stock${pedidoStock.observaciones.trim() ? ` — ${pedidoStock.observaciones.trim()}` : ""}`;
+      const detalle = pedidoStock.renglones.map((r) => {
+        const mat = materiales.find((m) => String(m.id) === String(r.material_id));
+        return `${r.cantidad} ${mat?.unidad || ""} ${mat?.nombre || "material"}${r.categoria === "extra" ? " (extra)" : ""}`;
+      }).join("\n");
+
+      const res = await crearOrdenLaminacion({
+        items: pedidoStock.renglones,
+        obraDestino: esStock ? null : pedidoStock.destino,
+        tituloCompras: `Pedido Laminación — ${pedidoStock.destino}`,
+        descripcionCompras: `Ref: ${ordenRef}\nDestino: ${pedidoStock.destino}\n\n${detalle}${pedidoStock.observaciones.trim() ? `\n\n${pedidoStock.observaciones.trim()}` : ""}`,
+        observaciones: obs,
+        ordenRef,
+      });
+
+      if (!res.ok) {
+        setPedidoStockErr("No se pudo crear el pedido. Ver consola.");
+        return;
+      }
+      setPedidoStock({ destino: "", observaciones: "", material_id: "", cantidad: "", categoria: "estándar", renglones: [] });
+      flash(res.enCompras
+        ? `${ordenRef} — ${res.ok} material${res.ok === 1 ? "" : "es"} enviados a Compras${res.fallidos ? ` (${res.fallidos} con error)` : ""}`
+        : `${ordenRef} — ${res.ok} pedido(s) creados, pero NO se pudo avisar a Compras`);
+    } finally {
+      setEnviandoPedido(false);
+    }
   }
 
   async function setEstadoPedido(id, estado) {
@@ -2411,89 +2549,25 @@ export default function LaminacionScreen({ profile, signOut }) {
   materiales={materiales}
   stockPorMaterial={stockPorMaterial}
   onCrearOrden={async (items, { plantillaLabel, obraNumero, ordenRef, emailText }) => {
-    // FLUJO ÚNICO: generar la orden crea de una sola vez:
-    //  1) los pedidos de laminación (el pañolero les da ingreso)
-    //  2) con obra_destino → al recibir, impacta la plantilla del barco
-    //  3) el pedido a Compras (purchase_request) — y se vinculan entre sí
+    // Misma alta que el pedido de stock manual: pedido en Compras, un renglón
+    // por material y el pedido de laminación de cada uno atado a ese renglón.
     const obs = `${ordenRef} | ${plantillaLabel}${obraNumero ? ` — Obra ${obraNumero}` : ""}`;
     const obraDestino = obraNumero?.trim() || null;
     const tituloObra = obraNumero?.trim() ? `Obra ${obraNumero.trim()}` : (plantillaLabel || ordenRef);
-    // La descripción que ve Compras = la vista email (con extras al final), más la ref.
-    const descripcionCompras = emailText ? `Ref: ${ordenRef}\n\n${emailText}` : obs;
-
-    // 1) Pedido a Compras primero (best-effort). Si falla, igual creamos los
-    //    pedidos de laminación; el pañolero puede escalar a compras con el botón.
-    let created = null;
-    try {
-      created = await createPurchaseRequest({
-        form: {
-          title: `Pedido Laminación — ${tituloObra}`,
-          description: descripcionCompras,
-          priority: "media",
-          project_id: null,
-          source: "laminacion",
-          source_ref: ordenRef,
-        },
-      });
-    } catch (e) {
-      console.warn("[Laminacion] no se pudo crear el pedido a Compras:", e);
-    }
-
-    // 2) Un pedido de laminación por ítem, ya vinculado a su request_item (creamos
-    //    el request_item y el pedido juntos para que el id quede atado sin ambigüedad).
-    let okCount = 0;
-    let failCount = 0;
-    for (const it of items) {
-      const esExtra = it.categoria === "extra";
-      const mat = materiales.find(m => String(m.id) === String(it.material_id));
-      let reqItemId = null;
-      if (created) {
-        try {
-          const reqItem = await addRequestItem(created.id, {
-            description: it.descripcion || mat?.nombre || "Material laminación",
-            quantity: it.cantidad ?? null,
-            unit: mat?.unidad || "unidad",
-            destination: esExtra ? "Stock Pampa 1050" : (obraDestino ? `Obra ${obraDestino}` : null),
-            notes: esExtra ? "EXTRA - Stock Pampa 1050" : null,
-            material_id: it.material_id || null,
-            catalog_source: "laminacion",
-          });
-          reqItemId = reqItem?.id || null;
-        } catch (e) {
-          console.warn("[Laminacion] no se pudo crear el ítem en Compras:", e);
-        }
-      }
-      const { error: pedErr } = await supabase.from("laminacion_pedidos").insert({
-        material_id: it.material_id,
-        cantidad: it.cantidad,
-        observaciones: obs,
-        estado: "pendiente",
-        categoria: it.categoria || "estándar",
-        obra_destino: esExtra ? "Stock Pampa 1050" : obraDestino,
-        purchase_request_item_id: reqItemId,
-      });
-      if (pedErr) { failCount += 1; console.warn("[Laminacion] pedido falló:", pedErr); }
-      else okCount += 1;
-    }
-
-    if (created) {
-      notifyComprasEmail({
-        type: "new_request",
-        requestId: created.id,
-        requestTitle: `Pedido Laminación — ${tituloObra}`,
-        changedBy: profile?.id,
-        createdByName: profile?.username || "Usuario",
-        source: "laminacion",
-      });
-    }
-
-    cargarPedidos();
-    if (okCount === 0) {
-      flash(`No se pudo generar la orden (${failCount} fallaron). Ver consola.`);
+    const res = await crearOrdenLaminacion({
+      items,
+      obraDestino,
+      tituloCompras: `Pedido Laminación — ${tituloObra}`,
+      descripcionCompras: emailText ? `Ref: ${ordenRef}\n\n${emailText}` : obs,
+      observaciones: obs,
+      ordenRef,
+    });
+    if (!res.ok) {
+      flash(`No se pudo generar la orden (${res.fallidos} fallaron). Ver consola.`);
     } else {
-      flash(created
-        ? `Orden ${ordenRef} generada — ${okCount} materiales · enviada a Compras${failCount ? ` (${failCount} con error)` : ""}`
-        : `Orden ${ordenRef} generada — ${okCount} materiales (no se pudo enviar a Compras, ver consola)`);
+      flash(res.enCompras
+        ? `Orden ${ordenRef} generada — ${res.ok} materiales · enviada a Compras${res.fallidos ? ` (${res.fallidos} con error)` : ""}`
+        : `Orden ${ordenRef} generada — ${res.ok} materiales (no se pudo enviar a Compras, ver consola)`);
     }
   }}
 />
@@ -2511,42 +2585,107 @@ export default function LaminacionScreen({ profile, signOut }) {
     />		  
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "var(--text)" }}>Nuevo pedido</h3>
-                    <form onSubmit={crearPedido}>
-                      <div style={S.row3}>
-                        <div>
-                          <label style={S.label}>Material</label>
-                          <select style={S.select} value={formPedido.material_id}
-                            onChange={e => setFormPedido(f => ({ ...f, material_id: e.target.value }))}>
-                            <option value="">— Seleccionar —</option>
-                            {matOptions}
-                          </select>
-                        </div>
-                        <div>
-                          <label style={S.label}>Cantidad</label>
-                          <input style={S.input} type="number" step="0.01" placeholder="0"
-                            value={formPedido.cantidad}
-                            onChange={e => setFormPedido(f => ({ ...f, cantidad: e.target.value }))} />
-                        </div>
-                        <div>
-                          <label style={S.label}>Observaciones</label>
-                          <input style={S.input} placeholder="Urgente, para barco X, ref. anterior..."
-                            value={formPedido.observaciones}
-                            onChange={e => setFormPedido(f => ({ ...f, observaciones: e.target.value }))} />
-                        </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                      <h3 style={{ margin: 0, color: "var(--text)" }}>Nuevo pedido de stock</h3>
+                      <span style={{ color: "var(--dim)", fontSize: 12.5 }}>
+                        Elegí para qué barco es, agregá los materiales y se manda a Compras.
+                      </span>
+                    </div>
+
+                    <div style={{ ...S.row3, marginTop: 12 }}>
+                      <div>
+                        <label style={S.label}>Destino</label>
+                        <select style={S.select} value={pedidoStock.destino}
+                          onChange={e => setPedidoStock(f => ({ ...f, destino: e.target.value }))}>
+                          <option value="">— Elegir barco o stock —</option>
+                          <option value="Stock Pampa 1050">Stock Pampa 1050 (sin obra)</option>
+                          {obrasLam.map(o => (
+                            <option key={o.id} value={destinoObraLaminacion(o)}>{destinoObraLaminacion(o)}</option>
+                          ))}
+                        </select>
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--muted)", userSelect: "none" }}>
-                          <input type="checkbox" checked={formPedido.categoria === "extra"}
-                            onChange={e => setFormPedido(f => ({ ...f, categoria: e.target.checked ? "extra" : "estándar" }))}
-                            style={{ accentColor: "#f59e0b" }} />
-                          Material extra (fuera de la lista estándar)
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label style={S.label}>Observaciones</label>
+                        <input style={S.input} placeholder="Urgente, proveedor sugerido, referencia..."
+                          value={pedidoStock.observaciones}
+                          onChange={e => setPedidoStock(f => ({ ...f, observaciones: e.target.value }))} />
+                      </div>
+                    </div>
+
+                    {/* Alta de renglones. El material y la cantidad se cargan acá y
+                        pasan a la lista de abajo: un pedido de verdad lleva ocho o
+                        diez materiales, no uno. */}
+                    <div style={{ ...S.row3, marginTop: 12, alignItems: "end" }}>
+                      <div>
+                        <label style={S.label}>Material</label>
+                        <select style={S.select} value={pedidoStock.material_id}
+                          onChange={e => setPedidoStock(f => ({ ...f, material_id: e.target.value }))}>
+                          <option value="">— Seleccionar —</option>
+                          {matOptions}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={S.label}>Cantidad</label>
+                        <input style={S.input} type="number" step="0.01" min="0" placeholder="0"
+                          value={pedidoStock.cantidad}
+                          onChange={e => setPedidoStock(f => ({ ...f, cantidad: e.target.value }))}
+                          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); agregarRenglonPedido(); } }} />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <button type="button" onClick={agregarRenglonPedido} style={S.btnPrimary}>+ Agregar</button>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12.5, color: "var(--muted)", userSelect: "none" }}>
+                          <input type="checkbox" checked={pedidoStock.categoria === "extra"}
+                            onChange={e => setPedidoStock(f => ({ ...f, categoria: e.target.checked ? "extra" : "estándar" }))}
+                            style={{ accentColor: "#8b5cf6" }} />
+                          Extra (va a stock, no al barco)
                         </label>
                       </div>
-                      <div style={{ marginTop: 12 }}>
-                        <button type="submit" style={S.btnPrimary}>Crear pedido</button>
+                    </div>
+
+                    {pedidoStockErr && (
+                      <div style={{ marginTop: 10, padding: "8px 11px", borderRadius: 8, border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.10)", color: "#f87171", fontSize: 12.5 }}>
+                        {pedidoStockErr}
                       </div>
-                    </form>
+                    )}
+
+                    {pedidoStock.renglones.length > 0 && (
+                      <div style={{ marginTop: 14, border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
+                        {pedidoStock.renglones.map((r, i) => {
+                          const mat = materiales.find(m => String(m.id) === String(r.material_id));
+                          const enStock = num(stockPorMaterial[r.material_id]);
+                          return (
+                            <div key={`${r.material_id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: `1px solid ${C.b0}` }}>
+                              <span style={{ flex: 1, minWidth: 0, color: "var(--text)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {mat?.nombre || "Material"}
+                                {r.categoria === "extra" && (
+                                  <span style={{ marginLeft: 7, color: "#a78bfa", fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>extra</span>
+                                )}
+                              </span>
+                              {/* Cuánto hay hoy: evita pedir de más lo que ya está en el galpón. */}
+                              <span style={{ color: "var(--dim)", fontSize: 11.5, whiteSpace: "nowrap" }}>
+                                en stock {enStock} {mat?.unidad || ""}
+                              </span>
+                              <span style={{ color: "var(--text)", fontSize: 13, fontWeight: 800, fontFamily: "ui-monospace, monospace", whiteSpace: "nowrap" }}>
+                                {r.cantidad} {mat?.unidad || ""}
+                              </span>
+                              <button type="button" title="Quitar" onClick={() => quitarRenglonPedido(i)}
+                                style={{ border: "none", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 }}>×</button>
+                            </div>
+                          );
+                        })}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", flexWrap: "wrap" }}>
+                          <button type="button" onClick={enviarPedidoStock} disabled={enviandoPedido}
+                            style={{ ...S.btnPrimary, opacity: enviandoPedido ? 0.55 : 1 }}>
+                            {enviandoPedido
+                              ? "Enviando…"
+                              : `Enviar a Compras (${pedidoStock.renglones.length} material${pedidoStock.renglones.length === 1 ? "" : "es"})`}
+                          </button>
+                          <span style={{ color: "var(--dim)", fontSize: 11.5 }}>
+                            Compras lo recibe, y cuando llega se le da ingreso acá en Pedidos: ahí suma al stock.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
