@@ -560,12 +560,36 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
 }
 
 // Reparto de un ingreso entre varias obras (ej: 3 plotters → 1 a cada obra).
-// Solo tiene sentido con cantidad > 1 y para ingresos directos (sin pedido vinculado).
-function ItemObrasRow({ item, obras = [], onChange }) {
+// Solo para ingresos directos (sin pedido vinculado).
+function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
   const num = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
   const total = num(item.cantidad);
-  if (total <= 1) return null;
   const dist = Array.isArray(item.distribucion) ? item.distribucion : null;
+
+  // Una unidad no se reparte, pero igual hay que decir a qué obra va. Antes esto
+  // devolvía null y en un aviso de cuatro obras el renglón de una sola unidad se
+  // iba al barco del encabezado sin que hubiera forma de cambiarlo. En un aviso
+  // de una obra sola no aparece: sería repetir el encabezado en cada renglón.
+  if (total <= 1) {
+    if (!multiObra) return null;
+    const elegida = (dist || []).find((d) => d.obra_id && num(d.cantidad) > 0)?.obra_id || "";
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obra</span>
+        <select
+          value={elegida}
+          onChange={(e) => onChange({
+            distribucion: e.target.value ? [{ obra_id: e.target.value, cantidad: String(total || 1) }] : null,
+          })}
+          style={inp({ padding: "7px 9px", fontSize: 12.5, background: C.panelSolid, width: "auto", minWidth: 190 })}
+        >
+          <option value="">La obra del aviso</option>
+          {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+        </select>
+        {!elegida && <span style={{ color: C.t2, fontSize: 11 }}>elegí a qué barco va esta unidad</span>}
+      </div>
+    );
+  }
 
   if (!dist) {
     return (
@@ -2200,7 +2224,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         por item, asi que un aviso puede llevar material de varias
                         obras sin problema. */}
                     {!it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && (
-                      <ItemObrasRow item={it} obras={obrasActivas} onChange={(patch) => updateItem(i, patch)} />
+                      <ItemObrasRow item={it} obras={obrasActivas} multiObra={obrasDelAviso.length > 1} onChange={(patch) => updateItem(i, patch)} />
                     )}
                     {it.proveedor && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
