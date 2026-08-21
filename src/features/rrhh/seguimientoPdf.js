@@ -3,8 +3,12 @@ import autoTable from "jspdf-autotable";
 import logoKUrl from "@/assets/logos/logo-k.png";
 import { minToHM } from "./api";
 
-// Informe de asistencia de una persona, para imprimir o adjuntar a un legajo.
+// Informe de asistencia de una persona, para imprimir o adjuntar al legajo.
 // Mismo estilo que la hoja de ruta del cadete: barra navy, logo y tabla.
+//
+// Recibe el MISMO historial que muestra el modal de Seguimiento por persona.
+// No recalcula nada: si el papel dijera algo distinto que la pantalla, no
+// habria forma de saber cual vale.
 
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -37,15 +41,17 @@ async function loadNavyLogo() {
   } catch { return null; }
 }
 
+const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
 function fmtFechaLarga(iso) {
   if (!iso) return "-";
   const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-function fmtFechaCorta(iso) {
-  const [, m, d] = String(iso).split("-");
-  return `${d}/${m}`;
+function fechaYDia(iso) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  return { corta: `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`, dia: DIAS[new Date(y, m - 1, d).getDay()] ?? "" };
 }
 
 function safePart(s) {
@@ -54,17 +60,24 @@ function safePart(s) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 60);
 }
 
+// Mismas etiquetas que los chips del modal.
 const ESTADO_LABEL = {
   presente: "Presente",
-  tarde: "Tarde",
+  tarde: "Llegada tarde",
+  incompleta: "Marcación incompleta",
+  justificada: "Ausencia justificada",
   ausente: "AUSENTE",
-  justificada: "Justificada",
 };
 
-// Construye el documento y lo devuelve sin guardarlo, para poder generarlo y
-// medirlo en una prueba sin depender del navegador.
-export async function construirSeguimientoPdf(seguimiento, { generadoPor = "" } = {}) {
-  const { empleado, desde, hasta, dias, resumen } = seguimiento;
+function detalleDeFila(row) {
+  if (row.marcacion) {
+    const horas = row.minutos != null ? ` (${minToHM(row.minutos)})` : "";
+    return `${row.entrada || "sin entrada"} – ${row.salida || "sin salida"}${horas}`;
+  }
+  return row.justificacion?.motivo || "Sin marcación registrada";
+}
+
+export async function construirSeguimientoPdf({ empleado, desde, hasta, historial = [], resumen = {} }, { generadoPor = "" } = {}) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const left = 42;
@@ -96,29 +109,24 @@ export async function construirSeguimientoPdf(seguimiento, { generadoPor = "" } 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...muted);
-  const ficha = [
-    empleado?.dni ? `DNI ${empleado.dni}` : "",
-    empleado?.sede || "",
-    empleado?.contratista?.nombre || (empleado?.grupo === "casa" ? "Gente de la casa" : ""),
-  ].filter(Boolean).join("   ·   ");
+  const ficha = [empleado?.dni ? `DNI ${empleado.dni}` : "", empleado?.sede || ""].filter(Boolean).join("   ·   ");
   if (ficha) doc.text(ficha, left, 80);
   doc.text(`Del ${fmtFechaLarga(desde)} al ${fmtFechaLarga(hasta)}`, left, ficha ? 93 : 80);
 
   // ── Resumen ────────────────────────────────────────────────────────────────
   const yResumen = ficha ? 108 : 95;
   const celdas = [
-    ["Presentes", String(resumen.presentes)],
-    ["Ausentes", String(resumen.ausentes)],
-    ["Justificadas", String(resumen.justificadas)],
-    ["Tarde", String(resumen.tarde)],
-    ["Salió en jornada", String(resumen.diasConSalida)],
-    ["Horas trabajadas", minToHM(resumen.minutosTrabajados)],
+    ["Presentes", String(resumen.presentes ?? 0), false],
+    ["Tardes", String(resumen.tardes ?? 0), false],
+    ["Ausentes", String(resumen.ausentes ?? 0), (resumen.ausentes ?? 0) > 0],
+    ["Justificadas", String(resumen.justificadas ?? 0), false],
+    ["Días del período", String(historial.length), false],
   ];
   const anchoCelda = (pageWidth - left * 2) / celdas.length;
   doc.setDrawColor(...border);
   doc.setFillColor(247, 249, 252);
   doc.rect(left, yResumen, pageWidth - left * 2, 40, "FD");
-  celdas.forEach(([label, valor], i) => {
+  celdas.forEach(([label, valor, alarma], i) => {
     const x = left + anchoCelda * i;
     if (i > 0) doc.line(x, yResumen, x, yResumen + 40);
     doc.setFont("helvetica", "normal");
@@ -127,56 +135,43 @@ export async function construirSeguimientoPdf(seguimiento, { generadoPor = "" } 
     doc.text(label.toUpperCase(), x + 8, yResumen + 14);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    // Las ausencias en rojo: es el número que se busca al abrir esta hoja.
-    doc.setTextColor(...(label === "Ausentes" && resumen.ausentes > 0 ? rojo : navy));
+    // Las ausencias en rojo: es el numero que se busca al abrir esta hoja.
+    doc.setTextColor(...(alarma ? rojo : navy));
     doc.text(valor, x + 8, yResumen + 33);
   });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...muted);
-  doc.text(
-    `Sobre ${resumen.diasComputados} día(s) computado(s). Los domingos —y los sábados sin fichaje— no cuentan como falta.`,
-    left,
-    yResumen + 54,
-  );
+  doc.text("No incluye sábados ni domingos.", left, yResumen + 54);
 
   // ── Detalle ────────────────────────────────────────────────────────────────
-  // Los días no laborables sin fichaje no entran: son seis domingos de ruido que
-  // tapan lo que importa. Un sábado trabajado sí aparece, porque tiene fichaje.
-  const filas = dias.filter((d) => d.estado !== "no laborable");
+  // En pantalla se lista del dia mas nuevo al mas viejo; en papel se lee mejor
+  // en orden, de la primera fecha del rango a la ultima.
+  const filas = [...historial].reverse();
 
   autoTable(doc, {
     startY: yResumen + 66,
-    head: [["Fecha", "Día", "Entrada", "Salida", "Horas", "Estado", "Observaciones"]],
-    body: filas.map((d) => [
-      fmtFechaCorta(d.fecha),
-      d.dia,
-      d.entrada || "—",
-      d.salida || "—",
-      d.minutos != null ? minToHM(d.minutos) : "—",
-      ESTADO_LABEL[d.estado] || d.estado,
-      d.observaciones.join(" · "),
-    ]),
-    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 4.5, textColor: [24, 31, 42], lineColor: border, valign: "middle" },
-    headStyles: { fillColor: navy, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+    head: [["Fecha", "Día", "Estado", "Detalle"]],
+    body: filas.map((row) => {
+      const { corta, dia } = fechaYDia(row.fecha);
+      return [corta, dia, ESTADO_LABEL[row.tipo] || row.tipo, detalleDeFila(row)];
+    }),
+    styles: { font: "helvetica", fontSize: 9, cellPadding: 5, textColor: [24, 31, 42], lineColor: border, valign: "middle" },
+    headStyles: { fillColor: navy, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
     alternateRowStyles: { fillColor: [247, 249, 252] },
     columnStyles: {
-      0: { cellWidth: 42 },
-      1: { cellWidth: 58 },
-      2: { cellWidth: 46, halign: "center" },
-      3: { cellWidth: 46, halign: "center" },
-      4: { cellWidth: 42, halign: "center" },
-      5: { cellWidth: 74 },
-      6: { cellWidth: "auto" },
+      0: { cellWidth: 52 },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 128 },
+      3: { cellWidth: "auto" },
     },
     // Una ausencia tiene que saltar a la vista sin leer la fila entera.
     didParseCell: (data) => {
       if (data.section !== "body") return;
-      const fila = filas[data.row.index];
-      if (fila?.estado === "ausente") {
+      if (filas[data.row.index]?.tipo === "ausente") {
         data.cell.styles.textColor = rojo;
-        if (data.column.index === 5) data.cell.styles.fontStyle = "bold";
+        if (data.column.index === 2) data.cell.styles.fontStyle = "bold";
       }
     },
     margin: { left, right: left },
@@ -184,8 +179,7 @@ export async function construirSeguimientoPdf(seguimiento, { generadoPor = "" } 
 
   // ── Pie ────────────────────────────────────────────────────────────────────
   const finY = doc.lastAutoTable?.finalY ?? yResumen + 66;
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const yPie = Math.min(finY + 30, pageHeight - 40);
+  const yPie = Math.min(finY + 30, doc.internal.pageSize.getHeight() - 40);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(...muted);
@@ -195,8 +189,8 @@ export async function construirSeguimientoPdf(seguimiento, { generadoPor = "" } 
   return { doc, nombreArchivo: `seguimiento-${safePart(empleado?.nombre)}-${desde}_${hasta}.pdf` };
 }
 
-export async function exportSeguimientoPdf(seguimiento, opciones = {}) {
-  const { doc, nombreArchivo } = await construirSeguimientoPdf(seguimiento, opciones);
+export async function exportSeguimientoPdf(datos, opciones = {}) {
+  const { doc, nombreArchivo } = await construirSeguimientoPdf(datos, opciones);
   doc.save(nombreArchivo);
   return nombreArchivo;
 }

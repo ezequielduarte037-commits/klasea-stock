@@ -11,6 +11,7 @@ import {
   Download,
   FileSpreadsheet,
   Info,
+  Printer,
   Save,
   Search,
   Stethoscope,
@@ -43,6 +44,7 @@ import {
   timeToMin,
 } from "./api";
 import { BTN, BTN_PRIMARY, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui";
+import { exportSeguimientoPdf } from "./seguimientoPdf";
 
 const keyJust = (empleadoId, fecha) => `${empleadoId}::${fecha}`;
 const XLSX_YELLOW = "FFFF00";
@@ -1091,15 +1093,32 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
   );
 }
 
-function SeguimientoPersonaModal({ empleados, config, onClose }) {
+// Se exporta para poder abrirlo tambien desde la pestaña Empleados, con la
+// persona ya elegida. Una sola implementacion: si hubiera dos calculando lo
+// mismo por su cuenta, tarde o temprano dirian cosas distintas.
+export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = null, onClose }) {
   const [query, setQuery] = useState("");
-  const [empleadoId, setEmpleadoId] = useState("");
+  const [empleadoId, setEmpleadoId] = useState(empleadoInicial?.id ?? "");
   const [hasta, setHasta] = useState(() => hoyIso());
   const [desde, setDesde] = useState(() => addDays(hoyIso(), -29));
   const [marcaciones, setMarcaciones] = useState([]);
   const [justificaciones, setJustificaciones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [imprimiendo, setImprimiendo] = useState(false);
+
+  async function imprimir() {
+    if (!empleado || !historial.length) return;
+    setImprimiendo(true);
+    try {
+      // Se le pasa lo que ya esta en pantalla, sin recalcular.
+      await exportSeguimientoPdf({ empleado, desde, hasta, historial, resumen });
+    } catch (reason) {
+      setError(reason?.message || "No se pudo generar el PDF.");
+    } finally {
+      setImprimiendo(false);
+    }
+  }
 
   const empleado = useMemo(
     () => (empleados ?? []).find((emp) => emp.id === empleadoId) ?? null,
@@ -1233,7 +1252,12 @@ function SeguimientoPersonaModal({ empleados, config, onClose }) {
                   <div style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>{empleado.nombre}</div>
                   <div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>DNI {empleado.dni || "sin DNI"}{empleado.sede ? ` - ${empleado.sede}` : ""}</div>
                 </div>
-                <button type="button" onClick={() => { setEmpleadoId(""); setQuery(""); }} style={{ ...BTN, padding: "6px 9px", fontSize: 10 }}>Cambiar persona</button>
+                <button type="button" onClick={imprimir} disabled={imprimiendo || loading || !historial.length}
+                  title="Descargar el seguimiento en PDF para imprimir o guardar en el legajo"
+                  style={{ ...BTN_PRIMARY, padding: "6px 11px", fontSize: 10, display: "inline-flex", alignItems: "center", gap: 5, opacity: imprimiendo || loading || !historial.length ? 0.55 : 1 }}>
+                  <Printer size={12} /> {imprimiendo ? "Generando..." : "Imprimir"}
+                </button>
+                {!empleadoInicial && <button type="button" onClick={() => { setEmpleadoId(""); setQuery(""); }} style={{ ...BTN, padding: "6px 9px", fontSize: 10 }}>Cambiar persona</button>}
               </div>
 
               <div style={{ display: "flex", gap: 9, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
