@@ -1,14 +1,19 @@
 // Maestro de empleados: clasificación casa/contratista, flag "ficha",
 // alta/edición, y administración de contratistas (jefes).
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { EMPLEADO_SELECT, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import {
+  EMPLEADO_SELECT, fetchConfig, fetchJustificaciones, fetchMarcacionesEmpleado,
+  hoyIso, isMissingColumn, minToHM, normalizeNfcUid, SEDES, subirFotoEmpleado,
+} from "./api";
+import { armarSeguimiento } from "./seguimiento";
+import { exportSeguimientoPdf } from "./seguimientoPdf";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
-import { Archive, Camera, ImageUp, RotateCcw, UsersRound } from "lucide-react";
+import { Archive, Camera, CalendarSearch, ImageUp, Printer, RotateCcw, UsersRound } from "lucide-react";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
 
@@ -53,6 +58,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
+  const [seguimiento, setSeguimiento] = useState(null); // null | empleado
   const [err, setErr] = useState(null);
   const [selIds, setSelIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -377,8 +383,17 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                 <Td color={e.ficha === false ? C.t2 : C.green} style={{ fontSize: 12 }}>{e.ficha === false ? "no ficha" : "ficha"}</Td>
                 <Td color={e.activo === false ? "#f87171" : C.green} style={{ fontSize: 12 }}>{e.activo === false ? "inactivo" : "activo"}</Td>
                 <Td>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                    <button
+                      style={{ ...BTN, padding: "4px 11px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
+                      title="Ver e imprimir la asistencia de esta persona entre dos fechas"
+                      onClick={() => setSeguimiento(e)}
+                    >
+                      <CalendarSearch size={12} /> Seguimiento
+                    </button>
+                  </div>
                   {esAdmin && (
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 6 }}>
                       <button style={{ ...BTN, padding: "4px 11px", fontSize: 11 }} onClick={() => { setErr(null); setModal({ emp: e }); }}>Editar</button>
                       {e.activo === false ? (
                         <button style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", fontSize: 11 }} onClick={() => reactivarEmpleado(e)}>
@@ -411,6 +426,167 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       {showContratistas && (
         <ContratistasModal contratistas={contratistas} onClose={() => setShowContratistas(false)} onChanged={onChanged} />
       )}
+      {seguimiento && (
+        <SeguimientoModal emp={seguimiento} onClose={() => setSeguimiento(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── Seguimiento de asistencia de una persona ───────────────────────────────
+// Rango de fechas, resumen y detalle día por día, para mirar en pantalla o
+// imprimir. Lo pide RRHH para el legajo y para hablar con la persona: sin esto
+// había que ir a Presentismo día por día y anotar a mano.
+const ESTADO_COLOR = {
+  presente: C.green,
+  tarde: C.violet,
+  ausente: "#f87171",
+  justificada: C.t2,
+};
+
+function primerDiaDelMes() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function SeguimientoModal({ emp, onClose }) {
+  const [desde, setDesde] = useState(primerDiaDelMes);
+  const [hasta, setHasta] = useState(hoyIso);
+  const [cargando, setCargando] = useState(false);
+  const [imprimiendo, setImprimiendo] = useState(false);
+  const [error, setError] = useState(null);
+  const [datos, setDatos] = useState(null);
+
+  const cargar = useCallback(async () => {
+    if (desde > hasta) {
+      setError("La fecha de inicio es posterior a la de fin.");
+      setDatos(null);
+      return;
+    }
+    setCargando(true);
+    setError(null);
+    try {
+      const [marcaciones, justificaciones, config] = await Promise.all([
+        fetchMarcacionesEmpleado(emp.id, desde, hasta),
+        fetchJustificaciones(desde, hasta, { empleadoId: emp.id }),
+        fetchConfig(),
+      ]);
+      setDatos(armarSeguimiento({ empleado: emp, marcaciones, justificaciones, config, desde, hasta }));
+    } catch (e) {
+      setError(e.message || "No se pudo cargar el seguimiento.");
+      setDatos(null);
+    } finally {
+      setCargando(false);
+    }
+  }, [emp, desde, hasta]);
+
+  // Se carga solo al abrir con el mes en curso: lo más probable es que sea eso.
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const filas = useMemo(() => (datos?.dias ?? []).filter((d) => d.estado !== "no laborable"), [datos]);
+
+  async function imprimir() {
+    if (!datos) return;
+    setImprimiendo(true);
+    try {
+      await exportSeguimientoPdf(datos);
+    } catch (e) {
+      setError(e.message || "No se pudo generar el PDF.");
+    } finally {
+      setImprimiendo(false);
+    }
+  }
+
+  const r = datos?.resumen;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, width: "min(880px,96vw)", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "16px 20px", borderBottom: `1px solid ${C.b0}` }}>
+          <EmpleadoAvatar emp={emp} size={38} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.nombre}</div>
+            <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
+              Seguimiento de asistencia{emp.dni ? ` · DNI ${emp.dni}` : ""}{emp.sede ? ` · ${emp.sede}` : ""}
+            </div>
+          </div>
+          <button type="button" onClick={onClose} style={{ ...BTN, padding: "6px 11px" }}>Cerrar</button>
+        </div>
+
+        <div style={{ display: "flex", gap: 9, alignItems: "flex-end", flexWrap: "wrap", padding: "13px 20px", borderBottom: `1px solid ${C.b0}` }}>
+          <div>
+            <label style={LBL}>Desde</label>
+            <input type="date" style={{ ...INP, minWidth: 152 }} value={desde} onChange={(e) => setDesde(e.target.value)} />
+          </div>
+          <div>
+            <label style={LBL}>Hasta</label>
+            <input type="date" style={{ ...INP, minWidth: 152 }} value={hasta} onChange={(e) => setHasta(e.target.value)} />
+          </div>
+          <button type="button" style={BTN} onClick={cargar} disabled={cargando}>{cargando ? "Buscando…" : "Ver"}</button>
+          <button type="button" style={{ ...BTN_PRIMARY, marginLeft: "auto", opacity: !datos || imprimiendo ? 0.55 : 1 }} onClick={imprimir} disabled={!datos || imprimiendo}>
+            <Printer size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
+            {imprimiendo ? "Generando…" : "Imprimir PDF"}
+          </button>
+        </div>
+
+        {error && <div style={{ padding: "10px 20px", color: "#f87171", fontSize: 12.5 }}>{error}</div>}
+
+        {r && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "13px 20px 0" }}>
+            <Resumen label="Presentes" valor={r.presentes} color={C.green} />
+            <Resumen label="Ausentes" valor={r.ausentes} color={r.ausentes ? "#f87171" : C.t2} />
+            <Resumen label="Justificadas" valor={r.justificadas} color={C.t1} />
+            <Resumen label="Tarde" valor={r.tarde} color={r.tarde ? C.violet : C.t2} />
+            <Resumen label="Salió en jornada" valor={r.diasConSalida} color={r.diasConSalida ? C.violet : C.t2} />
+            <Resumen label="Horas" valor={minToHM(r.minutosTrabajados)} color={C.t1} />
+          </div>
+        )}
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "13px 20px 20px" }}>
+          {cargando && !datos ? (
+            <div style={{ padding: 30, textAlign: "center", color: C.t2, fontSize: 12.5 }}>Cargando…</div>
+          ) : !datos ? null : filas.length === 0 ? (
+            <div style={{ padding: 30, textAlign: "center", color: C.t2, fontSize: 12.5 }}>
+              No hay días laborables en ese rango.
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <Th>Fecha</Th><Th>Día</Th><Th>Entrada</Th><Th>Salida</Th><Th>Horas</Th><Th>Estado</Th><Th>Observaciones</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((d) => (
+                  <tr key={d.fecha}>
+                    <Td mono color={C.t1}>{d.fecha.slice(8)}/{d.fecha.slice(5, 7)}</Td>
+                    <Td color={C.t2}>{d.dia}</Td>
+                    <Td mono color={C.t1}>{d.entrada || "—"}</Td>
+                    <Td mono color={C.t1}>{d.salida || "—"}</Td>
+                    <Td mono color={C.t2}>{d.minutos != null ? minToHM(d.minutos) : "—"}</Td>
+                    <Td>
+                      <span style={{ color: ESTADO_COLOR[d.estado] ?? C.t2, fontWeight: d.estado === "ausente" ? 900 : 750, fontSize: 12 }}>
+                        {d.estado === "ausente" ? "AUSENTE" : d.estado === "justificada" ? "Justificada" : d.estado === "tarde" ? "Tarde" : "Presente"}
+                      </span>
+                    </Td>
+                    <Td color={C.t2} style={{ fontSize: 11.5 }}>{d.observaciones.join(" · ") || "—"}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Resumen({ label, valor, color }) {
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, padding: "8px 13px", minWidth: 92, background: C.s0 }}>
+      <div style={{ color: C.t2, fontSize: 9.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</div>
+      <div style={{ color, fontSize: 18, fontWeight: 900, fontFamily: C.mono, marginTop: 2 }}>{valor}</div>
     </div>
   );
 }
