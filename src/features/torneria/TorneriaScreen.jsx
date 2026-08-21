@@ -1036,6 +1036,9 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
   if (actual.tipo === "compra") {
     const meta = COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud;
     const diasPidiendo = diasDesde(item.solicitado_at);
+    const puedePedir = item.compra_estado === "pendiente_solicitud" && onPedirCompra;
+    const puedeSaltear = ["pendiente_solicitud", "solicitado"].includes(item.compra_estado)
+      && onSkipPurchase;
     return (
       <div style={{ display: "grid", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1062,9 +1065,9 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
             </span>
           )}
         </div>
-        {item.compra_estado === "pendiente_solicitud" && (
-          <div style={{ display: "grid", gridTemplateColumns: onPedirCompra ? "minmax(0,1fr) auto" : "1fr", gap: 6 }}>
-            {onPedirCompra && (
+        {(puedePedir || puedeSaltear) && (
+          <div style={{ display: "grid", gridTemplateColumns: puedePedir && puedeSaltear ? "minmax(0,1fr) auto" : "1fr", gap: 6 }}>
+            {puedePedir && (
               <button
                 type="button"
                 onClick={() => onPedirCompra([item])}
@@ -1074,11 +1077,13 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
                 <ShoppingCart size={14} /> Pedir a compras
               </button>
             )}
-            {onSkipPurchase && (
+            {puedeSaltear && (
               <button
                 type="button"
                 onClick={() => onSkipPurchase(item)}
-                title="Continuar sin crear un pedido a Compras"
+                title={item.compra_estado === "solicitado"
+                  ? "Cancelar la línea pedida por error y continuar"
+                  : "Continuar sin crear un pedido a Compras"}
                 style={{
                   ...BUTTON,
                   minHeight: 36,
@@ -1089,7 +1094,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
                   whiteSpace: "nowrap",
                 }}
               >
-                <SkipForward size={14} /> Saltear paso
+                <SkipForward size={14} /> {item.compra_estado === "solicitado" ? "Cancelar y saltear" : "Saltear paso"}
               </button>
             )}
           </div>
@@ -3743,16 +3748,21 @@ export default function TorneriaScreen({ profile, signOut }) {
 
   async function skipPurchase(item) {
     if (!selected || !item) return;
+    const pedidoYaCreado = item.compra_estado === "solicitado";
     const accepted = await confirm({
-      title: "¿Saltear el paso de compra?",
-      message: "Usalo si el material ya está disponible o llegó por otra vía. Se marcará En astillero, no se creará ningún pedido ni aviso a Compras y la excepción quedará registrada en el historial.",
-      confirmLabel: "Saltear compra",
+      title: pedidoYaCreado ? "¿Cancelar el pedido y saltear?" : "¿Saltear el paso de compra?",
+      message: pedidoYaCreado
+        ? "Este material ya fue pedido por error. Se cancelará únicamente esa línea en Compras, se desvinculará de Tornería y quedará En astillero. La corrección quedará registrada en el historial."
+        : "Usalo si el material ya está disponible o llegó por otra vía. Se marcará En astillero, no se creará ningún pedido ni aviso a Compras y la excepción quedará registrada en el historial.",
+      confirmLabel: pedidoYaCreado ? "Cancelar y saltear" : "Saltear compra",
     });
     if (!accepted) return;
     try {
       await saltearCompraTorneria({ procesoId: selected.id, item });
       await load({ quiet: true, preferId: selected.id });
-      toast.success("Compra salteada. El material quedó En astillero.");
+      toast.success(pedidoYaCreado
+        ? "Línea cancelada en Compras. El material quedó En astillero."
+        : "Compra salteada. El material quedó En astillero.");
     } catch (skipError) {
       await load({ quiet: true, preferId: selected.id });
       toast.error(skipError.message);

@@ -194,8 +194,24 @@ export async function actualizarItem(id, patch) {
 // la entrada adicional deja el motivo visible en el historial de Tornería.
 export async function saltearCompraTorneria({ procesoId, item }) {
   if (!procesoId || !item?.id) throw new Error("Falta el material a actualizar.");
-  if (item.compra_estado !== "pendiente_solicitud") {
-    throw new Error("Solo se puede saltear una compra que todavía no fue solicitada.");
+  const estadoAnterior = item.compra_estado;
+  const pedidoYaCreado = estadoAnterior === "solicitado";
+  if (!["pendiente_solicitud", "solicitado"].includes(estadoAnterior)) {
+    throw new Error("Solo se puede saltear una compra pendiente o solicitada por error.");
+  }
+  if (pedidoYaCreado && !item.purchase_request_item_id) {
+    throw new Error("Este material no tiene vinculada la línea exacta del pedido. Cancelala desde Compras antes de continuar.");
+  }
+
+  // Si el pedido ya se generó, cancelar primero su línea evita que Compras siga
+  // viendo una necesidad que Tornería acaba de corregir como disponible.
+  if (pedidoYaCreado) {
+    ok(await supabase
+      .from("purchase_request_items")
+      .update({ status: "cancelado" })
+      .eq("id", item.purchase_request_item_id)
+      .select("id")
+      .single());
   }
 
   const updated = ok(await supabase
@@ -206,7 +222,7 @@ export async function saltearCompraTorneria({ procesoId, item }) {
       purchase_request_item_id: null,
     })
     .eq("id", item.id)
-    .eq("compra_estado", "pendiente_solicitud")
+    .eq("compra_estado", estadoAnterior)
     .select()
     .single());
 
@@ -217,9 +233,12 @@ export async function saltearCompraTorneria({ procesoId, item }) {
     accion: "paso_salteado",
     detalle: {
       paso: "compra",
-      estado_anterior: item.compra_estado,
+      estado_anterior: estadoAnterior,
       estado_nuevo: "recibido_astillero",
-      motivo: "Material disponible por otra vía; no se generó aviso ni pedido a Compras.",
+      purchase_request_item_cancelado: pedidoYaCreado ? item.purchase_request_item_id : null,
+      motivo: pedidoYaCreado
+        ? "Material disponible por otra vía; se canceló la línea solicitada por error y no debe volver a comprarse."
+        : "Material disponible por otra vía; no se generó aviso ni pedido a Compras.",
     },
   });
   if (historyError) throw historyError;

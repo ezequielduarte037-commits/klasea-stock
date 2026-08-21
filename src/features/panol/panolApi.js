@@ -248,7 +248,7 @@ async function hydrateEnvioItemObras(envio) {
   try {
     const { data, error } = await supabase
       .from("panol_obra_materiales_snapshot")
-      .select("id, obra_id, obra:produccion_obras(id,codigo)")
+      .select("id, obra_id, obra:produccion_obras!panol_obra_materiales_snapshot_obra_id_fkey(id,codigo)")
       .in("id", snapshotIds);
     if (error) throw error;
     const porSnapshot = new Map((data ?? []).map((row) => [row.id, row]));
@@ -1583,6 +1583,18 @@ export async function fetchRecepcionPedidoMatches({ material = null, q = "", lim
 // eso puede no estar comprado aún y no corresponde que el pañol lo vea.
 export async function fetchRecepcionAvisosAbiertos({ sede = null, limit = 1000 } = {}) {
   return buildPanolEnvioMatches({ sede, matchAll: true, limit });
+}
+
+// Cambiar a que obra va un renglon de un aviso todavia pendiente. Se toca la
+// fila del requerimiento porque es la que el trigger de recepcion mira para
+// imputar: el obra_id del envio es solo el encabezado.
+export async function reasignarObraDeItemEnvio(snapshotItemId, obraId) {
+  if (!snapshotItemId) throw new Error("Ese renglón no está vinculado a un requerimiento de obra.");
+  const { error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .update({ obra_id: obraId || null })
+    .eq("id", snapshotItemId);
+  if (error) throw error;
 }
 
 export async function fetchObrasEgreso() {

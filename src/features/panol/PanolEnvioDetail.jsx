@@ -24,6 +24,7 @@ import { supabase } from "@/supabaseClient";
 import {
   fetchEnvio, fetchEventos, guardarUbicacionMaterial, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio,
   fetchLinkedPurchaseRequestForEnvio, ITEM_ESTADOS, ITEM_ESTADO_META, ENVIO_ESTADO_META, resumenItems,
+  fetchObrasEgreso, reasignarObraDeItemEnvio,
 } from "@/features/panol/panolApi";
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
@@ -568,6 +569,9 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(new Set());
   const [remitoLeyendo, setRemitoLeyendo] = useState(false);
+  // Solo se cargan si el usuario puede corregir la obra; para el pañolero es
+  // una consulta al pedo.
+  const [obras, setObras] = useState([]);
   const [remitoIa, setRemitoIa] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -633,12 +637,9 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   }, []);
 
   const items = envio?.items || EMPTY_ITEMS;
-  // Obras distintas dentro del mismo aviso. Si es una sola, la etiqueta por
-  // renglón sobra: ya está en la cabecera y repetirla cien veces es ruido.
-  const obrasDelEnvio = useMemo(
-    () => [...new Set(items.map((item) => item.obra_codigo).filter(Boolean))],
-    [items],
-  );
+  // La obra va en cada renglón siempre, no solo cuando el aviso se reparte: la
+  // del encabezado es la del envío -en uno repartido, la del primer renglón- y
+  // leerla ahi hacia pensar que todo el pedido era para ese barco.
   const resumen = useMemo(() => resumenItems(items), [items]);
   const cerrado = envio && ["cerrado", "cancelado"].includes(envio.estado);
   const scanEnabled = !!canReceive && !cerrado && !loading && showAdvanced;
@@ -867,6 +868,27 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
     setRemitoIa(null);
   }
 
+  // Corregir a que obra va un renglon. Pasa cuando el aviso se armo mal: el
+  // material esta bien pero apuntado al barco equivocado, y si se recibe asi
+  // queda imputado a la obra que no era.
+  async function cambiarObraDeItem(item, obraId) {
+    if (!item?.obra_snapshot_item_id) {
+      toast.warning("Este renglón no está vinculado a un requerimiento de obra, no se puede cambiar.");
+      return;
+    }
+    const destino = obras.find((o) => o.id === obraId);
+    setSaving(true);
+    try {
+      await reasignarObraDeItemEnvio(item.obra_snapshot_item_id, obraId || null);
+      await cargar();
+      toast.success(destino ? `"${item.descripcion}" ahora va a ${destino.codigo}.` : `"${item.descripcion}" quedó sin obra.`);
+    } catch (err) {
+      toast.error(err.message || "No se pudo cambiar la obra.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function submitScan() {
     processScan(scanCode);
   }
@@ -875,6 +897,15 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
     enabled: scanEnabled && !scannerOpen && !partialModal,
     onScan: processScan,
   });
+
+  useEffect(() => {
+    if (!isManager) return undefined;
+    let alive = true;
+    fetchObrasEgreso()
+      .then((rows) => { if (alive) setObras(rows || []); })
+      .catch(() => { if (alive) setObras([]); });
+    return () => { alive = false; };
+  }, [isManager]);
 
   function toggle(id) {
     setSel((prev) => {
@@ -1460,7 +1491,9 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
                       canSeePrices={canSeePrices}
-                      mostrarObraPorItem={obrasDelEnvio.length > 1}
+                      obras={obras}
+                      puedeCambiarObra={isManager && !cerrado}
+                      onCambiarObra={(obraId) => cambiarObraDeItem(item, obraId)}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
                       onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
@@ -1690,7 +1723,41 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
   );
 }
 
-function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, mostrarObraPorItem = false, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+// La obra del renglón: chip para el pañolero, desplegable para el admin —que es
+// quien puede corregir un aviso mal armado—. Solo mientras está pendiente: una
+// vez recibido el stock ya se imputó y moverlo aca dejaria las dos cosas
+// contando distinto.
+function ObraDeItem({ item, obras, editable, disabled, onChange }) {
+  if (editable) {
+    return (
+      <select
+        value={item.obra_id || ""}
+        disabled={disabled}
+        title="Cambiar a qué obra va este renglón"
+        onChange={(e) => onChange?.(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          flexShrink: 0, maxWidth: 128, border: `1px solid ${item.obra_codigo ? C.blueB : C.border}`,
+          background: item.obra_codigo ? "var(--blue-soft)" : C.panelSolid,
+          color: item.obra_codigo ? C.blue : C.dim,
+          borderRadius: 999, padding: "2px 6px", fontSize: 10.5, fontWeight: 900,
+          fontFamily: C.sans, cursor: disabled ? "default" : "pointer", outline: "none",
+        }}
+      >
+        <option value="">Sin obra</option>
+        {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+      </select>
+    );
+  }
+  if (!item.obra_codigo) return null;
+  return (
+    <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
+      {item.obra_codigo}
+    </span>
+  );
+}
+
+function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, obras = [], puedeCambiarObra = false, onCambiarObra, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
@@ -1720,14 +1787,16 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
           <span style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.descripcion}
           </span>
-          {/* A qué obra va este renglón. Un aviso puede repartirse entre varias
-              y sin esto los renglones se ven idénticos: no se puede decidir cuál
-              recibir cuando llega uno solo. */}
-          {mostrarObraPorItem && item.obra_codigo && (
-            <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
-              {item.obra_codigo}
-            </span>
-          )}
+          {/* A qué obra va ESTE renglón. El encabezado muestra la del aviso, que
+              en uno repartido es solo la del primero: sin esto los renglones se
+              ven idénticos y no se sabe para qué barco es cada uno. */}
+          <ObraDeItem
+            item={item}
+            obras={obras}
+            editable={puedeCambiarObra && item.estado === "pendiente"}
+            disabled={saving}
+            onChange={onCambiarObra}
+          />
         </div>
         {canSeePrices && item.precio_unitario !== null && item.precio_unitario !== undefined && (
           <div style={{ color: C.green, fontSize: 11, marginTop: 3, fontFamily: C.mono }}>
