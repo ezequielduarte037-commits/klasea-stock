@@ -1,6 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Link2, MapPin, PackageSearch, ScanLine, Search } from "lucide-react";
+import { Bot, ClipboardPaste, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -10,7 +10,7 @@ import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, normalizeBarcode } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
-import { guardarIngresoPendiente, olvidarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import { borrarIngresoPendiente, guardarIngresoPendiente, leerIngresosPendientes, olvidarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import { UbicacionChip } from "@/features/panol/UbicacionPicker";
@@ -797,6 +797,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   // agregar varios de una (tildar y después "Agregar N" abajo).
   const [checkedCatalog, setCheckedCatalog] = useState(() => new Map());
   const [aiReading, setAiReading] = useState(false);
+  const [textoIa, setTextoIa] = useState("");
+  const [pegarAbierto, setPegarAbierto] = useState(false);
+  // Borrador que quedo de una carga anterior. Se ofrece al abrir: antes se
+  // guardaba igual, pero solo se podia retomar desde Pañol → Ingresar, asi que
+  // el que cargaba desde Compras lo daba por perdido.
+  const [borradorPrevio, setBorradorPrevio] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiProveedorId, setAiProveedorId] = useState("");
   const [aiMoneda, setAiMoneda] = useState("");
@@ -967,6 +973,37 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       flush();
     };
   }, []);
+
+  // Al abrir, si quedó algo cargado de la vez anterior se ofrece retomarlo. El
+  // borrador ya se guardaba solo, pero únicamente se podía recuperar desde
+  // Pañol → Ingresar: el que cargaba desde Compras lo daba por perdido.
+  useEffect(() => {
+    if (!open) return;
+    // Si ya venís retomando uno, o el formulario viene con ítems del pedido de
+    // compra, ofrecer otro borrador sería ruido.
+    if (prefill?.draftId || prefill?.items?.length) return;
+    try {
+      const mio = leerIngresosPendientes().find((d) => (d.modo || "remito") === modoDraft);
+      if (mio) setBorradorPrevio(mio);
+    } catch { /* sin borrador se sigue igual */ }
+    // Sólo al abrir: después el autoguardado escribe su propio borrador y no hay
+    // que ofrecerlo de vuelta mientras se está cargando.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  function retomarBorrador() {
+    const d = borradorPrevio;
+    if (!d) return;
+    setTitulo(d.titulo || "");
+    if (d.sede) setSede(d.sede);
+    setObraId(d.obraId || "");
+    if (d.prioridad) setPrioridad(d.prioridad);
+    setObservaciones(d.observaciones || "");
+    setItems(Array.isArray(d.items) ? d.items : []);
+    autoDraftIdRef.current = d.id;
+    setBorradorPrevio(null);
+    toast.success("Borrador retomado.");
+  }
 
   // Todos los avisos/pedidos de compra abiertos, para la pestaña "Avisos de recepción"
   useEffect(() => {
@@ -1503,14 +1540,18 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setItems((prev) => [...prev, showPrices ? nuevo : stripItemPrice(nuevo)]);
   }
 
-  async function readRemitoWithAI(file) {
-    if (!file) return;
+  // Lee un remito (foto o PDF) o directamente el texto pegado. Muchos pedidos
+  // llegan por mail o WhatsApp: sacarles una captura para que la IA los lea era
+  // dar una vuelta al pedo si el texto ya se puede copiar.
+  async function readRemitoWithAI({ file = null, text = "" } = {}) {
+    const texto = String(text || "").trim();
+    if (!file && !texto) return;
     setAiReading(true);
     try {
       const proveedorElegido = proveedores.find((proveedor) => proveedor.id === aiProveedorId);
       const proveedorHint = proveedorElegido?.nombre || "";
       const data = await leerPresupuestoConIA({
-        file,
+        ...(texto ? { text: texto } : { file }),
         proveedor: proveedorHint,
         moneda: aiMoneda,
       });
@@ -1558,6 +1599,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       }, {});
       setAiSummary({ detected: hydratedItems.length, linked: suggested, linkedPercent, conSugerencia, nuevos, currencies });
       toast.success(`IA leyo ${hydratedItems.length} item${hydratedItems.length === 1 ? "" : "s"} - ${suggested} vinculado${suggested === 1 ? "" : "s"} al catalogo.`);
+      if (texto) setTextoIa("");
       window.setTimeout(() => itemsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     } catch (err) {
       toast.error(err.message || "No se pudo leer el remito.");
@@ -1712,7 +1754,17 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       onClick={embedded ? undefined : (e) => {
         const cerrar = clickArrancoEnElFondo.current && e.target === e.currentTarget;
         clickArrancoEnElFondo.current = false;
-        if (cerrar) closeModal(false);
+        if (!cerrar) return;
+        // Un click al costado no puede llevarse veinte minutos de carga sin
+        // preguntar. Queda guardado igual, pero hay que decirlo: si no, se
+        // cierra la pantalla y uno lo da por perdido.
+        if (draftHasContent({ titulo, observaciones, items })) {
+          const ok = window.confirm(
+            "¿Cerrar sin enviar?\n\nLo cargado queda guardado como borrador y te lo va a ofrecer cuando vuelvas a abrir esta pantalla.\n\n¿Cerrar igual?",
+          );
+          if (!ok) return;
+        }
+        closeModal(false);
       }}
       style={embedded
         ? { height: "100%", minHeight: 0, display: "grid", justifyItems: "center", fontFamily: C.sans }
@@ -1745,6 +1797,33 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           <div style={{ flex: 1 }} />
           {!embedded && <button type="button" onClick={() => closeModal(false)} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 18, padding: 4 }}>x</button>}
         </div>
+
+        {borradorPrevio && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", background: "var(--blue-soft)", borderBottom: `1px solid ${C.blueB}`, flexWrap: "wrap" }}>
+            <RotateCcw size={15} style={{ color: C.blue, flexShrink: 0 }} />
+            <span style={{ color: C.t1, fontSize: 12.5, fontWeight: 750, minWidth: 0 }}>
+              Quedó algo a medio cargar:{" "}
+              <strong style={{ color: C.t0 }}>{borradorPrevio.titulo?.trim() || "sin referencia"}</strong>
+              {" · "}{Array.isArray(borradorPrevio.items) ? borradorPrevio.items.length : 0} ítem
+              {(Array.isArray(borradorPrevio.items) ? borradorPrevio.items.length : 0) === 1 ? "" : "s"}
+            </span>
+            <div style={{ flex: 1 }} />
+            <button type="button" onClick={retomarBorrador}
+              style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 8, padding: "7px 13px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+              Retomar
+            </button>
+            <button type="button"
+              onClick={() => {
+                // A la papelera, no al vacío: descartar de más no puede costar la carga.
+                borrarIngresoPendiente(borradorPrevio.id);
+                setBorradorPrevio(null);
+                toast.success("Borrador a la papelera. Está en Pañol → Ingresar si lo necesitás.");
+              }}
+              style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: "7px 11px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+              Descartar
+            </button>
+          </div>
+        )}
 
         <div style={{ overflowY: "auto", padding: bodyPadding, display: "grid", gap: bodyGap, minHeight: 0 }}>
           <div>
@@ -1820,12 +1899,49 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     e.target.value = "";
-                    readRemitoWithAI(file);
+                    readRemitoWithAI({ file });
                   }}
                   style={{ display: "none" }}
                 />
               </label>
+              {/* Muchos pedidos llegan por mail o WhatsApp: si el texto ya se
+                  puede copiar, sacarle una foto para que la IA lo lea es dar una
+                  vuelta al pedo. */}
+              <button type="button" onClick={() => setPegarAbierto((v) => !v)} disabled={aiReading}
+                title="Pegar el texto de un mail, un WhatsApp o una lista y que la IA lo lea"
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${pegarAbierto ? C.violetB : C.b0}`, background: pegarAbierto ? "var(--violet-soft, rgba(139,92,246,0.12))" : C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: ingresoDesktop ? "9px 12px" : "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}>
+                <ClipboardPaste size={14} />
+                Pegar texto
+              </button>
             </div>
+
+            {pegarAbierto && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <textarea
+                  value={textoIa}
+                  onChange={(e) => setTextoIa(e.target.value)}
+                  disabled={aiReading}
+                  rows={6}
+                  placeholder={"Pegá acá el pedido como venga:\n\n2 chapas inox 1.5mm\n10 mts cable 2x2.5\n1 bomba de achique Rule 800\n\nO el texto de un mail o un WhatsApp, tal cual."}
+                  style={inp({ padding: "10px 12px", fontSize: 13, resize: "vertical", minHeight: 118, fontFamily: C.sans, lineHeight: 1.5 })}
+                />
+                <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
+                  <button type="button" onClick={() => readRemitoWithAI({ text: textoIa })} disabled={aiReading || !textoIa.trim()}
+                    style={{ border: "none", background: aiReading || !textoIa.trim() ? "var(--panel-2)" : C.violet, color: aiReading || !textoIa.trim() ? C.dim : "#fff", borderRadius: 8, padding: "9px 15px", cursor: aiReading || !textoIa.trim() ? "default" : "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+                    {aiReading ? "Leyendo…" : "Leer el texto"}
+                  </button>
+                  {textoIa.trim() && !aiReading && (
+                    <button type="button" onClick={() => setTextoIa("")}
+                      style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, textDecoration: "underline" }}>
+                      Limpiar
+                    </button>
+                  )}
+                  <span style={{ color: C.t2, fontSize: 11.5 }}>
+                    Los ítems se agregan abajo; el catálogo se vincula solo cuando encuentra el producto.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* "Leer remito" está disponible en todos los modos, pero fuera del modo
                 remito lo que se guarda es un AVISO: los ítems quedan con
