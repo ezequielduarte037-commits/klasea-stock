@@ -11,6 +11,7 @@ import { C } from "@/theme";
  * — TareaCard, TareaDetalleModal, TareaModal con archivos, EtapaTareasSection, Supabase Storage
  */
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -2639,6 +2640,9 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function ObrasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
+  const [searchParams] = useSearchParams();
+  const requestedObraId = searchParams.get("obra") || "";
+  const deepLinkHandledRef = useRef("");
   const isAdmin   = hasAdminAccess(profile);
   const esGestion = isAdmin || ["oficina", "tecnica"].includes(profile?.role);
 
@@ -3056,14 +3060,30 @@ export default function ObrasScreen({ profile, signOut }) {
     return true;
   }), [obras, filtroEstado, filtroLinea]);
 
+  // Los resultados del buscador global abren la obra concreta, aunque esté
+  // pausada o terminada. Se limpian los filtros antes de enfocar para que el
+  // master-detail no la descarte por no pertenecer a la vista anterior.
+  useEffect(() => {
+    if (loading || !requestedObraId || deepLinkHandledRef.current === requestedObraId) return;
+    const target = obras.find((obra) => obra.id === requestedObraId);
+    if (!target) return;
+    deepLinkHandledRef.current = requestedObraId;
+    setFiltroEstado("todos");
+    setFiltroLinea("todas");
+    setMainView("obras");
+    setShowHome(false);
+    setFocusedObra(target.id);
+  }, [loading, obras, requestedObraId]);
+
   // Master-detail: mantener una obra seleccionada válida. En desktop autoselecciona
   // la primera; en mobile deja la lista visible hasta que el usuario elija.
   useEffect(() => {
     if (loading) return;
+    if (requestedObraId && obras.some((obra) => obra.id === requestedObraId) && focusedObra !== requestedObraId) return;
     if (focusedObra && obrasFilt.some(o => o.id === focusedObra)) return;
     if (!isMobile && obrasFilt.length) setFocusedObra(obrasFilt[0].id);
     else if (focusedObra) setFocusedObra(null);
-  }, [loading, obrasFilt, focusedObra, isMobile]);
+  }, [loading, obras, obrasFilt, focusedObra, isMobile, requestedObraId]);
 
   // Al cambiar de obra, reseteo los filtros/estado del tablero.
   useEffect(() => {

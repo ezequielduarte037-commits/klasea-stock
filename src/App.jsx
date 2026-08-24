@@ -12,6 +12,7 @@ import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
 import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
 import { endTrackedAdminSession } from "@/features/configuracion/adminActivityApi";
+import GlobalSearch from "@/features/search/GlobalSearch";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -578,6 +579,7 @@ export default function App() {
                 nadie veía el aviso. */}
             <AppVersionGuard />
             {session && profile && <AdminActivityTracker profile={profile} />}
+            {session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
       <Suspense fallback={<RouteLoader />}>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />

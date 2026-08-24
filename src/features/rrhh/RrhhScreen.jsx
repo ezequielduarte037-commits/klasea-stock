@@ -1,6 +1,7 @@
 // Módulo RRHH — presentismo del astillero a partir del fichero Hikvision.
 // Pestañas: Presentismo · Horas extras · Empleados · Importar · Dashboard.
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -29,13 +30,15 @@ const BASICAS = ["presentismo", "extras", "dashboard"];
 
 export default function RrhhScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
+  const [searchParams] = useSearchParams();
   // 'administracion' opera RRHH igual que 'rrhh' (ver y editar legajos, presentismo y extras).
   const esAdmin = profile?.is_admin || ["admin", "rrhh", "administracion"].includes(profile?.role);
   // Técnica ve el legajo pero no lo toca: EmpleadosTab con esAdmin en false ya
   // esconde alta, baja, edición y selección múltiple.
   const verEmpleados = canViewEmpleados(profile);
 
-  const [tab, setTab] = useState("presentismo");
+  const requestedTab = searchParams.get("tab") || "presentismo";
+  const [tab, setTab] = useState(() => TABS.some((item) => item.key === requestedTab) ? requestedTab : "presentismo");
   const [empleados, setEmpleados] = useState(null);
   const [contratistas, setContratistas] = useState(null);
   const [config, setConfig] = useState(null);
@@ -58,6 +61,13 @@ export default function RrhhScreen({ profile, signOut }) {
     const timer = window.setTimeout(cargar, 0);
     return () => window.clearTimeout(timer);
   }, [cargar]);
+
+  useEffect(() => {
+    const permitted = esAdmin || BASICAS.includes(requestedTab) || (verEmpleados && requestedTab === "empleados");
+    if (!permitted || !TABS.some((item) => item.key === requestedTab)) return undefined;
+    const timer = window.setTimeout(() => setTab(requestedTab), 0);
+    return () => window.clearTimeout(timer);
+  }, [esAdmin, requestedTab, verEmpleados]);
 
   const listo = empleados != null && contratistas != null && config != null;
 
@@ -123,7 +133,7 @@ export default function RrhhScreen({ profile, signOut }) {
 
               {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} esAdmin={esAdmin} onChanged={cargar} />}
               {tab === "extras" && <ExtrasTab empleados={empleados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
-              {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} />}
+              {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
               {tab === "oficios" && <OficiosObrasTab empleados={empleados} esAdmin={esAdmin} isMobile={isMobile} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}
               {tab === "dashboard" && <DashboardTab empleados={empleados} config={config} onNavigate={setTab} />}

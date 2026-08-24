@@ -1,6 +1,6 @@
 // Maestro de empleados: clasificación casa/contratista, flag "ficha",
 // alta/edición, y administración de contratistas (jefes).
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
@@ -46,11 +46,11 @@ function NfcBadge({ uid }) {
   );
 }
 
-export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin }) {
-  const [q, setQ] = useState("");
+export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin, initialQuery = "", initialView = "activos" }) {
+  const [q, setQ] = useState(initialQuery);
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
-  const [vista, setVista] = useState("activos");
+  const [vista, setVista] = useState(initialView === "ex" ? "ex" : "activos");
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
@@ -64,6 +64,12 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [bulkGrupo, setBulkGrupo] = useState("casa");
   const [bulkContratistaId, setBulkContratistaId] = useState("");
   const [bulkSede, setBulkSede] = useState("Pampa");
+
+  useEffect(() => {
+    setQ(initialQuery || "");
+    setVista(initialView === "ex" ? "ex" : "activos");
+    setSelIds(new Set());
+  }, [initialQuery, initialView]);
 
   const filtrados = useMemo(() => {
     let rows = empleados ?? [];

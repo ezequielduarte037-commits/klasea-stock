@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Gauge, KeyRound, LogOut, Maximize, Menu, Moon, Phone, Sun, X } from "lucide-react";
+import { Eye, Gauge, KeyRound, LogOut, Maximize, Menu, Moon, Phone, Search, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -574,6 +574,37 @@ export default function Sidebar({ profile, signOut }) {
               </div>
             </div>
           </div>
+        </div>
+
+        <div style={{ padding: "9px 8px 3px", position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("klasea:open-global-search"));
+              if (isMobile) setMenuOpen(false);
+            }}
+            title="Buscar en todo Klase A (Ctrl + K)"
+            style={{
+              width: "100%", minHeight: 36, display: "flex", alignItems: "center", gap: 9,
+              padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`,
+              background: C.panel, color: C.dim, cursor: "pointer", fontFamily: C.sans,
+              textAlign: "left", transition: "background .16s ease, border-color .16s ease, color .16s ease",
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.background = C.panel2;
+              event.currentTarget.style.borderColor = C.border2;
+              event.currentTarget.style.color = C.text;
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.background = C.panel;
+              event.currentTarget.style.borderColor = C.border;
+              event.currentTarget.style.color = C.dim;
+            }}
+          >
+            <Search size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, letterSpacing: ".2px" }}>Buscar en Klase A</span>
+            {!isMobile && <kbd style={{ border: `1px solid ${C.border}`, background: C.panel2, color: C.dim, borderRadius: 5, padding: "2px 5px", fontSize: 8.5, fontFamily: C.mono, whiteSpace: "nowrap" }}>Ctrl K</kbd>}
+          </button>
         </div>
 
         {/* NAV ───────────────────────────────────────────────────────────── */}
