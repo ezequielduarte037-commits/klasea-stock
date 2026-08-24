@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { C } from "@/theme";
-import { askKlaseaAssistant } from "./assistantApi";
+import { askKlaseaAssistant, canUseKlaseaAssistant } from "./assistantApi";
 import { globalSearchScopes, searchGlobal } from "./globalSearchApi";
 
 export const OPEN_GLOBAL_SEARCH_EVENT = "klasea:open-global-search";
@@ -54,6 +54,20 @@ const ASSISTANT_SUGGESTIONS = [
   "Buscá información sobre la obra K55-3",
 ];
 
+function assistantDisplayText(value) {
+  const raw = String(value || "");
+  const reasoningLeak = /here(?:'|’)s (?:a )?thinking process|thinking process|chain[- ]of[- ]thought|analy[sz]e (?:the )?user(?: input| request)?|system prompt|i need to (?:respond|answer|determine|follow)|response strategy|proceso de pensamiento|analizar (?:la )?(?:entrada|consulta|solicitud) del usuario/i;
+  if (reasoningLeak.test(raw)) {
+    return "No pude generar una respuesta segura. Reformulá la consulta o usá Buscar para abrir el módulo correspondiente.";
+  }
+  return raw
+    .replace(/\*\*/g, "")
+    .replace(/`/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^[-*]\s+/gm, "• ")
+    .trim();
+}
+
 function quickGroups(profile) {
   const allowed = new Set(globalSearchScopes(profile));
   const rows = [
@@ -81,6 +95,7 @@ export default function GlobalSearch({ profile }) {
   const inputRef = useRef(null);
   const rowRefs = useRef(new Map());
   const requestIdRef = useRef(0);
+  const assistantRequestIdRef = useRef(0);
   const cacheRef = useRef(new Map());
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -92,6 +107,17 @@ export default function GlobalSearch({ profile }) {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantError, setAssistantError] = useState("");
   const [assistantMessages, setAssistantMessages] = useState([]);
+  const assistantEnabled = useMemo(() => canUseKlaseaAssistant(profile), [profile]);
+  const assistantMode = assistantEnabled && mode === "assistant";
+
+  useEffect(() => {
+    if (assistantEnabled) return;
+    assistantRequestIdRef.current += 1;
+    setMode("search");
+    setAssistantLoading(false);
+    setAssistantError("");
+    setAssistantMessages([]);
+  }, [assistantEnabled]);
 
   useEffect(() => {
     const toggleFromKeyboard = (event) => {
@@ -122,7 +148,7 @@ export default function GlobalSearch({ profile }) {
   }, [open]);
 
   useEffect(() => {
-    if (!open || mode !== "search") return undefined;
+    if (!open || assistantMode) return undefined;
     const term = query.trim();
     if (term.length < 2) {
       requestIdRef.current += 1;
@@ -158,7 +184,7 @@ export default function GlobalSearch({ profile }) {
       }
     }, 240);
     return () => window.clearTimeout(timer);
-  }, [mode, open, profile, query]);
+  }, [assistantMode, open, profile, query]);
 
   const shownGroups = useMemo(() => {
     if (query.trim().length >= 2) return groups;
@@ -188,6 +214,7 @@ export default function GlobalSearch({ profile }) {
   }
 
   function changeMode(nextMode) {
+    if (nextMode === "assistant" && !assistantEnabled) return;
     setMode(nextMode);
     setQuery("");
     setGroups([]);
@@ -197,11 +224,17 @@ export default function GlobalSearch({ profile }) {
   }
 
   async function submitAssistant(question = query) {
+    if (!assistantEnabled) {
+      setMode("search");
+      setAssistantError("");
+      return;
+    }
     const term = String(question || "").trim();
     if (term.length < 3 || assistantLoading) return;
     setQuery("");
     setAssistantError("");
     setAssistantLoading(true);
+    const assistantRequestId = ++assistantRequestIdRef.current;
     const priorMessages = assistantMessages;
     setAssistantMessages((current) => [...current, { role: "user", content: term }]);
     try {
@@ -210,17 +243,22 @@ export default function GlobalSearch({ profile }) {
         question: term,
         groups: searchResult.groups,
         messages: priorMessages,
+        profile,
       });
+      if (assistantRequestIdRef.current !== assistantRequestId) return;
       setAssistantMessages((current) => [...current, {
         role: "assistant",
         content: response.answer,
         links: response.links || [],
       }]);
     } catch (error) {
+      if (assistantRequestIdRef.current !== assistantRequestId) return;
       setAssistantError(String(error?.message || error || "No se pudo consultar al asistente."));
     } finally {
-      setAssistantLoading(false);
-      window.setTimeout(() => inputRef.current?.focus(), 0);
+      if (assistantRequestIdRef.current === assistantRequestId) {
+        setAssistantLoading(false);
+        window.setTimeout(() => inputRef.current?.focus(), 0);
+      }
     }
   }
 
@@ -236,7 +274,7 @@ export default function GlobalSearch({ profile }) {
       close();
       return;
     }
-    if (mode === "assistant") {
+    if (assistantMode) {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         submitAssistant();
@@ -259,7 +297,7 @@ export default function GlobalSearch({ profile }) {
   if (!open) return null;
 
   let globalIndex = -1;
-  const hasQuery = mode === "search" && query.trim().length >= 2;
+  const hasQuery = !assistantMode && query.trim().length >= 2;
   const noResults = hasQuery && !loading && !flatResults.length;
 
   return (
@@ -291,39 +329,41 @@ export default function GlobalSearch({ profile }) {
           <button
             type="button"
             onClick={() => changeMode("search")}
-            style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${mode === "search" ? C.blueB : "transparent"}`, background: mode === "search" ? C.blueL : "transparent", color: mode === "search" ? C.blue : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
+            style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${!assistantMode ? C.blueB : "transparent"}`, background: !assistantMode ? C.blueL : "transparent", color: !assistantMode ? C.blue : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
           >
             <Search size={14} /> Buscar
           </button>
-          <button
-            type="button"
-            onClick={() => changeMode("assistant")}
-            style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${mode === "assistant" ? C.violetB : "transparent"}`, background: mode === "assistant" ? C.violetL : "transparent", color: mode === "assistant" ? C.violet : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
-          >
-            <Sparkles size={14} /> Preguntar a la IA <span style={{ fontSize: 8.5, opacity: .78 }}>BETA</span>
-          </button>
+          {assistantEnabled && (
+            <button
+              type="button"
+              onClick={() => changeMode("assistant")}
+              style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${assistantMode ? C.violetB : "transparent"}`, background: assistantMode ? C.violetL : "transparent", color: assistantMode ? C.violet : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
+            >
+              <Sparkles size={14} /> Preguntar a la IA <span style={{ fontSize: 8.5, opacity: .78 }}>BETA</span>
+            </button>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 62, padding: "0 14px 0 18px", borderBottom: `1px solid ${C.border}` }}>
-          {loading || assistantLoading ? <LoaderCircle size={20} color={mode === "assistant" ? C.violet : C.blue} style={{ flexShrink: 0, animation: "global-search-spin .75s linear infinite" }} /> : mode === "assistant" ? <Sparkles size={20} color={C.violet} style={{ flexShrink: 0 }} /> : <Search size={20} color={C.blue} style={{ flexShrink: 0 }} />}
+          {loading || assistantLoading ? <LoaderCircle size={20} color={assistantMode ? C.violet : C.blue} style={{ flexShrink: 0, animation: "global-search-spin .75s linear infinite" }} /> : assistantMode ? <Sparkles size={20} color={C.violet} style={{ flexShrink: 0 }} /> : <Search size={20} color={C.blue} style={{ flexShrink: 0 }} />}
           <input
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder={mode === "assistant" ? "Preguntale algo sobre Klase A…" : "Buscar obra, material, pedido, solicitud o persona…"}
+            placeholder={assistantMode ? "Preguntale algo sobre Klase A…" : "Buscar obra, material, pedido, solicitud o persona…"}
             autoComplete="off"
             spellCheck="false"
             style={{ flex: 1, minWidth: 0, height: 60, border: 0, outline: 0, background: "transparent", color: C.text, fontFamily: C.sans, fontSize: 16, fontWeight: 600 }}
           />
           {query && <button type="button" onClick={() => setQuery("")} title="Limpiar búsqueda" style={{ width: 30, height: 30, display: "grid", placeItems: "center", border: 0, borderRadius: 8, background: "transparent", color: C.dim, cursor: "pointer" }}><X size={16} /></button>}
-          {mode === "assistant" && (
+          {assistantMode && (
             <button type="button" onClick={() => submitAssistant()} disabled={query.trim().length < 3 || assistantLoading} title="Preguntar" style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: `1px solid ${C.violetB}`, borderRadius: 9, background: C.violetL, color: C.violet, cursor: query.trim().length >= 3 && !assistantLoading ? "pointer" : "not-allowed", opacity: query.trim().length >= 3 && !assistantLoading ? 1 : .45 }}><Send size={15} /></button>
           )}
           <kbd className="global-search-shortcut" style={{ border: `1px solid ${C.b1}`, borderRadius: 7, background: C.panel2, color: C.dim, padding: "4px 7px", fontFamily: C.mono, fontSize: 10 }}>ESC</kbd>
         </div>
 
         <div style={{ overflowY: "auto", overscrollBehavior: "contain", padding: "10px 8px 12px", minHeight: 150 }}>
-          {mode === "assistant" && !assistantMessages.length && (
+          {assistantMode && !assistantMessages.length && (
             <div style={{ padding: "18px 14px 22px" }}>
               <div style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 12, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, marginBottom: 12 }}><Sparkles size={19} /></div>
               <div style={{ color: C.text, fontSize: 15, fontWeight: 900 }}>Asistente Klase A</div>
@@ -335,12 +375,12 @@ export default function GlobalSearch({ profile }) {
               </div>
             </div>
           )}
-          {mode === "assistant" && assistantMessages.length > 0 && (
+          {assistantMode && assistantMessages.length > 0 && (
             <div style={{ display: "grid", gap: 10, padding: "4px 8px 8px" }}>
               {assistantMessages.map((message, index) => (
                 <div key={`${message.role}-${index}`} style={{ justifySelf: message.role === "user" ? "end" : "stretch", maxWidth: message.role === "user" ? "86%" : "100%", padding: message.role === "user" ? "9px 11px" : "12px", borderRadius: 11, border: `1px solid ${message.role === "user" ? C.blueB : C.violetB}`, background: message.role === "user" ? C.blueL : C.violetL, color: C.text }}>
                   {message.role === "assistant" && <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.violet, fontSize: 9.5, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 7 }}><Sparkles size={12} /> Asistente</div>}
-                  <div style={{ whiteSpace: "pre-wrap", fontSize: 12.5, lineHeight: 1.58 }}>{message.content}</div>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 12.5, lineHeight: 1.58 }}>{assistantDisplayText(message.content)}</div>
                   {!!message.links?.length && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                       {message.links.map((link) => <button key={`${link.path}-${link.label}`} type="button" onClick={() => goTo(link)} style={{ minHeight: 29, padding: "0 9px", borderRadius: 8, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.violet, fontFamily: C.sans, fontSize: 10.5, fontWeight: 800, cursor: "pointer" }}>{link.label} <ArrowRight size={10} style={{ marginLeft: 4, verticalAlign: -1 }} /></button>)}
@@ -351,10 +391,10 @@ export default function GlobalSearch({ profile }) {
               {assistantLoading && <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.dim, fontSize: 11.5, padding: "5px 8px" }}><LoaderCircle size={14} style={{ animation: "global-search-spin .75s linear infinite" }} /> Buscando contexto y preparando respuesta…</div>}
             </div>
           )}
-          {mode === "assistant" && assistantError && (
+          {assistantMode && assistantError && (
             <div style={{ margin: "8px", padding: "9px 11px", borderRadius: 9, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 11.5 }}>{assistantError}</div>
           )}
-          {mode === "search" && <>
+          {!assistantMode && <>
           {!hasQuery && (
             <div style={{ padding: "3px 10px 9px", color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>
               Accesos rápidos
@@ -424,8 +464,8 @@ export default function GlobalSearch({ profile }) {
         </div>
 
         <div className="global-search-footer" style={{ minHeight: 38, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "7px 13px", borderTop: `1px solid ${C.border}`, background: C.panel2, color: C.dim, fontSize: 10.5 }}>
-          <span>{mode === "assistant" ? "IA gratuita · puede tener límites o demoras." : "Buscá también por código, DNI, proveedor o número."}</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>{mode === "search" && <span>↑ ↓ recorrer</span>}<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><CornerDownLeft size={11} /> {mode === "assistant" ? "preguntar" : "abrir"}</span></span>
+          <span>{assistantMode ? "IA gratuita · puede tener límites o demoras." : "Buscá también por código, DNI, proveedor o número."}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>{!assistantMode && <span>↑ ↓ recorrer</span>}<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><CornerDownLeft size={11} /> {assistantMode ? "preguntar" : "abrir"}</span></span>
         </div>
       </div>
     </div>

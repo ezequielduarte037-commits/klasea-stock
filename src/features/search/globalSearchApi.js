@@ -25,14 +25,14 @@ function tokenVariants(token) {
   const variants = new Set([token]);
   if (token.length > 4 && token.endsWith("es")) variants.add(token.slice(0, -2));
   if (token.length > 3 && token.endsWith("s")) variants.add(token.slice(0, -1));
-  return [...variants].filter((value) => value.length >= 2);
+  return [...variants].filter((value) => value.length >= 2 || /^\d+$/.test(value));
 }
 
 function searchTokens(query) {
   const normalized = normalize(query);
   const tokens = normalized
     .split(" ")
-    .filter((token) => token.length >= 2 && !STOPWORDS.has(token));
+    .filter((token) => (token.length >= 2 || /^\d+$/.test(token)) && !STOPWORDS.has(token));
   return (tokens.length ? tokens : normalized ? [normalized] : [])
     .sort((a, b) => b.length - a.length)
     .slice(0, 4);
@@ -118,7 +118,10 @@ async function searchMateriales(tokens) {
     title: material.descripcion || "Producto sin nombre",
     subtitle: [material.codigo || material.codigo_barra, material.proveedor].filter(Boolean).join(" · ") || "Catálogo maestro",
     meta: [material.unidad_medida, material.ubicacion_obs || material.ubicacion].filter(Boolean).join(" · "),
+    unit: material.unidad_medida || "unidad",
+    location: material.ubicacion_obs || material.ubicacion || "",
     path: `/catalogo-maestro?material=${encodeURIComponent(material.id)}`,
+    stockPath: `/stock-panol?tab=maestro&material=${encodeURIComponent(material.id)}&q=${encodeURIComponent(material.descripcion || "")}`,
   }));
 }
 

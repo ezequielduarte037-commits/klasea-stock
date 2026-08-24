@@ -4,7 +4,10 @@ import {
   createAdminClient,
   ResponseError,
 } from "../_shared/functionAuth.ts";
-import { askKlaseaAssistant } from "../_shared/klaseaAssistant.ts";
+import {
+  askKlaseaAssistant,
+  canRoleUseKlaseaAssistant,
+} from "../_shared/klaseaAssistant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +42,10 @@ serve(async (req) => {
     const admin = createAdminClient();
     const auth = await authenticateFunctionRequest(req, admin);
     if (!auth.userId) throw new ResponseError("No autenticado", 401);
+    const role = auth.profile?.is_admin ? "admin" : auth.profile?.role;
+    if (!canRoleUseKlaseaAssistant(role)) {
+      throw new ResponseError("Tu rol no tiene habilitado el asistente de Klase A.", 403);
+    }
     if (!checkRateLimit(auth.userId)) {
       return json({ error: "Hiciste muchas preguntas seguidas. Esperá un minuto y probá de nuevo." }, 429);
     }
@@ -48,7 +55,7 @@ serve(async (req) => {
       question: body?.question,
       context: body?.context,
       history: body?.history,
-      role: auth.profile?.is_admin ? "admin" : auth.profile?.role,
+      role,
     });
     return json(result);
   } catch (error) {
@@ -58,4 +65,3 @@ serve(async (req) => {
     return json({ error: message }, status);
   }
 });
-
