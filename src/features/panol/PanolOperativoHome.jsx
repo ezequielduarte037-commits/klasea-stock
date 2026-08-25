@@ -6,6 +6,7 @@ import {
   Box,
   ClipboardList,
   Clock3,
+  FileScan,
   Inbox,
   MapPin,
   Nfc,
@@ -273,7 +274,8 @@ export default function PanolOperativoHome({ profile, signOut }) {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(205px, 1fr))", gap: 8 }}>
               <ActionLink to="/recepcion-panol?tab=recepcion" icon={PackageCheck} label="Recepcionar" detail={`${summary.activos.length} pedidos por revisar`} color={C.green} />
-              <ActionLink to="/recepcion-panol?tab=ingresar" icon={PackagePlus} label="Ingresar" detail={drafts.length ? `${drafts.length} borradores para retomar` : "Remito, escáner o ingreso manual"} color={C.blue} />
+              <ActionLink to="/recepcion-panol?tab=scanner" icon={FileScan} label="Escanear remito" detail="USB · lectura IA · revisión antes del stock" color={C.violet} />
+              <ActionLink to="/recepcion-panol?tab=ingresar" icon={PackagePlus} label="Ingreso directo" detail={drafts.length ? `${drafts.length} borradores para retomar` : "Carga manual, ajuste o remito ya digital"} color={C.blue} />
               <ActionLink to="/egresos-panol" icon={ScanLine} label="Egresar" detail="Buscar, escanear o abrir carrito" color={C.red} />
               <ActionLink to="/recepcion-panol?tab=consumibles" icon={Scale} label="Consumibles" detail="Ingreso, egreso y registro por peso" color={C.violet} />
               <ActionLink to="/inicio-panol/tarjetas" icon={Nfc} label="Asignar tarjeta NFC" detail="Vincular una tarjeta a un empleado de RRHH" color={C.violet} />

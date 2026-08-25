@@ -12,6 +12,7 @@ import {
   Printer,
   RefreshCw,
   RotateCcw,
+  ScanLine,
   Search,
   Trash2,
   Warehouse,
@@ -27,7 +28,9 @@ import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
+import ScannerRemitosTab from "@/features/panol/ScannerRemitosTab";
 import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
+import { linkScannedReceiptToIngreso, scannerReceiptPrefill } from "@/features/panol/remitosScannerApi";
 import { leerIngresosPendientes, borrarIngresoPendiente, leerPapeleraIngresos, restaurarIngresoPendiente, vaciarPapeleraIngresos } from "@/features/panol/ingresosPendientes";
 import { hasAdminAccess } from "@/lib/permissions";
 
@@ -52,7 +55,7 @@ const PRIO_FILTERS = [
   ["baja", "Baja"],
 ];
 const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
-const PANOL_TABS = new Set(["recepcion", "ingresar", "consumibles", "crear"]);
+const PANOL_TABS = new Set(["recepcion", "scanner", "ingresar", "consumibles", "crear"]);
 
 function readStoredPanolTab(urlTab = "") {
   const requested = urlTab === "pendientes" ? "ingresar" : urlTab;
@@ -614,24 +617,29 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
         flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {iconBox(C.blue, Warehouse)}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 19, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Recepción de materiales</div>
-            <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 750 }}>
-              {sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 0 }}>
+            {iconBox(C.blue, Warehouse)}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Recepción de materiales</div>
+              <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 750 }}>
+                {sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
+              </div>
             </div>
           </div>
-          <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11 }}>
+          <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11, flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0 }}>
             <TabButton active={tab === "recepcion"} onClick={() => setTab("recepcion")}>Recepción</TabButton>
+            <TabButton active={tab === "scanner"} onClick={() => setTab("scanner")}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ScanLine size={13} /> Remitos</span>
+            </TabButton>
             <select
               aria-label="Otras operaciones de ingreso"
-              value={tab === "recepcion" ? "" : tab}
+              value={tab === "recepcion" || tab === "scanner" ? "" : tab}
               onChange={(event) => {
                 if (!event.target.value) return;
                 if (event.target.value === "ingresar") refreshPendientes();
                 setTab(event.target.value);
               }}
-              style={{ border: "none", background: tab === "recepcion" ? "transparent" : C.panelSolid, color: tab === "recepcion" ? C.dim : C.text, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, outline: "none" }}
+              style={{ border: "none", background: tab === "recepcion" || tab === "scanner" ? "transparent" : C.panelSolid, color: tab === "recepcion" || tab === "scanner" ? C.dim : C.text, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, outline: "none" }}
             >
               <option value="">Más operaciones</option>
               <option value="ingresar">Ingreso directo{pendientes.length > 0 ? ` (${pendientes.length})` : ""}</option>
@@ -842,6 +850,19 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
       </div>
 
         </>
+      ) : tab === "scanner" ? (
+        <ScannerRemitosTab
+          profile={profile}
+          sedeLocked={sedeLocked}
+          canReceive={canReceive}
+          isMobile={isMobile}
+          onReview={(receipt) => {
+            setModalPrefill(scannerReceiptPrefill(receipt));
+            setIngresoKey((key) => key + 1);
+            setTab("ingresar");
+          }}
+          onOpenIngreso={(envioId) => setSel(envioId)}
+        />
       ) : tab === "consumibles" ? (
         <ConsumiblesPanolTab isMobile={isMobile} toast={toast} sedeLocked={sedeLocked} canReceive={canReceive} isAdmin={isAdmin} />
       ) : tab === "crear" ? (
@@ -950,8 +971,23 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                 embedded
                 profile={profile}
                 prefill={modalPrefillEstable}
-                showPrices={isAdmin}
-                onClose={(saved) => { setModalPrefill(null); setIngresoKey((k) => k + 1); refreshPendientes(); if (saved) cargar(); }}
+                showPrices={isAdmin && !modalPrefillEstable?.scannerStrict}
+                requireCatalogLinks={Boolean(modalPrefillEstable?.scannerStrict)}
+                onSaved={modalPrefillEstable?.scannerReceiptId
+                  ? (envioId, context) => linkScannedReceiptToIngreso(
+                    modalPrefillEstable.scannerReceiptId,
+                    envioId,
+                    context?.items || [],
+                  )
+                  : null}
+                onClose={(saved) => {
+                  const volverAlScanner = Boolean(modalPrefillEstable?.scannerReceiptId);
+                  setModalPrefill(null);
+                  setIngresoKey((k) => k + 1);
+                  refreshPendientes();
+                  if (saved) cargar();
+                  if (volverAlScanner) setTab("scanner");
+                }}
               />
             ) : (
               <div style={{ padding: "40px 20px", textAlign: "center", color: C.dim, fontSize: 13 }}>

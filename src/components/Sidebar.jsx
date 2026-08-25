@@ -148,6 +148,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
       <path d="M8 1v4.5M5.8 3.3L8 5.5l2.2-2.2" {...p}/>
     </>,
+    "/recepcion-panol?tab=scanner": <>
+      <rect x="2" y="3" width="12" height="9.5" rx="1.5" {...p}/>
+      <path d="M4.5 6h7M4.5 8.5h5M5 14h6" {...p}/>
+      <path d="M1 2v3M1 2h3M15 2h-3M15 2v3" {...p}/>
+    </>,
     "/egresos-panol": <>
       <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
       <path d="M8 5.5V1M5.8 3.2L8 1l2.2 2.2" {...p}/>
@@ -613,6 +618,7 @@ export default function Sidebar({ profile, signOut }) {
             {group("Operación diaria", SC.panol_catalogo, 55)}
             {item("/inicio-panol", "Panel de pañol", SC.panol_catalogo, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
             {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.panol_catalogo, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
+            {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.panol_catalogo, true, 80, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
             {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.panol_catalogo, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
             {item("/egresos-panol", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
             {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}

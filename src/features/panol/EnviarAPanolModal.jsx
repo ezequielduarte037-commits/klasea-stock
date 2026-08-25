@@ -369,6 +369,7 @@ function normalizeItem(it) {
     purchase_request_item_id: it.purchase_request_item_id ?? it.purchaseRequestItemId ?? null,
     panol_envio_item_id: it.panol_envio_item_id ?? it.panolEnvioItemId ?? null,
     obra_snapshot_item_id: it.obra_snapshot_item_id ?? it.obraSnapshotItemId ?? null,
+    scanner_item_id: it.scanner_item_id ?? it.scannerItemId ?? null,
     variante: it.variante ?? it.variant ?? "",
     especificaciones: normalizeProductSpecs(it.especificaciones),
   };
@@ -747,7 +748,16 @@ function ItemLocationRow({ item, material = null, estanterias = [], onChange, is
   );
 }
 
-export default function EnviarAPanolModal({ open, onClose, prefill, showPrices = true, profile = null, embedded = false }) {
+export default function EnviarAPanolModal({
+  open,
+  onClose,
+  onSaved = null,
+  prefill,
+  showPrices = true,
+  profile = null,
+  embedded = false,
+  requireCatalogLinks = false,
+}) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const isRemito = prefill?.origen === "remito" || prefill?.modo === "remito";
@@ -834,7 +844,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setTitulo(prefill?.titulo || "");
     // Solo el pañolero (sedeLocked) arranca con sede fija. Compras/admin/otros deben
     // elegirla a mano en cada aviso → evita mandar a la sede equivocada por defecto.
-    setSede(sedeLocked || "");
+    setSede(sedeLocked || prefill?.sede || "");
     setObraId(prefill?.obraId || "");
     setPrioridad(prefill?.prioridad || "media");
     setObservaciones(prefill?.observaciones || "");
@@ -1373,6 +1383,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         prepared.push({ ...item, ...itemPatchFromMaterial(best, item) });
         continue;
       }
+      // Los remitos del scanner son evidencia operativa: una lectura dudosa no
+      // puede crear identidad nueva en el catálogo. Pañol debe elegir el SKU
+      // concreto antes de que este renglon llegue al stock.
+      if (requireCatalogLinks) {
+        throw new Error(`Vinculá “${item.descripcion || "este renglón"}” con un producto del catálogo antes de ingresar. El scanner no crea productos automáticamente.`);
+      }
       // Sin un match fuerte, el item se crea en catalogo y queda marcado para revisar.
       const created = await crearPanolCatalogMaterial({
         descripcion: item.descripcion,
@@ -1670,7 +1686,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           cantidad: String(it.cantidad || "").trim(),
         }))
         .filter((it) => it.id);
-      await crearEnvio({
+      const envioId = await crearEnvio({
         titulo: titulo.trim(),
         sede,
         prioridad,
@@ -1706,6 +1722,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       });
       for (const linked of linkedRecepcionItems) {
         await marcarItems([linked.id], "recibido", { cantidadRecibida: linked.cantidad || null });
+      }
+      if (onSaved) {
+        try {
+          await onSaved(envioId, { items: preparedItems });
+        } catch (linkError) {
+          // El stock ya fue confirmado. Un fallo al asociar el PDF no debe
+          // mostrarse como si el ingreso entero hubiera fallado ni repetirlo.
+          toast.warning(linkError.message || "El ingreso se guardó, pero no se pudo vincular el remito digital.");
+        }
       }
       toast.success(`${isRemito ? "Materiales ingresados" : `Envío a Pañol ${sede} creado`} · ${preparedItems.length} ítem${preparedItems.length > 1 ? "s" : ""}`);
       const draftId = autoDraftIdRef.current || prefill?.draftId;
