@@ -12,6 +12,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { sendText, markRead, downloadMedia } from "../_shared/whatsapp.ts";
 import {
   chatWithBot,
+  OpenRouterRequestError,
   reviseDraftWithBot,
   transcribeAudio,
   type BotResponse,
@@ -20,6 +21,7 @@ import {
   type ParsedPedido,
 } from "../_shared/openai.ts";
 import { extractUrls, fetchUrlMeta } from "../_shared/urlmeta.ts";
+import { assistantFailureMessage, classifyDraftReply, isRetryCommand } from "./botFlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +29,23 @@ const corsHeaders = {
 };
 
 const MAX_HISTORY = 16; // últimos 16 turnos (8 user + 8 assistant)
+const DRAFT_ACTION_PROMPT = "¿Querés agregar algo más o lo confirmamos así?\n\nMandame otro ítem para sumarlo, respondé *sí* para crear o *no* para descartar.";
 let warnedMissingAppSecret = false;
+
+type PendingBotInput = {
+  text: string;
+  had_images: boolean;
+};
+
+class IncompletePurchaseRequestError extends Error {
+  readonly requestId: string;
+
+  constructor(requestId: string) {
+    super("No se pudo revertir la cabecera de un pedido cuyos ítems fallaron");
+    this.name = "IncompletePurchaseRequestError";
+    this.requestId = requestId;
+  }
+}
 
 function constantTimeEqual(left: string, right: string): boolean {
   if (left.length !== right.length) return false;
@@ -207,7 +225,13 @@ async function handleEvent(body: any): Promise<void> {
   const stale = lastAt > 0 && Date.now() - lastAt > STALE_MS;
 
   const state = stale ? "idle" : (convo?.state || "idle");
-  const ctx = (stale ? {} : (convo?.context || {})) as { history?: HistoryTurn[]; draft?: ParsedPedido; photo_urls?: string[]; photo_media_ids?: string[] };
+  const ctx = (stale ? {} : (convo?.context || {})) as {
+    history?: HistoryTurn[];
+    draft?: ParsedPedido;
+    photo_urls?: string[];
+    photo_media_ids?: string[];
+    pending_input?: PendingBotInput;
+  };
   const history: HistoryTurn[] = Array.isArray(ctx.history) ? ctx.history : [];
   const photoUrls: string[] = Array.isArray(ctx.photo_urls) ? ctx.photo_urls : [];
   const photoMediaIds: string[] = Array.isArray(ctx.photo_media_ids) ? ctx.photo_media_ids : [];
@@ -215,7 +239,7 @@ async function handleEvent(body: any): Promise<void> {
   // Saludo suelto con algo pendiente → NO es una corrección. Reseteamos y saludamos.
   const isGreeting = lower.length <= 20 &&
     /^(hola+|buenas|buen d[ií]a|buenos d[ií]as|buenas tardes|buenas noches|hey|ey|hello|hi|que tal|qué tal)\b/i.test(lower);
-  if (isGreeting && state !== "idle") {
+  if (isGreeting && state !== "idle" && state !== "creating") {
     await resetConversation(db, from);
     await sendText(from, `¡Hola ${profile.username}! 👋 ¿Qué necesitás pedir?`);
     return;
@@ -227,8 +251,15 @@ async function handleEvent(body: any): Promise<void> {
     return;
   }
 
+  // Otra confirmación puede llegar mientras la primera todavía está creando el pedido.
+  // No volvemos a llamar a la IA ni iniciamos un segundo insert.
+  if (state === "creating") {
+    await sendText(from, "Ya estoy procesando la confirmación anterior. Enseguida te aviso si el pedido quedó creado.");
+    return;
+  }
+
   // 5) Default: turno conversacional con LLM
-  await handleConversationTurn(db, from, profile, messages, history, photoUrls, photoMediaIds);
+  await handleConversationTurn(db, from, profile, messages, history, photoUrls, photoMediaIds, ctx.pending_input);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,6 +330,25 @@ async function resetConversation(db: SupabaseClient, phone: string): Promise<voi
   await db.from("bot_conversations").upsert({
     phone, state: "idle", context: {}, last_message_at: new Date().toISOString(),
   });
+}
+
+async function claimConversationForCreation(db: SupabaseClient, phone: string): Promise<boolean> {
+  const { data, error } = await db.from("bot_conversations")
+    .update({ state: "creating", last_message_at: new Date().toISOString() })
+    .eq("phone", phone)
+    .eq("state", "awaiting_confirm")
+    .select("phone")
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data?.phone);
+}
+
+async function restoreAwaitingConfirmation(db: SupabaseClient, phone: string): Promise<void> {
+  const { error } = await db.from("bot_conversations")
+    .update({ state: "awaiting_confirm", last_message_at: new Date().toISOString() })
+    .eq("phone", phone)
+    .eq("state", "creating");
+  if (error) console.error("[wa-webhook] no se pudo restaurar el borrador tras el error:", error);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,6 +435,7 @@ async function handleConversationTurn(
   history: HistoryTurn[],
   existingPhotos: string[] = [],
   existingPhotoMediaIds: string[] = [],
+  pendingInput?: PendingBotInput,
 ): Promise<void> {
   const msg = messages[0];
   // Armar input multimodal
@@ -415,6 +466,14 @@ async function handleConversationTurn(
         return;
       }
     }
+  }
+
+  if (isRetryCommand(text) && pendingInput?.text) {
+    if (pendingInput.had_images && msg.type !== "image") {
+      await sendText(from, "Ese mensaje tenía una foto. Reenviame el texto junto con la foto para poder leerla otra vez.");
+      return;
+    }
+    text = pendingInput.text;
   }
 
   input.text = text;
@@ -451,13 +510,40 @@ async function handleConversationTurn(
     .select("id, codigo").neq("estado", "archivada");
   const projectCodes = (projects ?? []).map((p: any) => p.codigo).filter(Boolean);
 
+  // Texto que la IA ve y que podemos reintentar sin pedirle al usuario que lo copie.
+  const userText = [
+    text,
+    ...(input.images && input.images.length ? [`[imagen adjunta]`] : []),
+    ...(input.urls && input.urls.length ? input.urls.map((u) => `[link: ${u.title || u.url}]`) : []),
+  ].filter(Boolean).join(" ").trim();
+
   // Llamar al LLM
   let resp: BotResponse;
   try {
     resp = await chatWithBot(history, input, { projectCodes });
   } catch (err) {
     console.error("[wa-webhook] chatWithBot error:", err);
-    await sendText(from, "Hmm, tuve un problema procesando tu mensaje. Probá de nuevo en un momento.");
+    const status = err instanceof OpenRouterRequestError ? err.status : null;
+    const code = err instanceof OpenRouterRequestError ? err.code : null;
+    const hadImages = Boolean(input.images?.length);
+    const { error: saveError } = await db.from("bot_conversations").upsert({
+      phone: from,
+      user_id: profile.id,
+      state: "gathering",
+      context: {
+        history,
+        photo_urls: photoUrls,
+        photo_media_ids: photoMediaIds,
+        pending_input: { text, had_images: hadImages },
+      },
+      last_message_at: new Date().toISOString(),
+    });
+    if (saveError) {
+      console.error("[wa-webhook] no se pudo guardar el mensaje para reintento:", saveError);
+      await sendText(from, "No pude procesar ni conservar el último mensaje. *No se creó ningún pedido.* Reenviámelo más tarde.");
+      return;
+    }
+    await sendText(from, assistantFailureMessage(status, code, hadImages));
     return;
   }
 
@@ -468,13 +554,6 @@ async function handleConversationTurn(
       message: ensureDescriptionVisible(resp.message, resp.draft),
     };
   }
-
-  // Guardar el turno del usuario en history (texto que la IA "vio")
-  const userText = [
-    text,
-    ...(input.images && input.images.length ? [`[imagen adjunta]`] : []),
-    ...(input.urls && input.urls.length ? input.urls.map((u) => `[link: ${u.title || u.url}]`) : []),
-  ].filter(Boolean).join(" ").trim();
 
   const newHistory: HistoryTurn[] = [
     ...history,
@@ -507,7 +586,7 @@ async function handleConversationTurn(
     last_message_at: new Date().toISOString(),
   });
 
-  await sendText(from, `${resp.message}\n\nRespondé *si* para crear, *no* para descartar, o corregí lo que falte.`);
+  await sendText(from, withDraftActions(resp.message));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -525,6 +604,7 @@ async function handleConfirmation(
   messages: any[] = [],
 ): Promise<void> {
   const t = text.trim().toLowerCase();
+  const replyKind = classifyDraftReply(text);
   const incomingImages = await appendIncomingImagesToPhotos(db, profile, messages, photoUrls, photoMediaIds, false);
   const nextPhotoUrls = incomingImages.photoUrls;
   const nextPhotoMediaIds = incomingImages.photoMediaIds;
@@ -542,14 +622,23 @@ async function handleConfirmation(
       context: { history: newHistory, draft, photo_urls: nextPhotoUrls, photo_media_ids: nextPhotoMediaIds },
       last_message_at: new Date().toISOString(),
     });
-    await sendText(from, `Listo, adjunté la foto al ${draft.intent === "aviso" ? "aviso" : "pedido"} pendiente. Van ${nextPhotoUrls.length} foto${nextPhotoUrls.length !== 1 ? "s" : ""}.\n\nRespondé *si* para crear, *no* para descartar, o mandá otra corrección.`);
+    await sendText(from, withDraftActions(`Listo, adjunté la foto al ${draft.intent === "aviso" ? "aviso" : "pedido"} pendiente. Van ${nextPhotoUrls.length} foto${nextPhotoUrls.length !== 1 ? "s" : ""}.`));
     return;
   }
 
-  if (/^(si|sí|sip|dale|confirmo|ok|okey|yes|y|listo|👍|✅)\b/i.test(t)) {
+  if (replyKind === "confirm") {
+    let claimed = false;
+    let persisted = false;
     try {
+      claimed = await claimConversationForCreation(db, from);
+      if (!claimed) {
+        await sendText(from, "La confirmación ya se está procesando. No voy a crear un pedido duplicado.");
+        return;
+      }
+
       if (draft.intent === "aviso") {
         const aviso = await createAvisoFromBot(db, profile, from, draft);
+        persisted = true;
         await resetConversation(db, from);
         notifyComprasAviso(aviso.id, draft.title, profile.id, profile.username).catch((e) =>
           console.warn("[wa-webhook] notify aviso fail:", e),
@@ -560,6 +649,7 @@ async function handleConfirmation(
       }
 
       const request = await createPurchaseRequestFromBot(db, profile, draft, nextPhotoUrls);
+      persisted = true;
       await resetConversation(db, from);
       notifyCompras(request.id, draft.title, profile.id, profile.username).catch((e) =>
         console.warn("[wa-webhook] notify compras fail:", e),
@@ -568,12 +658,25 @@ async function handleConfirmation(
       await sendText(from, `✅ Pedido creado: *${draft.title}*\n\nCompras fue notificado.\n🔗 ${url}`);
     } catch (err) {
       console.error("[wa-webhook] crear pedido fail:", err);
-      await sendText(from, "❌ Hubo un error guardando el pedido. Intentá de nuevo.");
+      if (persisted) {
+        // El registro ya existe; lo que falló fue la respuesta posterior (por
+        // ejemplo WhatsApp). No restauramos el draft ni invitamos a duplicarlo.
+        console.error("[wa-webhook] el pedido se guardó pero falló la confirmación al usuario");
+        return;
+      }
+      if (err instanceof IncompletePurchaseRequestError) {
+        await resetConversation(db, from);
+        const url = `https://klasea-stock.vercel.app/compras?open=${err.requestId}`;
+        await sendText(from, `⚠️ El pedido no pudo completarse y quedó una cabecera sin ítems. No lo confirmes otra vez: avisale a Compras para revisar este registro.\n🔗 ${url}`);
+        return;
+      }
+      if (claimed) await restoreAwaitingConfirmation(db, from);
+      await sendText(from, "❌ No pude guardar el pedido y *no quedó creado*. El borrador sigue disponible: corregilo o volvé a confirmar.");
     }
     return;
   }
 
-  if (/^(no|nop|cancelar|descartar|borrar)\b/i.test(t)) {
+  if (replyKind === "reject") {
     await resetConversation(db, from);
     await sendText(from, `OK, descarté el ${draft.intent === "aviso" ? "aviso" : "pedido"}. Mandame otra cosa cuando quieras.`);
     return;
@@ -627,7 +730,7 @@ async function handleConfirmation(
     last_message_at: new Date().toISOString(),
   });
 
-  await sendText(from, `${message}\n\nRespondé *si* para crear, *no* para descartar, o corregí lo que falte.`);
+  await sendText(from, withDraftActions(message));
 }
 
 function matchProjectId(projects: any[], code?: string | null): string | null {
@@ -750,6 +853,14 @@ function truncateText(value: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+function withDraftActions(message: string): string {
+  const clean = String(message || "")
+    .replace(/\s*¿?confirm[aá]s\??\s*$/i, "")
+    .replace(/\s*respond[eé]\s+\*?s[ií]\*?.*$/i, "")
+    .trim();
+  return `${clean}\n\n${DRAFT_ACTION_PROMPT}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DB
 // ─────────────────────────────────────────────────────────────────────────────
@@ -785,7 +896,18 @@ async function createPurchaseRequestFromBot(
       // Una foto suelta no tiene URL de ítem confiable → va a la galería del pedido.
       image_url: it.link_url ? (it.image_url || null) : null,
     }));
-    await db.from("purchase_request_items").insert(itemRows);
+    const { error: itemsError } = await db.from("purchase_request_items").insert(itemRows);
+    if (itemsError) {
+      // La cabecera y los ítems se guardan con dos llamadas. Si la segunda falla,
+      // compensamos la primera para no dejar un pedido vacío que Compras interprete
+      // como válido.
+      const { error: cleanupError } = await db.from("purchase_requests").delete().eq("id", request.id);
+      if (cleanupError) {
+        console.error("[wa-webhook] no se pudo revertir la cabecera del pedido incompleto:", cleanupError);
+        throw new IncompletePurchaseRequestError(request.id);
+      }
+      throw itemsError;
+    }
   }
   return request;
 }

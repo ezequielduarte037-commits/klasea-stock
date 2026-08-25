@@ -79,8 +79,9 @@ export async function archiveScannerFile(id) {
   await localRequest(`/archive/${encodeURIComponent(id)}`, { method: "POST", timeout: 8000 });
 }
 
-export async function launchScannerApp() {
-  const response = await localRequest("/scan", { method: "POST", timeout: 12_000 });
+export async function launchScannerApp(source = "feeder") {
+  const normalizedSource = source === "glass" ? "glass" : "feeder";
+  const response = await localRequest(`/scan?source=${normalizedSource}`, { method: "POST", timeout: 12_000 });
   return response.json();
 }
 

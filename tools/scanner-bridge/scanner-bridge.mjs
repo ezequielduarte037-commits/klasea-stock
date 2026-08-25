@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const PORT = 17778;
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const BRIDGE_DIR = dirname(fileURLToPath(import.meta.url));
 const SCAN_SCRIPT = join(BRIDGE_DIR, "escanear-remito.ps1");
 const PENDING = "C:\\KlaseA\\Remitos\\Pendientes";
@@ -40,6 +40,18 @@ function loadKey() {
 }
 
 const pairingKey = loadKey();
+let scanProcess = null;
+let scanStartedAt = null;
+let lastScanStatus = "idle";
+let scanSource = null;
+
+function saveScanError(message) {
+  try {
+    writeFileSync(SCAN_ERROR_FILE, message, "utf8");
+  } catch (error) {
+    console.error("No se pudo guardar el diagnóstico del scanner:", error);
+  }
+}
 
 function fileId(path, stats) {
   return createHash("sha256").update(`${path}|${stats.size}|${stats.mtimeMs}`).digest("hex").slice(0, 24);
@@ -120,21 +132,55 @@ function launch(command, args = [], { windowsHide = false } = {}) {
   child.unref();
 }
 
-function launchScanner() {
+function launchScanner(requestedSource = "feeder") {
+  const source = requestedSource === "glass" ? "glass" : "feeder";
+  if (scanProcess) {
+    return {
+      message: "Ya hay un escaneo en curso.",
+      startedAt: scanStartedAt,
+      source: scanSource,
+    };
+  }
+
   if (existsSync(SCAN_SCRIPT)) {
     if (existsSync(SCAN_ERROR_FILE)) unlinkSync(SCAN_ERROR_FILE);
-    launch(
+    const child = spawn(
       "powershell.exe",
-      ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", SCAN_SCRIPT, "-Destination", PENDING],
-      { windowsHide: true },
+      ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", SCAN_SCRIPT, "-Destination", PENDING, "-Source", source],
+      { detached: false, stdio: "ignore", windowsHide: true },
     );
-    return "Escaneo iniciado. La Pantum guardará el remito automáticamente en la bandeja.";
+    scanProcess = child;
+    scanStartedAt = new Date().toISOString();
+    scanSource = source;
+    lastScanStatus = "scanning";
+
+    child.once("error", (error) => {
+      lastScanStatus = "error";
+      saveScanError(error.message || "No se pudo iniciar el scanner.");
+      scanProcess = null;
+    });
+    child.once("exit", (code) => {
+      lastScanStatus = code === 0 ? "completed" : "error";
+      if (code !== 0 && !existsSync(SCAN_ERROR_FILE)) {
+        saveScanError("El controlador Pantum cerró el escaneo sin generar una imagen.");
+      }
+      scanProcess = null;
+    });
+
+    return {
+      message: "Escaneo iniciado. Seguí la ventana de Pantum y esperá a que termine.",
+      startedAt: scanStartedAt,
+      source,
+    };
   }
 
   const wia = join(process.env.WINDIR || "C:\\Windows", "System32", "wiaacmgr.exe");
   if (existsSync(wia)) {
     launch(wia);
-    return "Asistente de escaneo abierto. Elegí la Pantum y guardá el archivo en Pendientes.";
+    return {
+      message: "Asistente de escaneo abierto. Elegí la Pantum y guardá el archivo en Pendientes.",
+      startedAt: new Date().toISOString(),
+    };
   }
   throw new Error("No encontré el asistente de scanner de Windows.");
 }
@@ -158,6 +204,10 @@ const server = createServer((req, res) => {
         pairingRequired: true,
         keyHint: pairingKey.slice(-4),
         lastError: existsSync(SCAN_ERROR_FILE) ? readFileSync(SCAN_ERROR_FILE, "utf8").trim() : "",
+        scanning: Boolean(scanProcess),
+        scanStartedAt,
+        lastScanStatus,
+        scanSource,
       });
       return;
     }
@@ -206,7 +256,8 @@ const server = createServer((req, res) => {
     }
 
     if (url.pathname === "/scan" && req.method === "POST") {
-      json(res, 200, { ok: true, message: launchScanner(), folder: PENDING });
+      const scan = launchScanner(url.searchParams.get("source") || "feeder");
+      json(res, 200, { ok: true, ...scan, scanning: Boolean(scanProcess), folder: PENDING });
       return;
     }
 

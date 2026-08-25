@@ -1,6 +1,10 @@
 param(
   [Parameter(Mandatory = $false)]
-  [string]$Destination = "C:\KlaseA\Remitos\Pendientes"
+  [string]$Destination = "C:\KlaseA\Remitos\Pendientes",
+
+  [Parameter(Mandatory = $false)]
+  [ValidateSet("feeder", "glass")]
+  [string]$Source = "feeder"
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,6 +14,29 @@ $errorFile = Join-Path $env:LOCALAPPDATA "KlaseA\Scanner\ultimo-error.txt"
 try {
   New-Item -ItemType Directory -Path $Destination -Force | Out-Null
   New-Item -ItemType Directory -Path (Split-Path -Parent $errorFile) -Force | Out-Null
+
+  $stamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
+  $naps2 = "C:\Program Files\NAPS2\NAPS2.Console.exe"
+  if (Test-Path -LiteralPath $naps2) {
+    $output = Join-Path $Destination "remito-$stamp.pdf"
+    & $naps2 `
+      --output $output `
+      --noprofile `
+      --driver twain `
+      --device "Pantum M6550" `
+      --source $Source `
+      --dpi 300 `
+      --pagesize a4 `
+      --bitdepth color `
+      --deskew `
+      --progress
+
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) {
+      throw "NAPS2 no pudo obtener la imagen desde la Pantum. Revisa el origen elegido y que haya papel."
+    }
+    Remove-Item -LiteralPath $errorFile -Force -ErrorAction SilentlyContinue
+    exit 0
+  }
 
   $manager = New-Object -ComObject WIA.DeviceManager
   $scanners = @($manager.DeviceInfos) | Where-Object { [int]$_.Type -eq 1 }
@@ -23,9 +50,9 @@ try {
   }
 
   $device = $pantum.Connect()
-  $flatbed = $device.Properties | Where-Object { $_.PropertyID -eq 3088 } | Select-Object -First 1
-  if ($flatbed -and -not $flatbed.IsReadOnly) {
-    $flatbed.Value = 2
+  $wiaSource = $device.Properties | Where-Object { $_.PropertyID -eq 3088 } | Select-Object -First 1
+  if ($wiaSource -and -not $wiaSource.IsReadOnly) {
+    $wiaSource.Value = if ($Source -eq "feeder") { 1 } else { 2 }
   }
 
   $pages = $device.Properties | Where-Object { $_.PropertyID -eq 3096 } | Select-Object -First 1
@@ -41,9 +68,15 @@ try {
     }
   }
 
-  $image = $item.Transfer($jpegFormat)
+  # El controlador Pantum queda esperando indefinidamente cuando se usa
+  # Item.Transfer() sin interfaz. CommonDialog mantiene seleccionado este
+  # dispositivo, muestra el progreso oficial de WIA y devuelve la imagen al
+  # terminar, sin pedirle al usuario que elija nuevamente el scanner.
+  $preferredFormat = $item.Formats.Item(1)
+  $dialog = New-Object -ComObject WIA.CommonDialog
+  $image = $dialog.ShowTransfer($item, $preferredFormat, $false)
   if ($null -eq $image) {
-    exit 0
+    throw "La Pantum no devolvio una imagen. Revisa que este encendida y disponible."
   }
 
   if ($image.FormatID -ne $jpegFormat) {
@@ -53,19 +86,11 @@ try {
     $image = $processor.Apply($image)
   }
 
-  $stamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
   $output = Join-Path $Destination "remito-$stamp.jpg"
   $image.SaveFile($output)
   Remove-Item -LiteralPath $errorFile -Force -ErrorAction SilentlyContinue
 } catch {
   $message = $_.Exception.Message
   [System.IO.File]::WriteAllText($errorFile, $message, [System.Text.Encoding]::UTF8)
-  Add-Type -AssemblyName PresentationFramework
-  [System.Windows.MessageBox]::Show(
-    $message,
-    "Klase A - Escaner de remitos",
-    [System.Windows.MessageBoxButton]::OK,
-    [System.Windows.MessageBoxImage]::Error
-  ) | Out-Null
   exit 1
 }

@@ -99,7 +99,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   // Datos para la exportación PDF (Enviado / Rehacer en toda la fábrica)
   async function cargarDashboardGeneral() {
     const { data: unidadesDB } = await supabase.from("marm_unidades").select("id, codigo").eq("activa", true);
-    if (!unidadesDB?.length) return;
+    // Sin unidades activas la planilla esta vacia; antes se salia sin tocar el
+    // estado y quedaba mostrando lo de la carga anterior.
+    if (!unidadesDB?.length) { setDashboard([]); return []; }
 
     const idsUnidades = unidadesDB.map(u => u.id);
     const { data: piezasDB } = await supabase.from("marm_unidad_piezas")
@@ -114,6 +116,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     });
 
     setDashboard(mapeadas);
+    // Se devuelve ademas de guardarse: el PDF necesita los datos ya, no en el
+    // render siguiente.
+    return mapeadas;
   }
 
   async function cargarHistorialEnvios() {
@@ -161,6 +166,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   useEffect(() => {
     if (viewMode === "historial") cargarHistorialEnvios();
+    // La planilla general se rearma al entrar, igual que el historial. Depender
+    // solo del realtime la dejaba vieja cada vez que el canal no llegaba.
+    if (viewMode === "general") cargarDashboardGeneral();
   }, [viewMode]);
 
   // Realtime
@@ -539,8 +547,15 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     const upd = { estado };
     if (estado === "Recibido") upd.fecha_regreso = upd.fecha_regreso || new Date().toISOString().slice(0,10);
     if (estado === "Enviado")  upd.fecha_envio   = upd.fecha_envio   || new Date().toISOString().slice(0,10);
-    await supabase.from("marm_unidad_piezas").update(upd).eq("id", piezaId);
+    const { error } = await supabase.from("marm_unidad_piezas").update(upd).eq("id", piezaId);
+    if (error) { setErr("No se pudo cambiar el estado: " + error.message); return; }
     setPiezas(prev => prev.map(p => p.id === piezaId ? {...p, ...upd} : p));
+    // Marcar una pieza como Enviada cambia la planilla general y el PDF, que
+    // salen de otra consulta. Sin esto se actualizaba solo el checklist del
+    // barco y la planilla seguia mostrando lo de cuando se abrio la pantalla:
+    // se hacian los envios y no aparecian. guardarDetalle ya lo hacia; esto no.
+    cargarFlota();
+    cargarDashboardGeneral();
   }
 
   async function guardarDetalle(piezaId, form) {
@@ -643,6 +658,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   async function exportarPDFGeneral() {
     setIsExporting(true);
     try {
+      // Se relee antes de generar: un PDF con datos viejos no se nota hasta que
+      // alguien lo imprime y sale mal.
+      const datos = await cargarDashboardGeneral();
       // 1. Cargar jsPDF
       const doc = new jsPDF();
 
@@ -664,14 +682,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       doc.setFontSize(10);
       doc.text(`Generado: ${new Date().toLocaleDateString()}`, 14, 44);
 
-      if (!dashboard || dashboard.length === 0) {
+      if (!datos.length) {
         alert("No hay piezas enviadas en ninguna de las obras para exportar.");
         setIsExporting(false);
         return;
       }
 
       // 4. Ordenamos para el PDF (por barco y luego sector)
-      const dataPDF = [...dashboard].sort((a, b) => {
+      const dataPDF = [...datos].sort((a, b) => {
         if (a.codigo_barco !== b.codigo_barco) return a.codigo_barco.localeCompare(b.codigo_barco);
         return (a.sector || "").localeCompare(b.sector || "");
       });

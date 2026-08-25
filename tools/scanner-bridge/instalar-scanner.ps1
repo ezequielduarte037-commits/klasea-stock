@@ -24,9 +24,17 @@ $startupBody = "@echo off`r`nstart `"KlaseA Scanner`" /MIN node `"C:\klasea\scan
 $existing = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object {
   $_.CommandLine -like "*C:\klasea\scanner\scanner-bridge.mjs*"
 }
-if (-not $existing) {
-  Start-Process -FilePath "node.exe" -ArgumentList '"C:\klasea\scanner\scanner-bridge.mjs"' -WindowStyle Hidden
+foreach ($process in @($existing)) {
+  Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
 }
+$staleScans = Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" | Where-Object {
+  $_.CommandLine -like "*C:\klasea\scanner\escanear-remito.ps1*"
+}
+foreach ($process in @($staleScans)) {
+  Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+}
+Start-Sleep -Milliseconds 400
+Start-Process -FilePath "node.exe" -ArgumentList '"C:\klasea\scanner\scanner-bridge.mjs"' -WindowStyle Hidden
 
 Write-Host "Scanner KlaseA instalado." -ForegroundColor Green
 Write-Host "Carpeta de remitos: $pendingDir"

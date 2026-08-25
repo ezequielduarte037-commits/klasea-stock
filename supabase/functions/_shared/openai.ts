@@ -35,9 +35,89 @@ const OR_MODEL_SOLICITUD = Deno.env.get("OPENROUTER_MODEL_SOLICITUD") || OR_MODE
 const GROQ_BASE = Deno.env.get("GROQ_BASE_URL") || "https://api.groq.com/openai/v1";
 const WHISPER_MODEL = Deno.env.get("GROQ_WHISPER_MODEL") || "whisper-large-v3";
 
+export class OpenRouterRequestError extends Error {
+  readonly operation: string;
+  readonly status: number | null;
+  readonly code: string | null;
+
+  constructor(operation: string, status: number | null, details: string, code: string | null = null) {
+    super(`OpenRouter ${operation} failed${status ? ` (${status})` : ""}: ${details}`);
+    this.name = "OpenRouterRequestError";
+    this.operation = operation;
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function openRouterErrorCode(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw);
+    return String(parsed?.error?.code || parsed?.code || "").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function shouldRetryOpenRouter(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function retryDelayMs(response: Response): number {
+  const retryAfter = Number(response.headers.get("retry-after") || 0);
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1000, 1500);
+  }
+  return 500;
+}
+
+async function postOpenRouterChat(body: Record<string, unknown>, operation: string): Promise<Response> {
+  const request = () => fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Bot",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(25_000),
+  });
+
+  let response: Response;
+  try {
+    response = await request();
+  } catch (error) {
+    console.warn(`[wa-webhook] OpenRouter ${operation} sin respuesta. Reintentando una vez...`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      response = await request();
+    } catch (retryError) {
+      throw new OpenRouterRequestError(operation, null, String(retryError || error), "network_error");
+    }
+  }
+  if (!response.ok && shouldRetryOpenRouter(response.status)) {
+    const status = response.status;
+    console.warn(`[wa-webhook] OpenRouter ${operation} error ${status}. Reintentando una vez...`);
+    await response.body?.cancel();
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs(response)));
+    response = await request();
+  }
+
+  if (!response.ok) {
+    const raw = await response.text();
+    throw new OpenRouterRequestError(
+      operation,
+      response.status,
+      raw.slice(0, 300) || "respuesta sin detalle",
+      openRouterErrorCode(raw),
+    );
+  }
+  return response;
+}
+
 function orAuth(): string {
   const key = Deno.env.get("OPENROUTER_API_KEY");
-  if (!key) throw new Error("Falta OPENROUTER_API_KEY");
+  if (!key) throw new OpenRouterRequestError("config", null, "Falta OPENROUTER_API_KEY", "missing_api_key");
   return `Bearer ${key}`;
 }
 
@@ -827,7 +907,7 @@ INTENCION OBLIGATORIA:
 - Todo draft debe incluir intent: "pedido" o "aviso".
 
 Para PEDIDO: seguí el PROTOCOLO de preguntas de compra.
-Para AVISO: juntá qué material/tema falta, para qué obra o destino, y prioridad. Cuando esté claro, proponé resumen y preguntá confirmación: "¿lo registro como aviso a compras?".
+Para AVISO: juntá qué material/tema falta, para qué obra o destino, y prioridad. Cuando esté claro, proponé el resumen sin preguntar confirmación dentro de message; el webhook agrega la única pregunta final.
 
 ═══════════════════════════════════════════════════════════════════════════
 REGLA 0 — EXTRAER PRIMERO, PREGUNTAR DESPUÉS (la más importante)
@@ -865,17 +945,10 @@ Cuando tenés un ítem completo (QUÉ + CUÁNTO):
   PASO 3. OBRA. Preguntá: "¿para qué obra es?". Si responden con código (K55, K42-1, 55-1, etc.) → tomalo. Si dicen "para stock" / "general" / "depósito" → aceptalo y dejá project_code = null. **NUNCA digas "casco", siempre "obra".**
 
 Cuando ya tenés el primer ítem completo + obra:
-  PASO 4 (OBLIGATORIO, NUNCA SALTAR). Preguntá EXACTO: "¿agregás algo más al pedido o lo confirmamos así?". Este paso es OBLIGATORIO incluso si parece obvio.
-     → Si responden con otro ítem: volvé a PASO 1 con ese ítem nuevo. Cuando lo termines, volvé a preguntar PASO 4 (sumás indefinidamente).
-     → Si responden "no" / "nada" / "eso es todo" / "así está bien": seguís al PASO 5.
-
-  PASO 5 (OBLIGATORIO, NUNCA SALTAR). Preguntá EXACTO: "¿qué prioridad? ¿urgente, alta, media o baja?". Si ya lo mencionaron antes en la conversación, no preguntes de vuelta — usa esa.
-
-  PASO 6. Recién ACÁ proponés el draft (kind=draft).
-
-═══════════════════════════════════════════════════════════════════════════
-REGLA DURA: el draft (kind=draft) SÓLO sale después de haber preguntado PASO 4 y PASO 5. Si no preguntaste alguno, devolvé kind=question.
-═══════════════════════════════════════════════════════════════════════════
+  PASO 4. Proponé INMEDIATAMENTE el pedido armado (kind=draft), mostrando todos los ítems, la obra y la prioridad.
+  - Si el usuario ya indicó prioridad, respetala. Si no la indicó, usá "media" sin hacer otra pregunta.
+  - NO preguntes antes si quiere agregar algo más y NO agregues una segunda pregunta de confirmación dentro de message. El webhook mostrará el pedido y debajo preguntará una sola vez si quiere agregar algo o confirmarlo.
+  - Si después el usuario manda otro ítem, se agrega al borrador existente y se vuelve a mostrar el pedido completo actualizado.
 
 Preguntá con criterio: no hagas preguntas "por las dudas". Si el usuario dio una descripción usable para compras, avanzá. Pedí aclaración solo cuando el dato faltante cambia claramente qué se compra, cuánta cantidad va, para qué obra/stock es, o la prioridad.
 
@@ -892,7 +965,7 @@ Cuando el usuario manda un link, vas a recibir título / precio / descripción /
 - Tomá el título del producto como descripción del ítem.
 - Guardá la URL completa en "link_url" del ítem.
 - Si hay imagen del producto, guardala en "image_url" del ítem.
-- Igual seguís el protocolo: si no dijeron cantidad, preguntala. Si no dijeron obra, preguntala. PASO 4 y 5 obligatorios.
+- Igual seguís el protocolo: si no dijeron cantidad, preguntala. Si no dijeron obra, preguntala. Cuando esos datos estén, proponé el draft.
 
 ═══════════════════════════════════════════════════════════════════════════
 FOTOS (no links, sino fotos directas):
@@ -911,11 +984,11 @@ ESTILO Y SEGURIDAD JSON:
 - Rioplatense informal, breve, directo. Sin "estimado", sin "saludos cordiales".
 - UNA pregunta por turno. Nunca preguntes dos cosas a la vez.
 - Si hay opción múltiple, ofrecé 2-4 opciones concretas: "¿M6, M8 o M10?".
-- Si el usuario claramente quiere acelerar ("dale ya", "no me preguntes más", "mandalo"), saltá los PASO 4 y 5 y proponé el draft con lo que tengas.
+- Si el usuario claramente quiere acelerar ("dale ya", "no me preguntes más", "mandalo"), proponé el draft con lo que tengas.
 - Mensajes no-pedido (hola, gracias): respondé cordial breve y guialo.
 - REGLA CRÍTICA DE JSON: Si copiás texto del usuario que contiene comillas dobles ("), ESCAPALAS SIEMPRE como \\" o reemplazalas por comillas simples ('). Un JSON con comillas dobles sin escapar es inválido y rompe el sistema.
 
-PRIORIDAD (mapeo de la respuesta del usuario en PASO 5):
+PRIORIDAD (si el usuario la menciona; si no, usar "media"):
 - "urgente", "ya", "ahora", "para hoy/mañana" → "urgente"
 - "alta", "importante", "rápido", "esta semana" → "alta"
 - "media", "normal", "como siempre" → "media"
@@ -960,7 +1033,7 @@ REGLAS DE TÍTULO (críticas — un mal título arruina la búsqueda después):
 El "title" tiene que ser DESCRIPTIVO y específico (40-80 caracteres). NUNCA genérico tipo "Pedido", "Pedido de stock", "Pedido de tornillos". Imaginá que la persona de compras tiene 50 pedidos en su lista — el título es lo único que ve para distinguirlos.
 
 ESTRUCTURA recomendada del título:
-  <ítem principal con specs> · <destino: stock o casco>
+  <ítem principal con specs> · <destino: stock u obra>
 
 Si hay 1 solo ítem: incluí cantidad + tipo + especificación clave + destino.
 Si hay 2 ítems: incluí los dos resumidos.
@@ -993,11 +1066,9 @@ EJEMPLO de un "message" bien armado para el draft (vos generalo así, NO literal
 • 10 tornillos M6
 • 10 tornillos M8 (link)
 
-Descripción: para terminar el montaje de cubierta.
+Descripción: para terminar el montaje de cubierta."
 
-¿Confirmás?"
-
-(Después yo agrego "Respondé sí / no / corregí" al final, vos NO lo agregues.)
+(El webhook agrega después la única pregunta "¿Querés agregar algo más o lo confirmamos así?". Vos NO agregues preguntas ni instrucciones de confirmación dentro de message.)
 
 Hoy es ${today}.`;
 
@@ -1049,47 +1120,13 @@ Hoy es ${today}.`;
     content: userContent.length === 1 ? userContent[0].text : userContent,
   });
 
-  let res = await fetch(`${OR_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": orAuth(),
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://klasea-stock.vercel.app",
-      "X-Title": "Klase A Bot",
-    },
-    body: JSON.stringify({
-      model: OR_MODEL_CHAT,
-      temperature: 0.2,
-      max_tokens: 800,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
-
-  if (!res.ok && res.status >= 500) {
-    console.warn(`[wa-webhook] OpenRouter API error ${res.status}. Retrying once...`);
-    res = await fetch(`${OR_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": orAuth(),
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://klasea-stock.vercel.app",
-        "X-Title": "Klase A Bot",
-      },
-      body: JSON.stringify({
-        model: OR_MODEL_CHAT,
-        temperature: 0.2,
-        max_tokens: 800,
-        response_format: { type: "json_object" },
-        messages,
-      }),
-    });
-  }
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter chatWithBot failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
+  const res = await postOpenRouterChat({
+    model: OR_MODEL_CHAT,
+    temperature: 0.2,
+    max_tokens: 800,
+    response_format: { type: "json_object" },
+    messages,
+  }, "chatWithBot");
 
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content;
@@ -1114,7 +1151,7 @@ Hoy es ${today}.`;
     if (!Array.isArray(d.items)) d.items = [];
     return {
       kind: "draft",
-      message: String(parsed.message || "Listo, ¿confirmás?"),
+      message: String(parsed.message || "Listo, armé el pedido."),
       draft: d as ParsedPedido,
     };
   }
@@ -1151,7 +1188,9 @@ Tu trabajo:
 - Si el usuario dice para qué se usa ("son para...", "es para...", "van para..."), agregalo a la descripción si no contradice el pedido.
 - Si el usuario menciona una obra/código, setealo en project_code cuando corresponda.
 - Si corrige cantidad, ítem, prioridad o fecha, actualizá solo ese dato.
+- Si el usuario manda un producto nuevo con su cantidad, AGREGALO a items sin borrar ni reemplazar los anteriores. Actualizá el título y el resumen para mostrar el pedido completo.
 - No hagas preguntas si la corrección es entendible. Preguntá solo si hay una ambigüedad real que podría cambiar qué se compra.
+- En message mostrale el borrador actualizado, pero NO agregues una pregunta de confirmación: el webhook agrega una sola al final.
 - Respondé breve, rioplatense y directo.
 
 ${projectsHint}
@@ -1196,27 +1235,13 @@ Hoy es ${today}.`;
     }),
   });
 
-  const res = await fetch(`${OR_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": orAuth(),
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://klasea-stock.vercel.app",
-      "X-Title": "Klase A Bot",
-    },
-    body: JSON.stringify({
-      model: OR_MODEL_CHAT,
-      temperature: 0.15,
-      max_tokens: 800,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter reviseDraftWithBot failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
+  const res = await postOpenRouterChat({
+    model: OR_MODEL_CHAT,
+    temperature: 0.15,
+    max_tokens: 800,
+    response_format: { type: "json_object" },
+    messages,
+  }, "reviseDraftWithBot");
 
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content;
@@ -1242,7 +1267,7 @@ Hoy es ${today}.`;
     if (d.needed_at === undefined) d.needed_at = draft.needed_at ?? null;
     return {
       kind: "draft",
-      message: String(parsed.message || "Listo, actualicé el pedido. ¿Confirmás?"),
+      message: String(parsed.message || "Listo, actualicé el pedido."),
       draft: d as ParsedPedido,
     };
   }

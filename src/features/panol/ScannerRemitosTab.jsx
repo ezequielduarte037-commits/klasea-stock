@@ -164,6 +164,7 @@ export default function ScannerRemitosTab({
   const [loadingLocal, setLoadingLocal] = useState(true);
   const [loadingRemote, setLoadingRemote] = useState(true);
   const [processingId, setProcessingId] = useState("");
+  const [scanSource, setScanSource] = useState("feeder");
 
   const loadRemote = useCallback(async () => {
     setLoadingRemote(true);
@@ -272,7 +273,13 @@ export default function ScannerRemitosTab({
 
   async function startScan() {
     try {
-      const result = await launchScannerApp();
+      const result = await launchScannerApp(scanSource);
+      setHealth((current) => ({
+        ...(current || {}),
+        scanning: result?.scanning !== false,
+        scanStartedAt: result?.startedAt || new Date().toISOString(),
+        lastError: "",
+      }));
       toast.success(result?.message || "Scanner abierto.");
     } catch (error) {
       toast.error(error.message || "No se pudo abrir Pantum Scan.");
@@ -356,8 +363,19 @@ export default function ScannerRemitosTab({
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button onClick={startScan} disabled={!connected} primary style={{ flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
-              <ScanLine size={15} /> Escanear remito
+            <select
+              value={scanSource}
+              onChange={(event) => setScanSource(event.target.value)}
+              disabled={!connected || health?.scanning}
+              aria-label="Origen del remito"
+              style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 10px", fontFamily: C.sans, fontSize: 12, fontWeight: 800, outline: "none" }}
+            >
+              <option value="feeder">Alimentador superior</option>
+              <option value="glass">Vidrio</option>
+            </select>
+            <Button onClick={startScan} disabled={!connected || health?.scanning} primary style={{ flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
+              {health?.scanning ? <LoaderCircle size={15} className="spin" /> : <ScanLine size={15} />}
+              {health?.scanning ? "Escaneando…" : "Escanear remito"}
             </Button>
             <Button onClick={() => openScannerFolder().catch((error) => toast.error(error.message))} disabled={!connected}>
               <FolderOpen size={15} /> Carpeta Pendientes
@@ -396,7 +414,13 @@ export default function ScannerRemitosTab({
             {loadingLocal ? (
               <div style={{ padding: 24, textAlign: "center", color: C.dim, fontSize: 12 }}>Leyendo carpeta local…</div>
             ) : localFiles.length === 0 ? (
-              <div style={{ padding: "22px 16px", textAlign: "center", color: C.dim, fontSize: 12.5 }}>Poné el remito en el vidrio y escanealo a 300 dpi. Cuando Pantum termine, el archivo aparece acá solo.</div>
+              <div style={{ padding: "22px 16px", textAlign: "center", color: health?.scanning ? C.blue : C.dim, fontSize: 12.5 }}>
+                {health?.scanning
+                  ? "La Pantum está escaneando. Completá la ventana del controlador y esperá a que aparezca el archivo."
+                  : scanSource === "feeder"
+                    ? "Poné el remito en el alimentador superior siguiendo el dibujo de la bandeja. Se escanea a 300 dpi y aparece acá como PDF."
+                    : "Poné el remito sobre el vidrio siguiendo las marcas de la tapa. Se escanea a 300 dpi y aparece acá como PDF."}
+              </div>
             ) : (
               <div style={{ display: "grid" }}>
                 {localFiles.map((row) => (

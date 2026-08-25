@@ -2,6 +2,9 @@ import { supabase } from "@/supabaseClient";
 
 const MAX_CONTEXT_ITEMS = 24;
 const MAX_HISTORY_ITEMS = 6;
+const PURCHASE_STATUSES = ["nuevo", "en_revision", "cotizando", "comprado", "recibido", "cancelado"];
+const PURCHASE_COUNTS_TTL_MS = 30_000;
+let purchaseCountsCache = { expiresAt: 0, value: null };
 
 const ASSISTANT_SECTIONS_BY_ROLE = {
   admin: ["obras", "materiales", "compras", "solicitudes"],
@@ -30,6 +33,58 @@ function number(value, fallback = 0) {
 
 function roundQty(value) {
   return Math.round(number(value) * 1000) / 1000;
+}
+
+function purchaseCountIntent(question) {
+  const value = normalized(question);
+  const mentionsPurchases = /(^| )(pedido|pedidos|compra|compras|solicitud|solicitudes)( |$)/.test(value);
+  const asksForCount = /(^| )(cuanto|cuantos|cuanta|cuantas|cantidad|total|totales|hay|resumen)( |$)/.test(value);
+  return mentionsPurchases && asksForCount;
+}
+
+async function purchaseStatusCounts() {
+  if (purchaseCountsCache.value && purchaseCountsCache.expiresAt > Date.now()) {
+    return purchaseCountsCache.value;
+  }
+  const results = await Promise.all(PURCHASE_STATUSES.map(async (status) => {
+    const { count, error } = await supabase
+      .from("purchase_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", status);
+    if (error) throw error;
+    return [status, Number(count) || 0];
+  }));
+  const value = Object.fromEntries(results);
+  purchaseCountsCache = { value, expiresAt: Date.now() + PURCHASE_COUNTS_TTL_MS };
+  return value;
+}
+
+async function directPurchaseCountAnswer(question) {
+  if (!purchaseCountIntent(question)) return null;
+  const counts = await purchaseStatusCounts();
+  const pendingManagement = counts.nuevo + counts.en_revision + counts.cotizando;
+  const open = pendingManagement + counts.comprado;
+  const total = open + counts.recibido + counts.cancelado;
+  const intent = normalized(question);
+
+  let answer;
+  if (/(^| )(pendiente|pendientes|abierto|abiertos)( |$)/.test(intent)) {
+    answer = `Compras tiene ${pendingManagement} pedido${pendingManagement === 1 ? "" : "s"} pendiente${pendingManagement === 1 ? "" : "s"} de gestión: ${counts.nuevo} nuevo${counts.nuevo === 1 ? "" : "s"}, ${counts.en_revision} en revisión y ${counts.cotizando} cotizando. Además hay ${counts.comprado} comprado${counts.comprado === 1 ? "" : "s"} esperando recepción. Total abierto: ${open}.`;
+  } else if (/(^| )(comprado|comprados|recibir|recepcion)( |$)/.test(intent)) {
+    answer = `Hay ${counts.comprado} pedido${counts.comprado === 1 ? " comprado" : "s comprados"} esperando recepción o cierre.`;
+  } else if (/(^| )(nuevo|nuevos)( |$)/.test(intent)) {
+    answer = `Hay ${counts.nuevo} pedido${counts.nuevo === 1 ? " nuevo" : "s nuevos"} esperando revisión.`;
+  } else if (/(^| )(cotizando|cotizacion)( |$)/.test(intent)) {
+    answer = `Hay ${counts.cotizando} pedido${counts.cotizando === 1 ? "" : "s"} en cotización.`;
+  } else {
+    answer = `Hay ${open} pedidos abiertos en Compras y ${total} pedidos en total. Abiertos: ${counts.nuevo} nuevos, ${counts.en_revision} en revisión, ${counts.cotizando} cotizando y ${counts.comprado} comprados esperando recepción.`;
+  }
+
+  return {
+    answer,
+    model: "klasea/compras",
+    links: [{ label: "Abrir pendientes de Compras", path: "/compras?tab=pendientes" }],
+  };
 }
 
 function stockSummary(rows = [], rowDelta, rowIsTransit) {
@@ -190,6 +245,8 @@ export async function askKlaseaAssistant({ question, groups = [], messages = [],
   if (!canUseKlaseaAssistant(profile)) {
     throw new Error("Tu rol no tiene habilitado el asistente de Klase A.");
   }
+  const purchaseCountAnswer = await directPurchaseCountAnswer(question);
+  if (purchaseCountAnswer) return purchaseCountAnswer;
   const context = await buildContext(groups, profile);
   const directAnswer = directStockAnswer(question, context);
   if (directAnswer) return directAnswer;
