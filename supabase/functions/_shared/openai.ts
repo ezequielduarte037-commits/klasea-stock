@@ -605,10 +605,43 @@ Formato:
     console.error("[extraerComprobantePDF] pdf-text falló, reintento con OCR", error);
     parsed = null;
   }
+
+  const sinItems = !parsed || !Array.isArray(parsed.items) || parsed.items.length === 0;
+  // El proveedor no salio, o salio nuestro propio nombre. Las dos cosas
+  // significan lo mismo: en la capa de texto no estaba el nombre del emisor.
+  const sinProveedor = !parsed?.proveedor || esNuestroNombre(parsed.proveedor);
+
   // Un PDF escaneado devuelve texto vacio y por lo tanto cero items: ahi si vale
-  // el OCR. Antes esta era la unica via y por eso fallaba con PDFs nativos.
-  if (!parsed || ((!Array.isArray(parsed.items) || parsed.items.length === 0) && parsed.es_comprobante !== false)) {
-    parsed = await pedir("mistral-ocr");
+  // el OCR. Antes esta era la unica razon para usarlo, y por eso el presupuesto
+  // 33117 salia mal: "pdf-text" le leyo los 16 renglones perfecto, pero el
+  // nombre del proveedor esta SOLO en el logo, dibujado como vectores. No hay
+  // texto que leer, asi que el modelo agarro el unico nombre de la hoja: el
+  // nuestro, como destinatarios. OCR rasteriza y si mira el membrete.
+  if (!parsed || (parsed.es_comprobante !== false && (sinItems || sinProveedor))) {
+    let ocr: any = null;
+    try {
+      ocr = await pedir("mistral-ocr");
+    } catch (error) {
+      console.error("[extraerComprobantePDF] OCR fallo", error);
+    }
+
+    if (ocr) {
+      if (sinItems || !parsed) {
+        parsed = ocr;
+      } else {
+        // Los renglones de la capa de texto son exactos; los del OCR son una
+        // lectura de pixeles. Se conserva lo bueno de cada uno: items del texto,
+        // encabezado del OCR, que es lo unico que le faltaba.
+        const proveedorOcr = esNuestroNombre(ocr.proveedor) ? null : ocr.proveedor;
+        parsed = {
+          ...parsed,
+          proveedor: proveedorOcr || parsed.proveedor,
+          cuit_emisor: ocr.cuit_emisor || parsed.cuit_emisor,
+          numero: parsed.numero || ocr.numero,
+          fecha: parsed.fecha || ocr.fecha,
+        };
+      }
+    }
   }
 
   const items = Array.isArray(parsed.items)
