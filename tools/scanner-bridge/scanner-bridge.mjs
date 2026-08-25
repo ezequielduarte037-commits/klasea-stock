@@ -1,16 +1,20 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { extname, join, basename } from "node:path";
+import { extname, join, basename, dirname } from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const PORT = 17778;
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
+const BRIDGE_DIR = dirname(fileURLToPath(import.meta.url));
+const SCAN_SCRIPT = join(BRIDGE_DIR, "escanear-remito.ps1");
 const PENDING = "C:\\KlaseA\\Remitos\\Pendientes";
 const ARCHIVED = "C:\\KlaseA\\Remitos\\Procesados";
 const CONFIG = join(process.env.LOCALAPPDATA || process.env.USERPROFILE || "C:\\KlaseA", "KlaseA", "Scanner");
 const KEY_FILE = join(CONFIG, "scanner.key");
 const PAIRING_FILE = join(CONFIG, "codigo-vinculacion.txt");
+const SCAN_ERROR_FILE = join(CONFIG, "ultimo-error.txt");
 const ALLOWED = new Set([".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"]);
 const MIME = {
   ".pdf": "application/pdf",
@@ -111,20 +115,28 @@ function uniqueArchive(name) {
   return path;
 }
 
-function launch(command, args = []) {
-  const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide: false });
+function launch(command, args = [], { windowsHide = false } = {}) {
+  const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide });
   child.unref();
 }
 
 function launchScanner() {
+  if (existsSync(SCAN_SCRIPT)) {
+    if (existsSync(SCAN_ERROR_FILE)) unlinkSync(SCAN_ERROR_FILE);
+    launch(
+      "powershell.exe",
+      ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", SCAN_SCRIPT, "-Destination", PENDING],
+      { windowsHide: true },
+    );
+    return "Escaneo iniciado. La Pantum guardará el remito automáticamente en la bandeja.";
+  }
+
   const wia = join(process.env.WINDIR || "C:\\Windows", "System32", "wiaacmgr.exe");
   if (existsSync(wia)) {
     launch(wia);
-    launch("explorer.exe", [PENDING]);
-    return "Asistente de escaneo abierto. Elegí la Pantum y guardá el PDF en Pendientes.";
+    return "Asistente de escaneo abierto. Elegí la Pantum y guardá el archivo en Pendientes.";
   }
-  launch("explorer.exe", [PENDING]);
-  throw new Error("No encontré el asistente de scanner de Windows. Abrí Pantum Scan y guardá el PDF en Pendientes.");
+  throw new Error("No encontré el asistente de scanner de Windows.");
 }
 
 const server = createServer((req, res) => {
@@ -145,6 +157,7 @@ const server = createServer((req, res) => {
         pending: pendingFiles().length,
         pairingRequired: true,
         keyHint: pairingKey.slice(-4),
+        lastError: existsSync(SCAN_ERROR_FILE) ? readFileSync(SCAN_ERROR_FILE, "utf8").trim() : "",
       });
       return;
     }

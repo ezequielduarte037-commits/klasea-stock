@@ -3,7 +3,7 @@
 Puente local para la Pantum M6559NW conectada por USB.
 
 ```text
-Pantum / Asistente de Windows
+Pantum / panel de escaneo WIA
   → C:\KlaseA\Remitos\Pendientes
   → puente local Node
   → navegador autenticado
@@ -36,8 +36,13 @@ Después, en Klase A:
 1. Abrir **Pañol → Escanear remitos**.
 2. Copiar el código de `%LOCALAPPDATA%\KlaseA\Scanner\codigo-vinculacion.txt`.
 3. Vincular esta PC una sola vez.
-4. Usar **Abrir Pantum Scan** y guardar el documento como PDF, 300 dpi, en
+4. Poner el remito en el vidrio y usar **Escanear remito**. El puente selecciona
+   la Pantum, escanea a 300 dpi y guarda la imagen automáticamente en
    `C:\KlaseA\Remitos\Pendientes`.
+
+La aplicación acepta también PDF cargado manualmente. El primer circuito usa
+el vidrio del escáner; el alimentador automático puede sumarse después como
+una segunda opción.
 
 ## Prueba manual
 

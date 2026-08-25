@@ -357,7 +357,7 @@ export default function ScannerRemitosTab({
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button onClick={startScan} disabled={!connected} primary style={{ flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
-              <ScanLine size={15} /> Abrir Pantum Scan
+              <ScanLine size={15} /> Escanear remito
             </Button>
             <Button onClick={() => openScannerFolder().catch((error) => toast.error(error.message))} disabled={!connected}>
               <FolderOpen size={15} /> Carpeta Pendientes
@@ -377,6 +377,13 @@ export default function ScannerRemitosTab({
               }}
             />
           </div>
+
+          {connected && health?.lastError && (
+            <div style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 11px", display: "flex", alignItems: "flex-start", gap: 8, fontSize: 11.5, lineHeight: 1.45 }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span><strong>El último escaneo no pudo completarse.</strong> {health.lastError}</span>
+            </div>
+          )}
         </section>
 
         {connected && (
@@ -389,7 +396,7 @@ export default function ScannerRemitosTab({
             {loadingLocal ? (
               <div style={{ padding: 24, textAlign: "center", color: C.dim, fontSize: 12 }}>Leyendo carpeta local…</div>
             ) : localFiles.length === 0 ? (
-              <div style={{ padding: "22px 16px", textAlign: "center", color: C.dim, fontSize: 12.5 }}>Escaneá en PDF a 300 dpi. Cuando Pantum termine, el archivo aparece acá solo.</div>
+              <div style={{ padding: "22px 16px", textAlign: "center", color: C.dim, fontSize: 12.5 }}>Poné el remito en el vidrio y escanealo a 300 dpi. Cuando Pantum termine, el archivo aparece acá solo.</div>
             ) : (
               <div style={{ display: "grid" }}>
                 {localFiles.map((row) => (
