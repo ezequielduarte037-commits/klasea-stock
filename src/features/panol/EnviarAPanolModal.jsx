@@ -1745,6 +1745,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const modalHeight = ingresoDesktop ? "calc(100vh - 28px)" : undefined;
   const bodyPadding = isMobile ? 14 : ingresoDesktop ? 22 : 18;
   const bodyGap = ingresoDesktop ? 18 : 14;
+  // Una fila mas cuando se ofrece el borrador, si no el cuerpo pierde la suya.
+  const filasDelForm = borradorPrevio ? "auto auto minmax(0, 1fr) auto" : "auto minmax(0, 1fr) auto";
   const catalogListHeight = ingresoDesktop ? 278 : 184;
   const matchesListHeight = ingresoDesktop ? 318 : 224;
 
@@ -1783,8 +1785,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           e.preventDefault();
         }}
         style={embedded
-        ? { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: "100%", maxHeight: "100%", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0 }
-        : { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
+        ? { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: "100%", maxHeight: "100%", overflow: "hidden", display: "grid", gridTemplateRows: filasDelForm, color: C.t0 }
+        : { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: filasDelForm, color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: ingresoDesktop ? "18px 22px" : "16px 18px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>{isRemito ? "Ingresar materiales" : "Enviar a Pañol"}</div>
           {prefill?.origen === "compra" && <span style={{ fontSize: 9, color: C.dim, background: "var(--panel-2)", border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>desde compra</span>}
