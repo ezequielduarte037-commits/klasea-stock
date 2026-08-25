@@ -27,15 +27,36 @@ function json(body: unknown, status = 200) {
 // (derivados del catálogo). Cada remito cargado enriquece el contexto del
 // siguiente. Si algo falla, devuelve "" y la extracción sigue como siempre.
 // deno-lint-ignore no-explicit-any
+// Nombres con los que aparecemos NOSOTROS en un comprobante. Un remito nos lo
+// emiten a nosotros, asi que estos nombres estan siempre en la hoja —como
+// destinatario— y el modelo los tomaba de proveedor. Peor todavia: "All Built"
+// esta cargado en panol_proveedores, asi que la propia lista se lo confirmaba.
+// Se puede sobreescribir por env si cambia la razon social.
+const NOSOTROS = (Deno.env.get("EMPRESA_ALIAS") || "All Built,AllBuilt,All-Built,Klase A,KlaseA,Astillero Klase A")
+  .split(",").map((x) => x.trim()).filter(Boolean);
+
+function esNombrePropio(nombre: string): boolean {
+  const limpio = String(nombre || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  if (!limpio) return false;
+  return NOSOTROS.some((n) => {
+    const propio = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+    return propio && limpio === propio;
+  });
+}
+
 async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise<string> {
   try {
     const [provRes, matRes] = await Promise.all([
+      // Antes pedia solo los que tienen "tipo" cargado y cortaba en 30: de 67
+      // proveedores activos la IA veia 7. Casa Iriarte no estaba, asi que en sus
+      // remitos el unico nombre conocido era el nuestro. Ahora los ve a todos;
+      // el tipo pasa a ser opcional porque casi ninguno lo tiene.
       supabase
         .from("panol_proveedores")
         .select("nombre,tipo,rubros,perfil")
-        .not("tipo", "is", null)
         .eq("activo", true)
-        .limit(30),
+        .order("nombre")
+        .limit(300),
       supabase
         .from("panol_materiales")
         .select("proveedor,descripcion")
@@ -66,6 +87,9 @@ async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise
     for (const p of provs) {
       const nombre = String(p.nombre || "").trim();
       if (!nombre) continue;
+      // Estamos cargados como proveedor de nosotros mismos. Ofrecerselo al
+      // modelo es justamente lo que hacia que eligiera "All Built".
+      if (esNombrePropio(nombre)) continue;
       // tokens significativos del nombre ("Rincón del Herraje" → rincon, herraje)
       const tokens = norm(nombre).split(/[^a-z0-9]+/).filter((t) => t.length >= 4);
       const ejemplos: string[] = [];
@@ -81,7 +105,7 @@ async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise
         }
       }
       const partes = [
-        `- "${nombre}" [${p.tipo}]`,
+        p.tipo ? `- "${nombre}" [${p.tipo}]` : `- "${nombre}"`,
         p.rubros ? `Trae: ${String(p.rubros).slice(0, 130)}` : "",
         p.perfil ? `${String(p.perfil).slice(0, 130)}` : "",
         ejemplos.length ? `Ya comprado: ${ejemplos.join("; ")}` : "",
@@ -94,6 +118,8 @@ async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise
 
 CONOCIMIENTO DE PROVEEDORES DEL ASTILLERO (contexto real del sistema — usalo):
 ${lines.join("\n")}
+
+SOMOS NOSOTROS, NUNCA EL PROVEEDOR: ${NOSOTROS.join(', ')}. Estos nombres aparecen en casi todos los remitos porque somos QUIENES RECIBIMOS. Si los ves en el encabezado, junto a "Cliente:", "Señores:", "Entregar a:" o en la dirección de entrega, ignoralos: el proveedor es el OTRO nombre de la hoja, el que emite.
 
 Cómo usar este conocimiento:
 - Si el proveedor del documento matchea uno de la lista (aunque venga abreviado, con código o con errores de tipeo), devolvé en "proveedor" el nombre CANÓNICO de la lista.

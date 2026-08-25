@@ -1597,6 +1597,43 @@ export async function reasignarObraDeItemEnvio(snapshotItemId, obraId) {
   if (error) throw error;
 }
 
+// Los proveedores no le dicen a las cosas como les decimos nosotros: "CADENA
+// CAL. GALV. HD 6MM 5-O" es nuestra "Cadena 6mm calibrada galvanizada". Cada vez
+// que alguien confirma esa equivalencia al cargar un remito, se guarda como
+// alias del material. El buscador ya lee alias, asi que la proxima el remito de
+// ese proveedor matchea solo, sin depender de que la IA acierte de nuevo.
+//
+// Es aditivo y acotado: no pisa lo que ya habia y corta a 8 alias por material
+// para que la descripcion no se vuelva una bolsa de palabras que empeore la
+// busqueda en vez de mejorarla.
+const MAX_ALIAS = 8;
+
+export async function recordarAliasDeProveedor(materialId, textoDelRemito) {
+  const nuevo = String(textoDelRemito || "").trim();
+  if (!materialId || nuevo.length < 4) return false;
+
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("alias,descripcion")
+    .eq("id", materialId)
+    .single();
+  if (error || !data) return false;
+
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  // Si ya se llama igual que en el catalogo no hay nada que recordar.
+  if (norm(nuevo) === norm(data.descripcion)) return false;
+
+  const actuales = String(data.alias || "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (actuales.some((x) => norm(x) === norm(nuevo))) return false;
+  if (actuales.length >= MAX_ALIAS) return false;
+
+  const { error: upErr } = await supabase
+    .from("panol_materiales")
+    .update({ alias: [...actuales, nuevo].join(", ") })
+    .eq("id", materialId);
+  return !upErr;
+}
+
 export async function fetchObrasEgreso() {
   try {
     const { data, error } = await supabase

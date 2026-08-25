@@ -4,7 +4,7 @@ import { Bot, ClipboardPaste, Link2, MapPin, PackageSearch, RotateCcw, ScanLine,
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, recordarAliasDeProveedor, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA, normalizeUnidadMedida } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
@@ -1254,6 +1254,25 @@ export default function EnviarAPanolModal({
     return id;
   }
 
+  // Lo que el proveedor escribio queda como alias del producto que se eligio.
+  // Best-effort a proposito: si falla, el ingreso ya se guardo y esto era una
+  // mejora para la proxima vez, no parte de la carga.
+  async function aprenderAliasDeProveedor(sourceItems) {
+    const aprendibles = sourceItems.filter((item) => (
+      item.material_id
+      && String(item.descripcion_leida || "").trim().length >= 4
+      // Solo si de verdad se llama distinto: si coincide, no hay nada nuevo.
+      && String(item.descripcion_leida || "").trim().toLowerCase() !== String(item.descripcion || "").trim().toLowerCase()
+    ));
+    if (!aprendibles.length) return 0;
+    const resultados = await Promise.all(
+      aprendibles.map((item) => recordarAliasDeProveedor(item.material_id, item.descripcion_leida).catch(() => false)),
+    );
+    const guardados = resultados.filter(Boolean).length;
+    if (guardados) invalidatePanolCatalogFullCache();
+    return guardados;
+  }
+
   async function rememberTouchedLocations(sourceItems) {
     const updates = [];
     const patchByMaterial = new Map();
@@ -1581,6 +1600,10 @@ export default function EnviarAPanolModal({
           // canónica. Sin normalizar, "m" no matcheaba ninguna opción y la fila
           // se mostraba como "unidad": 100 metros de cable entraban como 100 unidades.
           unidad: normalizeUnidadMedida(it.unidad || it.unit, "unidad"),
+          // Como lo escribio el proveedor, antes de que nadie lo toque. Si el
+          // renglon termina vinculado a un producto del catalogo, esto queda de
+          // alias y el proximo remito de ese proveedor matchea solo.
+          descripcion_leida: String(it.descripcion || it.description || it.nombre || "").trim(),
           precio_unitario: it.precio_unitario ?? it.precio ?? "",
           moneda: String(it.moneda || data?.moneda || aiMoneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
           obra_id: obraId || "",
@@ -1677,6 +1700,12 @@ export default function EnviarAPanolModal({
       } catch (locationError) {
         toast.warning(locationError.message || "El ingreso sigue, pero no se pudo guardar la ubicacion habitual.");
       }
+      try {
+        const aprendidos = await aprenderAliasDeProveedor(preparedItems);
+        if (aprendidos) {
+          toast.success(`Aprendí cómo le dice el proveedor a ${aprendidos} producto${aprendidos === 1 ? "" : "s"}. La próxima los reconoce solo.`);
+        }
+      } catch { /* aprender es opcional: el ingreso ya esta */ }
       // Primero se fija el producto concreto en la obra. Así el trigger que
       // crea el ítem de Pañol ya copia el SKU correcto y nunca el requisito.
       await rememberSnapshotProducts(preparedItems);
