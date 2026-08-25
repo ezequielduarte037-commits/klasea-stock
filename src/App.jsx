@@ -22,6 +22,83 @@ import logoK from "@/assets/logos/logo-k.png";
 // el deploy del 18/08—. Recargar una sola vez trae el index nuevo y se resuelve
 // solo, sin que nadie tenga que saber qué es un chunk.
 const RECARGA_HECHA = "klasea.chunk-recargado";
+const PARAM_RECARGA = "_v";
+
+// reload() a secas puede volver a servir el index.html cacheado —el mismo que
+// acaba de pedir un chunk que ya no existe— y entonces falla igual. Con un
+// parametro nuevo el navegador esta obligado a ir a buscarlo. Pasó el 25/08:
+// la recarga automatica no alcanzo y la pantalla quedo negra igual.
+function recargarSalteandoCache() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set(PARAM_RECARGA, String(Date.now()));
+    window.location.replace(url.toString());
+  } catch {
+    window.location.reload();
+  }
+}
+
+// El parametro cumplio su funcion al pedir el index; no tiene por que quedar
+// colgado en la barra ni en un link que alguien copie.
+function limpiarParametroDeRecarga() {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(PARAM_RECARGA)) return;
+    url.searchParams.delete(PARAM_RECARGA);
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch { /* no pasa nada si no se puede */ }
+}
+
+// Cuando el import falla por segunda vez, el error sube y React desmonta todo:
+// pantalla negra, sin un solo cartel. Esto la reemplaza por algo que se entiende
+// y por un boton que arregla el caso real.
+class PantallaCaida extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { cayo: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { cayo: true };
+  }
+
+  componentDidCatch(error) {
+    console.error("[App] la pantalla no se pudo cargar:", error);
+  }
+
+  render() {
+    if (!this.state.cayo) return this.props.children;
+    return (
+      <div style={{
+        position: "fixed", inset: 0, display: "grid", placeItems: "center",
+        background: "#0b1120", color: "#e2e8f0", fontFamily: "system-ui, sans-serif", padding: 24,
+      }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 10 }}>No se pudo cargar la pantalla</div>
+          <p style={{ margin: "0 0 18px", fontSize: 13.5, lineHeight: 1.55, color: "#94a3b8" }}>
+            Suele pasar cuando se publicó una versión nueva con la pestaña abierta.
+            Recargá y debería entrar bien.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              // Se limpia la marca para que la recarga automatica vuelva a tener
+              // su intento; si no, el que apreta el boton cae de nuevo acá.
+              try { sessionStorage.removeItem(RECARGA_HECHA); } catch { /* modo privado */ }
+              recargarSalteandoCache();
+            }}
+            style={{
+              border: "none", background: "#2563eb", color: "#fff", borderRadius: 9,
+              padding: "10px 20px", fontSize: 14, fontWeight: 800, cursor: "pointer",
+            }}
+          >
+            Recargar
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
 
 function pantalla(importar) {
   return lazy(() => importar()
@@ -29,6 +106,7 @@ function pantalla(importar) {
       // Cargó bien: se limpia la marca para que un problema futuro también
       // tenga derecho a su recarga.
       try { sessionStorage.removeItem(RECARGA_HECHA); } catch { /* modo privado */ }
+      limpiarParametroDeRecarga();
       return modulo;
     })
     .catch((error) => {
@@ -38,7 +116,7 @@ function pantalla(importar) {
       // de verdad y hay que dejarlo explotar en vez de recargar para siempre.
       if (yaRecargamos) throw error;
       try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
-      window.location.reload();
+      recargarSalteandoCache();
       // No se resuelve nunca a propósito: la página se está yendo.
       return new Promise(() => {});
     }));
@@ -580,6 +658,7 @@ export default function App() {
             <AppVersionGuard />
             {session && profile && <AdminActivityTracker profile={profile} />}
             {session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
+      <PantallaCaida>
       <Suspense fallback={<RouteLoader />}>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
@@ -649,6 +728,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      </PantallaCaida>
       <ChangePasswordModal
         open={!!session && !!profile && profile.role !== "cliente" && profile.must_change_password === true}
         forced
