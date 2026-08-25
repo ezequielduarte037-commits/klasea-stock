@@ -4,7 +4,7 @@ param(
 
   [Parameter(Mandatory = $false)]
   [ValidateSet("feeder", "glass")]
-  [string]$Source = "feeder"
+  [string]$Source = "glass"
 )
 
 $ErrorActionPreference = "Stop"

@@ -44,3 +44,7 @@ tools/nfc-bridge/obj/
 .claude-flow/
 ruvector.db
 *.ruvector.db
+
+# Paquetes offline con instaladores de terceros (Node, NAPS2 y Pantum).
+# Se regeneran con tools/scanner-bridge/crear-paquete-panol.ps1.
+entregables/instalador-panol/

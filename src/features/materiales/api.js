@@ -2837,6 +2837,7 @@ export async function leerPresupuestoConIA({
   sectores = [],
   proveedor = "",
   moneda = "",
+  tipoEsperado = "",
 } = {}) {
   let body;
   if (text && text.trim()) {
@@ -2864,6 +2865,9 @@ export async function leerPresupuestoConIA({
   if (String(proveedor || "").trim()) body.proveedor = String(proveedor).trim();
   if (["ARS", "USD"].includes(String(moneda || "").toUpperCase())) {
     body.moneda = String(moneda).toUpperCase();
+  }
+  if (["remito", "factura", "presupuesto"].includes(String(tipoEsperado || "").toLowerCase())) {
+    body.tipo_esperado = String(tipoEsperado).toLowerCase();
   }
   const { data, error } = await supabase.functions.invoke(
     "extraer-comprobante",

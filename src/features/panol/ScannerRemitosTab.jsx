@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Archive,
   Bot,
   CheckCircle2,
   ExternalLink,
@@ -28,6 +29,7 @@ import {
   saveScannerPairingKey,
 } from "@/features/panol/scannerBridge";
 import {
+  archiveScannedReceipt,
   fetchScannedReceipts,
   processScannedReceipt,
   scannerReceiptFileUrl,
@@ -164,7 +166,8 @@ export default function ScannerRemitosTab({
   const [loadingLocal, setLoadingLocal] = useState(true);
   const [loadingRemote, setLoadingRemote] = useState(true);
   const [processingId, setProcessingId] = useState("");
-  const [scanSource, setScanSource] = useState("feeder");
+  const [archivingId, setArchivingId] = useState("");
+  const [scanSource, setScanSource] = useState("glass");
 
   const loadRemote = useCallback(async () => {
     setLoadingRemote(true);
@@ -259,6 +262,32 @@ export default function ScannerRemitosTab({
     } catch (error) {
       toast.error(error.message || "No se pudo tomar el archivo del scanner.");
       setProcessingId("");
+    }
+  }
+
+  async function archiveLocal(row) {
+    setArchivingId(`local-${row.id}`);
+    try {
+      await archiveScannerFile(row.id);
+      await loadLocal({ quiet: true });
+      toast.success("Archivo local archivado.");
+    } catch (error) {
+      toast.error(error.message || "No se pudo archivar el archivo local.");
+    } finally {
+      setArchivingId("");
+    }
+  }
+
+  async function archiveRemote(row) {
+    setArchivingId(`remote-${row.id}`);
+    try {
+      await archiveScannedReceipt(row.id);
+      await loadRemote();
+      toast.success("Documento archivado como no-remito. No modificó stock.");
+    } catch (error) {
+      toast.error(error.message || "No se pudo archivar el documento.");
+    } finally {
+      setArchivingId("");
     }
   }
 
@@ -434,6 +463,10 @@ export default function ScannerRemitosTab({
                       {processingId === row.id ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
                       {processingId === row.id ? "Leyendo…" : "Leer con IA"}
                     </Button>
+                    <Button onClick={() => archiveLocal(row)} disabled={Boolean(archivingId)} title="Mover este archivo fuera de Pendientes">
+                      {archivingId === `local-${row.id}` ? <LoaderCircle size={14} className="spin" /> : <Archive size={14} />}
+                      Archivar
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -500,6 +533,12 @@ export default function ScannerRemitosTab({
                         {done ? "Ingreso confirmado y documento asociado." : linked === total ? "Revisá cantidades y destino antes de confirmar." : "Elegí el producto correcto en los renglones dudosos."}
                       </span>
                       <Button onClick={() => openOriginal(row)}><ExternalLink size={13} /> Original</Button>
+                      {!done && (
+                        <Button onClick={() => archiveRemote(row)} disabled={Boolean(archivingId)} title="Ocultar este documento porque no corresponde a un remito">
+                          {archivingId === `remote-${row.id}` ? <LoaderCircle size={13} className="spin" /> : <Archive size={13} />}
+                          No es un remito
+                        </Button>
+                      )}
                       {done && row.panol_envio_id ? (
                         <Button onClick={() => onOpenIngreso?.(row.panol_envio_id)} primary>Ver ingreso</Button>
                       ) : (

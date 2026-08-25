@@ -6,7 +6,8 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const PORT = 17778;
-const VERSION = "1.2.0";
+const VERSION = "1.2.1";
+const SCAN_TIMEOUT_MS = 90_000;
 const BRIDGE_DIR = dirname(fileURLToPath(import.meta.url));
 const SCAN_SCRIPT = join(BRIDGE_DIR, "escanear-remito.ps1");
 const PENDING = "C:\\KlaseA\\Remitos\\Pendientes";
@@ -41,6 +42,7 @@ function loadKey() {
 
 const pairingKey = loadKey();
 let scanProcess = null;
+let scanTimeout = null;
 let scanStartedAt = null;
 let lastScanStatus = "idle";
 let scanSource = null;
@@ -132,7 +134,22 @@ function launch(command, args = [], { windowsHide = false } = {}) {
   child.unref();
 }
 
-function launchScanner(requestedSource = "feeder") {
+function clearScanTimeout() {
+  if (scanTimeout) clearTimeout(scanTimeout);
+  scanTimeout = null;
+}
+
+function stopProcessTree(pid) {
+  if (!pid) return;
+  const killer = spawn("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  killer.unref();
+}
+
+function launchScanner(requestedSource = "glass") {
   const source = requestedSource === "glass" ? "glass" : "feeder";
   if (scanProcess) {
     return {
@@ -153,13 +170,24 @@ function launchScanner(requestedSource = "feeder") {
     scanStartedAt = new Date().toISOString();
     scanSource = source;
     lastScanStatus = "scanning";
+    scanTimeout = setTimeout(() => {
+      if (scanProcess !== child) return;
+      lastScanStatus = "error";
+      saveScanError("La Pantum no respondio en 90 segundos. Despertala, revisa el cable USB y volve a intentar.");
+      stopProcessTree(child.pid);
+      scanProcess = null;
+      scanTimeout = null;
+    }, SCAN_TIMEOUT_MS);
 
     child.once("error", (error) => {
+      clearScanTimeout();
       lastScanStatus = "error";
       saveScanError(error.message || "No se pudo iniciar el scanner.");
-      scanProcess = null;
+      if (scanProcess === child) scanProcess = null;
     });
-    child.once("exit", (code) => {
+    child.once("close", (code) => {
+      clearScanTimeout();
+      if (scanProcess !== child) return;
       lastScanStatus = code === 0 ? "completed" : "error";
       if (code !== 0 && !existsSync(SCAN_ERROR_FILE)) {
         saveScanError("El controlador Pantum cerró el escaneo sin generar una imagen.");
@@ -256,7 +284,7 @@ const server = createServer((req, res) => {
     }
 
     if (url.pathname === "/scan" && req.method === "POST") {
-      const scan = launchScanner(url.searchParams.get("source") || "feeder");
+      const scan = launchScanner(url.searchParams.get("source") || "glass");
       json(res, 200, { ok: true, ...scan, scanning: Boolean(scanProcess), folder: PENDING });
       return;
     }

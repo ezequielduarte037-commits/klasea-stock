@@ -170,6 +170,10 @@ export interface MessageInput {
 }
 
 export interface ParsedComprobante {
+  tipo_documento?: "remito" | "factura" | "presupuesto" | "otro";
+  es_comprobante?: boolean;
+  confianza_documento?: "alta" | "media" | "baja";
+  motivo_clasificacion?: string | null;
   proveedor?: string | null;
   numero?: string | null;
   fecha?: string | null;
@@ -210,6 +214,17 @@ const REGLAS_COMPROBANTE = `- No inventes datos. Si no se ve claro, dejalo null 
 - La descripcion se usa para buscar el producto en nuestro catalogo por parecido de palabras: cada palabra de mas que el catalogo no tiene EMPEORA la busqueda. Por eso los codigos de proveedor o fabricante (T13673, C89150, "17005 NEG") van SIEMPRE en el campo "codigo" y nunca dentro del texto de la descripcion.
 - Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, usala SOLO si el articulo por si solo no se entiende. Cuando el articulo ya nombra el producto ("Cable electronica 1x 0,75 NEG"), dejalo tal cual. Cuando el articulo es un fragmento sin sentido propio ("C/VENTEO WTR RECT"), ahi si anteponé la familia: "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT". El criterio es que la descripcion se entienda sola con la MENOR cantidad de palabras agregadas.`;
 
+const CLASIFICACION_DOCUMENTO = `CLASIFICACION OBLIGATORIA ANTES DE EXTRAER:
+- Clasifica el documento real, sin asumir que es un comprobante solo porque te pidieron leer uno.
+- "tipo_documento" debe ser exactamente: "remito", "factura", "presupuesto" u "otro".
+- "es_comprobante" es true solo para remito, factura o presupuesto reales.
+- Informes de gastos, reportes, listados internos, manuales, ordenes de trabajo, presentaciones, planillas de seguimiento y documentos administrativos son "otro", aunque tengan tablas, cantidades, precios o nombres de proveedores.
+- Un remito real normalmente evidencia entrega: emisor/proveedor, numero o referencia de remito y renglones con cantidades entregadas. No conviertas encabezados, KPIs, comparaciones ni filas de resumen en productos.
+- Si el documento es "otro", devuelve items: [] y no intentes rescatar renglones como compras.
+- "confianza_documento" debe ser "alta", "media" o "baja". Ante duda usa "baja" y no inventes.
+- "motivo_clasificacion" explica en una frase corta la evidencia visible usada.
+- Si el contexto indica un TIPO ESPERADO y el archivo no coincide, manten la clasificacion real; nunca lo fuerces al tipo esperado.`;
+
 // Muchos presupuestos escriben cada producto en DOS renglones: el de arriba con
 // los numeros y el de abajo con marca / codigo del proveedor / rubro. Sin esta
 // regla el modelo los toma como items distintos (o se traba y no devuelve ninguno).
@@ -239,6 +254,8 @@ export async function extraerComprobanteImagen(input: { base64: string; mimeType
 
 Leés fotos de remitos, facturas o presupuestos. Devolvés SOLO JSON estricto, sin markdown.
 
+${CLASIFICACION_DOCUMENTO}
+
 Objetivo:
 - proveedor: nombre si se ve claro, si no null.
 - numero: número de comprobante/remito/factura/presupuesto si se ve, si no null.
@@ -250,6 +267,10 @@ ${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
 
 Formato:
 {
+  "tipo_documento": "remito|factura|presupuesto|otro",
+  "es_comprobante": true,
+  "confianza_documento": "alta|media|baja",
+  "motivo_clasificacion": "evidencia breve",
   "proveedor": "texto|null",
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
@@ -318,6 +339,14 @@ Formato:
     : [];
 
   return {
+    tipo_documento: ["remito", "factura", "presupuesto"].includes(String(parsed.tipo_documento || "").toLowerCase())
+      ? String(parsed.tipo_documento).toLowerCase() as "remito" | "factura" | "presupuesto"
+      : "otro",
+    es_comprobante: parsed.es_comprobante === true,
+    confianza_documento: ["alta", "media", "baja"].includes(String(parsed.confianza_documento || "").toLowerCase())
+      ? String(parsed.confianza_documento).toLowerCase() as "alta" | "media" | "baja"
+      : "baja",
+    motivo_clasificacion: parsed.motivo_clasificacion ? String(parsed.motivo_clasificacion).trim() : null,
     proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
@@ -333,6 +362,8 @@ export async function extraerComprobanteTexto(input: { text: string; sectores?: 
 
 Recibís el TEXTO de un presupuesto, remito o factura (pegado de WhatsApp, mail o planilla). Devolvés SOLO JSON estricto, sin markdown.
 
+${CLASIFICACION_DOCUMENTO}
+
 Objetivo:
 - proveedor: nombre si se ve claro, si no null.
 - numero: número de presupuesto/remito si se ve, si no null.
@@ -344,6 +375,10 @@ ${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
 
 Formato:
 {
+  "tipo_documento": "remito|factura|presupuesto|otro",
+  "es_comprobante": true,
+  "confianza_documento": "alta|media|baja",
+  "motivo_clasificacion": "evidencia breve",
   "proveedor": "texto|null",
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
@@ -403,6 +438,14 @@ Formato:
     : [];
 
   return {
+    tipo_documento: ["remito", "factura", "presupuesto"].includes(String(parsed.tipo_documento || "").toLowerCase())
+      ? String(parsed.tipo_documento).toLowerCase() as "remito" | "factura" | "presupuesto"
+      : "otro",
+    es_comprobante: parsed.es_comprobante === true,
+    confianza_documento: ["alta", "media", "baja"].includes(String(parsed.confianza_documento || "").toLowerCase())
+      ? String(parsed.confianza_documento).toLowerCase() as "alta" | "media" | "baja"
+      : "baja",
+    motivo_clasificacion: parsed.motivo_clasificacion ? String(parsed.motivo_clasificacion).trim() : null,
     proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
@@ -429,6 +472,8 @@ LECTURA EXHAUSTIVA DE TABLA:
 
 Lees PDFs de remitos, facturas o presupuestos. Devolves SOLO JSON estricto, sin markdown.
 
+${CLASIFICACION_DOCUMENTO}
+
 Objetivo:
 - proveedor: nombre si se ve claro, si no null.
 - numero: numero de comprobante/remito/factura/presupuesto si se ve, si no null.
@@ -440,6 +485,10 @@ ${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
 
 Formato:
 {
+  "tipo_documento": "remito|factura|presupuesto|otro",
+  "es_comprobante": true,
+  "confianza_documento": "alta|media|baja",
+  "motivo_clasificacion": "evidencia breve",
   "proveedor": "texto|null",
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
@@ -514,7 +563,7 @@ Formato:
   }
   // Un PDF escaneado devuelve texto vacio y por lo tanto cero items: ahi si vale
   // el OCR. Antes esta era la unica via y por eso fallaba con PDFs nativos.
-  if (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0) {
+  if (!parsed || ((!Array.isArray(parsed.items) || parsed.items.length === 0) && parsed.es_comprobante !== false)) {
     parsed = await pedir("mistral-ocr");
   }
 
@@ -534,6 +583,14 @@ Formato:
     : [];
 
   return {
+    tipo_documento: ["remito", "factura", "presupuesto"].includes(String(parsed.tipo_documento || "").toLowerCase())
+      ? String(parsed.tipo_documento).toLowerCase() as "remito" | "factura" | "presupuesto"
+      : "otro",
+    es_comprobante: parsed.es_comprobante === true,
+    confianza_documento: ["alta", "media", "baja"].includes(String(parsed.confianza_documento || "").toLowerCase())
+      ? String(parsed.confianza_documento).toLowerCase() as "alta" | "media" | "baja"
+      : "baja",
+    motivo_clasificacion: parsed.motivo_clasificacion ? String(parsed.motivo_clasificacion).trim() : null,
     proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,

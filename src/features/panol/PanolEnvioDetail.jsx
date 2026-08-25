@@ -6,6 +6,7 @@ import {
   Bot,
   ClipboardCheck,
   Clock3,
+  LoaderCircle,
   MapPin,
   MessageSquare,
   PackageCheck,
@@ -35,6 +36,8 @@ import { parseUbicacion } from "@/features/panol/ubicacionUtils";
 import { applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 import { leerPresupuestoConIA } from "@/features/materiales/api";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
+import { assertRemitoExtraction } from "@/features/panol/remitoDocument";
+import { archiveScannerFile, scanReceiptFromDevice } from "@/features/panol/scannerBridge";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
@@ -569,6 +572,8 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(new Set());
   const [remitoLeyendo, setRemitoLeyendo] = useState(false);
+  const [remitoEscaneando, setRemitoEscaneando] = useState(false);
+  const [remitoScanSource, setRemitoScanSource] = useState("glass");
   // Solo se cargan si el usuario puede corregir la obra; para el pañolero es
   // una consulta al pedo.
   const [obras, setObras] = useState([]);
@@ -784,11 +789,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   // usados se descartan para que dos lineas parecidas del remito no caigan sobre
   // el mismo renglon y una quede sin recibir.
   async function leerRemitoDeRecepcion(file) {
-    if (!file) return;
+    if (!file) return false;
     setRemitoLeyendo(true);
     setRemitoIa(null);
     try {
-      const data = await leerPresupuestoConIA({ file });
+      const data = await leerPresupuestoConIA({ file, tipoEsperado: "remito" });
+      assertRemitoExtraction(data);
       const lineas = (data?.items || data?.lineas || [])
         .map((it) => ({
           descripcion: String(it.descripcion || it.description || it.nombre || "").trim(),
@@ -798,12 +804,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
         .filter((it) => it.descripcion);
       if (!lineas.length) {
         toast.warning("La IA no detecto items en el remito.");
-        return;
+        return false;
       }
       const pendientes = (envio?.items || []).filter((it) => it.estado !== "recibido");
       if (!pendientes.length) {
         toast.warning("Este aviso ya no tiene nada pendiente de recibir.");
-        return;
+        return false;
       }
       const usados = new Set();
       const propuestas = [];
@@ -837,10 +843,30 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
       propuestas.sort((a, b) => b.score - a.score);
       setRemitoIa({ propuestas, sinMatch, total: lineas.length });
       if (!propuestas.length) toast.warning("Ninguna linea del remito coincide con lo que falta recibir.");
+      return true;
     } catch (err) {
       toast.error(err.message || "No se pudo leer el remito.");
+      return false;
     } finally {
       setRemitoLeyendo(false);
+    }
+  }
+
+  async function escanearRemitoDeRecepcion() {
+    if (remitoEscaneando || remitoLeyendo) return;
+    setRemitoEscaneando(true);
+    setRemitoIa(null);
+    try {
+      const { row, file } = await scanReceiptFromDevice(remitoScanSource);
+      const valido = await leerRemitoDeRecepcion(file);
+      if (valido) {
+        await archiveScannerFile(row.id);
+        toast.success("Remito escaneado y cruzado con este aviso. Revisá los ítems antes de confirmar.");
+      }
+    } catch (err) {
+      toast.error(err.message || "No se pudo escanear el remito.");
+    } finally {
+      setRemitoEscaneando(false);
     }
   }
 
@@ -1406,13 +1432,37 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       lea aca evita ir a Ingresar y cargar todo de nuevo, que es lo
                       que terminaba duplicando el material. */}
                   {canReceive && !cerrado && (
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.violetB}`, background: remitoLeyendo ? C.panelSolid : C.violetL, color: remitoLeyendo ? C.dim : C.violet, borderRadius: 9, padding: "7px 10px", cursor: remitoLeyendo ? "default" : "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                    <div style={{ display: "inline-flex", alignItems: "stretch", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 9, overflow: "hidden" }}>
+                      <select
+                        value={remitoScanSource}
+                        onChange={(e) => setRemitoScanSource(e.target.value)}
+                        disabled={remitoEscaneando || remitoLeyendo}
+                        title="Origen del escaneo"
+                        aria-label="Origen del escaneo del remito"
+                        style={{ border: "none", borderRight: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.muted, padding: "7px 8px", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, outline: "none" }}
+                      >
+                        <option value="glass">Vidrio</option>
+                        <option value="feeder">Alimentador</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={escanearRemitoDeRecepcion}
+                        disabled={remitoEscaneando || remitoLeyendo}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "transparent", color: remitoEscaneando ? C.dim : C.violet, padding: "7px 10px", cursor: remitoEscaneando || remitoLeyendo ? "default" : "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                      >
+                        {remitoEscaneando ? <LoaderCircle size={14} className="spin" /> : <ScanLine size={14} />}
+                        {remitoEscaneando ? "Escaneando…" : "Escanear remito"}
+                      </button>
+                    </div>
+                  )}
+                  {canReceive && !cerrado && (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panelSolid, color: remitoLeyendo ? C.dim : C.muted, borderRadius: 9, padding: "7px 10px", cursor: remitoLeyendo || remitoEscaneando ? "default" : "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
                       <Bot size={14} />
-                      {remitoLeyendo ? "Leyendo…" : "Leer remito"}
+                      {remitoLeyendo ? "Leyendo…" : "Subir remito"}
                       <input
                         type="file"
                         accept="image/*,.pdf,application/pdf"
-                        disabled={remitoLeyendo}
+                        disabled={remitoLeyendo || remitoEscaneando}
                         onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; leerRemitoDeRecepcion(file); }}
                         style={{ display: "none" }}
                       />

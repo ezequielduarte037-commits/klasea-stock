@@ -125,6 +125,9 @@ serve(async (req) => {
     const monedaIndicada = ["ARS", "USD"].includes(String(body?.moneda || "").toUpperCase())
       ? String(body.moneda).toUpperCase()
       : "";
+    const tipoEsperado = ["remito", "factura", "presupuesto"].includes(String(body?.tipo_esperado || "").toLowerCase())
+      ? String(body.tipo_esperado).toLowerCase()
+      : "";
     const proveedorContexto = await buildProveedorContext(supabase, proveedorIndicado);
     const contexto = [
       proveedorContexto,
@@ -133,6 +136,9 @@ serve(async (req) => {
         : "",
       monedaIndicada
         ? `\nMONEDA INDICADA POR EL USUARIO: ${monedaIndicada}. Usala como moneda por defecto de las lineas sin simbolo o moneda explicita; si el comprobante muestra otra moneda, prevalece el comprobante.`
+        : "",
+      tipoEsperado
+        ? `\nTIPO ESPERADO POR ESTE FLUJO: ${tipoEsperado.toUpperCase()}. Esto sirve para detectar un archivo equivocado, no para forzar la clasificacion. Si el documento real no es un ${tipoEsperado}, clasificalo como corresponda y devolve items vacios.`
         : "",
     ].join("\n");
 

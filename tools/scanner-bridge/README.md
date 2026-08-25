@@ -1,4 +1,4 @@
-# Klasea · Scanner de remitos USB
+# Klasea - Scanner de remitos USB
 
 Puente local para la Pantum M6559NW conectada por USB.
 
@@ -16,7 +16,22 @@ El puente no conoce claves de Supabase y no modifica stock. Sólo expone los
 archivos locales a la sesión web mediante `127.0.0.1`. El stock cambia recién
 cuando Pañol revisa los renglones y confirma el formulario normal de ingreso.
 
-## Instalar en la PC de Pañol
+## Paquete listo para la PC de Pañol
+
+Desde una PC con internet, generar el ZIP offline:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\scanner-bridge\crear-paquete-panol.ps1
+```
+
+El resultado queda en `entregables\instalador-panol\KlaseA-Scanner-Panol.zip` e
+incluye Node.js LTS, NAPS2, el driver oficial Pantum y el puente Klase A.
+
+En la PC de Pañol hay que descomprimirlo y ejecutar
+`INSTALAR-EN-PANOL.cmd`. El instalador crea accesos directos al sistema, al
+código de vinculación y al diagnóstico.
+
+## Instalación técnica manual
 
 Con Node.js ya instalado, ejecutar PowerShell como administrador:
 
@@ -34,7 +49,8 @@ El instalador:
 Después, en Klase A:
 
 1. Abrir **Pañol → Escanear remitos**.
-2. Copiar el código de `%LOCALAPPDATA%\KlaseA\Scanner\codigo-vinculacion.txt`.
+2. Copiar el código de `%LOCALAPPDATA%\KlaseA\Scanner\codigo-vinculacion.txt`
+   o abrir el acceso directo **Klase A - Código scanner**.
 3. Vincular esta PC una sola vez.
 4. Poner el remito en el vidrio y usar **Escanear remito**. El puente selecciona
    la Pantum, escanea a 300 dpi y guarda la imagen automáticamente en

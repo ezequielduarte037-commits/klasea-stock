@@ -79,10 +79,42 @@ export async function archiveScannerFile(id) {
   await localRequest(`/archive/${encodeURIComponent(id)}`, { method: "POST", timeout: 8000 });
 }
 
-export async function launchScannerApp(source = "feeder") {
+export async function launchScannerApp(source = "glass") {
   const normalizedSource = source === "glass" ? "glass" : "feeder";
   const response = await localRequest(`/scan?source=${normalizedSource}`, { method: "POST", timeout: 12_000 });
   return response.json();
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 105_000 } = {}) {
+  const before = await fetchScannerFiles();
+  const previousIds = new Set(before.map((row) => row.id));
+  await launchScannerApp(source);
+
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus = "scanning";
+  while (Date.now() < deadline) {
+    await wait(1200);
+    const [files, health] = await Promise.all([fetchScannerFiles(), fetchScannerHealth()]);
+    const created = files
+      .filter((row) => !previousIds.has(row.id))
+      .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
+    if (created) {
+      return { row: created, file: await downloadScannerFile(created) };
+    }
+
+    lastStatus = health?.lastScanStatus || lastStatus;
+    if (!health?.scanning && lastStatus === "error") {
+      throw new Error(health?.lastError || "El scanner terminó sin generar un archivo.");
+    }
+    if (!health?.scanning && lastStatus === "completed") {
+      throw new Error("El scanner terminó, pero no apareció el PDF. Revisá la carpeta Pendientes.");
+    }
+  }
+  throw new Error("El escaneo demoró demasiado. Revisá la Pantum y volvé a intentar.");
 }
 
 export async function openScannerFolder() {

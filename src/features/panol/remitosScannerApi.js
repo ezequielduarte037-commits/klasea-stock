@@ -2,6 +2,7 @@ import { supabase } from "@/supabaseClient";
 import { leerPresupuestoConIA, normalizeUnidadMedida } from "@/features/materiales/api";
 import { fetchPanolCatalogFull } from "@/features/panol/panolApi";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
+import { assertRemitoExtraction } from "@/features/panol/remitoDocument";
 
 const BUCKET = "panol-comprobantes";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -138,9 +139,10 @@ export async function processScannedReceipt(file, { sede = null } = {}) {
   }
 
   const [parsed, catalog] = await Promise.all([
-    leerPresupuestoConIA({ file }),
+    leerPresupuestoConIA({ file, tipoEsperado: "remito" }),
     fetchPanolCatalogFull(),
   ]);
+  assertRemitoExtraction(parsed);
   const items = normalizedAiItems(parsed, catalog);
   if (!items.length) throw new Error("La IA no encontró renglones en este remito.");
 
@@ -213,6 +215,7 @@ export async function fetchScannedReceipts({ sede = null, limit = 60 } = {}) {
     .from("panol_comprobantes")
     .select("id,proveedor,numero,fecha,archivo_url,archivo_nombre,archivo_mime,sede,recepcion_estado,panol_envio_id,created_at,procesado_at")
     .eq("origen_carga", "scanner_panol")
+    .neq("recepcion_estado", "archivado")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (sede) query = query.eq("sede", sede);
@@ -306,4 +309,17 @@ export async function scannerReceiptFileUrl(path) {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 10 * 60);
   if (error) throw error;
   return data?.signedUrl;
+}
+
+export async function archiveScannedReceipt(id) {
+  if (!id) return;
+  const { error } = await supabase
+    .from("panol_comprobantes")
+    .update({
+      recepcion_estado: "archivado",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("origen_carga", "scanner_panol");
+  if (error) throwFriendly(error);
 }
