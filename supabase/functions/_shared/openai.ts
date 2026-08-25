@@ -169,12 +169,47 @@ export interface MessageInput {
   urls?: Array<{ url: string; title?: string; description?: string; price?: string; site?: string }>;
 }
 
+// Un remito o presupuesto nos lo emiten a NOSOTROS, asi que nuestro nombre esta
+// siempre en la hoja como destinatario. Peor: muchos proveedores ponen su nombre
+// solo en el logo -una imagen- y en el texto dejan nada mas la direccion y el
+// CUIT. Ahi el UNICO nombre de empresa legible es el nuestro, y el modelo lo
+// devolvia de proveedor. Paso con el presupuesto 33117 de Tigre.
+const NOMBRES_PROPIOS = (Deno.env.get("EMPRESA_ALIAS") || "All Built,AllBuilt,All-Built,Klase A,KlaseA,Astillero Klase A")
+  .split(",").map((x) => x.trim()).filter(Boolean);
+
+function esNuestroNombre(valor: unknown): boolean {
+  const limpio = String(valor ?? "")
+    .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    // "ALL BUILT S.A", "All-Built SRL" y "allbuilt" tienen que caer todos.
+    .replace(/\b(s\.?a\.?|s\.?r\.?l\.?|sa|srl)\b/g, "")
+    .replace(/[^a-z0-9]/g, "");
+  if (!limpio) return false;
+  return NOMBRES_PROPIOS.some((n) => {
+    const propio = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+    return propio && limpio === propio;
+  });
+}
+
+/**
+ * El proveedor que devolvemos, o null.
+ *
+ * Devolver null cuando no se sabe es mejor que devolver nuestro propio nombre:
+ * null se ve y se corrige, un nombre equivocado se carga sin que nadie lo mire.
+ */
+function proveedorLimpio(valor: unknown): string | null {
+  const texto = String(valor ?? "").trim();
+  if (!texto) return null;
+  return esNuestroNombre(texto) ? null : texto;
+}
+
 export interface ParsedComprobante {
   tipo_documento?: "remito" | "factura" | "presupuesto" | "otro";
   es_comprobante?: boolean;
   confianza_documento?: "alta" | "media" | "baja";
   motivo_clasificacion?: string | null;
   proveedor?: string | null;
+  /** CUIT de quien EMITE. Cuando el nombre solo esta en el logo, es lo unico que identifica al proveedor. */
+  cuit_emisor?: string | null;
   numero?: string | null;
   fecha?: string | null;
   items: Array<{
@@ -201,6 +236,7 @@ function normalizeComprobanteMoneda(value: unknown, fallback?: unknown): "ARS" |
 // duplicadas en cada prompt y se desincronizaban: una mejora aprendida de un
 // remito real sólo llegaba a una de las tres.
 const REGLAS_COMPROBANTE = `- No inventes datos. Si no se ve claro, dejalo null o vacio.
+- MUCHOS PROVEEDORES NO ESCRIBEN SU NOMBRE: lo tienen solo en el logo, que es una imagen, y en el texto dejan nada mas la direccion, el telefono y el CUIT. En esos casos el UNICO nombre de empresa que se lee es el del DESTINATARIO, o sea nosotros. No lo uses: dejá proveedor en null y cargá cuit_emisor. Un null se corrige a mano; un nombre equivocado se carga sin que nadie lo mire.
 - PROVEEDOR = QUIEN EMITE el documento, nunca el destinatario. Si el comprobante dice "CLIENTE:", "Senores:", "Facturar a:" o similar, ese nombre es el que RECIBE: no lo pongas como proveedor. El emisor esta en el membrete, el pie de pagina, la web o el CUIT del encabezado. Si no lo podes distinguir con seguridad, deja proveedor en null.
 - NUMEROS (clave): detecta el formato por el ULTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles -> 99100.00; en "1.234,56" la coma es decimal -> 1234.56. Nunca tomes la coma como decimal si despues hay un punto.
 - Si hay columnas Cantidad, Precio e Importe/Total, usa la relacion Cantidad x Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 -> precio_unitario = 33000 (no 33).
@@ -257,7 +293,8 @@ Leés fotos de remitos, facturas o presupuestos. Devolvés SOLO JSON estricto, s
 ${CLASIFICACION_DOCUMENTO}
 
 Objetivo:
-- proveedor: nombre si se ve claro, si no null.
+- proveedor: nombre de QUIEN EMITE si se ve claro, si no null. Nunca devuelvas el nombre del destinatario.
+- cuit_emisor: el CUIT de quien EMITE (el del membrete/encabezado, NO el del destinatario). Solo los digitos.
 - numero: número de comprobante/remito/factura/presupuesto si se ve, si no null.
 - fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
 - items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
@@ -272,6 +309,7 @@ Formato:
   "confianza_documento": "alta|media|baja",
   "motivo_clasificacion": "evidencia breve",
   "proveedor": "texto|null",
+  "cuit_emisor": "digitos|null",
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
@@ -347,7 +385,8 @@ Formato:
       ? String(parsed.confianza_documento).toLowerCase() as "alta" | "media" | "baja"
       : "baja",
     motivo_clasificacion: parsed.motivo_clasificacion ? String(parsed.motivo_clasificacion).trim() : null,
-    proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
+    proveedor: proveedorLimpio(parsed.proveedor),
+    cuit_emisor: parsed.cuit_emisor ? String(parsed.cuit_emisor).replace(/\D/g, "") || null : null,
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
@@ -365,7 +404,8 @@ Recibís el TEXTO de un presupuesto, remito o factura (pegado de WhatsApp, mail 
 ${CLASIFICACION_DOCUMENTO}
 
 Objetivo:
-- proveedor: nombre si se ve claro, si no null.
+- proveedor: nombre de QUIEN EMITE si se ve claro, si no null. Nunca devuelvas el nombre del destinatario.
+- cuit_emisor: el CUIT de quien EMITE (el del membrete/encabezado, NO el del destinatario). Solo los digitos.
 - numero: número de presupuesto/remito si se ve, si no null.
 - fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
 - items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
@@ -380,6 +420,7 @@ Formato:
   "confianza_documento": "alta|media|baja",
   "motivo_clasificacion": "evidencia breve",
   "proveedor": "texto|null",
+  "cuit_emisor": "digitos|null",
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
@@ -446,7 +487,8 @@ Formato:
       ? String(parsed.confianza_documento).toLowerCase() as "alta" | "media" | "baja"
       : "baja",
     motivo_clasificacion: parsed.motivo_clasificacion ? String(parsed.motivo_clasificacion).trim() : null,
-    proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
+    proveedor: proveedorLimpio(parsed.proveedor),
+    cuit_emisor: parsed.cuit_emisor ? String(parsed.cuit_emisor).replace(/\D/g, "") || null : null,
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
@@ -475,7 +517,8 @@ Lees PDFs de remitos, facturas o presupuestos. Devolves SOLO JSON estricto, sin 
 ${CLASIFICACION_DOCUMENTO}
 
 Objetivo:
-- proveedor: nombre si se ve claro, si no null.
+- proveedor: nombre de QUIEN EMITE si se ve claro, si no null. Nunca devuelvas el nombre del destinatario.
+- cuit_emisor: el CUIT de quien EMITE (el del membrete/encabezado, NO el del destinatario). Solo los digitos.
 - numero: numero de comprobante/remito/factura/presupuesto si se ve, si no null.
 - fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
 - items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
@@ -490,6 +533,7 @@ Formato:
   "confianza_documento": "alta|media|baja",
   "motivo_clasificacion": "evidencia breve",
   "proveedor": "texto|null",
+  "cuit_emisor": "digitos|null",
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
@@ -591,7 +635,8 @@ Formato:
       ? String(parsed.confianza_documento).toLowerCase() as "alta" | "media" | "baja"
       : "baja",
     motivo_clasificacion: parsed.motivo_clasificacion ? String(parsed.motivo_clasificacion).trim() : null,
-    proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
+    proveedor: proveedorLimpio(parsed.proveedor),
+    cuit_emisor: parsed.cuit_emisor ? String(parsed.cuit_emisor).replace(/\D/g, "") || null : null,
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
