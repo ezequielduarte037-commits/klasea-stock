@@ -19,47 +19,78 @@ export function saveScannerPairingKey(value) {
   return key;
 }
 
-async function localRequest(path, { method = "GET", key = scannerKey(), timeout = 3500 } = {}) {
+// El puente vive en 127.0.0.1, que para el navegador es "loopback", NO "local".
+// Chrome renombro los espacios de direcciones a mitad de camino: con Private
+// Network Access "local" significaba el loopback, y desde Local Network Access
+// (Chrome 138+) "local" pasó a ser la red privada y el loopback se llama
+// "loopback". Si la anotación no coincide con el destino real, el pedido muere
+// con TypeError antes de salir a la red, aunque el permiso esté concedido.
+//
+// Como no se puede saber de antemano qué versión corre en cada PC del pañol, se
+// prueban en orden -incluido sin anotación, para los Chrome que no la
+// implementan- y se recuerda cuál funcionó para no repetir el tanteo.
+const ESPACIOS_A_PROBAR = ["loopback", "local", null];
+let espacioElegido = null;
+let espacioResuelto = false;
+
+async function pedirAlPuente(url, opcionesBase, espacio, timeout) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
   try {
-    const requestOptions = {
-      method,
-      cache: "no-store",
-      mode: "cors",
-      credentials: "omit",
-      signal: controller.signal,
-      headers: key ? { "X-KlaseA-Scanner-Key": key } : {},
-    };
-
-    // Chrome 142+ exige permiso explícito cuando una web pública accede a un
-    // servicio de esta misma PC. La anotación hace que el navegador muestre el
-    // permiso de red local en vez de bloquear silenciosamente el puente USB.
-    requestOptions.targetAddressSpace = "local";
-
-    const response = await fetch(`${SCANNER_URL}${path}`, requestOptions);
-    if (!response.ok) {
-      let message = "";
-      try {
-        const data = await response.json();
-        message = data?.error || data?.message || "";
-      } catch { /* respuesta sin JSON */ }
-      const error = new Error(message || `Scanner local: error ${response.status}`);
-      error.status = response.status;
-      throw error;
-    }
-    return response;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw new Error("El puente del scanner no respondió. Revisá que esté abierto en esta PC.");
-    }
-    if (error instanceof TypeError) {
-      throw new Error("Chrome no pudo acceder al puente local. Permití el acceso a la red local para Klase A y reintentá.");
-    }
-    throw error;
+    const opciones = { ...opcionesBase, signal: controller.signal };
+    if (espacio) opciones.targetAddressSpace = espacio;
+    return await fetch(url, opciones);
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+async function localRequest(path, { method = "GET", key = scannerKey(), timeout = 3500 } = {}) {
+  const url = `${SCANNER_URL}${path}`;
+  const opcionesBase = {
+    method,
+    cache: "no-store",
+    mode: "cors",
+    credentials: "omit",
+    headers: key ? { "X-KlaseA-Scanner-Key": key } : {},
+  };
+
+  const candidatos = espacioResuelto ? [espacioElegido] : ESPACIOS_A_PROBAR;
+  let response = null;
+  let ultimoError = null;
+
+  for (const espacio of candidatos) {
+    try {
+      response = await pedirAlPuente(url, opcionesBase, espacio, timeout);
+      espacioElegido = espacio;
+      espacioResuelto = true;
+      break;
+    } catch (error) {
+      ultimoError = error;
+      response = null;
+      // Si el puente no contesta, cambiar la anotación no arregla nada.
+      if (error?.name === "AbortError") break;
+    }
+  }
+
+  if (!response) {
+    if (ultimoError?.name === "AbortError") {
+      throw new Error("El puente del scanner no respondió. Revisá que esté abierto en esta PC.");
+    }
+    throw new Error("Chrome no pudo acceder al puente local. Revisá que el puente esté abierto en esta PC y reintentá.");
+  }
+
+  if (!response.ok) {
+    let message = "";
+    try {
+      const data = await response.json();
+      message = data?.error || data?.message || "";
+    } catch { /* respuesta sin JSON */ }
+    const error = new Error(message || `Scanner local: error ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response;
 }
 
 export async function fetchScannerHealth() {
