@@ -48,25 +48,37 @@ foreach ($policyName in $policyNames) {
 }
 Write-Host "    Chrome autorizado solo para $origin" -ForegroundColor Green
 
-Write-Host "2/5 Reiniciando el puente local..." -ForegroundColor Cyan
-$existing = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object {
-  $_.CommandLine -like "*C:\KlaseA\Scanner\scanner-bridge.mjs*"
+Write-Host "2/5 Verificando el puente local..." -ForegroundColor Cyan
+$health = $null
+try {
+  $health = Invoke-RestMethod -Uri "$bridgeUrl/health" -TimeoutSec 2
+} catch {
+  $health = $null
 }
-foreach ($process in @($existing)) {
-  Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+
+if ($health -and $health.ok) {
+  Write-Host "    El puente ya estaba funcionando; se conserva su vinculacion." -ForegroundColor Green
+} else {
+  $existing = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object {
+    $_.CommandLine -like "*C:\KlaseA\Scanner\scanner-bridge.mjs*"
+  }
+  foreach ($process in @($existing)) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Milliseconds 500
+  Start-Process -FilePath $nodePath -ArgumentList ('"{0}"' -f $bridgeFile) -WindowStyle Hidden
 }
-Start-Sleep -Milliseconds 500
-Start-Process -FilePath $nodePath -ArgumentList ('"{0}"' -f $bridgeFile) -WindowStyle Hidden
 
 Write-Host "3/5 Verificando el puerto 17778..." -ForegroundColor Cyan
-$health = $null
-for ($attempt = 1; $attempt -le 15; $attempt += 1) {
-  Start-Sleep -Milliseconds 500
-  try {
-    $health = Invoke-RestMethod -Uri "$bridgeUrl/health" -TimeoutSec 2
-    if ($health.ok) { break }
-  } catch {
-    $health = $null
+if (-not $health -or -not $health.ok) {
+  for ($attempt = 1; $attempt -le 15; $attempt += 1) {
+    Start-Sleep -Milliseconds 500
+    try {
+      $health = Invoke-RestMethod -Uri "$bridgeUrl/health" -TimeoutSec 2
+      if ($health.ok) { break }
+    } catch {
+      $health = $null
+    }
   }
 }
 if (-not $health -or -not $health.ok) {
@@ -82,9 +94,21 @@ if ($allowedOrigin -ne $origin) {
 }
 
 $pairingCode = ""
-if (Test-Path -LiteralPath $pairingFile) {
-  $match = Get-Content -LiteralPath $pairingFile -Raw | Select-String -Pattern '[A-F0-9]{16}' -AllMatches
-  $pairingCode = $match.Matches.Value | Select-Object -First 1
+$pairingCandidates = @($pairingFile)
+$userFolders = Get-ChildItem -LiteralPath "C:\Users" -Directory -ErrorAction SilentlyContinue
+foreach ($userFolder in @($userFolders)) {
+  $candidate = Join-Path $userFolder.FullName "AppData\Local\KlaseA\Scanner\codigo-vinculacion.txt"
+  if ($candidate -notin $pairingCandidates) { $pairingCandidates += $candidate }
+}
+foreach ($candidate in $pairingCandidates) {
+  if (-not (Test-Path -LiteralPath $candidate)) { continue }
+  $match = Get-Content -LiteralPath $candidate -Raw | Select-String -Pattern '[A-F0-9]{16}' -AllMatches
+  $candidateCode = $match.Matches.Value | Select-Object -First 1
+  if ($candidateCode -and (!$health.keyHint -or $candidateCode.EndsWith([string]$health.keyHint))) {
+    $pairingCode = $candidateCode
+    $pairingFile = $candidate
+    break
+  }
 }
 if (-not $pairingCode) {
   throw "El puente funciona, pero no encontre el codigo en $pairingFile."
@@ -123,4 +147,3 @@ Write-Host "3. Hace clic en Vincular."
 Write-Host "4. Si Chrome pregunta por la red local, elegi Permitir."
 Write-Host ""
 [void](Read-Host "Presiona Enter cuando hayas terminado")
-
