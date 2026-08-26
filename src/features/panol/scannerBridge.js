@@ -23,12 +23,21 @@ async function localRequest(path, { method = "GET", key = scannerKey(), timeout 
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetch(`${SCANNER_URL}${path}`, {
+    const requestOptions = {
       method,
       cache: "no-store",
+      mode: "cors",
+      credentials: "omit",
       signal: controller.signal,
       headers: key ? { "X-KlaseA-Scanner-Key": key } : {},
-    });
+    };
+
+    // Chrome 142+ exige permiso explícito cuando una web pública accede a un
+    // servicio de esta misma PC. La anotación hace que el navegador muestre el
+    // permiso de red local en vez de bloquear silenciosamente el puente USB.
+    requestOptions.targetAddressSpace = "local";
+
+    const response = await fetch(`${SCANNER_URL}${path}`, requestOptions);
     if (!response.ok) {
       let message = "";
       try {
@@ -45,7 +54,7 @@ async function localRequest(path, { method = "GET", key = scannerKey(), timeout 
       throw new Error("El puente del scanner no respondió. Revisá que esté abierto en esta PC.");
     }
     if (error instanceof TypeError) {
-      throw new Error("No se encontró el puente del scanner en esta PC.");
+      throw new Error("Chrome no pudo acceder al puente local. Permití el acceso a la red local para Klase A y reintentá.");
     }
     throw error;
   } finally {

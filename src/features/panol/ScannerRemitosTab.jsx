@@ -224,6 +224,10 @@ export default function ScannerRemitosTab({
     await loadLocal();
   }
 
+  function openBridgeDiagnostic() {
+    window.open("http://127.0.0.1:17778/health", "_blank", "noopener,noreferrer");
+  }
+
   async function processFile(file, localId = "") {
     if (!canReceive) {
       toast.error("Tu usuario no tiene permiso para ingresar remitos.");
@@ -377,7 +381,7 @@ export default function ScannerRemitosTab({
                   : localError || "Abrí KlaseaScannerBridge en esta computadora."}
               </div>
             </div>
-            {!connected && health && (
+            {!connected && (
               <>
                 <input
                   value={pairingCode}
@@ -389,11 +393,25 @@ export default function ScannerRemitosTab({
                 <Button onClick={connectBridge} primary>Vincular</Button>
               </>
             )}
+            {!connected && !health && (
+              <Button onClick={openBridgeDiagnostic} title="Comprobar que Chrome puede abrir el puente instalado en esta PC">
+                <ExternalLink size={14} /> Probar puente
+              </Button>
+            )}
             <Button onClick={() => loadLocal()} disabled={loadingLocal} title="Actualizar conexión">
               <RefreshCw size={14} className={loadingLocal ? "spin" : ""} />
               Actualizar
             </Button>
           </div>
+
+          {!connected && !health && (
+            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.text, borderRadius: 10, padding: "9px 11px", display: "flex", alignItems: "flex-start", gap: 8, fontSize: 11.5, lineHeight: 1.45 }}>
+              <AlertTriangle size={15} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                El instalador ya dejó el puente funcionando. Pegá el código y tocá <strong>Vincular</strong>. Si Chrome pregunta si Klase A puede buscar dispositivos en tu red local, elegí <strong>Permitir</strong>. Si no aparece el permiso, usá <strong>Probar puente</strong> y luego <strong>Actualizar</strong>.
+              </span>
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <select
