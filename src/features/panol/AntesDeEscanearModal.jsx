@@ -128,9 +128,19 @@ export default function AntesDeEscanearModal({
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        style={{ width: "min(460px, 100%)", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 18px 50px rgba(15,23,42,0.28)", overflow: "hidden" }}
+        style={{
+          width: "min(460px, 100%)",
+          maxHeight: "calc(100vh - 32px)",
+          display: "flex",
+          flexDirection: "column",
+          background: C.panelSolid,
+          border: `1px solid ${C.border}`,
+          borderRadius: 14,
+          boxShadow: "0 18px 50px rgba(15,23,42,0.28)",
+          overflow: "hidden",
+        }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <ScanLine size={17} color={C.blue} />
           <div style={{ flex: 1, fontSize: 14.5, fontWeight: 950, color: C.text }}>{tituloVentana}</div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
@@ -138,7 +148,7 @@ export default function AntesDeEscanearModal({
           </button>
         </div>
 
-        <div style={{ padding: 16, display: "grid", gap: 14 }}>
+        <div style={{ padding: 16, display: "grid", gap: 14, overflowY: "auto", minHeight: 0 }}>
           <div>
             <div style={etiqueta}>Qué trae este remito</div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -291,7 +301,7 @@ export default function AntesDeEscanearModal({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel2 }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel2, flexShrink: 0 }}>
           <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
             Cancelar
           </button>
