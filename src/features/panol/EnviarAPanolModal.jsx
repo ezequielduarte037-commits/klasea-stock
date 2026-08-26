@@ -1258,15 +1258,24 @@ export default function EnviarAPanolModal({
   // Best-effort a proposito: si falla, el ingreso ya se guardo y esto era una
   // mejora para la proxima vez, no parte de la carga.
   async function aprenderAliasDeProveedor(sourceItems) {
-    const aprendibles = sourceItems.filter((item) => (
-      item.material_id
-      && String(item.descripcion_leida || "").trim().length >= 4
-      // Solo si de verdad se llama distinto: si coincide, no hay nada nuevo.
-      && String(item.descripcion_leida || "").trim().toLowerCase() !== String(item.descripcion || "").trim().toLowerCase()
-    ));
+    // Se manda la descripcion del renglon tal como quedo: ESA es la del
+    // proveedor. Vincular al catalogo no reescribe la descripcion del renglon,
+    // asi que antes comparaba el texto contra si mismo, la condicion daba
+    // siempre falsa y no se aprendia nada: tres remitos seguidos y el catalogo
+    // seguia con los mismos 303 alias.
+    //
+    // Quien decide si hay algo que recordar es recordarAliasDeProveedor, que
+    // compara contra el nombre del CATALOGO y descarta si ya se llaman igual
+    // -que es el caso del producto recien creado desde este mismo remito-.
+    const aprendibles = sourceItems
+      .map((item) => ({
+        materialId: item.material_id,
+        texto: String(item.descripcion_leida || item.descripcion || "").trim(),
+      }))
+      .filter((x) => x.materialId && x.texto.length >= 4);
     if (!aprendibles.length) return 0;
     const resultados = await Promise.all(
-      aprendibles.map((item) => recordarAliasDeProveedor(item.material_id, item.descripcion_leida).catch(() => false)),
+      aprendibles.map((x) => recordarAliasDeProveedor(x.materialId, x.texto).catch(() => false)),
     );
     const guardados = resultados.filter(Boolean).length;
     if (guardados) invalidatePanolCatalogFullCache();
