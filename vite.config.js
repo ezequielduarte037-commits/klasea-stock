@@ -4,11 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { writeFileSync } from 'node:fs'
 import process from 'node:process'
 
-function buildVersionPlugin() {
-  const buildId = process.env.VERCEL_GIT_COMMIT_SHA
-    || process.env.VERCEL_DEPLOYMENT_ID
-    || `${Date.now()}`
-
+function buildVersionPlugin(buildId) {
   return {
     name: 'klasea-build-version',
     closeBundle() {
@@ -48,9 +44,15 @@ function recargaTotalPlugin() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const recargaTotal = env.KLASEA_RECARGA_TOTAL === '1'
+  const buildId = process.env.VERCEL_GIT_COMMIT_SHA
+    || process.env.VERCEL_DEPLOYMENT_ID
+    || `${Date.now()}`
 
   return {
-  plugins: [react(), buildVersionPlugin(), ...(recargaTotal ? [recargaTotalPlugin()] : [])],
+  plugins: [react(), buildVersionPlugin(buildId), ...(recargaTotal ? [recargaTotalPlugin()] : [])],
+  define: {
+    'import.meta.env.VITE_KLASEA_BUILD_ID': JSON.stringify(buildId),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -19,6 +19,7 @@ import { C } from "@/theme";
 // rato más. El cartel se queda hasta que la persona decide.
 const VERSION_URL = "/version.json";
 const CHECK_EVERY_MS = 3 * 60 * 1000;
+const EMBEDDED_BUILD_ID = String(import.meta.env.VITE_KLASEA_BUILD_ID || "");
 
 async function fetchBuildId() {
   const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, {
@@ -33,7 +34,29 @@ async function fetchBuildId() {
 export default function AppVersionGuard() {
   const [hayNueva, setHayNueva] = useState(false);
   const [oculto, setOculto] = useState(false);
-  const buildIdInicial = useRef(null);
+  // Tiene que ser la versión que está ejecutando este JS, no la primera versión
+  // que conteste el servidor. De otro modo una pestaña vieja abierta después de
+  // un deploy toma la versión nueva como base y nunca avisa que quedó atrasada.
+  const buildIdInicial = useRef(EMBEDDED_BUILD_ID || null);
+
+  const actualizar = useCallback(async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations?.();
+        await Promise.all((regs || []).map((reg) => reg.unregister()));
+      }
+      if ("caches" in window) {
+        const keys = await window.caches.keys();
+        await Promise.all(keys.map((key) => window.caches.delete(key)));
+      }
+    } catch {
+      // La URL con versión alcanza como fallback incluso si el navegador no
+      // permite limpiar una caché antigua.
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("_appv", Date.now().toString());
+    window.location.replace(url.toString());
+  }, []);
 
   const revisar = useCallback(async () => {
     try {
@@ -124,7 +147,7 @@ export default function AppVersionGuard() {
       </div>
       <button
         type="button"
-        onClick={() => window.location.reload()}
+        onClick={actualizar}
         style={{
           flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6,
           border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
