@@ -732,11 +732,11 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
 }
 
 const CATALOG_MINI_SELECT_FULL =
-  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,ubicacion,ubicacion_obs,variantes,variantes_precios";
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,es_consumible,ubicacion,ubicacion_obs,variantes,variantes_precios";
 const CATALOG_MINI_SELECT_STOCK =
   `${CATALOG_MINI_SELECT_FULL},stock_minimo`;
 const CATALOG_MINI_SELECT_NOVARPRE =
-  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,ubicacion,ubicacion_obs,variantes";
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,es_consumible,ubicacion,ubicacion_obs,variantes";
 const CATALOG_MINI_SELECT_MIN =
   "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo";
 
@@ -839,6 +839,9 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80, includeAdditio
       descripcion: row.descripcion || "",
       activo: row.activo !== false,
       es_requisito: row.es_requisito === true,
+      // Los consumibles siempre estuvieron en este catalogo; lo que faltaba
+      // era saber cuales lo son al leer un remito.
+      es_consumible: row.es_consumible === true,
       proveedor: row.proveedor || "",
       alias: row.alias || "",
       notas: row.notas || "",
@@ -1160,6 +1163,7 @@ export async function crearPanolCatalogMaterial({
   ubicacion = null,
   ubicacion_obs = null,
   notas = null,
+  esConsumible = false,
 } = {}) {
   const cleanDesc = String(descripcion || "").trim();
   if (!cleanDesc) throw new Error("Cargá una descripción para crear el material.");
@@ -1174,6 +1178,7 @@ export async function crearPanolCatalogMaterial({
     moneda: moneda === "USD" ? "USD" : "ARS",
     ubicacion: ubicacion || null,
     ubicacion_obs: String(ubicacion_obs || "").trim() || null,
+    ...(esConsumible ? { es_consumible: true } : {}),
     notas: String(notas || "").trim() || null,
     origen: "remito",
     revisado: false,

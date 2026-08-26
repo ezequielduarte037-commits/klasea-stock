@@ -221,7 +221,7 @@ export default function ScannerRemitosTab({
   // distintos: la carpeta la usa el puente al escanear, y el proveedor lo usa la
   // IA despues, cuando se procesa el archivo que llego.
   const [preguntando, setPreguntando] = useState(false);
-  const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null, titulo: "", notas: "", soloArchivar: false });
+  const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null, titulo: "", notas: "", soloArchivar: false, esConsumibles: false });
   const [carpetasUsadas, setCarpetasUsadas] = useState([]);
 
   useEffect(() => {
@@ -266,6 +266,7 @@ export default function ScannerRemitosTab({
         titulo: contextoEscaneo.titulo || "",
         notas: contextoEscaneo.notas || "",
         soloArchivar: Boolean(contextoEscaneo.soloArchivar),
+        esConsumibles: Boolean(contextoEscaneo.esConsumibles),
       });
       if (localId) {
         try {
@@ -353,9 +354,9 @@ export default function ScannerRemitosTab({
     setPreguntando(true);
   }
 
-  async function escanearCon({ carpeta, proveedor, source, obra, titulo, notas, soloArchivar }) {
+  async function escanearCon({ carpeta, proveedor, source, obra, titulo, notas, soloArchivar, esConsumibles }) {
     setPreguntando(false);
-    setContextoEscaneo({ carpeta, proveedor, obra, titulo, notas, soloArchivar });
+    setContextoEscaneo({ carpeta, proveedor, obra, titulo, notas, soloArchivar, esConsumibles });
     setScanSource(source);
     try {
       const result = await launchScannerApp(source, carpeta);

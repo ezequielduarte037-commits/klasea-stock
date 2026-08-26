@@ -51,6 +51,11 @@ export default function AntesDeEscanearModal({
   // de todos los meses, el service de una máquina: eso va a su propia carpeta y
   // meterlo en "stock general" lo vuelve imposible de encontrar despues.
   const [carpetaLibre, setCarpetaLibre] = useState("");
+  // Un remito de Rebollar son treinta renglones de consumibles. Decirlo una vez
+  // al principio evita marcarlos de a uno despues, que en la practica es lo que
+  // nadie hace: quedan cargados como material comun y desaparecen de la pestaña
+  // de Consumibles.
+  const [esConsumibles, setEsConsumibles] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -106,6 +111,7 @@ export default function AntesDeEscanearModal({
       titulo: titulo.trim(),
       notas: notas.trim(),
       soloArchivar,
+      esConsumibles,
     });
   }
 
@@ -133,6 +139,33 @@ export default function AntesDeEscanearModal({
         </div>
 
         <div style={{ padding: 16, display: "grid", gap: 14 }}>
+          <div>
+            <div style={etiqueta}>Qué trae este remito</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { valor: false, etiqueta: "Materiales", detalle: "para una obra" },
+                { valor: true, etiqueta: "Consumibles", detalle: "de uso general" },
+              ].map((opcion) => {
+                const activo = esConsumibles === opcion.valor;
+                return (
+                  <button
+                    key={String(opcion.valor)}
+                    type="button"
+                    onClick={() => setEsConsumibles(opcion.valor)}
+                    style={{
+                      flex: 1, border: `1px solid ${activo ? C.blueB : C.border2}`, background: activo ? C.blueL : C.panelSolid,
+                      color: activo ? C.blue : C.text, borderRadius: 9, padding: "9px 8px", cursor: "pointer",
+                      fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "grid", gap: 2,
+                    }}
+                  >
+                    <span>{opcion.etiqueta}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div style={etiqueta}>Para qué barco</div>
             <select value={obraId} onChange={(event) => setObraId(event.target.value)} style={campo} disabled={cargando}>

@@ -5,6 +5,17 @@ import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/mate
 import { assertRemitoExtraction } from "@/features/panol/remitoDocument";
 
 const BUCKET = "panol-comprobantes";
+const COLS_COMPROBANTE = "id,proveedor,numero,fecha,archivo_url,archivo_nombre,archivo_mime,sede,recepcion_estado,panol_envio_id,created_at,procesado_at";
+// Las de la migracion 20260826150000. Si no esta corrida, se cae a las de arriba.
+const COLS_COMPROBANTE_PLUS = `${COLS_COMPROBANTE},es_consumible,titulo,carpeta_local,obra_id`;
+
+/** Trae los comprobantes con las columnas nuevas, o sin ellas si no existen. */
+async function selectComprobantes(construir) {
+  const conNuevas = await construir(COLS_COMPROBANTE_PLUS);
+  if (!conNuevas.error) return conNuevas;
+  if (!esColumnaFaltante(conNuevas.error)) return conNuevas;
+  return construir(COLS_COMPROBANTE);
+}
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
   "application/pdf",
@@ -69,21 +80,35 @@ function validateFile(file) {
   }
 }
 
-function bestCatalogMatch(catalog, item) {
+// Debajo de esto no hay parecido real, hay ruido: dos palabras cortas que
+// coinciden por casualidad. Ofrecerlo como sugerencia es peor que no ofrecer
+// nada, porque manda a alguien a revisar un disparate.
+const PUNTAJE_MINIMO_SUGERENCIA = 40;
+
+function bestCatalogMatch(catalog, item, { esConsumibles = false } = {}) {
   let best = null;
   let bestScore = 0;
   for (const material of catalog || []) {
     if (!material?.id || material.es_requisito === true) continue;
-    const score = materialMatchScore(material, item);
+    let score = materialMatchScore(material, item);
+    // En un remito de consumibles, un consumible del catalogo le gana a un
+    // material comun que puntue parecido: "Arandela 1/2" existe de las dos
+    // formas. El empujon va SOLO sobre un parecido que ya existe; probandolo,
+    // aplicado a cualquier puntaje convertia "GUANTES DE NITRILO" -que no esta
+    // en el catalogo- en una sugerencia de "Rodillo Epoxy" con puntaje 4.
+    if (esConsumibles && material.es_consumible === true && score >= PUNTAJE_MINIMO_SUGERENCIA) {
+      score += 4;
+    }
     if (score > bestScore) {
       best = material;
       bestScore = score;
     }
   }
+  if (bestScore < PUNTAJE_MINIMO_SUGERENCIA) return { material: null, score: 0 };
   return { material: best, score: Math.round(bestScore * 100) / 100 };
 }
 
-function normalizedAiItems(data, catalog) {
+function normalizedAiItems(data, catalog, { esConsumibles = false } = {}) {
   return (data?.items || data?.lineas || [])
     .map((raw) => {
       const descripcion = String(raw.descripcion || raw.description || raw.nombre || "").trim();
@@ -93,7 +118,7 @@ function normalizedAiItems(data, catalog) {
         codigo: raw.codigo || raw.code || "",
         proveedor: data?.proveedor || "",
       };
-      const { material, score } = bestCatalogMatch(catalog, candidateInput);
+      const { material, score } = bestCatalogMatch(catalog, candidateInput, { esConsumibles });
       const strong = material && materialMatchIsStrong(score);
       return {
         descripcion,
@@ -107,6 +132,7 @@ function normalizedAiItems(data, catalog) {
         proveedor: String(data?.proveedor || "").trim(),
         material_id: strong ? material.id : null,
         material_sugerido_id: material?.id || null,
+        es_consumible: esConsumibles || material?.es_consumible === true,
         confianza: material ? score : null,
         revision: strong ? "vinculado" : material ? "revisar" : "sin_coincidencia",
       };
@@ -115,11 +141,11 @@ function normalizedAiItems(data, catalog) {
 }
 
 async function fetchScannerReceiptById(id) {
-  const { data: receipt, error } = await supabase
+  const { data: receipt, error } = await selectComprobantes((cols) => supabase
     .from("panol_comprobantes")
-    .select("id,proveedor,numero,fecha,archivo_url,archivo_nombre,archivo_mime,sede,recepcion_estado,panol_envio_id,created_at,procesado_at")
+    .select(cols)
     .eq("id", id)
-    .single();
+    .single());
   if (error) throwFriendly(error);
   const { data: items, error: itemsError } = await supabase
     .from("panol_comprobante_items")
@@ -138,6 +164,7 @@ export async function processScannedReceipt(file, {
   titulo = "",
   notas = "",
   soloArchivar = false,
+  esConsumibles = false,
 } = {}) {
   validateFile(file);
   const hash = await sha256(file);
@@ -161,7 +188,7 @@ export async function processScannedReceipt(file, {
     fetchPanolCatalogFull(),
   ]);
   assertRemitoExtraction(parsed);
-  const items = normalizedAiItems(parsed, catalog);
+  const items = normalizedAiItems(parsed, catalog, { esConsumibles });
   if (!items.length) throw new Error("La IA no encontró renglones en este remito.");
 
   const extension = String(file.name || "").split(".").pop()?.toLowerCase() || (file.type === "application/pdf" ? "pdf" : "jpg");
@@ -208,6 +235,7 @@ export async function processScannedReceipt(file, {
       ...(carpetaLocal ? { carpeta_local: carpetaLocal } : {}),
       ...(titulo ? { titulo } : {}),
       ...(soloArchivar ? { solo_archivo: true } : {}),
+      ...(esConsumibles ? { es_consumible: true } : {}),
     };
 
     let receipt = null;
@@ -257,15 +285,17 @@ export async function processScannedReceipt(file, {
 }
 
 export async function fetchScannedReceipts({ sede = null, limit = 60 } = {}) {
-  let query = supabase
-    .from("panol_comprobantes")
-    .select("id,proveedor,numero,fecha,archivo_url,archivo_nombre,archivo_mime,sede,recepcion_estado,panol_envio_id,created_at,procesado_at")
-    .eq("origen_carga", "scanner_panol")
-    .neq("recepcion_estado", "archivado")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (sede) query = query.eq("sede", sede);
-  const { data: receipts, error } = await query;
+  const { data: receipts, error } = await selectComprobantes((cols) => {
+    let query = supabase
+      .from("panol_comprobantes")
+      .select(cols)
+      .eq("origen_carga", "scanner_panol")
+      .neq("recepcion_estado", "archivado")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (sede) query = query.eq("sede", sede);
+    return query;
+  });
   if (error) throwFriendly(error);
   if (!receipts?.length) return [];
 

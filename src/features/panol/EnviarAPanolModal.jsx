@@ -441,6 +441,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0, color: C.green, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               Conectado: {selected.descripcion}
+              {selected.es_consumible ? <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase", color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 5, padding: "1px 5px" }}>consumible</span> : null}
               <span style={{ color: C.t2, fontWeight: 500 }}>{selected.codigo ? ` · ${selected.codigo}` : ""}{selected.proveedor ? ` · ${selected.proveedor}` : ""}</span>
             </div>
             <ProveedorTipoBadge meta={selectedMeta} compact />
@@ -1425,6 +1426,10 @@ export default function EnviarAPanolModal({
         moneda: item.moneda,
         ubicacion: item.ubicacion || null,
         ubicacion_obs: item.ubicacion_obs || null,
+        // Si el remito es de consumibles, lo nuevo nace consumible. Crearlo
+        // como material comun y arreglarlo despues en otra pantalla es un paso
+        // que no se hace nunca, y el producto desaparece de esa pestaña.
+        esConsumible: item.es_consumible === true || prefill?.esConsumibles === true,
       });
       setFullCatalog((prev) => [created, ...prev.filter((mat) => mat.id !== created.id)]);
       invalidatePanolCatalogFullCache(); // el cache de sesión debe traer el nuevo la próxima
@@ -1474,6 +1479,10 @@ export default function EnviarAPanolModal({
         moneda: item.moneda,
         ubicacion: item.ubicacion || null,
         ubicacion_obs: item.ubicacion_obs || null,
+        // Si el remito es de consumibles, lo nuevo nace consumible. Crearlo
+        // como material comun y arreglarlo despues en otra pantalla es un paso
+        // que no se hace nunca, y el producto desaparece de esa pestaña.
+        esConsumible: item.es_consumible === true || prefill?.esConsumibles === true,
       });
       catalogRows = [created, ...catalogRows];
       createdRows.push(created);

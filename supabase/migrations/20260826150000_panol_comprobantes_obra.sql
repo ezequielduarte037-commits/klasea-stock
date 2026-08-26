@@ -31,6 +31,12 @@ alter table public.panol_comprobantes
 alter table public.panol_comprobantes
   add column if not exists solo_archivo boolean not null default false;
 
+-- Un remito de consumibles -Rebollar, la ferretería del mes- son treinta
+-- renglones que van todos a la pestaña de Consumibles. Decirlo una vez al
+-- escanear evita marcarlos de a uno despues, que es lo que nadie hace.
+alter table public.panol_comprobantes
+  add column if not exists es_consumible boolean not null default false;
+
 comment on column public.panol_comprobantes.obra_id is
   'Obra a la que se imputo el remito al escanearlo. Null = stock general.';
 comment on column public.panol_comprobantes.carpeta_local is
@@ -39,3 +45,5 @@ comment on column public.panol_comprobantes.titulo is
   'Referencia escrita a mano al escanear, para encontrarlo despues.';
 comment on column public.panol_comprobantes.solo_archivo is
   'true = se guarda como documento y no espera ingreso de stock.';
+comment on column public.panol_comprobantes.es_consumible is
+  'true = el remito trae consumibles; lo nuevo se crea ya marcado como tal.';
