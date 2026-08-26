@@ -32,6 +32,11 @@ SI ALGO NO FUNCIONA
 Abri el acceso: Klase A - Diagnostico scanner.
 Saca una foto del resultado y del ultimo error.
 
+SI EL DIAGNOSTICO DICE TODO OK PERO LA WEB NO DETECTA EL PUENTE
+Hace doble clic en REPARAR-CONEXION-SCANNER.cmd y acepta el permiso de
+administrador. La herramienta reinicia solamente el puente de Klase A,
+autoriza el origen oficial en Chrome y abre una pantalla limpia.
+
 NO HACE FALTA INSTALAR PANTUM OCR
 La lectura la hace la IA de Klase A. El paquete instala solamente el driver
 oficial, NAPS2 y Node.js, que son los componentes necesarios.

@@ -20,6 +20,8 @@ $files = @(
   "instalar-scanner.ps1",
   "instalar-panol.ps1",
   "diagnosticar-scanner.ps1",
+  "REPARAR-CONEXION-SCANNER.cmd",
+  "reparar-conexion-scanner.ps1",
   "INSTALAR-EN-PANOL.cmd",
   "README-INSTALAR.txt",
   "README.md"
