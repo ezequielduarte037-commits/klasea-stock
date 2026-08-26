@@ -19,17 +19,33 @@ try {
   $naps2 = "C:\Program Files\NAPS2\NAPS2.Console.exe"
   if (Test-Path -LiteralPath $naps2) {
     $output = Join-Path $Destination "remito-$stamp.pdf"
-    & $naps2 `
-      --output $output `
-      --noprofile `
-      --driver twain `
-      --device "Pantum M6550" `
-      --source $Source `
-      --dpi 300 `
-      --pagesize a4 `
-      --bitdepth color `
-      --deskew `
-      --progress
+
+    # El modelo venia escrito a mano como "Pantum M6550" y el equipo del panol es
+    # una M6559NW: NAPS2 no encontraba ningun dispositivo con ese nombre. Se le
+    # pregunta a Windows como se llama de verdad en esta PC.
+    $nombreEquipo = $null
+    try {
+      $manager = New-Object -ComObject WIA.DeviceManager
+      $nombres = @($manager.DeviceInfos) | Where-Object { [int]$_.Type -eq 1 } | ForEach-Object {
+        $_.Properties | Where-Object { $_.Name -eq "Name" } | Select-Object -ExpandProperty Value -ErrorAction SilentlyContinue
+      }
+      $nombreEquipo = @($nombres | Where-Object { $_ -match "Pantum|M65" }) | Select-Object -First 1
+      if (-not $nombreEquipo) { $nombreEquipo = @($nombres) | Select-Object -First 1 }
+    } catch {
+      $nombreEquipo = $null
+    }
+
+    $argumentos = @("--output", $output, "--noprofile", "--driver", "twain")
+    if ($nombreEquipo) { $argumentos += @("--device", $nombreEquipo) }
+    $argumentos += @(
+      "--source", $Source,
+      "--dpi", "300",
+      "--pagesize", "a4",
+      "--bitdepth", "color",
+      "--deskew",
+      "--progress"
+    )
+    & $naps2 @argumentos
 
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) {
       throw "NAPS2 no pudo obtener la imagen desde la Pantum. Revisa el origen elegido y que haya papel."

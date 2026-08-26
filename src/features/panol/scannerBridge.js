@@ -129,7 +129,9 @@ function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
-export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 105_000 } = {}) {
+// Tiene que ser mayor que el SCAN_TIMEOUT_MS del puente (180s): si la web se
+// rinde primero, el escaneo sigue vivo y el PDF aparece cuando ya nadie mira.
+export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 200_000 } = {}) {
   const before = await fetchScannerFiles();
   const previousIds = new Set(before.map((row) => row.id));
   await launchScannerApp(source);

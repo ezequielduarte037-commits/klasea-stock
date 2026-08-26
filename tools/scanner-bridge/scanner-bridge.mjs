@@ -7,7 +7,11 @@ import { fileURLToPath } from "node:url";
 
 const PORT = 17778;
 const VERSION = "1.2.1";
-const SCAN_TIMEOUT_MS = 90_000;
+// Un A4 en color a 300 dpi son unos 26 MB que la Pantum manda por USB, y en la
+// PC del panol eso pasa holgado de los 90 segundos: el puente mataba el escaneo
+// a mitad de camino, con la ventana de Windows todavia en "Escaneando pagina 1".
+// Tres minutos dan margen sin dejar un proceso colgado para siempre.
+const SCAN_TIMEOUT_MS = 180_000;
 const BRIDGE_DIR = dirname(fileURLToPath(import.meta.url));
 const SCAN_SCRIPT = join(BRIDGE_DIR, "escanear-remito.ps1");
 const PENDING = "C:\\KlaseA\\Remitos\\Pendientes";
