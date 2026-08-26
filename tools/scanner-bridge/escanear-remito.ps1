@@ -30,12 +30,14 @@ try {
     # elige, que es lo mejor que se puede hacer sin haber probado.
     $driver = "twain"
     $nombreEquipo = $null
+    $opciones = $null
     $configFile = "C:\KlaseA\Scanner\scanner-config.json"
     if (Test-Path -LiteralPath $configFile) {
       try {
         $config = Get-Content -LiteralPath $configFile -Raw | ConvertFrom-Json
         if ($config.driver) { $driver = [string]$config.driver }
         if ($config.device) { $nombreEquipo = [string]$config.device }
+        if ($config.extra) { $opciones = @($config.extra) }
       } catch {
         $nombreEquipo = $null
       }
@@ -43,17 +45,26 @@ try {
 
     $argumentos = @("--output", $output, "--noprofile", "--driver", $driver)
     if ($nombreEquipo) { $argumentos += @("--device", $nombreEquipo) }
-    $argumentos += @(
-      "--source", $Source,
-      "--dpi", "300",
-      "--pagesize", "a4",
-      "--bitdepth", "color",
-      "--deskew",
-      "--progress"
-    )
+
+    if ($opciones) {
+      # Se respetan las opciones que el configurador probo que andan, pero el
+      # origen lo manda quien pide el escaneo: puede querer el alimentador.
+      $limpias = @()
+      for ($i = 0; $i -lt $opciones.Count; $i++) {
+        if ($opciones[$i] -eq "--source") { $i++; continue }
+        $limpias += $opciones[$i]
+      }
+      $argumentos += @("--source", $Source) + $limpias
+    } else {
+      $argumentos += @("--source", $Source, "--dpi", "300", "--pagesize", "a4", "--bitdepth", "color", "--deskew")
+    }
+
     & $naps2 @argumentos
 
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) {
+    # Alcanza con que haya quedado el PDF: NAPS2 puede quejarse de algo menor y
+    # haber guardado igual, y tirar el archivo por el codigo de salida seria
+    # perder un escaneo que en realidad salio bien.
+    if (-not (Test-Path -LiteralPath $output)) {
       throw "NAPS2 no pudo obtener la imagen desde la Pantum. Corre CONFIGURAR-SCANNER.cmd en esta PC: averigua con que driver responde y lo deja anotado."
     }
     Remove-Item -LiteralPath $errorFile -Force -ErrorAction SilentlyContinue
