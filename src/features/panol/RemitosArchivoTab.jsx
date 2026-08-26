@@ -79,8 +79,11 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   const arbol = useMemo(() => {
     const porLinea = new Map();
     for (const remito of filtrados) {
-      const linea = remito.obra?.linea_nombre || (remito.obra ? SIN_LINEA : SIN_OBRA);
-      const obra = remito.obra?.codigo || SIN_OBRA;
+      // Sin barco pero con carpeta propia -"Consumibles Rebollar"- esa carpeta
+      // es el nodo: mandarla a "sin obra" seria perderla entre todas las demas.
+      const propia = !remito.obra ? String(remito.carpeta_local || "").trim() : "";
+      const linea = remito.obra?.linea_nombre || (remito.obra ? SIN_LINEA : propia || SIN_OBRA);
+      const obra = remito.obra?.codigo || propia || SIN_OBRA;
       if (!porLinea.has(linea)) porLinea.set(linea, new Map());
       const obrasDeLinea = porLinea.get(linea);
       obrasDeLinea.set(obra, [...(obrasDeLinea.get(obra) ?? []), remito]);
@@ -92,6 +95,12 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
           .map(([codigo, lista]) => ({ codigo, remitos: lista, obra: lista.find((r) => r.obra)?.obra || null }))
           .sort((a, b) => a.codigo.localeCompare(b.codigo)),
         total: [...obrasDeLinea.values()].reduce((n, l) => n + l.length, 0),
+      }))
+      .map((nodo) => ({
+        ...nodo,
+        // Cuando el unico hijo se llama igual que el padre no es una linea con
+        // barcos, es una carpeta suelta: se entra derecho a los remitos.
+        directa: nodo.obras.length === 1 && nodo.obras[0].codigo === nodo.linea,
       }))
       .sort((a, b) => {
         if (a.linea === SIN_OBRA) return 1;
@@ -223,14 +232,19 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
             <button
               key={nodo.linea}
               type="button"
-              onClick={() => setLineaAbierta(nodo.linea)}
+              onClick={() => {
+                setLineaAbierta(nodo.linea);
+                if (nodo.directa) setObraAbierta(nodo.obras[0].codigo);
+              }}
               style={{ ...tarjeta, padding: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 11, fontFamily: C.sans }}
             >
-              <Layers size={19} color={nodo.linea === SIN_OBRA ? C.dim : C.blue} />
+              {nodo.directa ? <FolderOpen size={19} color={C.blue} /> : <Layers size={19} color={nodo.linea === SIN_OBRA ? C.dim : C.blue} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>{nombreLinea(nodo.linea)}</div>
                 <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
-                  {nodo.obras.length} barco{nodo.obras.length === 1 ? "" : "s"} · {nodo.total} remito{nodo.total === 1 ? "" : "s"}
+                  {nodo.directa
+                    ? `${nodo.total} remito${nodo.total === 1 ? "" : "s"}`
+                    : `${nodo.obras.length} barco${nodo.obras.length === 1 ? "" : "s"} · ${nodo.total} remito${nodo.total === 1 ? "" : "s"}`}
                 </div>
               </div>
               <ChevronRight size={16} color={C.dim} />

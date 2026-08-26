@@ -1082,12 +1082,23 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   }
 
   async function cambiarEstadoEnvio(estado) {
-    const txt = estado === "cancelado" ? "cancelar" : "cerrar";
-    if (!window.confirm(`Seguro que queres ${txt} este pedido?`)) return;
+    const txt = estado === "cancelado" ? "cancelar" : estado === "cerrado" ? "cerrar" : "reactivar";
+    if (estado === "cancelado") {
+      // Es el unico que deja el pedido fuera de circulacion, asi que el aviso
+      // dice que pasa y como se vuelve, en vez de un "seguro?" generico.
+      const ok = window.confirm(
+        "Cancelar este pedido lo saca de la lista de pañol.\n\n"
+        + "No se borra nada: los ítems quedan como están y se puede reactivar después.\n\n"
+        + "¿Cancelar igual?",
+      );
+      if (!ok) return;
+    } else if (!window.confirm(`Seguro que queres ${txt} este pedido?`)) {
+      return;
+    }
     try {
       await setEstadoEnvio(envioId, estado);
       await cargar();
-      toast.success(`Pedido ${estado}.`);
+      toast.success(estado === "enviado" ? "Pedido reactivado. Volvió a la lista de pañol." : `Pedido ${estado}.`);
     } catch (err) {
       toast.error(err.message || "No se pudo cambiar el estado.");
     }
@@ -1253,6 +1264,16 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
 
           {isManager && (
             <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
+              {envio?.estado === "cancelado" && (
+                <button
+                  type="button"
+                  onClick={() => cambiarEstadoEnvio("enviado")}
+                  title="Vuelve el pedido a la lista de pañol, con sus ítems como estaban"
+                  style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+                >
+                  Reactivar
+                </button>
+              )}
               {!cerrado && (
                 <>
                   <button

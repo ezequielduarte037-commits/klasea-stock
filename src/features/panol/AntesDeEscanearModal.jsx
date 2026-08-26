@@ -29,6 +29,7 @@ export default function AntesDeEscanearModal({
   proveedoresConocidos = [],
   obraSugerida = null,
   proveedorSugerido = "",
+  carpetasConocidas = [],
   origenInicial = "glass",
   soloArchivarInicial = false,
   permiteSoloArchivar = true,
@@ -46,6 +47,10 @@ export default function AntesDeEscanearModal({
   // otro lado. Forzar el ingreso hace que la bandeja de pendientes se llene de
   // cosas que en realidad estan resueltas.
   const [soloArchivar, setSoloArchivar] = useState(soloArchivarInicial);
+  // No todo remito es de un barco. Los consumibles de Rebollar, la ferretería
+  // de todos los meses, el service de una máquina: eso va a su propia carpeta y
+  // meterlo en "stock general" lo vuelve imposible de encontrar despues.
+  const [carpetaLibre, setCarpetaLibre] = useState("");
 
   useEffect(() => {
     let vivo = true;
@@ -70,7 +75,27 @@ export default function AntesDeEscanearModal({
     () => obras.find((o) => String(o.id) === obraId) || null,
     [obras, obraId],
   );
-  const carpeta = carpetaDeObra(obraElegida);
+  // Manda la obra cuando hay obra; si no, lo que se haya escrito. Las dos cosas
+  // a la vez no tienen sentido: el remito esta en un lugar solo.
+  const escrita = carpetaLibre.trim();
+  const yaExistente = carpetasConocidas.find(
+    (nombre) => String(nombre || "").trim().toLowerCase() === escrita.toLowerCase(),
+  );
+  const carpetaPropia = yaExistente || escrita;
+  const carpeta = obraElegida ? carpetaDeObra(obraElegida) : carpetaPropia;
+
+  // Las carpetas ya usadas, para no terminar con "Rebollar", "rebollar" y
+  // "REBOLLAR" siendo tres carpetas distintas.
+  const carpetasUsadas = useMemo(() => {
+    const vistas = new Map();
+    for (const nombre of carpetasConocidas) {
+      const limpio = String(nombre || "").trim();
+      if (!limpio) continue;
+      const clave = limpio.toLowerCase();
+      if (!vistas.has(clave)) vistas.set(clave, limpio);
+    }
+    return [...vistas.values()].sort((a, b) => a.localeCompare(b));
+  }, [carpetasConocidas]);
 
   function confirmar() {
     onConfirmar?.({
@@ -137,6 +162,29 @@ export default function AntesDeEscanearModal({
               {proveedoresConocidos.map((nombre) => <option key={nombre} value={nombre} />)}
             </datalist>
           </div>
+
+          {!obraElegida ? (
+            <div>
+              <div style={etiqueta}>
+                Carpeta <span style={{ textTransform: "none", fontWeight: 700 }}>(si no es de un barco)</span>
+              </div>
+              <input
+                value={carpetaLibre}
+                onChange={(event) => setCarpetaLibre(event.target.value)}
+                list="klasea-carpetas-escaneo"
+                placeholder="Ej.: Consumibles Rebollar"
+                style={campo}
+              />
+              <datalist id="klasea-carpetas-escaneo">
+                {carpetasUsadas.map((nombre) => <option key={nombre} value={nombre} />)}
+              </datalist>
+              {yaExistente && yaExistente !== escrita ? (
+                <div style={{ marginTop: 5, fontSize: 11, color: C.cyan, fontWeight: 750 }}>
+                  Va a la carpeta que ya existe: <b>{yaExistente}</b>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div>
             <div style={etiqueta}>

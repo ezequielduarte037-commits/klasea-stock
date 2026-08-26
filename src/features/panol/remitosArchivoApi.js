@@ -74,6 +74,32 @@ export async function fetchRemitosArchivados({ limite = 400 } = {}) {
   };
 }
 
+/**
+ * Las carpetas propias que ya existen ("Consumibles Rebollar", "Ferretería").
+ * Se ofrecen al escanear para que la misma carpeta no termine escrita de tres
+ * formas distintas y partida en tres.
+ */
+export async function fetchCarpetasUsadas() {
+  const { data, error } = await supabase
+    .from("panol_comprobantes")
+    .select("carpeta_local")
+    .not("carpeta_local", "is", null)
+    .limit(500);
+  if (error) {
+    if (esColumnaFaltante(error)) return [];
+    throw error;
+  }
+  const vistas = new Map();
+  for (const fila of data ?? []) {
+    const nombre = String(fila.carpeta_local || "").trim();
+    // Las de obra ya salen del selector de barcos: aca solo las escritas a mano.
+    if (!nombre || nombre.includes("/") || nombre.includes("\\")) continue;
+    const clave = nombre.toLowerCase();
+    if (!vistas.has(clave)) vistas.set(clave, nombre);
+  }
+  return [...vistas.values()].sort((a, b) => a.localeCompare(b));
+}
+
 /** Link temporal para abrir el PDF guardado. */
 export async function urlDeRemito(archivoUrl) {
   if (!archivoUrl) return "";

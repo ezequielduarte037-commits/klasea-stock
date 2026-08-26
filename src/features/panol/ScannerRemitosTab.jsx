@@ -35,6 +35,7 @@ import {
   scannerReceiptFileUrl,
 } from "@/features/panol/remitosScannerApi";
 import AntesDeEscanearModal from "@/features/panol/AntesDeEscanearModal";
+import { fetchCarpetasUsadas } from "@/features/panol/remitosArchivoApi";
 import { carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
 
 const GLASS = {
@@ -221,6 +222,15 @@ export default function ScannerRemitosTab({
   // IA despues, cuando se procesa el archivo que llego.
   const [preguntando, setPreguntando] = useState(false);
   const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null, titulo: "", notas: "", soloArchivar: false });
+  const [carpetasUsadas, setCarpetasUsadas] = useState([]);
+
+  useEffect(() => {
+    let vivo = true;
+    fetchCarpetasUsadas()
+      .then((lista) => { if (vivo) setCarpetasUsadas(lista); })
+      .catch(() => { if (vivo) setCarpetasUsadas([]); });
+    return () => { vivo = false; };
+  }, []);
 
   async function connectBridge() {
     const key = saveScannerPairingKey(pairingCode);
@@ -373,6 +383,7 @@ export default function ScannerRemitosTab({
           onConfirmar={escanearCon}
           obraSugerida={contextoEscaneo.obra}
           proveedorSugerido={contextoEscaneo.proveedor}
+          carpetasConocidas={carpetasUsadas}
           origenInicial={scanSource}
         />
       ) : null}
