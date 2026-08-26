@@ -30,13 +30,22 @@ export default function AntesDeEscanearModal({
   obraSugerida = null,
   proveedorSugerido = "",
   origenInicial = "glass",
-  titulo = "¿Qué vas a escanear?",
+  soloArchivarInicial = false,
+  permiteSoloArchivar = true,
+  titulo: tituloVentana = "¿Qué vas a escanear?",
 }) {
   const [obras, setObras] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [obraId, setObraId] = useState(obraSugerida?.id ? String(obraSugerida.id) : "");
   const [proveedor, setProveedor] = useState(String(proveedorSugerido || ""));
   const [origen, setOrigen] = useState(origenInicial);
+  const [titulo, setTitulo] = useState("");
+  const [notas, setNotas] = useState("");
+  // Archivar y ingresar son dos cosas distintas. A veces el remito llega, hay
+  // que guardarlo, y el stock se carga otro dia o directamente ya se cargo por
+  // otro lado. Forzar el ingreso hace que la bandeja de pendientes se llene de
+  // cosas que en realidad estan resueltas.
+  const [soloArchivar, setSoloArchivar] = useState(soloArchivarInicial);
 
   useEffect(() => {
     let vivo = true;
@@ -69,6 +78,9 @@ export default function AntesDeEscanearModal({
       carpeta,
       proveedor: proveedor.trim(),
       source: origen,
+      titulo: titulo.trim(),
+      notas: notas.trim(),
+      soloArchivar,
     });
   }
 
@@ -89,7 +101,7 @@ export default function AntesDeEscanearModal({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
           <ScanLine size={17} color={C.blue} />
-          <div style={{ flex: 1, fontSize: 14.5, fontWeight: 950, color: C.text }}>{titulo}</div>
+          <div style={{ flex: 1, fontSize: 14.5, fontWeight: 950, color: C.text }}>{tituloVentana}</div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
             <X size={17} />
           </button>
@@ -125,6 +137,46 @@ export default function AntesDeEscanearModal({
               {proveedoresConocidos.map((nombre) => <option key={nombre} value={nombre} />)}
             </datalist>
           </div>
+
+          <div>
+            <div style={etiqueta}>
+              Referencia <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional, para encontrarlo después)</span>
+            </div>
+            <input
+              value={titulo}
+              onChange={(event) => setTitulo(event.target.value)}
+              placeholder="Ej.: Grifería del baño de proa"
+              style={campo}
+            />
+          </div>
+
+          <div>
+            <div style={etiqueta}>Nota <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional)</span></div>
+            <textarea
+              value={notas}
+              onChange={(event) => setNotas(event.target.value)}
+              rows={2}
+              placeholder="Lo que convenga aclarar: falta una caja, viene con la factura aparte…"
+              style={{ ...campo, resize: "vertical", minHeight: 54, fontWeight: 600 }}
+            />
+          </div>
+
+          {permiteSoloArchivar ? (
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 9, border: `1px solid ${soloArchivar ? C.cyanB : C.border2}`, background: soloArchivar ? C.cyanL : C.panelSolid, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={soloArchivar}
+                onChange={(event) => setSoloArchivar(event.target.checked)}
+                style={{ marginTop: 2, accentColor: C.cyan, width: 15, height: 15, cursor: "pointer" }}
+              />
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, color: C.text }}>Solo archivar</span>
+                <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.45 }}>
+                  Lo guarda como documento y no abre el ingreso. Sirve para tener el papel cargado sin mover stock todavía.
+                </span>
+              </span>
+            </label>
+          ) : null}
 
           <div>
             <div style={etiqueta}>De dónde</div>
@@ -164,7 +216,7 @@ export default function AntesDeEscanearModal({
           </button>
           <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
             {cargando ? <LoaderCircle size={14} className="spin" /> : <ScanLine size={14} />}
-            Escanear
+            {soloArchivar ? "Escanear y archivar" : "Escanear"}
           </button>
         </div>
       </div>

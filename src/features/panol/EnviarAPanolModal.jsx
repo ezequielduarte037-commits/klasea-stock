@@ -1634,9 +1634,28 @@ export default function EnviarAPanolModal({
   // Lee un remito (foto o PDF) o directamente el texto pegado. Muchos pedidos
   // llegan por mail o WhatsApp: sacarles una captura para que la IA los lea era
   // dar una vuelta al pedo si el texto ya se puede copiar.
+  /** Renglones que ya tienen algo escrito: las filas vacias no cuentan. */
+  function itemsConContenido(lista) {
+    return (lista || []).filter((it) => String(it?.descripcion || it?.codigo || "").trim());
+  }
+
   async function readRemitoWithAI({ file = null, text = "" } = {}) {
     const texto = String(text || "").trim();
     if (!file && !texto) return;
+
+    // Un remito es UN documento. Si ya hay renglones cargados hay que decidir
+    // antes de leer, porque mezclar dos remitos en una lista es indistinguible
+    // de que la IA haya leido mal, y se descubre recien al ingresar el stock.
+    const yaCargados = itemsConContenido(items);
+    let reemplazar = true;
+    if (yaCargados.length) {
+      reemplazar = window.confirm(
+        `Ya hay ${yaCargados.length} renglón${yaCargados.length === 1 ? "" : "es"} cargado${yaCargados.length === 1 ? "" : "s"} en este aviso.\n\n`
+        + "Aceptar: los reemplazo por lo que diga este remito (lo normal).\n"
+        + "Cancelar: los dejo y agrego los del remito abajo.",
+      );
+    }
+
     setAiReading(true);
     try {
       const proveedorElegido = proveedores.find((proveedor) => proveedor.id === aiProveedorId);
@@ -1698,7 +1717,11 @@ export default function EnviarAPanolModal({
       if (dudosos) {
         toast.warning(`${dudosos} renglon${dudosos === 1 ? "" : "es"} quedaron marcados: la IA no los leyó seguro. Revisalos contra el papel.`);
       }
-      setItems((prev) => [...prev, ...(showPrices ? hydratedItems : hydratedItems.map(stripItemPrice))]);
+      const listos = showPrices ? hydratedItems : hydratedItems.map(stripItemPrice);
+      setItems((prev) => (reemplazar ? listos : [...prev, ...listos]));
+      if (reemplazar && yaCargados.length) {
+        toast.success(`Reemplacé los ${yaCargados.length} renglones que había por los de este remito.`);
+      }
       if (!titulo.trim() && (proveedorHint || data?.proveedor)) setTitulo(`Remito ${proveedorHint || data.proveedor}`);
       const suggested = hydratedItems.filter((item) => item.material_id).length;
       const linkedPercent = Math.round((suggested / hydratedItems.length) * 100);

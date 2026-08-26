@@ -16,8 +16,8 @@ function esColumnaFaltante(error) {
     || (mensaje.includes("column") && mensaje.includes("does not exist"));
 }
 
-const COLUMNAS_CON_OBRA = "id,proveedor,numero,fecha,total,moneda,sede,archivo_url,archivo_nombre,archivo_mime,origen_carga,recepcion_estado,panol_envio_id,created_at,obra_id,carpeta_local";
-const COLUMNAS_SIN_OBRA = "id,proveedor,numero,fecha,total,moneda,sede,archivo_url,archivo_nombre,archivo_mime,origen_carga,recepcion_estado,panol_envio_id,created_at";
+const COLUMNAS_CON_OBRA = "id,proveedor,numero,fecha,total,moneda,sede,notas,archivo_url,archivo_nombre,archivo_mime,origen_carga,recepcion_estado,panol_envio_id,created_at,obra_id,carpeta_local,titulo,solo_archivo";
+const COLUMNAS_SIN_OBRA = "id,proveedor,numero,fecha,total,moneda,sede,notas,archivo_url,archivo_nombre,archivo_mime,origen_carga,recepcion_estado,panol_envio_id,created_at";
 
 /**
  * Todos los remitos archivados, con la obra resuelta.

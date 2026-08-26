@@ -1175,6 +1175,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           onConfirmar={escanearRemitoCon}
           obraSugerida={obraDelAviso}
           origenInicial={remitoScanSource}
+          permiteSoloArchivar={false}
         />
       ) : null}
       <div style={{

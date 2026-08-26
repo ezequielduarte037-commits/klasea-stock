@@ -130,7 +130,15 @@ async function fetchScannerReceiptById(id) {
   return { ...receipt, items: items || [] };
 }
 
-export async function processScannedReceipt(file, { sede = null, proveedor = "", obraId = null, carpetaLocal = "" } = {}) {
+export async function processScannedReceipt(file, {
+  sede = null,
+  proveedor = "",
+  obraId = null,
+  carpetaLocal = "",
+  titulo = "",
+  notas = "",
+  soloArchivar = false,
+} = {}) {
   validateFile(file);
   const hash = await sha256(file);
 
@@ -172,7 +180,9 @@ export async function processScannedReceipt(file, { sede = null, proveedor = "",
       ?? items.reduce((sum, item) => sum + (numberOrNull(item.total) || 0), 0)
       ?? null;
     const base = {
-      proveedor: String(parsed?.proveedor || "").trim() || null,
+      // Si alguien lo eligio antes de escanear, esa es la verdad: lo escribio
+      // mirando el papel. Lo de la IA es una deduccion.
+      proveedor: String(proveedor || parsed?.proveedor || "").trim() || null,
       numero: String(parsed?.numero || "").trim() || null,
       fecha: parsed?.fecha || new Date().toISOString().slice(0, 10),
       moneda: String(parsed?.moneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
@@ -182,8 +192,12 @@ export async function processScannedReceipt(file, { sede = null, proveedor = "",
       archivo_mime: file.type || (extension === "pdf" ? "application/pdf" : "image/jpeg"),
       sede: sede || null,
       estado: "borrador",
-      recepcion_estado: receptionState,
+      // Archivar no es lo mismo que ingresar: un remito que se guarda como
+      // documento no tiene que quedar esperando un ingreso que quizas no llegue
+      // nunca, porque asi la bandeja de pendientes se llena de cosas resueltas.
+      recepcion_estado: soloArchivar ? "ingresado" : receptionState,
       origen_carga: "scanner_panol",
+      notas: notas || null,
       total: total || null,
     };
     // La obra y la carpeta sirven para BUSCAR el remito despues, no para
@@ -192,6 +206,8 @@ export async function processScannedReceipt(file, { sede = null, proveedor = "",
     const extras = {
       ...(obraId ? { obra_id: obraId } : {}),
       ...(carpetaLocal ? { carpeta_local: carpetaLocal } : {}),
+      ...(titulo ? { titulo } : {}),
+      ...(soloArchivar ? { solo_archivo: true } : {}),
     };
 
     let receipt = null;

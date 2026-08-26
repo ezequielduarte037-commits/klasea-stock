@@ -71,7 +71,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return remitos;
-    return remitos.filter((r) => [r.proveedor, r.numero, r.obra?.codigo, r.obra?.linea_nombre, r.archivo_nombre, r.sede]
+    return remitos.filter((r) => [r.proveedor, r.numero, r.titulo, r.notas, r.obra?.codigo, r.obra?.linea_nombre, r.archivo_nombre, r.sede]
       .some((campo) => String(campo || "").toLowerCase().includes(q)));
   }, [remitos, busqueda]);
 
@@ -282,14 +282,27 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {remito.proveedor || "Sin proveedor"}
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                    <span style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {remito.titulo || remito.proveedor || "Sin proveedor"}
+                    </span>
+                    {remito.solo_archivo ? (
+                      <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase", color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 5, padding: "1px 5px" }}>
+                        archivo
+                      </span>
+                    ) : null}
                   </div>
-                  <div style={{ color: C.dim, fontSize: 11, fontWeight: 700 }}>
+                  <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {remito.titulo && remito.proveedor ? `${remito.proveedor} · ` : ""}
                     {remito.numero ? `Nº ${remito.numero}` : "sin número"}
                     {buscando && remito.obra?.codigo ? ` · ${remito.obra.codigo}` : ""}
                     {remito.sede ? ` · ${remito.sede}` : ""}
                   </div>
+                  {remito.notas ? (
+                    <div style={{ color: C.dim, fontSize: 11, fontWeight: 650, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {remito.notas}
+                    </div>
+                  ) : null}
                 </div>
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{fmtFecha(remito.fecha || remito.created_at)}</div>
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{money(remito.total, remito.moneda)}</div>

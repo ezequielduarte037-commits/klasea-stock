@@ -220,7 +220,7 @@ export default function ScannerRemitosTab({
   // distintos: la carpeta la usa el puente al escanear, y el proveedor lo usa la
   // IA despues, cuando se procesa el archivo que llego.
   const [preguntando, setPreguntando] = useState(false);
-  const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null });
+  const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null, titulo: "", notas: "", soloArchivar: false });
 
   async function connectBridge() {
     const key = saveScannerPairingKey(pairingCode);
@@ -253,6 +253,9 @@ export default function ScannerRemitosTab({
         proveedor: contextoEscaneo.proveedor,
         obraId: contextoEscaneo.obra?.id || null,
         carpetaLocal: contextoEscaneo.carpeta || "",
+        titulo: contextoEscaneo.titulo || "",
+        notas: contextoEscaneo.notas || "",
+        soloArchivar: Boolean(contextoEscaneo.soloArchivar),
       });
       if (localId) {
         try {
@@ -262,7 +265,20 @@ export default function ScannerRemitosTab({
         }
       }
       await Promise.all([loadLocal({ quiet: true }), loadRemote()]);
-      toast.success(receipt.duplicate ? "Este remito ya estaba cargado. Abrimos el existente." : "Remito leído. Revisá las coincidencias antes de ingresarlo.");
+      if (receipt.duplicate) {
+        toast.success("Este remito ya estaba cargado. Abrimos el existente.");
+        onReview?.(receipt);
+        return;
+      }
+      // Con "solo archivar" el remito queda guardado y buscable, y no se abre el
+      // ingreso: el que lo escaneo queria tener el papel en el sistema, no mover
+      // stock. Abrirle el formulario igual seria pedirle que cancele algo que no
+      // pidio.
+      if (contextoEscaneo.soloArchivar) {
+        toast.success(`Remito archivado${contextoEscaneo.obra?.codigo ? ` en ${contextoEscaneo.obra.codigo}` : ""}. Lo encontrás en Remitos.`);
+        return;
+      }
+      toast.success("Remito leído. Revisá las coincidencias antes de ingresarlo.");
       onReview?.(receipt);
     } catch (error) {
       toast.error(error.message || "No se pudo leer el remito.");
@@ -327,9 +343,9 @@ export default function ScannerRemitosTab({
     setPreguntando(true);
   }
 
-  async function escanearCon({ carpeta, proveedor, source, obra }) {
+  async function escanearCon({ carpeta, proveedor, source, obra, titulo, notas, soloArchivar }) {
     setPreguntando(false);
-    setContextoEscaneo({ carpeta, proveedor, obra });
+    setContextoEscaneo({ carpeta, proveedor, obra, titulo, notas, soloArchivar });
     setScanSource(source);
     try {
       const result = await launchScannerApp(source, carpeta);
