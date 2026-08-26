@@ -41,12 +41,37 @@ $policyNames = @(
   "LoopbackNetworkAllowedForUrls",
   "InsecurePrivateNetworkRequestsAllowedForUrls"
 )
-foreach ($policyName in $policyNames) {
-  $policyPath = "HKLM:\SOFTWARE\Policies\Google\Chrome\$policyName"
-  New-Item -Path $policyPath -Force | Out-Null
-  New-ItemProperty -Path $policyPath -Name "1" -PropertyType String -Value $origin -Force | Out-Null
+# Chrome y Edge leen cada uno su propia rama del registro. Si el panol usa Edge
+# y solo escribimos la de Chrome, para ese navegador el permiso no existe.
+$policyRoots = @(
+  "HKLM:\SOFTWARE\Policies\Google\Chrome",
+  "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+)
+foreach ($policyRoot in $policyRoots) {
+  foreach ($policyName in $policyNames) {
+    $policyPath = Join-Path $policyRoot $policyName
+    New-Item -Path $policyPath -Force | Out-Null
+    New-ItemProperty -Path $policyPath -Name "1" -PropertyType String -Value $origin -Force | Out-Null
+  }
 }
-Write-Host "    Chrome autorizado solo para $origin" -ForegroundColor Green
+Write-Host "    Chrome y Edge autorizados solo para $origin" -ForegroundColor Green
+
+# ACA ESTABA LA FALLA: el navegador lee estas politicas UNA SOLA VEZ, cuando
+# arranca. Abrir una ventana nueva sobre un Chrome que ya estaba abierto reusa
+# el mismo proceso, que sigue sin el permiso: la reparacion decia "terminada" y
+# la web seguia sin ver el puente. Hay que cerrarlo del todo y volver a abrirlo.
+$navegadoresAbiertos = @(Get-Process -Name chrome, msedge -ErrorAction SilentlyContinue)
+if ($navegadoresAbiertos.Count -gt 0) {
+  Write-Host ""
+  Write-Host "    El navegador esta abierto y hay que reiniciarlo para que tome el permiso." -ForegroundColor Yellow
+  Write-Host "    Se cierran todas las ventanas. Al volver a abrir, Chrome restaura las pestanas." -ForegroundColor Yellow
+  Read-Host "    Presiona Enter para cerrarlo"
+  foreach ($proceso in $navegadoresAbiertos) {
+    Stop-Process -Id $proceso.Id -Force -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Seconds 3
+  Write-Host "    Navegador cerrado." -ForegroundColor Green
+}
 
 Write-Host "2/5 Verificando el puente local..." -ForegroundColor Cyan
 $health = $null
@@ -118,7 +143,7 @@ if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
 }
 Write-Host "    Codigo copiado al portapapeles: $pairingCode" -ForegroundColor Green
 
-Write-Host "5/5 Abriendo una version limpia de Klase A..." -ForegroundColor Cyan
+Write-Host "5/5 Abriendo el navegador de cero, ya con el permiso..." -ForegroundColor Cyan
 $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $appUrl = "$origin/recepcion-panol?tab=scanner&_appv=repair-$stamp"
 $desktop = [Environment]::GetFolderPath("Desktop")
@@ -133,7 +158,9 @@ $chromeCandidates = @(
 )
 $chromePath = $chromeCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 if ($chromePath) {
-  Start-Process -FilePath $chromePath -ArgumentList @("--new-window", $appUrl)
+  # Sin --new-window: el navegador quedo cerrado, asi que este arranque si lee
+  # las politicas recien escritas.
+  Start-Process -FilePath $chromePath -ArgumentList @($appUrl)
 } else {
   Start-Process $appUrl
 }
