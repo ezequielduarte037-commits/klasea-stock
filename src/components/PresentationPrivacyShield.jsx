@@ -12,7 +12,6 @@ function shouldMask(element) {
   if (element.closest("[data-demo-visible='true']")) return false;
 
   const text = String(element.textContent || "").trim();
-  if (CURRENCY_VALUE.test(text)) return true;
 
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     const context = [
@@ -25,6 +24,12 @@ function shouldMask(element) {
     ].filter(Boolean).join(" ");
     return ECONOMIC_FIELD.test(context) && /\d/.test(String(element.value || ""));
   }
+
+  // Nunca se difumina un contenedor por tener un precio entre sus hijos:
+  // eso bloquearía filas, paneles o incluso la pantalla completa. Los importes
+  // normales se marcan únicamente en su nodo de texto final; las tablas tienen
+  // además el tratamiento por columna de abajo.
+  if (element.childElementCount === 0 && CURRENCY_VALUE.test(text)) return true;
 
   return element.childElementCount === 0
     && ECONOMIC_FIELD.test(text)
@@ -74,6 +79,7 @@ export default function PresentationPrivacyShield({ active = false }) {
     if (!active) return undefined;
     const root = document.documentElement;
     root.dataset.presentationMode = "true";
+    document.querySelectorAll(".klasea-demo-price").forEach((element) => element.classList.remove("klasea-demo-price"));
 
     let frame = 0;
     const pendingRoots = new Set();
@@ -111,7 +117,6 @@ export default function PresentationPrivacyShield({ active = false }) {
         .klasea-demo-price {
           filter: blur(6px) !important;
           user-select: none !important;
-          pointer-events: none !important;
         }
         html[data-presentation-mode="true"] .recharts-yAxis .recharts-cartesian-axis-tick-value,
         html[data-presentation-mode="true"] .recharts-tooltip-wrapper {
