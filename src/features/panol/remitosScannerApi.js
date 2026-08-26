@@ -123,7 +123,7 @@ async function fetchScannerReceiptById(id) {
   return { ...receipt, items: items || [] };
 }
 
-export async function processScannedReceipt(file, { sede = null } = {}) {
+export async function processScannedReceipt(file, { sede = null, proveedor = "" } = {}) {
   validateFile(file);
   const hash = await sha256(file);
 
@@ -139,7 +139,10 @@ export async function processScannedReceipt(file, { sede = null } = {}) {
   }
 
   const [parsed, catalog] = await Promise.all([
-    leerPresupuestoConIA({ file, tipoEsperado: "remito" }),
+    // El proveedor que eligio la persona antes de escanear entra como contexto:
+    // ayuda a interpretar descripciones abreviadas y le saca a la IA la parte
+    // que peor hace, que es adivinar de quien es el remito.
+    leerPresupuestoConIA({ file, tipoEsperado: "remito", proveedor }),
     fetchPanolCatalogFull(),
   ]);
   assertRemitoExtraction(parsed);

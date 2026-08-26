@@ -34,6 +34,8 @@ import {
   processScannedReceipt,
   scannerReceiptFileUrl,
 } from "@/features/panol/remitosScannerApi";
+import AntesDeEscanearModal from "@/features/panol/AntesDeEscanearModal";
+import { carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -214,6 +216,12 @@ export default function ScannerRemitosTab({
     done: receipts.filter((row) => row.recepcion_estado === "ingresado").length,
   }), [localFiles, receipts]);
 
+  // Lo que la persona eligio en el modal. Se guarda para dos momentos
+  // distintos: la carpeta la usa el puente al escanear, y el proveedor lo usa la
+  // IA despues, cuando se procesa el archivo que llego.
+  const [preguntando, setPreguntando] = useState(false);
+  const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null });
+
   async function connectBridge() {
     const key = saveScannerPairingKey(pairingCode);
     setPairingCode(key);
@@ -240,7 +248,7 @@ export default function ScannerRemitosTab({
     const operationId = localId || `manual-${Date.now()}`;
     setProcessingId(operationId);
     try {
-      const receipt = await processScannedReceipt(file, { sede });
+      const receipt = await processScannedReceipt(file, { sede, proveedor: contextoEscaneo.proveedor });
       if (localId) {
         try {
           await archiveScannerFile(localId);
@@ -308,16 +316,29 @@ export default function ScannerRemitosTab({
     }
   }
 
+  // Antes de mover la lampara se pregunta que es: sin eso el remito cae en una
+  // carpeta comun y la IA tiene que adivinar el proveedor.
   async function startScan() {
+    setPreguntando(true);
+  }
+
+  async function escanearCon({ carpeta, proveedor, source, obra }) {
+    setPreguntando(false);
+    setContextoEscaneo({ carpeta, proveedor, obra });
+    setScanSource(source);
     try {
-      const result = await launchScannerApp(scanSource);
+      const result = await launchScannerApp(source, carpeta);
       setHealth((current) => ({
         ...(current || {}),
         scanning: result?.scanning !== false,
         scanStartedAt: result?.startedAt || new Date().toISOString(),
         lastError: "",
       }));
-      toast.success(result?.message || "Scanner abierto.");
+      toast.success(
+        carpeta
+          ? `Escaneando para ${obra?.codigo || "la obra"}. Se guarda en ${carpetaParaMostrar(carpeta)}.`
+          : (result?.message || "Scanner abierto."),
+      );
     } catch (error) {
       toast.error(error.message || "No se pudo abrir Pantum Scan.");
     }
@@ -325,6 +346,15 @@ export default function ScannerRemitosTab({
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: C.bg }}>
+      {preguntando ? (
+        <AntesDeEscanearModal
+          onCerrar={() => setPreguntando(false)}
+          onConfirmar={escanearCon}
+          obraSugerida={contextoEscaneo.obra}
+          proveedorSugerido={contextoEscaneo.proveedor}
+          origenInicial={scanSource}
+        />
+      ) : null}
       <style>{`
         @media (max-width: 680px) {
           .panol-scanner-metrics {
@@ -428,8 +458,12 @@ export default function ScannerRemitosTab({
               {health?.scanning ? <LoaderCircle size={15} className="spin" /> : <ScanLine size={15} />}
               {health?.scanning ? "Escaneando…" : "Escanear remito"}
             </Button>
-            <Button onClick={() => openScannerFolder().catch((error) => toast.error(error.message))} disabled={!connected}>
-              <FolderOpen size={15} /> Carpeta Pendientes
+            <Button
+              onClick={() => openScannerFolder({ carpeta: contextoEscaneo.carpeta }).catch((error) => toast.error(error.message))}
+              disabled={!connected}
+              title={contextoEscaneo.carpeta ? carpetaParaMostrar(contextoEscaneo.carpeta) : "Remitos\\Pendientes"}
+            >
+              <FolderOpen size={15} /> {contextoEscaneo.obra?.codigo ? `Carpeta ${contextoEscaneo.obra.codigo}` : "Carpeta Pendientes"}
             </Button>
             <Button onClick={() => manualInputRef.current?.click()}>
               <Upload size={15} /> Subir archivo manualmente

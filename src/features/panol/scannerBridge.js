@@ -119,9 +119,12 @@ export async function archiveScannerFile(id) {
   await localRequest(`/archive/${encodeURIComponent(id)}`, { method: "POST", timeout: 8000 });
 }
 
-export async function launchScannerApp(source = "glass") {
+export async function launchScannerApp(source = "glass", carpeta = "") {
   const normalizedSource = source === "glass" ? "glass" : "feeder";
-  const response = await localRequest(`/scan?source=${normalizedSource}`, { method: "POST", timeout: 12_000 });
+  // La carpeta es la de la obra ("K55/55-1"): el puente la vuelve a sanear antes
+  // de usarla como ruta, asi que de este lado alcanza con codificarla.
+  const conCarpeta = carpeta ? `&carpeta=${encodeURIComponent(carpeta)}` : "";
+  const response = await localRequest(`/scan?source=${normalizedSource}${conCarpeta}`, { method: "POST", timeout: 12_000 });
   return response.json();
 }
 
@@ -131,10 +134,10 @@ function wait(milliseconds) {
 
 // Tiene que ser mayor que el SCAN_TIMEOUT_MS del puente (180s): si la web se
 // rinde primero, el escaneo sigue vivo y el PDF aparece cuando ya nadie mira.
-export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 200_000 } = {}) {
+export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 200_000, carpeta = "" } = {}) {
   const before = await fetchScannerFiles();
   const previousIds = new Set(before.map((row) => row.id));
-  await launchScannerApp(source);
+  await launchScannerApp(source, carpeta);
 
   const deadline = Date.now() + timeoutMs;
   let lastStatus = "scanning";
@@ -159,7 +162,11 @@ export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 200_
   throw new Error("El escaneo demoró demasiado. Revisá la Pantum y volvé a intentar.");
 }
 
-export async function openScannerFolder() {
-  const response = await localRequest("/open-folder", { method: "POST" });
+export async function openScannerFolder({ carpeta = "", archivados = false } = {}) {
+  const partes = [];
+  if (carpeta) partes.push(`carpeta=${encodeURIComponent(carpeta)}`);
+  if (archivados) partes.push("archivados=1");
+  const query = partes.length ? `?${partes.join("&")}` : "";
+  const response = await localRequest(`/open-folder${query}`, { method: "POST" });
   return response.json();
 }

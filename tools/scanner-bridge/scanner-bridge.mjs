@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const PORT = 17778;
-const VERSION = "1.2.1";
+const VERSION = "1.3.0";
 // Un A4 en color a 300 dpi son unos 26 MB que la Pantum manda por USB, y en la
 // PC del panol eso pasa holgado de los 90 segundos: el puente mataba el escaneo
 // a mitad de camino, con la ventana de Windows todavia en "Escaneando pagina 1".
@@ -59,19 +59,45 @@ function saveScanError(message) {
   }
 }
 
+// La web manda algo como "K55/55-1" para archivar el remito en la carpeta de su
+// obra. Viene de afuera, asi que se sanea a fondo: solo dos niveles, sin ".."
+// ni letras de unidad, y con los caracteres que Windows acepta en un nombre.
+// Sin esto un "carpeta=../../Windows" escribiria donde no debe.
+const MAX_NIVELES_CARPETA = 2;
+
+function carpetaSegura(valor = "") {
+  return String(valor || "")
+    .split(/[\\/]+/)
+    .map((parte) => parte.trim().replace(/[^A-Za-z0-9 _.\-]/g, "").replace(/^\.+/, "").trim())
+    .filter((parte) => parte && parte !== "." && parte !== "..")
+    .slice(0, MAX_NIVELES_CARPETA)
+    .join("\\");
+}
+
 function fileId(path, stats) {
   return createHash("sha256").update(`${path}|${stats.size}|${stats.mtimeMs}`).digest("hex").slice(0, 24);
 }
 
+// Recorre Pendientes y sus carpetas de obra. Se limita la profundidad para que
+// una carpeta rara no haga recorrer medio disco.
+function archivosPendientes(carpeta = PENDING, profundidad = 0) {
+  if (profundidad > MAX_NIVELES_CARPETA) return [];
+  const salida = [];
+  for (const entry of readdirSync(carpeta, { withFileTypes: true })) {
+    const path = join(carpeta, entry.name);
+    if (entry.isDirectory()) {
+      salida.push(...archivosPendientes(path, profundidad + 1));
+      continue;
+    }
+    if (!entry.isFile() || !ALLOWED.has(extname(entry.name).toLowerCase())) continue;
+    salida.push({ path, stats: statSync(path), name: entry.name });
+  }
+  return salida;
+}
+
 function pendingFiles() {
   const now = Date.now();
-  return readdirSync(PENDING, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && ALLOWED.has(extname(entry.name).toLowerCase()))
-    .map((entry) => {
-      const path = join(PENDING, entry.name);
-      const stats = statSync(path);
-      return { path, stats, name: entry.name };
-    })
+  return archivosPendientes()
     .filter((row) => row.stats.size > 0 && now - row.stats.mtimeMs > 1000)
     .sort((a, b) => a.stats.birthtimeMs - b.stats.birthtimeMs)
     .map((row) => ({
@@ -81,6 +107,8 @@ function pendingFiles() {
       createdAt: row.stats.birthtime.toISOString(),
       updatedAt: row.stats.mtime.toISOString(),
       mimeType: MIME[extname(row.name).toLowerCase()] || "application/octet-stream",
+      // Carpeta de obra donde quedo, para mostrarla y para archivarlo ahi mismo.
+      carpeta: carpetaSegura(dirname(row.path).slice(PENDING.length)),
       path: row.path,
     }));
 }
@@ -125,11 +153,16 @@ function findFile(id) {
   return pendingFiles().find((row) => row.id === id) || null;
 }
 
-function uniqueArchive(name) {
+function uniqueArchive(name, carpeta = "") {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/[TZ.]/g, "-").slice(0, 15);
-  let path = join(ARCHIVED, `${stamp}-${basename(name)}`);
+  // Se archiva en la misma carpeta de obra donde estaba: si se escaneo en
+  // K55\55-1, queda en Procesados\K55\55-1. Es la carpeta que despues alguien
+  // abre para buscar los remitos de ese barco.
+  const destinoDir = carpeta ? join(ARCHIVED, carpeta) : ARCHIVED;
+  mkdirSync(destinoDir, { recursive: true });
+  let path = join(destinoDir, `${stamp}-${basename(name)}`);
   if (!existsSync(path)) return path;
-  path = join(ARCHIVED, `${stamp}-${randomBytes(4).toString("hex")}-${basename(name)}`);
+  path = join(destinoDir, `${stamp}-${randomBytes(4).toString("hex")}-${basename(name)}`);
   return path;
 }
 
@@ -153,8 +186,11 @@ function stopProcessTree(pid) {
   killer.unref();
 }
 
-function launchScanner(requestedSource = "glass") {
+function launchScanner(requestedSource = "glass", carpetaPedida = "") {
   const source = requestedSource === "glass" ? "glass" : "feeder";
+  const carpeta = carpetaSegura(carpetaPedida);
+  const destino = carpeta ? join(PENDING, carpeta) : PENDING;
+  mkdirSync(destino, { recursive: true });
   if (scanProcess) {
     return {
       message: "Ya hay un escaneo en curso.",
@@ -167,7 +203,7 @@ function launchScanner(requestedSource = "glass") {
     if (existsSync(SCAN_ERROR_FILE)) unlinkSync(SCAN_ERROR_FILE);
     const child = spawn(
       "powershell.exe",
-      ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", SCAN_SCRIPT, "-Destination", PENDING, "-Source", source],
+      ["-NoLogo", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", SCAN_SCRIPT, "-Destination", destino, "-Source", source],
       { detached: false, stdio: "ignore", windowsHide: true },
     );
     scanProcess = child;
@@ -275,21 +311,28 @@ const server = createServer((req, res) => {
         json(res, 404, { error: "El archivo ya fue movido." });
         return;
       }
-      const destination = uniqueArchive(row.name);
+      const destination = uniqueArchive(row.name, row.carpeta);
       renameSync(row.path, destination);
       json(res, 200, { ok: true, archived: basename(destination) });
       return;
     }
 
     if (url.pathname === "/open-folder" && req.method === "POST") {
-      launch("explorer.exe", [PENDING]);
-      json(res, 200, { ok: true, folder: PENDING });
+      // Con ?carpeta abre directo la de esa obra, y si todavia no tiene nada
+      // escaneado se crea igual para que no falle el explorador.
+      const carpeta = carpetaSegura(url.searchParams.get("carpeta") || "");
+      const raiz = url.searchParams.get("archivados") === "1" ? ARCHIVED : PENDING;
+      const folder = carpeta ? join(raiz, carpeta) : raiz;
+      mkdirSync(folder, { recursive: true });
+      launch("explorer.exe", [folder]);
+      json(res, 200, { ok: true, folder });
       return;
     }
 
     if (url.pathname === "/scan" && req.method === "POST") {
-      const scan = launchScanner(url.searchParams.get("source") || "glass");
-      json(res, 200, { ok: true, ...scan, scanning: Boolean(scanProcess), folder: PENDING });
+      const carpeta = carpetaSegura(url.searchParams.get("carpeta") || "");
+      const scan = launchScanner(url.searchParams.get("source") || "glass", carpeta);
+      json(res, 200, { ok: true, ...scan, scanning: Boolean(scanProcess), folder: carpeta ? join(PENDING, carpeta) : PENDING, carpeta });
       return;
     }
 

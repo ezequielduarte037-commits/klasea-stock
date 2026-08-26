@@ -1,0 +1,173 @@
+import { useEffect, useMemo, useState } from "react";
+import { FolderOpen, LoaderCircle, ScanLine, X } from "lucide-react";
+import { C } from "@/theme";
+import { fetchObrasEgreso } from "@/features/panol/panolApi";
+import { carpetaDeObra, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
+
+/**
+ * Lo que se pregunta antes de escanear. Sirve para dos cosas a la vez: el remito
+ * queda archivado en la carpeta de su obra -Remitos\K55\55-1- y la IA lee el
+ * documento sabiendo de quien viene, que es justo lo que le faltaba para no
+ * tener que adivinar el proveedor.
+ *
+ * La obra NO es obligatoria: si el remito es de stock general y no va a ningun
+ * barco, se escanea igual y queda en la raiz. Frenar un ingreso por un campo sin
+ * completar seria peor que tener un remito sin clasificar.
+ *
+ * Quien lo usa lo monta solo cuando hace falta ({abierto && <Modal/>}), asi cada
+ * vez arranca limpio y con lo que la pantalla ya sabe.
+ */
+
+const ORIGENES = [
+  { valor: "glass", etiqueta: "Vidrio", detalle: "una hoja apoyada" },
+  { valor: "feeder", etiqueta: "Alimentador", detalle: "varias hojas" },
+];
+
+export default function AntesDeEscanearModal({
+  onCerrar,
+  onConfirmar,
+  proveedoresConocidos = [],
+  obraSugerida = null,
+  proveedorSugerido = "",
+  origenInicial = "glass",
+  titulo = "¿Qué vas a escanear?",
+}) {
+  const [obras, setObras] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [obraId, setObraId] = useState(obraSugerida?.id ? String(obraSugerida.id) : "");
+  const [proveedor, setProveedor] = useState(String(proveedorSugerido || ""));
+  const [origen, setOrigen] = useState(origenInicial);
+
+  useEffect(() => {
+    let vivo = true;
+    fetchObrasEgreso()
+      .then((filas) => { if (vivo) setObras(filas ?? []); })
+      .catch(() => { if (vivo) setObras([]); })
+      .finally(() => { if (vivo) setCargando(false); });
+    return () => { vivo = false; };
+  }, []);
+
+  const porLinea = useMemo(() => {
+    const mapa = new Map();
+    for (const obra of obras) {
+      if (obra?.estado === "entregada" || obra?.estado === "cancelada") continue;
+      const linea = String(obra.linea_nombre || "").trim() || "Sin línea";
+      mapa.set(linea, [...(mapa.get(linea) ?? []), obra]);
+    }
+    return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [obras]);
+
+  const obraElegida = useMemo(
+    () => obras.find((o) => String(o.id) === obraId) || null,
+    [obras, obraId],
+  );
+  const carpeta = carpetaDeObra(obraElegida);
+
+  function confirmar() {
+    onConfirmar?.({
+      obra: obraElegida,
+      carpeta,
+      proveedor: proveedor.trim(),
+      source: origen,
+    });
+  }
+
+  const etiqueta = { fontSize: 11, fontWeight: 900, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 };
+  const campo = {
+    width: "100%", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text,
+    borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 700, outline: "none",
+  };
+
+  return (
+    <div
+      onClick={onCerrar}
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{ width: "min(460px, 100%)", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 18px 50px rgba(15,23,42,0.28)", overflow: "hidden" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <ScanLine size={17} color={C.blue} />
+          <div style={{ flex: 1, fontSize: 14.5, fontWeight: 950, color: C.text }}>{titulo}</div>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
+            <X size={17} />
+          </button>
+        </div>
+
+        <div style={{ padding: 16, display: "grid", gap: 14 }}>
+          <div>
+            <div style={etiqueta}>Para qué barco</div>
+            <select value={obraId} onChange={(event) => setObraId(event.target.value)} style={campo} disabled={cargando}>
+              <option value="">{cargando ? "Cargando obras…" : "Sin obra · va a stock general"}</option>
+              {porLinea.map(([linea, lista]) => (
+                <optgroup key={linea} label={linea}>
+                  {lista.map((obra) => (
+                    <option key={obra.id} value={String(obra.id)}>{obra.codigo}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div style={etiqueta}>
+              De qué proveedor <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional, ayuda a la IA)</span>
+            </div>
+            <input
+              value={proveedor}
+              onChange={(event) => setProveedor(event.target.value)}
+              list="klasea-proveedores-escaneo"
+              placeholder="Ej.: Iriarte"
+              style={campo}
+            />
+            <datalist id="klasea-proveedores-escaneo">
+              {proveedoresConocidos.map((nombre) => <option key={nombre} value={nombre} />)}
+            </datalist>
+          </div>
+
+          <div>
+            <div style={etiqueta}>De dónde</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {ORIGENES.map((opcion) => {
+                const activo = origen === opcion.valor;
+                return (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    onClick={() => setOrigen(opcion.valor)}
+                    style={{
+                      flex: 1, border: `1px solid ${activo ? C.blueB : C.border2}`, background: activo ? C.blueL : C.panelSolid,
+                      color: activo ? C.blue : C.text, borderRadius: 9, padding: "9px 8px", cursor: "pointer",
+                      fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "grid", gap: 2,
+                    }}
+                  >
+                    <span>{opcion.etiqueta}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderRadius: 9, background: C.panel2, border: `1px solid ${C.border}` }}>
+            <FolderOpen size={14} color={C.dim} />
+            <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Se guarda en <b style={{ color: C.text }}>{carpetaParaMostrar(carpeta)}</b>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel2 }}>
+          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+            Cancelar
+          </button>
+          <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+            {cargando ? <LoaderCircle size={14} className="spin" /> : <ScanLine size={14} />}
+            Escanear
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

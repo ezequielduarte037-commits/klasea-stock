@@ -38,6 +38,7 @@ import { leerPresupuestoConIA } from "@/features/materiales/api";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
 import { assertRemitoExtraction } from "@/features/panol/remitoDocument";
 import { archiveScannerFile, scanReceiptFromDevice } from "@/features/panol/scannerBridge";
+import AntesDeEscanearModal from "@/features/panol/AntesDeEscanearModal";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
@@ -573,6 +574,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const [sel, setSel] = useState(new Set());
   const [remitoLeyendo, setRemitoLeyendo] = useState(false);
   const [remitoEscaneando, setRemitoEscaneando] = useState(false);
+  const [preguntandoEscaneo, setPreguntandoEscaneo] = useState(false);
+  // Solo para el modal de escaneo: la obra del aviso que se esta recibiendo.
+  const obraDelAviso = useMemo(
+    () => (envio?.obra?.id ? { id: envio.obra.id, codigo: envio.obra.codigo, linea_nombre: envio.obra.linea_nombre } : null),
+    [envio?.obra?.id, envio?.obra?.codigo, envio?.obra?.linea_nombre],
+  );
   const [remitoScanSource, setRemitoScanSource] = useState("glass");
   // Solo se cargan si el usuario puede corregir la obra; para el pañolero es
   // una consulta al pedo.
@@ -788,12 +795,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   // Lee el remito y propone que renglon del aviso tacha cada linea. Los ids ya
   // usados se descartan para que dos lineas parecidas del remito no caigan sobre
   // el mismo renglon y una quede sin recibir.
-  async function leerRemitoDeRecepcion(file) {
+  async function leerRemitoDeRecepcion(file, { proveedor = "" } = {}) {
     if (!file) return false;
     setRemitoLeyendo(true);
     setRemitoIa(null);
     try {
-      const data = await leerPresupuestoConIA({ file, tipoEsperado: "remito" });
+      const data = await leerPresupuestoConIA({ file, tipoEsperado: "remito", proveedor });
       assertRemitoExtraction(data);
       const lineas = (data?.items || data?.lineas || [])
         .map((it) => ({
@@ -852,13 +859,21 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
     }
   }
 
-  async function escanearRemitoDeRecepcion() {
+  // En recepcion ya sabemos para que barco es -es el aviso que se esta
+  // recibiendo-, asi que el modal viene con la obra puesta y en el caso normal
+  // alcanza con confirmar.
+  function escanearRemitoDeRecepcion() {
     if (remitoEscaneando || remitoLeyendo) return;
+    setPreguntandoEscaneo(true);
+  }
+
+  async function escanearRemitoCon({ carpeta, proveedor, source }) {
+    setPreguntandoEscaneo(false);
     setRemitoEscaneando(true);
     setRemitoIa(null);
     try {
-      const { row, file } = await scanReceiptFromDevice(remitoScanSource);
-      const valido = await leerRemitoDeRecepcion(file);
+      const { row, file } = await scanReceiptFromDevice(source || remitoScanSource, { carpeta });
+      const valido = await leerRemitoDeRecepcion(file, { proveedor });
       if (valido) {
         await archiveScannerFile(row.id);
         toast.success("Remito escaneado y cruzado con este aviso. Revisá los ítems antes de confirmar.");
@@ -1153,6 +1168,15 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
 
   return (
     <>
+      {preguntandoEscaneo ? (
+        <AntesDeEscanearModal
+          titulo="¿Qué remito vas a escanear?"
+          onCerrar={() => setPreguntandoEscaneo(false)}
+          onConfirmar={escanearRemitoCon}
+          obraSugerida={obraDelAviso}
+          origenInicial={remitoScanSource}
+        />
+      ) : null}
       <div style={{
         background: C.topbar,
         borderBottom: `1px solid ${C.border}`,
