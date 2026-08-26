@@ -4,7 +4,7 @@ import { Bot, ClipboardPaste, Link2, MapPin, PackageSearch, RotateCcw, ScanLine,
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, recordarAliasDeProveedor, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, olvidarAliasDeProveedor, recordarAliasDeProveedor, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA, normalizeUnidadMedida } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
@@ -833,6 +833,11 @@ export default function EnviarAPanolModal({
   // línea y el modal se cerraba solo, con todo lo cargado adentro.
   // Con esto sólo cierra si el click EMPEZÓ en el fondo.
   const clickArrancoEnElFondo = useRef(false);
+  // Cambiar el producto de un renglon que YA estaba vinculado es una correccion:
+  // el anterior estaba mal. Se anota para, al guardar, sacarle a ese producto el
+  // alias que lo hacia aparecer. Sin esto el error queda aprendido y el sistema
+  // lo vuelve a sugerir en el remito siguiente.
+  const correccionesRef = useRef([]);
   const autoDraftIdRef = useRef(null);
   const lastAutosaveRef = useRef("");
   const scanInputRef = useRef(null);
@@ -1282,6 +1287,27 @@ export default function EnviarAPanolModal({
     return guardados;
   }
 
+  // Los renglones que alguien re-vinculo: se le saca el alias al producto
+  // equivocado. Solo si el texto NO quedo apuntando a ese mismo producto -puede
+  // haber ido y vuelto- para no borrar algo que en realidad estaba bien.
+  async function olvidarLoCorregido(sourceItems) {
+    const correcciones = correccionesRef.current;
+    if (!correcciones.length) return 0;
+    const norm = (s) => String(s || "").toLowerCase().trim();
+    const vigentes = correcciones.filter((c) => !sourceItems.some((it) => (
+      it.material_id === c.materialId
+      && norm(it.descripcion_leida || it.descripcion) === norm(c.texto)
+    )));
+    if (!vigentes.length) { correccionesRef.current = []; return 0; }
+    const hechos = await Promise.all(
+      vigentes.map((c) => olvidarAliasDeProveedor(c.materialId, c.texto).catch(() => false)),
+    );
+    correccionesRef.current = [];
+    const n = hechos.filter(Boolean).length;
+    if (n) invalidatePanolCatalogFullCache();
+    return n;
+  }
+
   async function rememberTouchedLocations(sourceItems) {
     const updates = [];
     const patchByMaterial = new Map();
@@ -1338,6 +1364,16 @@ export default function EnviarAPanolModal({
 
   function linkCatalogMaterial(index, material) {
     if (!material) return;
+    const anterior = items[index];
+    if (anterior?.material_id && anterior.material_id !== material.id) {
+      const texto = String(anterior.descripcion_leida || anterior.descripcion || "").trim();
+      if (texto.length >= 4) {
+        correccionesRef.current = [
+          ...correccionesRef.current.filter((c) => !(c.materialId === anterior.material_id && c.texto === texto)),
+          { materialId: anterior.material_id, texto },
+        ];
+      }
+    }
     setItems((prev) => prev.map((it, idx) => (idx === index ? { ...it, ...itemPatchFromMaterial(material, it) } : it)));
   }
 
@@ -1710,7 +1746,14 @@ export default function EnviarAPanolModal({
         toast.warning(locationError.message || "El ingreso sigue, pero no se pudo guardar la ubicacion habitual.");
       }
       try {
+        // Primero se olvida lo corregido y despues se aprende lo nuevo: si un
+        // texto cambio de producto, el orden importa para no borrar lo recien
+        // guardado.
+        const corregidos = await olvidarLoCorregido(preparedItems);
         const aprendidos = await aprenderAliasDeProveedor(preparedItems);
+        if (corregidos) {
+          toast.success(`Corregí ${corregidos} vínculo${corregidos === 1 ? "" : "s"} que estaba mal. No lo vuelve a sugerir.`);
+        }
         if (aprendidos) {
           toast.success(`Aprendí cómo le dice el proveedor a ${aprendidos} producto${aprendidos === 1 ? "" : "s"}. La próxima los reconoce solo.`);
         }

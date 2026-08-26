@@ -1634,6 +1634,33 @@ export async function recordarAliasDeProveedor(materialId, textoDelRemito) {
   return !upErr;
 }
 
+// Lo contrario de recordar. Cuando alguien corrige un renglon que estaba
+// vinculado al producto equivocado, ese texto tiene que DEJAR de ser alias del
+// producto viejo: si no, el error queda aprendido y el sistema lo vuelve a
+// sugerir en cada remito. Es la mitad que faltaba del aprendizaje.
+export async function olvidarAliasDeProveedor(materialId, textoDelRemito) {
+  const texto = String(textoDelRemito || "").trim();
+  if (!materialId || !texto) return false;
+
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("alias")
+    .eq("id", materialId)
+    .single();
+  if (error || !data?.alias) return false;
+
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  const actuales = String(data.alias).split(",").map((x) => x.trim()).filter(Boolean);
+  const quedan = actuales.filter((x) => norm(x) !== norm(texto));
+  if (quedan.length === actuales.length) return false;
+
+  const { error: upErr } = await supabase
+    .from("panol_materiales")
+    .update({ alias: quedan.join(", ") || null })
+    .eq("id", materialId);
+  return !upErr;
+}
+
 export async function fetchObrasEgreso() {
   try {
     const { data, error } = await supabase
