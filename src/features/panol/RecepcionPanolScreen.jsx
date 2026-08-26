@@ -643,7 +643,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
               style={{ border: "none", background: tab === "recepcion" || tab === "scanner" ? "transparent" : C.panelSolid, color: tab === "recepcion" || tab === "scanner" ? C.dim : C.text, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, outline: "none" }}
             >
               <option value="">Más operaciones</option>
-              <option value="remitos">Remitos archivados</option>
+              <option value="remitos">Remitos</option>
               <option value="ingresar">Ingreso directo{pendientes.length > 0 ? ` (${pendientes.length})` : ""}</option>
               <option value="consumibles">Consumibles</option>
               <option value="crear">Crear producto</option>

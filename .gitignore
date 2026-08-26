@@ -31,6 +31,8 @@ backups/supabase-dryrun-*.txt
 # El volcado de datos queda en disco pero no entra al repo: son datos de
 # producción y el historial de git no es lugar para eso.
 backups/rest-*/
+# Respaldos de comprobantes borrados: son PDFs de proveedores reales.
+backups/remitos-*/
 # Build del puente NFC (tools/nfc-bridge)
 tools/nfc-bridge/bin/
 tools/nfc-bridge/obj/
