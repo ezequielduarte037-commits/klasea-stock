@@ -13,6 +13,7 @@ import TourProvider from "@/features/ayuda/TourProvider";
 import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
 import { endTrackedAdminSession } from "@/features/configuracion/adminActivityApi";
 import GlobalSearch from "@/features/search/GlobalSearch";
+import PresentationPrivacyShield from "@/components/PresentationPrivacyShield";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -193,6 +194,13 @@ function startupErrorMessage(error) {
 // Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
 // superpone con los controles y rompe el layout, así que ahí no va.
 const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
+const RUTAS_DEMO = new Set([
+  "/", "/obras", "/materiales", "/compras", "/compras-etapa",
+  "/stock-panol", "/catalogo-maestro", "/solicitudes-panol", "/recepcion-panol", "/egresos-panol",
+  "/laminacion", "/obras-laminacion", "/muebles", "/torneria", "/marmoleria",
+  "/calendario", "/calendario-produccion", "/memorias", "/procedimientos",
+  "/postventa", "/madera", "/movimientos", "/pedidos",
+]);
 
 function CampanitaSalvoColector({ profile }) {
   const { pathname } = useLocation();
@@ -205,7 +213,9 @@ function RequireAuth({ session, children }) {
   return children;
 }
 function RequireRole({ profile, allow, children }) {
+  const { pathname } = useLocation();
   if (!profile) return <Navigate to="/login" replace />;
+  if (profile.is_demo) return RUTAS_DEMO.has(pathname) ? children : <Navigate to="/" replace />;
   if (profile.is_admin || allow.includes(profile.role)) return children;
   if (profile.role === "compras") return <Navigate to="/compras" replace />;
   if (profile.role === "cadete")  return <Navigate to="/cadete" replace />;
@@ -489,12 +499,12 @@ export default function App() {
       let { data: pData, error: pErr } = await withStartupTimeout(
         supabase
           .from("profiles")
-          .select("id,username,role,is_admin,sede,must_change_password")
+          .select("id,username,role,is_admin,is_demo,sede,must_change_password")
           .eq("id", s.user.id)
           .maybeSingle(),
         "Carga del perfil",
       );
-      if (pErr && String(pErr.message || "").includes("must_change_password")) {
+      if (pErr && ["must_change_password", "is_demo"].some((field) => String(pErr.message || "").includes(field))) {
         const retry = await withStartupTimeout(supabase
           .from("profiles")
           .select("id,username,role,is_admin,sede")
@@ -506,7 +516,10 @@ export default function App() {
       if (pErr) throw pErr;
 
       if (pData) {
-        if (loadId === profileLoadIdRef.current) setProfile(pData);
+        const normalizedProfile = pData.is_demo
+          ? { ...pData, access_role: pData.role, role: "demo", is_admin: false, must_change_password: false }
+          : pData;
+        if (loadId === profileLoadIdRef.current) setProfile(normalizedProfile);
         return;
       }
 
@@ -656,8 +669,9 @@ export default function App() {
                 abierta. Existía desde antes pero nunca se había montado, así que
                 nadie veía el aviso. */}
             <AppVersionGuard />
-            {session && profile && <AdminActivityTracker profile={profile} />}
-            {session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
+            <PresentationPrivacyShield active={!!profile?.is_demo} />
+            {session && profile && !profile.is_demo && <AdminActivityTracker profile={profile} />}
+            {session && profile && profile.role !== "cliente" && !profile.is_demo && <GlobalSearch profile={profile} />}
       <PantallaCaida>
       <Suspense fallback={<RouteLoader />}>
       <Routes>
@@ -730,13 +744,13 @@ export default function App() {
       </Suspense>
       </PantallaCaida>
       <ChangePasswordModal
-        open={!!session && !!profile && profile.role !== "cliente" && profile.must_change_password === true}
+        open={!!session && !!profile && profile.role !== "cliente" && !profile.is_demo && profile.must_change_password === true}
         forced
         profile={profile}
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />
-      {session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
+      {session && profile && profile.role !== "cliente" && !profile.is_demo && <CampanitaSalvoColector profile={profile} />}
       {session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
           </ConfirmProvider>
         </ToastProvider>

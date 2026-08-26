@@ -282,7 +282,11 @@ export default function ScannerRemitosTab({
     setArchivingId(`remote-${row.id}`);
     try {
       await archiveScannedReceipt(row.id);
-      await loadRemote();
+      // Sale de la bandeja en el acto. El refresh posterior confirma el estado
+      // remoto, pero una demora de red ya no deja un falso "Archivado" con el
+      // botón de ingresar todavía visible.
+      setReceipts((current) => current.filter((receipt) => receipt.id !== row.id));
+      void loadRemote();
       toast.success("Documento archivado como no-remito. No modificó stock.");
     } catch (error) {
       toast.error(error.message || "No se pudo archivar el documento.");
@@ -503,6 +507,7 @@ export default function ScannerRemitosTab({
                 const total = row.items?.length || 0;
                 const processed = (row.items || []).filter((item) => item.scanner_ingreso_envio_id).length;
                 const done = row.recepcion_estado === "ingresado";
+                const archived = row.recepcion_estado === "archivado";
                 return (
                   <article key={row.id} style={{ padding: isMobile ? 12 : "12px 14px", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 9 }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
@@ -533,13 +538,13 @@ export default function ScannerRemitosTab({
                         {done ? "Ingreso confirmado y documento asociado." : linked === total ? "Revisá cantidades y destino antes de confirmar." : "Elegí el producto correcto en los renglones dudosos."}
                       </span>
                       <Button onClick={() => openOriginal(row)}><ExternalLink size={13} /> Original</Button>
-                      {!done && (
+                      {!done && !archived && (
                         <Button onClick={() => archiveRemote(row)} disabled={Boolean(archivingId)} title="Ocultar este documento porque no corresponde a un remito">
                           {archivingId === `remote-${row.id}` ? <LoaderCircle size={13} className="spin" /> : <Archive size={13} />}
                           No es un remito
                         </Button>
                       )}
-                      {done && row.panol_envio_id ? (
+                      {archived ? null : done && row.panol_envio_id ? (
                         <Button onClick={() => onOpenIngreso?.(row.panol_envio_id)} primary>Ver ingreso</Button>
                       ) : (
                         <Button onClick={() => onReview?.(row)} disabled={!canReceive} primary>Revisar e ingresar</Button>

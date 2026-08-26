@@ -266,7 +266,7 @@ function SelectorSede({ value, onChange }) {
 
 // ─── MODAL: NUEVO / EDITAR USUARIO INTERNO ───────────────────────────────────
 function ModalNuevoUsuario({ onClose, onSaved, flash }) {
-  const [form, setForm] = useState({ username:"", password:"", role:"panol", is_admin:false, sede:"" });
+  const [form, setForm] = useState({ username:"", password:"", role:"panol", is_admin:false, is_demo:false, sede:"" });
   const [busy, setBusy] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   async function submit(e) {
@@ -284,8 +284,9 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
         action: "create_user",
         username: form.username.trim(),
         password: form.password,
-        role: form.role,
-        is_admin: form.is_admin,
+        role: form.is_demo ? "tecnica" : form.role,
+        is_admin: form.is_demo ? false : form.is_admin,
+        is_demo: form.is_demo,
       },
     });
     if (fnError || res?.error) {
@@ -311,18 +312,25 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
       <ModalTitle title="Nuevo usuario interno" sub="El usuario podrá ingresar sin confirmar email." onClose={onClose} />
       <form onSubmit={submit}>
         <Field label="Usuario"><input style={Sx.input} required autoFocus autoComplete="off" value={form.username} onChange={e=>set("username",e.target.value)} placeholder="nombre.apellido" /></Field>
-        <Field label="Contraseña temporal" hint="Mínimo 10 caracteres, mayúscula, minúscula y número. Se le pedirá cambiarla al ingresar."><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
-        <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
+        <Field label={form.is_demo ? "Contraseña de presentación" : "Contraseña temporal"} hint={form.is_demo ? "Mínimo 10 caracteres. La cuenta de presentación no pedirá cambiarla al ingresar." : "Mínimo 10 caracteres, mayúscula, minúscula y número. Se le pedirá cambiarla al ingresar."}><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(139,92,246,.07)", border:"1px solid rgba(139,92,246,.22)", borderRadius:8, marginBottom:16 }}>
+          <div>
+            <div style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>Presentación externa</div>
+            <div style={{ fontSize:10, color:"var(--dim)", marginTop:2 }}>Recorre módulos sin precios y sin permiso para modificar datos.</div>
+          </div>
+          <Toggle on={form.is_demo} onChange={()=>setForm(f=>({...f,is_demo:!f.is_demo,is_admin:false,role:!f.is_demo?"tecnica":f.role}))} />
+        </div>
+        {!form.is_demo && <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>}
         <Field label="Sede" hint={form.role === "panol" ? "Pañol Pampa solo ve envíos de Pampa, y viceversa. Elegí su sede." : "Para pañol; supervisores van en 'Ambas'."}>
           <SelectorSede value={form.sede} onChange={v=>set("sede",v)} />
         </Field>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"var(--panel)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:20, marginTop:14 }}>
+        {!form.is_demo && <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"var(--panel)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:20, marginTop:14 }}>
           <div>
             <div style={{ fontSize:13, color:"var(--muted)" }}>Acceso de administrador</div>
             <div style={{ fontSize:10, color:"var(--dim)", marginTop:1 }}>Puede editar configuración y usuarios</div>
           </div>
           <Toggle on={form.is_admin} onChange={()=>set("is_admin",!form.is_admin)} />
-        </div>
+        </div>}
         <div style={{ display:"flex", gap:8 }}>
           <button type="submit" style={Sx.btnPrimary} disabled={busy}>{busy?"Creando…":"Crear usuario"}</button>
           <button type="button" style={Sx.btnSecondary} onClick={onClose}>Cancelar</button>
@@ -333,7 +341,7 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
 }
 
 function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
-  const [form, setForm] = useState({ role:usuario.role, is_admin:usuario.is_admin, password:"", sede:usuario.sede ?? "" });
+  const [form, setForm] = useState({ role:usuario.role, is_admin:usuario.is_admin, is_demo:usuario.is_demo === true, password:"", sede:usuario.sede ?? "" });
   const [busy, setBusy] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   async function guardar() {
@@ -342,7 +350,13 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
       if (passwordIssues.length) return flash(false, passwordIssues[0]);
     }
     setBusy(true);
-    const { error } = await supabase.from("profiles").update({ role:form.role, is_admin:form.is_admin, sede:form.sede || null }).eq("id",usuario.id);
+    const { error } = await supabase.from("profiles").update({
+      role: form.is_demo ? "tecnica" : form.role,
+      is_admin: form.is_demo ? false : form.is_admin,
+      is_demo: form.is_demo,
+      sede: form.sede || null,
+      ...(form.is_demo ? { must_change_password: false } : {}),
+    }).eq("id",usuario.id);
     if (error) { setBusy(false); return flash(false,error.message); }
     if (form.password) {
       const { data: pw, error: pwErr } = await supabase.functions.invoke("admin-usuarios", {
@@ -365,20 +379,27 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
   return (
     <Overlay onClose={onClose} maxWidth={400}>
       <ModalTitle title="Editar permisos" sub={usuario.username} onClose={onClose} />
-      <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(139,92,246,.07)", border:"1px solid rgba(139,92,246,.22)", borderRadius:8, marginBottom:16 }}>
+        <div>
+          <div style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>Presentación externa</div>
+          <div style={{ fontSize:10, color:"var(--dim)", marginTop:2 }}>Solo lectura e importes ocultos.</div>
+        </div>
+        <Toggle on={form.is_demo} onChange={()=>setForm(f=>({...f,is_demo:!f.is_demo,is_admin:false,role:!f.is_demo?"tecnica":f.role}))} />
+      </div>
+      {!form.is_demo && <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>}
       <Field label="Sede" hint={form.role === "panol" ? "Pañol Pampa solo ve envíos de Pampa, y viceversa." : "Para pañol; supervisores van en 'Ambas'."}>
         <SelectorSede value={form.sede} onChange={v=>set("sede",v)} />
       </Field>
-      <Field label="Contraseña temporal" hint="Opcional. Si la cargás, se le pedirá cambiarla al ingresar.">
+      <Field label={form.is_demo ? "Contraseña de presentación" : "Contraseña temporal"} hint={form.is_demo ? "Opcional. Si la cambiás, seguirá siendo una contraseña fija de presentación." : "Opcional. Si la cargás, se le pedirá cambiarla al ingresar."}>
         <input type="password" style={Sx.input} autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Dejar vacío para no cambiar" />
       </Field>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:22, marginTop:14 }}>
+      {!form.is_demo && <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:22, marginTop:14 }}>
         <div>
           <div style={{ fontSize:13, color:"var(--muted)" }}>Acceso de administrador</div>
           <div style={{ fontSize:10, color:"var(--dim)", marginTop:1 }}>Configuración, usuarios y sistema</div>
         </div>
         <Toggle on={form.is_admin} onChange={()=>set("is_admin",!form.is_admin)} />
-      </div>
+      </div>}
       <div style={{ display:"flex", gap:8 }}>
         <button style={Sx.btnPrimary} onClick={guardar} disabled={busy}>{busy?"Guardando…":"Guardar"}</button>
         <button style={Sx.btnSecondary} onClick={onClose}>Cancelar</button>
@@ -876,7 +897,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   async function cargar() {
     setLoading(true);
     const [r1,r2,r3,r4] = await Promise.all([
-      supabase.from("profiles").select("id,username,role,is_admin,sede,created_at").order("username"),
+      supabase.from("profiles").select("id,username,role,is_admin,is_demo,sede,created_at").order("username"),
       supabase.from("clientes").select("*, obras(id, codigo)").order("nombre_completo"),
       supabase.from("modelo_configuracion").select("*").order("modelo_barco"),
       supabase.from("sistema_config").select("*").order("grupo").order("clave"),
@@ -1040,9 +1061,10 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                 <div style={{ fontSize:10, color:"var(--dim)", marginTop:2 }}>{u.id.slice(0,8)}…</div>
                               </div>
                               {u.is_admin && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:"rgba(130,130,160,0.12)", color:"#7070a0", border:"1px solid rgba(130,130,160,0.18)", letterSpacing:0.5, textTransform:"uppercase", flexShrink:0 }}>Admin</span>}
+                              {u.is_demo && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:"rgba(139,92,246,.12)", color:"#c4b5fd", border:"1px solid rgba(139,92,246,.24)", letterSpacing:0.5, textTransform:"uppercase", flexShrink:0 }}>Demo</span>}
                             </div>
                             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", borderRadius:7, background:`${rm.color}0d`, border:`1px solid ${rm.color}20` }}>
-                              <span style={{ fontSize:11, color:rm.color, letterSpacing:0.8, textTransform:"uppercase" }}>{rm.label}</span>
+                              <span style={{ fontSize:11, color:u.is_demo ? "#c4b5fd" : rm.color, letterSpacing:0.8, textTransform:"uppercase" }}>{u.is_demo ? "Presentación externa" : rm.label}</span>
                               {u.created_at && <span style={{ fontSize:10, color:"var(--dim)" }}>{new Date(u.created_at).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"2-digit"})}</span>}
                             </div>
                             <button style={{ ...Sx.btnOutline, width:"100%", textAlign:"center" }} onClick={()=>setMEditUser(u)}>Editar permisos</button>

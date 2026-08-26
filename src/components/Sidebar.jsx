@@ -308,24 +308,25 @@ export default function Sidebar({ profile, signOut }) {
   }, [isMobile, menuVisible]);
 
   const role     = profile?.role ?? "invitado";
+  const esDemo   = profile?.is_demo === true;
   const broadAccess = hasAdminAccess(profile);
   const realAdmin = !!profile?.is_admin || role === "admin";
   const username = profile?.username ?? "—";
   const esPanol   = role === "panol";
-  const esTecnica = role === "tecnica" || role === "oficina";
+  const esTecnica = role === "tecnica" || role === "oficina" || esDemo;
   const esGestion = broadAccess || esTecnica;
   const esAdmin   = realAdmin;
   const esAdministracion = role === "administracion";
-  const esRrhh    = esAdmin || role === "rrhh" || esTecnica || esAdministracion;
+  const esRrhh    = !esDemo && (esAdmin || role === "rrhh" || esTecnica || esAdministracion);
   const esCompras = role === "compras";
   const esMecanica = role === "mecanica";
   const puedeVerLogistica = realAdmin || ["tecnica", "administracion", "compras"].includes(role);
-  const puedeEditarPlantillas = broadAccess || role === "tecnica";
+  const puedeEditarPlantillas = !esDemo && (broadAccess || role === "tecnica");
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const puedeVerMateriales = esGestion || esCompras;
   const puedeVerCatalogo = esGestion || esCompras || esPanol;
   // Administración entra sólo a Precios (no al catálogo completo de Materiales).
-  const puedeVerPrecios = esGestion || esCompras || esAdministracion;
+  const puedeVerPrecios = !esDemo && (esGestion || esCompras || esAdministracion);
   const comprasLabel = esCompras || realAdmin ? "Gestión de Compras" : "Pedidos";
   const comprasGroup = esCompras || realAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();

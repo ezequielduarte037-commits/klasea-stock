@@ -22,6 +22,7 @@
  */
 export function hasAdminAccess(profile) {
   if (!profile) return false;
+  if (profile.is_demo) return false;
   if (profile.is_admin) return true;
   const role = profile.role;
   return role === "admin" || role === "tecnica";

@@ -63,6 +63,15 @@ const MODULE_ROLE_OVERRIDES = {
   "/procedimientos": ["tecnica", "oficina", "admin", "laminacion", "muebles", "mecanica", "electricidad"],
 };
 
+const DEMO_BLOCKED_MODULES = new Set([
+  "/precios",
+  "/rrhh",
+  "/configuracion",
+  "/admin",
+  "/semaforo",
+  "/inicio-panol/tarjetas",
+]);
+
 MODULOS.forEach((modulo) => {
   if (MODULE_ROLE_OVERRIDES[modulo.href]) modulo.roles = MODULE_ROLE_OVERRIDES[modulo.href];
   if (modulo.href === "/compras") modulo.label = "Pedidos a Compras";
@@ -737,14 +746,18 @@ export default function HomeScreen({ profile, signOut }) {
   const clock = useClock();
 
   const role      = profile?.role ?? "invitado";
+  const esDemo    = profile?.is_demo === true;
   const isAdmin   = hasAdminAccess(profile);
   const username  = profile?.username ?? "—";
-  const esTecnica = role==="tecnica" || role==="oficina";
+  const esTecnica = role==="tecnica" || role==="oficina" || esDemo;
   const esAdmin   = isAdmin || role==="admin";
   const esPanol   = role==="panol";
   const esCompras = role==="compras";
 
   const modulos = MODULOS.filter(m=>{
+    if(esDemo) {
+      return !DEMO_BLOCKED_MODULES.has(m.href) && (m.roles.includes("tecnica") || m.roles.includes("oficina") || m.roles.includes("compras") || m.roles.includes("panol"));
+    }
     if(esAdmin)   return true;
     if(esTecnica) return m.roles.includes("tecnica") || m.roles.includes("oficina");
     if(esPanol)   return m.roles.includes("panol");

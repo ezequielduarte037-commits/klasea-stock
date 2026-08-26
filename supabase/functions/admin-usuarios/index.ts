@@ -83,7 +83,9 @@ serve(async (req) => {
       const username = String(body.username ?? "").trim()
       const password = String(body.password ?? "")
       const role = String(body.role ?? "")
-      const isAdminFlag = body.is_admin === true
+      const isDemo = body.is_demo === true
+      const effectiveRole = isDemo ? "tecnica" : role
+      const isAdminFlag = isDemo ? false : body.is_admin === true
       if (!username || !password || !role) return json({ error: "Faltan datos (username/password/role)" }, 400)
       const passwordError = validatePassword(password, username)
       if (passwordError) return json({ error: passwordError }, 400)
@@ -103,9 +105,10 @@ serve(async (req) => {
         .upsert({
           id: uid,
           username,
-          role,
+          role: effectiveRole,
           is_admin: isAdminFlag,
-          must_change_password: role !== "cliente",
+          is_demo: isDemo,
+          must_change_password: !isDemo && effectiveRole !== "cliente",
         }, { onConflict: "id" })
       if (profErr) {
         // rollback: borrar el usuario auth recién creado
@@ -130,18 +133,19 @@ serve(async (req) => {
       if (!userId || !password) return json({ error: "Falta user_id o password" }, 400)
       const { data: targetProfile } = await admin
         .from("profiles")
-        .select("username, role")
+        .select("username, role, is_demo")
         .eq("id", userId)
         .maybeSingle()
       const passwordError = validatePassword(password, targetProfile?.username ?? "")
       if (passwordError) return json({ error: passwordError }, 400)
       const { error } = await admin.auth.admin.updateUserById(userId, { password })
       if (error) return json({ error: error.message }, 400)
-      await admin
-        .from("profiles")
-        .update({ must_change_password: true })
-        .eq("id", userId)
-        .neq("role", "cliente")
+      if (targetProfile?.role !== "cliente") {
+        await admin
+          .from("profiles")
+          .update({ must_change_password: targetProfile?.is_demo !== true })
+          .eq("id", userId)
+      }
       return json({ ok: true })
     }
 

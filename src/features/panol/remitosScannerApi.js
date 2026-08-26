@@ -313,13 +313,19 @@ export async function scannerReceiptFileUrl(path) {
 
 export async function archiveScannedReceipt(id) {
   if (!id) return;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("panol_comprobantes")
     .update({
       recepcion_estado: "archivado",
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("origen_carga", "scanner_panol");
+    .eq("origen_carga", "scanner_panol")
+    .select("id,recepcion_estado")
+    .maybeSingle();
   if (error) throwFriendly(error);
+  if (!data?.id || data.recepcion_estado !== "archivado") {
+    throw new Error("No se pudo archivar el documento. Revisá los permisos del usuario y volvé a intentar.");
+  }
+  return data;
 }
