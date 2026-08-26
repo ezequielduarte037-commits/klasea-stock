@@ -35,7 +35,7 @@ import {
   scannerReceiptFileUrl,
 } from "@/features/panol/remitosScannerApi";
 import AntesDeEscanearModal from "@/features/panol/AntesDeEscanearModal";
-import { fetchCarpetasUsadas } from "@/features/panol/remitosArchivoApi";
+import { fetchCarpetasUsadas, hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
 import { carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
 
 const GLASS = {
@@ -223,12 +223,16 @@ export default function ScannerRemitosTab({
   const [preguntando, setPreguntando] = useState(false);
   const [contextoEscaneo, setContextoEscaneo] = useState({ carpeta: "", proveedor: "", obra: null, titulo: "", notas: "", soloArchivar: false, esConsumibles: false });
   const [carpetasUsadas, setCarpetasUsadas] = useState([]);
+  const [faltaMigracion, setFaltaMigracion] = useState(false);
 
   useEffect(() => {
     let vivo = true;
     fetchCarpetasUsadas()
       .then((lista) => { if (vivo) setCarpetasUsadas(lista); })
       .catch(() => { if (vivo) setCarpetasUsadas([]); });
+    hayColumnasDeRemito()
+      .then((hay) => { if (vivo) setFaltaMigracion(!hay); })
+      .catch(() => { if (vivo) setFaltaMigracion(false); });
     return () => { vivo = false; };
   }, []);
 
@@ -378,6 +382,25 @@ export default function ScannerRemitosTab({
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: C.bg }}>
+      {faltaMigracion ? (
+        <div style={{ margin: isMobile ? 12 : 18, marginBottom: 0, padding: "12px 14px", borderRadius: 10, background: C.redL, border: `1px solid ${C.redB}` }}>
+          <div style={{ fontSize: 13, fontWeight: 950, color: C.red, marginBottom: 5 }}>
+            Falta correr una migración en Supabase
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, lineHeight: 1.55 }}>
+            Los remitos se escanean y se guardan, pero <b>sin el barco, el tipo ni la referencia</b>:
+            esos campos todavía no existen en la base. Hasta que la corras, lo que elijas antes de
+            escanear no queda guardado y en Remitos aparece todo junto en &ldquo;Sin obra&rdquo;.
+          </div>
+          <div style={{ fontSize: 11.5, fontWeight: 750, color: C.dim, marginTop: 7 }}>
+            Supabase → SQL Editor → pegar el archivo{" "}
+            <code style={{ fontFamily: "monospace", background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 5px" }}>
+              20260826150000_panol_comprobantes_obra.sql
+            </code>
+          </div>
+        </div>
+      ) : null}
+
       {preguntando ? (
         <AntesDeEscanearModal
           onCerrar={() => setPreguntando(false)}

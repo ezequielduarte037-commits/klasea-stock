@@ -100,6 +100,26 @@ export async function fetchCarpetasUsadas() {
   return [...vistas.values()].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * ¿Estan las columnas de la migracion 20260826150000?
+ *
+ * Sin ellas el escaneo igual guarda el remito, pero SIN la obra, el tipo ni la
+ * referencia: se elige el barco y no pasa nada. Escrito asi para no romper, se
+ * volvio peor que romper, porque falla en silencio y parece que no anda nada.
+ * Con esto la pantalla lo puede decir.
+ */
+let _hayColumnasNuevas = null;
+
+export async function hayColumnasDeRemito() {
+  if (_hayColumnasNuevas !== null) return _hayColumnasNuevas;
+  const { error } = await supabase
+    .from("panol_comprobantes")
+    .select("obra_id,titulo,solo_archivo,es_consumible,carpeta_local")
+    .limit(1);
+  _hayColumnasNuevas = !error;
+  return _hayColumnasNuevas;
+}
+
 /** Link temporal para abrir el PDF guardado. */
 export async function urlDeRemito(archivoUrl) {
   if (!archivoUrl) return "";

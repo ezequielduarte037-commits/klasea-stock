@@ -3,6 +3,7 @@ import { FolderOpen, LoaderCircle, ScanLine, X } from "lucide-react";
 import { C } from "@/theme";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
 import { carpetaDeObra, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
+import { hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
 
 /**
  * Lo que se pregunta antes de escanear. Sirve para dos cosas a la vez: el remito
@@ -51,11 +52,21 @@ export default function AntesDeEscanearModal({
   // de todos los meses, el service de una máquina: eso va a su propia carpeta y
   // meterlo en "stock general" lo vuelve imposible de encontrar despues.
   const [carpetaLibre, setCarpetaLibre] = useState("");
+  // null mientras se averigua, para no mostrar un aviso que a lo mejor no va.
+  const [faltaMigracion, setFaltaMigracion] = useState(null);
   // Un remito de Rebollar son treinta renglones de consumibles. Decirlo una vez
   // al principio evita marcarlos de a uno despues, que en la practica es lo que
   // nadie hace: quedan cargados como material comun y desaparecen de la pestaña
   // de Consumibles.
   const [esConsumibles, setEsConsumibles] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    hayColumnasDeRemito()
+      .then((hay) => { if (vivo) setFaltaMigracion(!hay); })
+      .catch(() => { if (vivo) setFaltaMigracion(false); });
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -149,6 +160,19 @@ export default function AntesDeEscanearModal({
         </div>
 
         <div style={{ padding: 16, display: "grid", gap: 14, overflowY: "auto", minHeight: 0 }}>
+          {faltaMigracion ? (
+            <div style={{ padding: "11px 13px", borderRadius: 9, background: C.redL, border: `1px solid ${C.redB}` }}>
+              <div style={{ fontSize: 12.5, fontWeight: 900, color: C.red, marginBottom: 4 }}>
+                Falta correr la migración en Supabase
+              </div>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.5 }}>
+                El remito se va a escanear y a guardar en la carpeta de la PC, pero <b>el barco, el tipo,
+                la referencia y &ldquo;solo archivar&rdquo; NO se van a guardar en el sistema</b>. Hasta
+                que la corras, lo que elijas acá abajo no tiene efecto.
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <div style={etiqueta}>Qué trae este remito</div>
             <div style={{ display: "flex", gap: 8 }}>
