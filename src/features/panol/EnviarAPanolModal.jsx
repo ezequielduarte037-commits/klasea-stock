@@ -1,6 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, ClipboardPaste, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search } from "lucide-react";
+import { Bot, ClipboardPaste, Eye, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -422,8 +422,19 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
     const query = q.trim() ? { descripcion: q } : item;
     return selected ? [] : topCatalogMatches(catalog, query, 6);
   }, [catalog, item, q, selected]);
+  const dudaIa = String(item?.duda_ia || "").trim();
+  const lecturaFloja = dudaIa || item?.confianza_ia === "baja";
   return (
     <div style={{ display: "grid", gap: 7, padding: "0 10px 10px 10px" }}>
+      {lecturaFloja ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 9px", borderRadius: 8, background: C.cyanL, border: `1px solid ${C.cyanB}` }}>
+          <Eye size={13} color={C.cyan} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, lineHeight: 1.45 }}>
+            <b style={{ color: C.text }}>La IA no leyó bien este renglón.</b>{" "}
+            {dudaIa || "Quedó con confianza baja."} Mirá el papel antes de darlo por bueno.
+          </div>
+        </div>
+      ) : null}
       <div style={{ display: "flex", gap: 9, alignItems: "center", minWidth: 0 }}>
         <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Catalogo</span>
         {selected ? (
@@ -1654,6 +1665,11 @@ export default function EnviarAPanolModal({
           obra_id: obraId || "",
           proveedor: proveedorHint || data?.proveedor || "",
           recepcion_estado: isRemito ? "recibido" : null,
+          // Lo que la IA avisa que no pudo leer bien de este renglon. Se muestra
+          // en la fila para que alguien mire el papel en vez de dar por buena una
+          // descripcion que quizas invento.
+          duda_ia: it.duda ? String(it.duda).trim() : "",
+          confianza_ia: String(it.confianza_lectura || "").toLowerCase() || "",
         }))
         .filter((it) => it.descripcion);
       // Se guarda si hubo candidatos aunque no alcanzaran el umbral: no es lo mismo
@@ -1670,6 +1686,17 @@ export default function EnviarAPanolModal({
       if (!hydratedItems.length) {
         toast.warning("La IA no detecto items.");
         return;
+      }
+      // Antes la IA tenia que devolver algo si o si por cada renglon, asi que
+      // cuando no entendia inventaba. Ahora puede decir que no entendio, y eso
+      // hay que mostrarlo: una duda avisada se resuelve mirando el papel, una
+      // descripcion inventada entra al stock sin que nadie la note.
+      for (const duda of (data?.dudas || []).slice(0, 3)) {
+        toast.warning(`La IA no pudo con esto: ${duda}`);
+      }
+      const dudosos = hydratedItems.filter((item) => item.duda_ia || item.confianza_ia === "baja").length;
+      if (dudosos) {
+        toast.warning(`${dudosos} renglon${dudosos === 1 ? "" : "es"} quedaron marcados: la IA no los leyó seguro. Revisalos contra el papel.`);
       }
       setItems((prev) => [...prev, ...(showPrices ? hydratedItems : hydratedItems.map(stripItemPrice))]);
       if (!titulo.trim() && (proveedorHint || data?.proveedor)) setTitulo(`Remito ${proveedorHint || data.proveedor}`);

@@ -248,7 +248,12 @@ export default function ScannerRemitosTab({
     const operationId = localId || `manual-${Date.now()}`;
     setProcessingId(operationId);
     try {
-      const receipt = await processScannedReceipt(file, { sede, proveedor: contextoEscaneo.proveedor });
+      const receipt = await processScannedReceipt(file, {
+        sede,
+        proveedor: contextoEscaneo.proveedor,
+        obraId: contextoEscaneo.obra?.id || null,
+        carpetaLocal: contextoEscaneo.carpeta || "",
+      });
       if (localId) {
         try {
           await archiveScannerFile(localId);

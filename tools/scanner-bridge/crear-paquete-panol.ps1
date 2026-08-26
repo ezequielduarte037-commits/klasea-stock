@@ -1,3 +1,9 @@
+# Con -SoloScripts arma un ZIP de kilobytes en vez de 126 MB: sirve para
+# actualizar una PC que YA tiene Node, NAPS2 y el driver instalados, que es el
+# caso normal despues de la primera vez. El paquete completo se necesita una
+# sola vez por maquina.
+param([switch]$SoloScripts)
+
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -7,7 +13,7 @@ $distRoot = Join-Path $repoRoot "entregables\instalador-panol"
 $packageDir = Join-Path $distRoot "KlaseA-Scanner-Panol"
 $dependencyDir = Join-Path $packageDir "Dependencias"
 $cacheDir = Join-Path $distRoot ".cache"
-$zipPath = Join-Path $distRoot "KlaseA-Scanner-Panol.zip"
+$zipPath = Join-Path $distRoot $(if ($SoloScripts) { "KlaseA-Scanner-Actualizacion.zip" } else { "KlaseA-Scanner-Panol.zip" })
 
 if (Test-Path -LiteralPath $packageDir) { Remove-Item -LiteralPath $packageDir -Recurse -Force }
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
@@ -54,6 +60,26 @@ $downloads = @(
   }
 )
 
+if ($SoloScripts) {
+  Remove-Item -LiteralPath $dependencyDir -Recurse -Force -ErrorAction SilentlyContinue
+  $downloads = @()
+  # El instalador completo no aplica: se deja una nota para que nadie lo busque.
+  $aviso = @(
+    "ACTUALIZACION - solo scripts",
+    "",
+    "Este paquete NO trae Node.js, NAPS2 ni el driver de la Pantum: es para una",
+    "PC donde ya se corrio el instalador completo alguna vez.",
+    "",
+    "Que hacer:",
+    "  1. Copiar TODOS los archivos a C:\KlaseA\Scanner (pisando los que estan).",
+    "  2. Cerrar el puente:  taskkill /F /IM node.exe",
+    "  3. Doble clic en iniciar-scanner.cmd",
+    "",
+    "Si es una PC nueva, pedi el paquete completo (KlaseA-Scanner-Panol.zip)."
+  ) -join [Environment]::NewLine
+  Set-Content -LiteralPath (Join-Path $packageDir "LEEME-ACTUALIZACION.txt") -Value $aviso -Encoding UTF8
+}
+
 foreach ($download in $downloads) {
   $cachedFile = Join-Path $cacheDir $download.File
   $destination = Join-Path $dependencyDir $download.File
@@ -86,11 +112,16 @@ foreach ($download in $downloads) {
 }
 
 $checksumPath = Join-Path $packageDir "CHECKSUMS-SHA256.txt"
-Get-ChildItem -LiteralPath $dependencyDir -File | Sort-Object Name | ForEach-Object {
+Get-ChildItem -LiteralPath $dependencyDir -File -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object {
   $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
   "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), $_.Name
 } | Set-Content -LiteralPath $checksumPath -Encoding ASCII
 
+if ($SoloScripts -and (Test-Path -LiteralPath $checksumPath) -and -not (Get-Content -LiteralPath $checksumPath)) {
+  Remove-Item -LiteralPath $checksumPath -Force
+}
+
 Compress-Archive -LiteralPath $packageDir -DestinationPath $zipPath -CompressionLevel Optimal
-Write-Host "Paquete listo:" -ForegroundColor Green
+$mb = [math]::Round((Get-Item -LiteralPath $zipPath).Length / 1MB, 2)
+Write-Host ("Paquete listo ({0} MB):" -f $mb) -ForegroundColor Green
 Write-Host $zipPath

@@ -207,6 +207,8 @@ export interface ParsedComprobante {
   es_comprobante?: boolean;
   confianza_documento?: "alta" | "media" | "baja";
   motivo_clasificacion?: string | null;
+  /** Lo que la IA no pudo resolver del documento. Vacio si leyo todo limpio. */
+  dudas?: string[];
   proveedor?: string | null;
   /** CUIT de quien EMITE. Cuando el nombre solo esta en el logo, es lo unico que identifica al proveedor. */
   cuit_emisor?: string | null;
@@ -249,6 +251,17 @@ const REGLAS_COMPROBANTE = `- No inventes datos. Si no se ve claro, dejalo null 
 - Las descripciones tienen que servir para matchear contra un catalogo de materiales.
 - La descripcion se usa para buscar el producto en nuestro catalogo por parecido de palabras: cada palabra de mas que el catalogo no tiene EMPEORA la busqueda. Por eso los codigos de proveedor o fabricante (T13673, C89150, "17005 NEG") van SIEMPRE en el campo "codigo" y nunca dentro del texto de la descripcion.
 - Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, usala SOLO si el articulo por si solo no se entiende. Cuando el articulo ya nombra el producto ("Cable electronica 1x 0,75 NEG"), dejalo tal cual. Cuando el articulo es un fragmento sin sentido propio ("C/VENTEO WTR RECT"), ahi si anteponé la familia: "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT". El criterio es que la descripcion se entienda sola con la MENOR cantidad de palabras agregadas.`;
+
+const NO_INVENTAR = `
+DECIR "NO SE" ES UNA RESPUESTA VALIDA Y PREFERIDA:
+- Estos documentos llegan escaneados: hay renglones borrosos, cortados, torcidos o escritos a mano. Es NORMAL no poder leer alguno.
+- Si un renglon no se lee con seguridad, NO inventes una descripcion que suene creible. Devolvelo con la parte que SI leiste, "confianza_lectura":"baja" y en "duda" que fue lo que no pudiste leer ("la cantidad esta tapada por el sello", "dice ...ORCA 1/2, falta el principio").
+- Una descripcion inventada que parece correcta es lo PEOR que podes devolver: entra al stock sin que nadie la mire. Una duda escrita la resuelve una persona en cinco segundos mirando el papel.
+- Nunca completes una medida, un codigo ni una cantidad "por lo que suele venir" o por lo que vende ese proveedor. Si no esta en la hoja, no esta.
+- Si el renglon es directamente ilegible, no lo devuelvas como item: escribilo en "dudas" del documento.
+- Ante dos lecturas posibles, elegi la que MENOS agrega: mejor "CODO 1/2" que "CODO MACHO HEMBRA 1/2 BRONCE" si el resto lo estas suponiendo.
+- "dudas" es una lista de frases cortas sobre lo que no pudiste resolver del documento entero (proveedor tapado, total que no cierra, renglon ilegible, hoja cortada). Vacia si esta todo claro.
+`;
 
 const CLASIFICACION_DOCUMENTO = `CLASIFICACION OBLIGATORIA ANTES DE EXTRAER:
 - Clasifica el documento real, sin asumir que es un comprobante solo porque te pidieron leer uno.
@@ -301,6 +314,7 @@ Objetivo:
 
 Reglas:
 ${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
+${NO_INVENTAR}
 
 Formato:
 {
@@ -313,8 +327,9 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45}
-  ]
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
+  ],
+  "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
   const res = await fetch(`${OR_BASE}/chat/completions`, {
@@ -372,8 +387,16 @@ Formato:
           moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
           sector: it.sector ? String(it.sector).trim() : null,
+          confianza_lectura: ["alta", "media", "baja"].includes(String(it.confianza_lectura || "").toLowerCase())
+            ? String(it.confianza_lectura).toLowerCase()
+            : null,
+          duda: it.duda ? String(it.duda).trim().slice(0, 200) : null,
         }))
         .filter((it: any) => it.descripcion)
+    : [];
+
+  const dudas = Array.isArray(parsed.dudas)
+    ? parsed.dudas.map((d: any) => String(d || "").trim()).filter(Boolean).slice(0, 8)
     : [];
 
   return {
@@ -390,6 +413,7 @@ Formato:
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
+    dudas,
   };
 }
 
@@ -412,6 +436,7 @@ Objetivo:
 
 Reglas:
 ${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
+${NO_INVENTAR}
 
 Formato:
 {
@@ -424,8 +449,9 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45}
-  ]
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
+  ],
+  "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
   const res = await fetch(`${OR_BASE}/chat/completions`, {
@@ -474,8 +500,16 @@ Formato:
           moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
           sector: it.sector ? String(it.sector).trim() : null,
+          confianza_lectura: ["alta", "media", "baja"].includes(String(it.confianza_lectura || "").toLowerCase())
+            ? String(it.confianza_lectura).toLowerCase()
+            : null,
+          duda: it.duda ? String(it.duda).trim().slice(0, 200) : null,
         }))
         .filter((it: any) => it.descripcion)
+    : [];
+
+  const dudas = Array.isArray(parsed.dudas)
+    ? parsed.dudas.map((d: any) => String(d || "").trim()).filter(Boolean).slice(0, 8)
     : [];
 
   return {
@@ -492,6 +526,7 @@ Formato:
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
+    dudas,
   };
 }
 
@@ -525,6 +560,7 @@ Objetivo:
 
 Reglas:
 ${REGLAS_COMPROBANTE}${REGLA_ITEM_MULTILINEA}
+${NO_INVENTAR}
 
 Formato:
 {
@@ -537,8 +573,9 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45}
-  ]
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
+  ],
+  "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
   // Los PDFs de sistemas de gestion (Electrobase, Tango, Bejerman…) vienen con
@@ -655,8 +692,16 @@ Formato:
           moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
           sector: it.sector ? String(it.sector).trim() : null,
+          confianza_lectura: ["alta", "media", "baja"].includes(String(it.confianza_lectura || "").toLowerCase())
+            ? String(it.confianza_lectura).toLowerCase()
+            : null,
+          duda: it.duda ? String(it.duda).trim().slice(0, 200) : null,
         }))
         .filter((it: any) => it.descripcion)
+    : [];
+
+  const dudas = Array.isArray(parsed.dudas)
+    ? parsed.dudas.map((d: any) => String(d || "").trim()).filter(Boolean).slice(0, 8)
     : [];
 
   return {
@@ -673,6 +718,7 @@ Formato:
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
+    dudas,
   };
 }
 

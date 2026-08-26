@@ -52,6 +52,13 @@ async function sha256(file) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/** PostgREST avisa una columna inexistente con PGRST204 o el 42703 de Postgres. */
+function esColumnaFaltante(error) {
+  const codigo = String(error?.code || "");
+  const mensaje = String(error?.message || "").toLowerCase();
+  return codigo === "PGRST204" || codigo === "42703" || mensaje.includes("column") && mensaje.includes("does not exist");
+}
+
 function validateFile(file) {
   if (!file) throw new Error("Elegí un remito para procesar.");
   if (file.size <= 0) throw new Error("El archivo está vacío.");
@@ -123,7 +130,7 @@ async function fetchScannerReceiptById(id) {
   return { ...receipt, items: items || [] };
 }
 
-export async function processScannedReceipt(file, { sede = null, proveedor = "" } = {}) {
+export async function processScannedReceipt(file, { sede = null, proveedor = "", obraId = null, carpetaLocal = "" } = {}) {
   validateFile(file);
   const hash = await sha256(file);
 
@@ -164,26 +171,46 @@ export async function processScannedReceipt(file, { sede = null, proveedor = "" 
     const total = numberOrNull(parsed?.total)
       ?? items.reduce((sum, item) => sum + (numberOrNull(item.total) || 0), 0)
       ?? null;
-    const { data: receipt, error: receiptError } = await supabase
-      .from("panol_comprobantes")
-      .insert({
-        proveedor: String(parsed?.proveedor || "").trim() || null,
-        numero: String(parsed?.numero || "").trim() || null,
-        fecha: parsed?.fecha || new Date().toISOString().slice(0, 10),
-        moneda: String(parsed?.moneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
-        archivo_url: storagePath,
-        archivo_hash: hash,
-        archivo_nombre: file.name || `remito.${extension}`,
-        archivo_mime: file.type || (extension === "pdf" ? "application/pdf" : "image/jpeg"),
-        sede: sede || null,
-        estado: "borrador",
-        recepcion_estado: receptionState,
-        origen_carga: "scanner_panol",
-        total: total || null,
-      })
-      .select("id")
-      .single();
-    if (receiptError) throwFriendly(receiptError);
+    const base = {
+      proveedor: String(parsed?.proveedor || "").trim() || null,
+      numero: String(parsed?.numero || "").trim() || null,
+      fecha: parsed?.fecha || new Date().toISOString().slice(0, 10),
+      moneda: String(parsed?.moneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
+      archivo_url: storagePath,
+      archivo_hash: hash,
+      archivo_nombre: file.name || `remito.${extension}`,
+      archivo_mime: file.type || (extension === "pdf" ? "application/pdf" : "image/jpeg"),
+      sede: sede || null,
+      estado: "borrador",
+      recepcion_estado: receptionState,
+      origen_carga: "scanner_panol",
+      total: total || null,
+    };
+    // La obra y la carpeta sirven para BUSCAR el remito despues, no para
+    // cargarlo. Si la migracion que agrega esas columnas todavia no se corrio,
+    // se guarda sin ellas: perder un ingreso por eso seria absurdo.
+    const extras = {
+      ...(obraId ? { obra_id: obraId } : {}),
+      ...(carpetaLocal ? { carpeta_local: carpetaLocal } : {}),
+    };
+
+    let receipt = null;
+    let receiptError = null;
+    if (Object.keys(extras).length) {
+      ({ data: receipt, error: receiptError } = await supabase
+        .from("panol_comprobantes").insert({ ...base, ...extras }).select("id").single());
+      if (receiptError && esColumnaFaltante(receiptError)) {
+        receipt = null;
+        receiptError = null;
+      } else if (receiptError) {
+        throwFriendly(receiptError);
+      }
+    }
+    if (!receipt) {
+      ({ data: receipt, error: receiptError } = await supabase
+        .from("panol_comprobantes").insert(base).select("id").single());
+      if (receiptError) throwFriendly(receiptError);
+    }
     receiptId = receipt.id;
 
     const rows = items.map((item) => ({
