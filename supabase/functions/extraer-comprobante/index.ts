@@ -44,7 +44,48 @@ function esNombrePropio(nombre: string): boolean {
   });
 }
 
-async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise<string> {
+/**
+ * Nombres significativos de un texto, para comparar sin depender de mayusculas,
+ * acentos ni de la forma societaria ("S.R.L." no distingue a nadie).
+ */
+const RUIDO_RAZON_SOCIAL = new Set(["srl", "srl.", "sa", "s.a", "sas", "sh", "hnos", "hermanos", "cia", "compania", "distribuidora", "comercial"]);
+
+function tokensDeProveedor(valor: unknown): string[] {
+  return String(valor ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 4 && !RUIDO_RAZON_SOCIAL.has(t));
+}
+
+/**
+ * Lleva el nombre impreso al nombre canonico del sistema, pero SOLO si es
+ * claramente el mismo: que todas las palabras significativas del mas corto
+ * esten en el mas largo. "CASA IRIARTE S.R.L." matchea "Casa Iriarte", y un
+ * remito de audio no matchea nada.
+ *
+ * La eleccion la hace el codigo y no el modelo a proposito: mostrarle los 300
+ * proveedores arreglo que dijera nuestro propio nombre, pero convirtio la lista
+ * en un menu y empezo a elegir un conocido cuando no reconocia el emisor.
+ */
+function canonizarProveedor(impreso: unknown, nombresConocidos: string[]): string | null {
+  const texto = String(impreso ?? "").trim();
+  if (!texto) return null;
+  const propios = tokensDeProveedor(texto);
+  if (!propios.length) return texto;
+
+  for (const conocido of nombresConocidos) {
+    const suyos = tokensDeProveedor(conocido);
+    if (!suyos.length) continue;
+    const [corto, largo] = propios.length <= suyos.length ? [propios, suyos] : [suyos, propios];
+    if (corto.every((t) => largo.includes(t))) return conocido;
+  }
+  // No se parece a ninguno: vale lo que dice el papel.
+  return texto;
+}
+
+async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise<{ texto: string; nombres: string[] }> {
   try {
     const [provRes, matRes] = await Promise.all([
       // Antes pedia solo los que tienen "tipo" cargado y cortaba en 30: de 67
@@ -70,6 +111,7 @@ async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise
       String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
     const lines: string[] = [];
+    const nombresConocidos: string[] = [];
     const foco = String(proveedorFoco || "").trim();
     if (foco) {
       const focoNorm = norm(foco);
@@ -90,6 +132,7 @@ async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise
       // Estamos cargados como proveedor de nosotros mismos. Ofrecerselo al
       // modelo es justamente lo que hacia que eligiera "All Built".
       if (esNombrePropio(nombre)) continue;
+      nombresConocidos.push(nombre);
       // tokens significativos del nombre ("Rincón del Herraje" → rincon, herraje)
       const tokens = norm(nombre).split(/[^a-z0-9]+/).filter((t) => t.length >= 4);
       const ejemplos: string[] = [];
@@ -112,22 +155,26 @@ async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise
       ].filter(Boolean);
       lines.push(partes.join(" · "));
     }
-    if (!lines.length) return "";
+    if (!lines.length) return { texto: "", nombres: nombresConocidos };
 
-    return `
+    return { nombres: nombresConocidos, texto: `
 
 CONOCIMIENTO DE PROVEEDORES DEL ASTILLERO (contexto real del sistema — usalo):
 ${lines.join("\n")}
 
 SOMOS NOSOTROS, NUNCA EL PROVEEDOR: ${NOSOTROS.join(', ')}. Estos nombres aparecen en casi todos los remitos porque somos QUIENES RECIBIMOS. Si los ves en el encabezado, junto a "Cliente:", "Señores:", "Entregar a:" o en la dirección de entrega, ignoralos: el proveedor es el OTRO nombre de la hoja, el que emite.
 
-Cómo usar este conocimiento:
-- Si el proveedor del documento matchea uno de la lista (aunque venga abreviado, con código o con errores de tipeo), devolvé en "proveedor" el nombre CANÓNICO de la lista.
-- Usá el rubro/perfil del proveedor para interpretar ítems ambiguos o abreviados del remito (ej.: en un remito de un proveedor de broncería, "codo 1/2" es un codo de bronce).
-- Los "Ya comprado" muestran cómo escribimos las descripciones en el catálogo: redactá las descripciones nuevas en ese estilo (español, tipo oración, con la medida incluida).
-- Si el documento no corresponde a ninguno de la lista, seguí normal (no fuerces un match).`;
+ESTA LISTA NO ES UN MENÚ DE DONDE ELEGIR. Sirve para entender los ítems, no para decidir quién emitió el documento.
+- En "proveedor" va SIEMPRE lo que está impreso en la hoja, tal cual lo leés. Nunca un nombre de esta lista que no esté impreso en el documento.
+- Si el emisor no está impreso en ninguna parte, "proveedor" va en null y cargás "cuit_emisor". Un null lo corrige una persona en dos segundos; un proveedor equivocado entra al sistema sin que nadie lo mire.
+- Que un proveedor de la lista venda cosas parecidas a las del remito NO es evidencia de que sea el emisor. Muchos venden lo mismo.
+- Del nombre canónico nos encargamos nosotros después: vos poné lo que dice el papel.
+
+Para qué SÍ sirve la lista:
+- Usá el rubro/perfil para interpretar ítems ambiguos o abreviados (ej.: en un remito de broncería, "codo 1/2" es un codo de bronce).
+- Los "Ya comprado" muestran cómo escribimos las descripciones en el catálogo: redactá las nuevas en ese estilo (español, tipo oración, con la medida incluida).` };
   } catch {
-    return "";
+    return { texto: "", nombres: [] };
   }
 }
 
@@ -154,7 +201,7 @@ serve(async (req) => {
     const tipoEsperado = ["remito", "factura", "presupuesto"].includes(String(body?.tipo_esperado || "").toLowerCase())
       ? String(body.tipo_esperado).toLowerCase()
       : "";
-    const proveedorContexto = await buildProveedorContext(supabase, proveedorIndicado);
+    const { texto: proveedorContexto, nombres: proveedoresConocidos } = await buildProveedorContext(supabase, proveedorIndicado);
     const contexto = [
       proveedorContexto,
       proveedorIndicado
@@ -172,7 +219,7 @@ serve(async (req) => {
     const texto = String(body?.text || body?.texto || "").trim();
     if (texto) {
       const parsedTexto = await extraerComprobanteTexto({ text: texto, sectores, contexto });
-      return json(parsedTexto);
+      return json({ ...parsedTexto, proveedor: canonizarProveedor(parsedTexto?.proveedor, proveedoresConocidos) });
     }
 
     const fileBase64 = String(body?.image_base64 || body?.base64 || "").trim();
@@ -187,7 +234,9 @@ serve(async (req) => {
     const parsed = isPDF
       ? await extraerComprobantePDF({ base64: fileBase64, mimeType: "application/pdf", filename, sectores, contexto })
       : await extraerComprobanteImagen({ base64: fileBase64, mimeType, sectores, contexto });
-    return json(parsed);
+    // El nombre canonico lo decide el codigo, no el modelo: solo reemplaza lo
+    // impreso cuando es claramente el mismo proveedor.
+    return json({ ...parsed, proveedor: canonizarProveedor(parsed?.proveedor, proveedoresConocidos) });
   } catch (error) {
     console.error("[extraer-comprobante]", error);
     return json({ error: error instanceof Error ? error.message : "No se pudo leer el comprobante" }, 400);
