@@ -175,13 +175,29 @@ async function fetchPaged(table, select, { order = "id", limit = 1000 } = {}) {
   return out;
 }
 
+// Un filtro .in() viaja en la URL, y la URL tiene un techo: medido contra la
+// base, 500 ids (18 KB) todavia pasan y 700 (25 KB) ya dan 400. Con mas de mil
+// materiales en el catalogo, pedir todos de una tira Bad Request. Se parte en
+// lotes con margen de sobra para que el catalogo pueda seguir creciendo.
+export const MAX_IDS_EN_FILTRO = 200;
+
+/** Corre fn(lote) por cada tanda de ids y devuelve todas las filas juntas. */
+export async function enLotesDeIds(ids, fn) {
+  const unicos = [...new Set((ids ?? []).filter(Boolean))];
+  const filas = [];
+  for (let desde = 0; desde < unicos.length; desde += MAX_IDS_EN_FILTRO) {
+    filas.push(...(await fn(unicos.slice(desde, desde + MAX_IDS_EN_FILTRO)) ?? []));
+  }
+  return filas;
+}
+
 async function fetchBarcodeRowsForMaterialIds(materialIds = []) {
   const ids = [...new Set(materialIds.filter(Boolean))];
   if (!ids.length) return new Map();
   try {
     const byMaterial = new Map();
-    for (let from = 0; from < ids.length; from += 500) {
-      const chunk = ids.slice(from, from + 500);
+    for (let from = 0; from < ids.length; from += MAX_IDS_EN_FILTRO) {
+      const chunk = ids.slice(from, from + MAX_IDS_EN_FILTRO);
       const { data, error } = await supabase
         .from("panol_material_codigos_barra")
         .select("id,material_id,codigo,etiqueta,activo")

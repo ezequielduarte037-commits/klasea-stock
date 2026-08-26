@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, Check, ChevronRight, Layers, MapPin, Move, Package, PackageOpen, Pencil, Search, Warehouse, X } from "lucide-react";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
-import { guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
+import { enLotesDeIds, guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
 import { parseUbicacion } from "./ubicacionUtils";
 import { fmtDate, rowDelta, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
 
@@ -153,11 +153,16 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
         setStockByMaterialId({});
         return;
       }
-      const { data: stockRows, error: stockError } = await supabase.from("panol_obra_materiales_snapshot")
-        .select("material_id,cantidad,cantidad_egresada,estado,source,recepcion_estado")
-        .in("material_id", materialIds)
-        .in("estado", LEDGER_STATES);
-      if (stockError) throw stockError;
+      // De a lotes: con el catalogo entero el filtro no entra en la URL y la
+      // base devuelve 400. Ver MAX_IDS_EN_FILTRO.
+      const stockRows = await enLotesDeIds(materialIds, async (lote) => {
+        const { data, error } = await supabase.from("panol_obra_materiales_snapshot")
+          .select("material_id,cantidad,cantidad_egresada,estado,source,recepcion_estado")
+          .in("material_id", lote)
+          .in("estado", LEDGER_STATES);
+        if (error) throw error;
+        return data;
+      });
       const nextStock = {};
       for (const row of stockRows ?? []) {
         if (!row.material_id) continue;
