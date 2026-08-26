@@ -194,13 +194,6 @@ function startupErrorMessage(error) {
 // Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
 // superpone con los controles y rompe el layout, así que ahí no va.
 const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
-const RUTAS_DEMO = new Set([
-  "/", "/obras", "/materiales", "/compras", "/compras-etapa",
-  "/stock-panol", "/catalogo-maestro", "/solicitudes-panol", "/recepcion-panol", "/egresos-panol",
-  "/laminacion", "/obras-laminacion", "/muebles", "/torneria", "/marmoleria",
-  "/calendario", "/calendario-produccion", "/memorias", "/procedimientos",
-  "/postventa", "/madera", "/movimientos", "/pedidos",
-]);
 
 function CampanitaSalvoColector({ profile }) {
   const { pathname } = useLocation();
@@ -213,9 +206,7 @@ function RequireAuth({ session, children }) {
   return children;
 }
 function RequireRole({ profile, allow, children }) {
-  const { pathname } = useLocation();
   if (!profile) return <Navigate to="/login" replace />;
-  if (profile.is_demo) return RUTAS_DEMO.has(pathname) ? children : <Navigate to="/" replace />;
   if (profile.is_admin || allow.includes(profile.role)) return children;
   if (profile.role === "compras") return <Navigate to="/compras" replace />;
   if (profile.role === "cadete")  return <Navigate to="/cadete" replace />;
@@ -517,7 +508,7 @@ export default function App() {
 
       if (pData) {
         const normalizedProfile = pData.is_demo
-          ? { ...pData, access_role: pData.role, role: "demo", is_admin: false, must_change_password: false }
+          ? { ...pData, access_role: pData.role, is_admin: false, must_change_password: false }
           : pData;
         if (loadId === profileLoadIdRef.current) setProfile(normalizedProfile);
         return;
@@ -671,7 +662,7 @@ export default function App() {
             <AppVersionGuard />
             <PresentationPrivacyShield active={!!profile?.is_demo} />
             {session && profile && !profile.is_demo && <AdminActivityTracker profile={profile} />}
-            {session && profile && profile.role !== "cliente" && !profile.is_demo && <GlobalSearch profile={profile} />}
+            {session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
       <PantallaCaida>
       <Suspense fallback={<RouteLoader />}>
       <Routes>
@@ -750,7 +741,7 @@ export default function App() {
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />
-      {session && profile && profile.role !== "cliente" && !profile.is_demo && <CampanitaSalvoColector profile={profile} />}
+      {session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
       {session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
           </ConfirmProvider>
         </ToastProvider>

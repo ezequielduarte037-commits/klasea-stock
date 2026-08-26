@@ -317,7 +317,7 @@ export default function Sidebar({ profile, signOut }) {
   const esGestion = broadAccess || esTecnica;
   const esAdmin   = realAdmin;
   const esAdministracion = role === "administracion";
-  const esRrhh    = !esDemo && (esAdmin || role === "rrhh" || esTecnica || esAdministracion);
+  const esRrhh    = esAdmin || role === "rrhh" || esTecnica || esAdministracion;
   const esCompras = role === "compras";
   const esMecanica = role === "mecanica";
   const puedeVerLogistica = realAdmin || ["tecnica", "administracion", "compras"].includes(role);
@@ -326,7 +326,7 @@ export default function Sidebar({ profile, signOut }) {
   const puedeVerMateriales = esGestion || esCompras;
   const puedeVerCatalogo = esGestion || esCompras || esPanol;
   // Administración entra sólo a Precios (no al catálogo completo de Materiales).
-  const puedeVerPrecios = !esDemo && (esGestion || esCompras || esAdministracion);
+  const puedeVerPrecios = esGestion || esCompras || esAdministracion;
   const comprasLabel = esCompras || realAdmin ? "Gestión de Compras" : "Pedidos";
   const comprasGroup = esCompras || realAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
