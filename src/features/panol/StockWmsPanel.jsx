@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Archive,
   ArrowUpRight,
   CheckCircle2,
   CircleDashed,
@@ -1091,7 +1092,50 @@ function ProductPrimaryAction({ action, compact = false }) {
 
 // memo: al agregar al carrito (o seleccionar) solo se re-renderizan las tarjetas
 // afectadas, no las 300+ de la lista — el click se siente inmediato.
-const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, primaryAction, inCart = false, dense = false }) {
+function ArchiveMatrixAction({ group, onArchive, compact = false }) {
+  if (!group.esRequisito || !onArchive || group.verificacion === "ok") return null;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        event.stopPropagation();
+        onArchive(group);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          onArchive(group);
+        }
+      }}
+      title="Archivar este requisito de matriz. No borra el producto ni su historial."
+      style={{
+        flexShrink: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: compact ? 0 : 4,
+        minWidth: compact ? 24 : 0,
+        height: compact ? 20 : 24,
+        justifyContent: "center",
+        border: `1px solid ${C.border}`,
+        background: C.panelSolid,
+        color: C.dim,
+        borderRadius: 7,
+        padding: compact ? "0 5px" : "0 8px",
+        fontSize: 9.5,
+        fontWeight: 900,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <Archive size={compact ? 11 : 12} />
+      {!compact && "Archivar"}
+    </span>
+  );
+}
+
+const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, onArchivarMatriz, primaryAction, inCart = false, dense = false }) {
   const [cartHover, setCartHover] = useState(false);
   const [hover, setHover] = useState(false);
   const breakdown = group.locations
@@ -1135,6 +1179,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
           {group.esRequisito && (
             <span title="Requisito de matriz: es generico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
           )}
+          <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />
           <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 950, flexShrink: 0 }}>
             {fmtQty(group.total)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 800, marginLeft: 3 }}>{group.unidad || "u"}</span>
           </span>
@@ -1217,6 +1262,10 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <VerificacionChip estado={group.verificacion} compact />
         <KindChip tipo={group.tipoPedido} />
+        {group.esRequisito && (
+          <span title="Requisito de matriz: es genérico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
+        )}
+        <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} />
         <StockLevelChip group={group} hideUnset />
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
         <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} imbalance={group.locationImbalance} compact />
@@ -3911,6 +3960,8 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
 export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
+  const productListRef = useRef(null);
+  const loadMoreRef = useRef(null);
   const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
   const [transitRows, setTransitRows] = useState(() => Array.isArray(sharedTransitRows) ? sharedTransitRows : []);
@@ -3936,6 +3987,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [creating, setCreating] = useState(false);
   const [draftGroup, setDraftGroup] = useState(null);
   const stockManagement = stockMaster || showCatalogInventory;
+  const obraScoped = fObra !== "todas";
+  const canArchiveMatrix = canReceive && (stockMaster || obraScoped);
   // Carrito PERSISTENTE (localStorage): si estás egresando y surge otra cosa,
   // el carrito queda guardado y te espera — sobrevive recargas y cambios de pantalla.
   // Se limpia solo al confirmar el movimiento o al tocar "Vaciar".
@@ -4342,7 +4395,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     });
     // Se ocultan solo cuando no hay un filtro de revision puesto: si alguien
     // pide ver "Revisados", los archivados son justamente lo que busca.
-    const base = stockMaster && !verArchivados && verifScope === "todos"
+    const base = (stockMaster || obraScoped) && !verArchivados && verifScope === "todos"
       ? conVerif.filter((group) => !esMatrizArchivada(group))
       : conVerif;
     if (stockMaster && ["existencia", "reponer", "en_camino", "sin_ubicacion", "reconciliar"].includes(scope)) {
@@ -4360,7 +4413,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return sortProductGroups(base.filter((group) => stockLevel(group).key === scope), orderBy);
     }
     return sortProductGroups(base, orderBy);
-  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, verArchivados, verifScope]);
+  }, [draftGroup, obraScoped, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, verArchivados, verifScope]);
 
   // Renderizar cientos de tarjetas a la vez bloqueaba el hilo principal varios
   // segundos. Los cálculos y contadores siguen usando el conjunto completo;
@@ -4373,7 +4426,22 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   useEffect(() => {
     setRenderLimit(PRODUCT_RENDER_BATCH);
-  }, [fCategoria, fObra, fSede, kindScope, orderBy, q, scope, stockView, verifScope]);
+  }, [fCategoria, fObra, fSede, kindScope, orderBy, q, scope, stockView, verArchivados, verifScope]);
+
+  // La lista se entrega en tandas para no congelar la pantalla, pero cargar la
+  // tanda siguiente no debe depender de que alguien descubra un botón al final.
+  // Al acercarse al pie se amplía sola; el botón queda además como respaldo.
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    const root = productListRef.current;
+    if (!target || !root || hiddenProductCount <= 0 || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length));
+    }, { root, rootMargin: "280px 0px", threshold: 0.01 });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hiddenProductCount, productGroups.length]);
 
   const historyRows = useMemo(
     () => searchedRows
@@ -4752,7 +4820,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
               {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
             </span>
-            {matrizPendientes.length > 0 && (
+            {canArchiveMatrix && matrizPendientes.length > 0 && (
               <button type="button" onClick={archivarTodaLaMatriz} disabled={archivandoLote}
                 title="Los requisitos de matriz no son piezas del estante. Archivarlos los saca de la lista sin borrarlos."
                 style={{
@@ -4816,11 +4884,29 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               algo que se aprende la primera vez que hacés click. */}
           <div style={{ padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : "Stock maestro"}</div>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
               <div style={{ color: C.dim, fontSize: 11 }}>
-                {productGroups.length} resultados{hiddenProductCount ? ` · mostrando ${renderedProductGroups.length}` : ""} · {stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
+                {productGroups.length} resultados{hiddenProductCount ? ` · ${renderedProductGroups.length} visibles, el resto carga al bajar` : ""} · {stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
               </div>
             </div>
+            {obraScoped && matrizArchivadas > 0 && (
+              <button
+                type="button"
+                onClick={() => setVerArchivados((value) => !value)}
+                title="Mostrar u ocultar requisitos de matriz archivados en esta obra"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  border: `1px solid ${verArchivados ? C.violet : C.border}`,
+                  background: verArchivados ? "var(--violet-soft)" : C.panelSolid,
+                  color: verArchivados ? C.violet : C.dim,
+                  borderRadius: 999, padding: "5px 9px", cursor: "pointer",
+                  fontSize: 10.5, fontWeight: 900, fontFamily: C.sans,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Archive size={12} /> {matrizArchivadas} archivado{matrizArchivadas === 1 ? "" : "s"}
+              </button>
+            )}
             {stockManagement && (
               <div style={{ display: "inline-flex", gap: 3, padding: 3, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel }}>
                 <button type="button" onClick={() => setStockView("lista")} title="Ver como lista" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "lista" ? C.blueB : "transparent"}`, background: stockView === "lista" ? C.blueL : "transparent", color: stockView === "lista" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
@@ -4832,7 +4918,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               </div>
             )}
           </div>
-          <div style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
+          <div ref={productListRef} style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
             {stockManagement && stockView === "lista" && !loading && productGroups.length > 0 && (
               <div style={{ minWidth: STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: STOCK_ROW_COLS, gap: 12, padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
                 <span />
@@ -4863,13 +4949,14 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {renderedProductGroups.map((group) => {
                   const primaryAction = primaryActionFor(group);
                   return stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={stockMaster ? archivarMatriz : undefined} primaryAction={primaryAction} />
-                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />;
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} />
+                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />;
                 })}
                 {hiddenProductCount > 0 && (
                   <button
+                    ref={loadMoreRef}
                     type="button"
-                    onClick={() => setRenderLimit((current) => current + PRODUCT_RENDER_BATCH)}
+                    onClick={() => setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length))}
                     style={{
                       gridColumn: "1 / -1",
                       minWidth: stockManagement && stockView === "lista" ? STOCK_ROW_MIN : 0,
