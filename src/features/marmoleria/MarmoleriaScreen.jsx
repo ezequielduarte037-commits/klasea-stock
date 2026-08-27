@@ -704,21 +704,28 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         }
       });
 
-      const rows = dataPDF.map(p => {
-        let fechaEnvioFormateada = p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-";
+      const rows = [];
+      const gruposDeTitulo = new Set();
+      let grupoAnterior = "";
+      for (const p of dataPDF) {
         const key = `${p.codigo_barco}__${p.sector}`;
-        const colorMostrar = p.color || p.sector_color || colorPorSector[key] || "-";
-        return [
-          p.codigo_barco,
-          fechaEnvioFormateada,
+        if (key !== grupoAnterior) {
+          grupoAnterior = key;
+          gruposDeTitulo.add(rows.length);
+          const color = p.color || p.sector_color || colorPorSector[key] || "";
+          rows.push([
+            { content: `${p.codigo_barco}   ·   ${String(p.sector || "sin sector").toUpperCase()}${color ? `   ·   ${color}` : ""}`, colSpan: 6 },
+          ]);
+        }
+        rows.push([
+          "",
+          p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-",
           p.pieza || "-",
-          colorMostrar,
-          p.sector || "-",
           "1",
           p.estado,
-          p.observaciones || ""
-        ];
-      });
+          p.observaciones || "",
+        ]);
+      }
 
       // 6. Generar Tabla
       autoTable(doc, {
@@ -731,13 +738,27 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         // a la página siguiente. Con el default 'auto' la fila se cortaba y la
         // primera fila de la página 2 quedaba "bugeada" (pisada/cortada).
         rowPageBreak: "avoid",
-        head: [["Unidad", "Fecha envío", "Tipo plantilla", "Color", "Sector", "Cantidad", "Estado", "Observaciones"]],
+        head: [["", "Fecha envío", "Pieza", "Cant.", "Estado", "Observaciones"]],
         body: rows,
         styles: { fontSize: 10, valign: "middle", overflow: "linebreak" },
-        headStyles: { fillColor: [14, 18, 28] }, // Color oscuro tipo UI
+        headStyles: { fillColor: [14, 18, 28] },
         columnStyles: {
-          7: { cellWidth: 35 } // Darle más ancho a la columna de observaciones
-        }
+          0: { cellWidth: 6 },   // sangria: deja ver que la pieza cuelga del titulo
+          1: { cellWidth: 24 },
+          3: { cellWidth: 14, halign: "center" },
+          4: { cellWidth: 24 },
+          5: { cellWidth: 42 },
+        },
+        // El renglon de titulo se pinta distinto para que se lea como encabezado
+        // de grupo y no como una pieza mas.
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          if (!gruposDeTitulo.has(data.row.index)) return;
+          data.cell.styles.fillColor = [236, 240, 245];
+          data.cell.styles.textColor = [14, 18, 28];
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fontSize = 10.5;
+        },
       });
 
       // 7. Guardar el archivo
