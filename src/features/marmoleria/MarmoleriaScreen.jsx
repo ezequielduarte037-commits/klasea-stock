@@ -661,135 +661,175 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       // Se relee antes de generar: un PDF con datos viejos no se nota hasta que
       // alguien lo imprime y sale mal.
       const datos = await cargarDashboardGeneral();
-      // 1. Cargar jsPDF
-      const doc = new jsPDF();
-
-      // 2. Agregar el logo de Klase A
-      const img = new Image();
-      img.src = logoKlaseA;
-      // Esperamos que la imagen cargue por si acaso (para evitar errores en algunos navegadores)
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve; // Si falla la imagen, que siga igual
-      });
-      // Posición x, y, ancho, alto. Ajustá los números si el logo se ve deforme
-      // Sin el parametro de compresion, jsPDF guarda el PNG crudo y el reporte
-      // termina pesando 6 MB por un logo de 59 KB. Medido: 6.00 MB -> 0.04 MB.
-      doc.addImage(img, 'PNG', 14, 12, 45, 15, undefined, 'FAST');
-
-      // 3. Títulos
-      doc.setFontSize(16);
-      doc.text("Reporte de Marmolería", 14, 38);
-
-      doc.setFontSize(10);
-      doc.text(`Generado: ${new Date().toLocaleDateString()}`, 14, 44);
-
       if (!datos.length) {
         alert("No hay piezas enviadas en ninguna de las obras para exportar.");
         setIsExporting(false);
         return;
       }
 
-      // 4. Ordenamos para el PDF (por barco y luego sector)
-      const dataPDF = [...datos].sort((a, b) => {
-        if (a.codigo_barco !== b.codigo_barco) return a.codigo_barco.localeCompare(b.codigo_barco);
-        return (a.sector || "").localeCompare(b.sector || "");
-      });
+      const doc = new jsPDF();
+      const anchoHoja = doc.internal.pageSize.getWidth();
+      const altoHoja = doc.internal.pageSize.getHeight();
+      const MARGEN = 14;
+      const PIE = 16;
 
-      // 5. Preparamos las filas para la tabla (igual al Google Sheets de ejemplo)
-      // Pre-computar el color por barco+sector (tomando el primero no vacío)
-      const colorPorSector = {};
-      dataPDF.forEach(p => {
-        const key = `${p.codigo_barco}__${p.sector}`;
-        if (!colorPorSector[key] && (p.color || p.sector_color)) {
-          colorPorSector[key] = p.color || p.sector_color;
-        }
-      });
+      const img = new Image();
+      img.src = logoKlaseA;
+      await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
 
-      // La obra es lo que separa: encabeza su bloque. El area no necesita un
-      // renglon propio -eso partia el reporte en pedacitos-: alcanza con
-      // escribirla la primera vez y dejarla en blanco mientras se repita. Asi se
-      // ve donde empieza cada una sin cortar la lectura, que es lo que pasaba
-      // cuando "Mesada de Cocina" y "Mesada de Cockpit" quedaban pegadas.
-      const rows = [];
-      const filasDeObra = new Set();
-      const filasQueAbrenArea = new Set();
-      let obraAnterior = "";
-      let areaAnterior = "";
-      for (const p of dataPDF) {
-        if (p.codigo_barco !== obraAnterior) {
-          obraAnterior = p.codigo_barco;
-          areaAnterior = "";
-          filasDeObra.add(rows.length);
-          rows.push([{ content: p.codigo_barco, colSpan: 5 }]);
-        }
-        const area = String(p.sector || "").trim();
-        const abreArea = area !== areaAnterior;
-        if (abreArea) {
-          areaAnterior = area;
-          filasQueAbrenArea.add(rows.length);
-        }
-        const key = `${p.codigo_barco}__${p.sector}`;
-        rows.push([
-          abreArea ? (area || "—") : "",
-          p.pieza || "-",
-          p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-",
-          p.estado,
-          abreArea ? (p.color || p.sector_color || colorPorSector[key] || "") : "",
-        ]);
+      // Sin el parametro de compresion jsPDF guarda el PNG crudo y el reporte
+      // pesa 6 MB por un logo de 59 KB. Medido: 6.00 MB -> 74 KB.
+      const encabezado = () => {
+        doc.addImage(img, "PNG", MARGEN, 12, 45, 15, undefined, "FAST");
+        doc.setFontSize(15);
+        doc.setTextColor(14, 18, 28);
+        doc.text("Reporte de Marmolería", MARGEN, 36);
+        doc.setFontSize(9);
+        doc.setTextColor(120, 128, 140);
+        doc.text(`Generado ${new Date().toLocaleDateString("es-AR")}`, MARGEN, 41.5);
+      };
+      encabezado();
+
+      // Agrupado por obra. Cada una se dibuja como su propia tabla para poder
+      // decidir si entra en lo que queda de hoja o arranca en la siguiente: una
+      // obra partida al medio es justo lo que hace confuso el reporte.
+      const porObra = new Map();
+      for (const p of datos) {
+        const obra = p.codigo_barco || "Sin obra";
+        porObra.set(obra, [...(porObra.get(obra) ?? []), p]);
       }
+      const obras = [...porObra.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-      // 6. Generar Tabla
-      autoTable(doc, {
-        startY: 50, // Arranca más abajo para no pisar el logo ni los títulos
-        // En páginas de continuación el head se repite arriba; este margen evita
-        // que la tabla arranque pegada al borde y se pise.
-        margin: { top: 16, bottom: 18 },
-        // Clave del fix: si una fila (p. ej. una observación larga) no entra
-        // entera al pie de una página, NO se parte a la mitad — se mueve completa
-        // a la página siguiente. Con el default 'auto' la fila se cortaba y la
-        // primera fila de la página 2 quedaba "bugeada" (pisada/cortada).
-        rowPageBreak: "avoid",
-        head: [["Área", "Pieza", "Enviada", "Estado", "Piedra"]],
-        body: rows,
-        theme: "plain",
-        styles: { fontSize: 9.5, valign: "middle", overflow: "linebreak", cellPadding: { top: 2.4, bottom: 2.4, left: 3, right: 3 } },
-        headStyles: { fillColor: [14, 18, 28], textColor: 255, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { cellWidth: 26 },
-          1: { cellWidth: 52 },
-          2: { cellWidth: 22 },
-          3: { cellWidth: 24 },
-          4: { cellWidth: "auto", textColor: [110, 118, 130] },
-        },
-        didParseCell: (data) => {
-          if (data.section !== "body") return;
-          if (filasDeObra.has(data.row.index)) {
-            // La obra: la unica linea fuerte del reporte.
-            data.cell.styles.fillColor = [14, 18, 28];
-            data.cell.styles.textColor = 255;
-            data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fontSize = 11;
-            data.cell.styles.cellPadding = { top: 3, bottom: 3, left: 3, right: 3 };
-            return;
-          }
-          // Un filete finito arriba de cada area alcanza para separarlas.
-          if (filasQueAbrenArea.has(data.row.index)) {
-            data.cell.styles.lineWidth = { top: 0.2 };
-            data.cell.styles.lineColor = [214, 220, 228];
-          }
-          if (data.column.index === 0) data.cell.styles.fontStyle = "bold";
-          // Rehacer es lo unico que hay que ver de un vistazo.
-          if (data.column.index === 3 && String(data.cell.raw) === "Rehacer") {
-            data.cell.styles.textColor = [168, 50, 63];
-            data.cell.styles.fontStyle = "bold";
-          }
-        },
+      const ALTO_TITULO = 11;
+      const ALTO_CABECERA = 8;
+      const ALTO_RENGLON = 4.1;   // un renglon de texto a 9.5pt
+      const RELLENO_FILA = 4.4;   // el padding de arriba y abajo
+      const ANCHO_PIEZA = 50;
+      const ANCHO_PIEDRA = anchoHoja - MARGEN * 2 - (34 + 50 + 22 + 22);
+      let y = 50;
+
+      /** Alto real de una fila, contando lo que se parta en varios renglones. */
+      const altoDeFila = (pieza, piedra) => {
+        doc.setFontSize(9.5);
+        const renglones = Math.max(
+          doc.splitTextToSize(String(pieza || "-"), ANCHO_PIEZA - 7).length,
+          doc.splitTextToSize(String(piedra || "-"), ANCHO_PIEDRA - 7).length,
+          1,
+        );
+        return renglones * ALTO_RENGLON + RELLENO_FILA;
+      };
+
+      obras.forEach(([obra, piezasDeObra], indice) => {
+        const piezas = [...piezasDeObra].sort((a, b) => {
+          const s = (a.sector || "").localeCompare(b.sector || "");
+          return s !== 0 ? s : (a.pieza || "").localeCompare(b.pieza || "");
+        });
+
+        const alto = ALTO_TITULO + ALTO_CABECERA + piezas.reduce(
+          (total, p) => total + altoDeFila(p.pieza, p.color || p.sector_color),
+          0,
+        );
+        const espacioLibre = altoHoja - PIE - y;
+        // Si no entra entera y no estamos recien empezando la hoja, se pasa a la
+        // siguiente. Una obra corta nunca queda cortada; una muy larga se parte
+        // igual, pero arranca limpia arriba de una hoja.
+        if (alto > espacioLibre && y > 50) {
+          doc.addPage();
+          y = 20;
+        } else if (indice > 0) {
+          y += 6;
+        }
+
+        // Barra de la obra: lo unico fuerte del reporte.
+        doc.setFillColor(14, 18, 28);
+        doc.rect(MARGEN, y, anchoHoja - MARGEN * 2, ALTO_TITULO, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11.5);
+        doc.text(obra, MARGEN + 3.5, y + 7.6);
+        doc.setFontSize(8.5);
+        doc.setTextColor(190, 198, 210);
+        const pendientes = piezas.length;
+        const rehacer = piezas.filter((p) => p.estado === "Rehacer").length;
+        doc.text(
+          `${pendientes} pieza${pendientes === 1 ? "" : "s"}${rehacer ? ` · ${rehacer} a rehacer` : ""}`,
+          anchoHoja - MARGEN - 3.5,
+          y + 7.4,
+          { align: "right" },
+        );
+        y += ALTO_TITULO;
+
+        // El area se escribe solo cuando cambia: separa sin cortar la lectura.
+        // La piedra va en TODAS las filas porque dentro de una misma area puede
+        // haber piezas de piedras distintas, y ahi el dato importa por pieza.
+        let areaAnterior = "";
+        const filas = piezas.map((p) => {
+          const area = String(p.sector || "").trim();
+          const abre = area !== areaAnterior;
+          if (abre) areaAnterior = area;
+          return [
+            abre ? (area || "—") : "",
+            p.pieza || "-",
+            p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-",
+            p.estado,
+            p.color || p.sector_color || "-",
+          ];
+        });
+        const abrenArea = new Set();
+        let previa = "";
+        piezas.forEach((p, i) => {
+          const area = String(p.sector || "").trim();
+          if (area !== previa) { previa = area; abrenArea.add(i); }
+        });
+
+        autoTable(doc, {
+          startY: y,
+          margin: { left: MARGEN, right: MARGEN, top: 20, bottom: PIE },
+          rowPageBreak: "avoid",
+          head: [["Área", "Pieza", "Enviada", "Estado", "Piedra"]],
+          body: filas,
+          theme: "plain",
+          styles: { fontSize: 9.5, valign: "middle", overflow: "linebreak", cellPadding: { top: 2.2, bottom: 2.2, left: 3.5, right: 3 } },
+          headStyles: { fillColor: [240, 243, 247], textColor: [90, 98, 110], fontSize: 8.5, fontStyle: "bold" },
+          columnStyles: {
+            0: { cellWidth: 34, fontStyle: "bold" },
+            1: { cellWidth: 50 },
+            2: { cellWidth: 22 },
+            3: { cellWidth: 22 },
+            4: { cellWidth: ANCHO_PIEDRA },
+          },
+          didParseCell: (data) => {
+            if (data.section !== "body") return;
+            // Filete finito arriba de cada area: alcanza para separarlas.
+            if (abrenArea.has(data.row.index) && data.row.index > 0) {
+              data.cell.styles.lineWidth = { top: 0.15 };
+              data.cell.styles.lineColor = [220, 226, 234];
+            }
+            // Rehacer es lo unico que exige una accion.
+            if (data.column.index === 3 && String(data.cell.raw) === "Rehacer") {
+              data.cell.styles.textColor = [168, 50, 63];
+              data.cell.styles.fontStyle = "bold";
+            }
+            if (data.column.index === 4) data.cell.styles.textColor = [110, 118, 130];
+          },
+          didDrawPage: (data) => {
+            // El encabezado solo va en la primera; en las de continuacion basta
+            // el numero de pagina para no comerse media hoja.
+            if (data.pageNumber > 1 || doc.getNumberOfPages() > 1) {
+              doc.setFontSize(8);
+              doc.setTextColor(150, 156, 166);
+              doc.text(
+                `Marmolería · ${new Date().toLocaleDateString("es-AR")}`,
+                MARGEN,
+                altoHoja - 8,
+              );
+              doc.text(`${doc.getCurrentPageInfo().pageNumber}`, anchoHoja - MARGEN, altoHoja - 8, { align: "right" });
+            }
+          },
+        });
+        y = doc.lastAutoTable.finalY;
       });
 
-      // 7. Guardar el archivo
-      doc.save(`Marmoleria_Global_${new Date().toLocaleDateString().replace(/\//g, "-")}.pdf`);
-
+      doc.save(`Marmoleria_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`);
     } catch (e) {
       console.error(e);
       alert("Hubo un error al generar el PDF.");
