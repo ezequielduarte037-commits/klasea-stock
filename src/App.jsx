@@ -15,6 +15,12 @@ import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker"
 import { endTrackedAdminSession } from "@/features/configuracion/adminActivityApi";
 import GlobalSearch from "@/features/search/GlobalSearch";
 import PresentationPrivacyShield from "@/components/PresentationPrivacyShield";
+// El colector de pañol trabaja en un navegador viejo y es una pantalla crítica:
+// estas tres rutas viajan en el bundle inicial para no depender de descargar un
+// chunk adicional justo después del login. El resto de la app sigue siendo lazy.
+import ScanEgresoScreen from "@/features/inventario/ScanEgresoScreen";
+import ScanPedidoScreen from "@/features/inventario/ScanPedidoScreen";
+import ColectorHomeScreen from "@/features/inventario/ColectorHomeScreen";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -119,8 +125,13 @@ function pantalla(importar) {
       if (yaRecargamos) throw error;
       try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
       recargarSalteandoCache();
-      // No se resuelve nunca a propósito: la página se está yendo.
-      return new Promise(() => {});
+      // Normalmente la navegación ocurre enseguida. Algunos navegadores viejos
+      // del taller no completan replace() y antes quedaban eternamente en el
+      // fallback "Cargando módulo...". Si en 1,5 s seguimos acá, el rechazo
+      // llega al error boundary y deja un botón de recuperación visible.
+      return new Promise((_, reject) => {
+        window.setTimeout(() => reject(error), 1_500);
+      });
     }));
 }
 
@@ -146,10 +157,7 @@ const CalendarioScreen = pantalla(() => import("@/features/calendario/LogisticaC
 const CalendarioProduccionScreen = pantalla(() => import("@/features/calendario/CalendarioScreen"));
 const MaderasScreen = pantalla(() => import("@/features/inventario/MaderasScreen"));
 const PurchaseRequestsScreen = pantalla(() => import("@/features/compras/PurchaseRequestsScreen"));
-const ScanEgresoScreen = pantalla(() => import("@/features/inventario/ScanEgresoScreen"));
 const BalanzaDebugScreen = pantalla(() => import("@/features/inventario/BalanzaDebugScreen"));
-const ScanPedidoScreen = pantalla(() => import("@/features/inventario/ScanPedidoScreen"));
-const ColectorHomeScreen = pantalla(() => import("@/features/inventario/ColectorHomeScreen"));
 const CalibrarPesosScreen = pantalla(() => import("@/features/panol/CalibrarPesosScreen"));
 const EtiquetasScreen = pantalla(() => import("@/features/inventario/EtiquetasScreen"));
 const RrhhScreen = pantalla(() => import("@/features/rrhh/RrhhScreen"));
