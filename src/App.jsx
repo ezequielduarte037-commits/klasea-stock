@@ -7,6 +7,7 @@ import AppVersionGuard from "@/components/AppVersionGuard";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import NotificacionesBell from "@/components/NotificacionesBell";
+import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
@@ -195,9 +196,17 @@ function startupErrorMessage(error) {
 // superpone con los controles y rompe el layout, así que ahí no va.
 const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
 
+// Pantallas que en el celular son una lista larga a pantalla completa: la
+// campanita queda flotando encima del último renglón y del botón de acción, y
+// el que trabaja ahí termina tocándola sin querer. En Tornería el mecánico usa
+// el teléfono todo el día, así que ahí se saca; en la compu no molesta y queda.
+const RUTAS_SIN_CAMPANITA_EN_CELULAR = new Set(["/torneria"]);
+
 function CampanitaSalvoColector({ profile }) {
   const { pathname } = useLocation();
+  const { isMobile } = useResponsive(768);
   if (RUTAS_COLECTOR.has(pathname)) return null;
+  if (isMobile && RUTAS_SIN_CAMPANITA_EN_CELULAR.has(pathname)) return null;
   return <NotificacionesBell profile={profile} />;
 }
 
