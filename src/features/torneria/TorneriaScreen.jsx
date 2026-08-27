@@ -376,15 +376,27 @@ function ProcessCard({ process, selected, onClick }) {
     (item) => item.activo !== false && !item.no_lleva && item.requiere_confirmacion && !item.confirmado_at,
   ).length;
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
+      aria-current={selected ? "true" : undefined}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
       className="tor-process-card"
       style={{
         width: "100%",
         display: "grid",
+        gridTemplateRows: "auto auto auto",
         gap: 9,
         padding: 12,
+        minHeight: 92,
+        height: "max-content",
+        alignSelf: "start",
         borderRadius: 13,
         border: `1px solid ${selected ? C.blueB : C.border}`,
         background: selected ? C.blueL : C.panel,
@@ -392,6 +404,8 @@ function ProcessCard({ process, selected, onClick }) {
         cursor: "pointer",
         textAlign: "left",
         boxShadow: selected ? "0 8px 24px -18px var(--shadow-strong)" : "none",
+        WebkitTapHighlightColor: "transparent",
+        touchAction: "manipulation",
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
@@ -438,7 +452,7 @@ function ProcessCard({ process, selected, onClick }) {
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -503,7 +517,15 @@ function ProcessList({
           ))}
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 10, display: "grid", alignContent: "start", gap: 7 }}>
+      <div style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: 10,
+        display: "grid",
+        gridAutoRows: "max-content",
+        alignContent: "start",
+        gap: 7,
+      }}>
         {!processes.length ? (
           <div style={{
             display: "grid",
@@ -3866,18 +3888,14 @@ export default function TorneriaScreen({ profile, signOut }) {
     }}>
       <style>{`
         *,*::before,*::after{box-sizing:border-box}
-        /* iOS le da apariencia de control nativo a todo <button> y ahí deja de
-           respetar el layout: centra el contenido, no crece con los hijos y lo
-           que sobra se derrama encima de la tarjeta de al lado. Es lo que hacía
-           que la lista de obras se viera pisada en el celular y perfecta en el
-           escritorio, donde Chrome no aplica esa apariencia. */
-        /* Sólo la apariencia: no se toca font ni color acá, porque cada botón
-           de la pantalla ya define los suyos y un reset más ancho movería
-           tamaños en escritorio sin necesidad. */
+        /* Evita la apariencia nativa de los controles en navegadores móviles. */
         button{-webkit-appearance:none;appearance:none}
-        /* La lista de obras es la que se veía pisada: se le fija el alto
-           automático por las dudas de que algún motor viejo lo colapse igual. */
-        .tor-process-card{width:100%;height:auto;text-align:left}
+        /* La card de proceso no es un <button>: algunos Chrome/Android colapsan
+           el alto intrínseco de botones con grid y derraman el contenido sobre
+           la fila siguiente. El rol conserva teclado/accesibilidad sin depender
+           del render nativo del control. */
+        .tor-process-card{width:100%;height:max-content;text-align:left;outline:none}
+        .tor-process-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
         /* Scrollbars finas, como en Obras y Muebles. */
         ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-track{background:transparent}
