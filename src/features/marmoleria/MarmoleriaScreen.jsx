@@ -673,7 +673,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         img.onerror = resolve; // Si falla la imagen, que siga igual
       });
       // Posición x, y, ancho, alto. Ajustá los números si el logo se ve deforme
-      doc.addImage(img, 'PNG', 14, 12, 45, 15);
+      // Sin el parametro de compresion, jsPDF guarda el PNG crudo y el reporte
+      // termina pesando 6 MB por un logo de 59 KB. Medido: 6.00 MB -> 0.04 MB.
+      doc.addImage(img, 'PNG', 14, 12, 45, 15, undefined, 'FAST');
 
       // 3. Títulos
       doc.setFontSize(16);
@@ -704,26 +706,36 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         }
       });
 
+      // La obra es lo que separa: encabeza su bloque. El area no necesita un
+      // renglon propio -eso partia el reporte en pedacitos-: alcanza con
+      // escribirla la primera vez y dejarla en blanco mientras se repita. Asi se
+      // ve donde empieza cada una sin cortar la lectura, que es lo que pasaba
+      // cuando "Mesada de Cocina" y "Mesada de Cockpit" quedaban pegadas.
       const rows = [];
-      const gruposDeTitulo = new Set();
-      let grupoAnterior = "";
+      const filasDeObra = new Set();
+      const filasQueAbrenArea = new Set();
+      let obraAnterior = "";
+      let areaAnterior = "";
       for (const p of dataPDF) {
-        const key = `${p.codigo_barco}__${p.sector}`;
-        if (key !== grupoAnterior) {
-          grupoAnterior = key;
-          gruposDeTitulo.add(rows.length);
-          const color = p.color || p.sector_color || colorPorSector[key] || "";
-          rows.push([
-            { content: `${p.codigo_barco}   ·   ${String(p.sector || "sin sector").toUpperCase()}${color ? `   ·   ${color}` : ""}`, colSpan: 6 },
-          ]);
+        if (p.codigo_barco !== obraAnterior) {
+          obraAnterior = p.codigo_barco;
+          areaAnterior = "";
+          filasDeObra.add(rows.length);
+          rows.push([{ content: p.codigo_barco, colSpan: 5 }]);
         }
+        const area = String(p.sector || "").trim();
+        const abreArea = area !== areaAnterior;
+        if (abreArea) {
+          areaAnterior = area;
+          filasQueAbrenArea.add(rows.length);
+        }
+        const key = `${p.codigo_barco}__${p.sector}`;
         rows.push([
-          "",
-          p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-",
+          abreArea ? (area || "—") : "",
           p.pieza || "-",
-          "1",
+          p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-",
           p.estado,
-          p.observaciones || "",
+          abreArea ? (p.color || p.sector_color || colorPorSector[key] || "") : "",
         ]);
       }
 
@@ -738,26 +750,40 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         // a la página siguiente. Con el default 'auto' la fila se cortaba y la
         // primera fila de la página 2 quedaba "bugeada" (pisada/cortada).
         rowPageBreak: "avoid",
-        head: [["", "Fecha envío", "Pieza", "Cant.", "Estado", "Observaciones"]],
+        head: [["Área", "Pieza", "Enviada", "Estado", "Piedra"]],
         body: rows,
-        styles: { fontSize: 10, valign: "middle", overflow: "linebreak" },
-        headStyles: { fillColor: [14, 18, 28] },
+        theme: "plain",
+        styles: { fontSize: 9.5, valign: "middle", overflow: "linebreak", cellPadding: { top: 2.4, bottom: 2.4, left: 3, right: 3 } },
+        headStyles: { fillColor: [14, 18, 28], textColor: 255, fontSize: 9, fontStyle: "bold" },
         columnStyles: {
-          0: { cellWidth: 6 },   // sangria: deja ver que la pieza cuelga del titulo
-          1: { cellWidth: 24 },
-          3: { cellWidth: 14, halign: "center" },
-          4: { cellWidth: 24 },
-          5: { cellWidth: 42 },
+          0: { cellWidth: 26 },
+          1: { cellWidth: 52 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: "auto", textColor: [110, 118, 130] },
         },
-        // El renglon de titulo se pinta distinto para que se lea como encabezado
-        // de grupo y no como una pieza mas.
         didParseCell: (data) => {
           if (data.section !== "body") return;
-          if (!gruposDeTitulo.has(data.row.index)) return;
-          data.cell.styles.fillColor = [236, 240, 245];
-          data.cell.styles.textColor = [14, 18, 28];
-          data.cell.styles.fontStyle = "bold";
-          data.cell.styles.fontSize = 10.5;
+          if (filasDeObra.has(data.row.index)) {
+            // La obra: la unica linea fuerte del reporte.
+            data.cell.styles.fillColor = [14, 18, 28];
+            data.cell.styles.textColor = 255;
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fontSize = 11;
+            data.cell.styles.cellPadding = { top: 3, bottom: 3, left: 3, right: 3 };
+            return;
+          }
+          // Un filete finito arriba de cada area alcanza para separarlas.
+          if (filasQueAbrenArea.has(data.row.index)) {
+            data.cell.styles.lineWidth = { top: 0.2 };
+            data.cell.styles.lineColor = [214, 220, 228];
+          }
+          if (data.column.index === 0) data.cell.styles.fontStyle = "bold";
+          // Rehacer es lo unico que hay que ver de un vistazo.
+          if (data.column.index === 3 && String(data.cell.raw) === "Rehacer") {
+            data.cell.styles.textColor = [168, 50, 63];
+            data.cell.styles.fontStyle = "bold";
+          }
         },
       });
 
