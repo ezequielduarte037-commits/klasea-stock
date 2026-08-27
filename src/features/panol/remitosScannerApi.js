@@ -311,8 +311,8 @@ export async function guardarRemitoEscaneado(file, {
     ...(esConsumibles ? { es_consumible: true } : {}),
   };
 
+  let receipt = null;
   try {
-    let receipt = null;
     let receiptError = null;
     if (Object.keys(extras).length) {
       ({ data: receipt, error: receiptError } = await supabase
@@ -334,12 +334,21 @@ export async function guardarRemitoEscaneado(file, {
         .from("panol_comprobantes").insert(sinColumnas).select("id").single());
       if (receiptError) throwFriendly(receiptError);
     }
-    return { ...(await fetchScannerReceiptById(receipt.id)), duplicado: false };
   } catch (error) {
-    // Si la fila no se pudo crear, el PDF suelto en el bucket no le sirve a
-    // nadie y encima bloquea el hash para el proximo intento.
+    // La fila no se creo: el PDF suelto en el bucket no le sirve a nadie y
+    // encima bloquea el hash para el proximo intento.
     await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
     throw error;
+  }
+
+  // Ya existe la fila. De acá en más NO se borra nada: si releerla falla, el
+  // remito igual quedó guardado y se ve en cuanto se refresca la pantalla.
+  // Borrar el archivo por un error de lectura sería tirar el documento que
+  // acabamos de prometer que se guarda siempre.
+  try {
+    return { ...(await fetchScannerReceiptById(receipt.id)), duplicado: false };
+  } catch {
+    return { ...base, id: receipt.id, ...extras, items: [], duplicado: false };
   }
 }
 
@@ -365,6 +374,14 @@ async function descargarArchivoDeRemito(receipt) {
 export async function leerRemitoConIA(receipt, { archivo = null, esConsumibles = null } = {}) {
   const fila = typeof receipt === "string" ? await fetchScannerReceiptById(receipt) : receipt;
   if (!fila?.id) throw new Error("Falta el remito a leer.");
+
+  // Releer un remito rehace sus renglones. Si alguno ya se ingresó al stock,
+  // ese renglón no se puede tocar y la lectura nueva lo duplicaría: la de la IA
+  // más la que ya entró. Ahí no hay nada que releer, hay que seguir el ingreso.
+  const yaIngresado = (fila.items || []).some((item) => item.scanner_ingreso_envio_id);
+  if (yaIngresado) {
+    throw new Error("Este remito ya tiene renglones ingresados al stock: no se puede volver a leer.");
+  }
 
   const consumibles = esConsumibles == null ? fila.es_consumible === true : Boolean(esConsumibles);
   const file = archivo || await descargarArchivoDeRemito(fila);
@@ -449,11 +466,20 @@ export async function leerRemitoConIA(receipt, { archivo = null, esConsumibles =
     recepcion_estado: vinculados === items.length ? "listo_ingreso" : "requiere_revision",
     updated_at: new Date().toISOString(),
   };
-  const { error: updateError } = await supabase
+  const aplicarPatch = (cuerpo) => supabase
     .from("panol_comprobantes")
-    .update(patch)
+    .update(cuerpo)
     .eq("id", fila.id)
     .eq("origen_carga", "scanner_panol");
+
+  // Leer un remito que se habia guardado como "solo archivo" es decir que
+  // ahora si se quiere ingresar. Si la marca quedara puesta, el remito seguiria
+  // filtrado de la bandeja y la lectura no serviria para nada: quedaria leido
+  // en un lugar donde nadie lo puede confirmar.
+  let { error: updateError } = await aplicarPatch({ ...patch, solo_archivo: false });
+  if (updateError && esColumnaFaltante(updateError)) {
+    ({ error: updateError } = await aplicarPatch(patch));
+  }
   if (updateError) throwFriendly(updateError);
 
   return {
@@ -524,10 +550,17 @@ export async function fetchScannedReceipts({ sede = null, limit = 60 } = {}) {
   return visibles.map((row) => ({ ...row, items: byReceipt.get(row.id) || [] }));
 }
 
-/** Un remito guardado que todavia no tiene renglones = falta leerlo. */
+/**
+ * Un remito guardado que todavia no tiene renglones = falta leerlo.
+ *
+ * Mira los renglones y el ingreso, no el estado: en una base sin la migracion
+ * de `solo_archivo` los archivados quedan marcados "ingresado" aunque nunca se
+ * hayan leido, y por el estado solo pareceria que ya esta todo hecho.
+ */
 export function remitoSinLeer(receipt) {
-  return (receipt?.items?.length || 0) === 0
-    && !["ingresado", "parcial", "archivado"].includes(receipt?.recepcion_estado);
+  if ((receipt?.items?.length || 0) > 0) return false;
+  if (receipt?.panol_envio_id) return false;
+  return receipt?.recepcion_estado !== "archivado";
 }
 
 export function scannerReceiptPrefill(receipt) {

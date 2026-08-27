@@ -37,6 +37,7 @@ import { applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 import { leerPresupuestoConIA } from "@/features/materiales/api";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
 import { assertRemitoExtraction } from "@/features/panol/remitoDocument";
+import { numeroDeTexto } from "@/features/panol/remitosScannerApi";
 import { archiveScannerFile, scanReceiptFromDevice } from "@/features/panol/scannerBridge";
 import AntesDeEscanearModal from "@/features/panol/AntesDeEscanearModal";
 
@@ -829,8 +830,12 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           .sort((a, b) => b.score - a.score)[0];
         if (!mejor) { sinMatch.push(linea); continue; }
         usados.add(mejor.item.id);
-        const pedido = Number(String(mejor.item.cantidad ?? "").replace(",", ".")) || 0;
-        const leido = Number(String(linea.cantidad ?? "").replace(",", ".")) || 0;
+        // La cantidad del remito llega como la escribio el proveedor ("1.200",
+        // "20,00 UN"). Un replace de la primera coma convertia "1.234,56" en
+        // NaN, o sea que la cantidad leida se perdia justo cuando venia bien
+        // escrita. numeroDeTexto mira el ultimo separador, que es el decimal.
+        const pedido = numeroDeTexto(mejor.item.cantidad) || 0;
+        const leido = numeroDeTexto(linea.cantidad) || 0;
         // Si el remito no trae cantidad legible se asume que llego todo lo pedido:
         // es lo mas comun y el pañolero igual lo ve y lo puede corregir.
         const cantidad = leido > 0 ? leido : pedido;

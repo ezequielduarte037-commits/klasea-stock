@@ -68,6 +68,14 @@ function tokensDeProveedor(valor: unknown): string[] {
  * La eleccion la hace el codigo y no el modelo a proposito: mostrarle los 300
  * proveedores arreglo que dijera nuestro propio nombre, pero convirtio la lista
  * en un menu y empezo a elegir un conocido cuando no reconocia el emisor.
+ *
+ * AMBIGUEDAD: antes devolvia el PRIMER conocido que matcheaba, o sea el que
+ * estaba antes por orden alfabetico. Con un nombre impreso de una sola palabra
+ * -"Nautica"- eso alcanzaba para elegir entre "Nautica Delta" y "Nautica del
+ * Sur" tirando una moneda, y el remito quedaba cargado al proveedor equivocado
+ * sin que nadie se enterara. Ahora, si matchean dos o mas, vale lo impreso: un
+ * nombre sin canonizar se arregla en dos segundos, uno canonizado al proveedor
+ * de al lado no se descubre nunca.
  */
 function canonizarProveedor(impreso: unknown, nombresConocidos: string[]): string | null {
   const texto = String(impreso ?? "").trim();
@@ -75,14 +83,16 @@ function canonizarProveedor(impreso: unknown, nombresConocidos: string[]): strin
   const propios = tokensDeProveedor(texto);
   if (!propios.length) return texto;
 
+  const candidatos: string[] = [];
   for (const conocido of nombresConocidos) {
     const suyos = tokensDeProveedor(conocido);
     if (!suyos.length) continue;
     const [corto, largo] = propios.length <= suyos.length ? [propios, suyos] : [suyos, propios];
-    if (corto.every((t) => largo.includes(t))) return conocido;
+    if (corto.every((t) => largo.includes(t))) candidatos.push(conocido);
   }
-  // No se parece a ninguno: vale lo que dice el papel.
-  return texto;
+  // Uno solo: es el mismo proveedor escrito distinto. Ninguno o varios: lo
+  // impreso, que es lo unico que consta en el papel.
+  return candidatos.length === 1 ? candidatos[0] : texto;
 }
 
 async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise<{ texto: string; nombres: string[] }> {

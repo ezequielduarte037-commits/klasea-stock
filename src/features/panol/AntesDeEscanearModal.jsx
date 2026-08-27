@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, LoaderCircle, ScanLine, X } from "lucide-react";
+import { FileText, FolderOpen, LoaderCircle, ScanLine, X } from "lucide-react";
 import { C } from "@/theme";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
 import { carpetaDeObra, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
-import { hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
+import { fetchProveedoresConocidos, hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
 
 /**
- * Lo que se pregunta antes de escanear. Sirve para dos cosas a la vez: el remito
- * queda archivado en la carpeta de su obra -Remitos\K55\55-1- y la IA lee el
- * documento sabiendo de quien viene, que es justo lo que le faltaba para no
- * tener que adivinar el proveedor.
+ * Los datos del remito: de qué barco es, de qué proveedor, dónde se archiva.
  *
- * La obra NO es obligatoria: si el remito es de stock general y no va a ningun
- * barco, se escanea igual y queda en la raiz. Frenar un ingreso por un campo sin
- * completar seria peor que tener un remito sin clasificar.
+ * Se usa en dos momentos y por eso tiene `modo`:
+ *  - "escanear": antes de mover la lámpara. Además de clasificar, elige la
+ *    carpeta de la PC donde el puente va a dejar el PDF.
+ *  - "guardar": sobre un archivo que ya existe (uno subido a mano, o un escaneo
+ *    viejo que quedó sin clasificar). Ahí no hay origen que elegir.
  *
- * Quien lo usa lo monta solo cuando hace falta ({abierto && <Modal/>}), asi cada
- * vez arranca limpio y con lo que la pantalla ya sabe.
+ * Esta ventana es la que evita el peor error del circuito anterior: los datos se
+ * elegían UNA vez y después se le pegaban a cualquier archivo que se procesara,
+ * así que tres remitos de tres barcos distintos terminaban los tres en el barco
+ * del último. Cada papel pasa por acá con sus propios datos.
+ *
+ * La obra NO es obligatoria: si el remito es de stock general y no va a ningún
+ * barco, se guarda igual y queda en la raíz. Frenar un ingreso por un campo sin
+ * completar sería peor que tener un remito sin clasificar.
  */
 
 const ORIGENES = [
@@ -34,15 +39,23 @@ export default function AntesDeEscanearModal({
   origenInicial = "glass",
   soloArchivarInicial = false,
   permiteSoloArchivar = true,
-  titulo: tituloVentana = "¿Qué vas a escanear?",
+  modo = "escanear",
+  archivoNombre = "",
+  tituloInicial = "",
+  notasInicial = "",
+  carpetaInicial = "",
+  esConsumiblesInicial = false,
+  titulo: tituloVentana = "",
 }) {
+  const guardando = modo === "guardar";
+  const encabezado = tituloVentana || (guardando ? "Datos de este remito" : "¿Qué vas a escanear?");
   const [obras, setObras] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [obraId, setObraId] = useState(obraSugerida?.id ? String(obraSugerida.id) : "");
   const [proveedor, setProveedor] = useState(String(proveedorSugerido || ""));
   const [origen, setOrigen] = useState(origenInicial);
-  const [titulo, setTitulo] = useState("");
-  const [notas, setNotas] = useState("");
+  const [titulo, setTitulo] = useState(String(tituloInicial || ""));
+  const [notas, setNotas] = useState(String(notasInicial || ""));
   // Archivar y ingresar son dos cosas distintas. A veces el remito llega, hay
   // que guardarlo, y el stock se carga otro dia o directamente ya se cargo por
   // otro lado. Forzar el ingreso hace que la bandeja de pendientes se llene de
@@ -51,22 +64,34 @@ export default function AntesDeEscanearModal({
   // No todo remito es de un barco. Los consumibles de Rebollar, la ferretería
   // de todos los meses, el service de una máquina: eso va a su propia carpeta y
   // meterlo en "stock general" lo vuelve imposible de encontrar despues.
-  const [carpetaLibre, setCarpetaLibre] = useState("");
+  const [carpetaLibre, setCarpetaLibre] = useState(String(carpetaInicial || ""));
   // null mientras se averigua, para no mostrar un aviso que a lo mejor no va.
   const [faltaMigracion, setFaltaMigracion] = useState(null);
   // Un remito de Rebollar son treinta renglones de consumibles. Decirlo una vez
   // al principio evita marcarlos de a uno despues, que en la practica es lo que
   // nadie hace: quedan cargados como material comun y desaparecen de la pestaña
   // de Consumibles.
-  const [esConsumibles, setEsConsumibles] = useState(false);
+  const [esConsumibles, setEsConsumibles] = useState(Boolean(esConsumiblesInicial));
+
+  // El campo de proveedor siempre tuvo datalist, pero durante mucho tiempo nadie
+  // le pasaba la lista y salia vacio: habia que escribir el nombre de memoria, y
+  // asi es como una misma empresa termina cargada de cuatro formas distintas.
+  // Si quien monta la ventana no la trae, la buscamos nosotros.
+  const [proveedoresPropios, setProveedoresPropios] = useState([]);
+  const listaProveedores = proveedoresConocidos.length ? proveedoresConocidos : proveedoresPropios;
 
   useEffect(() => {
     let vivo = true;
     hayColumnasDeRemito()
       .then((hay) => { if (vivo) setFaltaMigracion(!hay); })
       .catch(() => { if (vivo) setFaltaMigracion(false); });
+    if (!proveedoresConocidos.length) {
+      fetchProveedoresConocidos()
+        .then((lista) => { if (vivo) setProveedoresPropios(lista); })
+        .catch(() => { if (vivo) setProveedoresPropios([]); });
+    }
     return () => { vivo = false; };
-  }, []);
+  }, [proveedoresConocidos.length]);
 
   useEffect(() => {
     let vivo = true;
@@ -152,8 +177,15 @@ export default function AntesDeEscanearModal({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-          <ScanLine size={17} color={C.blue} />
-          <div style={{ flex: 1, fontSize: 14.5, fontWeight: 950, color: C.text }}>{tituloVentana}</div>
+          {guardando ? <FileText size={17} color={C.blue} /> : <ScanLine size={17} color={C.blue} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 950, color: C.text }}>{encabezado}</div>
+            {archivoNombre ? (
+              <div style={{ fontSize: 11, fontWeight: 750, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {archivoNombre}
+              </div>
+            ) : null}
+          </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
             <X size={17} />
           </button>
@@ -166,7 +198,7 @@ export default function AntesDeEscanearModal({
                 Falta correr la migración en Supabase
               </div>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.5 }}>
-                El remito se va a escanear y a guardar en la carpeta de la PC, pero <b>el barco, el tipo,
+                El remito se guarda igual y el PDF queda archivado, pero <b>el barco, el tipo,
                 la referencia y &ldquo;solo archivar&rdquo; NO se van a guardar en el sistema</b>. Hasta
                 que la corras, lo que elijas acá abajo no tiene efecto.
               </div>
@@ -226,7 +258,7 @@ export default function AntesDeEscanearModal({
               style={campo}
             />
             <datalist id="klasea-proveedores-escaneo">
-              {proveedoresConocidos.map((nombre) => <option key={nombre} value={nombre} />)}
+              {listaProveedores.map((nombre) => <option key={nombre} value={nombre} />)}
             </datalist>
           </div>
 
@@ -287,42 +319,47 @@ export default function AntesDeEscanearModal({
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, color: C.text }}>Solo archivar</span>
                 <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.45 }}>
-                  Lo guarda como documento y no abre el ingreso. Sirve para tener el papel cargado sin mover stock todavía.
+                  Guarda el papel y no lo lee con IA ni abre el ingreso. Es lo más rápido y no puede fallar:
+                  el remito queda buscable y el stock se carga otro día, si hace falta.
                 </span>
               </span>
             </label>
           ) : null}
 
-          <div>
-            <div style={etiqueta}>De dónde</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {ORIGENES.map((opcion) => {
-                const activo = origen === opcion.valor;
-                return (
-                  <button
-                    key={opcion.valor}
-                    type="button"
-                    onClick={() => setOrigen(opcion.valor)}
-                    style={{
-                      flex: 1, border: `1px solid ${activo ? C.blueB : C.border2}`, background: activo ? C.blueL : C.panelSolid,
-                      color: activo ? C.blue : C.text, borderRadius: 9, padding: "9px 8px", cursor: "pointer",
-                      fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "grid", gap: 2,
-                    }}
-                  >
-                    <span>{opcion.etiqueta}</span>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
-                  </button>
-                );
-              })}
+          {!guardando ? (
+            <div>
+              <div style={etiqueta}>De dónde</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {ORIGENES.map((opcion) => {
+                  const activo = origen === opcion.valor;
+                  return (
+                    <button
+                      key={opcion.valor}
+                      type="button"
+                      onClick={() => setOrigen(opcion.valor)}
+                      style={{
+                        flex: 1, border: `1px solid ${activo ? C.blueB : C.border2}`, background: activo ? C.blueL : C.panelSolid,
+                        color: activo ? C.blue : C.text, borderRadius: 9, padding: "9px 8px", cursor: "pointer",
+                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "grid", gap: 2,
+                      }}
+                    >
+                      <span>{opcion.etiqueta}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderRadius: 9, background: C.panel2, border: `1px solid ${C.border}` }}>
-            <FolderOpen size={14} color={C.dim} />
-            <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              Se guarda en <b style={{ color: C.text }}>{carpetaParaMostrar(carpeta)}</b>
+          {!guardando ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderRadius: 9, background: C.panel2, border: `1px solid ${C.border}` }}>
+              <FolderOpen size={14} color={C.dim} />
+              <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Se guarda en <b style={{ color: C.text }}>{carpetaParaMostrar(carpeta)}</b>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel2, flexShrink: 0 }}>
@@ -330,8 +367,10 @@ export default function AntesDeEscanearModal({
             Cancelar
           </button>
           <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
-            {cargando ? <LoaderCircle size={14} className="spin" /> : <ScanLine size={14} />}
-            {soloArchivar ? "Escanear y archivar" : "Escanear"}
+            {cargando ? <LoaderCircle size={14} className="spin" /> : guardando ? <FileText size={14} /> : <ScanLine size={14} />}
+            {guardando
+              ? (soloArchivar ? "Guardar sin leer" : "Guardar y leer")
+              : (soloArchivar ? "Escanear y archivar" : "Escanear")}
           </button>
         </div>
       </div>
