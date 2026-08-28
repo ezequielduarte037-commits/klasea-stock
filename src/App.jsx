@@ -204,6 +204,45 @@ function startupErrorMessage(error) {
 // Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
 // superpone con los controles y rompe el layout, así que ahí no va.
 const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
+const ROLES_COLECTOR = new Set(["admin", "oficina", "tecnica", "panol"]);
+const COLECTOR_DEVICE_KEY = "klasea.modo-colector";
+
+// El PDA de pañol usa un Android/Chrome viejo. No alcanza con mirar el rol:
+// durante pruebas y reemplazos también se entra con cuentas de técnica o admin.
+// Si ese aparato intenta abrir el home completo, descarga un chunk grande y
+// queda eternamente en el fallback de Suspense. Guardamos una marca local para
+// que, una vez reconocido, siempre arranque por el shell liviano del colector.
+function esAndroidLegacyAngosto() {
+  if (typeof window === "undefined") return false;
+  try {
+    const ua = String(window.navigator?.userAgent || "");
+    const chrome = ua.match(/(?:Chrome|CriOS)\/(\d+)/i);
+    const version = Number(chrome?.[1] || 0);
+    return /Android/i.test(ua)
+      && window.matchMedia("(max-width: 768px)").matches
+      && version > 0
+      && version <= 90;
+  } catch {
+    return false;
+  }
+}
+
+function tieneMarcaDeColector() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(COLECTOR_DEVICE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function marcarComoColector() {
+  try { window.localStorage.setItem(COLECTOR_DEVICE_KEY, "1"); } catch { /* storage bloqueado */ }
+}
+
+function esRutaDeColector() {
+  return typeof window !== "undefined" && RUTAS_COLECTOR.has(window.location.pathname);
+}
 
 // Pantallas que en el celular son una lista larga a pantalla completa: la
 // campanita queda flotando encima del último renglón y del botón de acción, y
@@ -234,11 +273,44 @@ function RequireRole({ profile, allow, children }) {
 }
 
 function RouteLoader({ label = "Cargando módulo..." }) {
+  const [demorado, setDemorado] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDemorado(true), 8_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: C.bg, color: C.t1, fontFamily: C.sans }}>
-      <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+      <div style={{ width: "calc(100vw - 28px)", maxWidth: 330, display: "grid", gap: 10, justifyItems: "center", textAlign: "center" }}>
         <div style={{ width: 28, height: 28, borderRadius: 999, border: `3px solid ${C.b1}`, borderTopColor: C.blue, animation: "spin .8s linear infinite" }} />
         <div style={{ fontSize: 13, fontWeight: 850 }}>{label}</div>
+        {demorado && (
+          <div style={{ display: "grid", gap: 9, width: "100%", marginTop: 5 }}>
+            <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45 }}>
+              Esta pantalla está tardando más de lo normal.
+            </div>
+            {(esAndroidLegacyAngosto() || tieneMarcaDeColector()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  marcarComoColector();
+                  window.location.replace("/colector");
+                }}
+                style={{ width: "100%", border: 0, borderRadius: 9, padding: "11px 12px", background: C.blue, color: "#fff", fontSize: 13, fontWeight: 900 }}
+              >
+                Abrir modo recolector
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={recargarSalteandoCache}
+              style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 12px", background: C.panelSolid, color: C.text, fontSize: 12.5, fontWeight: 800 }}
+            >
+              Reintentar carga
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -614,6 +686,21 @@ export default function App() {
     await supabase.auth.signOut();
   }
 
+  // Se calcula antes de los retornos de inicialización para mantener estable el
+  // orden de hooks entre el primer render y los siguientes.
+  const pantallaAngosta = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  const modoColector = esRutaDeColector()
+    || esAndroidLegacyAngosto()
+    || (pantallaAngosta && (tieneMarcaDeColector() || profile?.role === "panol"));
+  const puedeUsarColector = !!profile && (profile.is_admin || ROLES_COLECTOR.has(profile.role));
+
+  // La ruta explícita y el Android del aparato dejan una marca sólo en ese
+  // dispositivo. Así, después de un refresh en `/`, no vuelve a intentar abrir
+  // el dashboard completo. No afecta a los celulares modernos del resto.
+  useEffect(() => {
+    if (puedeUsarColector && (esRutaDeColector() || esAndroidLegacyAngosto())) marcarComoColector();
+  }, [puedeUsarColector]);
+
   if (isInitializing) {
     return (
       <div style={{
@@ -652,7 +739,6 @@ export default function App() {
   // El colector de pañol (PDA) tiene pantalla chica → ahí mandamos directo al
   // escáner para que un refresh no los saque del flujo. En PC (pantalla grande)
   // pañol entra a su panel normal con el sidebar, como siempre.
-  const esColector = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   const homeElement = !session || !profile
     ? <Navigate to="/login" replace />
     : profile.role === "cliente"
@@ -661,7 +747,7 @@ export default function App() {
         ? <Navigate to="/rrhh" replace />
         : profile.role === "cadete"
           ? <Navigate to="/cadete" replace />
-          : (profile.role === "panol" && esColector)
+          : (puedeUsarColector && modoColector)
             // El colector arranca en una pantalla de elección, no directo al egreso
             // de maderas: desde el aparato también se piden reposiciones a compras.
             ? <Navigate to="/colector" replace />
@@ -677,10 +763,12 @@ export default function App() {
             {/* Avisa cuando hubo un deploy nuevo mientras la pestaña estaba
                 abierta. Existía desde antes pero nunca se había montado, así que
                 nadie veía el aviso. */}
+            {/* También corre en el PDA: limpia restos de service workers viejos
+                y evita que un deploy deje assets incompatibles en caché. */}
             <AppVersionGuard />
-            <PresentationPrivacyShield active={!!profile?.is_demo} />
-            {session && profile && !profile.is_demo && <AdminActivityTracker profile={profile} />}
-            {session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
+            {!modoColector && <PresentationPrivacyShield active={!!profile?.is_demo} />}
+            {!modoColector && session && profile && !profile.is_demo && <AdminActivityTracker profile={profile} />}
+            {!modoColector && session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
       <PantallaCaida>
       <Suspense fallback={<RouteLoader />}>
       <Routes>
@@ -753,15 +841,15 @@ export default function App() {
       </Routes>
       </Suspense>
       </PantallaCaida>
-      <ChangePasswordModal
+      {!modoColector && <ChangePasswordModal
         open={!!session && !!profile && profile.role !== "cliente" && !profile.is_demo && profile.must_change_password === true}
         forced
         profile={profile}
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
-      />
-      {session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
-      {session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
+      />}
+      {!modoColector && session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
+      {!modoColector && session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
           </ConfirmProvider>
         </ToastProvider>
       </TourProvider>
