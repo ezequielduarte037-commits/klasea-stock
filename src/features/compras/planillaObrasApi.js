@@ -54,7 +54,10 @@ export async function calcularPlanillaDeLinea(linea) {
 
   const obrasDeLinea = obras
     .filter((o) => String(o.linea_nombre || "").trim() === linea)
-    .filter((o) => !["entregada", "cancelada"].includes(o.estado))
+    // Solo las que estan en curso. Los estados reales de la tabla son "activa"
+    // y "terminada": el filtro anterior descartaba "entregada" y "cancelada",
+    // que no existen, asi que las terminadas se colaban en la planilla.
+    .filter((o) => o.estado === "activa")
     .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo)));
 
   const idsDeObra = new Set(obrasDeLinea.map((o) => o.id));

@@ -2099,7 +2099,23 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                 ) : manager && managerTab === "comprar" ? (
                   <ReposicionPanel isMobile={isMobile} />
                 ) : manager && managerTab === "planilla" ? (
-                  <PlanillaObrasPanel isMobile={isMobile} />
+                  <PlanillaObrasPanel
+                    isMobile={isMobile}
+                    onPedir={({ titulo, descripcion, obraId, obraCodigo, proveedorSugerido }) => {
+                      setForm({
+                        ...emptyForm,
+                        title: titulo,
+                        description: proveedorSugerido
+                          ? `Proveedor sugerido: ${proveedorSugerido}\n\n${descripcion}`
+                          : descripcion,
+                        project_id: obraId || "",
+                        destino: obraCodigo || "",
+                      });
+                      setShowNew(true);
+                      setManagerTab("pendientes");
+                      toast.success("Pedido armado con lo que elegiste. Revisalo y enviálo.");
+                    }}
+                  />
                 ) : manager && managerTab === "matriz" ? (
                   <MatrizLineasPanel isMobile={isMobile} />
                 ) : manager && managerTab === "faltantes" ? (

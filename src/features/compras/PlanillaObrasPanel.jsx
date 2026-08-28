@@ -1,17 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, LoaderCircle, RotateCcw, Search, Table2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Copy, Download, LoaderCircle, RotateCcw, Search, ShoppingCart, Table2, X } from "lucide-react";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
 import { calcularPlanillaDeLinea } from "@/features/compras/planillaObrasApi";
 
 /**
- * La planilla de una linea: materiales en las filas, obras en las columnas.
+ * La planilla de una linea: materiales en las filas, obras ACTIVAS en las
+ * columnas, y en cada cruce lo entregado, lo que espera en el pañol y lo que
+ * todavia falta.
  *
- * En cada cruce, las tres cosas que hoy hay que ir a buscar de a una: que ya se
- * entrego a ese barco, que sigue esperando, y si el pañol lo tiene guardado.
- *
- * Agrupado por rubro o por proveedor segun para que se este mirando: por rubro
- * cuando se revisa una etapa de la obra, por proveedor cuando se va a comprar.
+ * Se trabaja desde aca: se tildan renglones, se copian, o se mandan derecho a un
+ * pedido de compras con la obra y el proveedor ya puestos. Mirar una planilla y
+ * despues cargar el pedido en otra pantalla es donde se pierde la mitad de lo
+ * que uno vino a hacer.
  */
 
 const AGRUPACIONES = [
@@ -19,7 +20,7 @@ const AGRUPACIONES = [
   { valor: "proveedor", etiqueta: "Por proveedor" },
 ];
 
-/** Que mostrar en el cruce. Se prioriza lo entregado, que es lo que ya es un hecho. */
+/** Que numero mostrar en el cruce. Manda lo entregado, que ya es un hecho. */
 function celdaDeObra(celda) {
   if (!celda) return null;
   if (celda.egresado > 0) return { texto: celda.egresado, tono: "egresado" };
@@ -34,7 +35,21 @@ const TONOS = {
   pendiente: { color: C.red, fondo: C.redL, borde: C.redB },
 };
 
-export default function PlanillaObrasPanel({ isMobile = false }) {
+/** KPI compacto: la metrica sin robarle alto a la tabla. */
+function Chip({ valor, etiqueta, color = C.text }) {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "baseline", gap: 6,
+      background: "var(--panel-2)", border: `1px solid ${C.border}`,
+      borderRadius: 9, padding: "5px 10px", whiteSpace: "nowrap",
+    }}>
+      <span style={{ color, fontSize: 15, fontWeight: 950, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
+      <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>{etiqueta}</span>
+    </div>
+  );
+}
+
+export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
   const toast = useToast();
   const [linea, setLinea] = useState("K37");
   const [datos, setDatos] = useState(null);
@@ -43,6 +58,10 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
   const [busqueda, setBusqueda] = useState("");
   const [agrupar, setAgrupar] = useState("rubro");
   const [soloPendientes, setSoloPendientes] = useState(false);
+  const [obraFoco, setObraFoco] = useState("");
+  const [elegidos, setElegidos] = useState(() => new Set());
+  const [gruposCerrados, setGruposCerrados] = useState(() => new Set());
+  const buscadorRef = useRef(null);
 
   const cargar = useCallback(async (cual) => {
     setCargando(true);
@@ -57,12 +76,23 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
   }, []);
 
   useEffect(() => { cargar(linea); }, [cargar, linea]);
+  // Cambiar de linea invalida lo tildado: los materiales son otros.
+  useEffect(() => { setElegidos(new Set()); setObraFoco(""); }, [linea]);
+
+  const obrasVisibles = useMemo(() => {
+    if (!datos) return [];
+    return obraFoco ? datos.obras.filter((o) => o.id === obraFoco) : datos.obras;
+  }, [datos, obraFoco]);
 
   const grupos = useMemo(() => {
     if (!datos) return [];
     const q = busqueda.trim().toLowerCase();
     const filtradas = datos.filas.filter((f) => {
-      if (soloPendientes && !(f.totales.pendiente > 0)) return false;
+      if (obraFoco && !f.porObra[obraFoco]) return false;
+      if (soloPendientes) {
+        const pendiente = obraFoco ? (f.porObra[obraFoco]?.pendiente || 0) : f.totales.pendiente;
+        if (!(pendiente > 0)) return false;
+      }
       if (!q) return true;
       return [f.descripcion, f.codigo, f.proveedor, f.rubro].some((c) => String(c || "").toLowerCase().includes(q));
     });
@@ -77,19 +107,80 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
         nombre,
         filas,
         pendientes: filas.filter((f) => f.totales.pendiente > 0).length,
+        sinProveedor: nombre === "Sin proveedor",
       }))
       .sort((a, b) => {
-        // "Sin proveedor" al final: son los que no se pueden pedir.
-        if ((a.nombre === "Sin proveedor") !== (b.nombre === "Sin proveedor")) {
-          return a.nombre === "Sin proveedor" ? 1 : -1;
-        }
+        if (a.sinProveedor !== b.sinProveedor) return a.sinProveedor ? 1 : -1;
         return a.nombre.localeCompare(b.nombre);
       });
-  }, [datos, busqueda, agrupar, soloPendientes]);
+  }, [datos, busqueda, agrupar, soloPendientes, obraFoco]);
+
+  const seleccionados = useMemo(
+    () => grupos.flatMap((g) => g.filas).filter((f) => elegidos.has(f.id)),
+    [grupos, elegidos],
+  );
+
+  function alternarFila(id) {
+    setElegidos((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return s;
+    });
+  }
+
+  function alternarGrupo(grupo) {
+    const ids = grupo.filas.map((f) => f.id);
+    const todosPuestos = ids.every((id) => elegidos.has(id));
+    setElegidos((prev) => {
+      const s = new Set(prev);
+      for (const id of ids) { if (todosPuestos) s.delete(id); else s.add(id); }
+      return s;
+    });
+  }
+
+  function alternarCerrado(nombre) {
+    setGruposCerrados((prev) => {
+      const s = new Set(prev);
+      if (s.has(nombre)) s.delete(nombre); else s.add(nombre);
+      return s;
+    });
+  }
+
+  /** Lo que falta de cada elegido: es lo que tiene sentido pedir. */
+  function lineasDePedido() {
+    return seleccionados.map((f) => {
+      const falta = obraFoco ? (f.porObra[obraFoco]?.pendiente || 0) : f.totales.pendiente;
+      const cantidad = falta > 0 ? falta : 1;
+      return `${cantidad} ${f.unidad}  ${f.descripcion}${f.codigo ? ` (${f.codigo})` : ""}`;
+    });
+  }
+
+  function copiar() {
+    const lineas = lineasDePedido();
+    if (!lineas.length) return;
+    const obra = obrasVisibles.length === 1 ? ` · ${obrasVisibles[0].codigo}` : "";
+    navigator.clipboard?.writeText(`Pedido ${linea}${obra}\n\n${lineas.join("\n")}`)
+      .then(() => toast.success(`${lineas.length} renglones copiados.`))
+      .catch(() => toast.error("No se pudo copiar."));
+  }
+
+  function pedir() {
+    if (!seleccionados.length) return;
+    const proveedores = [...new Set(seleccionados.map((f) => f.proveedor).filter(Boolean))];
+    const obra = obrasVisibles.length === 1 ? obrasVisibles[0] : null;
+    onPedir?.({
+      titulo: `${linea}${obra ? ` ${obra.codigo}` : ""} · ${seleccionados.length} materiales`,
+      descripcion: lineasDePedido().join("\n"),
+      proveedorSugerido: proveedores.length === 1 ? proveedores[0] : "",
+      obraId: obra?.id || "",
+      obraCodigo: obra?.codigo || "",
+    });
+    setElegidos(new Set());
+  }
 
   function exportar() {
     if (!datos) return;
-    const obras = datos.obras;
+    const obras = obrasVisibles;
     const cabecera = [
       agrupar === "rubro" ? "Rubro" : "Proveedor",
       "Material", "Código", "Unidad", "En pañol",
@@ -102,11 +193,11 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
         return [c?.egresado ?? "", c?.enPanol ?? "", c?.pendiente ?? ""];
       }),
     ]));
-    // Punto y coma y BOM: es lo que Excel en español abre sin preguntar nada.
+    // Punto y coma y BOM: lo que Excel en español abre sin preguntar ni romper acentos.
     const csv = [cabecera, ...filas]
       .map((fila) => fila.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";"))
       .join("\r\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `Planilla_${datos.linea}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.csv`;
@@ -115,89 +206,108 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
     toast.success(`${filas.length} materiales exportados.`);
   }
 
-  const tarjeta = { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12 };
+  const panel = {
+    background: "var(--panel-solid)",
+    border: `1px solid ${C.border}`,
+    borderRadius: 12,
+    backdropFilter: "var(--glass-filter)",
+    WebkitBackdropFilter: "var(--glass-filter)",
+  };
+  const control = {
+    border: `1px solid ${C.border2}`, background: "var(--panel-solid)", color: C.text,
+    borderRadius: 9, padding: "7px 10px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 800,
+    outline: "none", cursor: "pointer",
+  };
   const th = {
-    position: "sticky", top: 0, zIndex: 3, background: C.panelSolid,
+    position: "sticky", top: 0, zIndex: 3, background: "var(--panel-solid)",
     textAlign: "center", fontSize: 10.5, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase",
-    color: C.dim, padding: "9px 6px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap",
+    color: C.dim, padding: "8px 6px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap",
   };
-  const primeraCol = {
-    position: "sticky", left: 0, zIndex: 2, background: C.panelSolid,
-    borderRight: `1px solid ${C.border}`,
-  };
+  const colFija = { position: "sticky", left: 0, zIndex: 2, background: "var(--panel-solid)", borderRight: `1px solid ${C.border}` };
 
   return (
-    <div style={{ display: "grid", gap: 14, padding: isMobile ? 12 : 0, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <Table2 size={18} color={C.blue} />
-        <div style={{ flex: 1, minWidth: 190 }}>
-          <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Planilla por obra</div>
-          <div style={{ color: C.dim, fontSize: 12, fontWeight: 700 }}>
-            Cada barco de la línea, con lo entregado, lo pendiente y lo que hay en pañol.
-          </div>
-        </div>
+    <div style={{ display: "grid", gap: 12, padding: isMobile ? 12 : 0, minWidth: 0 }}>
+      <style>{`
+        .planilla-fila:hover { background: var(--panel-2); }
+        .planilla-fila:hover .planilla-celda-fija { background: var(--panel-2); }
+        .planilla-check:focus-visible { outline: 2px solid ${C.blue}; outline-offset: 2px; }
+        .planilla-obra-btn { transition: border-color .15s, color .15s, transform .15s; }
+        .planilla-obra-btn:hover { border-color: ${C.blueB}; color: ${C.blue}; transform: translateY(-1px); }
+      `}</style>
+
+      {/* ── Una sola banda: titulo, linea, KPIs y controles ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+        <Table2 size={17} color={C.blue} />
+        <div style={{ fontSize: 15.5, fontWeight: 950, color: C.text }}>Planilla por obra</div>
         <select
           value={linea}
           onChange={(e) => setLinea(e.target.value)}
-          style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 900, outline: "none" }}
+          style={{ ...control, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 900, fontSize: 13 }}
         >
           {(datos?.lineasDisponibles ?? [linea]).map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${C.border2}`, background: C.panelSolid, borderRadius: 9, padding: "7px 10px", minWidth: isMobile ? "100%" : 200 }}>
-          <Search size={14} color={C.dim} />
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Material, rubro…"
-            style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, minWidth: 0 }}
-          />
+
+        {datos ? (
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            <Chip valor={datos.resumen.materiales} etiqueta="materiales" />
+            <Chip valor={datos.resumen.obras} etiqueta="obras activas" color={C.blue} />
+            <Chip valor={datos.resumen.conPendiente} etiqueta="con pendientes" color={C.red} />
+            {datos.resumen.sinProveedor > 0 ? <Chip valor={datos.resumen.sinProveedor} etiqueta="sin proveedor" color={C.red} /> : null}
+          </div>
+        ) : null}
+
+        <div style={{ marginLeft: "auto", display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${C.border2}`, background: "var(--panel-solid)", borderRadius: 9, padding: "6px 10px", minWidth: isMobile ? "100%" : 190 }}>
+            <Search size={14} color={C.dim} />
+            <input
+              ref={buscadorRef}
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Material, rubro…"
+              style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, minWidth: 0 }}
+            />
+            {busqueda ? (
+              <button type="button" onClick={() => { setBusqueda(""); buscadorRef.current?.focus(); }} aria-label="Limpiar búsqueda"
+                style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 0 }}>
+                <X size={13} />
+              </button>
+            ) : null}
+          </div>
+          <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} style={control}>
+            {AGRUPACIONES.map((a) => <option key={a.valor} value={a.valor}>{a.etiqueta}</option>)}
+          </select>
+          <button
+            type="button"
+            onClick={() => setSoloPendientes((v) => !v)}
+            style={{ ...control, border: `1px solid ${soloPendientes ? C.blueB : C.border2}`, background: soloPendientes ? C.blueL : "var(--panel-solid)", color: soloPendientes ? C.blue : C.text }}
+          >
+            {soloPendientes ? "Con pendientes" : "Todos"}
+          </button>
+          <button type="button" onClick={exportar} disabled={!datos} title="Descargar para Excel"
+            style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Download size={14} /> Excel
+          </button>
+          <button type="button" onClick={() => cargar(linea)} disabled={cargando} aria-label="Actualizar" style={control}>
+            {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
+          </button>
         </div>
-        <select
-          value={agrupar}
-          onChange={(e) => setAgrupar(e.target.value)}
-          style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 10px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 800, outline: "none" }}
-        >
-          {AGRUPACIONES.map((a) => <option key={a.valor} value={a.valor}>{a.etiqueta}</option>)}
-        </select>
-        <button
-          type="button"
-          onClick={() => setSoloPendientes((v) => !v)}
-          style={{ border: `1px solid ${soloPendientes ? C.blueB : C.border2}`, background: soloPendientes ? C.blueL : C.panelSolid, color: soloPendientes ? C.blue : C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}
-        >
-          {soloPendientes ? "Con pendientes" : "Todos"}
-        </button>
-        <button
-          type="button"
-          onClick={exportar}
-          disabled={!datos}
-          title="Descargar como CSV para abrir en Excel"
-          style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: datos ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}
-        >
-          <Download size={14} /> Excel
-        </button>
-        <button
-          type="button"
-          onClick={() => cargar(linea)}
-          disabled={cargando}
-          style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: cargando ? "default" : "pointer" }}
-        >
-          {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
-        </button>
       </div>
 
-      {datos ? (
-        <div style={{ ...tarjeta, padding: "11px 14px", display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-          <div><span style={{ color: C.text, fontSize: 18, fontWeight: 950, fontFamily: C.mono }}>{datos.resumen.materiales}</span>
-            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 750, marginLeft: 6 }}>materiales</span></div>
-          <div><span style={{ color: C.text, fontSize: 18, fontWeight: 950, fontFamily: C.mono }}>{datos.resumen.obras}</span>
-            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 750, marginLeft: 6 }}>obras en curso</span></div>
-          <div><span style={{ color: C.red, fontSize: 18, fontWeight: 950, fontFamily: C.mono }}>{datos.resumen.conPendiente}</span>
-            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 750, marginLeft: 6 }}>con algo pendiente</span></div>
-          {datos.resumen.sinProveedor > 0 ? (
-            <div><span style={{ color: C.red, fontSize: 18, fontWeight: 950, fontFamily: C.mono }}>{datos.resumen.sinProveedor}</span>
-              <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 750, marginLeft: 6 }}>sin proveedor</span></div>
-          ) : null}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 12, fontSize: 11, fontWeight: 800 }}>
+      {/* ── Las obras son el filtro: tocar una deja la planilla de ese barco ── */}
+      {datos?.obras.length ? (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ color: C.dim, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.4 }}>Obra</span>
+          <button type="button" className="planilla-obra-btn" onClick={() => setObraFoco("")}
+            style={{ ...control, padding: "5px 10px", fontSize: 12, border: `1px solid ${!obraFoco ? C.blueB : C.border2}`, background: !obraFoco ? C.blueL : "var(--panel-solid)", color: !obraFoco ? C.blue : C.muted }}>
+            Todas
+          </button>
+          {datos.obras.map((o) => (
+            <button key={o.id} type="button" className="planilla-obra-btn" onClick={() => setObraFoco(obraFoco === o.id ? "" : o.id)}
+              style={{ ...control, padding: "5px 10px", fontSize: 12, border: `1px solid ${obraFoco === o.id ? C.blueB : C.border2}`, background: obraFoco === o.id ? C.blueL : "var(--panel-solid)", color: obraFoco === o.id ? C.blue : C.muted }}>
+              {o.codigo}
+            </button>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 11, fontSize: 11, fontWeight: 850 }}>
             <span style={{ color: C.green }}>■ entregado</span>
             <span style={{ color: C.cyan }}>■ en pañol</span>
             <span style={{ color: C.red }}>■ pendiente</span>
@@ -206,83 +316,119 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
       ) : null}
 
       {error ? (
-        <div style={{ ...tarjeta, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 800 }}>{error}</div>
+        <div style={{ ...panel, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 800 }}>{error}</div>
       ) : null}
 
       {cargando && !datos ? (
-        <div style={{ ...tarjeta, padding: 30, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+        <div style={{ ...panel, padding: 32, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
           <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
           <div>Armando la planilla de {linea}…</div>
         </div>
       ) : !grupos.length ? (
-        <div style={{ ...tarjeta, padding: 30, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+        <div style={{ ...panel, padding: 32, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
           No hay materiales que coincidan en {linea}.
         </div>
       ) : (
-        <div style={{ ...tarjeta, overflowX: "auto", position: "relative" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 340 + (datos?.obras.length || 0) * 62, fontFamily: C.sans }}>
+        <div style={{ ...panel, overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 320 + obrasVisibles.length * 62, fontFamily: C.sans }}>
             <thead>
               <tr>
-                <th style={{ ...th, ...primeraCol, textAlign: "left", minWidth: 250, zIndex: 4 }}>Material</th>
+                <th style={{ ...th, ...colFija, textAlign: "left", minWidth: 258, zIndex: 4, paddingLeft: 12 }}>Material</th>
                 <th style={{ ...th, minWidth: 54 }}>Pañol</th>
-                {(datos?.obras ?? []).map((o) => (
-                  <th key={o.id} style={{ ...th, minWidth: 62 }}>{o.codigo}</th>
-                ))}
+                {obrasVisibles.map((o) => <th key={o.id} style={{ ...th, minWidth: 62 }}>{o.codigo}</th>)}
               </tr>
             </thead>
             <tbody>
-              {grupos.map((grupo) => (
-                <>
+              {grupos.flatMap((grupo) => {
+                const cerrado = gruposCerrados.has(grupo.nombre);
+                const todosPuestos = grupo.filas.every((f) => elegidos.has(f.id));
+                const cabecera = (
                   <tr key={`g-${grupo.nombre}`}>
                     <td
-                      colSpan={2 + (datos?.obras.length || 0)}
+                      colSpan={2 + obrasVisibles.length}
                       style={{
-                        background: grupo.nombre === "Sin proveedor" ? C.redL : C.panel2,
+                        background: grupo.sinProveedor ? C.redL : "var(--panel-2)",
                         borderTop: `1px solid ${C.border}`,
                         borderBottom: `1px solid ${C.border}`,
-                        padding: "7px 12px",
-                        color: grupo.nombre === "Sin proveedor" ? C.red : C.text,
-                        fontSize: 11.5,
-                        fontWeight: 900,
-                        letterSpacing: 0.3,
-                        textTransform: "uppercase",
+                        padding: 0,
                       }}
                     >
-                      {grupo.nombre}
-                      <span style={{ color: C.dim, fontWeight: 750, textTransform: "none", letterSpacing: 0, marginLeft: 8 }}>
-                        {grupo.filas.length} materiales
-                        {grupo.pendientes > 0 ? ` · ${grupo.pendientes} con pendientes` : ""}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 12px" }}>
+                        <input
+                          type="checkbox"
+                          className="planilla-check"
+                          checked={todosPuestos}
+                          onChange={() => alternarGrupo(grupo)}
+                          title="Elegir todo el grupo"
+                          style={{ accentColor: C.blue, width: 14, height: 14, cursor: "pointer", flexShrink: 0 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => alternarCerrado(grupo.nombre)}
+                          style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", cursor: "pointer", padding: 0, fontFamily: C.sans }}
+                        >
+                          <span style={{ color: grupo.sinProveedor ? C.red : C.text, fontSize: 11.5, fontWeight: 900, letterSpacing: 0.3, textTransform: "uppercase" }}>
+                            {cerrado ? "▸ " : "▾ "}{grupo.nombre}
+                          </span>
+                          <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 750, marginLeft: 8 }}>
+                            {grupo.filas.length} materiales
+                            {grupo.pendientes > 0 ? ` · ${grupo.pendientes} con pendientes` : ""}
+                          </span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                  {grupo.filas.map((f) => (
-                    <tr key={f.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                      <td style={{ ...primeraCol, padding: "8px 12px", maxWidth: 260 }}>
-                        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {f.descripcion}
-                        </div>
-                        <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {f.unidad}
-                          {agrupar === "rubro" && f.proveedor ? ` · ${f.proveedor}` : ""}
-                          {agrupar === "proveedor" ? ` · ${f.rubro}` : ""}
+                );
+                if (cerrado) return [cabecera];
+                return [cabecera, ...grupo.filas.map((f) => {
+                  const puesto = elegidos.has(f.id);
+                  return (
+                    <tr
+                      key={f.id}
+                      className="planilla-fila"
+                      onClick={() => alternarFila(f.id)}
+                      style={{ borderBottom: `1px solid ${C.border}`, background: puesto ? C.blueL : "transparent", cursor: "pointer" }}
+                    >
+                      <td className="planilla-celda-fija" style={{ ...colFija, background: puesto ? C.blueL : "var(--panel-solid)", padding: "7px 12px", maxWidth: 268 }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                          <input
+                            type="checkbox"
+                            className="planilla-check"
+                            checked={puesto}
+                            readOnly
+                            tabIndex={-1}
+                            style={{ accentColor: C.blue, width: 14, height: 14, marginTop: 2, cursor: "pointer", flexShrink: 0 }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {f.descripcion}
+                            </div>
+                            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {f.unidad}
+                              {agrupar === "rubro" ? (f.proveedor ? ` · ${f.proveedor}` : " · sin proveedor") : ` · ${f.rubro}`}
+                            </div>
+                          </div>
                         </div>
                       </td>
-                      <td style={{ padding: "8px 6px", textAlign: "center", fontFamily: C.mono, fontSize: 12.5, fontWeight: 800, color: f.enPanolGeneral > 0 ? C.muted : C.dim }}>
+                      <td style={{ padding: "7px 6px", textAlign: "center", fontFamily: C.mono, fontSize: 12.5, fontWeight: 800, color: f.enPanolGeneral > 0 ? C.muted : C.dim }}>
                         {f.enPanolGeneral || "—"}
                       </td>
-                      {(datos?.obras ?? []).map((o) => {
+                      {obrasVisibles.map((o) => {
                         const celda = celdaDeObra(f.porObra[o.id]);
-                        if (!celda) {
-                          return <td key={o.id} style={{ padding: "8px 6px", textAlign: "center", color: C.border2, fontSize: 12 }}>·</td>;
-                        }
+                        if (!celda) return <td key={o.id} style={{ padding: "7px 6px", textAlign: "center", color: C.border2, fontSize: 12 }}>·</td>;
                         const tono = TONOS[celda.tono];
+                        const c = f.porObra[o.id];
                         return (
-                          <td key={o.id} style={{ padding: "6px 5px", textAlign: "center" }}>
+                          <td
+                            key={o.id}
+                            style={{ padding: "5px 5px", textAlign: "center" }}
+                            title={`${o.codigo} · entregado ${c.egresado} · en pañol ${c.enPanol} · pendiente ${c.pendiente}`}
+                          >
                             <span style={{
                               display: "inline-block", minWidth: 26,
                               background: tono.fondo, border: `1px solid ${tono.borde}`, color: tono.color,
                               borderRadius: 6, padding: "2px 6px",
-                              fontFamily: C.mono, fontSize: 12, fontWeight: 900,
+                              fontFamily: C.mono, fontSize: 12, fontWeight: 900, fontVariantNumeric: "tabular-nums",
                             }}>
                               {celda.texto}
                             </span>
@@ -290,13 +436,49 @@ export default function PlanillaObrasPanel({ isMobile = false }) {
                         );
                       })}
                     </tr>
-                  ))}
-                </>
-              ))}
+                  );
+                })];
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* ── Acciones: aparecen solo cuando hay algo tildado ── */}
+      {seleccionados.length ? (
+        <div style={{
+          position: "sticky", bottom: 12, zIndex: 20,
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          background: "var(--topbar-soft)", border: `1px solid ${C.blueB}`, borderRadius: 12,
+          padding: "10px 14px", boxShadow: "0 10px 30px rgba(15,23,42,0.18)",
+          backdropFilter: "var(--glass-filter)", WebkitBackdropFilter: "var(--glass-filter)",
+        }}>
+          <Check size={16} color={C.blue} />
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>
+            {seleccionados.length} material{seleccionados.length === 1 ? "" : "es"}
+          </span>
+          <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
+            {obrasVisibles.length === 1 ? `para ${obrasVisibles[0].codigo}` : `en ${linea}`}
+          </span>
+          <button type="button" onClick={() => setElegidos(new Set())} style={{ ...control, padding: "6px 10px", fontSize: 12, color: C.dim }}>
+            Limpiar
+          </button>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={copiar} style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 850 }}>
+              <Copy size={14} /> Copiar
+            </button>
+            {onPedir ? (
+              <button
+                type="button"
+                onClick={pedir}
+                style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}
+              >
+                <ShoppingCart size={14} /> Pedir a compras
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
