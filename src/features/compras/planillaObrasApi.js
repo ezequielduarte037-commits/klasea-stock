@@ -47,6 +47,8 @@ function celdaVacia(cantidad, requisitoId, desdeMatriz = true) {
     pendiente: redondear(cantidad),
     requisitoId,
     desdeMatriz,
+    snapshotId: null,
+    avisoPendiente: false,
   };
 }
 
@@ -75,7 +77,7 @@ export async function calcularPlanillaDeLinea(linea) {
     traerTodo("panol_materiales", "id,descripcion,codigo,proveedor,unidad_medida,categoria_id,es_consumible,activo,imagen_url"),
     traerTodo("panol_material_modelo", "material_id,modelo,cantidad,variante,producto_predeterminado_id"),
     traerTodo("produccion_obras", "id,codigo,linea_nombre,estado,fecha_inicio"),
-    traerTodo("panol_obra_materiales_snapshot", "material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,created_at"),
+    traerTodo("panol_obra_materiales_snapshot", "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,panol_envio_id,panol_envio_item_id,created_at"),
     traerRubros(),
     traerTodo("panol_material_imagenes", "material_id,url,created_at"),
   ]);
@@ -147,6 +149,14 @@ export async function calcularPlanillaDeLinea(linea) {
       const clave = `${productoId}|${obra.id}`;
       const celda = celdaVacia(item.cantidad, requisitoId, true);
       if (snapshots.length) {
+        const disponiblesParaAviso = snapshots
+          .filter((row) => ESTADOS_PENDIENTE.has(row.estado) && !row.panol_envio_item_id)
+          .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+        celda.snapshotId = disponiblesParaAviso[0]?.id || null;
+        celda.avisoPendiente = snapshots.some((row) => (
+          !!row.panol_envio_item_id
+          && !["recibido", "parcial", "rechazado"].includes(String(row.recepcion_estado || "").toLowerCase())
+        ));
         celda.egresado = 0;
         celda.enPanol = 0;
         celda.pendiente = 0;
@@ -158,6 +168,8 @@ export async function calcularPlanillaDeLinea(linea) {
         existente.egresado = redondear(existente.egresado + celda.egresado);
         existente.enPanol = redondear(existente.enPanol + celda.enPanol);
         existente.pendiente = redondear(existente.pendiente + celda.pendiente);
+        existente.snapshotId = existente.snapshotId || celda.snapshotId;
+        existente.avisoPendiente = existente.avisoPendiente || celda.avisoPendiente;
       } else {
         celdas.set(clave, celda);
       }
@@ -169,6 +181,10 @@ export async function calcularPlanillaDeLinea(linea) {
   for (const fila of adicionales) {
     const clave = `${fila.material_id}|${fila.obra_id}`;
     const celda = celdas.get(clave) ?? celdaVacia(fila.cantidad, fila.requisito_material_id || fila.material_id, false);
+    if (ESTADOS_PENDIENTE.has(fila.estado) && !fila.panol_envio_item_id) celda.snapshotId = celda.snapshotId || fila.id;
+    if (fila.panol_envio_item_id && !["recibido", "parcial", "rechazado"].includes(String(fila.recepcion_estado || "").toLowerCase())) {
+      celda.avisoPendiente = true;
+    }
     if (!celdas.has(clave)) celda.pendiente = 0;
     sumarEstado(celda, fila);
     celda.requerido = redondear(Math.max(celda.requerido, celda.egresado + celda.enPanol + celda.pendiente));
@@ -187,6 +203,8 @@ export async function calcularPlanillaDeLinea(linea) {
       pendiente: redondear(celdaRaw.pendiente),
       desdeMatriz: celdaRaw.desdeMatriz,
       requisitoId: celdaRaw.requisitoId,
+      snapshotId: celdaRaw.snapshotId || null,
+      avisoPendiente: celdaRaw.avisoPendiente === true,
     };
 
     if (!filas.has(materialId)) {
@@ -255,4 +273,27 @@ export async function calcularPlanillaDeLinea(linea) {
       rubros: new Set(listaFilas.map((fila) => fila.rubro)).size,
     },
   };
+}
+
+export async function marcarAvisoPlanillaComoComprado(envioId) {
+  if (!envioId) return 0;
+  const { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .select("id,estado,recepcion_estado")
+    .eq("panol_envio_id", envioId);
+  if (error) throw error;
+
+  const ids = (data ?? [])
+    .filter((row) => row.estado !== "egresado")
+    .filter((row) => !["recibido", "parcial"].includes(String(row.recepcion_estado || "").toLowerCase()))
+    .map((row) => row.id)
+    .filter(Boolean);
+  if (!ids.length) return 0;
+
+  const { error: updateError } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .update({ estado: "comprado" })
+    .in("id", ids);
+  if (updateError) throw updateError;
+  return ids.length;
 }

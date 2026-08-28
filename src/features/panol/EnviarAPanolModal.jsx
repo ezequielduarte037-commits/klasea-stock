@@ -863,6 +863,7 @@ export default function EnviarAPanolModal({
     // elegirla a mano en cada aviso → evita mandar a la sede equivocada por defecto.
     setSede(sedeLocked || prefill?.sede || "");
     setObraId(prefill?.obraId || "");
+    setObrasExtra(Array.isArray(prefill?.obrasExtra) ? prefill.obrasExtra.filter(Boolean) : []);
     setPrioridad(prefill?.prioridad || "media");
     setObservaciones(prefill?.observaciones || "");
     const nextItems = Array.isArray(prefill?.items) ? prefill.items.map(normalizeItem) : [];

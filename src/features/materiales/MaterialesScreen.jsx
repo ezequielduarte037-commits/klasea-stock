@@ -9736,7 +9736,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               <div key={tab} className="materiales-tab-content">
                 {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
                 {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
-                {tab === "planillas" && <PlanillaObrasPanel isMobile={isMobile} />}
+                {tab === "planillas" && <PlanillaObrasPanel isMobile={isMobile} profile={profile} />}
                 {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
                 {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
                 {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
