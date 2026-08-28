@@ -109,7 +109,7 @@ const statusColors = {
   nuevo: C.blue,
   en_revision: C.violet,
   cotizando: C.amber,
-  comprado: C.teal,
+  comprado: C.orange,
   recibido: C.green,
   cancelado: C.red,
 };
@@ -118,9 +118,27 @@ const statusDotColors = {
   nuevo: C.blue,
   en_revision: C.violet,
   cotizando: C.amber,
-  comprado: C.teal,
+  comprado: C.orange,
   recibido: C.green,
   cancelado: C.red,
+};
+
+/**
+ * Cada estado con su forma propia.
+ *
+ * Cambiar el color no alcanza: si dos estados solo se distinguen por el tono,
+ * el que no separa bien los verdes -o mira la pantalla de reojo- se sigue
+ * equivocando. Con un icono distinto se ven diferentes aunque el color no se
+ * registre. El camion y el tilde son los dos que importan: "comprado, viene en
+ * camino" contra "recibido, ya esta".
+ */
+const statusIcons = {
+  nuevo: Plus,
+  en_revision: Search,
+  cotizando: Clock,
+  comprado: Truck,
+  recibido: CheckCircle2,
+  cancelado: X,
 };
 
 const priorityColors = {
@@ -190,16 +208,24 @@ function Chip({ children, color = C.blue, size = "sm" }) {
 
 function StatusDot({ status }) {
   const color = statusDotColors[status] || C.dim;
+  const Icono = statusIcons[status];
+  if (!Icono) {
+    return (
+      <span style={{
+        display: "inline-block",
+        width: 7,
+        height: 7,
+        borderRadius: "50%",
+        background: color,
+        boxShadow: `0 0 5px ${color}80`,
+        flexShrink: 0,
+      }} />
+    );
+  }
   return (
-    <span style={{
-      display: "inline-block",
-      width: 7,
-      height: 7,
-      borderRadius: "50%",
-      background: color,
-      boxShadow: `0 0 5px ${color}80`,
-      flexShrink: 0,
-    }} />
+    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color, flexShrink: 0 }}>
+      <Icono size={13} strokeWidth={2.6} />
+    </span>
   );
 }
 
@@ -516,7 +542,7 @@ function attentionTextForRequest(request, unread) {
   if (overdueDays != null && overdueDays > 0) return { label: `Vencido hace ${overdueDays}d`, color: C.red, score: 90 };
   if (request.priority === "urgente") return { label: "Urgente", color: C.red, score: 85 };
   if (request.priority === "alta") return { label: "Alta prioridad", color: C.amber, score: 74 };
-  if (request.status === "comprado") return { label: "Comprado, falta cerrar", color: C.teal, score: 58 };
+  if (request.status === "comprado") return { label: "Comprado, falta cerrar", color: C.orange, score: 58 };
   if (request.status === "nuevo") return { label: "Nuevo", color: C.blue, score: 45 };
   return { label: REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status, color: statusColors[request.status] || C.dim, score: 20 };
 }

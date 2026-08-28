@@ -77,7 +77,9 @@ const statusColors = {
   nuevo: C.blue,
   en_revision: C.violet,
   cotizando: C.amber,
-  comprado: C.teal,
+  // Naranja, no teal: el teal del tema y el verde de "recibido" son casi el
+  // mismo color en modo claro y se confundian.
+  comprado: C.orange,
   recibido: C.green,
   cancelado: C.red,
 };
