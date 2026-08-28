@@ -20,14 +20,32 @@ const AGRUPACIONES = [
   { valor: "proveedor", etiqueta: "Por proveedor" },
 ];
 
-/** Que numero mostrar en el cruce. Manda lo entregado, que ya es un hecho. */
-function celdaDeObra(celda) {
+const VISTAS = [
+  { valor: "falta", etiqueta: "Falta", ayuda: "Lo que la obra pidió y todavía no llegó." },
+  { valor: "panol", etiqueta: "En pañol", ayuda: "Ya llegó y está apartado para esa obra: no hay que comprarlo, hay que ir a buscarlo." },
+  { valor: "entregado", etiqueta: "Entregado", ayuda: "Ya salió del pañol y está en el barco." },
+  { valor: "todo", etiqueta: "Todo", ayuda: "El estado más avanzado de cada cruce: entregado, si no en pañol, si no lo que falta." },
+];
+
+/** Que numero mostrar en el cruce, segun lo que se este mirando. */
+function celdaDeObra(celda, vista) {
   if (!celda) return null;
+  if (vista === "falta") return celda.pendiente > 0 ? { texto: celda.pendiente, tono: "pendiente" } : null;
+  if (vista === "panol") return celda.enPanol > 0 ? { texto: celda.enPanol, tono: "panol" } : null;
+  if (vista === "entregado") return celda.egresado > 0 ? { texto: celda.egresado, tono: "egresado" } : null;
+  // Todo junto: manda lo entregado, que ya es un hecho.
   if (celda.egresado > 0) return { texto: celda.egresado, tono: "egresado" };
   if (celda.enPanol > 0) return { texto: celda.enPanol, tono: "panol" };
   if (celda.pendiente > 0) return { texto: celda.pendiente, tono: "pendiente" };
   return null;
 }
+
+/** Por que una obra puede estar en cero. No es lo mismo y no se veia. */
+const CARGA = {
+  sin_cargar: { texto: "sin cargar", ayuda: "Nadie cargó materiales para esta obra todavía. El cero no significa que no falte nada: significa que no se sabe." },
+  todo_llego: { texto: "todo llegó", ayuda: "Todo lo que se cargó para esta obra ya está entregado o esperando en el pañol." },
+  con_pendientes: { texto: "", ayuda: "" },
+};
 
 const TONOS = {
   egresado: { color: C.green, fondo: "var(--green-soft)", borde: C.greenB },
@@ -59,6 +77,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
   const [agrupar, setAgrupar] = useState("rubro");
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [obraFoco, setObraFoco] = useState("");
+  const [vista, setVista] = useState("todo");
   const [elegidos, setElegidos] = useState(() => new Set());
   const [gruposCerrados, setGruposCerrados] = useState(() => new Set());
   const buscadorRef = useRef(null);
@@ -211,11 +230,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
     const obras = obrasVisibles;
     const cabecera = [
       agrupar === "rubro" ? "Rubro" : "Proveedor",
-      "Material", "Código", "Unidad", "Libre en pañol", "Reservado a obras",
+      "Material", "Código", "Unidad", "Hay en pañol (libre)", "Apartado a obras", "Hay que comprar",
       ...obras.flatMap((o) => [`${o.codigo} entregado`, `${o.codigo} en pañol`, `${o.codigo} pendiente`]),
     ];
     const filas = grupos.flatMap((g) => g.filas.map((f) => [
-      g.nombre, f.descripcion, f.codigo, f.unidad, f.enPanolLibre, f.reservado,
+      g.nombre, f.descripcion, f.codigo, f.unidad, f.enPanolLibre, f.reservado, f.faltaComprar,
       ...obras.flatMap((o) => {
         const c = f.porObra[o.id];
         return [c?.egresado ?? "", c?.enPanol ?? "", c?.pendiente ?? ""];
@@ -309,6 +328,24 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
               </button>
             ) : null}
           </div>
+          <div style={{ display: "inline-flex", border: `1px solid ${C.border2}`, background: "var(--panel-solid)", borderRadius: 9, padding: 2, gap: 2 }}>
+            {VISTAS.map((v) => (
+              <button
+                key={v.valor}
+                type="button"
+                onClick={() => setVista(v.valor)}
+                title={v.ayuda}
+                style={{
+                  border: "none", borderRadius: 7, padding: "5px 9px", cursor: "pointer", fontFamily: C.sans,
+                  fontSize: 12, fontWeight: vista === v.valor ? 900 : 750,
+                  background: vista === v.valor ? C.blueL : "transparent",
+                  color: vista === v.valor ? C.blue : C.dim,
+                }}
+              >
+                {v.etiqueta}
+              </button>
+            ))}
+          </div>
           <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} style={control}>
             {AGRUPACIONES.map((a) => <option key={a.valor} value={a.valor}>{a.etiqueta}</option>)}
           </select>
@@ -337,16 +374,36 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
             style={{ ...control, padding: "5px 10px", fontSize: 12, border: `1px solid ${!obraFoco ? C.blueB : C.border2}`, background: !obraFoco ? C.blueL : "var(--panel-solid)", color: !obraFoco ? C.blue : C.muted }}>
             Todas
           </button>
-          {datos.obras.map((o) => (
-            <button key={o.id} type="button" className="planilla-obra-btn" onClick={() => setObraFoco(obraFoco === o.id ? "" : o.id)}
-              style={{ ...control, padding: "5px 10px", fontSize: 12, border: `1px solid ${obraFoco === o.id ? C.blueB : C.border2}`, background: obraFoco === o.id ? C.blueL : "var(--panel-solid)", color: obraFoco === o.id ? C.blue : C.muted }}>
-              {o.codigo}
-            </button>
-          ))}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 11, fontSize: 11, fontWeight: 850 }}>
-            <span style={{ color: C.green }}>■ entregado</span>
-            <span style={{ color: C.cyan }}>■ en pañol</span>
-            <span style={{ color: C.red }}>■ pendiente</span>
+          {datos.obras.map((o) => {
+            const carga = CARGA[o.carga] ?? CARGA.con_pendientes;
+            const activo = obraFoco === o.id;
+            return (
+              <button key={o.id} type="button" className="planilla-obra-btn" onClick={() => setObraFoco(activo ? "" : o.id)}
+                title={carga.ayuda || `${o.codigo} · ${o.filasCargadas} materiales cargados`}
+                style={{
+                  ...control, padding: "5px 10px", fontSize: 12,
+                  display: "inline-flex", alignItems: "baseline", gap: 5,
+                  border: o.carga === "sin_cargar" ? `1px dashed ${activo ? C.blueB : C.border2}` : `1px solid ${activo ? C.blueB : C.border2}`,
+                  background: activo ? C.blueL : "var(--panel-solid)",
+                  color: activo ? C.blue : o.carga === "sin_cargar" ? C.dim : C.muted,
+                }}>
+                {o.codigo}
+                {carga.texto ? (
+                  <span style={{ fontSize: 10, fontWeight: 800, color: o.carga === "todo_llego" ? C.green : C.dim }}>{carga.texto}</span>
+                ) : null}
+              </button>
+            );
+          })}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, fontWeight: 750, color: C.dim, maxWidth: 430 }}>
+            {vista === "todo" ? (
+              <>
+                <span style={{ color: C.green, fontWeight: 850 }}>■ entregado</span>
+                <span style={{ color: C.cyan, fontWeight: 850 }}>■ en pañol</span>
+                <span style={{ color: C.red, fontWeight: 850 }}>■ falta</span>
+              </>
+            ) : (
+              <span>Las columnas de obra muestran: <b style={{ color: C.text }}>{VISTAS.find((v) => v.valor === vista)?.etiqueta.toLowerCase()}</b>. {VISTAS.find((v) => v.valor === vista)?.ayuda}</span>
+            )}
           </div>
         </div>
       ) : null}
@@ -366,13 +423,18 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
         </div>
       ) : (
         <div style={{ ...panel, overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 320 + obrasVisibles.length * 62, fontFamily: C.sans }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 470 + obrasVisibles.length * 62, fontFamily: C.sans }}>
             <thead>
               <tr>
                 <th style={{ ...th, ...colFija, textAlign: "left", minWidth: 258, zIndex: 4, paddingLeft: 12 }}>Material</th>
-                <th style={{ ...th, minWidth: 62 }} title="Lo que el pañol tiene sin obra asignada. Lo apartado para un barco no entra: está, pero no se puede usar acá.">
-                  Pañol
-                  <div style={{ fontSize: 9.5, fontWeight: 750, color: C.dim, textTransform: "none", letterSpacing: 0 }}>libre</div>
+                <th style={{ ...th, minWidth: 46 }} title="Unidad de medida del producto.">Un.</th>
+                <th style={{ ...th, minWidth: 62 }} title="Lo que el pañol tiene sin obra asignada. Está y se puede usar para cualquier barco. Lo apartado para una obra no entra acá.">
+                  Hay en pañol
+                  <div style={{ fontSize: 9.5, fontWeight: 750, color: C.dim, textTransform: "none", letterSpacing: 0 }}>libre, sirve para todas</div>
+                </th>
+                <th style={{ ...th, minWidth: 74, color: C.red }} title="Lo que falta para toda la línea, descontando lo que el pañol ya tiene libre. Este es el número que se compra.">
+                  Hay que comprar
+                  <div style={{ fontSize: 9.5, fontWeight: 750, color: C.dim, textTransform: "none", letterSpacing: 0 }}>falta − pañol</div>
                 </th>
                 {obrasVisibles.map((o) => <th key={o.id} style={{ ...th, minWidth: 62 }}>{o.codigo}</th>)}
               </tr>
@@ -384,7 +446,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
                 const cabecera = (
                   <tr key={`g-${grupo.nombre}`}>
                     <td
-                      colSpan={2 + obrasVisibles.length}
+                      colSpan={4 + obrasVisibles.length}
                       style={{
                         background: grupo.sinProveedor ? C.redL : "var(--panel-2)",
                         borderTop: `1px solid ${C.border}`,
@@ -463,11 +525,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
                           </button>
                         </div>
                       </td>
+                      <td style={{ padding: "7px 4px", textAlign: "center", color: C.dim, fontSize: 11, fontWeight: 750, whiteSpace: "nowrap" }}>
+                        {f.unidad}
+                      </td>
                       <td
                         style={{ padding: "5px 6px", textAlign: "center" }}
                         title={f.reservado > 0
-                          ? `${f.enPanolLibre} libre · ${f.reservado} ya apartado para obras (no se puede usar acá)`
-                          : `${f.enPanolLibre} libre en el pañol`}
+                          ? `${f.enPanolLibre} ${f.unidad} libres · ${f.reservado} ya apartado para obras (no se puede usar acá)`
+                          : `${f.enPanolLibre} ${f.unidad} libres en el pañol`}
                       >
                         <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: f.enPanolLibre > 0 ? C.text : C.dim }}>
                           {f.enPanolLibre || "—"}
@@ -478,8 +543,31 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
                           </div>
                         ) : null}
                       </td>
+                      <td
+                        style={{ padding: "5px 6px", textAlign: "center" }}
+                        title={f.faltaComprar > 0
+                          ? `Faltan ${f.totales.pendiente} ${f.unidad} y el pañol tiene ${f.enPanolLibre} libres: hay que comprar ${f.faltaComprar}.`
+                          : f.totales.pendiente > 0
+                            ? `Faltan ${f.totales.pendiente} ${f.unidad} pero el pañol ya tiene ${f.enPanolLibre} libres: no hay que comprarlo, hay que ir a buscarlo.`
+                            : "No hay nada pendiente de este material."}
+                      >
+                        {f.faltaComprar > 0 ? (
+                          <span style={{
+                            display: "inline-block", minWidth: 30,
+                            background: C.redL, border: `1px solid ${C.redB}`, color: C.red,
+                            borderRadius: 6, padding: "2px 7px",
+                            fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, fontVariantNumeric: "tabular-nums",
+                          }}>
+                            {f.faltaComprar}
+                          </span>
+                        ) : f.totales.pendiente > 0 ? (
+                          <span style={{ color: C.green, fontSize: 11, fontWeight: 850 }}>en pañol</span>
+                        ) : (
+                          <span style={{ color: C.border2, fontSize: 12 }}>·</span>
+                        )}
+                      </td>
                       {obrasVisibles.map((o) => {
-                        const celda = celdaDeObra(f.porObra[o.id]);
+                        const celda = celdaDeObra(f.porObra[o.id], vista);
                         if (!celda) return <td key={o.id} style={{ padding: "7px 6px", textAlign: "center", color: C.border2, fontSize: 12 }}>·</td>;
                         const tono = TONOS[celda.tono];
                         const c = f.porObra[o.id];

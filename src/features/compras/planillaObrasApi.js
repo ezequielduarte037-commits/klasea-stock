@@ -64,6 +64,14 @@ export async function calcularPlanillaDeLinea(linea) {
 
   const idsDeObra = new Set(obrasDeLinea.map((o) => o.id));
 
+  const cargaDeObra = new Map(obrasDeLinea.map((o) => [o.id, { filas: 0, pendiente: 0 }]));
+  for (const f of ledger) {
+    const carga = cargaDeObra.get(f.obra_id);
+    if (!carga) continue;
+    carga.filas += 1;
+    if (ESTADOS_PENDIENTE.has(f.estado)) carga.pendiente += Number(f.cantidad_egresada || f.cantidad || 0);
+  }
+
   // El pañol tiene dos bolsas distintas y hasta ahora se mostraban sumadas:
   //
   //   LIBRE      - sin obra asignada. Es lo unico que sirve para cubrir un
@@ -136,8 +144,14 @@ export async function calcularPlanillaDeLinea(linea) {
     fila.totales.pendiente = redondear(fila.totales.pendiente + c.pendiente);
   }
 
+  for (const fila of filas.values()) {
+    fila.faltaComprar = redondear(Math.max(0, fila.totales.pendiente - fila.enPanolLibre));
+  }
+
   const listaFilas = [...filas.values()].sort((a, b) => {
-    // Lo que todavia falta primero: es lo que hay que mirar.
+    // Lo que hay que comprar primero, que es a lo que se viene. Despues lo que
+    // falta pero ya esta en el pañol, y al final lo que esta completo.
+    if ((b.faltaComprar > 0) !== (a.faltaComprar > 0)) return b.faltaComprar > 0 ? 1 : -1;
     if ((b.totales.pendiente > 0) !== (a.totales.pendiente > 0)) return b.totales.pendiente > 0 ? 1 : -1;
     const porRubro = a.rubro.localeCompare(b.rubro);
     return porRubro !== 0 ? porRubro : a.descripcion.localeCompare(b.descripcion);
@@ -146,7 +160,16 @@ export async function calcularPlanillaDeLinea(linea) {
   return {
     linea,
     lineasDisponibles,
-    obras: obrasDeLinea.map((o) => ({ id: o.id, codigo: o.codigo, estado: o.estado })),
+    obras: obrasDeLinea.map((o) => {
+      const carga = cargaDeObra.get(o.id) ?? { filas: 0, pendiente: 0 };
+      return {
+        id: o.id,
+        codigo: o.codigo,
+        estado: o.estado,
+        filasCargadas: carga.filas,
+        carga: !carga.filas ? "sin_cargar" : carga.pendiente > 0 ? "con_pendientes" : "todo_llego",
+      };
+    }),
     filas: listaFilas,
     resumen: {
       materiales: listaFilas.length,
@@ -154,6 +177,8 @@ export async function calcularPlanillaDeLinea(linea) {
       conPendiente: listaFilas.filter((f) => f.totales.pendiente > 0).length,
       sinProveedor: listaFilas.filter((f) => !f.proveedor && f.totales.pendiente > 0).length,
       cubiertos: listaFilas.filter((f) => f.totales.pendiente > 0 && f.enPanolLibre >= f.totales.pendiente).length,
+      aComprar: listaFilas.filter((f) => f.faltaComprar > 0).length,
+      sinCargar: obrasDeLinea.filter((o) => !(cargaDeObra.get(o.id)?.filas)).length,
       rubros: new Set(listaFilas.map((f) => f.rubro)).size,
     },
   };
