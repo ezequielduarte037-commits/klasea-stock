@@ -2,24 +2,24 @@ import { supabase } from "@/supabaseClient";
 import { rowDelta } from "@/features/panol/panolMovimientos";
 
 /**
- * La planilla de una linea: los materiales como filas, las obras como columnas,
- * y en cada cruce en que anda ese material para ese barco.
+ * Planilla operativa de una linea.
  *
- * Son las tres preguntas que hoy hay que ir a buscar de a una: que ya se
- * entrego, que sigue esperando, y si el pañol lo tiene o hay que comprarlo.
- *
- * Nada de esto se carga: sale del mismo ledger que usa el pañol, que se escribe
- * solo cada vez que alguien recibe o entrega algo.
+ * La necesidad nace en `panol_material_modelo` (la matriz viva). El snapshot
+ * de cada obra solamente completa el estado operativo: pedido, recibido o
+ * entregado. De esta manera una obra nueva ya muestra todo lo que necesita,
+ * aunque todavia no haya tenido ningun movimiento en Panol.
  */
 
-/** Lo que ya se le dio al barco: salio del pañol y no vuelve. */
 const ESTADOS_EGRESADO = new Set(["egresado"]);
-/** Reservado para esa obra y fisicamente en el pañol. */
 const ESTADOS_EN_PANOL = new Set(["en_panol", "recibido", "parcial"]);
-/** Todavia no llego: falta comprarlo o esta en camino. */
 const ESTADOS_PENDIENTE = new Set(["pendiente", "pedido", "comprado"]);
 
-const redondear = (n) => Math.round(n * 100) / 100;
+const redondear = (n) => Math.round(Number(n || 0) * 100) / 100;
+const normalizarModelo = (value) => String(value || "")
+  .trim()
+  .toUpperCase()
+  .replace(/[^A-Z0-9]+/g, "")
+  .replace(/^K/, "");
 
 async function traerTodo(tabla, select) {
   const filas = [];
@@ -33,115 +33,178 @@ async function traerTodo(tabla, select) {
   return filas;
 }
 
-/** Los rubros del catalogo, para poder agrupar como se piensa al comprar. */
 async function traerRubros() {
   const { data, error } = await supabase.from("panol_categorias").select("id,nombre").limit(500);
   if (error) return new Map();
   return new Map((data ?? []).map((c) => [c.id, c.nombre]));
 }
 
+function celdaVacia(cantidad, requisitoId, desdeMatriz = true) {
+  return {
+    requerido: redondear(cantidad),
+    egresado: 0,
+    enPanol: 0,
+    pendiente: redondear(cantidad),
+    requisitoId,
+    desdeMatriz,
+  };
+}
+
+function sumarEstado(celda, fila) {
+  const cantidad = Number(fila.cantidad_egresada || fila.cantidad || 0);
+  if (!cantidad) return;
+  if (ESTADOS_EGRESADO.has(fila.estado)) celda.egresado += cantidad;
+  else if (ESTADOS_EN_PANOL.has(fila.estado)) celda.enPanol += cantidad;
+  else if (ESTADOS_PENDIENTE.has(fila.estado)) celda.pendiente += cantidad;
+}
+
+function materialMeta(material, rubros, imagenes) {
+  return {
+    descripcion: material?.descripcion || "Material sin identificar",
+    codigo: material?.codigo || "",
+    proveedor: String(material?.proveedor || "").trim(),
+    rubro: rubros.get(material?.categoria_id) || "Sin rubro",
+    unidad: material?.unidad_medida || "unidad",
+    esConsumible: material?.es_consumible === true,
+    imagenUrl: material?.imagen_url || imagenes.get(material?.id) || "",
+  };
+}
+
 export async function calcularPlanillaDeLinea(linea) {
-  const [materiales, obras, ledger, rubros] = await Promise.all([
-    traerTodo("panol_materiales", "id,descripcion,codigo,proveedor,unidad_medida,categoria_id,es_consumible,activo"),
+  const [materiales, modelos, obras, ledger, rubros, imagenesRows] = await Promise.all([
+    traerTodo("panol_materiales", "id,descripcion,codigo,proveedor,unidad_medida,categoria_id,es_consumible,activo,imagen_url"),
+    traerTodo("panol_material_modelo", "material_id,modelo,cantidad,variante,producto_predeterminado_id"),
     traerTodo("produccion_obras", "id,codigo,linea_nombre,estado,fecha_inicio"),
-    traerTodo("panol_obra_materiales_snapshot", "material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,created_at"),
+    traerTodo("panol_obra_materiales_snapshot", "material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,created_at"),
     traerRubros(),
+    traerTodo("panol_material_imagenes", "material_id,url,created_at"),
   ]);
 
   const porMaterial = new Map(materiales.filter((m) => m.activo !== false).map((m) => [m.id, m]));
+  const imagenes = new Map();
+  for (const imagen of imagenesRows) {
+    if (imagen.material_id && imagen.url && !imagenes.has(imagen.material_id)) {
+      imagenes.set(imagen.material_id, imagen.url);
+    }
+  }
+  const modeloElegido = normalizarModelo(linea);
+  const matriz = modelos
+    .filter((row) => normalizarModelo(row.modelo) === modeloElegido)
+    .filter((row) => String(row.variante || "standard").toLowerCase() === "standard")
+    .filter((row) => Number(row.cantidad || 0) > 0)
+    .filter((row) => porMaterial.has(row.material_id));
+  const matrizPorRequisito = new Map(matriz.map((row) => [row.material_id, row]));
 
   const lineasDisponibles = [...new Set(
     obras.map((o) => String(o.linea_nombre || "").trim()).filter(Boolean),
   )].sort();
 
   const obrasDeLinea = obras
-    .filter((o) => String(o.linea_nombre || "").trim() === linea)
-    // Solo las que estan en curso. Los estados reales de la tabla son "activa"
-    // y "terminada": el filtro anterior descartaba "entregada" y "cancelada",
-    // que no existen, asi que las terminadas se colaban en la planilla.
+    .filter((o) => normalizarModelo(o.linea_nombre) === modeloElegido)
     .filter((o) => o.estado === "activa")
-    .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo)));
-
+    .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
   const idsDeObra = new Set(obrasDeLinea.map((o) => o.id));
 
-  const cargaDeObra = new Map(obrasDeLinea.map((o) => [o.id, { filas: 0, pendiente: 0 }]));
-  for (const f of ledger) {
-    const carga = cargaDeObra.get(f.obra_id);
-    if (!carga) continue;
-    carga.filas += 1;
-    if (ESTADOS_PENDIENTE.has(f.estado)) carga.pendiente += Number(f.cantidad_egresada || f.cantidad || 0);
-  }
-
-  // El pañol tiene dos bolsas distintas y hasta ahora se mostraban sumadas:
-  //
-  //   LIBRE      - sin obra asignada. Es lo unico que sirve para cubrir un
-  //                barco cualquiera, y por lo tanto lo unico que descuenta de
-  //                lo que hay que comprar.
-  //   RESERVADO  - ya tiene dueño. Esta fisicamente en el pañol, pero para
-  //                comprar no cuenta: si esta apartado para otra obra, no esta.
-  //
-  // Ademas suma TODAS las filas y deja que rowDelta ponga el signo. Antes se
-  // salteaba la fila cuando no era de stock, asi que los egresos nunca se
-  // restaban y la columna mostraba el historico de ingresos en vez del saldo:
-  // CABLE CHATO 3x4 figuraba con 200 cuando lo libre real era 0.
+  // El stock libre es el unico que puede cubrir una necesidad nueva. Lo ya
+  // reservado a otra obra se muestra, pero no descuenta compras.
   const stockLibre = new Map();
   const stockReservado = new Map();
-  for (const f of ledger) {
-    if (!f.material_id) continue;
-    const delta = rowDelta(f);
+  for (const fila of ledger) {
+    if (!fila.material_id) continue;
+    const delta = rowDelta(fila);
     if (!delta) continue;
-    const bolsa = f.obra_id ? stockReservado : stockLibre;
-    bolsa.set(f.material_id, (bolsa.get(f.material_id) || 0) + delta);
+    const bolsa = fila.obra_id ? stockReservado : stockLibre;
+    bolsa.set(fila.material_id, (bolsa.get(fila.material_id) || 0) + delta);
   }
 
-  // El cruce material x obra.
-  const celdas = new Map();  // "materialId|obraId"
-  for (const f of ledger) {
-    if (!f.material_id || !f.obra_id || !idsDeObra.has(f.obra_id)) continue;
-    const clave = `${f.material_id}|${f.obra_id}`;
-    const c = celdas.get(clave) ?? { egresado: 0, enPanol: 0, pendiente: 0 };
-    // Si el estado dice egresado, lo que salio es la cantidad: hay filas con
-    // cantidad_egresada en 0 y el numero real en el otro campo.
-    const cant = Number(f.cantidad_egresada || f.cantidad || 0);
-    if (!cant) { celdas.set(clave, c); continue; }
-    if (ESTADOS_EGRESADO.has(f.estado)) c.egresado += cant;
-    else if (ESTADOS_EN_PANOL.has(f.estado)) c.enPanol += cant;
-    else if (ESTADOS_PENDIENTE.has(f.estado)) c.pendiente += cant;
-    celdas.set(clave, c);
+  // Agrupamos primero los snapshots por requisito y obra. El requisito es la
+  // identidad estable; el producto concreto puede cambiar entre barcos.
+  const snapshotPorRequisitoObra = new Map();
+  const adicionales = [];
+  for (const fila of ledger) {
+    if (!fila.obra_id || !idsDeObra.has(fila.obra_id) || !fila.material_id) continue;
+    const requisitoId = fila.requisito_material_id || fila.material_id;
+    if (!matrizPorRequisito.has(requisitoId)) {
+      adicionales.push(fila);
+      continue;
+    }
+    const clave = `${requisitoId}|${fila.obra_id}`;
+    const grupo = snapshotPorRequisitoObra.get(clave) ?? [];
+    grupo.push(fila);
+    snapshotPorRequisitoObra.set(clave, grupo);
   }
 
-  // Una fila por material que aparezca en alguna obra de la linea.
+  // material concreto x obra. Todas las obras reciben primero la necesidad de
+  // la matriz; si ya existe snapshot, ese estado reemplaza el pendiente base.
+  const celdas = new Map();
+  for (const obra of obrasDeLinea) {
+    for (const item of matriz) {
+      const requisitoId = item.material_id;
+      const snapshots = snapshotPorRequisitoObra.get(`${requisitoId}|${obra.id}`) ?? [];
+      const productoId = snapshots.find((row) => row.material_id)?.material_id
+        || item.producto_predeterminado_id
+        || requisitoId;
+      const clave = `${productoId}|${obra.id}`;
+      const celda = celdaVacia(item.cantidad, requisitoId, true);
+      if (snapshots.length) {
+        celda.egresado = 0;
+        celda.enPanol = 0;
+        celda.pendiente = 0;
+        for (const fila of snapshots) sumarEstado(celda, fila);
+      }
+      const existente = celdas.get(clave);
+      if (existente) {
+        existente.requerido = redondear(existente.requerido + celda.requerido);
+        existente.egresado = redondear(existente.egresado + celda.egresado);
+        existente.enPanol = redondear(existente.enPanol + celda.enPanol);
+        existente.pendiente = redondear(existente.pendiente + celda.pendiente);
+      } else {
+        celdas.set(clave, celda);
+      }
+    }
+  }
+
+  // Los adicionales y filas historicas fuera de la matriz siguen visibles:
+  // no deben desaparecer solo porque no sean estandar de linea.
+  for (const fila of adicionales) {
+    const clave = `${fila.material_id}|${fila.obra_id}`;
+    const celda = celdas.get(clave) ?? celdaVacia(fila.cantidad, fila.requisito_material_id || fila.material_id, false);
+    if (!celdas.has(clave)) celda.pendiente = 0;
+    sumarEstado(celda, fila);
+    celda.requerido = redondear(Math.max(celda.requerido, celda.egresado + celda.enPanol + celda.pendiente));
+    celdas.set(clave, celda);
+  }
+
   const filas = new Map();
-  for (const [clave, c] of celdas) {
+  for (const [clave, celdaRaw] of celdas) {
     const [materialId, obraId] = clave.split("|");
-    const material = porMaterial.get(materialId);
+    const material = porMaterial.get(materialId) || porMaterial.get(celdaRaw.requisitoId);
     if (!material) continue;
-    if (!c.egresado && !c.enPanol && !c.pendiente) continue;
+    const celda = {
+      requerido: redondear(celdaRaw.requerido),
+      egresado: redondear(celdaRaw.egresado),
+      enPanol: redondear(celdaRaw.enPanol),
+      pendiente: redondear(celdaRaw.pendiente),
+      desdeMatriz: celdaRaw.desdeMatriz,
+      requisitoId: celdaRaw.requisitoId,
+    };
 
     if (!filas.has(materialId)) {
       filas.set(materialId, {
         id: materialId,
-        descripcion: material.descripcion || "",
-        codigo: material.codigo || "",
-        proveedor: String(material.proveedor || "").trim(),
-        rubro: rubros.get(material.categoria_id) || "Sin rubro",
-        unidad: material.unidad_medida || "unidad",
-        esConsumible: material.es_consumible === true,
+        requisitoId: celda.requisitoId,
+        ...materialMeta(material, rubros, imagenes),
         enPanolLibre: redondear(Math.max(0, stockLibre.get(materialId) || 0)),
         reservado: redondear(Math.max(0, stockReservado.get(materialId) || 0)),
         porObra: {},
-        totales: { egresado: 0, enPanol: 0, pendiente: 0 },
+        totales: { requerido: 0, egresado: 0, enPanol: 0, pendiente: 0 },
       });
     }
     const fila = filas.get(materialId);
-    fila.porObra[obraId] = {
-      egresado: redondear(c.egresado),
-      enPanol: redondear(c.enPanol),
-      pendiente: redondear(c.pendiente),
-    };
-    fila.totales.egresado = redondear(fila.totales.egresado + c.egresado);
-    fila.totales.enPanol = redondear(fila.totales.enPanol + c.enPanol);
-    fila.totales.pendiente = redondear(fila.totales.pendiente + c.pendiente);
+    fila.porObra[obraId] = celda;
+    for (const campo of ["requerido", "egresado", "enPanol", "pendiente"]) {
+      fila.totales[campo] = redondear(fila.totales[campo] + celda[campo]);
+    }
   }
 
   for (const fila of filas.values()) {
@@ -149,37 +212,47 @@ export async function calcularPlanillaDeLinea(linea) {
   }
 
   const listaFilas = [...filas.values()].sort((a, b) => {
-    // Lo que hay que comprar primero, que es a lo que se viene. Despues lo que
-    // falta pero ya esta en el pañol, y al final lo que esta completo.
     if ((b.faltaComprar > 0) !== (a.faltaComprar > 0)) return b.faltaComprar > 0 ? 1 : -1;
     if ((b.totales.pendiente > 0) !== (a.totales.pendiente > 0)) return b.totales.pendiente > 0 ? 1 : -1;
-    const porRubro = a.rubro.localeCompare(b.rubro);
-    return porRubro !== 0 ? porRubro : a.descripcion.localeCompare(b.descripcion);
+    const porRubro = a.rubro.localeCompare(b.rubro, "es");
+    return porRubro !== 0 ? porRubro : a.descripcion.localeCompare(b.descripcion, "es");
+  });
+
+  const obrasConResumen = obrasDeLinea.map((obra) => {
+    const celdasObra = listaFilas.map((fila) => fila.porObra[obra.id]).filter(Boolean);
+    const pendientes = celdasObra.filter((celda) => celda.pendiente > 0).length;
+    const enPanol = celdasObra.filter((celda) => celda.enPanol > 0).length;
+    const entregados = celdasObra.filter((celda) => celda.egresado > 0).length;
+    return {
+      ...obra,
+      filasCargadas: celdasObra.length,
+      pendientes,
+      enPanol,
+      entregados,
+      carga: !matriz.length && !celdasObra.length
+        ? "sin_matriz"
+        : pendientes > 0
+          ? "con_pendientes"
+          : "todo_llego",
+    };
   });
 
   return {
     linea,
     lineasDisponibles,
-    obras: obrasDeLinea.map((o) => {
-      const carga = cargaDeObra.get(o.id) ?? { filas: 0, pendiente: 0 };
-      return {
-        id: o.id,
-        codigo: o.codigo,
-        estado: o.estado,
-        filasCargadas: carga.filas,
-        carga: !carga.filas ? "sin_cargar" : carga.pendiente > 0 ? "con_pendientes" : "todo_llego",
-      };
-    }),
+    matrizMateriales: matriz.length,
+    obras: obrasConResumen,
     filas: listaFilas,
     resumen: {
       materiales: listaFilas.length,
+      matrizMateriales: matriz.length,
       obras: obrasDeLinea.length,
-      conPendiente: listaFilas.filter((f) => f.totales.pendiente > 0).length,
-      sinProveedor: listaFilas.filter((f) => !f.proveedor && f.totales.pendiente > 0).length,
-      cubiertos: listaFilas.filter((f) => f.totales.pendiente > 0 && f.enPanolLibre >= f.totales.pendiente).length,
-      aComprar: listaFilas.filter((f) => f.faltaComprar > 0).length,
-      sinCargar: obrasDeLinea.filter((o) => !(cargaDeObra.get(o.id)?.filas)).length,
-      rubros: new Set(listaFilas.map((f) => f.rubro)).size,
+      conPendiente: listaFilas.filter((fila) => fila.totales.pendiente > 0).length,
+      sinProveedor: listaFilas.filter((fila) => !fila.proveedor && fila.totales.pendiente > 0).length,
+      cubiertos: listaFilas.filter((fila) => fila.totales.pendiente > 0 && fila.enPanolLibre >= fila.totales.pendiente).length,
+      aComprar: listaFilas.filter((fila) => fila.faltaComprar > 0).length,
+      sinMatriz: matriz.length ? 0 : obrasDeLinea.length,
+      rubros: new Set(listaFilas.map((fila) => fila.rubro)).size,
     },
   };
 }
