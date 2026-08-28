@@ -57,6 +57,7 @@ import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import FaltantesComprasPanel from "@/features/compras/FaltantesComprasPanel";
 import ReposicionPanel from "@/features/compras/ReposicionPanel";
 import MatrizLineasPanel from "@/features/compras/MatrizLineasPanel";
+import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import {
   addRequestItem,
   addComprasAvisoComentario,
@@ -488,7 +489,7 @@ const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 const CREATE_DRAFT_PREFIX = "purchase-request-create-draft";
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
-const MANAGER_TABS = ["pendientes", "comprar", "matriz", "faltantes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja", "ruta"];
+const MANAGER_TABS = ["pendientes", "comprar", "planilla", "matriz", "faltantes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja", "ruta"];
 
 function dateOnly(value) {
   if (!value) return null;
@@ -1462,6 +1463,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <TabBtn active={managerTab === "comprar"} onClick={() => setManagerTab("comprar")}>
                     <TrendingDown size={12} /> Qué comprar
                   </TabBtn>
+                  <TabBtn active={managerTab === "planilla"} onClick={() => setManagerTab("planilla")}>
+                    <Table2 size={12} /> Planilla por obra
+                  </TabBtn>
                   <TabBtn active={managerTab === "matriz"} onClick={() => setManagerTab("matriz")}>
                     <Grid3x3 size={12} /> Matriz por línea
                   </TabBtn>
@@ -2094,6 +2098,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   />
                 ) : manager && managerTab === "comprar" ? (
                   <ReposicionPanel isMobile={isMobile} />
+                ) : manager && managerTab === "planilla" ? (
+                  <PlanillaObrasPanel isMobile={isMobile} />
                 ) : manager && managerTab === "matriz" ? (
                   <MatrizLineasPanel isMobile={isMobile} />
                 ) : manager && managerTab === "faltantes" ? (
