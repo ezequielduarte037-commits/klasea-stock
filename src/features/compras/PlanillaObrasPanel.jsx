@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Download, LoaderCircle, RotateCcw, Search, ShoppingCart, Table2, X } from "lucide-react";
+import { Check, Copy, Download, LoaderCircle, RotateCcw, Search, ShoppingCart, SquarePen, Table2, X } from "lucide-react";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
 import { calcularPlanillaDeLinea } from "@/features/compras/planillaObrasApi";
@@ -146,36 +146,64 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
     });
   }
 
-  /** Lo que falta de cada elegido: es lo que tiene sentido pedir. */
+  /**
+   * Lo que hay que COMPRAR de cada elegido: el pendiente menos lo que el pañol
+   * tiene libre. Lo que ya esta libre en el pañol no se compra, se va a buscar,
+   * asi que sale del pedido y se avisa cuantos fueron.
+   *
+   * Lo reservado a otra obra no descuenta: esta en el pañol pero no es de este
+   * barco, y contarlo es exactamente lo que hace que algo no se compre y falte.
+   */
   function lineasDePedido() {
-    return seleccionados.map((f) => {
-      const falta = obraFoco ? (f.porObra[obraFoco]?.pendiente || 0) : f.totales.pendiente;
-      const cantidad = falta > 0 ? falta : 1;
-      return `${cantidad} ${f.unidad}  ${f.descripcion}${f.codigo ? ` (${f.codigo})` : ""}`;
-    });
+    const renglones = [];
+    let cubiertos = 0;
+    for (const f of seleccionados) {
+      const pendiente = obraFoco ? (f.porObra[obraFoco]?.pendiente || 0) : f.totales.pendiente;
+      const aPedir = Math.round(Math.max(0, pendiente - f.enPanolLibre) * 100) / 100;
+      if (pendiente > 0 && aPedir === 0) { cubiertos += 1; continue; }
+      // Sin pendiente lo tildaron a proposito (reponer, tener de mas): va con 1.
+      const cantidad = aPedir > 0 ? aPedir : 1;
+      renglones.push(`${cantidad} ${f.unidad}  ${f.descripcion}${f.codigo ? ` (${f.codigo})` : ""}`);
+    }
+    return { renglones, cubiertos };
+  }
+
+  /** Abre la ficha del producto para corregirla sin perder la planilla. */
+  function abrirFicha(evento, materialId) {
+    evento.stopPropagation();
+    window.open(`/catalogo-maestro?material=${materialId}`, "_blank", "noopener");
   }
 
   function copiar() {
-    const lineas = lineasDePedido();
-    if (!lineas.length) return;
+    const { renglones, cubiertos } = lineasDePedido();
+    if (!renglones.length) {
+      toast.info(`Lo que elegiste ya está libre en el pañol (${cubiertos}). No hay nada para comprar.`);
+      return;
+    }
     const obra = obrasVisibles.length === 1 ? ` · ${obrasVisibles[0].codigo}` : "";
-    navigator.clipboard?.writeText(`Pedido ${linea}${obra}\n\n${lineas.join("\n")}`)
-      .then(() => toast.success(`${lineas.length} renglones copiados.`))
+    navigator.clipboard?.writeText(`Pedido ${linea}${obra}\n\n${renglones.join("\n")}`)
+      .then(() => toast.success(`${renglones.length} renglones copiados${cubiertos ? ` · ${cubiertos} ya están en el pañol` : ""}.`))
       .catch(() => toast.error("No se pudo copiar."));
   }
 
   function pedir() {
     if (!seleccionados.length) return;
+    const { renglones, cubiertos } = lineasDePedido();
+    if (!renglones.length) {
+      toast.info(`Lo que elegiste ya está libre en el pañol (${cubiertos}). No hay nada para comprar.`);
+      return;
+    }
     const proveedores = [...new Set(seleccionados.map((f) => f.proveedor).filter(Boolean))];
     const obra = obrasVisibles.length === 1 ? obrasVisibles[0] : null;
     onPedir?.({
-      titulo: `${linea}${obra ? ` ${obra.codigo}` : ""} · ${seleccionados.length} materiales`,
-      descripcion: lineasDePedido().join("\n"),
+      titulo: `${linea}${obra ? ` ${obra.codigo}` : ""} · ${renglones.length} materiales`,
+      descripcion: renglones.join("\n"),
       proveedorSugerido: proveedores.length === 1 ? proveedores[0] : "",
       obraId: obra?.id || "",
       obraCodigo: obra?.codigo || "",
     });
     setElegidos(new Set());
+    if (cubiertos) toast.info(`${cubiertos} quedaron afuera: ya están libres en el pañol.`);
   }
 
   function exportar() {
@@ -183,11 +211,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
     const obras = obrasVisibles;
     const cabecera = [
       agrupar === "rubro" ? "Rubro" : "Proveedor",
-      "Material", "Código", "Unidad", "En pañol",
+      "Material", "Código", "Unidad", "Libre en pañol", "Reservado a obras",
       ...obras.flatMap((o) => [`${o.codigo} entregado`, `${o.codigo} en pañol`, `${o.codigo} pendiente`]),
     ];
     const filas = grupos.flatMap((g) => g.filas.map((f) => [
-      g.nombre, f.descripcion, f.codigo, f.unidad, f.enPanolGeneral,
+      g.nombre, f.descripcion, f.codigo, f.unidad, f.enPanolLibre, f.reservado,
       ...obras.flatMap((o) => {
         const c = f.porObra[o.id];
         return [c?.egresado ?? "", c?.enPanol ?? "", c?.pendiente ?? ""];
@@ -231,6 +259,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
         .planilla-fila:hover { background: var(--panel-2); }
         .planilla-fila:hover .planilla-celda-fija { background: var(--panel-2); }
         .planilla-check:focus-visible { outline: 2px solid ${C.blue}; outline-offset: 2px; }
+        .planilla-ficha { transition: opacity .15s, border-color .15s, color .15s; }
+        @media (hover: hover) {
+          .planilla-ficha { opacity: 0; }
+          .planilla-fila:hover .planilla-ficha { opacity: 1; }
+        }
+        .planilla-ficha:hover { border-color: ${C.blueB}; color: ${C.blue}; }
+        .planilla-ficha:focus-visible { opacity: 1; outline: 2px solid ${C.blue}; outline-offset: 2px; }
         .planilla-obra-btn { transition: border-color .15s, color .15s, transform .15s; }
         .planilla-obra-btn:hover { border-color: ${C.blueB}; color: ${C.blue}; transform: translateY(-1px); }
       `}</style>
@@ -252,6 +287,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
             <Chip valor={datos.resumen.materiales} etiqueta="materiales" />
             <Chip valor={datos.resumen.obras} etiqueta="obras activas" color={C.blue} />
             <Chip valor={datos.resumen.conPendiente} etiqueta="con pendientes" color={C.red} />
+            {datos.resumen.cubiertos > 0 ? <Chip valor={datos.resumen.cubiertos} etiqueta="ya están en pañol" color={C.green} /> : null}
             {datos.resumen.sinProveedor > 0 ? <Chip valor={datos.resumen.sinProveedor} etiqueta="sin proveedor" color={C.red} /> : null}
           </div>
         ) : null}
@@ -334,7 +370,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
             <thead>
               <tr>
                 <th style={{ ...th, ...colFija, textAlign: "left", minWidth: 258, zIndex: 4, paddingLeft: 12 }}>Material</th>
-                <th style={{ ...th, minWidth: 54 }}>Pañol</th>
+                <th style={{ ...th, minWidth: 62 }} title="Lo que el pañol tiene sin obra asignada. Lo apartado para un barco no entra: está, pero no se puede usar acá.">
+                  Pañol
+                  <div style={{ fontSize: 9.5, fontWeight: 750, color: C.dim, textTransform: "none", letterSpacing: 0 }}>libre</div>
+                </th>
                 {obrasVisibles.map((o) => <th key={o.id} style={{ ...th, minWidth: 62 }}>{o.codigo}</th>)}
               </tr>
             </thead>
@@ -399,7 +438,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
                             tabIndex={-1}
                             style={{ accentColor: C.blue, width: 14, height: 14, marginTop: 2, cursor: "pointer", flexShrink: 0 }}
                           />
-                          <div style={{ minWidth: 0 }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {f.descripcion}
                             </div>
@@ -408,10 +447,36 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir }) {
                               {agrupar === "rubro" ? (f.proveedor ? ` · ${f.proveedor}` : " · sin proveedor") : ` · ${f.rubro}`}
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            className="planilla-ficha"
+                            onClick={(evento) => abrirFicha(evento, f.id)}
+                            title="Abrir la ficha en el catálogo maestro (pestaña nueva) para corregirla"
+                            aria-label={`Abrir la ficha de ${f.descripcion}`}
+                            style={{
+                              flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              width: 24, height: 24, marginTop: -1, borderRadius: 7, cursor: "pointer",
+                              border: `1px solid ${C.border2}`, background: "var(--panel-2)", color: C.dim,
+                            }}
+                          >
+                            <SquarePen size={12} />
+                          </button>
                         </div>
                       </td>
-                      <td style={{ padding: "7px 6px", textAlign: "center", fontFamily: C.mono, fontSize: 12.5, fontWeight: 800, color: f.enPanolGeneral > 0 ? C.muted : C.dim }}>
-                        {f.enPanolGeneral || "—"}
+                      <td
+                        style={{ padding: "5px 6px", textAlign: "center" }}
+                        title={f.reservado > 0
+                          ? `${f.enPanolLibre} libre · ${f.reservado} ya apartado para obras (no se puede usar acá)`
+                          : `${f.enPanolLibre} libre en el pañol`}
+                      >
+                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: f.enPanolLibre > 0 ? C.text : C.dim }}>
+                          {f.enPanolLibre || "—"}
+                        </div>
+                        {f.reservado > 0 ? (
+                          <div style={{ fontFamily: C.mono, fontSize: 9.5, fontWeight: 750, color: C.dim, marginTop: 1, fontVariantNumeric: "tabular-nums" }}>
+                            {f.reservado} apart.
+                          </div>
+                        ) : null}
                       </td>
                       {obrasVisibles.map((o) => {
                         const celda = celdaDeObra(f.porObra[o.id]);

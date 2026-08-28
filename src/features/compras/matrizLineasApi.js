@@ -1,5 +1,5 @@
 import { supabase } from "@/supabaseClient";
-import { rowCountsAsStock, rowDelta } from "@/features/panol/panolMovimientos";
+import { rowDelta } from "@/features/panol/panolMovimientos";
 
 /**
  * La matriz de que lleva cada linea de produccion, deducida del consumo real.
@@ -52,14 +52,19 @@ export async function calcularMatrizDeLineas() {
     if (!lineas.has(nombre)) lineas.set(nombre, { nombre, obras: [], activas: [] });
     const l = lineas.get(nombre);
     l.obras.push(o);
-    if (!["entregada", "cancelada"].includes(o.estado)) l.activas.push(o);
+    if (o.estado === "activa") l.activas.push(o);
   }
 
-  // Stock actual, con la logica canonica del pañol.
-  const stock = new Map();
+  // Stock LIBRE actual, con la logica canonica del pañol.
+  const stockLibre = new Map();
   for (const f of ledger) {
-    if (!f.material_id || !rowCountsAsStock(f)) continue;
-    stock.set(f.material_id, (stock.get(f.material_id) || 0) + rowDelta(f));
+    if (!f.material_id) continue;
+    const delta = rowDelta(f);
+    // Lo apartado para una obra esta en el pañol pero tiene dueño: para comprar
+    // no cuenta. Y se suman TODAS las fs, que rowDelta ya pone el signo:
+    // filtrando antes, lo que salio del pañol nunca se restaba.
+    if (!delta || f.obra_id) continue;
+    stockLibre.set(f.material_id, (stockLibre.get(f.material_id) || 0) + delta);
   }
 
   // Consumo por material y por linea.
@@ -97,7 +102,7 @@ export async function calcularMatrizDeLineas() {
         proveedor: String(material.proveedor || "").trim(),
         unidad: material.unidad_medida || "unidad",
         esConsumible: material.es_consumible === true,
-        hay: Math.round((stock.get(c.materialId) || 0) * 100) / 100,
+        hay: Math.round(Math.max(0, stockLibre.get(c.materialId) || 0) * 100) / 100,
         porLinea: {},
         lineasQueLoUsan: 0,
       });
@@ -110,6 +115,7 @@ export async function calcularMatrizDeLineas() {
       total: Math.round(c.total * 100) / 100,
       porBarco: Math.round(porBarco * 100) / 100,
       obrasQueLoUsaron: c.obras.size,
+      activasQueNoLoUsaron: (linea?.activas || []).filter((o) => !c.obras.has(o.id)).length,
       obrasDeLaLinea,
       cobertura: obrasDeLaLinea ? c.obras.size / obrasDeLaLinea : 0,
     };
@@ -124,8 +130,8 @@ export async function calcularMatrizDeLineas() {
     for (const [nombreLinea, celda] of Object.entries(fila.porLinea)) {
       const linea = lineas.get(nombreLinea);
       if (!linea) continue;
-      // De las activas, las que todavia no lo pidieron.
-      const pendientes = linea.activas.length - celda.obrasQueLoUsaron;
+      // De las obras EN CURSO, las que todavia no lo pidieron.
+      const pendientes = celda.activasQueNoLoUsaron;
       if (pendientes > 0) proyectado += pendientes * celda.porBarco;
     }
     fila.proyectado = Math.round(proyectado * 10) / 10;

@@ -1,5 +1,5 @@
 import { supabase } from "@/supabaseClient";
-import { rowCountsAsStock, rowDelta } from "@/features/panol/panolMovimientos";
+import { rowDelta } from "@/features/panol/panolMovimientos";
 
 /**
  * La planilla de una linea: los materiales como filas, las obras como columnas,
@@ -18,6 +18,8 @@ const ESTADOS_EGRESADO = new Set(["egresado"]);
 const ESTADOS_EN_PANOL = new Set(["en_panol", "recibido", "parcial"]);
 /** Todavia no llego: falta comprarlo o esta en camino. */
 const ESTADOS_PENDIENTE = new Set(["pendiente", "pedido", "comprado"]);
+
+const redondear = (n) => Math.round(n * 100) / 100;
 
 async function traerTodo(tabla, select) {
   const filas = [];
@@ -62,12 +64,26 @@ export async function calcularPlanillaDeLinea(linea) {
 
   const idsDeObra = new Set(obrasDeLinea.map((o) => o.id));
 
-  // El stock general del pañol: no esta reservado para ninguna obra, asi que es
-  // lo que se puede usar para cubrir cualquiera de ellas.
-  const stockGeneral = new Map();
+  // El pañol tiene dos bolsas distintas y hasta ahora se mostraban sumadas:
+  //
+  //   LIBRE      - sin obra asignada. Es lo unico que sirve para cubrir un
+  //                barco cualquiera, y por lo tanto lo unico que descuenta de
+  //                lo que hay que comprar.
+  //   RESERVADO  - ya tiene dueño. Esta fisicamente en el pañol, pero para
+  //                comprar no cuenta: si esta apartado para otra obra, no esta.
+  //
+  // Ademas suma TODAS las filas y deja que rowDelta ponga el signo. Antes se
+  // salteaba la fila cuando no era de stock, asi que los egresos nunca se
+  // restaban y la columna mostraba el historico de ingresos en vez del saldo:
+  // CABLE CHATO 3x4 figuraba con 200 cuando lo libre real era 0.
+  const stockLibre = new Map();
+  const stockReservado = new Map();
   for (const f of ledger) {
-    if (!f.material_id || !rowCountsAsStock(f)) continue;
-    stockGeneral.set(f.material_id, (stockGeneral.get(f.material_id) || 0) + rowDelta(f));
+    if (!f.material_id) continue;
+    const delta = rowDelta(f);
+    if (!delta) continue;
+    const bolsa = f.obra_id ? stockReservado : stockLibre;
+    bolsa.set(f.material_id, (bolsa.get(f.material_id) || 0) + delta);
   }
 
   // El cruce material x obra.
@@ -103,13 +119,13 @@ export async function calcularPlanillaDeLinea(linea) {
         rubro: rubros.get(material.categoria_id) || "Sin rubro",
         unidad: material.unidad_medida || "unidad",
         esConsumible: material.es_consumible === true,
-        enPanolGeneral: Math.round((stockGeneral.get(materialId) || 0) * 100) / 100,
+        enPanolLibre: redondear(Math.max(0, stockLibre.get(materialId) || 0)),
+        reservado: redondear(Math.max(0, stockReservado.get(materialId) || 0)),
         porObra: {},
         totales: { egresado: 0, enPanol: 0, pendiente: 0 },
       });
     }
     const fila = filas.get(materialId);
-    const redondear = (n) => Math.round(n * 100) / 100;
     fila.porObra[obraId] = {
       egresado: redondear(c.egresado),
       enPanol: redondear(c.enPanol),
@@ -137,6 +153,7 @@ export async function calcularPlanillaDeLinea(linea) {
       obras: obrasDeLinea.length,
       conPendiente: listaFilas.filter((f) => f.totales.pendiente > 0).length,
       sinProveedor: listaFilas.filter((f) => !f.proveedor && f.totales.pendiente > 0).length,
+      cubiertos: listaFilas.filter((f) => f.totales.pendiente > 0 && f.enPanolLibre >= f.totales.pendiente).length,
       rubros: new Set(listaFilas.map((f) => f.rubro)).size,
     },
   };

@@ -1,5 +1,5 @@
 import { supabase } from "@/supabaseClient";
-import { rowCountsAsStock, rowDelta } from "@/features/panol/panolMovimientos";
+import { rowDelta } from "@/features/panol/panolMovimientos";
 
 /**
  * Qué hay que comprar, calculado en vez de cargado.
@@ -99,12 +99,17 @@ export async function calcularReposicion() {
 
   const porId = new Map(materiales.map((m) => [m.id, m]));
 
-  // Stock con la logica canonica del pañol: no reimplementarla aca, o compras ve
-  // un numero distinto al que ve el pañolero para el mismo item.
-  const stock = new Map();
+  // Stock LIBRE, con la logica canonica del pañol (rowDelta): no reimplementarla
+  // aca, o compras ve un numero distinto al que ve el pañolero para el mismo item.
+  const stockLibre = new Map();
   for (const fila of ledger) {
-    if (!fila.material_id || !rowCountsAsStock(fila)) continue;
-    stock.set(fila.material_id, (stock.get(fila.material_id) || 0) + rowDelta(fila));
+    if (!fila.material_id) continue;
+    const delta = rowDelta(fila);
+    // Lo apartado para una obra esta en el pañol pero tiene dueño: para comprar
+    // no cuenta. Y se suman TODAS las filas, que rowDelta ya pone el signo:
+    // filtrando antes, lo que salio del pañol nunca se restaba.
+    if (!delta || fila.obra_id) continue;
+    stockLibre.set(fila.material_id, (stockLibre.get(fila.material_id) || 0) + delta);
   }
 
   // Consumo: solo lo que efectivamente salio del pañol.
@@ -145,7 +150,7 @@ export async function calcularReposicion() {
 
     const porMes = c.total / mesesDeHistoria;
     const puntoDePedido = Math.ceil(porMes * (plazoDias / DIAS_POR_MES));
-    const hay = Math.round((stock.get(id) || 0) * 100) / 100;
+    const hay = Math.round(Math.max(0, stockLibre.get(id) || 0) * 100) / 100;
     // Cuantas semanas de consumo quedan: es lo que de verdad dice si urge.
     const semanasRestantes = porMes > 0 ? (hay / porMes) * 4.33 : Infinity;
 
