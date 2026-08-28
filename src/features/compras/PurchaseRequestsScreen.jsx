@@ -108,7 +108,7 @@ const extractText = (html) => {
 const statusColors = {
   nuevo: C.blue,
   en_revision: C.violet,
-  cotizando: C.amber,
+  cotizando: C.cyan,
   comprado: C.orange,
   recibido: C.green,
   cancelado: C.red,
@@ -117,7 +117,7 @@ const statusColors = {
 const statusDotColors = {
   nuevo: C.blue,
   en_revision: C.violet,
-  cotizando: C.amber,
+  cotizando: C.cyan,
   comprado: C.orange,
   recibido: C.green,
   cancelado: C.red,
@@ -144,7 +144,7 @@ const statusIcons = {
 const priorityColors = {
   baja: C.dim,
   media: C.blue,
-  alta: C.amber,
+  alta: C.orange,
   urgente: C.red,
 };
 
@@ -541,7 +541,7 @@ function attentionTextForRequest(request, unread) {
   if (unread) return { label: "Comentario sin leer", color: C.violet, score: 95 };
   if (overdueDays != null && overdueDays > 0) return { label: `Vencido hace ${overdueDays}d`, color: C.red, score: 90 };
   if (request.priority === "urgente") return { label: "Urgente", color: C.red, score: 85 };
-  if (request.priority === "alta") return { label: "Alta prioridad", color: C.amber, score: 74 };
+  if (request.priority === "alta") return { label: "Alta prioridad", color: C.orange, score: 74 };
   if (request.status === "comprado") return { label: "Comprado, falta cerrar", color: C.orange, score: 58 };
   if (request.status === "nuevo") return { label: "Nuevo", color: C.blue, score: 45 };
   return { label: REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status, color: statusColors[request.status] || C.dim, score: 20 };
@@ -588,7 +588,7 @@ function ComprasCompanion({ requests, onOpenNew }) {
   const estado = vencidos || urgentes
     ? { mood: "alerta", label: vencidos ? `${vencidos} vencido${vencidos === 1 ? "" : "s"}` : `${urgentes} urgente${urgentes === 1 ? "" : "s"}`, color: C.red, face: "•︵•" }
     : nuevos >= 8
-      ? { mood: "triste", label: `${nuevos} nuevos esperan`, color: C.amber, face: "•︵•" }
+      ? { mood: "triste", label: `${nuevos} nuevos esperan`, color: C.cyan, face: "•︵•" }
       : nuevos > 0
         ? { mood: "atento", label: `${nuevos} nuevo${nuevos === 1 ? "" : "s"}`, color: C.blue, face: "•ᴗ•" }
         : { mood: "feliz", label: "Bandeja al día", color: C.green, face: "^‿^" };
@@ -648,7 +648,7 @@ function ComprasCompanionV2({ requests, onOpenNew }) {
   const vencidos = open.filter((r) => requestDueDate(r) && (daysBetween(requestDueDate(r)) || 0) > 0).length;
   const alert = vencidos > 0 || urgentes > 0;
   const mood = alert ? "alerta" : nuevos >= 8 ? "triste" : nuevos > 0 ? "atento" : "feliz";
-  const color = alert ? C.red : mood === "triste" ? C.amber : mood === "atento" ? C.blue : C.green;
+  const color = alert ? C.red : mood === "triste" ? C.cyan : mood === "atento" ? C.blue : C.green;
   const label = vencidos > 0 ? `${vencidos} vencido${vencidos === 1 ? "" : "s"}` : urgentes > 0 ? `${urgentes} urgente${urgentes === 1 ? "" : "s"}` : nuevos > 0 ? `${nuevos} nuevo${nuevos === 1 ? "" : "s"}` : "Bandeja al día";
 
   return (
@@ -1466,7 +1466,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                 width: 30, height: 30,
                 display: "grid", placeItems: "center",
                 borderRadius: 7,
-                color: C.amber,
+                color: C.cyan,
                 background: "rgba(245,158,11,0.12)",
                 border: "1px solid rgba(245,158,11,0.25)",
               }}>
@@ -1481,7 +1481,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <TabBtn active={managerTab === "pendientes"} onClick={() => setManagerTab("pendientes")}>
                     <Bell size={12} /> Pendientes
                     {comprasAttentionCount > 0 && (
-                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "pendientes" ? C.text : C.amber }}>
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "pendientes" ? C.text : C.cyan }}>
                         {comprasAttentionCount}
                       </span>
                     )}
@@ -1507,7 +1507,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <TabBtn active={managerTab === "avisos"} onClick={() => setManagerTab("avisos")}>
                     <AlertTriangle size={12} /> Avisos
                     {avisoNuevoCount > 0 && (
-                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "avisos" ? C.text : C.amber }}>
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "avisos" ? C.text : C.cyan }}>
                         {avisoNuevoCount}
                       </span>
                     )}
@@ -1606,9 +1606,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       title="Quitar todos los filtros"
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 5,
-                        border: `1px solid ${C.amber}44`,
-                        background: `${C.amber}10`,
-                        color: C.amber,
+                        border: `1px solid ${C.cyan}44`,
+                        background: `${C.cyan}10`,
+                        color: C.cyan,
                         borderRadius: 6,
                         padding: "6px 9px",
                         cursor: "pointer",
@@ -1763,7 +1763,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <div>
                     <div style={labelStyle}>Items del pedido</div>
                     <div style={{
-                      border: `1px solid ${itemDraftWarning ? C.amber : C.border}`,
+                      border: `1px solid ${itemDraftWarning ? C.cyan : C.border}`,
                       borderRadius: 8,
                       background: C.panel,
                       overflow: "hidden",
@@ -1781,7 +1781,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                             {item.link_url && (
                               <a href={item.link_url} target="_blank" rel="noreferrer" style={{
                                 display: "inline-flex", alignItems: "center", gap: 3,
-                                marginLeft: 6, color: C.amber, fontSize: 10, textDecoration: "none",
+                                marginLeft: 6, color: C.cyan, fontSize: 10, textDecoration: "none",
                               }}>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                                 Enlace
@@ -1808,7 +1808,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <input value={newItemLink} onChange={e => { setNewItemLink(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
                             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
                             placeholder="Enlace (opcional)"
-                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.amber, fontSize: 12 }} />
+                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.cyan, fontSize: 12 }} />
                         </div>
                         <input value={newItemQty} onChange={e => { setNewItemQty(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
                           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
@@ -1831,9 +1831,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       </div>
                       {itemDraftWarning && (
                         <div style={{
-                          color: C.amber,
-                          background: `${C.amber}12`,
-                          borderTop: `1px solid ${C.amber}33`,
+                          color: C.cyan,
+                          background: `${C.cyan}12`,
+                          borderTop: `1px solid ${C.cyan}33`,
                           padding: "7px 9px",
                           fontSize: 12,
                           fontWeight: 750,
@@ -2083,9 +2083,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 6,
-                        border: `1px solid ${showArchived ? C.amber + "55" : C.border}`,
+                        border: `1px solid ${showArchived ? C.cyan + "55" : C.border}`,
                         background: showArchived ? "rgba(245,158,11,0.1)" : "transparent",
-                        color: showArchived ? C.amber : C.dim,
+                        color: showArchived ? C.cyan : C.dim,
                         borderRadius: 8,
                         padding: "7px 11px",
                         cursor: "pointer",
@@ -2127,6 +2127,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                 ) : manager && managerTab === "planilla" ? (
                   <PlanillaObrasPanel
                     isMobile={isMobile}
+                    profile={profile}
                     onPedir={({ titulo, descripcion, obraId, obraCodigo, proveedorSugerido }) => {
                       setForm({
                         ...emptyForm,
@@ -2212,7 +2213,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         <span style={{ flex: 1 }} />
                         <span style={{ color: C.dim, fontSize: 11 }}>
                           {unreadIds.size > 0 && <><span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer · </>}
-                          <span style={{ color: C.amber, fontWeight: 700, fontFamily: C.mono }}>
+                          <span style={{ color: C.cyan, fontWeight: 700, fontFamily: C.mono }}>
                             {requests.filter((r) => r.status === "nuevo" || r.status === "en_revision" || r.status === "cotizando").length}
                           </span> pendientes · <span style={{ color: C.red, fontWeight: 700, fontFamily: C.mono }}>
                             {requests.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length}
@@ -2268,7 +2269,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                             display: "grid", placeItems: "center",
                             background: "rgba(245,158,11,0.08)",
                             border: "1px solid rgba(245,158,11,0.18)",
-                            color: C.amber,
+                            color: C.cyan,
                           }}>
                             <ShoppingCart size={20} />
                           </div>
@@ -2611,7 +2612,7 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
       </div>
 
       {error && (
-        <div style={{ border: `1px solid ${C.amber}44`, background: `${C.amber}10`, color: C.amber, borderRadius: 10, padding: 10, fontSize: 12, fontWeight: 750 }}>
+        <div style={{ border: `1px solid ${C.cyan}44`, background: `${C.cyan}10`, color: C.cyan, borderRadius: 10, padding: 10, fontSize: 12, fontWeight: 750 }}>
           {error}
         </div>
       )}
@@ -2741,7 +2742,7 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
 const AVISO_STATUSES = [
   { value: "nuevo", label: "Nuevo", color: C.blue },
   { value: "visto", label: "Visto", color: C.violet },
-  { value: "en_proceso", label: "En proceso", color: C.amber },
+  { value: "en_proceso", label: "En proceso", color: C.cyan },
   { value: "resuelto", label: "Resuelto", color: C.green },
   { value: "descartado", label: "Descartado", color: C.red },
 ];
@@ -2937,7 +2938,7 @@ function AvisosPanel({
         <SectionTitle icon={AlertTriangle} title={title} count={filtered.length} />
         <span style={{ flex: 1 }} />
         {canCreate && (
-          <button type="button" onClick={() => setShowCreate((v) => !v)} style={smallActionButton(showCreate ? C.amber : C.blue)}>
+          <button type="button" onClick={() => setShowCreate((v) => !v)} style={smallActionButton(showCreate ? C.cyan : C.blue)}>
             {showCreate ? <X size={13} /> : <Plus size={13} />}
             {showCreate ? "Cerrar" : "Nuevo aviso"}
           </button>
@@ -3133,7 +3134,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           <Chip color={priorityColors[aviso.prioridad] || C.blue}>Prioridad {aviso.prioridad || "media"}</Chip>
           <Chip color={C.teal}>{aviso.origen || "web"}</Chip>
-          {aviso.material && <Chip color={C.amber}>{aviso.material}</Chip>}
+          {aviso.material && <Chip color={C.cyan}>{aviso.material}</Chip>}
         </div>
         {aviso.detalle && (
           <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.45, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 9, padding: 10 }}>
@@ -3242,7 +3243,7 @@ function smallActionButton(color, solid = false) {
 const DASHBOARD_PRIORITY_COLORS = {
   baja: C.dim,
   media: C.blue,
-  alta: C.amber,
+  alta: C.orange,
   urgente: C.red,
 };
 
@@ -3599,7 +3600,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         <StatCard
           label="Pedidos abiertos"
           value={dashboard.open.length}
-          color={C.amber}
+          color={C.cyan}
           icon={ShoppingCart}
           subtitle={openSubtitle}
         />
@@ -3620,7 +3621,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         <StatCard
           label="Tiempo medio"
           value={`${avgDays}d`}
-          color={avgDays <= 3 ? C.green : avgDays <= 7 ? C.amber : C.red}
+          color={avgDays <= 3 ? C.green : avgDays <= 7 ? C.cyan : C.red}
           icon={Clock}
           subtitle="Nuevo -> recibido"
           trend={dashboard.cycleTrend}
@@ -3763,8 +3764,8 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
 
         <div style={panelStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <Package size={14} color={C.amber} />
-            <span style={{ color: C.amber, fontSize: 13, fontWeight: 800 }}>
+            <Package size={14} color={C.cyan} />
+            <span style={{ color: C.cyan, fontSize: 13, fontWeight: 800 }}>
               Urgentes pendientes ({dashboard.urgentPending.length})
             </span>
           </div>
@@ -3773,7 +3774,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
               ? dashboard.urgentPending.slice(0, 8).map((item) => {
                   const due = item.estimated_delivery_at || item.needed_at;
                   const label = due ? fmtDate(due) : "Sin fecha";
-                  return actionItem(item, C.amber, label);
+                  return actionItem(item, C.cyan, label);
                 })
               : emptyState("Sin urgentes pendientes")}
           </div>

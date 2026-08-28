@@ -76,7 +76,7 @@ const isHttpUrl = (u) => {
 const statusColors = {
   nuevo: C.blue,
   en_revision: C.violet,
-  cotizando: C.amber,
+  cotizando: C.cyan,
   // Naranja, no teal: el teal del tema y el verde de "recibido" son casi el
   // mismo color en modo claro y se confundian.
   comprado: C.orange,
@@ -87,7 +87,7 @@ const statusColors = {
 const priorityColors = {
   baja: C.dim,
   media: C.blue,
-  alta: C.amber,
+  alta: C.orange,
   urgente: C.red,
 };
 
@@ -180,7 +180,7 @@ function StatusDot({ status }) {
 function PersonChip({ user, tone = "default", onRemove }) {
   const name = usernameOf(user);
   const initials = name.split(/\s+/).filter(Boolean).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
-  const color = tone === "creator" ? C.green : tone === "buyer" ? C.amber : C.blue;
+  const color = tone === "creator" ? C.green : tone === "buyer" ? C.cyan : C.blue;
 
   return (
     <div style={{
@@ -1859,7 +1859,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 )}
               </div>
               {request.needed_at && (
-                <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.amber, fontSize: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
+                <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.cyan, fontSize: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
                   <Clock size={12} />
                   Necesario para: {new Date(request.needed_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                 </div>
@@ -2084,7 +2084,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           {isHttpUrl(item.link_url) && (
                             <a href={item.link_url} target="_blank" rel="noreferrer" style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
-                              color: C.amber, fontSize: 10, textDecoration: "none",
+                              color: C.cyan, fontSize: 10, textDecoration: "none",
                             }}>
                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                               Enlace
@@ -2230,7 +2230,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   </div>
                   <div style={{ color: C.muted, fontWeight: 700, fontSize: 13 }}>Sin mensajes todavía</div>
                   <div style={{ fontSize: 12, color: C.dim, maxWidth: 280 }}>
-                    Pedile precisiones a compras o etiquetá con <span style={{ color: C.amber, fontFamily: C.mono }}>@usuario</span> para sumar a alguien.
+                    Pedile precisiones a compras o etiquetá con <span style={{ color: C.cyan, fontFamily: C.mono }}>@usuario</span> para sumar a alguien.
                   </div>
                 </div>
               </div>
@@ -2265,7 +2265,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{usernameOf(comment.author)}</span>
                         <span style={{ color: C.dim, fontSize: 11, marginLeft: "auto" }}>{fmtDateTime(comment.created_at)}</span>
                         {(comment.mentions || []).length > 0 && (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.amber, fontSize: 11 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.cyan, fontSize: 11 }}>
                             <Users size={11} /> {comment.mentions.length}
                           </span>
                         )}
@@ -2595,7 +2595,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
             {request.estimated_amount !== null && (
               <MetaRow icon={<Paperclip size={12} />} label="Cotizado">
-                <span style={{ color: C.amber, fontWeight: 700, fontFamily: C.mono }}>
+                <span style={{ color: C.cyan, fontWeight: 700, fontFamily: C.mono }}>
                   ${Number(request.estimated_amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 </span>
               </MetaRow>
@@ -2641,7 +2641,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </MetaRow>
             {request.needed_at && (
               <MetaRow icon={<Clock size={12} />} label="Necesario">
-                <span style={{ color: C.amber, fontWeight: 600 }}>
+                <span style={{ color: C.cyan, fontWeight: 600 }}>
                   {new Date(request.needed_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                 </span>
               </MetaRow>
