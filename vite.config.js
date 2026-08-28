@@ -1,17 +1,22 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
-import { writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 function buildVersionPlugin(buildId) {
   return {
     name: 'klasea-build-version',
-    closeBundle() {
-      writeFileSync(
-        'dist/version.json',
-        JSON.stringify({ buildId, builtAt: new Date().toISOString() }),
-      )
+    apply: 'build',
+    generateBundle() {
+      // Rollup escribe este asset junto con el resto del build. Antes se usaba
+      // writeFileSync('dist/version.json') en closeBundle, que dependía de que
+      // esa carpeta ya existiera y por eso fallaba en un checkout limpio de
+      // Vercel con ENOENT.
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ buildId, builtAt: new Date().toISOString() }),
+      })
     },
   }
 }
