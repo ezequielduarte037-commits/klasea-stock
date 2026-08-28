@@ -112,6 +112,10 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="7" width="12" height="7" rx="1" {...p}/>
       <path d="M5 10h6M5 12h4" {...p}/>
     </>,
+    "/planillas": <>
+      <rect x="1.5" y="2" width="13" height="12" rx="2" {...p}/>
+      <path d="M1.5 6h13M6 6v8M10.5 6v8" {...p}/>
+    </>,
     "/catalogo-maestro": <>
       <rect x="1.5" y="2" width="13" height="12" rx="2" {...p}/>
       <path d="M4.5 5h7M4.5 8h7M4.5 11h4" {...p}/>
@@ -691,6 +695,7 @@ export default function Sidebar({ profile, signOut }) {
             {group("Catálogo", SC.panol_catalogo, 218)}
             {item("/catalogo-maestro", "Catálogo maestro", SC.panol_catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
             {puedeVerMateriales && item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
+            {puedeVerMateriales && item("/planillas", "Planillas", SC.panol_catalogo, true, 229, "Líneas, catálogo completo, planillas por obra y costo de obra. Es de consulta: no toca pedidos.")}
           </>}
 
           {puedeVerPrecios && <>
