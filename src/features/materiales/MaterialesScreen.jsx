@@ -90,6 +90,7 @@ import { proveedorMeta, PROVEEDOR_TIPOS } from "./proveedorMeta";
 import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
+import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
 
@@ -9735,6 +9736,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               <div key={tab} className="materiales-tab-content">
                 {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
                 {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
+                {tab === "planillas" && <PlanillaObrasPanel isMobile={isMobile} />}
                 {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
                 {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
                 {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}

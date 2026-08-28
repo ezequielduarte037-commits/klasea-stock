@@ -167,7 +167,6 @@ const RecepcionPanolScreen = pantalla(() => import("@/features/panol/RecepcionPa
 const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/SolicitudesPanolScreen"));
 const StockPanolScreen = pantalla(() => import("@/features/panol/StockPanolScreen"));
 const CatalogoMaestroScreen = pantalla(() => import("@/features/catalogo/CatalogoMaestroScreen"));
-const PlanillasScreen = pantalla(() => import("@/features/planillas/PlanillasScreen"));
 const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolScreen"));
 const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
 const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
@@ -799,7 +798,6 @@ export default function App() {
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/planillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","panol"]}><PlanillasScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />
         {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}

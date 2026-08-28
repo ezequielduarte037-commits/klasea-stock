@@ -902,6 +902,7 @@ function catIdPorNombre(categorias, nombre) {
 const TABS_MAIN = [
   { key: "lineas", label: "Líneas" },
   { key: "matriz", label: "Catálogo completo" },
+  { key: "planillas", label: "Planillas" },
   { key: "costos", label: "Costo de obra" },
 ];
 const TABS_MORE = [
