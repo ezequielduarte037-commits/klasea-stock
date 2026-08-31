@@ -15,6 +15,18 @@ export function carpetaDeObra(obra) {
   return linea ? `${linea}/${codigo}` : codigo;
 }
 
+/**
+ * El archivo fisico de la PC solo puede vivir en una carpeta. Cuando el mismo
+ * PDF corresponde a varios barcos se guarda en Multiobra; dentro del sistema
+ * aparece en cada obra gracias a la tabla de asociaciones.
+ */
+export function carpetaDeObras(obras) {
+  const unicas = [...new Map((obras || []).filter((obra) => obra?.id).map((obra) => [String(obra.id), obra])).values()];
+  if (unicas.length === 1) return carpetaDeObra(unicas[0]);
+  if (unicas.length > 1) return "Multiobra";
+  return "";
+}
+
 /** Como se muestra la carpeta en pantalla, con las barras de Windows. */
 export function carpetaParaMostrar(carpeta) {
   const limpia = String(carpeta || "").trim();

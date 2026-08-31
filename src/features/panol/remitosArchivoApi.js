@@ -1,4 +1,10 @@
 import { supabase } from "@/supabaseClient";
+import {
+  asignarObrasDeRemito,
+  fetchObrasDeRemitos,
+  haySoporteRemitosMultiobra,
+  normalizarObraIds,
+} from "@/features/panol/remitosObrasApi";
 
 const BUCKET = "panol-comprobantes";
 
@@ -61,8 +67,12 @@ export async function fetchRemitosArchivados({ limite = 400, incluirDescartados 
     filas = conObra.data ?? [];
   }
 
-  // Las obras se traen aparte: son pocas y asi no depende de que exista la FK
-  // para poder hacer el embed.
+  const multiobra = hayObra
+    ? await fetchObrasDeRemitos(filas.map((fila) => fila.id))
+    : { disponible: false, porRemito: new Map() };
+
+  // `obra_id` queda como compatibilidad para datos viejos y bases que todavía
+  // no tienen la tabla multiobra. Las asociaciones nuevas son la fuente.
   let obrasPorId = new Map();
   if (hayObra) {
     const ids = [...new Set(filas.map((f) => f.obra_id).filter(Boolean))];
@@ -82,15 +92,23 @@ export async function fetchRemitosArchivados({ limite = 400, incluirDescartados 
 
   return {
     hayObra,
-    remitos: filas.map((fila) => ({
-      ...fila,
-      obra: fila.obra_id ? obrasPorId.get(fila.obra_id) ?? null : null,
-      renglones: renglones.get(fila.id) ?? 0,
-      // Sin renglones y sin ingreso hecho: el papel esta guardado pero la IA
-      // todavia no lo leyo (o no pudo). Es un estado normal, no un error. Se
-      // mira lo que hay, no el estado, por el mismo motivo que remitoSinLeer.
-      sinLeer: (renglones.get(fila.id) ?? 0) === 0 && !fila.panol_envio_id,
-    })),
+    hayMultiobra: multiobra.disponible,
+    remitos: filas.map((fila) => {
+      const legado = fila.obra_id ? obrasPorId.get(fila.obra_id) ?? null : null;
+      const vinculadas = multiobra.disponible ? multiobra.porRemito.get(String(fila.id)) || [] : [];
+      const obras = vinculadas.length ? vinculadas : legado ? [legado] : [];
+      return {
+        ...fila,
+        obra: obras[0] || null,
+        obras,
+        obra_ids: obras.map((obra) => obra.id),
+        renglones: renglones.get(fila.id) ?? 0,
+        // Sin renglones y sin ingreso hecho: el papel esta guardado pero la IA
+        // todavia no lo leyo (o no pudo). Es un estado normal, no un error. Se
+        // mira lo que hay, no el estado, por el mismo motivo que remitoSinLeer.
+        sinLeer: (renglones.get(fila.id) ?? 0) === 0 && !fila.panol_envio_id,
+      };
+    }),
   };
 }
 
@@ -182,7 +200,7 @@ export async function hayColumnasDeRemito() {
     .from("panol_comprobantes")
     .select("obra_id,titulo,solo_archivo,es_consumible,carpeta_local")
     .limit(1);
-  _hayColumnasNuevas = !error;
+  _hayColumnasNuevas = !error && await haySoporteRemitosMultiobra().catch(() => false);
   return _hayColumnasNuevas;
 }
 
@@ -203,16 +221,10 @@ export async function urlDeRemito(archivoUrl) {
  * pantalla decia "Obra actualizada" aunque el RLS hubiera rechazado el update.
  */
 export async function reasignarObraDeRemito(remitoId, obraId) {
-  if (!remitoId) return false;
-  const { data, error } = await supabase
-    .from("panol_comprobantes")
-    .update({ obra_id: obraId || null, updated_at: new Date().toISOString() })
-    .eq("id", remitoId)
-    .eq("origen_carga", "scanner_panol")
-    .select("id");
-  if (error) {
-    if (esColumnaFaltante(error)) return false;
-    throw error;
-  }
-  return Boolean(data?.length);
+  return reasignarObrasDeRemito(remitoId, normalizarObraIds([obraId]));
+}
+
+/** Cambia todas las carpetas virtuales del remito sin duplicar el documento. */
+export async function reasignarObrasDeRemito(remitoId, obraIds) {
+  return asignarObrasDeRemito(remitoId, obraIds);
 }

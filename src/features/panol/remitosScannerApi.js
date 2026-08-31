@@ -3,6 +3,11 @@ import { leerPresupuestoConIA, normalizeUnidadMedida } from "@/features/material
 import { fetchPanolCatalogFull } from "@/features/panol/panolApi";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
 import { validateRemitoExtraction } from "@/features/panol/remitoDocument";
+import {
+  asignarObrasDeRemito,
+  fetchObrasDeRemitos,
+  normalizarObraIds,
+} from "@/features/panol/remitosObrasApi";
 
 /**
  * Remitos escaneados en el pañol.
@@ -225,7 +230,18 @@ async function fetchScannerReceiptById(id) {
     .eq("comprobante_id", id)
     .order("id");
   if (itemsError) throwFriendly(itemsError);
-  return { ...receipt, items: items || [] };
+  const [enriquecido] = await enriquecerRemitosConObras([{ ...receipt, items: items || [] }]);
+  return enriquecido;
+}
+
+async function enriquecerRemitosConObras(receipts) {
+  if (!receipts?.length) return [];
+  const { disponible, porRemito } = await fetchObrasDeRemitos(receipts.map((row) => row.id));
+  return receipts.map((row) => {
+    const obras = disponible ? porRemito.get(String(row.id)) || [] : [];
+    const obraIds = obras.length ? obras.map((obra) => obra.id) : normalizarObraIds([row.obra_id]);
+    return { ...row, obras, obra_ids: obraIds, soporte_multiobra: disponible };
+  });
 }
 
 /**
@@ -258,6 +274,7 @@ export async function guardarRemitoEscaneado(file, {
   sede = null,
   proveedor = "",
   obraId = null,
+  obraIds = [],
   carpetaLocal = "",
   titulo = "",
   notas = "",
@@ -265,6 +282,7 @@ export async function guardarRemitoEscaneado(file, {
   esConsumibles = false,
 } = {}) {
   validateFile(file);
+  const obrasSeleccionadas = normalizarObraIds(Array.isArray(obraIds) && obraIds.length ? obraIds : [obraId]);
   const hash = await sha256(file);
 
   const yaExiste = await buscarDuplicado(hash);
@@ -304,7 +322,7 @@ export async function guardarRemitoEscaneado(file, {
   // para cargarlo. Si la migracion que agrega esas columnas todavia no se corrio
   // se guarda sin ellas: perder el archivo por eso seria absurdo.
   const extras = {
-    ...(obraId ? { obra_id: obraId } : {}),
+    ...(obrasSeleccionadas.length === 1 ? { obra_id: obrasSeleccionadas[0] } : {}),
     ...(carpetaLocal ? { carpeta_local: carpetaLocal } : {}),
     ...(titulo ? { titulo: String(titulo).trim() } : {}),
     ...(soloArchivar ? { solo_archivo: true } : {}),
@@ -334,9 +352,19 @@ export async function guardarRemitoEscaneado(file, {
         .from("panol_comprobantes").insert(sinColumnas).select("id").single());
       if (receiptError) throwFriendly(receiptError);
     }
+
+    if (obrasSeleccionadas.length) {
+      const guardadas = await asignarObrasDeRemito(receipt.id, obrasSeleccionadas);
+      if (!guardadas && obrasSeleccionadas.length > 1) {
+        throw new Error("Falta aplicar la migración multiobra de remitos en Supabase.");
+      }
+    }
   } catch (error) {
     // La fila no se creo: el PDF suelto en el bucket no le sirve a nadie y
     // encima bloquea el hash para el proximo intento.
+    if (receipt?.id) {
+      await supabase.from("panol_comprobantes").delete().eq("id", receipt.id).catch(() => {});
+    }
     await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
     throw error;
   }
@@ -534,7 +562,9 @@ export async function fetchScannedReceipts({ sede = null, limit = 60 } = {}) {
   const visibles = (receipts || []).filter((row) => row.solo_archivo !== true);
   if (!visibles.length) return [];
 
-  const ids = visibles.map((row) => row.id);
+  const remitosConObras = await enriquecerRemitosConObras(visibles);
+
+  const ids = remitosConObras.map((row) => row.id);
   const { data: items, error: itemsError } = await supabase
     .from("panol_comprobante_items")
     .select(COLS_ITEM)
@@ -547,7 +577,7 @@ export async function fetchScannedReceipts({ sede = null, limit = 60 } = {}) {
     bucket.push(item);
     byReceipt.set(item.comprobante_id, bucket);
   }
-  return visibles.map((row) => ({ ...row, items: byReceipt.get(row.id) || [] }));
+  return remitosConObras.map((row) => ({ ...row, items: byReceipt.get(row.id) || [] }));
 }
 
 /**
@@ -567,6 +597,7 @@ export function scannerReceiptPrefill(receipt) {
   const provider = String(receipt?.proveedor || "").trim();
   const number = String(receipt?.numero || "").trim();
   const referencia = String(receipt?.titulo || "").trim();
+  const obras = normalizarObraIds(receipt?.obra_ids?.length ? receipt.obra_ids : [receipt?.obra_id]);
   return {
     origen: "remito",
     modo: "remito",
@@ -575,7 +606,9 @@ export function scannerReceiptPrefill(receipt) {
     sede: receipt?.sede || "",
     // La obra se eligio antes de escanear y se perdia justo acá: el formulario
     // de ingreso abría sin barco y habia que volver a elegirlo de memoria.
-    obraId: receipt?.obra_id || "",
+    // Un remito documental multiobra no implica que todo su contenido ingrese a
+    // la primera obra. Solo se preselecciona cuando hay exactamente una.
+    obraId: obras.length === 1 ? obras[0] : "",
     titulo: referencia || ["Remito", provider, number].filter(Boolean).join(" · "),
     observaciones: [
       `Documento escaneado${number ? ` Nº ${number}` : ""}${provider ? ` · ${provider}` : ""}. Original archivado en el sistema.`,

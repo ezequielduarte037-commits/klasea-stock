@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { FileText, FolderOpen, LoaderCircle, ScanLine, X } from "lucide-react";
 import { C } from "@/theme";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
-import { carpetaDeObra, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
+import { carpetaDeObras, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
 import { fetchProveedoresConocidos, hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
+import SelectorObrasRemito from "@/features/panol/SelectorObrasRemito";
 
 /**
  * Los datos del remito: de qué barco es, de qué proveedor, dónde se archiva.
@@ -34,6 +35,7 @@ export default function AntesDeEscanearModal({
   onConfirmar,
   proveedoresConocidos = [],
   obraSugerida = null,
+  obrasSugeridas = [],
   proveedorSugerido = "",
   carpetasConocidas = [],
   origenInicial = "glass",
@@ -51,7 +53,10 @@ export default function AntesDeEscanearModal({
   const encabezado = tituloVentana || (guardando ? "Datos de este remito" : "¿Qué vas a escanear?");
   const [obras, setObras] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [obraId, setObraId] = useState(obraSugerida?.id ? String(obraSugerida.id) : "");
+  const [obraIds, setObraIds] = useState(() => {
+    const sugeridas = obrasSugeridas.length ? obrasSugeridas : obraSugerida ? [obraSugerida] : [];
+    return [...new Set(sugeridas.map((obra) => String(obra?.id || "")).filter(Boolean))];
+  });
   const [proveedor, setProveedor] = useState(String(proveedorSugerido || ""));
   const [origen, setOrigen] = useState(origenInicial);
   const [titulo, setTitulo] = useState(String(tituloInicial || ""));
@@ -72,6 +77,10 @@ export default function AntesDeEscanearModal({
   // nadie hace: quedan cargados como material comun y desaparecen de la pestaña
   // de Consumibles.
   const [esConsumibles, setEsConsumibles] = useState(Boolean(esConsumiblesInicial));
+  const esMultiobra = obraIds.length > 1;
+  // Multiobra es documental. Hasta que exista reparto por renglon, intentar
+  // abrir el ingreso haria que alguien eligiera una obra arbitraria.
+  const soloArchivoEfectivo = esMultiobra || soloArchivar;
 
   // El campo de proveedor siempre tuvo datalist, pero durante mucho tiempo nadie
   // le pasaba la lista y salia vacio: habia que escribir el nombre de memoria, y
@@ -102,28 +111,23 @@ export default function AntesDeEscanearModal({
     return () => { vivo = false; };
   }, []);
 
-  const porLinea = useMemo(() => {
-    const mapa = new Map();
-    for (const obra of obras) {
-      if (obra?.estado === "entregada" || obra?.estado === "cancelada") continue;
-      const linea = String(obra.linea_nombre || "").trim() || "Sin línea";
-      mapa.set(linea, [...(mapa.get(linea) ?? []), obra]);
+  const obrasElegidas = useMemo(() => {
+    const porId = new Map(obras.map((obra) => [String(obra.id), obra]));
+    // Las sugeridas ya vienen completas y evitan que el selector parpadee vacio
+    // mientras carga el listado general.
+    for (const obra of [...obrasSugeridas, obraSugerida].filter(Boolean)) {
+      porId.set(String(obra.id), obra);
     }
-    return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [obras]);
-
-  const obraElegida = useMemo(
-    () => obras.find((o) => String(o.id) === obraId) || null,
-    [obras, obraId],
-  );
-  // Manda la obra cuando hay obra; si no, lo que se haya escrito. Las dos cosas
-  // a la vez no tienen sentido: el remito esta en un lugar solo.
+    return obraIds.map((id) => porId.get(String(id))).filter(Boolean);
+  }, [obras, obraIds, obrasSugeridas, obraSugerida]);
+  // El PDF local vive en una carpeta. Con varias obras va a Multiobra, mientras
+  // que en la app queda asociado a cada barco por separado.
   const escrita = carpetaLibre.trim();
   const yaExistente = carpetasConocidas.find(
     (nombre) => String(nombre || "").trim().toLowerCase() === escrita.toLowerCase(),
   );
   const carpetaPropia = yaExistente || escrita;
-  const carpeta = obraElegida ? carpetaDeObra(obraElegida) : carpetaPropia;
+  const carpeta = obrasElegidas.length ? carpetaDeObras(obrasElegidas) : carpetaPropia;
 
   // Las carpetas ya usadas, para no terminar con "Rebollar", "rebollar" y
   // "REBOLLAR" siendo tres carpetas distintas.
@@ -140,13 +144,14 @@ export default function AntesDeEscanearModal({
 
   function confirmar() {
     onConfirmar?.({
-      obra: obraElegida,
+      obra: obrasElegidas.length === 1 ? obrasElegidas[0] : null,
+      obras: obrasElegidas,
       carpeta,
       proveedor: proveedor.trim(),
       source: origen,
       titulo: titulo.trim(),
       notas: notas.trim(),
-      soloArchivar,
+      soloArchivar: soloArchivoEfectivo,
       esConsumibles,
     });
   }
@@ -195,12 +200,12 @@ export default function AntesDeEscanearModal({
           {faltaMigracion ? (
             <div style={{ padding: "11px 13px", borderRadius: 9, background: C.redL, border: `1px solid ${C.redB}` }}>
               <div style={{ fontSize: 12.5, fontWeight: 900, color: C.red, marginBottom: 4 }}>
-                Falta correr la migración en Supabase
+                Falta correr la migración multiobra en Supabase
               </div>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.5 }}>
-                El remito se guarda igual y el PDF queda archivado, pero <b>el barco, el tipo,
-                la referencia y &ldquo;solo archivar&rdquo; NO se van a guardar en el sistema</b>. Hasta
-                que la corras, lo que elijas acá abajo no tiene efecto.
+                El archivo documental sigue disponible, pero <b>no se puede guardar una selección
+                de varias obras</b> hasta aplicar la migración nueva. No confirmes un remito
+                multiobra mientras aparezca este aviso.
               </div>
             </div>
           ) : null}
@@ -233,17 +238,10 @@ export default function AntesDeEscanearModal({
           </div>
 
           <div>
-            <div style={etiqueta}>Para qué barco</div>
-            <select value={obraId} onChange={(event) => setObraId(event.target.value)} style={campo} disabled={cargando}>
-              <option value="">{cargando ? "Cargando obras…" : "Sin obra · va a stock general"}</option>
-              {porLinea.map(([linea, lista]) => (
-                <optgroup key={linea} label={linea}>
-                  {lista.map((obra) => (
-                    <option key={obra.id} value={String(obra.id)}>{obra.codigo}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <div style={etiqueta}>
+              Obras asociadas <span style={{ textTransform: "none", fontWeight: 700 }}>(podés elegir varias)</span>
+            </div>
+            <SelectorObrasRemito obras={obras} value={obraIds} onChange={setObraIds} disabled={cargando} />
           </div>
 
           <div>
@@ -262,7 +260,7 @@ export default function AntesDeEscanearModal({
             </datalist>
           </div>
 
-          {!obraElegida ? (
+          {!obrasElegidas.length ? (
             <div>
               <div style={etiqueta}>
                 Carpeta <span style={{ textTransform: "none", fontWeight: 700 }}>(si no es de un barco)</span>
@@ -309,18 +307,22 @@ export default function AntesDeEscanearModal({
           </div>
 
           {permiteSoloArchivar ? (
-            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 9, border: `1px solid ${soloArchivar ? C.cyanB : C.border2}`, background: soloArchivar ? C.cyanL : C.panelSolid, cursor: "pointer" }}>
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 9, border: `1px solid ${soloArchivoEfectivo ? C.cyanB : C.border2}`, background: soloArchivoEfectivo ? C.cyanL : C.panelSolid, cursor: esMultiobra ? "default" : "pointer" }}>
               <input
                 type="checkbox"
-                checked={soloArchivar}
+                checked={soloArchivoEfectivo}
                 onChange={(event) => setSoloArchivar(event.target.checked)}
-                style={{ marginTop: 2, accentColor: C.cyan, width: 15, height: 15, cursor: "pointer" }}
+                disabled={esMultiobra}
+                style={{ marginTop: 2, accentColor: C.cyan, width: 15, height: 15, cursor: esMultiobra ? "default" : "pointer" }}
               />
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, color: C.text }}>Solo archivar</span>
+                <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, color: C.text }}>
+                  {esMultiobra ? "Solo archivar · requerido para multiobra" : "Solo archivar"}
+                </span>
                 <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.45 }}>
-                  Guarda el papel y no lo lee con IA ni abre el ingreso. Es lo más rápido y no puede fallar:
-                  el remito queda buscable y el stock se carga otro día, si hace falta.
+                  {esMultiobra
+                    ? "Guarda un solo PDF dentro de todas las obras elegidas, sin repartir cantidades ni elegir un destino de stock."
+                    : "Guarda el papel y no lo lee con IA ni abre el ingreso. Es lo más rápido y no puede fallar: el remito queda buscable y el stock se carga otro día, si hace falta."}
                 </span>
               </span>
             </label>
@@ -357,6 +359,7 @@ export default function AntesDeEscanearModal({
               <FolderOpen size={14} color={C.dim} />
               <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 Se guarda en <b style={{ color: C.text }}>{carpetaParaMostrar(carpeta)}</b>
+                {obrasElegidas.length > 1 ? " · en la app aparece dentro de cada obra" : ""}
               </div>
             </div>
           ) : null}
@@ -369,8 +372,8 @@ export default function AntesDeEscanearModal({
           <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
             {cargando ? <LoaderCircle size={14} className="spin" /> : guardando ? <FileText size={14} /> : <ScanLine size={14} />}
             {guardando
-              ? (soloArchivar ? "Guardar sin leer" : "Guardar y leer")
-              : (soloArchivar ? "Escanear y archivar" : "Escanear")}
+              ? (soloArchivoEfectivo ? "Guardar sin leer" : "Guardar y leer")
+              : (soloArchivoEfectivo ? "Escanear y archivar" : "Escanear")}
           </button>
         </div>
       </div>

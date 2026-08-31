@@ -86,6 +86,7 @@ const CONTEXTO_VACIO = {
   carpeta: "",
   proveedor: "",
   obra: null,
+  obras: [],
   titulo: "",
   notas: "",
   soloArchivar: false,
@@ -215,8 +216,12 @@ function Metric({ label, value, color, detail }) {
  */
 function DestinoPill({ contexto }) {
   if (!contexto) return null;
+  const codigos = (contexto.obras || []).map((obra) => obra?.codigo).filter(Boolean);
+  const destino = codigos.length
+    ? codigos.length <= 2 ? codigos.join(" + ") : `${codigos.slice(0, 2).join(" + ")} +${codigos.length - 2}`
+    : contexto.obra?.codigo || (contexto.carpeta ? carpetaParaMostrar(contexto.carpeta).replace(/^Remitos\\/, "") : "");
   const partes = [
-    contexto.obra?.codigo || (contexto.carpeta ? carpetaParaMostrar(contexto.carpeta).replace(/^Remitos\\/, "") : ""),
+    destino,
     contexto.proveedor,
   ].filter(Boolean);
   return (
@@ -376,6 +381,7 @@ export default function ScannerRemitosTab({
       const { receipt, lectura, duplicado } = await archivarRemito(file, {
         sede,
         proveedor: contexto.proveedor,
+        obraIds: (contexto.obras || []).map((obra) => obra.id),
         obraId: contexto.obra?.id || null,
         carpetaLocal: contexto.carpeta || "",
         titulo: contexto.titulo || "",
@@ -403,7 +409,8 @@ export default function ScannerRemitosTab({
       // stock. Abrirle el formulario igual seria pedirle que cancele algo que no
       // pidio.
       if (contexto.soloArchivar) {
-        toast.success(`Remito archivado${contexto.obra?.codigo ? ` en ${contexto.obra.codigo}` : ""}. Lo encontrás en Remitos.`);
+        const codigos = (contexto.obras || []).map((obra) => obra.codigo).filter(Boolean);
+        toast.success(`Remito archivado${codigos.length ? ` en ${codigos.join(", ")}` : ""}. Lo encontrás en Remitos.`);
         return;
       }
       if (lectura && !lectura.ok) {
@@ -449,7 +456,7 @@ export default function ScannerRemitosTab({
   function baseParaNuevoEscaneo() {
     const previo = escaneoEnCurso?.contexto;
     if (!previo) return CONTEXTO_VACIO;
-    return { ...CONTEXTO_VACIO, obra: previo.obra, carpeta: previo.carpeta, proveedor: previo.proveedor };
+    return { ...CONTEXTO_VACIO, obra: previo.obra, obras: previo.obras || [], carpeta: previo.carpeta, proveedor: previo.proveedor };
   }
 
   function pedirDatosYGuardar(row, contextoBase = null) {
@@ -544,6 +551,7 @@ export default function ScannerRemitosTab({
       carpeta: datos.carpeta,
       proveedor: datos.proveedor,
       obra: datos.obra,
+      obras: datos.obras || [],
       titulo: datos.titulo,
       notas: datos.notas,
       soloArchivar: datos.soloArchivar,
@@ -570,7 +578,7 @@ export default function ScannerRemitosTab({
       }));
       toast.success(
         datos.carpeta
-          ? `Escaneando para ${datos.obra?.codigo || "la carpeta elegida"}. Se guarda en ${carpetaParaMostrar(datos.carpeta)}.`
+          ? `Escaneando para ${(datos.obras || []).map((obra) => obra.codigo).join(", ") || "la carpeta elegida"}. Se guarda en ${carpetaParaMostrar(datos.carpeta)}.`
           : (result?.message || "Scanner abierto."),
       );
     } catch (error) {
@@ -589,10 +597,11 @@ export default function ScannerRemitosTab({
           onCerrar={() => setModal(null)}
           onConfirmar={confirmarModal}
           obraSugerida={modal.base?.obra || null}
+          obrasSugeridas={modal.base?.obras || []}
           proveedorSugerido={modal.base?.proveedor || ""}
           tituloInicial={modal.base?.titulo || ""}
           notasInicial={modal.base?.notas || ""}
-          carpetaInicial={modal.base?.obra ? "" : (modal.base?.carpeta || "")}
+          carpetaInicial={(modal.base?.obras?.length || modal.base?.obra) ? "" : (modal.base?.carpeta || "")}
           soloArchivarInicial={Boolean(modal.base?.soloArchivar)}
           esConsumiblesInicial={Boolean(modal.base?.esConsumibles)}
           proveedoresConocidos={proveedoresUsados}
@@ -613,17 +622,16 @@ export default function ScannerRemitosTab({
         {faltaMigracion ? (
           <div style={{ padding: "12px 14px", borderRadius: 12, background: C.redL, border: `1px solid ${C.redB}` }}>
             <div style={{ fontSize: 13, fontWeight: 950, color: C.red, marginBottom: 5 }}>
-              Falta correr una migración en Supabase
+              Falta correr la migración multiobra en Supabase
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, lineHeight: 1.55 }}>
-              Los remitos se escanean y se guardan, pero <b>sin el barco, el tipo ni la referencia</b>:
-              esos campos todavía no existen en la base. Hasta que la corras, lo que elijas antes de
-              escanear no queda guardado y en Remitos aparece todo junto en &ldquo;Sin obra&rdquo;.
+              El archivo documental sigue disponible, pero <b>todavía no se puede asociar un mismo
+              PDF a varias obras</b>. Aplicá la migración antes de confirmar un remito multiobra.
             </div>
             <div style={{ fontSize: 11.5, fontWeight: 750, color: C.dim, marginTop: 7 }}>
               Supabase → SQL Editor → pegar el archivo{" "}
               <code style={{ fontFamily: "monospace", background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 5px" }}>
-                20260826150000_panol_comprobantes_obra.sql
+                20260831120000_panol_remitos_multiobra.sql
               </code>
             </div>
           </div>

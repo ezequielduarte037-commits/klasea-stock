@@ -17,10 +17,11 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
-import { fetchRemitosArchivados, reasignarObraDeRemito, urlDeRemito } from "@/features/panol/remitosArchivoApi";
+import { fetchRemitosArchivados, reasignarObrasDeRemito, urlDeRemito } from "@/features/panol/remitosArchivoApi";
 import { actualizarDatosDeRemito, borrarRemitoEscaneado, leerRemitoConIA } from "@/features/panol/remitosScannerApi";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
 import { carpetaDeObra, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
+import SelectorObrasRemito from "@/features/panol/SelectorObrasRemito";
 
 /**
  * Los remitos del pañol, ordenados como estan en la PC: linea de produccion,
@@ -202,17 +203,84 @@ function EditorRemito({ remito, onCerrar, onGuardado }) {
   );
 }
 
+function EditorObrasRemito({ remito, obras, onCerrar, onGuardado }) {
+  const toast = useToast();
+  const [obraIds, setObraIds] = useState(() => (
+    remito.obra_ids?.length ? remito.obra_ids.map(String) : (remito.obras || []).map((obra) => String(obra.id))
+  ));
+  const [guardando, setGuardando] = useState(false);
+
+  async function guardar() {
+    setGuardando(true);
+    try {
+      const ok = await reasignarObrasDeRemito(remito.id, obraIds);
+      if (!ok) {
+        toast.warning("Falta aplicar la migración multiobra de remitos.");
+        return;
+      }
+      toast.success(obraIds.length > 1 ? `Remito asociado a ${obraIds.length} obras.` : "Obras del remito actualizadas.");
+      await onGuardado?.();
+      onCerrar?.();
+    } catch (error) {
+      toast.error(error.message || "No se pudieron actualizar las obras.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={onCerrar}
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{ width: "min(460px, 100%)", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 18px 50px rgba(15,23,42,0.28)", overflow: "hidden" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
+          <Layers size={16} color={C.blue} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 950, color: C.text }}>Obras de este remito</div>
+            <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {remito.titulo || remito.proveedor || remito.archivo_nombre || "Remito sin nombre"}
+            </div>
+          </div>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div style={{ padding: 15, display: "grid", gap: 12 }}>
+          <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>
+            El mismo PDF aparecerá dentro de cada obra seleccionada. Esto no reparte cantidades ni modifica stock.
+          </div>
+          <SelectorObrasRemito obras={obras} value={obraIds} onChange={setObraIds} disabled={guardando} />
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 15px", borderTop: `1px solid ${C.border}`, background: C.panel2 }}>
+          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+            Cancelar
+          </button>
+          <button type="button" onClick={guardar} disabled={guardando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: guardando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+            {guardando ? <LoaderCircle size={14} className="spin" /> : <Layers size={14} />} Guardar obras
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = false }) {
   const toast = useToast();
   const [remitos, setRemitos] = useState([]);
   const [obras, setObras] = useState([]);
   const [hayObra, setHayObra] = useState(true);
+  const [hayMultiobra, setHayMultiobra] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState("todos");
   const [ocupado, setOcupado] = useState("");
   const [editando, setEditando] = useState(null);
+  const [editandoObras, setEditandoObras] = useState(null);
   // Donde esta parado: null = viendo las lineas; con linea = viendo sus barcos;
   // con obra = viendo los remitos de ese barco.
   const [lineaAbierta, setLineaAbierta] = useState(null);
@@ -227,6 +295,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       ]);
       setRemitos(archivo.remitos);
       setHayObra(archivo.hayObra);
+      setHayMultiobra(archivo.hayMultiobra);
       setObras(listaObras ?? []);
       setError("");
     } catch (e) {
@@ -246,7 +315,8 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       if (filtro === "sin_leer" && !r.sinLeer) return false;
       if (filtro === "leidos" && r.sinLeer) return false;
       if (!q) return true;
-      return [r.proveedor, r.numero, r.titulo, r.notas, r.obra?.codigo, r.obra?.linea_nombre, r.carpeta_local, r.archivo_nombre, r.sede]
+      const destinos = (r.obras || []).flatMap((obra) => [obra.codigo, obra.linea_nombre]);
+      return [r.proveedor, r.numero, r.titulo, r.notas, ...destinos, r.carpeta_local, r.archivo_nombre, r.sede]
         .some((campo) => String(campo || "").toLowerCase().includes(q));
     });
   }, [remitos, busqueda, filtro]);
@@ -257,6 +327,17 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   const arbol = useMemo(() => {
     const porLinea = new Map();
     for (const remito of filtrados) {
+      const asociadas = remito.obras?.length ? remito.obras : remito.obra ? [remito.obra] : [];
+      if (asociadas.length) {
+        for (const asociada of asociadas) {
+          const linea = asociada.linea_nombre || SIN_LINEA;
+          const obra = asociada.codigo || SIN_OBRA;
+          if (!porLinea.has(linea)) porLinea.set(linea, new Map());
+          const obrasDeLinea = porLinea.get(linea);
+          obrasDeLinea.set(obra, [...(obrasDeLinea.get(obra) ?? []), remito]);
+        }
+        continue;
+      }
       // Sin barco pero con carpeta propia -"Consumibles Rebollar"- esa carpeta
       // es el nodo: mandarla a "sin obra" seria perderla entre todas las demas.
       const propia = !remito.obra ? nombreCarpeta(remito.carpeta_local) : "";
@@ -270,7 +351,13 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       .map(([linea, obrasDeLinea]) => ({
         linea,
         obras: [...obrasDeLinea.entries()]
-          .map(([codigo, lista]) => ({ codigo, remitos: lista, obra: lista.find((r) => r.obra)?.obra || null }))
+          .map(([codigo, lista]) => ({
+            codigo,
+            remitos: lista,
+            obra: lista.flatMap((r) => r.obras || []).find((obra) => obra.codigo === codigo)
+              || lista.find((r) => r.obra?.codigo === codigo)?.obra
+              || null,
+          }))
           .sort((a, b) => a.codigo.localeCompare(b.codigo)),
         total: [...obrasDeLinea.values()].reduce((n, l) => n + l.length, 0),
       }))
@@ -306,20 +393,6 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       toast.error(e.message || "No se pudo abrir el remito.");
     } finally {
       setOcupado("");
-    }
-  }
-
-  async function cambiarObra(remito, obraId) {
-    try {
-      const ok = await reasignarObraDeRemito(remito.id, obraId);
-      if (!ok) {
-        toast.warning("No se pudo cambiar la obra: falta la migración o el usuario no tiene permiso.");
-        return;
-      }
-      toast.success("Obra actualizada.");
-      await cargar({ silencioso: true });
-    } catch (e) {
-      toast.error(e.message || "No se pudo cambiar la obra.");
     }
   }
 
@@ -363,7 +436,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   // buscando o filtrando (respetar la navegacion ahi no serviria de nada).
   const listado = buscando || filtro !== "todos";
   const listaVisible = listado ? filtrados : obraActual?.remitos ?? [];
-  const columnas = isMobile ? "1fr" : "minmax(0,1.5fr) 92px 110px minmax(0,0.9fr) auto";
+  const columnas = isMobile ? "1fr" : "minmax(0,1.5fr) 92px 110px minmax(170px,1.1fr) auto";
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: C.bg, padding: isMobile ? 12 : 18 }}>
@@ -371,6 +444,14 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
         <EditorRemito
           remito={editando}
           onCerrar={() => setEditando(null)}
+          onGuardado={() => cargar({ silencioso: true })}
+        />
+      ) : null}
+      {editandoObras ? (
+        <EditorObrasRemito
+          remito={editandoObras}
+          obras={obras}
+          onCerrar={() => setEditandoObras(null)}
           onGuardado={() => cargar({ silencioso: true })}
         />
       ) : null}
@@ -459,6 +540,12 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
         <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750 }}>
           Todavía no se corrió la migración que guarda la obra del remito, así que no se pueden separar por barco.
           Igual se buscan por proveedor, número o fecha.
+        </div>
+      ) : null}
+
+      {hayObra && !hayMultiobra ? (
+        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750 }}>
+          Falta aplicar la migración multiobra. Los remitos existentes siguen visibles, pero todavía no se puede asociar un mismo PDF a varios barcos.
         </div>
       ) : null}
 
@@ -572,7 +659,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                   <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {remito.titulo && remito.proveedor ? `${remito.proveedor} · ` : ""}
                     {remito.numero ? `Nº ${remito.numero}` : "sin número"}
-                    {listado && remito.obra?.codigo ? ` · ${remito.obra.codigo}` : ""}
+                    {listado && remito.obras?.length ? ` · ${remito.obras.map((obra) => obra.codigo).join(", ")}` : ""}
                     {remito.sede ? ` · ${remito.sede}` : ""}
                   </div>
                   {remito.notas ? (
@@ -584,18 +671,26 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{fmtFecha(remito.fecha || remito.created_at)}</div>
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{money(remito.total, remito.moneda)}</div>
                 <div style={{ minWidth: 0 }}>
-                  {puedeReasignar && hayObra ? (
-                    <select
-                      value={remito.obra_id || ""}
-                      onChange={(e) => cambiarObra(remito, e.target.value)}
-                      style={{ width: "100%", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "5px 7px", fontFamily: C.sans, fontSize: 11.5, fontWeight: 750, outline: "none" }}
-                    >
-                      <option value="">Sin obra</option>
-                      {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
-                    </select>
-                  ) : (
-                    <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 700 }}>{nombreCarpeta(remito.carpeta_local)}</span>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                    {(remito.obras || []).length ? remito.obras.map((obra) => (
+                      <Chip key={obra.id} color={C.blue} soft={C.blueL} border={C.blueB}>{obra.codigo}</Chip>
+                    )) : (
+                      <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+                        {nombreCarpeta(remito.carpeta_local) || "Sin obra"}
+                      </span>
+                    )}
+                    {puedeReasignar && hayMultiobra ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditandoObras(remito)}
+                        title="Agregar o quitar obras"
+                        aria-label="Editar obras del remito"
+                        style={{ width: 25, height: 25, border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.blue, borderRadius: 7, cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   {/* También para los "solo archivo": guardarlos sin leer fue
