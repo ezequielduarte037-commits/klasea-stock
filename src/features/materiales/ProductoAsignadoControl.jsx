@@ -105,6 +105,8 @@ export default function ProductoAsignadoControl({
   obraCodigo = "esta obra",
   linea = "",
   specOnly = false,
+  allowLineScope = true,
+  triggerVariant = "default",
   onSave,
 }) {
   const { isMobile } = useResponsive();
@@ -158,7 +160,7 @@ export default function ProductoAsignadoControl({
     setOpen(false);
   }
 
-  const trigger = (
+  const triggerDefault = (
     <button
       type="button"
       disabled={busy}
@@ -191,6 +193,38 @@ export default function ProductoAsignadoControl({
     </button>
   );
 
+  const triggerPlanilla = (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={openModal}
+      aria-label={`Buscar en el catálogo un producto para ${row?.descripcion || "el requisito"}`}
+      style={{
+        width: "fit-content",
+        minHeight: 25,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        border: `1px solid ${C.blueB}`,
+        background: C.blueL,
+        color: C.blue,
+        borderRadius: 7,
+        padding: "4px 7px",
+        textAlign: "left",
+        fontFamily: C.sans,
+        cursor: busy ? "wait" : "pointer",
+        opacity: busy ? .65 : 1,
+      }}
+    >
+      {busy
+        ? <span className="spin" style={{ width: 12, height: 12, border: "2px solid currentColor", borderRightColor: "transparent", borderRadius: 999 }} />
+        : <Search size={12} />}
+      <span style={{ whiteSpace: "nowrap", fontSize: 9.5, fontWeight: 900 }}>Buscar en catálogo</span>
+    </button>
+  );
+
+  const trigger = triggerVariant === "planilla" ? triggerPlanilla : triggerDefault;
+
   if (!open || typeof document === "undefined") return trigger;
 
   const selectedDraft = materiales.find((material) => material.id === selectedProductId) || null;
@@ -213,7 +247,7 @@ export default function ProductoAsignadoControl({
                   Requisito: <strong style={{ color: C.t1 }}>{row?.descripcion || "Material de matriz"}</strong>
                 </div>
               </div>
-              <button type="button" disabled={busy} onClick={() => setOpen(false)} style={{ width: 32, height: 32, display: "grid", placeItems: "center", border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, borderRadius: 9, cursor: "pointer" }}>
+              <button type="button" disabled={busy} onClick={() => setOpen(false)} aria-label="Cerrar selector de producto" style={{ width: 32, height: 32, display: "grid", placeItems: "center", border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, borderRadius: 9, cursor: "pointer" }}>
                 <X size={16} />
               </button>
             </header>
@@ -238,10 +272,10 @@ export default function ProductoAsignadoControl({
 
               <aside style={{ display: "grid", gap: 12, minWidth: 0 }}>
                 <section style={{ display: "grid", gap: 8, padding: 11, border: `1px solid ${C.b0}`, borderRadius: 12, background: C.s0 }}>
-                  <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 950 }}>Aplicar cambio a</div>
+                  <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 950 }}>{allowLineScope ? "Aplicar cambio a" : "Alcance del cambio"}</div>
                   <ScopeButton active={scope === "obra"} title={`Solo obra ${obraCodigo}`} description="Cambia este barco sin modificar la matriz ni las demás obras." onClick={() => setScope("obra")} />
-                  <ScopeButton active={scope === "linea"} title={`Estándar de línea K${linea}`} description="Queda como producto recomendado para las próximas obras de esta línea." onClick={() => setScope("linea")} />
-                  {scope === "linea" && (
+                  {allowLineScope ? <ScopeButton active={scope === "linea"} title={`Estándar de línea K${linea}`} description="Queda como producto recomendado para las próximas obras de esta línea." onClick={() => setScope("linea")} /> : null}
+                  {allowLineScope && scope === "linea" && (
                     <label style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 3px", color: C.t1, fontSize: 10.5, lineHeight: 1.4, cursor: "pointer" }}>
                       <input type="checkbox" checked={applyExisting} onChange={(event) => setApplyExisting(event.target.checked)} style={{ marginTop: 2 }} />
                       <span><strong>Actualizar obras existentes sin movimientos.</strong><br />Las que ya tengan compras o ingresos quedan intactas y se informan como omitidas.</span>

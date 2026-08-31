@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  Trash2,
   Truck,
   Warehouse,
   X,
@@ -59,6 +60,20 @@ const label = {
   fontWeight: 800,
   letterSpacing: 1.1,
   textTransform: "uppercase",
+};
+
+const EMPTY_FORM = {
+  tipo_destino: "obra",
+  proveedor: "Oberti",
+  linea_id: "",
+  unidad_id: "",
+  nombre_lote: "",
+  cantidad_juegos: 1,
+  color_chapa: "",
+  material_base: "",
+  detalle_madera: "",
+  fecha_objetivo: "",
+  observaciones: "",
 };
 
 const OBERTI_TASKS = [
@@ -138,6 +153,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
   const [checklistRecepcion, setChecklistRecepcion] = useState([]);
   const [lineas, setLineas] = useState([]);
   const [unidades, setUnidades] = useState([]);
+  const [obrasProduccion, setObrasProduccion] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // { lote, target, faltan[] } — lo que hay que confirmar antes de saltear pasos.
@@ -147,30 +163,21 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
   const [destino, setDestino] = useState("Todos");
   const [seleccionadoId, setSeleccionadoId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [eliminandoId, setEliminandoId] = useState(null);
+  const [vinculandoObra, setVinculandoObra] = useState(false);
   const [gestionOt, setGestionOt] = useState(null);
   const [creandoOt, setCreandoOt] = useState(false);
   const [pedidoHerrajes, setPedidoHerrajes] = useState(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [templateLineaId, setTemplateLineaId] = useState("");
-  const [form, setForm] = useState({
-    tipo_destino: "obra",
-    proveedor: "Oberti",
-    linea_id: "",
-    unidad_id: "",
-    nombre_lote: "",
-    cantidad_juegos: 1,
-    color_chapa: "",
-    material_base: "",
-    detalle_madera: "",
-    fecha_objetivo: "",
-    observaciones: "",
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
 
   async function cargar() {
     setLoading(true);
     setError("");
-    const [lotesRes, lineasRes, unidadesRes, otsRes, comprasRes, checklistRes] = await Promise.all([
+    const [lotesRes, lineasRes, unidadesRes, obrasRes, otsRes, comprasRes, checklistRes] = await Promise.all([
       supabase.from("prod_muebles_lotes").select(`
         id, proveedor, unidad_id, linea_id, tipo_destino, nombre_lote, cantidad_juegos,
         color_chapa, material_base, detalle_madera, etapa, estado_proceso, fecha_objetivo,
@@ -182,6 +189,10 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
       `).order("actualizado_el", { ascending: false }),
       supabase.from("prod_lineas").select("id,nombre").eq("activa", true).order("nombre"),
       supabase.from("prod_unidades").select("id,codigo,linea_id,color").eq("activa", true).order("codigo"),
+      supabase.from("produccion_obras")
+        .select("id,codigo,linea_nombre,estado")
+        .eq("estado", "activa")
+        .order("codigo"),
       supabase.from("enchapado_ots").select(`
         id,modelo,barco,tipo_chapa,fecha,responsable,estado,notas,
         fecha_desmolde_est,fecha_desmolde_real,fecha_botada,
@@ -251,6 +262,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     setChecklistRecepcion(checklistRes.data ?? []);
     setLineas(lineasRes.data ?? []);
     setUnidades(unidadesRes.data ?? []);
+    setObrasProduccion(obrasRes.data ?? []);
     setLoading(false);
   }
 
@@ -430,7 +442,40 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     });
   }
 
-  async function crearLote() {
+  function abrirNuevoProceso() {
+    setEditandoId(null);
+    setForm({ ...EMPTY_FORM });
+    setError("");
+    setShowAdd(true);
+  }
+
+  function abrirEditarProceso(lote) {
+    setEditandoId(lote.id);
+    setForm({
+      tipo_destino: destinoLote(lote),
+      proveedor: lote.proveedor || "Oberti",
+      linea_id: lote.linea_id || lote.prod_lineas?.id || "",
+      unidad_id: lote.unidad_id || lote.prod_unidades?.id || "",
+      nombre_lote: lote.nombre_lote || "",
+      cantidad_juegos: Math.max(1, Number(lote.cantidad_juegos) || 1),
+      color_chapa: lote.color_chapa || "",
+      material_base: lote.material_base || "",
+      detalle_madera: lote.detalle_madera || "",
+      fecha_objetivo: lote.fecha_objetivo || "",
+      observaciones: lote.observaciones || "",
+    });
+    setError("");
+    setShowAdd(true);
+  }
+
+  function cerrarFormulario() {
+    if (saving || vinculandoObra) return;
+    setShowAdd(false);
+    setEditandoId(null);
+    setForm({ ...EMPTY_FORM });
+  }
+
+  async function guardarLote() {
     const unidad = unidades.find((item) => item.id === form.unidad_id);
     const lineaId = form.tipo_destino === "obra" ? unidad?.linea_id : form.linea_id;
     if (!lineaId || (form.tipo_destino === "obra" && !form.unidad_id)) {
@@ -439,32 +484,119 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     }
     setSaving(true);
     setError("");
-    const { data: userData } = await supabase.auth.getUser();
-    const payload = {
-      ...form,
-      linea_id: lineaId,
-      unidad_id: form.tipo_destino === "obra" ? form.unidad_id : null,
-      nombre_lote: form.nombre_lote.trim() || null,
-      color_chapa: form.color_chapa.trim() || null,
-      material_base: form.material_base.trim() || null,
-      detalle_madera: form.detalle_madera.trim() || null,
-      observaciones: form.observaciones.trim() || null,
-      fecha_objetivo: form.fecha_objetivo || null,
-      etapa: "definicion",
-      estado_proceso: "Definición",
-      creado_por: userData?.user?.id ?? null,
-      actualizado_por: userData?.user?.id ?? null,
-    };
-    const { data, error: insertError } = await supabase.from("prod_muebles_lotes").insert(payload).select("id").single();
-    if (insertError) setError(insertError.message);
-    else {
-      await registrar(data.id, "Proceso creado", { etapa_nueva: "definicion", detalle: { proveedor: form.proveedor, destino: form.tipo_destino } });
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const payloadComun = {
+        tipo_destino: form.tipo_destino,
+        proveedor: form.proveedor,
+        linea_id: lineaId,
+        unidad_id: form.tipo_destino === "obra" ? form.unidad_id : null,
+        nombre_lote: form.nombre_lote.trim() || null,
+        cantidad_juegos: Math.max(1, Number(form.cantidad_juegos) || 1),
+        color_chapa: form.color_chapa.trim() || null,
+        material_base: form.material_base.trim() || null,
+        detalle_madera: form.detalle_madera.trim() || null,
+        observaciones: form.observaciones.trim() || null,
+        fecha_objetivo: form.fecha_objetivo || null,
+        actualizado_el: new Date().toISOString(),
+        actualizado_por: userData?.user?.id ?? null,
+      };
+      let advertenciaGuardado = "";
+
+      if (editandoId) {
+        const loteActual = lotes.find((item) => item.id === editandoId);
+        if (!loteActual) throw new Error("El proceso que querés editar ya no está disponible.");
+        const etapaCorregida = etapaMeta({ ...loteActual, proveedor: form.proveedor });
+        const patch = {
+          ...payloadComun,
+          etapa: etapaCorregida.etapa.key,
+          estado_proceso: etapaCorregida.etapa.label,
+        };
+        const { error: updateError } = await supabase
+          .from("prod_muebles_lotes")
+          .update(patch)
+          .eq("id", editandoId);
+        if (updateError) throw updateError;
+
+        if (loteActual.enchapado_ot_id && form.tipo_destino === "obra") {
+          const linea = lineas.find((item) => item.id === lineaId);
+          const { error: otUpdateError } = await supabase
+            .from("enchapado_ots")
+            .update({ modelo: linea?.nombre || nombreLinea(loteActual), barco: unidad?.codigo || nombreObra(loteActual) })
+            .eq("id", loteActual.enchapado_ot_id);
+          if (otUpdateError) advertenciaGuardado = `El proceso se corrigió, pero la OT vinculada no pudo actualizarse: ${otUpdateError.message}`;
+        }
+
+        await registrar(editandoId, "Datos del proceso corregidos", {
+          etapa_anterior: etapaMeta(loteActual).etapa.key,
+          etapa_nueva: etapaCorregida.etapa.key,
+          detalle: payloadComun,
+        });
+        setSeleccionadoId(editandoId);
+      } else {
+        const payload = {
+          ...payloadComun,
+          etapa: "definicion",
+          estado_proceso: "Definición",
+          creado_por: userData?.user?.id ?? null,
+        };
+        const { data, error: insertError } = await supabase
+          .from("prod_muebles_lotes")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (insertError) throw insertError;
+        await registrar(data.id, "Proceso creado", {
+          etapa_nueva: "definicion",
+          detalle: { proveedor: form.proveedor, destino: form.tipo_destino },
+        });
+        setSeleccionadoId(data.id);
+      }
+
       setShowAdd(false);
-      setForm((prev) => ({ ...prev, unidad_id: "", linea_id: "", nombre_lote: "", color_chapa: "", material_base: "", detalle_madera: "", fecha_objetivo: "", observaciones: "" }));
+      setEditandoId(null);
+      setForm({ ...EMPTY_FORM });
       await cargar();
-      setSeleccionadoId(data.id);
+      if (advertenciaGuardado) setError(advertenciaGuardado);
+    } catch (e) {
+      setError(e?.message || "No se pudo guardar el proceso.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
+  }
+
+  async function eliminarProceso(lote) {
+    const incluyeOt = Boolean(lote.enchapado_ot_id);
+    const detalle = incluyeOt
+      ? " También se eliminará la OT de enchapado vinculada."
+      : "";
+    if (!window.confirm(`¿Eliminar “${nombreMuebles(lote)}” de ${destinoLote(lote) === "obra" ? `la obra ${nombreObra(lote)}` : "stock"}? Se borrarán el proceso, su historial y sus OT internas.${detalle} La obra y su checklist no se eliminan.`)) return;
+
+    setEliminandoId(lote.id);
+    setError("");
+    try {
+      if (lote.enchapado_ot_id) {
+        const { error: otError } = await supabase
+          .from("enchapado_ots")
+          .delete()
+          .eq("id", lote.enchapado_ot_id);
+        if (otError) throw otError;
+      }
+      const { error: deleteError } = await supabase
+        .from("prod_muebles_lotes")
+        .delete()
+        .eq("id", lote.id);
+      if (deleteError) throw deleteError;
+
+      setLotes((prev) => prev.filter((item) => item.id !== lote.id));
+      setOts((prev) => prev.filter((item) => item.id !== lote.enchapado_ot_id));
+      setSeleccionadoId(null);
+    } catch (e) {
+      await cargar();
+      setError(e?.message || "No se pudo eliminar el proceso.");
+    } finally {
+      setEliminandoId(null);
+    }
   }
 
   function otParaLote(lote) {
@@ -548,7 +680,67 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     }
   }
 
-  const obraOptions = form.linea_id ? unidades.filter((u) => u.linea_id === form.linea_id) : unidades;
+  const obraOptions = useMemo(() => {
+    const unidadesLinea = form.linea_id
+      ? unidades.filter((unidad) => unidad.linea_id === form.linea_id)
+      : unidades;
+    if (!form.linea_id) return unidadesLinea;
+
+    const linea = lineas.find((item) => item.id === form.linea_id);
+    if (!linea) return unidadesLinea;
+
+    const codigosExistentes = new Set(unidadesLinea.map((unidad) => normalizeKey(unidad.codigo)));
+    const pendientesDeVincular = obrasProduccion
+      .filter((obra) => normalizeKey(obra.linea_nombre) === normalizeKey(linea.nombre))
+      .filter((obra) => !codigosExistentes.has(normalizeKey(obra.codigo)))
+      .map((obra) => ({
+        id: `produccion:${obra.id}`,
+        codigo: obra.codigo,
+        linea_id: linea.id,
+        linea_nombre: obra.linea_nombre,
+        pendienteVincular: true,
+      }));
+
+    return [...unidadesLinea, ...pendientesDeVincular]
+      .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
+  }, [form.linea_id, lineas, obrasProduccion, unidades]);
+
+  async function seleccionarObra(value) {
+    const opcion = obraOptions.find((item) => item.id === value);
+    if (!opcion) {
+      setForm((prev) => ({ ...prev, unidad_id: "" }));
+      return;
+    }
+    if (!opcion.pendienteVincular) {
+      setForm((prev) => ({ ...prev, unidad_id: opcion.id, linea_id: opcion.linea_id || prev.linea_id }));
+      return;
+    }
+    if (!onEnsureMueblesUnidad) {
+      setError("La obra existe en Producción, pero no se pudo vincular con Muebles.");
+      return;
+    }
+
+    setVinculandoObra(true);
+    setError("");
+    try {
+      const vinculada = await onEnsureMueblesUnidad({
+        modelo: opcion.linea_nombre,
+        barco: opcion.codigo,
+      });
+      if (!vinculada?.unidad?.id || !vinculada?.linea?.id) {
+        throw new Error("No se recibió la vinculación de la obra.");
+      }
+      const unidad = { ...vinculada.unidad, linea_id: vinculada.linea.id };
+      setUnidades((prev) => prev.some((item) => item.id === unidad.id)
+        ? prev.map((item) => item.id === unidad.id ? { ...item, ...unidad } : item)
+        : [...prev, unidad]);
+      setForm((prev) => ({ ...prev, unidad_id: unidad.id, linea_id: unidad.linea_id }));
+    } catch (e) {
+      setError(e?.message || "No se pudo vincular la obra con Muebles.");
+    } finally {
+      setVinculandoObra(false);
+    }
+  }
   const recibidos = lotes.filter((lote) => etapaMeta(lote).etapa.key === "recibido").length;
   const templateLinea = lineas.find((linea) => linea.id === templateLineaId) ?? lineas[0] ?? null;
 
@@ -581,7 +773,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
             <button type="button" onClick={() => { setTemplateLineaId(seleccionado?.linea_id || lineas[0]?.id || ""); setShowTemplates(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 11.5, fontWeight: 850, flexShrink: 0 }}>
               <FilePenLine size={15} /> Plantillas OT y herrajes
             </button>
-            <button data-tour="muebles-nuevo" onClick={() => setShowAdd(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 800, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
+            <button data-tour="muebles-nuevo" onClick={abrirNuevoProceso} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 800, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
               <Plus size={15} /> Nuevos muebles
             </button>
           </div>
@@ -627,7 +819,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
       {loading ? (
         <div style={{ padding: 60, textAlign: "center", color: C.t2 }}>Cargando procesos...</div>
       ) : filtrados.length === 0 ? (
-        <EmptyState onAdd={() => setShowAdd(true)} canAdd={esAdmin} />
+        <EmptyState onAdd={abrirNuevoProceso} canAdd={esAdmin} />
       ) : (
         <div className="muebles-workspace">
           <div data-tour="muebles-procesos" style={{ display: "grid", gap: 8 }}>
@@ -653,7 +845,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                           </Badge>
                         </div>
                           <div style={{ color: C.t0, fontSize: 14, lineHeight: 1.2, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreMuebles(lote)}</div>
-                          <div style={{ color: C.t2, fontSize: 10.5, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreLinea(lote)} · {itemChapa || "Chapa por definir"}</div>
+                          <div style={{ color: C.t2, fontSize: 10.5, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Línea {nombreLinea(lote)} · {itemChapa || "Chapa por definir"}</div>
                         </div>
                       </div>
                       <ChevronRight size={17} color={selected ? tone.color : C.t2} />
@@ -683,10 +875,24 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                         <Badge>{destinoLote(seleccionado) === "stock" ? "Fabricación para stock" : `Obra ${nombreObra(seleccionado)}`}</Badge>
                       </div>
                       <h2 style={{ margin: 0, fontSize: 19, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreMuebles(seleccionado)}</h2>
-                      <div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>{nombreLinea(seleccionado)} · {cantidadMuebles(seleccionado)}</div>
+                      <div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>
+                        {destinoLote(seleccionado) === "obra" ? `Obra ${nombreObra(seleccionado)} · ` : ""}Línea {nombreLinea(seleccionado)} · {cantidadMuebles(seleccionado)}
+                      </div>
                     </div>
                   </div>
-                  {seleccionado.fecha_objetivo && <Badge color={C.blue} bg={C.blueL} border={C.blueB}><CalendarDays size={12} /> Objetivo {fechaCorta(seleccionado.fecha_objetivo)}</Badge>}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, flexWrap: "wrap", flexShrink: 0 }}>
+                    {seleccionado.fecha_objetivo && <Badge color={C.blue} bg={C.blueL} border={C.blueB}><CalendarDays size={12} /> Objetivo {fechaCorta(seleccionado.fecha_objetivo)}</Badge>}
+                    {esAdmin && (
+                      <>
+                        <button type="button" onClick={() => abrirEditarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10.5, fontWeight: 800 }}>
+                          <FilePenLine size={13} /> Editar
+                        </button>
+                        <button type="button" disabled={eliminandoId === seleccionado.id} onClick={() => eliminarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: eliminandoId === seleccionado.id ? "wait" : "pointer", opacity: eliminandoId === seleccionado.id ? .65 : 1, fontSize: 10.5, fontWeight: 800 }}>
+                          <Trash2 size={13} /> {eliminandoId === seleccionado.id ? "Eliminando…" : "Eliminar"}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -998,17 +1204,18 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
       )}
 
       {showAdd && (
-        <div onMouseDown={(e) => e.target === e.currentTarget && setShowAdd(false)} style={{ position: "fixed", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
+        <div onMouseDown={(e) => e.target === e.currentTarget && cerrarFormulario()} style={{ position: "fixed", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
           <div style={{ width: "min(760px, 100%)", maxHeight: "90vh", overflowY: "auto", borderRadius: 15, border: `1px solid ${C.b1}`, background: C.bg1, boxShadow: "0 26px 80px rgba(0,0,0,.38)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: `1px solid ${C.b0}` }}>
-              <div><div style={{ fontWeight: 850, color: C.t0 }}>Nuevo proceso de muebles</div><div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>Definí quién lo fabrica y si nace para una obra o para stock.</div></div>
-              <button onClick={() => setShowAdd(false)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer" }}><X size={15} /></button>
+              <div><div style={{ fontWeight: 850, color: C.t0 }}>{editandoId ? "Editar proceso de muebles" : "Nuevo proceso de muebles"}</div><div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>{editandoId ? "Corregí la obra, el proveedor y los datos del proceso." : "Definí quién lo fabrica y si nace para una obra o para stock."}</div></div>
+              <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer" }}><X size={15} /></button>
             </div>
+            {error && <div role="alert" style={{ margin: "12px 18px 0", padding: "9px 11px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 11.5 }}>{error}</div>}
             <div className="muebles-form-grid" style={{ padding: 18 }}>
               <div><label style={label}>Destino</label><select style={input} value={form.tipo_destino} onChange={(e) => setForm({ ...form, tipo_destino: e.target.value, unidad_id: "" })}><option value="obra">Obra específica</option><option value="stock">Fabricar para stock</option></select></div>
               <div><label style={label}>Mueblero</label><select style={input} value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })}>{PROVEEDORES_MUEBLES.map((item) => <option key={item}>{item}</option>)}</select></div>
               <div><label style={label}>Línea</label><select style={input} value={form.linea_id} onChange={(e) => setForm({ ...form, linea_id: e.target.value, unidad_id: "" })}><option value="">Seleccionar línea</option>{lineas.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></div>
-              {form.tipo_destino === "obra" && <div><label style={label}>Obra</label><select style={input} value={form.unidad_id} onChange={(e) => { const unidad = unidades.find((u) => u.id === e.target.value); setForm({ ...form, unidad_id: e.target.value, linea_id: unidad?.linea_id || form.linea_id }); }}><option value="">Seleccionar obra</option>{obraOptions.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select></div>}
+              {form.tipo_destino === "obra" && <div><label style={label}>Obra</label><select style={input} value={form.unidad_id} disabled={vinculandoObra} onChange={(e) => seleccionarObra(e.target.value)}><option value="">{vinculandoObra ? "Vinculando obra…" : "Seleccionar obra"}</option>{obraOptions.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select></div>}
               <div><label style={label}>Nombre interno</label><input style={input} value={form.nombre_lote} onChange={(e) => setForm({ ...form, nombre_lote: e.target.value })} placeholder="Ej: Muebles principales K37" /></div>
               <div><label style={label}>Cantidad de conjuntos de muebles</label><input style={input} type="number" min="1" value={form.cantidad_juegos} onChange={(e) => setForm({ ...form, cantidad_juegos: Math.max(1, Number(e.target.value) || 1) })} /></div>
               <div><label style={label}>Color / chapa</label><input style={input} value={form.color_chapa} onChange={(e) => setForm({ ...form, color_chapa: e.target.value })} placeholder="Ej: Roble plata" /></div>
@@ -1018,8 +1225,8 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
               <div style={{ gridColumn: "1 / -1" }}><label style={label}>Observaciones</label><textarea style={{ ...input, minHeight: 72, resize: "vertical" }} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} placeholder="Dependencias, alcance de los muebles o acuerdos con el proveedor..." /></div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "13px 18px", borderTop: `1px solid ${C.b0}` }}>
-              <button onClick={() => setShowAdd(false)} style={{ padding: "8px 12px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: "pointer", fontWeight: 750 }}>Cancelar</button>
-              <button disabled={saving} onClick={crearLote} style={{ padding: "8px 13px", border: `1px solid ${C.blueB}`, borderRadius: 8, background: C.blueL, color: C.blue, cursor: saving ? "wait" : "pointer", fontWeight: 850 }}>{saving ? "Creando..." : "Crear proceso"}</button>
+              <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ padding: "8px 12px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 750 }}>Cancelar</button>
+              <button disabled={saving || vinculandoObra} onClick={guardarLote} style={{ padding: "8px 13px", border: `1px solid ${C.blueB}`, borderRadius: 8, background: C.blueL, color: C.blue, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 850 }}>{saving ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear proceso"}</button>
             </div>
           </div>
         </div>

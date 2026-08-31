@@ -68,7 +68,10 @@ export function nombreLinea(lote) {
 }
 
 export function nombreMuebles(lote) {
-  return lote?.nombre_lote || `Muebles ${nombreLinea(lote)}`;
+  if (lote?.nombre_lote) return lote.nombre_lote;
+  return destinoLote(lote) === "obra"
+    ? `Muebles ${nombreObra(lote)}`
+    : `Muebles ${nombreLinea(lote)}`;
 }
 
 export function cantidadMuebles(lote) {
