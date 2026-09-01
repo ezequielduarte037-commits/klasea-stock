@@ -47,44 +47,59 @@ function verEnEarth3D(lat, lng) {
 
 // ── ÍCONOS ───────────────────────────────────────────────────────────
 /**
- * El pin es una lancha de perfil, no un punto.
+ * El marcador: una gota de mapa con la lancha adentro, y el codigo debajo.
  *
- * Con dieciocho barcos sobre el delta, un circulo de colores no dice nada: la
- * silueta se reconoce de un vistazo y el color queda para el estado. Ademas
- * flotan apenas -tres segundos, dos pixeles- porque son barcos. Son dieciocho
- * elementos, no miles: el costo es despreciable.
+ * La gota resuelve algo que ninguna silueta suelta resuelve: su punta marca el
+ * lugar EXACTO, sin ambiguedad. La lancha blanca adentro dice de que se trata,
+ * y el color de la gota dice como esta.
+ *
+ * Lleva el codigo porque con diecisiete barcos amontonados entre Nordelta y San
+ * Fernando la pregunta no es "hay un barco aca" sino "cual es este". Aparece
+ * recien al acercarse: a la escala de todo el delta serian diecisiete carteles
+ * encimados que no se leen.
  */
-function makeIcon(color, pulse) {
+const UMBRAL_CODIGO = 14;
+
+function makeIcon(color, pulse, codigo, conCodigo) {
+  const etiqueta = conCodigo && codigo
+    ? `<span class="barco-cod">${String(codigo).replace(/[<>&"]/g, "")}</span>`
+    : "";
   return L.divIcon({
     className: "icono-barco",
     html: `<div class="barco-pin${pulse ? " barco-pin-alerta" : ""}" style="--tono:${color}">
       ${pulse ? `<span class="barco-halo"></span>` : ""}
-      <svg viewBox="0 0 34 22" width="34" height="22" aria-hidden="true">
-        <path d="M2.5 13.5 h29 l-3.2 5.2 q-11.3 1.9 -22.6 0 z" fill="${color}"/>
-        <path d="M9.5 13.5 l2.1 -5.1 h9.6 l2.4 5.1 z" fill="${color}" opacity="0.82"/>
-        <rect x="16.2" y="2.6" width="1.5" height="5.8" rx="0.7" fill="${color}" opacity="0.7"/>
+      <svg viewBox="0 0 24 32" width="23" height="31" aria-hidden="true">
+        <path d="M12 31 C12 31 22.4 18.6 22.4 11.6 A10.4 10.4 0 0 0 1.6 11.6 C1.6 18.6 12 31 12 31 Z"
+              fill="${color}" stroke="rgba(0,0,0,.55)" stroke-width="1.3"/>
+        <path d="M5.9 12.7 h12.2 l-1.6 3.2 q-4.5 .95 -9 0 z" fill="#fff"/>
+        <path d="M8.9 12.7 l1.1 -2.8 h4 l1.3 2.8 z" fill="#fff" opacity=".88"/>
+        <rect x="11.4" y="6.5" width="1.2" height="3.4" rx=".6" fill="#fff" opacity=".75"/>
       </svg>
+      ${etiqueta}
     </div>`,
-    iconSize: [34, 22], iconAnchor: [17, 17], popupAnchor: [0, -16],
+    iconSize: [conCodigo ? 56 : 23, conCodigo ? 48 : 31],
+    iconAnchor: [conCodigo ? 28 : 11.5, 31],
+    popupAnchor: [0, -28],
   });
 }
-// Los colores del pin se leen del tema una sola vez: dentro del divIcon es HTML
-// crudo, no React, asi que una variable CSS no se resolveria.
+
+// Los colores se leen del tema una sola vez: dentro del divIcon es HTML crudo,
+// no React, asi que una variable CSS no se resolveria.
 function tono(nombre, respaldo) {
   if (typeof window === "undefined") return respaldo;
   const v = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
   return v || respaldo;
 }
-const ICON_GREEN = makeIcon(tono("--green", C.green), true);
-const ICON_CYAN  = makeIcon(tono("--cyan", "#06b6d4"), true);
-const ICON_RED   = makeIcon(tono("--red", C.red), true);
-const ICON_NEW   = makeIcon(tono("--blue", "#4a90e2"), false);
+const TONO_OK  = tono("--green", C.green);
+const TONO_ESP = tono("--cyan", "#06b6d4");
+const TONO_MAL = tono("--red", C.red);
+const ICON_NEW = makeIcon(tono("--blue", "#4a90e2"), false, null, false);
 
-function getIcon(tickets) {
-  if (!tickets || tickets.length===0) return ICON_GREEN;
-  if (tickets.some(t=>t.estado==="pendiente")) return ICON_RED;
-  if (tickets.some(t=>t.estado==="en_proceso")) return ICON_CYAN;
-  return ICON_GREEN;
+function getIcon(tickets, codigo, conCodigo) {
+  const color = tickets?.some((t) => t.estado === "pendiente") ? TONO_MAL
+    : tickets?.some((t) => t.estado === "en_proceso") ? TONO_ESP
+      : TONO_OK;
+  return makeIcon(color, Boolean(tickets?.length), codigo, conCodigo);
 }
 
 // ── TOKENS ───────────────────────────────────────────────────────────
@@ -93,6 +108,13 @@ function MapEventsHandler({ isSelecting, onLocationSelected }) {
   useMapEvents({ click(e) { if(isSelecting) onLocationSelected(e.latlng.lat, e.latlng.lng); } });
   return null;
 }
+/** Avisa el zoom hacia afuera: de el depende si se muestra el codigo. */
+function ZoomWatcher({ onZoom }) {
+  const map = useMap();
+  useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
+  return null;
+}
+
 function MapResizer() {
   const map = useMap();
   useEffect(()=>{ setTimeout(()=>map.invalidateSize(),300); },[map]);
@@ -694,8 +716,12 @@ export default function PostVentaScreen({ profile, signOut }) {
    * El satelite NO se invierte: una foto aerea invertida es ilegible.
    */
   const [baseMapa, setBaseMapa] = useState("mapa");
+  const [zoom, setZoom] = useState(13);
   // La barra del sistema se pliega: en una pantalla que es un mapa, 280px de
   // menu son 280px menos de agua. Se recuerda entre visitas.
+  // Lo ultimo que se movio, para poder volver atras. Un arrastre sin salida es
+  // una forma comoda de perder la ubicacion de un barco sin enterarse.
+  const [ultimoMovido, setUltimoMovido] = useState(null);
   const [barraPlegada, setBarraPlegada] = useState(() => {
     try { return localStorage.getItem("postventa:barra") === "plegada"; } catch { return false; }
   });
@@ -799,6 +825,40 @@ export default function PostVentaScreen({ profile, signOut }) {
     setForm(f=>({...f,link_maps:val,latitud:lat,longitud:lng}));
     setShowLocPrev(true);
     if (lat && lng && mapaRef) mapaRef.flyTo([parseFloat(lat),parseFloat(lng)],16,{duration:1.5});
+  }
+
+  /**
+   * Guarda la posicion nueva despues de arrastrar el barco.
+   *
+   * Se guarda al soltar, sin confirmar: pedir confirmacion en cada ajuste de
+   * dos metros haria el arrastre inservible. Lo que si queda es un "deshacer"
+   * a la vista, que cubre el caso real -moverlo sin querer- sin estorbar.
+   */
+  async function moverBarco(barco, lat, lng) {
+    const antes = { id: barco.id, nombre: barco.nombre_barco, lat: barco.latitud, lng: barco.longitud };
+    const nuevaLat = Number(lat.toFixed(6));
+    const nuevaLng = Number(lng.toFixed(6));
+    setFlota((prev) => prev.map((b) => (b.id === barco.id ? { ...b, latitud: nuevaLat, longitud: nuevaLng } : b)));
+    const { error } = await supabase
+      .from("postventa_flota")
+      .update({ latitud: nuevaLat, longitud: nuevaLng })
+      .eq("id", barco.id);
+    if (error) {
+      // Si no guardo, el pin vuelve solo: dejarlo movido en pantalla seria
+      // mostrar algo que la base no tiene.
+      setFlota((prev) => prev.map((b) => (b.id === barco.id ? { ...b, latitud: antes.lat, longitud: antes.lng } : b)));
+      alert("No se pudo guardar la ubicación: " + error.message);
+      return;
+    }
+    setUltimoMovido(antes);
+  }
+
+  async function deshacerMovimiento() {
+    if (!ultimoMovido) return;
+    const { id, lat, lng } = ultimoMovido;
+    setFlota((prev) => prev.map((b) => (b.id === id ? { ...b, latitud: lat, longitud: lng } : b)));
+    await supabase.from("postventa_flota").update({ latitud: lat, longitud: lng }).eq("id", id);
+    setUltimoMovido(null);
   }
 
   function handleLocationSelected(lat, lng) {
@@ -930,12 +990,24 @@ export default function PostVentaScreen({ profile, signOut }) {
                      filter: drop-shadow(0 2px 4px rgba(0,0,0,.55)); animation: barco-flota 3.4s ease-in-out infinite; }
         .leaflet-marker-icon:nth-child(3n)   .barco-pin { animation-delay: -1.1s; }
         .leaflet-marker-icon:nth-child(3n+1) .barco-pin { animation-delay: -2.2s; }
+        .barco-pin { flex-direction: column; gap: 2px; }
         .barco-pin svg { position:relative; z-index:2; overflow:visible; }
-        .barco-halo { position:absolute; left:50%; top:58%; width:30px; height:30px; margin:-15px 0 0 -15px;
+        /* Fondo propio y opaco: sobre una foto satelital un texto sin caja no
+           se lee, y el color del barco ya lo pone el borde. */
+        .barco-cod { position:relative; z-index:2; display:block; padding:1px 5px; border-radius:5px;
+                     background:rgba(9,14,20,.86); border:1px solid var(--tono);
+                     color:#fff; font-family:${C.mono}; font-size:9.5px; font-weight:700;
+                     letter-spacing:.2px; white-space:nowrap; line-height:1.5;
+                     box-shadow:0 2px 5px rgba(0,0,0,.45); }
+        .barco-halo { position:absolute; left:50%; top:11px; width:30px; height:30px; margin:-15px 0 0 -15px;
                       border-radius:50%; border:2px solid var(--tono); opacity:.55;
                       animation: pin-pulse 2.2s ease-out infinite; }
         .icono-barco { transition: transform .18s ease; }
+        .icono-barco { cursor: grab; }
         .icono-barco:hover { transform: scale(1.22); z-index: 1000 !important; }
+        .leaflet-marker-draggable.leaflet-drag-target, .icono-barco:active { cursor: grabbing; }
+        /* Mientras se arrastra deja de flotar: el vaiven pelea con el puntero. */
+        .leaflet-drag-target .barco-pin { animation: none; }
         @keyframes barco-flota { 0%,100%{transform:translateY(0) rotate(-.6deg)} 50%{transform:translateY(-2px) rotate(.6deg)} }
         @keyframes pin-pulse { 0%{transform:scale(0.5);opacity:0.55} 100%{transform:scale(1.7);opacity:0} }
         @media (prefers-reduced-motion: reduce) {
@@ -965,6 +1037,7 @@ export default function PostVentaScreen({ profile, signOut }) {
       <div style={S.mapLayer} className={baseMapa === "mapa" ? "mapa-osm" : "mapa-satelite"}>
         <MapContainer center={mapCenter} zoom={13} style={{ width:"100%", height:"100%" }} ref={setMapaRef} zoomControl={false}>
           <MapResizer />
+          <ZoomWatcher onZoom={setZoom} />
           <MapEventsHandler isSelecting={isSelecting} onLocationSelected={handleLocationSelected} />
           {/*
             CARTO dejo de servir sus tiles sin cuenta: siguen respondiendo 200
@@ -993,7 +1066,19 @@ export default function PostVentaScreen({ profile, signOut }) {
           )}
           {/* Solo pinear los barcos que tienen coords */}
           {barcosFiltrados.filter(b => b.latitud && b.longitud).map(barco => (
-            <Marker key={barco.id} position={[barco.latitud, barco.longitud]} icon={getIcon(getTickets(barco))}>
+            <Marker
+              key={barco.id}
+              position={[barco.latitud, barco.longitud]}
+              icon={getIcon(getTickets(barco), barco.nombre_barco, zoom >= UMBRAL_CODIGO)}
+              draggable
+              autoPan
+              eventHandlers={{
+                dragend: (e) => {
+                  const { lat, lng } = e.target.getLatLng();
+                  moverBarco(barco, lat, lng);
+                },
+              }}
+            >
               <Popup>
                 <TicketPopupContent
                   barco={barco}
@@ -1228,7 +1313,9 @@ export default function PostVentaScreen({ profile, signOut }) {
       {/* Fondo del mapa — control flotante, como en cualquier mapa */}
       {!isSelecting && (
         <div style={{
-          position:"absolute", right:18, bottom:34, zIndex:20, pointerEvents:"auto",
+          // Arriba y no abajo: la campana de notificaciones del sistema vive en
+          // la esquina inferior derecha y le tapaba la mitad a "Satélite".
+          position:"absolute", right:18, top:72, zIndex:20, pointerEvents:"auto",
           display:"inline-flex", padding:3, gap:3, borderRadius:11,
           border:`1px solid ${C.b1}`, background:"var(--topbar-soft)",
           backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)",
@@ -1249,6 +1336,33 @@ export default function PostVentaScreen({ profile, signOut }) {
               }}
             >{o.t}</button>
           ))}
+        </div>
+      )}
+
+      {/* Deshacer el ultimo arrastre */}
+      {ultimoMovido && (
+        <div style={{
+          position:"absolute", left:"50%", bottom:26, transform:"translateX(-50%)", zIndex:30, pointerEvents:"auto",
+          display:"flex", alignItems:"center", gap:12,
+          background:"var(--topbar-soft)", border:`1px solid ${C.b1}`, borderRadius:11, padding:"9px 12px 9px 15px",
+          backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)",
+          boxShadow:"0 10px 30px rgba(0,0,0,.4)", maxWidth:"min(92vw, 460px)",
+        }}>
+          <span style={{ color:C.t0, fontSize:12.5, fontWeight:750, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            <strong style={{ fontWeight:900 }}>{ultimoMovido.nombre}</strong> quedó en su nueva posición
+          </span>
+          <button
+            type="button"
+            onClick={deshacerMovimiento}
+            className="flota-accion"
+            style={{ border:`1px solid ${C.b0}`, background:"var(--panel)", color:C.t1, borderRadius:8, padding:"5px 12px", cursor:"pointer", fontFamily:C.sans, fontSize:12.5, fontWeight:800, flexShrink:0 }}
+          >Deshacer</button>
+          <button
+            type="button"
+            onClick={() => setUltimoMovido(null)}
+            aria-label="Cerrar"
+            style={{ border:"none", background:"transparent", color:C.t2, cursor:"pointer", fontSize:16, lineHeight:1, padding:"0 2px", flexShrink:0 }}
+          >×</button>
         </div>
       )}
 
