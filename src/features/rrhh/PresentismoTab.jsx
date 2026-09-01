@@ -14,6 +14,7 @@ import {
   Printer,
   Save,
   Search,
+  LogOut,
   Stethoscope,
   Timer,
   Trash2,
@@ -477,6 +478,10 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
   const [soloAnomalias, setSoloAnomalias] = useState(false);
+  // El cartel "Salió 10:50-15:01" ya estaba en la fila, pero entre miles de
+  // marcaciones no habia forma de LLEGAR a esos dias: habia que scrollear hasta
+  // toparse con uno. Que es justo lo que RRHH necesita mirar.
+  const [soloConSalidas, setSoloConSalidas] = useState(false);
   const [vistaRapida, setVistaRapida] = useState("marcaciones");
   const [justModal, setJustModal] = useState(null);
   const [ausenciaModal, setAusenciaModal] = useState(false);
@@ -545,9 +550,10 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       rows = rows.filter(r => safeText(r.emp.nombre).toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
     }
     if (soloAnomalias) rows = rows.filter(r => r.sinEntrada || r.sinSalida || r.tarde);
+    if (soloConSalidas) rows = rows.filter(r => r.dia?.ausencias?.length > 0);
     return [...rows].sort((a, b) =>
       a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
-  }, [filas, filtroSede, filtroGrupo, q, soloAnomalias]);
+  }, [filas, filtroSede, filtroGrupo, q, soloAnomalias, soloConSalidas]);
 
   const filasVista = useMemo(() => {
     if (!filtradas) return null;
@@ -581,6 +587,10 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       casa: new Set(filtradas.filter(r => r.emp.grupo === "casa").map(r => r.emp.id)).size,
       contr: new Set(filtradas.filter(r => r.emp.grupo === "contratista").map(r => r.emp.id)).size,
       anomalias: filtradas.filter(r => r.sinEntrada || r.sinSalida || r.tarde).length,
+      conSalidas: filtradas.filter(r => r.dia?.ausencias?.length > 0).length,
+      // El tiempo total afuera, que es el dato que RRHH termina necesitando.
+      minutosFuera: filtradas.reduce((total, r) => total
+        + (r.dia?.ausencias ?? []).reduce((suma, a) => suma + (a.minutos || 0), 0), 0),
       ausentesJustificados: ausentes.filter(r => r.justificacion).length,
     };
   }, [filtradas, ausentes]);
@@ -870,6 +880,11 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
           {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <button style={{ ...selSt(soloAnomalias), display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => setSoloAnomalias(v => !v)}><AlertTriangle size={14} /> Solo anomalías</button>
+        <button
+          style={{ ...selSt(soloConSalidas), display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+          onClick={() => setSoloConSalidas(v => !v)}
+          title="Días en que la persona se fue y volvió: trámites, médico, banco."
+        ><LogOut size={14} /> Salieron y volvieron</button>
         </div>
       </div>
 
@@ -884,6 +899,13 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
             <KpiCard label="Contratistas" value={stats.contr} color={C.amber} />
             {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? C.red : C.green} sub={stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
             <KpiCard icon={AlertTriangle} label="Anomalías" value={stats.anomalias} color={stats.anomalias ? C.amber : C.green} sub="entrada, salida o demora" />
+            <KpiCard
+              icon={LogOut}
+              label="Salieron y volvieron"
+              value={stats.conSalidas}
+              color={stats.conSalidas ? C.violet : C.green}
+              sub={stats.conSalidas ? `${minToHM(stats.minutosFuera)} fuera en total` : "nadie se ausentó"}
+            />
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 12 }}>
@@ -922,6 +944,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                   </div>
                 </div>
                 {soloAnomalias && <span style={{ fontSize: 10, fontWeight: 700, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 8px" }}>Solo anomalías</span>}
+                {soloConSalidas && <span style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}44`, borderRadius: 999, padding: "3px 8px" }}>Salieron y volvieron</span>}
               </div>
               <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
