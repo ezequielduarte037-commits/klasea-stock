@@ -141,7 +141,7 @@ function CeldaCalor({ celda, vista, techo }) {
     if (!(soloEste > 0)) return <span style={{ color: C.border2, fontSize: 12, fontFamily: C.mono }}>·</span>;
     const base = vista === "falta" ? C.red : vista === "panol" ? C.cyan : C.green;
     return (
-      <span style={{
+      <span className="celda-calor" style={{
         display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
         ...mancha(soloEste, base),
         fontFamily: C.mono, fontSize: 12, fontWeight: 950, fontVariantNumeric: "tabular-nums",
@@ -167,7 +167,7 @@ function CeldaCalor({ celda, vista, techo }) {
   }
 
   return (
-    <span style={{
+    <span className={`celda-calor${sinDefinir ? " celda-calor-definir" : ""}`} style={{
       display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
       ...estilo,
       fontFamily: C.mono, fontSize: 12, fontWeight: peso, fontVariantNumeric: "tabular-nums",
@@ -821,6 +821,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         .planilla-obras .planilla-cabecera-obras th { background-color: var(--panel-solid); background-clip: padding-box; }
         .planilla-obras .planilla-cabecera-obras { filter: drop-shadow(0 7px 8px rgba(15,23,42,.10)); }
         .planilla-obras .planilla-senales > * { flex: 0 1 auto; }
+
+        /* El recuadro violeta es un boton. Sin animacion: se probo con hover,
+           sombra y un latido, y con 4.599 celdas en pantalla el navegador tiene
+           que sostener una capa de GPU por celda y la tabla se arrastra. */
+        .planilla-obras .celda-definir { display: block; border-radius: 5px; }
+        .planilla-obras .celda-definir:focus-visible { outline: none; }
+        .planilla-obras .celda-definir:focus-visible .celda-calor { outline: 2px solid ${C.violet}; outline-offset: 1px; }
         @media (hover: hover) {
           .planilla-obras .planilla-ficha { opacity: .2; }
           .planilla-obras .planilla-fila:hover .planilla-ficha { opacity: 1; }
@@ -1568,6 +1575,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                                       cambiarObra(obra.id);
                                       setSoloSinOpcion(true);
                                     }}
+                                    className="celda-definir"
                                     style={{ display: "block", width: "100%", border: "none", background: "transparent", padding: 0, cursor: "pointer", fontFamily: C.sans }}
                                   >
                                     <CeldaCalor celda={celda} vista={vista} techo={techoCalor} />
