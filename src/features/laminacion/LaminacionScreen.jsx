@@ -13,6 +13,8 @@ import { Archive, ArchiveRestore, Check, Package, Plus, Trash2, X, RotateCcw, Do
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { createPurchaseRequest, addRequestItem, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 import { C } from "@/theme";
+import TrasladosPanel from "@/features/laminacion/TrasladosPanel";
+import { OTRA_SEDE, guardarMinimo } from "@/features/laminacion/trasladosApi";
 
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
@@ -20,6 +22,22 @@ const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
 function num(v) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
+}
+
+/**
+ * Traduce el error de Postgres a algo accionable.
+ *
+ * 42703 = columna inexistente, 42P01 = tabla inexistente. En esta pantalla eso
+ * significa una sola cosa: el código multi-sede está desplegado y la migración
+ * no corrió todavía. Decirlo con todas las letras evita que alguien crea que se
+ * borró el stock.
+ */
+function avisoDeMigracion(error) {
+  const codigo = String(error?.code ?? "");
+  if (codigo === "42703" || codigo === "42P01" || /sede|stock_minimos|traslados/i.test(error?.message ?? "")) {
+    return "Falta correr la migración de laminación multi-sede en la base. El stock que se ve NO es real hasta que se aplique.";
+  }
+  return error?.message || "No se pudieron cargar los datos.";
 }
 
 function fmtDate(ts) {
@@ -158,7 +176,19 @@ function RingKpi({ label, value, total, color, sub }) {
   );
 }
 
-export default function LaminacionScreen({ profile, signOut }) {
+/**
+ * Pantalla de laminación de UN galpón.
+ *
+ * El mismo componente sirve a Pampa y a Chubut: son dos rutas distintas que lo
+ * montan con otra sede. No son dos archivos porque son la misma operación
+ * -stock, ingresos, egresos, pedidos- y mantener 3.100 líneas por duplicado
+ * termina, siempre, en que un arreglo queda hecho en un galpón y no en el otro.
+ *
+ * Todo lo que se lee viene filtrado por sede desde la consulta, así que el
+ * resto del archivo no tiene que acordarse de nada: el stock, los KPIs y las
+ * exportaciones ya son de este galpón y de ninguno más.
+ */
+export default function LaminacionScreen({ profile, signOut, sede = "Pampa" }) {
   const location = useLocation();
   const { isMobile } = useResponsive();
   const role = profile?.role ?? "invitado";
@@ -168,8 +198,8 @@ export default function LaminacionScreen({ profile, signOut }) {
   // Tabs disponibles según rol: pañol ve Stock (solo lectura), Ingresos y Egresos
   const esPanol = role === "panol" && !isAdmin;
   const tabsDisponibles = esPanol
-    ? ["Stock", "Ingresos", "Egresos"]
-    : ["Stock", "Ingresos", "Egresos", "Movimientos", "Pedidos"];
+    ? ["Stock", "Ingresos", "Egresos", "Traslados"]
+    : ["Stock", "Ingresos", "Egresos", "Movimientos", "Traslados", "Pedidos"];
 
   function tabFromSearch(search) {
     const t = new URLSearchParams(search).get("tab");
@@ -229,22 +259,39 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [filtroMatId, setFiltroMatId] = useState("");        // "" = todos
   const [movSort,     setMovSort]     = useState("fecha_desc"); // fecha_desc | fecha_asc
 
+  // El catálogo es uno solo para los dos galpones -si no, "¿hay en el otro?" no
+  // se podría contestar- pero el mínimo de reposición es de cada uno. Se
+  // resuelve acá y se escribe encima de stock_minimo para que las seis lecturas
+  // que ya existen en el archivo sigan leyendo el mismo campo de siempre. Dejar
+  // dos fuentes para el mismo número es exactamente como se cuela el bug de que
+  // Pampa muestre el mínimo de Chubut.
   async function cargarMateriales() {
-    const { data } = await supabase.from("laminacion_materiales").select("*").order("nombre");
-    setMateriales(data ?? []);
+    const [{ data: mats, error: errorMats }, { data: minimos, error: errorMinimos }] = await Promise.all([
+      supabase.from("laminacion_materiales").select("*").order("nombre"),
+      supabase.from("laminacion_stock_minimos").select("material_id,minimo").eq("sede", sede),
+    ]);
+    if (errorMats) return setErr(avisoDeMigracion(errorMats));
+    if (errorMinimos) setErr(avisoDeMigracion(errorMinimos));
+    const porMaterial = new Map((minimos ?? []).map((r) => [r.material_id, num(r.minimo)]));
+    setMateriales((mats ?? []).map((m) => ({ ...m, stock_minimo: porMaterial.get(m.id) ?? 0 })));
   }
  async function cargarMovimientos() {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("laminacion_movimientos")
     .select("*, laminacion_materiales(nombre, unidad)")
+    .eq("sede", sede)
     .order("created_at", { ascending: false });
     // Sin .limit()
+  // Sin movimientos el stock da cero en todo. Si la consulta falló, mejor
+  // decirlo y dejar en pantalla lo que había que pintar un cero que no es cero.
+  if (error) return setErr(avisoDeMigracion(error));
   setMovimientos(data ?? []);
 }
   async function cargarPedidos() {
     const { data } = await supabase
       .from("laminacion_pedidos")
       .select("*, laminacion_materiales(nombre, unidad)")
+      .eq("sede", sede)
       .order("created_at", { ascending: false })
       .limit(300);
     setPedidos(data ?? []);
@@ -278,7 +325,7 @@ export default function LaminacionScreen({ profile, signOut }) {
     };
     document.addEventListener("visibilitychange", handleVisible);
     const ch = supabase
-      .channel("rt-laminacion")
+      .channel(`rt-laminacion-${sede}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_movimientos" }, () => schedule("movimientos", cargarMovimientos))
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_pedidos" }, () => schedule("pedidos", cargarPedidos))
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_materiales" }, () => schedule("materiales", cargarMateriales))
@@ -291,7 +338,8 @@ export default function LaminacionScreen({ profile, signOut }) {
       document.removeEventListener("visibilitychange", handleVisible);
       supabase.removeChannel(ch);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- las funciones de carga se redefinen en cada render; lo que tiene que disparar la recarga es el galpon
+  }, [sede]);
 
   const stockPorMaterial = useMemo(() => {
     const map = {};
@@ -567,6 +615,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       obra: formIngreso.obra.trim() || null,
       observaciones: formIngreso.observaciones.trim() || null,
       creado_por: userId,
+      sede,
     });
     if (error) return setErr(error.message);
     flash(" Ingreso registrado");
@@ -614,6 +663,7 @@ export default function LaminacionScreen({ profile, signOut }) {
             .from("laminacion_movimientos")
             .select("cantidad, destino, obra")
             .eq("tipo", "egreso")
+            .eq("sede", sede)
             .eq("material_id", formEgreso.material_id);
 
           const yaEgresado = (movsPrevios ?? [])
@@ -658,6 +708,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       nombre_persona: formEgreso.nombre_persona.trim() || null,
       observaciones:  formEgreso.observaciones.trim() || null,
       creado_por:     userId,
+      sede,
     });
     if (error) return setErr(error.message);
     flash("✔ Egreso registrado");
@@ -718,6 +769,7 @@ export default function LaminacionScreen({ profile, signOut }) {
         obra:         obraMovimientoDesdeDestino(p.obra_destino, obrasLam),
         observaciones: `Recepción completa — ${grupo.ref}`,
         creado_por:   userId,
+        sede,
       }));
       const { error } = await supabase.from("laminacion_movimientos").insert(movs);
       if (error) { setErr(error.message); return; }
@@ -754,6 +806,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           obra:         obraMovimientoDesdeDestino(p.obra_destino, obrasLam),
           observaciones: `Recepción parcial (${cant} — acumulado ${acumulado} de ${total}) — ${grupo.ref}`,
           creado_por:   userId,
+          sede,
         });
         if (acumulado >= total) cerrar.push({ id: p.id, acumulado });
         else parciales.push({ id: p.id, acumulado, total });
@@ -804,6 +857,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       obra: obraMovimientoDesdeDestino(pedido.obra_destino, obrasLam),
       observaciones: obsBase,
       creado_por: userId,
+      sede,
     });
     if (error) { setErr(error.message); return; }
     // Igual que en la orden: si lo acumulado ya cubre el pedido, se cierra.
@@ -896,6 +950,7 @@ export default function LaminacionScreen({ profile, signOut }) {
         obra_destino: destino,
         purchase_request_item_id: reqItemId,
         solicitado_por: userId,
+        sede,
       });
       if (error) { fallidos += 1; console.warn("[Laminacion] pedido falló:", error); }
       else ok += 1;
@@ -1049,13 +1104,22 @@ export default function LaminacionScreen({ profile, signOut }) {
     e.preventDefault();
     if (!formMaterial.nombre.trim()) return setErr("Nombre es obligatorio");
     setErr("");
-    const { error } = await supabase.from("laminacion_materiales").insert({
+    // El material se da de alta para los dos galpones -es el mismo producto-
+    // pero el mínimo que se escribe acá es el de este galpón. El otro arranca
+    // en cero hasta que alguien de allá lo defina.
+    const { data: creado, error } = await supabase.from("laminacion_materiales").insert({
       nombre: formMaterial.nombre.trim(),
       categoria: formMaterial.categoria.trim() || null,
       unidad: formMaterial.unidad.trim() || "unidad",
-      stock_minimo: num(formMaterial.stock_minimo),
-    });
+    }).select("id").single();
     if (error) return setErr(error.message);
+    if (creado?.id) {
+      await supabase.from("laminacion_stock_minimos").upsert(
+        [{ material_id: creado.id, sede, minimo: num(formMaterial.stock_minimo) },
+         { material_id: creado.id, sede: OTRA_SEDE[sede], minimo: 0 }],
+        { onConflict: "material_id,sede" },
+      );
+    }
     flash(" Material creado");
     setFormMaterial({ nombre: "", categoria: "", unidad: "unidad", stock_minimo: 0 });
     setShowNuevoMaterial(false);
@@ -1162,10 +1226,20 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* Header */}
             <div style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", gap: 10, flexDirection: isMobile ? "column" : "row", marginBottom: 14 }}>
               <div>
-                <h1 style={{ fontFamily: "'Outfit', system-ui", fontSize: 18, margin: 0, color: "var(--text)", fontWeight: 700 }}>
+                <h1 style={{ fontFamily: "'Outfit', system-ui", fontSize: 18, margin: 0, color: "var(--text)", fontWeight: 700, display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                   Laminación
+                  <span style={{
+                    fontSize: 12, fontWeight: 900, letterSpacing: 0.6, textTransform: "uppercase",
+                    padding: "3px 10px", borderRadius: 999,
+                    color: sede === "Chubut" ? "var(--violet)" : "var(--blue)",
+                    background: sede === "Chubut" ? "var(--violet-soft)" : "var(--blue-soft)",
+                    border: `1px solid ${sede === "Chubut" ? "var(--violet-border)" : "var(--blue-border)"}`,
+                  }}>{sede}</span>
                 </h1>
-                <div style={S.small}>{esPanol ? "Ingresos · Egresos" : "Control de stock · Ingresos · Egresos · Pedidos"}</div>
+                <div style={S.small}>
+                  Galpón de {sede} · {esPanol ? "Ingresos · Egresos" : "Stock · Ingresos · Egresos · Pedidos"}
+                  {" · "}<span style={{ opacity: 0.75 }}>el stock de {OTRA_SEDE[sede]} se maneja aparte</span>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {/* El pedido a compras se hace desde el Generador de Orden de Compra
@@ -1234,6 +1308,19 @@ export default function LaminacionScreen({ profile, signOut }) {
               </div>
             </div>
 
+            {/* ===== TAB TRASLADOS ===== */}
+            {tab === "Traslados" && (
+              <div className="lam-tab-content">
+                <TrasladosPanel
+                  sede={sede}
+                  materiales={materiales}
+                  stockPorMaterial={stockPorMaterial}
+                  puedeCargar={puedeCargar}
+                  onCambio={cargar}
+                />
+              </div>
+            )}
+
             {/* ===== TAB STOCK ===== */}
             {tab === "Stock" && (
               <div className="lam-tab-content">
@@ -1297,7 +1384,30 @@ export default function LaminacionScreen({ profile, signOut }) {
                               {m.stock % 1 === 0 ? m.stock : m.stock.toFixed(2)}
                             </b>
                           </td>
-                          <td style={S.td}><span style={S.small}>{num(m.stock_minimo)}</span></td>
+                          <td style={S.td}>
+                            {isAdmin ? (
+                              <input
+                                type="number" step="0.01" min="0"
+                                defaultValue={num(m.stock_minimo)}
+                                title={`Mínimo de reposición en ${sede}. El de ${OTRA_SEDE[sede]} se carga desde allá.`}
+                                onBlur={async (e) => {
+                                  const valor = num(e.target.value);
+                                  if (valor === num(m.stock_minimo)) return;
+                                  try {
+                                    await guardarMinimo({ materialId: m.id, sede, minimo: valor });
+                                    flash(`Mínimo de ${m.nombre} en ${sede}: ${valor}`);
+                                    cargarMateriales();
+                                  } catch (error) {
+                                    setErr(error.message);
+                                    e.target.value = num(m.stock_minimo);
+                                  }
+                                }}
+                                style={{ width: 64, border: "1px solid var(--panel-2)", background: "var(--panel-2)", color: "var(--text)", borderRadius: 6, padding: "3px 6px", fontFamily: "inherit", fontSize: 12 }}
+                              />
+                            ) : (
+                              <span style={S.small}>{num(m.stock_minimo)}</span>
+                            )}
+                          </td>
                           <td style={S.td}><span style={S.pillStock(m.estado)}>{m.estado}</span></td>
                         </tr>
                       ))}
@@ -2577,7 +2687,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       stockPorMaterial={stockPorMaterial}
       onCrearPedido={async (materialId, cantidad, obs) => {
         await supabase.from("laminacion_pedidos").insert({
-          material_id: materialId, cantidad, observaciones: obs, estado: "pendiente"
+          material_id: materialId, cantidad, observaciones: obs, estado: "pendiente", sede,
         });
         cargarPedidos();
         flash("Pedido creado");
@@ -2913,6 +3023,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       </div>
       {showAjuste && (
         <AjusteInventarioModal
+          sede={sede}
           materiales={materiales}
           stockPorMaterial={stockPorMaterial}
           onClose={() => setShowAjuste(false)}

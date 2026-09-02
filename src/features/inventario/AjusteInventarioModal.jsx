@@ -481,7 +481,7 @@ function PasoPreview({ lineas, stockPorMaterial, observaciones, setObservaciones
 }
 
 // ─── MODAL PRINCIPAL ──────────────────────────────────────────────────────────
-export default function AjusteInventarioModal({ materiales, stockPorMaterial, onClose, onDone }) {
+export default function AjusteInventarioModal({ sede, materiales, stockPorMaterial, onClose, onDone }) {
   const [paso, setPaso]           = useState(1); // 1 = entrada, 2 = preview
   const [lineas, setLineas]       = useState([]);
   const [observaciones, setObs]   = useState("");
@@ -516,6 +516,7 @@ export default function AjusteInventarioModal({ materiales, stockPorMaterial, on
         fecha,
         observaciones: nota,
         creado_por:   userId,
+        sede,
       }));
 
       const { error } = await supabase.from("laminacion_movimientos").insert(rows);

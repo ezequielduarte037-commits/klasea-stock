@@ -9,6 +9,7 @@ import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import NotificacionesBell from "@/components/NotificacionesBell";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
+import { canonicalPanolSede } from "@/features/panol/panolApi";
 import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
 import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
@@ -168,6 +169,7 @@ const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/Solicitud
 const StockPanolScreen = pantalla(() => import("@/features/panol/StockPanolScreen"));
 const CatalogoMaestroScreen = pantalla(() => import("@/features/catalogo/CatalogoMaestroScreen"));
 const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolScreen"));
+const EgresoConsumiblesScreen = pantalla(() => import("@/features/panol/EgresoConsumiblesScreen"));
 const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
 const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
 const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
@@ -269,6 +271,26 @@ function RequireRole({ profile, allow, children }) {
   if (profile.role === "rrhh")    return <Navigate to="/rrhh" replace />;
   if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
   return <Navigate to="/" replace />;
+}
+
+/**
+ * El galpón al que pertenece el usuario.
+ *
+ * profiles.sede ya existía para pañol y viene poblada -hay gente cargada como
+ * Pampa, como Chubut y como Ambas-, así que se reusa tal cual en vez de
+ * inventar roles nuevos tipo "panol_chubut". Un usuario tiene un solo lugar
+ * donde dice de qué galpón es.
+ *
+ * Admin, "Ambas" y los perfiles sin sede entran a los dos: son los que miran la
+ * operación completa. Al que tiene un galpón asignado y escribe la URL del otro
+ * se lo manda al suyo y no a la home: entró queriendo ver laminación, no
+ * queriendo irse.
+ */
+function RequireSede({ profile, sede, children }) {
+  if (!profile) return <Navigate to="/login" replace />;
+  const propia = canonicalPanolSede(profile.sede);
+  if (profile.is_admin || !propia || propia === sede) return children;
+  return <Navigate to={propia === "Chubut" ? "/laminacion-chubut" : "/laminacion"} replace />;
 }
 
 function RouteLoader({ label = "Cargando módulo..." }) {
@@ -787,7 +809,8 @@ export default function App() {
 
         {/* Personal */}
         <Route path="/panol"      element={<Navigate to="/madera?tab=Stock" replace />} />
-        <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><LaminacionScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Pampa"><LaminacionScreen key="Pampa" {...A} sede="Pampa" /></RequireSede></RequireRole></RequireAuth>} />
+        <Route path="/laminacion-chubut" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Chubut"><LaminacionScreen key="Chubut" {...A} sede="Chubut" /></RequireSede></RequireRole></RequireAuth>} />
         <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles","compras"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/torneria"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","mecanica","compras"]}><TorneriaScreen   {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
@@ -798,6 +821,7 @@ export default function App() {
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/consumibles-caja" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><EgresoConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />
         {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}

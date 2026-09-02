@@ -36,6 +36,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M1 6l7-4 7 4-7 4z" {...p}/>
       <path d="M1 11l7 4 7-4" {...p}/>
     </>,
+    "/laminacion-chubut": <>
+      <path d="M1 6l7-4 7 4-7 4z" {...p}/>
+      <path d="M1 11l7 4 7-4" {...p}/>
+      <circle cx="13.5" cy="13.5" r="2" {...p}/>
+    </>,
     // Yate de motor de perfil: casco + superestructura con parabrisas inclinado
     // + antena. Antes era una silueta de persona (cabeza + hombros), que no
     // decía nada de una obra en producción.
@@ -111,6 +116,10 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="2" width="12" height="4" rx="1" {...p}/>
       <rect x="2" y="7" width="12" height="7" rx="1" {...p}/>
       <path d="M5 10h6M5 12h4" {...p}/>
+    </>,
+    "/consumibles-caja": <>
+      <rect x="2" y="4" width="12" height="8" rx="1.5" {...p}/>
+      <path d="M4.5 6v4M6.5 6v4M9 6v4M11.5 6v4" {...p}/>
     </>,
     "/catalogo-maestro": <>
       <rect x="1.5" y="2" width="13" height="12" rx="2" {...p}/>
@@ -308,6 +317,14 @@ export default function Sidebar({ profile, signOut }) {
   }, [isMobile, menuVisible]);
 
   const role     = profile?.role ?? "invitado";
+  const sedePropia = /chubut/i.test(String(profile?.sede ?? "")) ? "Chubut"
+    : /pampa/i.test(String(profile?.sede ?? "")) ? "Pampa"
+    : "";
+  const veGalpon = (galpon) => profile?.is_admin || !sedePropia || sedePropia === galpon;
+  const itemsLaminacion = (color, base) => <>
+    {veGalpon("Pampa") && item("/laminacion", sedePropia ? "Laminación" : "Laminación · Pampa", color, true, base, "Stock, ingresos, egresos y pedidos del galpón de Pampa.")}
+    {veGalpon("Chubut") && item("/laminacion-chubut", sedePropia ? "Laminación" : "Laminación · Chubut", color, true, base + 5, "Stock, ingresos, egresos y pedidos del galpón de Chubut.")}
+  </>;
   const esDemo   = profile?.is_demo === true;
   const broadAccess = hasAdminAccess(profile);
   const realAdmin = !!profile?.is_admin || role === "admin";
@@ -624,6 +641,7 @@ export default function Sidebar({ profile, signOut }) {
             {item("/egresos-panol", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
             {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
             {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
+            {item("/consumibles-caja", "Egreso de consumibles", SC.panol_catalogo, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
 
             {divider("panol-consulta")}
             {group("Consultar", SC.movimientos, 120)}
@@ -636,14 +654,14 @@ export default function Sidebar({ profile, signOut }) {
             {divider("panol-apoyo")}
             {group("Áreas de apoyo", C.dim, 175)}
             {item("/madera", "Maderas", C.dim, true, 185, "Stock y pedidos específicos de maderas.")}
-            {item("/laminacion", "Laminación", C.dim, true, 195, "Stock y pedidos específicos de laminación.")}
+            {itemsLaminacion(C.dim, 195)}
             {item("/scan-pedido", "Pedir reposición", C.dim, true, 205, "Crear rápidamente un pedido interno a Compras.")}
           </>}
 
           {esGestion && <>
             {group("Inventario", SC.movimientos, 60)}
             {item("/madera", "Maderas", SC.movimientos, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
-            {item("/laminacion", "Laminación", SC.movimientos, true, 80, "Stock, ingresos, egresos, movimientos y pedidos de laminación.")}
+            {itemsLaminacion(SC.movimientos, 80)}
             {item("/scan", "Escáner", SC.movimientos, true, 90, "Egreso de madera por escáner.")}
           </>}
 

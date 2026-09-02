@@ -84,7 +84,7 @@
       "swarmId": "swarm-1786794281889-lch0pt",
       "topology": "hierarchical",
       "maxAgents": 3,
-      "status": "running",
+      "status": "terminated",
       "agents": [],
       "tasks": [],
       "config": {
@@ -96,13 +96,14 @@
         "consensusMechanism": "majority"
       },
       "createdAt": "2026-08-15T11:44:41.890Z",
-      "updatedAt": "2026-08-15T11:44:41.890Z"
+      "updatedAt": "2026-09-02T14:06:51.507Z",
+      "terminationReason": "no pid recorded and heartbeat is 434h stale"
     },
     "swarm-1786799847418-dqsczq": {
       "swarmId": "swarm-1786799847418-dqsczq",
       "topology": "hierarchical",
       "maxAgents": 3,
-      "status": "running",
+      "status": "terminated",
       "agents": [],
       "tasks": [],
       "config": {
@@ -114,13 +115,14 @@
         "consensusMechanism": "majority"
       },
       "createdAt": "2026-08-15T13:17:27.418Z",
-      "updatedAt": "2026-08-15T13:17:27.418Z"
+      "updatedAt": "2026-09-02T14:06:51.507Z",
+      "terminationReason": "no pid recorded and heartbeat is 433h stale"
     },
     "swarm-1786808021308-aokrfv": {
       "swarmId": "swarm-1786808021308-aokrfv",
       "topology": "hierarchical",
       "maxAgents": 3,
-      "status": "running",
+      "status": "terminated",
       "agents": [],
       "tasks": [],
       "config": {
@@ -132,7 +134,26 @@
         "consensusMechanism": "majority"
       },
       "createdAt": "2026-08-15T15:33:41.309Z",
-      "updatedAt": "2026-08-15T15:33:41.309Z"
+      "updatedAt": "2026-09-02T14:06:51.507Z",
+      "terminationReason": "no pid recorded and heartbeat is 431h stale"
+    },
+    "swarm-1788358011505-sq7slw": {
+      "swarmId": "swarm-1788358011505-sq7slw",
+      "topology": "hierarchical",
+      "maxAgents": 6,
+      "status": "running",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical",
+        "maxAgents": 6,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-09-02T14:06:51.505Z",
+      "updatedAt": "2026-09-02T14:06:51.505Z"
     }
   },
   "version": "3.0.0"
