@@ -872,9 +872,6 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
   const niveles = Array.isArray(est.niveles_cm) ? est.niveles_cm : [];
   const alto = est.alto_cm || (niveles.length ? Math.max(...niveles) : 200);
   const largo = est.largo_cm || 90;
-  const VW = 220;
-  const scale = VW / Math.max(largo, 1);
-  const VH = Math.max(90, alto * scale);
   const [filtro, setFiltro] = useState("");
 
   // Conteos por nivel sobre TODO el stock (la vista frontal y el resumen no
@@ -884,6 +881,17 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
     for (const m of mats) {
       const { nivel } = parseUbicacion(m.ubicacion);
       map.set(nivel || 0, (map.get(nivel || 0) || 0) + 1);
+    }
+    return map;
+  }, [mats]);
+
+  const todosPorNivel = useMemo(() => {
+    const map = new Map();
+    for (const m of mats) {
+      const { nivel } = parseUbicacion(m.ubicacion);
+      const key = nivel || 0;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(m);
     }
     return map;
   }, [mats]);
@@ -938,31 +946,65 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
           )}
         </div>
 
-        {/* Vista frontal a escala */}
+        {/* ── Vista frontal ──────────────────────────────────────────────────
+            Antes era un SVG dibujado a escala real y por eso no había forma de
+            que entrara: el alto salía de la proporción de la estantería, así
+            que una de 90 de ancho por 200 de alto -que son 26 de las 46 del
+            pañol- daba un dibujo el doble de alto que ancho y tapaba la lista
+            de productos.
+
+            Ahora cada estante es una banda de alto fijo. La altura real no se
+            pierde: sigue escrita en centímetros al costado de cada uno, que es
+            como se usa igual -nadie mide con la pantalla, mira el número-.
+
+            Adentro de cada banda va un cuadradito por producto, así se ve de
+            un vistazo qué estante está lleno y cuál está vacío. Verde = hay
+            stock, gris = está cargado ahí pero en cero. Se puede clickear. */}
         {niveles.length > 0 && (
-          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 10px 6px", overflow: "hidden" }}>
-            <div style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Vista frontal · alturas reales</div>
-            <svg viewBox={`-44 -10 ${VW + 88} ${VH + 34}`} style={{ width: "100%", height: "auto", display: "block" }}>
-              <rect x={0} y={0} width={VW} height={VH} rx={4} fill={`${color}14`} stroke={color} strokeWidth={2.5} />
-              {niveles.map((n, i) => {
-                const y = VH - n * scale;
-                const count = nivelCount.get(i + 1) || 0;
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 11px 11px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Vista frontal</span>
+              <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono }}>{largo} × {alto} cm</span>
+            </div>
+            <div style={{ display: "grid", gap: 3, borderLeft: `3px solid ${color}`, borderRight: `3px solid ${color}`, borderRadius: 4, padding: "0 4px" }}>
+              {[...niveles].map((n, i) => ({ n, nivel: i + 1 })).reverse().map(({ n, nivel }) => {
+                const items = todosPorNivel.get(nivel) ?? [];
                 return (
-                  <g key={i}>
-                    <line x1={0} y1={y} x2={VW} y2={y} stroke={color} strokeWidth={2} strokeOpacity={0.75} />
-                    <text x={-6} y={y + 4} textAnchor="end" fontSize={11} fontWeight={800} fill={C.dim} fontFamily={C.mono}>{i + 1}º·{n}</text>
-                    {count > 0 && (
-                      <g>
-                        <rect x={VW + 6} y={y - 9} width={34} height={18} rx={9} fill={`${color}22`} stroke={color} strokeWidth={1.2} />
-                        <text x={VW + 23} y={y + 4} textAnchor="middle" fontSize={11} fontWeight={900} fill={color} fontFamily={C.sans}>{count}</text>
-                      </g>
+                  <div key={nivel} style={{
+                    display: "flex", alignItems: "center", gap: 8, minHeight: 34,
+                    borderTop: `2px solid ${color}`, padding: "5px 2px 4px",
+                  }}>
+                    <div style={{ flexShrink: 0, width: 46, textAlign: "right" }}>
+                      <div style={{ fontSize: 11, fontWeight: 900, color: items.length ? color : C.dim, fontFamily: C.mono }}>{nivel}º</div>
+                      <div style={{ fontSize: 9, color: C.dim, fontFamily: C.mono }}>{n} cm</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 3, alignContent: "center" }}>
+                      {items.length === 0 ? (
+                        <span style={{ fontSize: 10.5, color: C.dim, fontStyle: "italic" }}>vacío</span>
+                      ) : items.map((m) => {
+                        const disponible = stockByMaterialId[m.id] || 0;
+                        const hay = disponible > 0;
+                        return (
+                          <button
+                            key={m.id} type="button" onClick={() => onMatClick?.(m)}
+                            title={`${m.descripcion} · ${disponible} disponible${disponible === 1 ? "" : "s"}`}
+                            style={{
+                              width: 17, height: 17, borderRadius: 4, cursor: "pointer", padding: 0,
+                              background: hay ? `${color}55` : "transparent",
+                              border: `1px solid ${hay ? color : C.border2}`,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                    {items.length > 0 && (
+                      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 900, color, fontFamily: C.mono, minWidth: 16, textAlign: "right" }}>{items.length}</span>
                     )}
-                  </g>
+                  </div>
                 );
               })}
-              <line x1={0} y1={VH} x2={VW} y2={VH} stroke={color} strokeWidth={3.5} />
-              <text x={VW / 2} y={VH + 20} textAnchor="middle" fontSize={11} fill={C.dim} fontFamily={C.mono}>{largo} cm</text>
-            </svg>
+              <div style={{ borderTop: `4px solid ${color}`, borderRadius: 2 }} />
+            </div>
           </div>
         )}
 
