@@ -827,6 +827,7 @@ export default function EnviarAPanolModal({
   const [borradorPrevio, setBorradorPrevio] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
   const [verLectura, setVerLectura] = useState(false);
+  const [archivoPendiente, setArchivoPendiente] = useState(null);
   const [aiProveedorId, setAiProveedorId] = useState("");
   const [aiMoneda, setAiMoneda] = useState("");
   const [creatingCatalogIndex, setCreatingCatalogIndex] = useState(null);
@@ -2127,7 +2128,10 @@ export default function EnviarAPanolModal({
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     e.target.value = "";
-                    readRemitoWithAI({ file });
+                    if (!file) return;
+                    // Con el proveedor ya elegido no hay nada que preguntar.
+                    if (aiProveedorId) { readRemitoWithAI({ file }); return; }
+                    setArchivoPendiente(file);
                   }}
                   style={{ display: "none" }}
                 />
@@ -2205,6 +2209,64 @@ export default function EnviarAPanolModal({
                       return <button key={value || 'auto'} type="button" onClick={() => setAiMoneda(value)} style={{ border: `1px solid ${active ? (isUsd ? C.blueB : C.greenB) : C.b0}`, background: active ? (isUsd ? C.blueL : value === 'ARS' ? C.greenL : C.panelSolid) : C.panelSolid, color: active ? (isUsd ? C.blue : value === 'ARS' ? C.green : C.t1) : C.t2, borderRadius: 7, minWidth: label === 'Detectar' ? 76 : 52, height: ingresoDesktop ? 40 : 36, padding: "0 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>{label}</button>;
                     })}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Antes de leer, el proveedor.
+                No es un capricho de formulario: si no se lo decimos, la funcion
+                lee el PDF una vez para sacar los renglones y lo vuelve a leer
+                ENTERO, rasterizado, solo para descubrir de quien es. Son dos
+                pasadas del modelo caro por remito -el doble de plata y el doble
+                de tiempo, hasta colgarse- para averiguar un dato que la persona
+                que tiene el papel en la mano sabe de memoria. */}
+            {archivoPendiente && (
+              <div style={{ display: "grid", gap: 9, padding: "11px 12px", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Bot size={15} style={{ color: C.violet, flexShrink: 0 }} />
+                  <span style={{ color: C.t0, fontSize: 13, fontWeight: 900 }}>¿De qué proveedor es este remito?</span>
+                </div>
+                <div style={{ color: C.t2, fontSize: 11.5, fontWeight: 700 }}>
+                  {archivoPendiente.name} · decírselo evita que la IA tenga que leer el PDF dos veces para averiguarlo.
+                </div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+                  <select
+                    autoFocus
+                    value={aiProveedorId}
+                    onChange={(e) => setAiProveedorId(e.target.value)}
+                    style={inp({ background: C.panelSolid, cursor: "pointer", height: 38, flex: "1 1 200px", minWidth: 0 })}
+                  >
+                    <option value="">Elegí el proveedor…</option>
+                    {proveedores.map((proveedor) => <option key={proveedor.id} value={proveedor.id}>{proveedor.nombre}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!aiProveedorId}
+                    onClick={() => { const f = archivoPendiente; setArchivoPendiente(null); readRemitoWithAI({ file: f }); }}
+                    style={{ border: "none", background: aiProveedorId ? C.violet : "var(--panel-2)", color: aiProveedorId ? "#fff" : C.dim, borderRadius: 8, padding: "9px 16px", cursor: aiProveedorId ? "pointer" : "default", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}
+                  >
+                    Leer el remito
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  {/* La salida de emergencia tiene que existir -a veces el
+                      proveedor no esta cargado todavia- pero diciendo lo que
+                      cuesta, no escondido. */}
+                  <button
+                    type="button"
+                    onClick={() => { const f = archivoPendiente; setArchivoPendiente(null); readRemitoWithAI({ file: f }); }}
+                    style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, padding: 0, textDecoration: "underline" }}
+                  >
+                    No sé cuál es, que lo detecte solo
+                  </button>
+                  <span style={{ color: C.t2, fontSize: 11, fontWeight: 700 }}>tarda bastante más y sale el doble</span>
+                  <button
+                    type="button"
+                    onClick={() => setArchivoPendiente(null)}
+                    style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, padding: 0 }}
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </div>
             )}

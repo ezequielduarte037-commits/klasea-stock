@@ -534,7 +534,7 @@ Formato:
 // chatWithBot — turno conversacional principal
 // ─────────────────────────────────────────────────────────────────────────────
 // extraerComprobantePDF -- OCR de PDFs de remitos, facturas y presupuestos.
-export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[]; contexto?: string }): Promise<ParsedComprobante> {
+export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[]; contexto?: string; proveedorConocido?: string }): Promise<ParsedComprobante> {
   const mimeType = input.mimeType || "application/pdf";
   const filename = input.filename || "comprobante.pdf";
   const exhaustiveTableProtocol = `
@@ -646,7 +646,15 @@ Formato:
   const sinItems = !parsed || !Array.isArray(parsed.items) || parsed.items.length === 0;
   // El proveedor no salio, o salio nuestro propio nombre. Las dos cosas
   // significan lo mismo: en la capa de texto no estaba el nombre del emisor.
-  const sinProveedor = !parsed?.proveedor || esNuestroNombre(parsed.proveedor);
+  //
+  // Salvo que el usuario ya lo haya elegido en la pantalla. Ahi no hay nada que
+  // descubrir, y la segunda pasada -que rasteriza el PDF entero y lo vuelve a
+  // extraer completo- se estaba pagando dos veces el mismo remito para recuperar
+  // tres datos del membrete que ya estaban escritos. Con el proveedor sabido,
+  // el OCR queda solo para lo que de verdad lo necesita: un PDF escaneado, que
+  // se detecta porque la capa de texto no devolvio ningun renglon.
+  const proveedorConocido = String(input.proveedorConocido || "").trim();
+  const sinProveedor = !proveedorConocido && (!parsed?.proveedor || esNuestroNombre(parsed.proveedor));
 
   // Un PDF escaneado devuelve texto vacio y por lo tanto cero items: ahi si vale
   // el OCR. Antes esta era la unica razon para usarlo, y por eso el presupuesto

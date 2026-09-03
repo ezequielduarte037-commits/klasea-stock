@@ -242,7 +242,7 @@ serve(async (req) => {
     if (!isImage && !isPDF) return json({ error: "Solo se aceptan imagenes o PDF" }, 400);
 
     const parsed = isPDF
-      ? await extraerComprobantePDF({ base64: fileBase64, mimeType: "application/pdf", filename, sectores, contexto })
+      ? await extraerComprobantePDF({ base64: fileBase64, mimeType: "application/pdf", filename, sectores, contexto, proveedorConocido: proveedorIndicado })
       : await extraerComprobanteImagen({ base64: fileBase64, mimeType, sectores, contexto });
     // El nombre canonico lo decide el codigo, no el modelo: solo reemplaza lo
     // impreso cuando es claramente el mismo proveedor.
