@@ -1,6 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, ClipboardPaste, Eye, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search } from "lucide-react";
+import { Bot, ClipboardCopy, ClipboardPaste, Eye, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -826,6 +826,7 @@ export default function EnviarAPanolModal({
   // el que cargaba desde Compras lo daba por perdido.
   const [borradorPrevio, setBorradorPrevio] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
+  const [verLectura, setVerLectura] = useState(false);
   const [aiProveedorId, setAiProveedorId] = useState("");
   const [aiMoneda, setAiMoneda] = useState("");
   const [creatingCatalogIndex, setCreatingCatalogIndex] = useState(null);
@@ -1649,6 +1650,64 @@ export default function EnviarAPanolModal({
     return (lista || []).filter((it) => String(it?.descripcion || it?.codigo || "").trim());
   }
 
+  /**
+   * Lo que la IA entendio, en texto plano.
+   *
+   * El resumen dice cuantos renglones leyo, pero no cuales. Con un remito de 52
+   * y una lectura de 50, saber que faltan dos no sirve de nada: hay que poder
+   * sacar la lista de la pantalla y compararla contra el papel -a ojo, o
+   * pegandosela a otra IA junto con el remito-. Buscar los dos faltantes
+   * renglon por renglon cuesta mas que cargar el remito entero a mano, y
+   * entonces la lectura automatica deja de tener sentido.
+   *
+   * Se numera y se pone una cosa por linea a proposito: es el formato que
+   * cualquiera -persona o modelo- puede cruzar contra el original sin ayuda.
+   *
+   * Sale la descripcion_leida, no la del catalogo: lo que hay que comparar
+   * contra el papel es lo que decia el papel, no el nombre con el que quedo
+   * vinculado despues.
+   */
+  function textoLectura() {
+    const encabezado = [
+      `Remito leido por IA - ${items.length} renglon${items.length === 1 ? "" : "es"}`,
+      aiSummary
+        ? `${aiSummary.linked} vinculados al catalogo, ${aiSummary.conSugerencia} con coincidencias para elegir, ${aiSummary.nuevos} sin nada parecido`
+        : "",
+      titulo.trim() ? `Titulo: ${titulo.trim()}` : "",
+      "",
+    ].filter(Boolean);
+
+    const ancho = String(items.length).length;
+    const renglones = items.map((item, i) => {
+      const partes = [];
+      if (item.codigo) partes.push(`[${item.codigo}]`);
+      partes.push(item.descripcion_leida || item.descripcion || "(sin descripcion)");
+      const cantidad = String(item.cantidad ?? "").trim();
+      if (cantidad) partes.push(`- ${cantidad} ${item.unidad || "unidad"}`);
+      const precio = String(item.precio_unitario ?? "").trim();
+      if (precio) partes.push(`- ${item.moneda || "ARS"} ${precio}`);
+      // El que no se leyo seguro va marcado: es donde primero hay que mirar si
+      // la cuenta no cierra.
+      if (item.duda_ia || item.confianza_ia === "baja") partes.push(`(!) ${item.duda_ia || "la IA no lo leyo seguro"}`);
+      return `${String(i + 1).padStart(ancho, " ")}. ${partes.join(" ")}`;
+    });
+
+    return [...encabezado, ...renglones].join("\n");
+  }
+
+  async function copiarLectura() {
+    const texto = textoLectura();
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success(`Copiados los ${items.length} renglones.`);
+    } catch {
+      // Sin permiso de portapapeles no queda nada: se abre el cuadro de texto
+      // para que se pueda seleccionar y copiar a mano.
+      setVerLectura(true);
+      toast.warning("No pude usar el portapapeles. Te abri el texto para copiarlo a mano.");
+    }
+  }
+
   async function readRemitoWithAI({ file = null, text = "" } = {}) {
     const texto = String(text || "").trim();
     if (!file && !texto) return;
@@ -1742,6 +1801,7 @@ export default function EnviarAPanolModal({
         return counts;
       }, {});
       setAiSummary({ detected: hydratedItems.length, linked: suggested, linkedPercent, conSugerencia, nuevos, currencies });
+      setVerLectura(false);
       toast.success(`IA leyo ${hydratedItems.length} item${hydratedItems.length === 1 ? "" : "s"} - ${suggested} vinculado${suggested === 1 ? "" : "s"} al catalogo.`);
       if (texto) setTextoIa("");
       window.setTimeout(() => itemsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -2150,15 +2210,46 @@ export default function EnviarAPanolModal({
             )}
 
             {aiSummary && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.violetB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.violetL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 750 }}>
-                <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.violet, flexShrink: 0 }} />
-                <span>
-                  IA leyó <strong>{aiSummary.detected}</strong> ítems.
-                  {" "}<strong>{aiSummary.linked}</strong> vinculados solos
-                  {aiSummary.conSugerencia > 0 ? <>, <strong>{aiSummary.conSugerencia}</strong> con coincidencias para elegir abajo</> : null}
-                  {aiSummary.nuevos > 0 ? <>, <strong>{aiSummary.nuevos}</strong> sin nada parecido en el catálogo (se crean al guardar)</> : null}.
-                  {aiSummary.currencies?.ARS ? <> {" "}<strong>ARS {aiSummary.currencies.ARS}</strong></> : null}{aiSummary.currencies?.ARS && aiSummary.currencies?.USD ? " · " : null}{aiSummary.currencies?.USD ? <><strong>USD {aiSummary.currencies.USD}</strong></> : null}
-                </span>
+              <div style={{ display: "grid", gap: 7, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.violetB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.violetL, borderRadius: 9 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.t1, fontSize: 12, fontWeight: 750 }}>
+                  <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.violet, flexShrink: 0 }} />
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    IA leyó <strong>{aiSummary.detected}</strong> ítems.
+                    {" "}<strong>{aiSummary.linked}</strong> vinculados solos
+                    {aiSummary.conSugerencia > 0 ? <>, <strong>{aiSummary.conSugerencia}</strong> con coincidencias para elegir abajo</> : null}
+                    {aiSummary.nuevos > 0 ? <>, <strong>{aiSummary.nuevos}</strong> sin nada parecido en el catálogo (se crean al guardar)</> : null}.
+                    {aiSummary.currencies?.ARS ? <> {" "}<strong>ARS {aiSummary.currencies.ARS}</strong></> : null}{aiSummary.currencies?.ARS && aiSummary.currencies?.USD ? " · " : null}{aiSummary.currencies?.USD ? <><strong>USD {aiSummary.currencies.USD}</strong></> : null}
+                  </span>
+                </div>
+
+                {/* Cuántos ítems leyó no dice cuáles se le escaparon. Con un
+                    remito de 52 y una lectura de 50, encontrar los 2 que faltan
+                    mirando renglón por renglón cuesta más que cargarlos a mano,
+                    así que la lectura tiene que poder salir de la pantalla:
+                    copiada y pegada contra el papel, o contra otra IA. */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" onClick={copiarLectura}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t1, borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+                    <ClipboardCopy size={13} /> Copiar los {items.length} renglones
+                  </button>
+                  <button type="button" onClick={() => setVerLectura((v) => !v)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${verLectura ? C.violetB : C.b0}`, background: C.panelSolid, color: verLectura ? C.violet : C.t2, borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+                    <Eye size={13} /> {verLectura ? "Ocultar" : "Ver como texto"}
+                  </button>
+                  <span style={{ color: C.t2, fontSize: 11, fontWeight: 700 }}>
+                    ¿El remito tenía más? Copialo y comparalo contra el papel.
+                  </span>
+                </div>
+
+                {verLectura && (
+                  <textarea
+                    readOnly
+                    value={textoLectura()}
+                    onFocus={(e) => e.currentTarget.select()}
+                    rows={10}
+                    style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 8, padding: "8px 10px", fontFamily: C.mono, fontSize: 11, lineHeight: 1.45, resize: "vertical", outline: "none" }}
+                  />
+                )}
               </div>
             )}
 
