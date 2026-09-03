@@ -33,14 +33,29 @@ export default function UbicacionPicker({ materialId, ubicacion = null, ubicacio
 
   useEffect(() => {
     if (cacheEstanterias) return;
-    supabase.from("panol_estanterias").select("codigo, niveles_cm").eq("activo", true).order("codigo")
+    supabase.from("panol_estanterias").select("codigo, niveles_cm, tipo, cajones").eq("activo", true).order("codigo")
       .then(({ data, error }) => {
         if (!error && data) { cacheEstanterias = data; setEstanterias(data); }
       });
   }, []);
 
   const selEst = useMemo(() => estanterias.find((e) => e.codigo === cod) || null, [estanterias, cod]);
-  const nivelesCount = Array.isArray(selEst?.niveles_cm) ? selEst.niveles_cm.length : 0;
+
+  // Una cajonera se describe con `cajones` -un rótulo por cajón- y un estante
+  // con `niveles_cm`. La ubicación que se guarda es la misma en los dos casos
+  // (CODIGO-n); lo único que cambia es de dónde sale la lista y cómo se lee.
+  const esCajonera = selEst?.tipo === "cajonera";
+  const posiciones = useMemo(() => {
+    if (esCajonera) {
+      const cajones = Array.isArray(selEst?.cajones) ? selEst.cajones : [];
+      return cajones.map((etiqueta, i) => ({
+        valor: String(i + 1),
+        texto: etiqueta ? `Cajón ${i + 1} · ${etiqueta}` : `Cajón ${i + 1}`,
+      }));
+    }
+    const niveles = Array.isArray(selEst?.niveles_cm) ? selEst.niveles_cm : [];
+    return niveles.map((_, i) => ({ valor: String(i + 1), texto: `${i + 1}º estante` }));
+  }, [selEst, esCajonera]);
 
   const dirty = useMemo(() => {
     const current = parseUbicacion(ubicacion);
@@ -79,11 +94,11 @@ export default function UbicacionPicker({ materialId, ubicacion = null, ubicacio
           <option value="AFUERA">🏕 Afuera del pañol</option>
           {estanterias.map((e) => <option key={e.codigo} value={e.codigo}>{e.codigo}</option>)}
         </select>
-        {cod && cod !== "AFUERA" && nivelesCount > 0 && (
-          <select value={nivel} onChange={(e) => setNivel(e.target.value)} style={{ ...inp, cursor: "pointer", flex: "0 1 auto" }}>
-            <option value="">Estante…</option>
-            {Array.from({ length: nivelesCount }, (_, i) => (
-              <option key={i + 1} value={String(i + 1)}>{i + 1}º estante</option>
+        {cod && cod !== "AFUERA" && posiciones.length > 0 && (
+          <select value={nivel} onChange={(e) => setNivel(e.target.value)} style={{ ...inp, cursor: "pointer", flex: "1 1 auto", maxWidth: 260 }}>
+            <option value="">{esCajonera ? "Cajón…" : "Estante…"}</option>
+            {posiciones.map((p) => (
+              <option key={p.valor} value={p.valor}>{p.texto}</option>
             ))}
           </select>
         )}

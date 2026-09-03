@@ -87,7 +87,7 @@ function normText(s) {
 const MAPA_ZONA_COLOR = {
   A: "#5b7aa8", B: "#8478ab", C: "#4f9aa2", D: "#5fa384", E: "#c09a52",
   F: "#b8748f", G: "#87a05c", H: "#bd8757", I: "#579c93", J: "#7377b4",
-  K: "#9776ad", P: "#bd7373", V: "#b0a057",
+  K: "#9776ad", N: "#7fa8b8", P: "#bd7373", V: "#b0a057",
 };
 function mapaColor(codigo) {
   return MAPA_ZONA_COLOR[String(codigo || "").charAt(0).toUpperCase()] || "#7c8798";
@@ -666,7 +666,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
             )}
           </div>
 
-          {selEst && <EstanteriaPanel est={selEst} mats={selMats} stockByMaterialId={stockByMaterialId} onClose={() => setSel(null)} onMatClick={setDetalleMat} />}
+          {selEst && <EstanteriaPanel est={selEst} mats={selMats} stockByMaterialId={stockByMaterialId} onClose={() => setSel(null)} onMatClick={setDetalleMat} canEdit={canEdit} toast={toast} onCambio={cargar} />}
         </div>
       </div>
       {detalleMat && <MaterialDetalleModal material={detalleMat} onClose={() => setDetalleMat(null)} />}
@@ -867,12 +867,37 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
 }
 
 // ── Ficha de estantería: vista frontal a escala + productos por estante ──
-function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClick }) {
+function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClick, canEdit = false, toast, onCambio }) {
   const color = mapaColor(est.codigo);
   const niveles = Array.isArray(est.niveles_cm) ? est.niveles_cm : [];
+  // Una cajonera no es una pila de estantes sino una grilla, y cada posición
+  // tiene nombre: nadie busca "el 13", busca el cajón de los racores.
+  const esCajonera = est.tipo === "cajonera";
+  const cajones = Array.isArray(est.cajones) ? est.cajones : [];
+  const filasCajonera = Math.max(1, Number(est.filas) || 5);
+  // La numeración baja por la columna -1 a 5 la primera, 6 a 10 la segunda-,
+  // así que la columna sale de dividir por el alto de la columna.
+  const columnasCajonera = Math.max(1, Math.ceil(cajones.length / filasCajonera));
   const alto = est.alto_cm || (niveles.length ? Math.max(...niveles) : 200);
   const largo = est.largo_cm || 90;
   const [filtro, setFiltro] = useState("");
+  const [guardandoCajon, setGuardandoCajon] = useState(0);
+
+  async function guardarRotulo(numero, texto) {
+    const actual = Array.isArray(est.cajones) ? est.cajones : [];
+    const limpio = String(texto || "").trim();
+    if ((actual[numero - 1] || "") === limpio) return;
+    setGuardandoCajon(numero);
+    const copia = [...actual];
+    copia[numero - 1] = limpio;
+    const { error } = await supabase
+      .from("panol_estanterias")
+      .update({ cajones: copia, updated_at: new Date().toISOString() })
+      .eq("codigo", est.codigo);
+    setGuardandoCajon(0);
+    if (error) { toast?.error("No se pudo guardar el rótulo."); return; }
+    await onCambio?.();
+  }
 
   // Conteos por nivel sobre TODO el stock (la vista frontal y el resumen no
   // cambian al filtrar; el filtro solo afecta la lista de abajo).
@@ -960,7 +985,95 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
             Adentro de cada banda va un cuadradito por producto, así se ve de
             un vistazo qué estante está lleno y cuál está vacío. Verde = hay
             stock, gris = está cargado ahí pero en cero. Se puede clickear. */}
-        {niveles.length > 0 && (
+        {esCajonera && cajones.length > 0 && (
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 11px 11px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Cajonera</span>
+              <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono }}>{columnasCajonera} × {filasCajonera} · {cajones.length} cajones</span>
+            </div>
+            {/* La grilla se dibuja como está el mueble: la numeración baja por
+                la columna -1 a 5 la primera, 6 a 10 la segunda- igual que los
+                rótulos pegados en los cajones reales. */}
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${columnasCajonera}, minmax(0, 1fr))`, gap: 4 }}>
+              {Array.from({ length: columnasCajonera * filasCajonera }, (_, celda) => {
+                const fila = Math.floor(celda / columnasCajonera);
+                const columna = celda % columnasCajonera;
+                const numero = columna * filasCajonera + fila + 1;
+                if (numero > cajones.length) return <div key={celda} />;
+                const etiqueta = cajones[numero - 1] || "";
+                const items = todosPorNivel.get(numero) ?? [];
+                const conStock = items.filter((m) => (stockByMaterialId[m.id] || 0) > 0).length;
+                return (
+                  <div key={celda} style={{
+                    border: `1px solid ${items.length ? color : C.border}`,
+                    background: items.length ? `${color}12` : "transparent",
+                    borderRadius: 6, padding: "5px 6px", minHeight: 54,
+                    display: "flex", flexDirection: "column", gap: 3,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 900, color: items.length ? color : C.dim, fontFamily: C.mono }}>{numero}</span>
+                      {items.length > 0 && (
+                        <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: 900, color: C.dim, fontFamily: C.mono }}>{conStock}/{items.length}</span>
+                      )}
+                    </div>
+                    {canEdit ? (
+                      /* Se guarda al salir del campo y no con un botón: los
+                         rótulos se completan de a poco mientras se ordena el
+                         mueble, y un botón por cajón son veinte clicks de más
+                         en una tarea que ya es tediosa. El key fuerza el
+                         remonte cuando el valor guardado cambia, porque el
+                         campo es no controlado y si no se quedaría con el
+                         texto viejo después de recargar. */
+                      <textarea
+                        key={`${numero}-${etiqueta}`}
+                        defaultValue={etiqueta}
+                        placeholder="sin rótulo"
+                        title={etiqueta || "Escribí qué hay en este cajón"}
+                        rows={2}
+                        disabled={guardandoCajon === numero}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = C.panelSolid; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; guardarRotulo(numero, e.target.value); }}
+                        style={{
+                          width: "100%", boxSizing: "border-box", resize: "none",
+                          border: "1px solid transparent", background: "transparent",
+                          color: etiqueta ? C.text : C.dim, fontFamily: C.sans,
+                          fontSize: 9, lineHeight: 1.2, fontWeight: 700,
+                          borderRadius: 4, padding: "1px 3px", outline: "none",
+                          opacity: guardandoCajon === numero ? 0.5 : 1,
+                        }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: 9, lineHeight: 1.2, color: C.dim, fontWeight: 700, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                        {etiqueta || "sin rótulo"}
+                      </div>
+                    )}
+                    {items.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: "auto" }}>
+                        {items.map((m) => {
+                          const hay = (stockByMaterialId[m.id] || 0) > 0;
+                          return (
+                            <button
+                              key={m.id} type="button" onClick={() => onMatClick?.(m)}
+                              title={`${m.descripcion} · ${stockByMaterialId[m.id] || 0} disponible`}
+                              style={{
+                                width: 11, height: 11, borderRadius: 3, cursor: "pointer", padding: 0,
+                                background: hay ? `${color}66` : "transparent",
+                                border: `1px solid ${hay ? color : C.border2}`,
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!esCajonera && niveles.length > 0 && (
           <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 11px 11px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 8 }}>
               <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Vista frontal</span>
@@ -1027,7 +1140,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
 
           {mats.length === 0 ? (
             <div style={{ fontSize: 12, color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 10, padding: "12px 10px", textAlign: "center" }}>
-              Sin productos asignados. Se cargan en el conteo o al recibir: ubicación <span style={{ fontFamily: C.mono, color }}>{est.codigo}-2</span> = 2º estante.
+              Sin productos asignados. Se cargan en el conteo o al recibir: ubicación <span style={{ fontFamily: C.mono, color }}>{est.codigo}-2</span> = {esCajonera ? "cajón 2" : "2º estante"}.
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ fontSize: 12, color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 10, padding: "14px 10px", textAlign: "center" }}>
@@ -1039,7 +1152,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                 <div key={nivel} style={{ display: "grid", gap: 7 }}>
                   {matsPorNivel.size > 1 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 2 }}>
-                      <span style={{ fontSize: 10, color, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.4 }}>{nivel === 0 ? "Sin estante asignado" : `${nivel}º estante`}</span>
+                      <span style={{ fontSize: 10, color, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.4 }}>{nivel === 0 ? (esCajonera ? "Sin cajón asignado" : "Sin estante asignado") : esCajonera ? `Cajón ${nivel}${cajones[nivel - 1] ? ` · ${cajones[nivel - 1]}` : ""}` : `${nivel}º estante`}</span>
                       <span style={{ fontSize: 10, fontWeight: 800, color: C.dim, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: "1px 6px" }}>{items.length}</span>
                       <div style={{ flex: 1, height: 1, background: C.border }} />
                     </div>
