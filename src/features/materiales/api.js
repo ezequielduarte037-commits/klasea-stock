@@ -357,6 +357,44 @@ export function normalizeMaterialLinks(value) {
     });
 }
 
+/* ── Quién le vende cada material ────────────────────────────────────────────
+   Hay dos vínculos posibles y no equivalentes: `proveedor_id` (el bueno) y
+   `proveedor`, el campo de texto viejo. 215 materiales activos NO tienen
+   `proveedor_id` pero su texto nombra exacto a un proveedor que existe (los
+   parabrisas de Favicur, por ejemplo): mirando solo el id quedan invisibles.
+
+   El texto SOLO cuenta cuando no hay `proveedor_id`, para que un texto viejo no
+   le robe el material a su proveedor real. Y la comparación es exacta: los
+   nombres combinados tipo "Mercoglass/Favicur" o "Janored/2001" no son ninguno
+   de los dos, y se arreglan asignándole el proveedor al material, no
+   adivinando acá. */
+
+const nombreProveedorLlave = (valor) =>
+  String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+export function indiceProveedoresPorNombre(proveedores) {
+  const indice = new Map();
+  for (const proveedor of proveedores || []) {
+    const llave = nombreProveedorLlave(proveedor?.nombre);
+    // Si dos proveedores se llaman igual gana el primero: no hay forma de
+    // decidir y duplicar el material en los dos sería peor.
+    if (llave && proveedor?.id && !indice.has(llave)) indice.set(llave, proveedor.id);
+  }
+  return indice;
+}
+
+/** Proveedor principal del material: el id si está, si no el nombre del texto. */
+export function proveedorPrincipalId(material, indice) {
+  if (material?.proveedor_id) return material.proveedor_id;
+  const llave = nombreProveedorLlave(material?.proveedor);
+  return (llave && indice?.get(llave)) || null;
+}
+
 export function precioVigente(material) {
   return (
     material?.ultimo_precio ??

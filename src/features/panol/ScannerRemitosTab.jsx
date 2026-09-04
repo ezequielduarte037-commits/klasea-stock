@@ -84,6 +84,7 @@ const STATUS_META = {
 
 const CONTEXTO_VACIO = {
   carpeta: "",
+  carpetas: [],
   proveedor: "",
   obra: null,
   obras: [],
@@ -216,12 +217,14 @@ function Metric({ label, value, color, detail }) {
  */
 function DestinoPill({ contexto }) {
   if (!contexto) return null;
-  const codigos = (contexto.obras || []).map((obra) => obra?.codigo).filter(Boolean);
-  const destino = codigos.length
-    ? codigos.length <= 2 ? codigos.join(" + ") : `${codigos.slice(0, 2).join(" + ")} +${codigos.length - 2}`
-    : contexto.obra?.codigo || (contexto.carpeta ? carpetaParaMostrar(contexto.carpeta).replace(/^Remitos\\/, "") : "");
+  const lugares = [
+    ...(contexto.obras || []).map((obra) => obra?.codigo).filter(Boolean),
+    ...(contexto.carpetas || []),
+  ];
+  if (!lugares.length && contexto.obra?.codigo) lugares.push(contexto.obra.codigo);
+  const destino = lugares.length <= 2 ? lugares.join(" + ") : `${lugares.slice(0, 2).join(" + ")} +${lugares.length - 2}`;
   const partes = [
-    destino,
+    destino || (contexto.carpeta ? carpetaParaMostrar(contexto.carpeta).replace(/^Remitos\\/, "") : ""),
     contexto.proveedor,
   ].filter(Boolean);
   return (
@@ -309,6 +312,14 @@ export default function ScannerRemitosTab({
 
   useEffect(() => { loadRemote(); }, [loadRemote]);
 
+  // Se relee despues de cada remito guardado: una carpeta recien creada tiene
+  // que estar en la lista del proximo, o el que sigue la vuelve a escribir a
+  // mano y termina siendo otra carpeta parecida.
+  const loadCarpetasYProveedores = useCallback(() => {
+    fetchCarpetasUsadas().then(setCarpetasUsadas).catch(() => {});
+    fetchProveedoresConocidos().then(setProveedoresUsados).catch(() => {});
+  }, []);
+
   useEffect(() => {
     let vivo = true;
     fetchCarpetasUsadas()
@@ -383,6 +394,7 @@ export default function ScannerRemitosTab({
         proveedor: contexto.proveedor,
         obraIds: (contexto.obras || []).map((obra) => obra.id),
         obraId: contexto.obra?.id || null,
+        carpetas: contexto.carpetas || [],
         carpetaLocal: contexto.carpeta || "",
         titulo: contexto.titulo || "",
         notas: contexto.notas || "",
@@ -398,6 +410,7 @@ export default function ScannerRemitosTab({
         }
       }
       await Promise.all([loadLocal({ quiet: true }), loadRemote()]);
+      loadCarpetasYProveedores();
 
       if (duplicado) {
         toast.success("Este remito ya estaba cargado. Abrimos el existente.");
@@ -409,8 +422,11 @@ export default function ScannerRemitosTab({
       // stock. Abrirle el formulario igual seria pedirle que cancele algo que no
       // pidio.
       if (contexto.soloArchivar) {
-        const codigos = (contexto.obras || []).map((obra) => obra.codigo).filter(Boolean);
-        toast.success(`Remito archivado${codigos.length ? ` en ${codigos.join(", ")}` : ""}. Lo encontrás en Remitos.`);
+        const lugares = [
+          ...(contexto.obras || []).map((obra) => obra.codigo).filter(Boolean),
+          ...(contexto.carpetas || []),
+        ];
+        toast.success(`Remito archivado${lugares.length ? ` en ${lugares.join(", ")}` : ""}. Lo encontrás en Remitos.`);
         return;
       }
       if (lectura && !lectura.ok) {
@@ -456,7 +472,14 @@ export default function ScannerRemitosTab({
   function baseParaNuevoEscaneo() {
     const previo = escaneoEnCurso?.contexto;
     if (!previo) return CONTEXTO_VACIO;
-    return { ...CONTEXTO_VACIO, obra: previo.obra, obras: previo.obras || [], carpeta: previo.carpeta, proveedor: previo.proveedor };
+    return {
+      ...CONTEXTO_VACIO,
+      obra: previo.obra,
+      obras: previo.obras || [],
+      carpetas: previo.carpetas || [],
+      carpeta: previo.carpeta,
+      proveedor: previo.proveedor,
+    };
   }
 
   function pedirDatosYGuardar(row, contextoBase = null) {
@@ -549,6 +572,7 @@ export default function ScannerRemitosTab({
     if (!abierto) return;
     const contexto = {
       carpeta: datos.carpeta,
+      carpetas: datos.carpetas || [],
       proveedor: datos.proveedor,
       obra: datos.obra,
       obras: datos.obras || [],
@@ -576,9 +600,13 @@ export default function ScannerRemitosTab({
         scanStartedAt: result?.startedAt || new Date().toISOString(),
         lastError: "",
       }));
+      const lugares = [
+        ...(datos.obras || []).map((obra) => obra.codigo).filter(Boolean),
+        ...(datos.carpetas || []),
+      ];
       toast.success(
         datos.carpeta
-          ? `Escaneando para ${(datos.obras || []).map((obra) => obra.codigo).join(", ") || "la carpeta elegida"}. Se guarda en ${carpetaParaMostrar(datos.carpeta)}.`
+          ? `Escaneando para ${lugares.join(", ") || "la carpeta elegida"}. Se guarda en ${carpetaParaMostrar(datos.carpeta)}.`
           : (result?.message || "Scanner abierto."),
       );
     } catch (error) {
@@ -601,7 +629,7 @@ export default function ScannerRemitosTab({
           proveedorSugerido={modal.base?.proveedor || ""}
           tituloInicial={modal.base?.titulo || ""}
           notasInicial={modal.base?.notas || ""}
-          carpetaInicial={(modal.base?.obras?.length || modal.base?.obra) ? "" : (modal.base?.carpeta || "")}
+          carpetasIniciales={modal.base?.carpetas || []}
           soloArchivarInicial={Boolean(modal.base?.soloArchivar)}
           esConsumiblesInicial={Boolean(modal.base?.esConsumibles)}
           proveedoresConocidos={proveedoresUsados}

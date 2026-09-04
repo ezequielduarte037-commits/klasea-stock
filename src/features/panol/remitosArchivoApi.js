@@ -5,6 +5,12 @@ import {
   haySoporteRemitosMultiobra,
   normalizarObraIds,
 } from "@/features/panol/remitosObrasApi";
+import {
+  asignarCarpetasDeRemito,
+  fetchCarpetasDeRemitos,
+  fetchCarpetasExistentes,
+} from "@/features/panol/remitosCarpetasApi";
+import { normalizarCarpeta, normalizarCarpetas } from "@/features/panol/carpetaRemitos";
 
 const BUCKET = "panol-comprobantes";
 
@@ -40,6 +46,23 @@ const COLUMNAS_SIN_OBRA = "id,proveedor,numero,fecha,total,moneda,sede,notas,arc
  * sin obra en vez de romper: la pantalla igual sirve para buscar por proveedor,
  * numero o fecha, que es la mitad del valor.
  */
+/**
+ * Las carpetas propias de un remito, con la compatibilidad hacia atras.
+ *
+ * Antes de la tabla de carpetas el unico lugar donde vivia una carpeta escrita a
+ * mano era `carpeta_local`, que ademas es la ruta del archivo en la PC. Los
+ * valores con barra ("K55/55-1") son rutas de obra que arma el sistema, no
+ * carpetas propias: mostrarlas como carpeta duplicaria el barco en el arbol.
+ */
+function carpetasDeFila(fila, propias) {
+  const nuevas = propias.disponible ? propias.porRemito.get(String(fila.id)) || [] : [];
+  if (nuevas.length) return nuevas;
+  const legado = String(fila.carpeta_local || "");
+  if (!legado || legado.includes("/") || legado.includes("\\")) return [];
+  const nombre = normalizarCarpeta(legado);
+  return nombre ? [nombre] : [];
+}
+
 export async function fetchRemitosArchivados({ limite = 400, incluirDescartados = false } = {}) {
   const construir = (columnas) => {
     let query = supabase
@@ -71,6 +94,8 @@ export async function fetchRemitosArchivados({ limite = 400, incluirDescartados 
     ? await fetchObrasDeRemitos(filas.map((fila) => fila.id))
     : { disponible: false, porRemito: new Map() };
 
+  const propias = await fetchCarpetasDeRemitos(filas.map((fila) => fila.id));
+
   // `obra_id` queda como compatibilidad para datos viejos y bases que todavía
   // no tienen la tabla multiobra. Las asociaciones nuevas son la fuente.
   let obrasPorId = new Map();
@@ -93,6 +118,7 @@ export async function fetchRemitosArchivados({ limite = 400, incluirDescartados 
   return {
     hayObra,
     hayMultiobra: multiobra.disponible,
+    hayCarpetas: propias.disponible,
     remitos: filas.map((fila) => {
       const legado = fila.obra_id ? obrasPorId.get(fila.obra_id) ?? null : null;
       const vinculadas = multiobra.disponible ? multiobra.porRemito.get(String(fila.id)) || [] : [];
@@ -102,6 +128,7 @@ export async function fetchRemitosArchivados({ limite = 400, incluirDescartados 
         obra: obras[0] || null,
         obras,
         obra_ids: obras.map((obra) => obra.id),
+        carpetas: carpetasDeFila(fila, propias),
         renglones: renglones.get(fila.id) ?? 0,
         // Sin renglones y sin ingreso hecho: el papel esta guardado pero la IA
         // todavia no lo leyo (o no pudo). Es un estado normal, no un error. Se
@@ -138,25 +165,24 @@ async function contarRenglones(ids) {
  * formas distintas y partida en tres.
  */
 export async function fetchCarpetasUsadas() {
+  const nuevas = await fetchCarpetasExistentes().catch(() => ({ disponible: false, carpetas: [] }));
+
   const { data, error } = await supabase
     .from("panol_comprobantes")
     .select("carpeta_local")
     .eq("origen_carga", "scanner_panol")
     .not("carpeta_local", "is", null)
     .limit(500);
-  if (error) {
-    if (esColumnaFaltante(error)) return [];
-    throw error;
-  }
-  const vistas = new Map();
-  for (const fila of data ?? []) {
+  if (error && !esColumnaFaltante(error)) throw error;
+
+  const legadas = [];
+  for (const fila of (error ? [] : data) ?? []) {
     const nombre = String(fila.carpeta_local || "").trim();
     // Las de obra ya salen del selector de barcos: aca solo las escritas a mano.
     if (!nombre || nombre.includes("/") || nombre.includes("\\")) continue;
-    const clave = nombre.toLowerCase();
-    if (!vistas.has(clave)) vistas.set(clave, nombre);
+    legadas.push(nombre);
   }
-  return [...vistas.values()].sort((a, b) => a.localeCompare(b));
+  return normalizarCarpetas([...nuevas.carpetas, ...legadas]).sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -167,21 +193,27 @@ export async function fetchCarpetasUsadas() {
  * que es exactamente como una misma empresa termina cargada de cuatro formas.
  */
 export async function fetchProveedoresConocidos() {
-  const { data, error } = await supabase
-    .from("panol_proveedores")
-    .select("nombre")
-    .eq("activo", true)
-    .order("nombre")
-    .limit(400);
-  if (error) return [];
+  const [alta, usados] = await Promise.all([
+    supabase.from("panol_proveedores").select("nombre").eq("activo", true).order("nombre").limit(400),
+    // Tambien los que ya estan escritos en un remito: cada proveedor es una
+    // carpeta, y uno que no se ofrece se vuelve a escribir distinto la proxima
+    // vez -"Iriarte" y "Casa Iriarte" son dos carpetas con la mitad cada una-.
+    supabase
+      .from("panol_comprobantes")
+      .select("proveedor")
+      .eq("origen_carga", "scanner_panol")
+      .not("proveedor", "is", null)
+      .limit(600),
+  ]);
+
   const vistas = new Map();
-  for (const fila of data ?? []) {
-    const nombre = String(fila.nombre || "").trim();
+  for (const fila of [...(alta.error ? [] : alta.data ?? []), ...(usados.error ? [] : usados.data ?? [])]) {
+    const nombre = String(fila.nombre ?? fila.proveedor ?? "").trim();
     if (!nombre) continue;
     const clave = nombre.toLowerCase();
     if (!vistas.has(clave)) vistas.set(clave, nombre);
   }
-  return [...vistas.values()];
+  return [...vistas.values()].sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -227,4 +259,9 @@ export async function reasignarObraDeRemito(remitoId, obraId) {
 /** Cambia todas las carpetas virtuales del remito sin duplicar el documento. */
 export async function reasignarObrasDeRemito(remitoId, obraIds) {
   return asignarObrasDeRemito(remitoId, obraIds);
+}
+
+/** Lo mismo para las carpetas propias. Tampoco mueve el PDF de la PC. */
+export async function reasignarCarpetasDeRemito(remitoId, carpetas) {
+  return asignarCarpetasDeRemito(remitoId, carpetas);
 }

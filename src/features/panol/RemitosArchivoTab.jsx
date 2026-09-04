@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bot,
+  Building2,
   ChevronRight,
   ExternalLink,
   FileText,
+  Folder,
   FolderOpen,
   Layers,
   LoaderCircle,
@@ -17,20 +19,41 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
-import { fetchRemitosArchivados, reasignarObrasDeRemito, urlDeRemito } from "@/features/panol/remitosArchivoApi";
+import {
+  fetchCarpetasUsadas,
+  fetchProveedoresConocidos,
+  fetchRemitosArchivados,
+  reasignarCarpetasDeRemito,
+  reasignarObrasDeRemito,
+  urlDeRemito,
+} from "@/features/panol/remitosArchivoApi";
 import { actualizarDatosDeRemito, borrarRemitoEscaneado, leerRemitoConIA } from "@/features/panol/remitosScannerApi";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
-import { carpetaDeObra, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
-import SelectorObrasRemito from "@/features/panol/SelectorObrasRemito";
+import { carpetaDeObra, carpetaParaMostrar, normalizarCarpetas } from "@/features/panol/carpetaRemitos";
+import SelectorDestinosRemito from "@/features/panol/SelectorDestinosRemito";
+import DestinosDeRemito from "@/features/panol/DestinosDeRemito";
 
 /**
- * Los remitos del pañol, ordenados como estan en la PC: linea de produccion,
- * despues barco, despues los remitos. Se navega igual que las carpetas a
- * proposito, para que quien busca un papel y quien busca en el sistema piensen
- * de la misma forma y nadie tenga que traducir de una cosa a la otra.
+ * Los remitos del pañol, navegados como carpetas.
  *
- * La busqueda corta los tres niveles: escribiendo "iriarte" aparecen todos sus
- * remitos, esten en el barco que esten.
+ * Se entra igual que a las carpetas de la PC a proposito, para que quien busca
+ * un papel a mano y quien lo busca en el sistema piensen de la misma forma y
+ * nadie tenga que traducir de una cosa a la otra.
+ *
+ * Lo que cambia respecto de la version anterior es que hay TRES formas de
+ * entrar, no una. El mismo remito esta en las tres a la vez y no se duplica
+ * nada: es el mismo documento mirado por donde uno lo esta buscando.
+ *
+ *   Por obra       linea -> barco -> remitos   (como estaba)
+ *   Por proveedor  proveedor -> remitos
+ *   Por carpeta    carpeta propia -> remitos
+ *
+ * Antes solo existia la primera, y un remito de ferreteria que no era de ningun
+ * barco terminaba mezclado en "sin obra" con todos los demas: guardarlo era
+ * facil y encontrarlo imposible.
+ *
+ * La busqueda corta todos los niveles: escribiendo "iriarte" aparecen todos sus
+ * remitos, esten donde esten.
  *
  * Un remito puede estar guardado SIN haber sido leido por la IA -es lo que pasa
  * cuando se archiva un papel para tenerlo, o cuando la lectura fallo-. Eso no es
@@ -40,11 +63,19 @@ import SelectorObrasRemito from "@/features/panol/SelectorObrasRemito";
 
 const SIN_LINEA = "__sin_linea__";
 const SIN_OBRA = "__sin_obra__";
+const SIN_PROVEEDOR = "__sin_proveedor__";
+const SIN_CARPETA = "__sin_carpeta__";
 
 const FILTROS = [
   ["todos", "Todos"],
   ["sin_leer", "Falta leer"],
   ["leidos", "Con renglones"],
+];
+
+const VISTAS = [
+  { valor: "obra", etiqueta: "Por obra", raiz: "Todas las líneas", Icono: Ship },
+  { valor: "proveedor", etiqueta: "Por proveedor", raiz: "Todos los proveedores", Icono: Building2 },
+  { valor: "carpeta", etiqueta: "Por carpeta", raiz: "Todas las carpetas", Icono: Folder },
 ];
 
 function fmtFecha(valor) {
@@ -63,6 +94,13 @@ function money(total, moneda) {
 /** Nombre legible de una carpeta escrita a mano ("K55/55-1" -> "K55 · 55-1"). */
 function nombreCarpeta(valor) {
   return String(valor || "").split(/[\\/]+/).filter(Boolean).join(" · ");
+}
+
+/** Si dos listas de destinos son distintas, sin importar el orden. */
+function cambio(actual, original) {
+  const a = [...(actual || [])].map(String).sort();
+  const b = [...(original || [])].map(String).sort();
+  return a.length !== b.length || a.some((valor, i) => valor !== b[i]);
 }
 
 function Chip({ children, color = C.dim, soft = C.panel2, border = C.border, title = "" }) {
@@ -117,19 +155,44 @@ function MiniBoton({ children, onClick, disabled = false, title = "", color = C.
 }
 
 /**
- * Editor chico de lo que se escribe a mano sobre un remito.
+ * La ventana de un remito ya guardado: como se llama y donde vive.
  *
- * Hace falta porque un remito archivado sin leer -o leído a medias- se queda con
- * "Sin proveedor · sin número" para siempre, y así no lo encuentra nadie. El
- * papel está guardado; que además se pueda nombrar es lo que lo vuelve útil.
+ * Antes eran dos ventanas separadas -una para el proveedor y el numero, otra
+ * para las obras- y con dos lapices distintos en la misma fila. Estan juntas
+ * porque son la misma decision: un remito archivado sin leer se queda con "Sin
+ * proveedor · sin número" y sin carpeta, y las dos cosas hay que arreglarlas en
+ * el mismo momento, que es cuando alguien lo abre y ve de que es.
+ *
+ * El proveedor esta arriba de todo a proposito: ademas de ser el dato que mas
+ * falta, es una carpeta -escribirlo mete el remito en "Proveedores\Iriarte"-, y
+ * eso se ve en el resumen de abajo mientras se escribe.
  */
-function EditorRemito({ remito, onCerrar, onGuardado }) {
+function EditorRemito({
+  remito,
+  obras = [],
+  proveedores = [],
+  carpetasConocidas = [],
+  puedeReasignar = false,
+  hayMultiobra = true,
+  hayCarpetas = true,
+  onCerrar,
+  onGuardado,
+}) {
   const toast = useToast();
   const [proveedor, setProveedor] = useState(remito.proveedor || "");
   const [numero, setNumero] = useState(remito.numero || "");
   const [titulo, setTitulo] = useState(remito.titulo || "");
   const [notas, setNotas] = useState(remito.notas || "");
+  const [obraIds, setObraIds] = useState(() => (
+    remito.obra_ids?.length ? remito.obra_ids.map(String) : (remito.obras || []).map((obra) => String(obra.id))
+  ));
+  const [carpetas, setCarpetas] = useState(() => normalizarCarpetas(remito.carpetas || []));
   const [guardando, setGuardando] = useState(false);
+
+  const [obrasOriginales] = useState(() => (
+    remito.obra_ids?.length ? remito.obra_ids.map(String) : (remito.obras || []).map((obra) => String(obra.id))
+  ));
+  const [carpetasOriginales] = useState(() => normalizarCarpetas(remito.carpetas || []));
 
   const campo = {
     width: "100%", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text,
@@ -137,6 +200,12 @@ function EditorRemito({ remito, onCerrar, onGuardado }) {
     boxSizing: "border-box",
   };
   const etiqueta = { fontSize: 11, fontWeight: 900, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 5 };
+
+  const obrasElegidas = useMemo(() => {
+    const porId = new Map(obras.map((obra) => [String(obra.id), obra]));
+    for (const obra of remito.obras || []) porId.set(String(obra.id), obra);
+    return obraIds.map((id) => porId.get(String(id))).filter(Boolean);
+  }, [obras, obraIds, remito.obras]);
 
   async function guardar() {
     setGuardando(true);
@@ -146,8 +215,29 @@ function EditorRemito({ remito, onCerrar, onGuardado }) {
         toast.warning("No se pudo guardar: revisá los permisos del usuario.");
         return;
       }
+      // Las carpetas y las obras solo las mueve quien puede reclasificar, y solo
+      // se tocan si de verdad cambiaron: reescribirlas siempre haria que una
+      // base sin la migracion avisara "falta la migración" cada vez que alguien
+      // corrige un número. Si algo no se pudo guardar se dice cual, porque un
+      // remito que quedo en la carpeta vieja sin que nadie se entere es el error
+      // que este archivo existe para no cometer.
+      if (puedeReasignar) {
+        const faltantes = [];
+        if (cambio(obraIds, obrasOriginales) && !(await reasignarObrasDeRemito(remito.id, obraIds))) {
+          faltantes.push("las obras");
+        }
+        if (cambio(carpetas, carpetasOriginales) && !(await reasignarCarpetasDeRemito(remito.id, carpetas))) {
+          faltantes.push("las carpetas");
+        }
+        if (faltantes.length) {
+          toast.warning(`Los datos se guardaron, pero falta aplicar la migración para ${faltantes.join(" y ")}.`);
+          await onGuardado?.();
+          onCerrar?.();
+          return;
+        }
+      }
       toast.success("Remito actualizado.");
-      onGuardado?.();
+      await onGuardado?.();
       onCerrar?.();
     } catch (e) {
       toast.error(e.message || "No se pudo guardar el remito.");
@@ -163,34 +253,112 @@ function EditorRemito({ remito, onCerrar, onGuardado }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "min(420px, 100%)", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 18px 50px rgba(15,23,42,0.28)", overflow: "hidden" }}
+        style={{
+          width: "min(460px, 100%)",
+          maxHeight: "calc(100vh - 32px)",
+          display: "flex",
+          flexDirection: "column",
+          background: C.panelSolid,
+          border: `1px solid ${C.border}`,
+          borderRadius: 14,
+          boxShadow: "0 18px 50px rgba(15,23,42,0.28)",
+          overflow: "hidden",
+        }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <Pencil size={16} color={C.blue} />
-          <div style={{ flex: 1, fontSize: 14, fontWeight: 950, color: C.text }}>Datos del remito</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 950, color: C.text }}>Datos y carpetas del remito</div>
+            <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {remito.archivo_nombre || remito.titulo || "Remito escaneado"}
+            </div>
+          </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
             <X size={16} />
           </button>
         </div>
-        <div style={{ padding: 15, display: "grid", gap: 12 }}>
+
+        <div style={{ padding: 15, display: "grid", gap: 12, overflowY: "auto", minHeight: 0 }}>
           <div>
-            <div style={etiqueta}>Proveedor</div>
-            <input value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Ej.: Casa Iriarte" style={campo} />
+            <div style={etiqueta}>
+              Proveedor <span style={{ textTransform: "none", fontWeight: 700 }}>(es también su carpeta)</span>
+            </div>
+            <input
+              value={proveedor}
+              onChange={(e) => setProveedor(e.target.value)}
+              list="klasea-proveedores-archivo"
+              placeholder="Ej.: Casa Iriarte"
+              style={campo}
+            />
+            <datalist id="klasea-proveedores-archivo">
+              {proveedores.map((nombre) => <option key={nombre} value={nombre} />)}
+            </datalist>
           </div>
-          <div>
-            <div style={etiqueta}>Número</div>
-            <input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ej.: 0001-00012345" style={campo} />
+
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+            <div>
+              <div style={etiqueta}>Número</div>
+              <input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="0001-00012345" style={campo} />
+            </div>
+            <div>
+              <div style={etiqueta}>Referencia</div>
+              <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Grifería de proa" style={campo} />
+            </div>
           </div>
-          <div>
-            <div style={etiqueta}>Referencia</div>
-            <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej.: Grifería del baño de proa" style={campo} />
-          </div>
+
           <div>
             <div style={etiqueta}>Nota</div>
             <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} style={{ ...campo, resize: "vertical", minHeight: 54, fontWeight: 600 }} />
           </div>
+
+          {puedeReasignar ? (
+            <div>
+              <div style={etiqueta}>
+                Guardar en <span style={{ textTransform: "none", fontWeight: 700 }}>(barcos y carpetas, los que hagan falta)</span>
+              </div>
+              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 700, lineHeight: 1.5, marginBottom: 8 }}>
+                El mismo PDF aparece en todo lo que elijas. No reparte cantidades ni modifica stock.
+              </div>
+              <SelectorDestinosRemito
+                obras={obras}
+                obraIds={obraIds}
+                onObrasChange={setObraIds}
+                carpetas={carpetas}
+                onCarpetasChange={setCarpetas}
+                carpetasConocidas={carpetasConocidas}
+                proveedor={proveedor}
+                permiteCarpetas={hayCarpetas}
+                disabled={guardando}
+              />
+              {!hayMultiobra && obraIds.length > 1 ? (
+                <div style={{ marginTop: 6, fontSize: 11.5, color: C.cyan, fontWeight: 800 }}>
+                  Falta la migración multiobra: no se van a poder guardar varios barcos.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <DestinosDeRemito
+            obras={obrasElegidas}
+            carpetas={carpetas}
+            proveedor={proveedor}
+            mostrarRutaFisica={false}
+            titulo={puedeReasignar ? "Va a aparecer en" : "Aparece en"}
+          />
+
+          {/* El PDF de la PC no se mueve, y decirlo evita que alguien vaya a
+              buscarlo a la carpeta nueva del disco y no lo encuentre. */}
+          {remito.carpeta_local ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
+              <FolderOpen size={12} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                El PDF de la PC sigue en {carpetaParaMostrar(remito.carpeta_local)}: esto no lo mueve.
+              </span>
+            </div>
+          ) : null}
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 15px", borderTop: `1px solid ${C.border}`, background: C.panel2 }}>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 15px", borderTop: `1px solid ${C.border}`, background: C.panel2, flexShrink: 0 }}>
           <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
             Cancelar
           </button>
@@ -202,101 +370,45 @@ function EditorRemito({ remito, onCerrar, onGuardado }) {
     </div>
   );
 }
-
-function EditorObrasRemito({ remito, obras, onCerrar, onGuardado }) {
-  const toast = useToast();
-  const [obraIds, setObraIds] = useState(() => (
-    remito.obra_ids?.length ? remito.obra_ids.map(String) : (remito.obras || []).map((obra) => String(obra.id))
-  ));
-  const [guardando, setGuardando] = useState(false);
-
-  async function guardar() {
-    setGuardando(true);
-    try {
-      const ok = await reasignarObrasDeRemito(remito.id, obraIds);
-      if (!ok) {
-        toast.warning("Falta aplicar la migración multiobra de remitos.");
-        return;
-      }
-      toast.success(obraIds.length > 1 ? `Remito asociado a ${obraIds.length} obras.` : "Obras del remito actualizadas.");
-      await onGuardado?.();
-      onCerrar?.();
-    } catch (error) {
-      toast.error(error.message || "No se pudieron actualizar las obras.");
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  return (
-    <div
-      onClick={onCerrar}
-      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
-    >
-      <div
-        onClick={(event) => event.stopPropagation()}
-        style={{ width: "min(460px, 100%)", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 18px 50px rgba(15,23,42,0.28)", overflow: "hidden" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
-          <Layers size={16} color={C.blue} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 950, color: C.text }}>Obras de este remito</div>
-            <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {remito.titulo || remito.proveedor || remito.archivo_nombre || "Remito sin nombre"}
-            </div>
-          </div>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
-            <X size={16} />
-          </button>
-        </div>
-        <div style={{ padding: 15, display: "grid", gap: 12 }}>
-          <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>
-            El mismo PDF aparecerá dentro de cada obra seleccionada. Esto no reparte cantidades ni modifica stock.
-          </div>
-          <SelectorObrasRemito obras={obras} value={obraIds} onChange={setObraIds} disabled={guardando} />
-        </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 15px", borderTop: `1px solid ${C.border}`, background: C.panel2 }}>
-          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
-            Cancelar
-          </button>
-          <button type="button" onClick={guardar} disabled={guardando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: guardando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
-            {guardando ? <LoaderCircle size={14} className="spin" /> : <Layers size={14} />} Guardar obras
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = false }) {
   const toast = useToast();
   const [remitos, setRemitos] = useState([]);
   const [obras, setObras] = useState([]);
+  const [carpetasConocidas, setCarpetasConocidas] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [hayObra, setHayObra] = useState(true);
   const [hayMultiobra, setHayMultiobra] = useState(true);
+  const [hayCarpetas, setHayCarpetas] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState("todos");
   const [ocupado, setOcupado] = useState("");
   const [editando, setEditando] = useState(null);
-  const [editandoObras, setEditandoObras] = useState(null);
-  // Donde esta parado: null = viendo las lineas; con linea = viendo sus barcos;
-  // con obra = viendo los remitos de ese barco.
+  // Por donde se esta entrando: obra, proveedor o carpeta. Es la misma pila de
+  // remitos mirada de tres formas, no tres archivos distintos.
+  const [vista, setVista] = useState("obra");
+  // Donde esta parado: null = viendo el primer nivel; con linea = viendo sus
+  // hijos; con obra = viendo los remitos de ese nodo.
   const [lineaAbierta, setLineaAbierta] = useState(null);
   const [obraAbierta, setObraAbierta] = useState(null);
 
   const cargar = useCallback(async ({ silencioso = false } = {}) => {
     if (!silencioso) setCargando(true);
     try {
-      const [archivo, listaObras] = await Promise.all([
+      const [archivo, listaObras, listaCarpetas, listaProveedores] = await Promise.all([
         fetchRemitosArchivados(),
         fetchObrasEgreso().catch(() => []),
+        fetchCarpetasUsadas().catch(() => []),
+        fetchProveedoresConocidos().catch(() => []),
       ]);
       setRemitos(archivo.remitos);
       setHayObra(archivo.hayObra);
       setHayMultiobra(archivo.hayMultiobra);
+      setHayCarpetas(archivo.hayCarpetas);
       setObras(listaObras ?? []);
+      setCarpetasConocidas(listaCarpetas ?? []);
+      setProveedores(listaProveedores ?? []);
       setError("");
     } catch (e) {
       setError(e.message || "No se pudieron traer los remitos.");
@@ -307,6 +419,14 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Cambiar de vista vuelve al primer nivel: la carpeta abierta en "por obra" no
+  // significa nada en "por proveedor" y dejaria la pantalla vacia sin motivo.
+  function cambiarVista(siguiente) {
+    setVista(siguiente);
+    setLineaAbierta(null);
+    setObraAbierta(null);
+  }
+
   const buscando = busqueda.trim().length > 0;
 
   const filtrados = useMemo(() => {
@@ -316,63 +436,68 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       if (filtro === "leidos" && r.sinLeer) return false;
       if (!q) return true;
       const destinos = (r.obras || []).flatMap((obra) => [obra.codigo, obra.linea_nombre]);
-      return [r.proveedor, r.numero, r.titulo, r.notas, ...destinos, r.carpeta_local, r.archivo_nombre, r.sede]
+      return [r.proveedor, r.numero, r.titulo, r.notas, ...destinos, ...(r.carpetas || []), r.carpeta_local, r.archivo_nombre, r.sede]
         .some((campo) => String(campo || "").toLowerCase().includes(q));
     });
   }, [remitos, busqueda, filtro]);
 
   const totalSinLeer = useMemo(() => remitos.filter((r) => r.sinLeer).length, [remitos]);
 
-  /** linea -> obra -> remitos, con los contadores de cada nivel. */
-  const arbol = useMemo(() => {
-    const porLinea = new Map();
-    for (const remito of filtrados) {
-      const asociadas = remito.obras?.length ? remito.obras : remito.obra ? [remito.obra] : [];
-      if (asociadas.length) {
-        for (const asociada of asociadas) {
-          const linea = asociada.linea_nombre || SIN_LINEA;
-          const obra = asociada.codigo || SIN_OBRA;
-          if (!porLinea.has(linea)) porLinea.set(linea, new Map());
-          const obrasDeLinea = porLinea.get(linea);
-          obrasDeLinea.set(obra, [...(obrasDeLinea.get(obra) ?? []), remito]);
-        }
-        continue;
-      }
-      // Sin barco pero con carpeta propia -"Consumibles Rebollar"- esa carpeta
-      // es el nodo: mandarla a "sin obra" seria perderla entre todas las demas.
-      const propia = !remito.obra ? nombreCarpeta(remito.carpeta_local) : "";
-      const linea = remito.obra?.linea_nombre || (remito.obra ? SIN_LINEA : propia || SIN_OBRA);
-      const obra = remito.obra?.codigo || propia || SIN_OBRA;
-      if (!porLinea.has(linea)) porLinea.set(linea, new Map());
-      const obrasDeLinea = porLinea.get(linea);
-      obrasDeLinea.set(obra, [...(obrasDeLinea.get(obra) ?? []), remito]);
+  /**
+   * Los nodos del nivel 1 y del nivel 2, segun por donde se este entrando.
+   *
+   * Las tres vistas comparten forma -padre, hijo, remitos- para que la pantalla
+   * sea una sola. Proveedor y carpeta no tienen dos niveles reales, asi que el
+   * hijo se llama igual que el padre y `directa` hace que al entrar se salte
+   * derecho a los remitos, igual que ya pasaba con las carpetas sueltas.
+   */
+  function ubicacionesDe(remito) {
+    if (vista === "proveedor") {
+      const nombre = String(remito.proveedor || "").trim();
+      return [[nombre || SIN_PROVEEDOR, nombre || SIN_PROVEEDOR, null]];
     }
-    return [...porLinea.entries()]
-      .map(([linea, obrasDeLinea]) => ({
+    if (vista === "carpeta") {
+      const propias = remito.carpetas || [];
+      if (!propias.length) return [[SIN_CARPETA, SIN_CARPETA, null]];
+      return propias.map((nombre) => [nombre, nombre, null]);
+    }
+    const asociadas = remito.obras?.length ? remito.obras : remito.obra ? [remito.obra] : [];
+    if (!asociadas.length) return [[SIN_OBRA, SIN_OBRA, null]];
+    return asociadas.map((obra) => [obra.linea_nombre || SIN_LINEA, obra.codigo || SIN_OBRA, obra]);
+  }
+
+  const arbol = useMemo(() => {
+    const porPadre = new Map();
+    const obrasPorCodigo = new Map();
+    for (const remito of filtrados) {
+      for (const [padre, hijo, obra] of ubicacionesDe(remito)) {
+        if (obra?.codigo) obrasPorCodigo.set(obra.codigo, obra);
+        if (!porPadre.has(padre)) porPadre.set(padre, new Map());
+        const hijos = porPadre.get(padre);
+        hijos.set(hijo, [...(hijos.get(hijo) ?? []), remito]);
+      }
+    }
+    const alFinal = new Set([SIN_OBRA, SIN_PROVEEDOR, SIN_CARPETA]);
+    return [...porPadre.entries()]
+      .map(([linea, hijos]) => ({
         linea,
-        obras: [...obrasDeLinea.entries()]
-          .map(([codigo, lista]) => ({
-            codigo,
-            remitos: lista,
-            obra: lista.flatMap((r) => r.obras || []).find((obra) => obra.codigo === codigo)
-              || lista.find((r) => r.obra?.codigo === codigo)?.obra
-              || null,
-          }))
+        obras: [...hijos.entries()]
+          .map(([codigo, lista]) => ({ codigo, remitos: lista, obra: obrasPorCodigo.get(codigo) || null }))
           .sort((a, b) => a.codigo.localeCompare(b.codigo)),
-        total: [...obrasDeLinea.values()].reduce((n, l) => n + l.length, 0),
+        total: [...hijos.values()].reduce((n, l) => n + l.length, 0),
       }))
       .map((nodo) => ({
         ...nodo,
-        // Cuando el unico hijo se llama igual que el padre no es una linea con
-        // barcos, es una carpeta suelta: se entra derecho a los remitos.
+        // Cuando el unico hijo se llama igual que el padre no hay dos niveles:
+        // se entra derecho a los remitos.
         directa: nodo.obras.length === 1 && nodo.obras[0].codigo === nodo.linea,
       }))
       .sort((a, b) => {
-        if (a.linea === SIN_OBRA) return 1;
-        if (b.linea === SIN_OBRA) return -1;
+        if (alFinal.has(a.linea) !== alFinal.has(b.linea)) return alFinal.has(a.linea) ? 1 : -1;
         return a.linea.localeCompare(b.linea);
       });
-  }, [filtrados]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtrados, vista]);
 
   const lineaActual = useMemo(
     () => arbol.find((l) => l.linea === lineaAbierta) || null,
@@ -430,28 +555,33 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   }
 
   const tarjeta = { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12 };
-  const nombreLinea = (l) => (l === SIN_OBRA ? "Sin obra · stock general" : l === SIN_LINEA ? "Sin línea" : l);
+  const vistaActual = VISTAS.find((v) => v.valor === vista) || VISTAS[0];
+  const nombreLinea = (l) => {
+    if (l === SIN_OBRA) return "Sin obra · stock general";
+    if (l === SIN_LINEA) return "Sin línea";
+    if (l === SIN_PROVEEDOR) return "Sin proveedor";
+    if (l === SIN_CARPETA) return "Sin carpeta propia";
+    return l;
+  };
 
   // Los remitos que se muestran: los del barco abierto, o todos si se esta
   // buscando o filtrando (respetar la navegacion ahi no serviria de nada).
   const listado = buscando || filtro !== "todos";
   const listaVisible = listado ? filtrados : obraActual?.remitos ?? [];
-  const columnas = isMobile ? "1fr" : "minmax(0,1.5fr) 92px 110px minmax(170px,1.1fr) auto";
+  const columnas = isMobile ? "1fr" : "minmax(0,1.4fr) 92px 110px minmax(190px,1.3fr) auto";
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: C.bg, padding: isMobile ? 12 : 18 }}>
       {editando ? (
         <EditorRemito
           remito={editando}
-          onCerrar={() => setEditando(null)}
-          onGuardado={() => cargar({ silencioso: true })}
-        />
-      ) : null}
-      {editandoObras ? (
-        <EditorObrasRemito
-          remito={editandoObras}
           obras={obras}
-          onCerrar={() => setEditandoObras(null)}
+          proveedores={proveedores}
+          carpetasConocidas={carpetasConocidas}
+          puedeReasignar={puedeReasignar}
+          hayMultiobra={hayMultiobra}
+          hayCarpetas={hayCarpetas}
+          onCerrar={() => setEditando(null)}
           onGuardado={() => cargar({ silencioso: true })}
         />
       ) : null}
@@ -467,7 +597,11 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
         <div style={{ flex: 1, minWidth: 180 }}>
           <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Remitos</div>
           <div style={{ color: C.dim, fontSize: 12, fontWeight: 700 }}>
-            Ordenados como en la PC del pañol: línea, barco, remito.
+            {vista === "obra"
+              ? "Ordenados como en la PC del pañol: línea, barco, remito."
+              : vista === "proveedor"
+                ? "El mismo archivo, agrupado por quién lo mandó."
+                : "El mismo archivo, agrupado por las carpetas que armaron ustedes."}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${C.border2}`, background: C.panelSolid, borderRadius: 9, padding: "7px 10px", minWidth: isMobile ? "100%" : 250 }}>
@@ -475,13 +609,47 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Proveedor, número, barco…"
+            placeholder="Proveedor, número, barco, carpeta…"
             style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, minWidth: 0 }}
           />
         </div>
         <button type="button" onClick={() => cargar()} disabled={cargando} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 7 }}>
           {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />} Actualizar
         </button>
+      </div>
+
+      {/* Por donde entrar. El mismo remito esta en las tres: se elige la que
+          coincide con lo que uno tiene en la cabeza cuando lo va a buscar
+          -"el del 55-1", "los de Iriarte", "los de garantía"-. */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        {VISTAS.map((opcion) => {
+          const { valor, etiqueta } = opcion;
+          const Icono = opcion.Icono;
+          const activo = vista === valor;
+          return (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => cambiarVista(valor)}
+              style={{
+                border: `1px solid ${activo ? C.blueB : C.border2}`,
+                background: activo ? C.blueL : C.panelSolid,
+                color: activo ? C.blue : C.muted,
+                borderRadius: 9,
+                padding: "7px 12px",
+                cursor: "pointer",
+                fontFamily: C.sans,
+                fontSize: 12.5,
+                fontWeight: 900,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+              }}
+            >
+              <Icono size={13} /> {etiqueta}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filtros. "Falta leer" es el que importa: son los papeles guardados que
@@ -517,7 +685,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       {!listado && (lineaAbierta || obraAbierta) ? (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap", fontSize: 12.5, fontWeight: 850 }}>
           <button type="button" onClick={() => { setLineaAbierta(null); setObraAbierta(null); }} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0, fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
-            Todas las líneas
+            {vistaActual.raiz}
           </button>
           {lineaAbierta ? (
             <>
@@ -530,7 +698,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
           {obraAbierta ? (
             <>
               <ChevronRight size={13} color={C.dim} />
-              <span style={{ color: C.text }}>{obraAbierta === SIN_OBRA ? "Stock general" : obraAbierta}</span>
+              <span style={{ color: C.text }}>{obraAbierta === SIN_OBRA ? "Stock general" : nombreLinea(obraAbierta)}</span>
             </>
           ) : null}
         </div>
@@ -546,6 +714,19 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       {hayObra && !hayMultiobra ? (
         <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750 }}>
           Falta aplicar la migración multiobra. Los remitos existentes siguen visibles, pero todavía no se puede asociar un mismo PDF a varios barcos.
+        </div>
+      ) : null}
+
+      {!hayCarpetas ? (
+        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750, lineHeight: 1.5 }}>
+          Falta aplicar la migración de carpetas: por ahora cada remito puede estar en una sola
+          carpeta propia y no se pueden crear nuevas. Por obra y por proveedor funciona igual.
+          <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, marginTop: 5 }}>
+            Supabase → SQL Editor → pegar{" "}
+            <code style={{ fontFamily: C.mono, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 5px" }}>
+              20260904120000_panol_remitos_carpetas.sql
+            </code>
+          </div>
         </div>
       ) : null}
 
@@ -565,7 +746,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
             {buscando ? "No hay remitos que coincidan" : filtro !== "todos" ? "Nada en este filtro" : "Todavía no hay remitos"}
           </div>
           <div style={{ color: C.dim, fontSize: 12, fontWeight: 700, marginTop: 4 }}>
-            {buscando ? "Probá con el proveedor o el número." : "Los que escanees en el pañol van a aparecer acá, separados por barco."}
+            {buscando ? "Probá con el proveedor o el número." : "Los que escanees en el pañol van a aparecer acá, por barco, por proveedor y por carpeta."}
           </div>
         </div>
       ) : !listado && !lineaAbierta ? (
@@ -582,7 +763,13 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
               }}
               style={{ ...tarjeta, padding: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 11, fontFamily: C.sans }}
             >
-              {nodo.directa ? <FolderOpen size={19} color={C.blue} /> : <Layers size={19} color={nodo.linea === SIN_OBRA ? C.dim : C.blue} />}
+              {vista === "proveedor"
+                ? <Building2 size={19} color={nodo.linea === SIN_PROVEEDOR ? C.dim : C.teal} />
+                : vista === "carpeta"
+                  ? <Folder size={19} color={nodo.linea === SIN_CARPETA ? C.dim : C.violet} />
+                  : nodo.directa
+                    ? <FolderOpen size={19} color={C.blue} />
+                    : <Layers size={19} color={nodo.linea === SIN_OBRA ? C.dim : C.blue} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>{nombreLinea(nodo.linea)}</div>
                 <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
@@ -670,21 +857,32 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                 </div>
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{fmtFecha(remito.fecha || remito.created_at)}</div>
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{money(remito.total, remito.moneda)}</div>
+                {/* Todos los lugares donde esta el remito, no solo los barcos:
+                    en la vista por carpeta o por proveedor, ver unicamente la
+                    obra dejaria la columna vacia justo en el lugar por el que
+                    uno entro a buscarlo. */}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                    {(remito.obras || []).length ? remito.obras.map((obra) => (
-                      <Chip key={obra.id} color={C.blue} soft={C.blueL} border={C.blueB}>{obra.codigo}</Chip>
-                    )) : (
+                    {(remito.obras || []).map((obra) => (
+                      <Chip key={obra.id} color={C.blue} soft={C.blueL} border={C.blueB} title={`Barco ${obra.codigo}`}>{obra.codigo}</Chip>
+                    ))}
+                    {(remito.carpetas || []).map((nombre) => (
+                      <Chip key={`c-${nombre}`} color={C.violet} soft={C.violetL} border={C.violetB} title="Carpeta propia">{nombre}</Chip>
+                    ))}
+                    {remito.proveedor ? (
+                      <Chip color={C.teal} soft={C.tealL} border={C.tealB} title="Carpeta del proveedor">{remito.proveedor}</Chip>
+                    ) : null}
+                    {!(remito.obras || []).length && !(remito.carpetas || []).length && !remito.proveedor ? (
                       <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
-                        {nombreCarpeta(remito.carpeta_local) || "Sin obra"}
+                        {nombreCarpeta(remito.carpeta_local) || "Sin clasificar"}
                       </span>
-                    )}
-                    {puedeReasignar && hayMultiobra ? (
+                    ) : null}
+                    {puedeReasignar ? (
                       <button
                         type="button"
-                        onClick={() => setEditandoObras(remito)}
-                        title="Agregar o quitar obras"
-                        aria-label="Editar obras del remito"
+                        onClick={() => setEditando(remito)}
+                        title="Cambiar barcos, carpetas y proveedor"
+                        aria-label="Cambiar dónde se guarda el remito"
                         style={{ width: 25, height: 25, border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.blue, borderRadius: 7, cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}
                       >
                         <Pencil size={11} />
@@ -704,7 +902,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                   <MiniBoton onClick={() => abrir(remito)} disabled={!remito.archivo_url || Boolean(ocupado)} title="Abrir el PDF original">
                     {ocupado === `abrir-${remito.id}` ? <LoaderCircle size={12} className="spin" /> : <ExternalLink size={12} />} Ver
                   </MiniBoton>
-                  <MiniBoton onClick={() => setEditando(remito)} title="Escribir proveedor, número o referencia" color={C.muted}>
+                  <MiniBoton onClick={() => setEditando(remito)} title="Proveedor, número, referencia y dónde se guarda" color={C.muted}>
                     <Pencil size={12} />
                   </MiniBoton>
                   {puedeReasignar && !remito.panol_envio_id ? (

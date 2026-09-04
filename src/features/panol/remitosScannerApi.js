@@ -8,6 +8,8 @@ import {
   fetchObrasDeRemitos,
   normalizarObraIds,
 } from "@/features/panol/remitosObrasApi";
+import { asignarCarpetasDeRemito } from "@/features/panol/remitosCarpetasApi";
+import { normalizarCarpetas } from "@/features/panol/carpetaRemitos";
 
 /**
  * Remitos escaneados en el pañol.
@@ -275,6 +277,7 @@ export async function guardarRemitoEscaneado(file, {
   proveedor = "",
   obraId = null,
   obraIds = [],
+  carpetas = [],
   carpetaLocal = "",
   titulo = "",
   notas = "",
@@ -283,6 +286,7 @@ export async function guardarRemitoEscaneado(file, {
 } = {}) {
   validateFile(file);
   const obrasSeleccionadas = normalizarObraIds(Array.isArray(obraIds) && obraIds.length ? obraIds : [obraId]);
+  const carpetasSeleccionadas = normalizarCarpetas(carpetas);
   const hash = await sha256(file);
 
   const yaExiste = await buscarDuplicado(hash);
@@ -358,6 +362,12 @@ export async function guardarRemitoEscaneado(file, {
       if (!guardadas && obrasSeleccionadas.length > 1) {
         throw new Error("Falta aplicar la migración multiobra de remitos en Supabase.");
       }
+    }
+    // Las carpetas propias son la unica copia de ese dato cuando el remito no
+    // es de un barco. Si la tabla todavia no existe, el nombre igual quedo en
+    // `carpeta_local` y el archivo se sigue encontrando por ahi.
+    if (carpetasSeleccionadas.length) {
+      await asignarCarpetasDeRemito(receipt.id, carpetasSeleccionadas);
     }
   } catch (error) {
     // La fila no se creo: el PDF suelto en el bucket no le sirve a nadie y

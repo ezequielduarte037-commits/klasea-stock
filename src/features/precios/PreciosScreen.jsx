@@ -42,8 +42,10 @@ import {
   guardarComprobanteItems,
   guardarPrecioVarianteMaterial,
   guardarProveedor,
+  indiceProveedoresPorNombre,
   leerPresupuestoConIA,
   precioDesactualizado,
+  proveedorPrincipalId,
   registrarOfertaMaterial,
   revertirAltasAutomaticasComprobantes,
   vincularComprobanteConIA,
@@ -51,6 +53,7 @@ import {
 import ProveedoresTab from "@/features/materiales/ProveedoresTab";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
+import PedidoCotizacionModal from "./PedidoCotizacionModal";
 
 /* ── Superficies ───────────────────────────────────────────────────────────
    Regla del sistema: el FONDO de la página es gris y las cards son SÓLIDAS
@@ -2181,6 +2184,9 @@ export default function PreciosScreen({ profile, signOut }) {
   const [applying, setApplying] = useState("");
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
   const [receiptImportFile, setReceiptImportFile] = useState(null);
+  // Pedido de cotización: la planilla que se le manda al proveedor para que
+  // complete precios (el paso previo a cargar el remito que devuelve).
+  const [quoteRequestOpen, setQuoteRequestOpen] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
   const padding = isMobile ? 13 : 24;
@@ -2228,6 +2234,11 @@ export default function PreciosScreen({ profile, signOut }) {
     }
   }, [pendingReceipts, selectedReceiptId]);
 
+  const providerIndex = useMemo(
+    () => indiceProveedoresPorNombre(providers),
+    [providers],
+  );
+
   const providerInfo = useMemo(() => {
     const map = new Map(
       providers.map((provider) => [
@@ -2236,9 +2247,13 @@ export default function PreciosScreen({ profile, signOut }) {
       ]),
     );
     for (const material of materials) {
+      // El proveedor principal puede venir del id o del nombre en el campo de
+      // texto viejo: hay 215 materiales activos que solo tienen el texto y sin
+      // esto no aparecían en la bandeja de nadie.
+      const principalId = proveedorPrincipalId(material, providerIndex);
       const ids = new Set(
         [
-          material.proveedor_id,
+          principalId,
           ...(material.proveedores_lista || []).map((row) => row.proveedor_id),
         ].filter(Boolean),
       );
@@ -2247,17 +2262,13 @@ export default function PreciosScreen({ profile, signOut }) {
         const info = map.get(id);
         info.materialIds.add(material.id);
         const price =
-          material.proveedor_id === id
+          principalId === id
             ? material.precio_unitario
             : (material.proveedores_lista || []).find(
                 (row) => row.proveedor_id === id,
               )?.precio;
         if (price == null) info.missing += 1;
-        if (
-          material.proveedor_id === id &&
-          price != null &&
-          precioDesactualizado(material)
-        )
+        if (principalId === id && price != null && precioDesactualizado(material))
           info.stale += 1;
       }
     }
@@ -2269,7 +2280,7 @@ export default function PreciosScreen({ profile, signOut }) {
           b.missing + b.stale - (a.missing + a.stale) ||
           a.provider.nombre.localeCompare(b.provider.nombre, "es"),
       );
-  }, [materials, providers]);
+  }, [materials, providers, providerIndex]);
 
   const stats = useMemo(
     () => ({
@@ -2301,22 +2312,23 @@ export default function PreciosScreen({ profile, signOut }) {
     const term = normalize(query);
     return materials
       .filter((material) => {
+        // Mismo criterio que la bandeja y que la lista de precios: el id, o el
+        // nombre suelto en el campo texto cuando no hay id.
+        const esPrincipal =
+          proveedorPrincipalId(material, providerIndex) === selectedProvider.id;
         const linked =
-          material.proveedor_id === selectedProvider.id ||
+          esPrincipal ||
           (material.proveedores_lista || []).some(
             (row) => row.proveedor_id === selectedProvider.id,
           );
         if (!linked) return false;
-        const price =
-          material.proveedor_id === selectedProvider.id
-            ? material.precio_unitario
-            : (material.proveedores_lista || []).find(
-                (row) => row.proveedor_id === selectedProvider.id,
-              )?.precio;
+        const price = esPrincipal
+          ? material.precio_unitario
+          : (material.proveedores_lista || []).find(
+              (row) => row.proveedor_id === selectedProvider.id,
+            )?.precio;
         const providerStale =
-          material.proveedor_id === selectedProvider.id &&
-          price != null &&
-          precioDesactualizado(material);
+          esPrincipal && price != null && precioDesactualizado(material);
         const matches =
           !term ||
           normalize(
@@ -2333,7 +2345,7 @@ export default function PreciosScreen({ profile, signOut }) {
         return matches && status && category;
       })
       .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es"));
-  }, [materials, selectedProvider, query, filter, categoryId]);
+  }, [materials, selectedProvider, query, filter, categoryId, providerIndex]);
 
   const unassigned = useMemo(
     () =>
@@ -2936,6 +2948,14 @@ export default function PreciosScreen({ profile, signOut }) {
               </button>
               <button
                 type="button"
+                onClick={() => setQuoteRequestOpen(true)}
+                disabled={loading || !providers.length}
+                style={{ ...button, opacity: loading || !providers.length ? 0.6 : 1 }}
+              >
+                <ClipboardList size={14} /> Pedir precios
+              </button>
+              <button
+                type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={loading}
                 style={{ ...primary, opacity: loading ? 0.65 : 1 }}
@@ -3322,6 +3342,25 @@ export default function PreciosScreen({ profile, signOut }) {
                         {bulkIds.size ? "Limpiar" : "Seleccionar todo"}
                       </button>
                     )}
+                    {/* Pedirle precios a ESTE proveedor, con lo que haya
+                        marcado si es que marcó algo. */}
+                    {view === "proveedores" && selectedProvider && (
+                      <button
+                        type="button"
+                        onClick={() => setQuoteRequestOpen(true)}
+                        title={`Pedir precios a ${selectedProvider.nombre}`}
+                        style={{ ...button, padding: "6px 10px", flexShrink: 0 }}
+                      >
+                        <ClipboardList size={14} />
+                        {!isMobile && (
+                          <span>
+                            {bulkIds.size
+                              ? `Pedir precios (${bulkIds.size})`
+                              : "Pedir precios"}
+                          </span>
+                        )}
+                      </button>
+                    )}
                     {view === "proveedores" && selectedProvider && (
                       <ProveedorTipoBadge
                         meta={proveedorMeta(selectedProvider.nombre, providers)}
@@ -3573,6 +3612,17 @@ export default function PreciosScreen({ profile, signOut }) {
           )}
         </section>
       </main>
+      {quoteRequestOpen && (
+        <PedidoCotizacionModal
+          provider={selectedProvider}
+          providers={providers}
+          materials={materials}
+          preselectedIds={bulkIds}
+          isMobile={isMobile}
+          toast={toast}
+          onClose={() => setQuoteRequestOpen(false)}
+        />
+      )}
       {receiptImportFile && (
         <ReceiptImportContextModal
           file={receiptImportFile}

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileText, FolderOpen, LoaderCircle, ScanLine, X } from "lucide-react";
+import { FileText, LoaderCircle, ScanLine, X } from "lucide-react";
 import { C } from "@/theme";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
-import { carpetaDeObras, carpetaParaMostrar } from "@/features/panol/carpetaRemitos";
+import { carpetaFisicaDeRemito, normalizarCarpetas } from "@/features/panol/carpetaRemitos";
 import { fetchProveedoresConocidos, hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
-import SelectorObrasRemito from "@/features/panol/SelectorObrasRemito";
+import { haySoporteRemitosCarpetas } from "@/features/panol/remitosCarpetasApi";
+import SelectorDestinosRemito from "@/features/panol/SelectorDestinosRemito";
+import DestinosDeRemito from "@/features/panol/DestinosDeRemito";
 
 /**
  * Los datos del remito: de qué barco es, de qué proveedor, dónde se archiva.
@@ -20,7 +22,12 @@ import SelectorObrasRemito from "@/features/panol/SelectorObrasRemito";
  * así que tres remitos de tres barcos distintos terminaban los tres en el barco
  * del último. Cada papel pasa por acá con sus propios datos.
  *
- * La obra NO es obligatoria: si el remito es de stock general y no va a ningún
+ * Barcos y carpetas conviven. Antes eran excluyentes -el campo de carpeta
+ * desaparecía apenas elegías un barco-, así que no había forma de decir "es del
+ * 55-1 y además va en Garantías". Ahora se eligen juntos en el mismo buscador y
+ * la ventana muestra, antes de confirmar, todos los lugares donde va a estar.
+ *
+ * Nada de esto es obligatorio: si el remito es de stock general y no va a ningún
  * barco, se guarda igual y queda en la raíz. Frenar un ingreso por un campo sin
  * completar sería peor que tener un remito sin clasificar.
  */
@@ -45,7 +52,7 @@ export default function AntesDeEscanearModal({
   archivoNombre = "",
   tituloInicial = "",
   notasInicial = "",
-  carpetaInicial = "",
+  carpetasIniciales = [],
   esConsumiblesInicial = false,
   titulo: tituloVentana = "",
 }) {
@@ -68,10 +75,13 @@ export default function AntesDeEscanearModal({
   const [soloArchivar, setSoloArchivar] = useState(soloArchivarInicial);
   // No todo remito es de un barco. Los consumibles de Rebollar, la ferretería
   // de todos los meses, el service de una máquina: eso va a su propia carpeta y
-  // meterlo en "stock general" lo vuelve imposible de encontrar despues.
-  const [carpetaLibre, setCarpetaLibre] = useState(String(carpetaInicial || ""));
+  // meterlo en "stock general" lo vuelve imposible de encontrar despues. Y un
+  // remito puede estar en un barco Y en una carpeta a la vez: son dos preguntas
+  // distintas -de quién es y dónde lo busco- y antes solo se podía contestar una.
+  const [carpetasElegidas, setCarpetasElegidas] = useState(() => normalizarCarpetas(carpetasIniciales));
   // null mientras se averigua, para no mostrar un aviso que a lo mejor no va.
   const [faltaMigracion, setFaltaMigracion] = useState(null);
+  const [hayCarpetas, setHayCarpetas] = useState(true);
   // Un remito de Rebollar son treinta renglones de consumibles. Decirlo una vez
   // al principio evita marcarlos de a uno despues, que en la practica es lo que
   // nadie hace: quedan cargados como material comun y desaparecen de la pestaña
@@ -94,6 +104,9 @@ export default function AntesDeEscanearModal({
     hayColumnasDeRemito()
       .then((hay) => { if (vivo) setFaltaMigracion(!hay); })
       .catch(() => { if (vivo) setFaltaMigracion(false); });
+    haySoporteRemitosCarpetas()
+      .then((hay) => { if (vivo) setHayCarpetas(hay); })
+      .catch(() => { if (vivo) setHayCarpetas(false); });
     if (!proveedoresConocidos.length) {
       fetchProveedoresConocidos()
         .then((lista) => { if (vivo) setProveedoresPropios(lista); })
@@ -120,33 +133,28 @@ export default function AntesDeEscanearModal({
     }
     return obraIds.map((id) => porId.get(String(id))).filter(Boolean);
   }, [obras, obraIds, obrasSugeridas, obraSugerida]);
-  // El PDF local vive en una carpeta. Con varias obras va a Multiobra, mientras
-  // que en la app queda asociado a cada barco por separado.
-  const escrita = carpetaLibre.trim();
-  const yaExistente = carpetasConocidas.find(
-    (nombre) => String(nombre || "").trim().toLowerCase() === escrita.toLowerCase(),
-  );
-  const carpetaPropia = yaExistente || escrita;
-  const carpeta = obrasElegidas.length ? carpetaDeObras(obrasElegidas) : carpetaPropia;
+  // El PDF local vive en una carpeta sola: con varias obras va a Multiobra, y si
+  // no hay barco manda la carpeta elegida o, en última instancia, la del
+  // proveedor. En el sistema, en cambio, aparece en todas a la vez.
+  const carpeta = carpetaFisicaDeRemito({
+    obras: obrasElegidas,
+    carpetas: carpetasElegidas,
+    proveedor,
+  });
 
   // Las carpetas ya usadas, para no terminar con "Rebollar", "rebollar" y
   // "REBOLLAR" siendo tres carpetas distintas.
-  const carpetasUsadas = useMemo(() => {
-    const vistas = new Map();
-    for (const nombre of carpetasConocidas) {
-      const limpio = String(nombre || "").trim();
-      if (!limpio) continue;
-      const clave = limpio.toLowerCase();
-      if (!vistas.has(clave)) vistas.set(clave, limpio);
-    }
-    return [...vistas.values()].sort((a, b) => a.localeCompare(b));
-  }, [carpetasConocidas]);
+  const carpetasUsadas = useMemo(
+    () => normalizarCarpetas(carpetasConocidas).sort((a, b) => a.localeCompare(b)),
+    [carpetasConocidas],
+  );
 
   function confirmar() {
     onConfirmar?.({
       obra: obrasElegidas.length === 1 ? obrasElegidas[0] : null,
       obras: obrasElegidas,
       carpeta,
+      carpetas: carpetasElegidas,
       proveedor: proveedor.trim(),
       source: origen,
       titulo: titulo.trim(),
@@ -239,14 +247,7 @@ export default function AntesDeEscanearModal({
 
           <div>
             <div style={etiqueta}>
-              Obras asociadas <span style={{ textTransform: "none", fontWeight: 700 }}>(podés elegir varias)</span>
-            </div>
-            <SelectorObrasRemito obras={obras} value={obraIds} onChange={setObraIds} disabled={cargando} />
-          </div>
-
-          <div>
-            <div style={etiqueta}>
-              De qué proveedor <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional, ayuda a la IA)</span>
+              De qué proveedor <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional, y es su carpeta)</span>
             </div>
             <input
               value={proveedor}
@@ -260,26 +261,34 @@ export default function AntesDeEscanearModal({
             </datalist>
           </div>
 
-          {!obrasElegidas.length ? (
-            <div>
-              <div style={etiqueta}>
-                Carpeta <span style={{ textTransform: "none", fontWeight: 700 }}>(si no es de un barco)</span>
-              </div>
-              <input
-                value={carpetaLibre}
-                onChange={(event) => setCarpetaLibre(event.target.value)}
-                list="klasea-carpetas-escaneo"
-                placeholder="Ej.: Consumibles Rebollar"
-                style={campo}
-              />
-              <datalist id="klasea-carpetas-escaneo">
-                {carpetasUsadas.map((nombre) => <option key={nombre} value={nombre} />)}
-              </datalist>
-              {yaExistente && yaExistente !== escrita ? (
-                <div style={{ marginTop: 5, fontSize: 11, color: C.cyan, fontWeight: 750 }}>
-                  Va a la carpeta que ya existe: <b>{yaExistente}</b>
-                </div>
-              ) : null}
+          <div>
+            <div style={etiqueta}>
+              Guardar en <span style={{ textTransform: "none", fontWeight: 700 }}>(los barcos y carpetas que hagan falta)</span>
+            </div>
+            <SelectorDestinosRemito
+              obras={obras}
+              obraIds={obraIds}
+              onObrasChange={setObraIds}
+              carpetas={carpetasElegidas}
+              onCarpetasChange={setCarpetasElegidas}
+              carpetasConocidas={carpetasUsadas}
+              proveedor={proveedor}
+              permiteCarpetas={hayCarpetas}
+              cargando={cargando}
+            />
+          </div>
+
+          <DestinosDeRemito
+            obras={obrasElegidas}
+            carpetas={carpetasElegidas}
+            proveedor={proveedor}
+            mostrarRutaFisica={!guardando}
+          />
+
+          {!hayCarpetas && carpetasElegidas.length ? (
+            <div style={{ fontSize: 11.5, color: C.cyan, fontWeight: 800, lineHeight: 1.45 }}>
+              Falta la migración de carpetas: el remito va a quedar solo en la primera
+              (<b>{carpetasElegidas[0]}</b>) y sin las demás.
             </div>
           ) : null}
 
@@ -354,15 +363,6 @@ export default function AntesDeEscanearModal({
             </div>
           ) : null}
 
-          {!guardando ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderRadius: 9, background: C.panel2, border: `1px solid ${C.border}` }}>
-              <FolderOpen size={14} color={C.dim} />
-              <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                Se guarda en <b style={{ color: C.text }}>{carpetaParaMostrar(carpeta)}</b>
-                {obrasElegidas.length > 1 ? " · en la app aparece dentro de cada obra" : ""}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel2, flexShrink: 0 }}>
