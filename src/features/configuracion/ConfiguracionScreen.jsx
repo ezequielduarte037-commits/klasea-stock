@@ -287,20 +287,14 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
         role: form.is_demo ? "tecnica" : form.role,
         is_admin: form.is_demo ? false : form.is_admin,
         is_demo: form.is_demo,
+        // La sede va en la misma llamada: el update posterior desde el front
+        // lo descartaba RLS y la sede se perdía sin dar error.
+        sede: form.sede || "",
       },
     });
     if (fnError || res?.error) {
       setBusy(false);
       return flash(false, "Error: " + (await fnErrorMsg(res, fnError, "no se pudo crear el usuario")));
-    }
-
-    // La edge function devuelve { uid }. Si se eligió sede, la seteamos en el perfil.
-    if (form.sede && res?.uid) {
-      const { error: sedeError } = await supabase.from("profiles").update({ sede: form.sede }).eq("id", res.uid);
-      if (sedeError) {
-        setBusy(false);
-        return flash(false, "Usuario creado, pero no se pudo guardar la sede: " + sedeError.message);
-      }
     }
 
     setBusy(false);
@@ -350,14 +344,23 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
       if (passwordIssues.length) return flash(false, passwordIssues[0]);
     }
     setBusy(true);
-    const { error } = await supabase.from("profiles").update({
-      role: form.is_demo ? "tecnica" : form.role,
-      is_admin: form.is_demo ? false : form.is_admin,
-      is_demo: form.is_demo,
-      sede: form.sede || null,
-      ...(form.is_demo ? { must_change_password: false } : {}),
-    }).eq("id",usuario.id);
-    if (error) { setBusy(false); return flash(false,error.message); }
+    // Vía edge function y no `profiles.update` directo: RLS descarta la
+    // escritura del navegador sobre el perfil de otro y PostgREST igual
+    // responde OK, así que el rol nunca cambiaba y la app decía que sí.
+    const { data: up, error } = await supabase.functions.invoke("admin-usuarios", {
+      body: {
+        action: "update_profile",
+        user_id: usuario.id,
+        role: form.role,
+        is_admin: form.is_admin,
+        is_demo: form.is_demo,
+        sede: form.sede || "",
+      },
+    });
+    if (error || up?.error) {
+      setBusy(false);
+      return flash(false, "Error: " + (await fnErrorMsg(up, error, "no se pudieron guardar los permisos")));
+    }
     if (form.password) {
       const { data: pw, error: pwErr } = await supabase.functions.invoke("admin-usuarios", {
         body: { action: "update_password", user_id: usuario.id, password: form.password },
@@ -370,10 +373,41 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
     setBusy(false);
     flash(true,"Permisos actualizados."); onSaved(); onClose();
   }
+  // Baja: no borra nada. Corta el acceso (ban en auth) y lo saca de las listas,
+  // pero deja intacto su historial de pedidos, envíos y comentarios. Es lo que
+  // corresponde para un ex-empleado; "Eliminar" queda para usuarios de prueba.
+  const dadoDeBaja = usuario.activo === false;
+  async function cambiarActivo() {
+    const accion = dadoDeBaja ? "reactivar" : "dar de baja";
+    if (!window.confirm(
+      dadoDeBaja
+        ? `¿Reactivar a ${usuario.username}? Va a poder ingresar de nuevo.`
+        : `¿Dar de baja a ${usuario.username}? No va a poder ingresar más, pero se conserva todo su historial.`,
+    )) return;
+    setBusy(true);
+    const { data: res, error } = await supabase.functions.invoke("admin-usuarios", {
+      body: { action: "set_activo", user_id: usuario.id, activo: dadoDeBaja },
+    });
+    setBusy(false);
+    if (error || res?.error) return flash(false, "Error: " + (await fnErrorMsg(res, error, `no se pudo ${accion}`)));
+    flash(true, dadoDeBaja ? "Usuario reactivado." : "Usuario dado de baja.");
+    onSaved(); onClose();
+  }
+
   async function eliminar() {
     if (!window.confirm(`¿Eliminar a ${usuario.username} permanentemente?`)) return;
-    const { error } = await supabase.rpc("borrar_usuario_admin",{ p_user_id:usuario.id });
-    if (error) return flash(false,"Error: "+error.message);
+    setBusy(true);
+    // Antes llamaba a la RPC borrar_usuario_admin, que corre con los permisos
+    // de quien la invoca: RLS bloqueaba el DELETE y volvía sin error, así que
+    // la app avisaba "Usuario eliminado" y el usuario seguía ahí. La edge
+    // function borra el usuario de auth con service key y limpia el perfil.
+    const { data: del, error } = await supabase.functions.invoke("admin-usuarios", {
+      body: { action: "delete_user", user_id: usuario.id },
+    });
+    setBusy(false);
+    if (error || del?.error) {
+      return flash(false, "Error: " + (await fnErrorMsg(del, error, "no se pudo eliminar el usuario")));
+    }
     flash(true,"Usuario eliminado."); onSaved(); onClose();
   }
   return (
@@ -400,11 +434,19 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
         </div>
         <Toggle on={form.is_admin} onChange={()=>set("is_admin",!form.is_admin)} />
       </div>}
-      <div style={{ display:"flex", gap:8 }}>
+      <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
         <button style={Sx.btnPrimary} onClick={guardar} disabled={busy}>{busy?"Guardando…":"Guardar"}</button>
         <button style={Sx.btnSecondary} onClick={onClose}>Cancelar</button>
         <div style={{ flex:1 }} />
-        <button style={Sx.btnDanger} onClick={eliminar}>Eliminar</button>
+        <button style={Sx.btnSecondary} onClick={cambiarActivo} disabled={busy}>
+          {dadoDeBaja ? "Reactivar" : "Dar de baja"}
+        </button>
+        <button style={Sx.btnDanger} onClick={eliminar} disabled={busy}>Eliminar</button>
+      </div>
+      <div style={{ fontSize:10, color:"var(--dim)", marginTop:10, lineHeight:1.5 }}>
+        {dadoDeBaja
+          ? "Está dado de baja: no puede ingresar, pero su historial sigue con su nombre."
+          : "Para alguien que se fue del astillero usá Dar de baja: le corta el acceso y conserva su historial. Eliminar solo funciona con usuarios que nunca cargaron nada."}
       </div>
     </Overlay>
   );
@@ -863,6 +905,16 @@ async function fnErrorMsg(res, fnError, fallback = "no se pudo completar la oper
   return fnError?.message || fallback;
 }
 
+// `activo` puede no existir todavía si la migración de bajas no se aplicó: se
+// reintenta sin esa columna, igual que hace App.jsx con must_change_password.
+async function cargarPerfiles() {
+  const base = "id,username,role,is_admin,is_demo,sede,created_at";
+  const conActivo = await supabase.from("profiles").select(`${base},activo`).order("username");
+  if (!conActivo.error) return conActivo;
+  if (!String(conActivo.error.message || "").includes("activo")) return conActivo;
+  return supabase.from("profiles").select(base).order("username");
+}
+
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
 export default function ConfiguracionScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
@@ -897,7 +949,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   async function cargar() {
     setLoading(true);
     const [r1,r2,r3,r4] = await Promise.all([
-      supabase.from("profiles").select("id,username,role,is_admin,is_demo,sede,created_at").order("username"),
+      cargarPerfiles(),
       supabase.from("clientes").select("*, obras(id, codigo)").order("nombre_completo"),
       supabase.from("modelo_configuracion").select("*").order("modelo_barco"),
       supabase.from("sistema_config").select("*").order("grupo").order("clave"),
@@ -1043,15 +1095,22 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
                       <div>
                         <div style={{ fontSize:14, color:"var(--text)", fontWeight:500 }}>Personal del astillero</div>
-                        <div style={{ fontSize:11, color:"var(--dim)", marginTop:3 }}>{usuarios.length} usuario{usuarios.length!==1?"s":""} · {usuarios.filter(u=>u.is_admin).length} admin{usuarios.filter(u=>u.is_admin).length!==1?"s":""}</div>
+                        <div style={{ fontSize:11, color:"var(--dim)", marginTop:3 }}>
+                          {usuarios.filter(u=>u.activo !== false).length} activo{usuarios.filter(u=>u.activo !== false).length!==1?"s":""}
+                          {" · "}{usuarios.filter(u=>u.is_admin && u.activo !== false).length} admin{usuarios.filter(u=>u.is_admin && u.activo !== false).length!==1?"s":""}
+                          {usuarios.some(u=>u.activo === false) && ` · ${usuarios.filter(u=>u.activo === false).length} de baja`}
+                        </div>
                       </div>
                       <button style={Sx.btnPrimary} onClick={()=>setMNuevoUser(true)}>+ Nuevo usuario</button>
                     </div>
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8 }}>
                       {usuarios.map(u=>{
                         const rm = ROLE_META[u.role] ?? { color:"#505050", label:u.role };
+                        // Los dados de baja quedan atenuados y con su chip: siguen
+                        // en la lista porque su historial sigue existiendo.
+                        const baja = u.activo === false;
                         return (
-                          <div key={u.id} className="hcard" style={{ border:"1px solid var(--panel-2)", borderRadius:10, background:"rgba(255,255,255,0.02)", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10, transition:"border-color .15s" }}>
+                          <div key={u.id} className="hcard" style={{ border:"1px solid var(--panel-2)", borderRadius:10, background:"rgba(255,255,255,0.02)", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10, transition:"border-color .15s", opacity: baja ? 0.55 : 1 }}>
                             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                               <div style={{ width:38, height:38, borderRadius:"50%", flexShrink:0, background:`${rm.color}18`, border:`1px solid ${rm.color}30`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", fontSize:13, fontWeight:600, color:rm.color }}>
                                 {(u.username??"?").slice(0,2).toUpperCase()}
@@ -1060,7 +1119,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                 <div style={{ fontSize:14, color:"var(--text)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"'JetBrains Mono',monospace" }}>{u.username}</div>
                                 <div style={{ fontSize:10, color:"var(--dim)", marginTop:2 }}>{u.id.slice(0,8)}…</div>
                               </div>
-                              {u.is_admin && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:"rgba(130,130,160,0.12)", color:"#7070a0", border:"1px solid rgba(130,130,160,0.18)", letterSpacing:0.5, textTransform:"uppercase", flexShrink:0 }}>Admin</span>}
+                              {baja && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:"rgba(239,68,68,.12)", color:"#fca5a5", border:"1px solid rgba(239,68,68,.24)", letterSpacing:0.5, textTransform:"uppercase", flexShrink:0 }}>Baja</span>}
+                              {!baja && u.is_admin && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:"rgba(130,130,160,0.12)", color:"#7070a0", border:"1px solid rgba(130,130,160,0.18)", letterSpacing:0.5, textTransform:"uppercase", flexShrink:0 }}>Admin</span>}
                               {u.is_demo && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:4, background:"rgba(139,92,246,.12)", color:"#c4b5fd", border:"1px solid rgba(139,92,246,.24)", letterSpacing:0.5, textTransform:"uppercase", flexShrink:0 }}>Demo</span>}
                             </div>
                             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", borderRadius:7, background:`${rm.color}0d`, border:`1px solid ${rm.color}20` }}>

@@ -674,7 +674,7 @@ export default function MemoriasScreen({ profile, signOut }) {
           @page { size: A4; margin: 10mm; }
         }
       `}</style>
-      <div className="mem-shell" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px minmax(0, 1fr)", height: "100%" }}>
+      <div className="mem-shell" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0, 1fr)", height: "100%" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <main className="mem-main" style={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden", position: "relative" }}>

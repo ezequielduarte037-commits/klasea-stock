@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Eye, Gauge, KeyRound, LogOut, Maximize, Menu, Moon, Phone, Search, Sun, X } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Eye, Gauge, KeyRound, LogOut, Maximize, Menu, Moon, PanelLeftClose, PanelLeftOpen, Phone, Search, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -226,6 +226,22 @@ function Icon({ id, color = "currentColor", size = 14 }) {
     "/compras-etapa": <>
       <path d="M1.5 13.6h4.3V9.4h4.3V5.2h4.4V2.4" {...p}/>
     </>,
+    // Calculadora: visor arriba y teclas abajo. Los puntos son lo que la separa
+    // de /materiales y /procedimientos, que a 14px son el mismo recuadro con
+    // renglones.
+    // Salvavidas: el aro, el centro y los cuatro tirantes. Es el único icono
+    // redondo del menú, así que se encuentra sin leer.
+    "/tickets": <>
+      <circle cx="8" cy="8" r="6.2" {...p}/>
+      <circle cx="8" cy="8" r="2.4" {...p}/>
+      <path d="M3.6 3.6l2.7 2.7M12.4 3.6l-2.7 2.7M3.6 12.4l2.7-2.7M12.4 12.4l-2.7-2.7" {...p}/>
+    </>,
+    "/costo-barco": <>
+      <rect x="3" y="1.5" width="10" height="13" rx="1.8" {...p}/>
+      <path d="M5.4 4.6h5.2" {...p}/>
+      <path d="M5.6 8h.01M8 8h.01M10.4 8h.01" {...p}/>
+      <path d="M5.6 11.4h.01M8 11.4h.01M10.4 11.4h.01" {...p}/>
+    </>,
   };
   // Busca primero el icono exacto (ruta + ?tab=...) y si no hay, el de la ruta base.
   const dibujo = paths[id] ?? paths[String(id).split("?")[0]] ?? null;
@@ -245,48 +261,70 @@ function Icon({ id, color = "currentColor", size = 14 }) {
 }
 
 // ─── SECTION ACCENT COLORS ────────────────────────────────────────────────────
+// Colores de seccion. Sin ambar: Compras, Semaforo y Maderas lo usaban y es un
+// color que en este sistema no se usa en ningun lado mas.
 const SC = {
   movimientos:        "#818cf8",   // indigo
   produccion:         "#60a5fa",   // blue
   instrucciones:      "#94a3b8",   // slate
   gestion_laminacion: "#34d399",   // emerald
-  gestion_maderas:    "#fbbf24",   // amber
+  gestion_maderas:    "#2dd4bf",   // teal
   sistema:            "#f87171",   // red
   postventa:          "#67e8f9",   // cyan
-  compras:            "#f59e0b",   // amber
+  tickets:            "#a78bfa",   // violet
+  compras:            "#a78bfa",   // violet
   panol_catalogo:     "#38bdf8",   // sky
   rrhh:               "#2dd4bf",   // teal
-  semaforo:           "#f59e0b",   // amber
+  semaforo:           "#a78bfa",   // violet
 };
 
+/** Ancho del panel segun este abierto o reducido a la columna de iconos. */
+const ANCHO_ABIERTO = 280;
+const ANCHO_COMPACTO = 64;
+const CLAVE_COMPACTO = "klasea.sidebar.compacto";
+const EVENTO_COMPACTO = "klasea:sidebar-compacto";
+
+/**
+ * El estado de plegado vive en localStorage y no en el componente.
+ *
+ * No es una preferencia de estilo: 35 pantallas montan su propio <Sidebar>, asi
+ * que cada navegacion crea una instancia nueva. Con useState solo, el panel se
+ * volveria a desplegar cada vez que cambias de pantalla.
+ */
+function leerCompacto() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(CLAVE_COMPACTO) === "true";
+  } catch {
+    return false;
+  }
+}
+
 // ─── ANIMATIONS CSS ───────────────────────────────────────────────────────────
+//
+// Quedaron solo las de ENTRADA y las de hover. Las que corrian en bucle -el item
+// activo latiendo y parpadeando, la barra con neon pulsante, el punto que
+// escalaba, la linea de escaneo cada 10 s- se sacaron: ninguna otra pantalla del
+// sistema se mueve sola, y algo parpadeando al costado ocho horas cansa.
 const CSS = `
   @keyframes sb-in    { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
   @keyframes sb-down  { from{opacity:0;transform:translateY(-8px)}  to{opacity:1;transform:translateY(0)} }
   @keyframes sb-up    { from{opacity:0;transform:translateY(8px)}   to{opacity:1;transform:translateY(0)} }
-  @keyframes sb-breathe { 0%,100% { background: var(--panel-2); } 50% { background: var(--panel-3); } }
-  @keyframes sb-neon { 0%,100% { opacity:.8; box-shadow: 0 0 6px var(--c)99, 0 0 16px var(--c)44; } 50% { opacity:1;  box-shadow: 0 0 14px var(--c), 0 0 28px var(--c)88, 0 0 44px var(--c)33; } }
-  @keyframes sb-beat { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.8); opacity:.5; } }
-  @keyframes sb-flicker { 0%,100%{opacity:1} 50%{opacity:.55} }
-  @keyframes sb-online { 0%,100% { box-shadow: 0 0 4px #22c55e88; } 50% { box-shadow: 0 0 12px #22c55ecc, 0 0 24px #22c55e44; } }
-  @keyframes sb-scan { 0% { top: -1px; opacity:0; } 5% { opacity:.6; } 95% { opacity:.6; } 100% { top: 100%; opacity:0; } }
-  @keyframes sb-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
   @media (max-width: 768px) { .resp-hamburger { display: flex !important; } }
   @media (max-width: 900px) {
     body { overscroll-behavior: none; }
   }
 
   .sb-item { position: relative; overflow: hidden; transition: color .16s, background .16s; text-decoration: none !important; }
-  .sb-item.active { animation: sb-breathe 2.8s ease-in-out infinite; }
-  .sb-icon { transition: transform .22s cubic-bezier(.34,1.56,.64,1); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-  .sb-item:hover .sb-icon { transform: scale(1.18) translateX(1px); }
-  .sb-item.active .sb-icon { animation: sb-flicker 2.8s ease-in-out infinite; }
-  .sb-item.active .sb-label { animation: sb-flicker 2.8s ease-in-out infinite; }
+  .sb-icon { transition: transform .18s ease; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .sb-item:hover .sb-icon { transform: scale(1.08); }
   .sb-shine { position:absolute; inset:0; border-radius:8px; opacity:0; pointer-events:none; transition:opacity .16s; }
   .sb-item:hover .sb-shine { opacity:1; }
-  .sb-bar { animation: sb-neon 2.8s ease-in-out infinite; }
-  .sb-dot { animation: sb-beat 2.8s ease-in-out infinite; }
-  .sb-online { animation: sb-online 3.5s ease-in-out infinite; }
+  /* En 64 px una barra de scroll del ancho normal se come un cuarto del riel. */
+  .sb-nav { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
+  .sb-nav::-webkit-scrollbar { width: 6px; }
+  .sb-nav::-webkit-scrollbar-track { background: transparent; }
+  .sb-nav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
   .sb-out { transition: color .18s, background .18s, border-color .18s; }
   .sb-out:hover { color: var(--blue) !important; border-color: var(--blue-border) !important; background: var(--blue-soft) !important; }
   .sb-logout { transition: color .18s, background .18s, border-color .18s; }
@@ -302,7 +340,6 @@ export default function Sidebar({ profile, signOut }) {
   const search = loc.search;
   
   const [hov, setHov] = useState(null);
-  const [displayInfo, setDisplayInfo] = useState(""); // NUEVO: Estado para el panel inferior
   const { isMobile } = useResponsive();
   const { theme, setTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -310,6 +347,61 @@ export default function Sidebar({ profile, signOut }) {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const toggleMenu = () => setMenuOpen(o => !o);
   const menuVisible = isMobile && menuOpen;
+
+  // Plegado: solo en escritorio. En celular ya existe el cajon con hamburguesa,
+  // que es la version movil de lo mismo.
+  const [compactoGuardado, setCompactoGuardado] = useState(leerCompacto);
+  const compacto = !isMobile && compactoGuardado;
+  // Con la columna de iconos, el nombre del item aparece al lado del cursor. Va
+  // FUERA del <aside> a proposito: el aside tiene overflow hidden y una
+  // animacion de entrada con transform, asi que un hijo posicionado quedaria
+  // recortado contra los 64 px.
+  const [globo, setGlobo] = useState(null);
+
+  // Nada de esto puede vivir adentro del updater de setState. React llama a esa
+  // función cuando le conviene y más de una vez -en desarrollo lo hace a
+  // propósito-, y ahí adentro estaban la escritura en localStorage y un
+  // dispatchEvent que este mismo componente escucha: el listener volvía a
+  // pisar el estado en plena actualización y el menú terminaba sin plegarse,
+  // con "false" guardado. Se calcula afuera y se avisa después.
+  const alternarCompacto = useCallback(() => {
+    const siguiente = !compactoGuardado;
+    setCompactoGuardado(siguiente);
+    setGlobo(null);
+    try {
+      window.localStorage.setItem(CLAVE_COMPACTO, String(siguiente));
+    } catch {
+      // Sin storage el plegado igual funciona mientras dure la sesion.
+    }
+    window.dispatchEvent(new CustomEvent(EVENTO_COMPACTO, { detail: siguiente }));
+  }, [compactoGuardado]);
+
+  // Otra instancia del sidebar -o el mismo atajo desde otra pantalla- avisa por
+  // evento para que las dos queden iguales sin releer storage.
+  useEffect(() => {
+    const alCambiar = (evento) => {
+      setCompactoGuardado(Boolean(evento.detail));
+      setGlobo(null);
+    };
+    window.addEventListener(EVENTO_COMPACTO, alCambiar);
+    return () => window.removeEventListener(EVENTO_COMPACTO, alCambiar);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) return undefined;
+    const alTeclear = (evento) => {
+      if (!(evento.ctrlKey || evento.metaKey) || evento.key.toLowerCase() !== "b") return;
+      // No robarle Ctrl+B a un campo de texto: puede ser negrita en un editor.
+      const foco = document.activeElement;
+      const etiqueta = String(foco?.tagName || "").toLowerCase();
+      if (etiqueta === "input" || etiqueta === "textarea" || foco?.isContentEditable) return;
+      evento.preventDefault();
+      alternarCompacto();
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [isMobile, alternarCompacto]);
+
   useEffect(() => {
     if (!isMobile) return undefined;
     document.body.style.overflow = menuVisible ? "hidden" : "";
@@ -431,30 +523,81 @@ export default function Sidebar({ profile, signOut }) {
     const on  = exact ? path === hrefPath && matchesQuery : path.startsWith(hrefPath);
     const isH = hov === href;
     const col = c ?? C.muted;
+    const hayBadge = badge != null && badge > 0;
+
+    // La ayuda sale AL COSTADO del ítem, en los dos modos. Antes, con el menú
+    // abierto, iba en un cartel abajo de todo: si el ítem que señalabas estaba
+    // cerca del final -Configuración, Procedimientos, Tickets-, el cartel se le
+    // montaba encima y tapaba justo lo que estabas mirando. Al costado no tapa
+    // nada del menú y no le mueve el alto a nadie.
+    const alEntrar = (evento) => {
+      setHov(href);
+      if (!info && !compacto) return;
+      const caja = evento.currentTarget.getBoundingClientRect();
+      setGlobo({ label, info, top: caja.top + caja.height / 2 });
+    };
+    const alSalir = () => { setHov(null); setGlobo(null); };
+
+    // Columna de iconos: 46x42 para que siga siendo un blanco comodo con el dedo
+    // en las PC del pañol, y el contador se monta sobre el icono.
+    if (compacto) {
+      return (
+        <Link
+          key={href} to={href}
+          className="sb-item"
+          title={label}
+          aria-label={label}
+          onMouseEnter={alEntrar}
+          onMouseLeave={alSalir}
+          style={{
+            width: 46, height: 42, margin: "1px auto", borderRadius: 9,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: on ? col : isH ? C.text : C.dim,
+            background: on ? C.panel2 : isH ? C.panel : "transparent",
+            animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+          }}
+        >
+          {on && <div style={{ position: "absolute", left: -9, top: "20%", bottom: "20%", width: 2, borderRadius: "0 2px 2px 0", background: col }}/>}
+          <span className="sb-icon"><Icon id={href} color="currentColor" size={18} /></span>
+          {hayBadge && (
+            <span style={{
+              position: "absolute", top: 3, right: 1,
+              minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan,
+              fontSize: 9, fontFamily: C.mono, fontWeight: 900, lineHeight: 1,
+              boxSizing: "border-box",
+            }}>
+              {badge > 99 ? "99" : badge}
+            </span>
+          )}
+        </Link>
+      );
+    }
+
     return (
       <Link
         key={href} to={href}
-        className={`sb-item${on ? " active" : ""}`}
+        className="sb-item"
         onClick={() => { if (isMobile) setMenuOpen(false); }}
-        onMouseEnter={() => { setHov(href); setDisplayInfo(info); }}
-        onMouseLeave={() => { setHov(null); setDisplayInfo(""); }}
+        onMouseEnter={alEntrar}
+        onMouseLeave={alSalir}
         style={{
-          display: "flex", alignItems: "center", gap: 9,
-          padding: "8px 16px 8px 18px", margin: "2px 8px", borderRadius: 8,
-          color: on ? C.text : isH ? C.muted : C.dim,
-          fontSize: 12, letterSpacing: "0.5px", fontWeight: on ? 700 : 600,
-          textTransform: "uppercase",
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "9px 14px 9px 18px", margin: "2px 8px", borderRadius: 8,
+          color: on ? C.text : isH ? C.text : C.muted,
+          fontSize: 13, letterSpacing: "0.1px", fontWeight: on ? 700 : 600,
           background: on ? C.panel2 : isH ? C.panel : "transparent",
           animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
         }}
       >
         <div className="sb-shine" style={{ background: `linear-gradient(90deg,${col}18,transparent 55%)` }} />
-        {on && <div className="sb-bar" style={{ position: "absolute", left: 0, top: "12%", bottom: "12%", width: 2, borderRadius: "0 2px 2px 0", background: col, "--c": col }}/>}
-        <span className="sb-icon" style={{ color: on ? col : isH ? `${col}` : C.dim }}>
-          <Icon id={href} color="currentColor" size={14} />
+        {on && <div style={{ position: "absolute", left: 0, top: "18%", bottom: "18%", width: 2, borderRadius: "0 2px 2px 0", background: col }}/>}
+        <span className="sb-icon" style={{ color: on ? col : isH ? col : C.dim }}>
+          <Icon id={href} color="currentColor" size={15} />
         </span>
         <span className="sb-label" style={{ flex: 1 }}>{label}</span>
-        {badge != null && badge > 0 && (
+        {hayBadge && (
           <span style={{
             minWidth: 18,
             height: 18,
@@ -464,9 +607,9 @@ export default function Sidebar({ profile, signOut }) {
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            background: `${C.amber}22`,
-            border: `1px solid ${C.amber}55`,
-            color: C.amber,
+            background: C.cyanL,
+            border: `1px solid ${C.cyanB}`,
+            color: C.cyan,
             fontSize: 10,
             fontFamily: C.mono,
             fontWeight: 900,
@@ -475,7 +618,6 @@ export default function Sidebar({ profile, signOut }) {
             {badge > 99 ? "99+" : badge}
           </span>
         )}
-        {on && <div className="sb-dot" style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: col, boxShadow: `0 0 8px ${col}` }}/>}
       </Link>
     );
   };
@@ -491,8 +633,13 @@ export default function Sidebar({ profile, signOut }) {
         key={key} to={key}
         className={`sb-item${on ? " active" : ""}`}
         onClick={() => { if (isMobile) setMenuOpen(false); }}
-        onMouseEnter={() => { setHov(key); setDisplayInfo(info); }}
-        onMouseLeave={() => { setHov(null); setDisplayInfo(""); }}
+        onMouseEnter={(evento) => {
+          setHov(key);
+          if (isMobile || !info) return;
+          const caja = evento.currentTarget.getBoundingClientRect();
+          setGlobo({ label, info, top: caja.top + caja.height / 2 });
+        }}
+        onMouseLeave={() => { setHov(null); setGlobo(null); }}
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "5px 16px 5px 42px", margin: "1px 8px", borderRadius: 7,
@@ -510,16 +657,24 @@ export default function Sidebar({ profile, signOut }) {
   };
 
   // ── GROUP & DIVIDER ─────────────────────────────────────────────────────
-  const group = (label, c, delay = 0) => (
-    <div key={`g${label}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "16px 20px 5px", animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both` }}>
-      <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: c ? `${c}88` : C.dim, boxShadow: c ? `0 0 5px ${c}44` : "none" }}/>
-      <span style={{ fontSize: 10, letterSpacing: "1.3px", color: c ? `${c}cc` : C.dim, textTransform: "uppercase", fontWeight: 700 }}>{label}</span>
+  // Plegado no entra el titulo del grupo: lo reemplaza una linea, que es lo
+  // unico que hace falta para que los bloques no se lean como una lista sola.
+  const group = (label, c, delay = 0) => (compacto ? (
+    <div key={`g${label}`} style={{ width: 26, height: 1, margin: "9px auto", background: C.border }}/>
+  ) : (
+    <div key={`g${label}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "14px 20px 6px", animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both` }}>
+      {/* El color de seccion queda en el punto. El texto va con el token de
+          siempre: los colores de seccion son hex fijos pensados para el tema
+          oscuro y en claro el titulo quedaba casi invisible. */}
+      <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: c || C.dim }}/>
+      <span style={{ fontSize: 10, letterSpacing: "1.3px", color: C.dim, textTransform: "uppercase", fontWeight: 800 }}>{label}</span>
     </div>
-  );
+  ));
 
-  const divider = (k) => (
+  // Plegado el separador ya lo pone el grupo: dos rayas seguidas serian ruido.
+  const divider = (k) => (compacto ? null : (
     <div key={`d${k}`} style={{ height: 1, margin: "4px 20px", background: `linear-gradient(90deg,transparent,${C.border},transparent)` }}/>
-  );
+  ));
 
   const sidebarMobileStyle = {
     position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 1000,
@@ -533,11 +688,32 @@ export default function Sidebar({ profile, signOut }) {
   };
 
   const sidebarDesktopStyle = {
-    width: 280, flexShrink: 0, background: C.bg, height: "100%",
+    width: compacto ? ANCHO_COMPACTO : ANCHO_ABIERTO,
+    flexShrink: 0, background: C.bg, height: "100%",
     display: "flex", flexDirection: "column", borderRight: `1px solid ${C.border}`,
     position: "relative", overflow: "hidden",
+    transition: "width .2s cubic-bezier(.22,1,.36,1)",
     animation: "sb-in .38s cubic-bezier(.22,1,.36,1) both",
+    boxSizing: "border-box",
   };
+
+  const botonPlegar = (
+    <button
+      type="button"
+      onClick={alternarCompacto}
+      title={`${compacto ? "Expandir" : "Contraer"} el menú (Ctrl + B)`}
+      aria-label={compacto ? "Expandir el menú" : "Contraer el menú"}
+      className="sb-out"
+      style={{
+        width: compacto ? 34 : 26, height: compacto ? 30 : 26, borderRadius: 7, flexShrink: 0,
+        background: C.panel, border: `1px solid ${C.border}`, color: C.dim,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", padding: 0, boxSizing: "border-box",
+      }}
+    >
+      {compacto ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+    </button>
+  );
 
   return (
     <>
@@ -570,11 +746,15 @@ export default function Sidebar({ profile, signOut }) {
       )}
 
       <aside style={isMobile ? sidebarMobileStyle : sidebarDesktopStyle}>
-        <div style={{ position: "absolute", left: 0, right: 0, height: 1, zIndex: 10, pointerEvents: "none", background: `linear-gradient(90deg,transparent,${C.border2},transparent)`, animation: "sb-scan 10s linear infinite 2s" }}/>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 180, pointerEvents: "none", background: `radial-gradient(ellipse at 35% 0%, ${C.panel2} 0%, transparent 65%)` }}/>
+        {/* Sin la linea de escaneo ni el resplandor de arriba: eran los dos
+            unicos efectos de este tipo en toda la aplicacion. */}
 
         {/* BRAND ─────────────────────────────────────────────────────────── */}
-        <div style={{ padding: isMobile ? "14px 14px 12px" : "20px 18px 16px", borderBottom: `1px solid ${C.border}`, position: "relative", animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
+        <div style={{
+          padding: isMobile ? "14px 14px 12px" : compacto ? "18px 0" : "18px 14px 16px 18px",
+          borderBottom: `1px solid ${C.border}`, position: "relative", flexShrink: 0,
+          animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both",
+        }}>
           {isMobile && (
             <button onClick={toggleMenu} style={{
               position: "absolute", top: 10, right: 10, zIndex: 5,
@@ -584,22 +764,29 @@ export default function Sidebar({ profile, signOut }) {
               ✕
             </button>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: C.panel2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 20px var(--shadow)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: compacto ? "center" : "flex-start", gap: 11 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: C.panel2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <img src={logoK} alt="K" className="klasea-logo-mono" style={{ width: 15, height: 15, objectFit: "contain" }}/>
             </div>
-            <div>
-              <div style={{ fontWeight: 800, letterSpacing: "1.3px", fontSize: 12, lineHeight: 1, color: C.text }}>
-                KLASE A
-              </div>
-              <div style={{ fontSize: 10, letterSpacing: "1.1px", color: C.dim, textTransform: "uppercase", marginTop: 3, fontWeight: 700 }}>
-                Sistema de producción
-              </div>
-            </div>
+            {!compacto && (
+              <>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, letterSpacing: "1.3px", fontSize: 12, lineHeight: 1, color: C.text }}>
+                    KLASE A
+                  </div>
+                  <div style={{ fontSize: 10, letterSpacing: "1.1px", color: C.dim, textTransform: "uppercase", marginTop: 3, fontWeight: 700 }}>
+                    Sistema de producción
+                  </div>
+                </div>
+                {!isMobile && botonPlegar}
+              </>
+            )}
           </div>
         </div>
 
-        <div style={{ padding: "9px 8px 3px", position: "relative" }}>
+        {/* El buscador nunca se esconde: plegado queda como lupa, y Ctrl+K sigue
+            funcionando igual desde cualquier parte. */}
+        <div style={{ padding: compacto ? "10px 0 6px" : "10px 8px 4px", position: "relative", display: "flex", justifyContent: "center", flexShrink: 0 }}>
           <button
             type="button"
             onClick={() => {
@@ -607,31 +794,28 @@ export default function Sidebar({ profile, signOut }) {
               if (isMobile) setMenuOpen(false);
             }}
             title="Buscar en todo Klase A (Ctrl + K)"
+            aria-label="Buscar en todo Klase A"
+            className="sb-out"
             style={{
-              width: "100%", minHeight: 36, display: "flex", alignItems: "center", gap: 9,
-              padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`,
+              width: compacto ? 40 : "100%", minHeight: 36, display: "flex", alignItems: "center",
+              justifyContent: compacto ? "center" : "flex-start", gap: 9,
+              padding: compacto ? 0 : "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`,
               background: C.panel, color: C.dim, cursor: "pointer", fontFamily: C.sans,
-              textAlign: "left", transition: "background .16s ease, border-color .16s ease, color .16s ease",
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.background = C.panel2;
-              event.currentTarget.style.borderColor = C.border2;
-              event.currentTarget.style.color = C.text;
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.background = C.panel;
-              event.currentTarget.style.borderColor = C.border;
-              event.currentTarget.style.color = C.dim;
+              textAlign: "left", boxSizing: "border-box",
             }}
           >
-            <Search size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
-            <span style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, letterSpacing: ".2px" }}>Buscar en Klase A</span>
-            {!isMobile && <kbd style={{ border: `1px solid ${C.border}`, background: C.panel2, color: C.dim, borderRadius: 5, padding: "2px 5px", fontSize: 8.5, fontFamily: C.mono, whiteSpace: "nowrap" }}>Ctrl K</kbd>}
+            <Search size={compacto ? 15 : 14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+            {!compacto && (
+              <>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 700, letterSpacing: ".2px" }}>Buscar en Klase A</span>
+                {!isMobile && <kbd style={{ border: `1px solid ${C.border}`, background: C.panel2, color: C.dim, borderRadius: 5, padding: "2px 5px", fontSize: 8.5, fontFamily: C.mono, whiteSpace: "nowrap" }}>Ctrl K</kbd>}
+              </>
+            )}
           </button>
         </div>
 
         {/* NAV ───────────────────────────────────────────────────────────── */}
-        <nav style={{ flex: 1, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
+        <nav className="sb-nav" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
           {esPanol && <>
             {group("Operación diaria", SC.panol_catalogo, 55)}
             {item("/inicio-panol", "Panel de pañol", SC.panol_catalogo, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
@@ -641,7 +825,11 @@ export default function Sidebar({ profile, signOut }) {
             {item("/egresos-panol", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
             {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
             {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
-            {item("/consumibles-caja", "Egreso de consumibles", SC.panol_catalogo, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
+            {/* Se llamaba "Egreso de consumibles" y quedaba pegado a
+                "Consumibles": dos renglones casi iguales, uno arriba del otro.
+                "Caja" es como le dicen en el pañol y ademas describe mejor lo
+                que hace, porque por aca tambien entra mercaderia. */}
+            {item("/consumibles-caja", "Caja de consumibles", SC.panol_catalogo, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
 
             {divider("panol-consulta")}
             {group("Consultar", SC.movimientos, 120)}
@@ -714,6 +902,7 @@ export default function Sidebar({ profile, signOut }) {
           {puedeVerPrecios && <>
             {divider("precios")}
             {group("Precios", SC.panol_catalogo, 230)}
+            {item("/costo-barco", "Costo del barco", SC.panol_catalogo, true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
             {item("/precios", "Carga de precios", SC.panol_catalogo, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
           </>}
 
@@ -753,26 +942,61 @@ export default function Sidebar({ profile, signOut }) {
             {group("Instrucciones", SC.instrucciones, 450)}
             {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
           </>}
+
+          {/* Sin condición de rol: pedirle algo al sistema lo tiene que poder
+              hacer cualquiera que entre. Va al final porque no es parte del
+              trabajo diario, pero está siempre a la vista. */}
+          {divider("tk")}
+          {group("Ayuda", SC.tickets, 490)}
+          {item("/tickets", "Tickets", SC.tickets, true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
         </nav>
 
-        {/* MINI DISPLAY / TOOLTIP PANEL ──────────────────────────────────── */}
-        <div style={{
-          height: 60, margin: "0 12px 10px 12px", padding: "8px 12px", borderRadius: 8,
-          background: displayInfo ? C.panel : "transparent",
-          border: displayInfo ? `1px solid ${C.border}` : "1px solid transparent",
-          transition: "all 0.2s ease-in-out", display: "flex", alignItems: "center", flexShrink: 0
-        }}>
-          <span style={{ fontSize: 11, color: C.muted, lineHeight: 1.4, opacity: displayInfo ? 1 : 0, transition: "opacity 0.2s ease-in-out", pointerEvents: "none" }}>
-            {displayInfo}
-          </span>
-        </div>
+        {/* PIE PLEGADO ────────────────────────────────────────────────────
+            Solo lo que se busca a ciegas: expandir, quien soy y salir. El tema,
+            la contraseña y el resto viven en el pie completo, a un Ctrl+B. */}
+        {compacto && (
+          <div style={{
+            borderTop: `1px solid ${C.border}`, padding: "10px 0 12px", flexShrink: 0,
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+          }}>
+            {botonPlegar}
+            <div
+              title={`${username} · ${role}`}
+              style={{
+                width: 30, height: 30, borderRadius: 9, background: C.panel2,
+                border: `1px solid ${C.border}`, display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.text,
+                letterSpacing: .4, position: "relative", boxSizing: "border-box",
+              }}
+            >
+              {initials || "?"}
+              <span style={{ position: "absolute", right: -1, bottom: -1, width: 8, height: 8, borderRadius: "50%", background: C.green, border: `2px solid ${C.bg}`, boxSizing: "border-box" }}/>
+            </div>
+            <button
+              type="button"
+              onClick={signOut}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+              className="sb-logout"
+              style={{
+                background: C.panel, border: `1px solid ${C.border}`, borderRadius: 7,
+                color: C.dim, width: 30, height: 28, display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", padding: 0, boxSizing: "border-box",
+              }}
+            >
+              <LogOut size={13} />
+            </button>
+          </div>
+        )}
 
         {/* FOOTER ────────────────────────────────────────────────────────── */}
+        {!compacto && (
         <div style={{
           borderTop: `1px solid ${C.border}`,
           padding: "10px 12px 12px",
           display: "grid",
           gap: 8,
+          flexShrink: 0,
           animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -939,7 +1163,32 @@ export default function Sidebar({ profile, signOut }) {
             </button>
           )}
         </div>
+        )}
       </aside>
+
+      {/* El nombre del item cuando el menu esta plegado. Fuera del <aside> para
+          que no lo recorte el overflow de los 64 px. */}
+      {!isMobile && globo && (
+        <div style={{
+          position: "fixed",
+          left: (compacto ? ANCHO_COMPACTO : ANCHO_ABIERTO) + 10,
+          top: globo.top, transform: "translateY(-50%)",
+          zIndex: 1200, pointerEvents: "none",
+          background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 8,
+          padding: "7px 11px", boxShadow: "0 10px 30px var(--shadow)", maxWidth: 260,
+        }}>
+          {/* Con el menú abierto el nombre ya se lee en el ítem: repetirlo acá
+              sería decir dos veces lo mismo a diez centímetros. */}
+          {compacto ? (
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, whiteSpace: "nowrap" }}>{globo.label}</div>
+          ) : null}
+          {globo.info ? (
+            <div style={{ fontSize: 11, fontWeight: 600, color: compacto ? C.dim : C.muted, marginTop: compacto ? 2 : 0, lineHeight: 1.45 }}>
+              {globo.info}
+            </div>
+          ) : null}
+        </div>
+      )}
       <VincularWhatsAppModal
         open={waOpen}
         onClose={() => setWaOpen(false)}

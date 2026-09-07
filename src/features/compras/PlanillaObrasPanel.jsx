@@ -9,6 +9,8 @@ import {
   ChevronDown,
   Copy,
   Download,
+  Filter,
+  FlaskConical,
   LoaderCircle,
   Layers3,
   Package,
@@ -16,11 +18,13 @@ import {
   PlusCircle,
   RotateCcw,
   Search,
+  Settings2,
   Send,
   ShoppingCart,
   Sparkles,
   SquarePen,
   Table2,
+  TreePine,
   Warehouse,
   X,
 } from "lucide-react";
@@ -32,6 +36,8 @@ import { exportarPlanillaXlsx } from "@/features/compras/planillaExcel";
 import ProductoAsignadoControl from "@/features/materiales/ProductoAsignadoControl";
 import { ensureObraMaterialSnapshotRow } from "@/features/materiales/api";
 import { guardarConfiguracionProductoObra } from "@/features/materiales/productosAsignadosApi";
+import PlanillaHerramientas from "./PlanillaHerramientas";
+import PlanillaDetalle, { PlanillaFoto } from "./PlanillaDetalle";
 
 const AGRUPACIONES = [
   { valor: "rubro", etiqueta: "Agrupar por rubro" },
@@ -51,6 +57,7 @@ const ORIGENES = [
   { valor: "opcional", etiqueta: "Configuración", ayuda: "Materiales agregados o cantidades modificadas por la configuración particular del barco.", icono: Sparkles },
   { valor: "adicional", etiqueta: "Adicionales", ayuda: "Extras incorporados específicamente para una obra.", icono: PlusCircle },
   { valor: "panol", etiqueta: "Desde pañol", ayuda: "Ítems incorporados desde movimientos o listas operativas de pañol.", icono: Warehouse },
+  { valor: "secundario", etiqueta: "Secundarios", ayuda: "Laminación y Maderas: cuentan para costo y consumo, pero no generan compras ni avisos de Pañol.", icono: FlaskConical },
   { valor: "fuera_matriz", etiqueta: "A revisar", ayuda: "Filas históricas o manuales sin una clasificación confiable en la matriz.", icono: AlertTriangle },
 ];
 
@@ -59,12 +66,20 @@ const ORIGEN_TONOS = {
   opcional: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Config.", icono: Sparkles },
   adicional: { color: C.teal, fondo: C.tealL, borde: C.tealB, texto: "Adicional", icono: PlusCircle },
   panol: { color: C.cyan, fondo: C.cyanL, borde: C.cyanB, texto: "Pañol", icono: Warehouse },
+  secundario: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Secundario", icono: FlaskConical },
+  laminacion: { color: C.blue, fondo: C.blueL, borde: C.blueB, texto: "Laminación", icono: FlaskConical },
+  maderas: { color: C.amber, fondo: C.amberL, borde: C.amberB, texto: "Maderas", icono: TreePine },
   fuera_matriz: { color: C.red, fondo: C.redL, borde: C.redB, texto: "A revisar", icono: AlertTriangle },
 };
 
 const MotionDiv = motion.div;
 const MotionButton = motion.button;
 const MotionI = motion.i;
+
+const FILAS_POR_BLOQUE = {
+  mobile: 24,
+  desktop: 48,
+};
 
 const CARGA = {
   sin_matriz: {
@@ -92,58 +107,50 @@ const mostrarNumero = (value) => {
 
 
 /**
- * La celda como mancha de calor.
- *
- * Antes cada cruce escribia "necesita 12 · 4 entregados · 8 faltantes": con
- * siete obras y trescientos materiales eso es leer la palabra "faltantes"
- * quinientas veces para encontrar tres huecos. Aca el fondo es la señal y el
- * numero es el detalle: alejando la vista se ve DONDE esta el problema sin
- * leer nada, y acercandose se lee cuanto.
- *
- * LA INTENSIDAD VA POR CANTIDAD, NO POR PROPORCION. Lo primero que se probo fue
- * teñir segun que parte del requerido falta, y contra los datos reales no
- * servia: el 99% de las celdas con faltante estan al 100% -cuando algo falta,
- * casi siempre no llego nada- asi que la planilla quedaba un bloque rojo
- * parejo, peor que antes. Lo que si distingue es CUANTO falta, que ademas es la
- * pregunta de esta pantalla.
- *
- * Y va en escala logaritmica con el techo calculado sobre lo que hay en
- * pantalla: las cantidades van de 1 a 2.200 y en escala lineal los faltantes
- * chicos -que son la mitad de la tabla- quedarian todos invisibles.
+ * El color comunica estado, no volumen: cualquier faltante requiere la misma
+ * atención. La cifra dentro de la celda informa cuánto falta.
  */
-function CeldaCalor({ celda, vista, techo }) {
+function CeldaCalor({ celda, vista }) {
   if (!celda) return <span style={{ color: C.border2, fontSize: 12, fontFamily: C.mono }}>·</span>;
+
+  if (celda.secundario) {
+    const consumido = Number(celda.consumido || 0);
+    const requerido = Number(celda.requerido || 0);
+    const completo = requerido > 0 && consumido >= requerido;
+    const texto = celda.soloConsumo
+      ? (consumido > 0 ? mostrarNumero(consumido) : "—")
+      : `${mostrarNumero(consumido).replace("—", "0")} / ${mostrarNumero(requerido).replace("—", "0")}`;
+    return (
+      <span style={{
+        display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
+        background: completo ? "var(--green-soft)" : C.violetL,
+        color: completo ? C.green : C.violet,
+        fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, fontVariantNumeric: "tabular-nums",
+      }}>
+        {texto}
+      </span>
+    );
+  }
 
   const falta = Number(celda.pendiente) || 0;
   const enPanol = Number(celda.enPanol) || 0;
   const entregado = Number(celda.egresado) || 0;
   const sinDefinir = celda.requiereProductoConcreto && !celda.productoDefinido;
 
-  const nivel = (n) => {
-    if (!(n > 0)) return 0;
-    const tope = Math.log((techo || 1) + 1);
-    return tope > 0 ? Math.min(1, Math.log(n + 1) / tope) : 1;
-  };
-  const mancha = (n, base) => {
-    const v = nivel(n);
-    return {
-      background: `color-mix(in srgb, ${base} ${Math.round(8 + v * 62)}%, transparent)`,
-      // Solo el tramo mas cargado necesita invertir el texto; antes el umbral
-      // estaba tan bajo que media tabla quedaba en blanco sobre rojo.
-      color: v > 0.72 ? "#fff" : base,
-    };
-  };
-
   // Con una vista de un solo estado la celda muestra ese estado y nada mas, asi
   // todas las celdas de la tabla quieren decir lo mismo.
   const soloEste = vista === "falta" ? falta : vista === "panol" ? enPanol : vista === "entregado" ? entregado : null;
   if (soloEste !== null) {
     if (!(soloEste > 0)) return <span style={{ color: C.border2, fontSize: 12, fontFamily: C.mono }}>·</span>;
-    const base = vista === "falta" ? C.red : vista === "panol" ? C.cyan : C.green;
+    const estado = vista === "falta"
+      ? { background: C.redL, color: C.red }
+      : vista === "panol"
+        ? { background: C.cyanL, color: C.cyan }
+        : { background: "var(--green-soft)", color: C.green };
     return (
       <span className="celda-calor" style={{
         display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
-        ...mancha(soloEste, base),
+        ...estado,
         fontFamily: C.mono, fontSize: 12, fontWeight: 950, fontVariantNumeric: "tabular-nums",
       }}>
         {mostrarNumero(soloEste)}
@@ -158,7 +165,7 @@ function CeldaCalor({ celda, vista, techo }) {
   if (sinDefinir) {
     estilo = { background: C.violetL, color: C.violet }; texto = "?";
   } else if (falta > 0) {
-    estilo = mancha(falta, C.red); texto = mostrarNumero(falta); peso = 950;
+    estilo = { background: C.redL, color: C.red }; texto = mostrarNumero(falta); peso = 950;
   } else if (enPanol > 0) {
     estilo = { background: C.cyanL, color: C.cyan }; texto = mostrarNumero(enPanol);
   } else if (entregado > 0) {
@@ -289,6 +296,12 @@ function OrigenBadge({ origen, compacto = false }) {
   );
 }
 
+function fmtPrecioSecundario(precio) {
+  if (!precio?.precio_unidad_matriz) return "Sin precio";
+  const numero = Number(precio.precio_unidad_matriz).toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  return `${precio.moneda === "USD" ? "US$" : "$"} ${numero}`;
+}
+
 export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile = null }) {
   const toast = useToast();
   const reducirMovimiento = useReducedMotion();
@@ -311,25 +324,45 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const [panolPrefill, setPanolPrefill] = useState(null);
   const [productoBusy, setProductoBusy] = useState("");
   const [exportando, setExportando] = useState(false);
+  const [densidad, setDensidad] = useState("comoda");
+  const [anchoMaterial, setAnchoMaterial] = useState(360);
+  const [anchoObra, setAnchoObra] = useState(110);
+  const [detalle, setDetalle] = useState(null);
+  const [foto, setFoto] = useState(null);
+  const [resumenAbierto, setResumenAbierto] = useState(false);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const [vistaAbierta, setVistaAbierta] = useState(false);
+  const filasPorBloque = isMobile ? FILAS_POR_BLOQUE.mobile : FILAS_POR_BLOQUE.desktop;
+  const [limiteFilas, setLimiteFilas] = useState(filasPorBloque);
+  const solicitudRef = useRef(0);
+  const detalleTriggerRef = useRef(null);
   const buscadorRef = useRef(null);
   const busquedaDiferida = useDeferredValue(busqueda);
 
   const cargar = useCallback(async (cual) => {
+    const solicitud = ++solicitudRef.current;
     setCargando(true);
     try {
       const resultado = await calcularPlanillaDeLinea(cual);
+      if (solicitud !== solicitudRef.current) return;
       setDatos(resultado);
       setError("");
     } catch (e) {
+      if (solicitud !== solicitudRef.current) return;
       setError(e.message || "No se pudo armar la planilla.");
     } finally {
-      setCargando(false);
+      if (solicitud === solicitudRef.current) setCargando(false);
     }
   }, []);
 
   useEffect(() => { cargar(linea); }, [cargar, linea]);
 
-  useEffect(() => {
+  function cambiarLinea(value) {
+    if (value !== linea) {
+      setDatos(null);
+      setCargando(true);
+    }
+    setLinea(value);
     setElegidos(new Set());
     setObrasAviso(new Set());
     setSelectorObrasAvisoAbierto(false);
@@ -338,7 +371,34 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     setVista("todo");
     setOrigenFiltro("todos");
     setSoloSinOpcion(false);
-  }, [linea]);
+    setDetalle(null);
+    setGruposCerrados(new Set());
+  }
+
+  function aplicarVista(config) {
+    cambiarLinea(config.linea);
+    setObraFoco(typeof config.obraFoco === "string" ? config.obraFoco : "");
+    setBusqueda(typeof config.busqueda === "string" ? config.busqueda : "");
+    setAgrupar(AGRUPACIONES.some(v => v.valor === config.agrupar) ? config.agrupar : "rubro");
+    setVista(VISTAS.some(v => v.valor === config.vista) ? config.vista : "todo");
+    setOrigenFiltro(ORIGENES.some(v => v.valor === config.origenFiltro) ? config.origenFiltro : "todos");
+    setSoloPendientes(config.soloPendientes === true);
+    setSoloSinOpcion(config.soloSinOpcion === true);
+  }
+
+  function abrirDetalle(event, fila, obraId = obraFoco) {
+    event.stopPropagation();
+    detalleTriggerRef.current = event.currentTarget;
+    setDetalle({ filaId: fila.id, obraId });
+  }
+
+  function cerrarDetalle() {
+    setDetalle(null);
+    detalleTriggerRef.current?.focus({ preventScroll: true });
+  }
+
+  const filaDetalle = detalle ? datos?.filas.find(fila => fila.id === detalle.filaId) : null;
+  const obraDetalle = detalle ? datos?.obras.find(obra => obra.id === detalle.obraId) : null;
 
   const obraSeleccionada = useMemo(
     () => datos?.obras.find((obra) => obra.id === obraFoco) || null,
@@ -403,26 +463,6 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     ]));
   }, [datos, obraFoco]);
 
-  /**
-   * El techo de la escala de calor: el percentil 95 de los faltantes que estan
-   * en pantalla. Se calcula sobre lo visible y no sobre un numero fijo para que
-   * la escala siga discriminando cuando se cambia de linea o se filtra: si el
-   * mayor faltante pasa de 2.200 a 12, la mancha se reparte igual.
-   */
-  const techoCalor = useMemo(() => {
-    if (!datos) return 1;
-    const valores = [];
-    for (const fila of datos.filas) {
-      for (const celda of Object.values(fila.porObra || {})) {
-        const n = Number(celda?.pendiente) || 0;
-        if (n > 0) valores.push(n);
-      }
-    }
-    if (!valores.length) return 1;
-    valores.sort((a, b) => a - b);
-    return valores[Math.floor((valores.length - 1) * 0.95)] || 1;
-  }, [datos]);
-
   const grupos = useMemo(() => {
     if (!datos) return [];
     const q = busquedaDiferida.trim().toLocaleLowerCase("es");
@@ -448,8 +488,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       .map(([nombre, filas]) => ({
         nombre,
         filas,
-        pendientes: filas.filter((fila) => cantidadPendiente(fila) > 0).length,
-        aComprar: filas.filter((fila) => cantidadComprar(fila) > 0).length,
+        secundarios: filas.filter((fila) => fila.secundario).length,
+        pendientes: filas.filter((fila) => !fila.secundario && cantidadPendiente(fila) > 0).length,
+        aComprar: filas.filter((fila) => !fila.secundario && cantidadComprar(fila) > 0).length,
         sinProveedor: nombre === "Sin proveedor",
       }))
       .sort((a, b) => {
@@ -459,6 +500,25 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   }, [datos, busquedaDiferida, agrupar, soloPendientes, soloSinOpcion, obraFoco, origenFiltro, cantidadPendiente, cantidadComprar]);
 
   const filasVisibles = useMemo(() => grupos.flatMap((grupo) => grupo.filas), [grupos]);
+  const gruposRenderizados = useMemo(() => {
+    let restantes = limiteFilas;
+    const resultado = [];
+
+    for (const grupo of grupos) {
+      if (restantes <= 0) break;
+      const filasRenderizadas = grupo.filas.slice(0, restantes);
+      if (!filasRenderizadas.length) continue;
+      resultado.push({ ...grupo, filasRenderizadas });
+      restantes -= filasRenderizadas.length;
+    }
+
+    return resultado;
+  }, [grupos, limiteFilas]);
+  const cantidadRenderizada = useMemo(
+    () => gruposRenderizados.reduce((total, grupo) => total + grupo.filasRenderizadas.length, 0),
+    [gruposRenderizados],
+  );
+  const quedanFilas = cantidadRenderizada < filasVisibles.length;
   const seleccionados = useMemo(
     () => filasVisibles.filter((fila) => elegidos.has(fila.id)),
     [filasVisibles, elegidos],
@@ -478,10 +538,26 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         return obraFoco ? celda?.egresado > 0 : fila.totales.egresado > 0;
       }).length,
       aComprar: filas.filter((fila) => cantidadComprar(fila) > 0).length,
+      secundarios: filas.filter((fila) => fila.secundario).length,
     };
   }, [datos, obraFoco, cantidadPendiente, cantidadComprar]);
 
+  useEffect(() => {
+    setLimiteFilas(filasPorBloque);
+  }, [filasPorBloque, linea, obraFoco, busquedaDiferida, agrupar, soloPendientes, soloSinOpcion, origenFiltro, datos]);
+
+  function cargarMasFilas() {
+    setLimiteFilas((actual) => Math.min(filasVisibles.length, actual + filasPorBloque));
+  }
+
+  function manejarScrollPlanilla(event) {
+    const contenedor = event.currentTarget;
+    const distanciaAlFinal = contenedor.scrollHeight - contenedor.scrollTop - contenedor.clientHeight;
+    if (distanciaAlFinal <= 320 && quedanFilas) cargarMasFilas();
+  }
+
   function alternarFila(id) {
+    if (datos?.filas.find((fila) => fila.id === id)?.secundario) return;
     setElegidos((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -490,7 +566,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   }
 
   function alternarGrupo(grupo) {
-    const ids = grupo.filas.map((fila) => fila.id);
+    const ids = grupo.filas.filter((fila) => !fila.secundario).map((fila) => fila.id);
+    if (!ids.length) return;
     const todosPuestos = ids.every((id) => elegidos.has(id));
     setElegidos((prev) => {
       const next = new Set(prev);
@@ -569,7 +646,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
   function abrirImagen(evento, fila) {
     evento.stopPropagation();
-    if (fila.imagenUrl) window.open(fila.imagenUrl, "_blank", "noopener");
+    if (fila.imagenUrl) setFoto(fila);
   }
 
   async function cambiarProductoObra(row, configuracion) {
@@ -803,9 +880,16 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   };
 
   const columnas = obraSeleccionada ? 8 : 3 + obrasVisibles.length;
+  const cantidadFiltrosActivos = [
+    vista !== "todo",
+    origenFiltro !== "todos",
+    agrupar !== "rubro",
+    soloPendientes,
+    soloSinOpcion,
+  ].filter(Boolean).length;
 
   return (
-    <div className="planilla-obras" style={{ display: "grid", gap: 12, padding: isMobile ? 12 : 0, minWidth: 0 }}>
+    <div className={`planilla-obras planilla-${densidad}`} style={{ display: "grid", gap: 12, padding: isMobile ? 12 : 0, minWidth: 0 }}>
       <style>{`
         .planilla-obras .planilla-fila { transition: background .16s ease, box-shadow .18s ease; }
         .planilla-obras .planilla-fila:hover { background: var(--panel-2); }
@@ -817,7 +901,29 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         .planilla-obras .planilla-thumb { transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
         .planilla-obras .planilla-thumb:hover { transform: scale(1.06); border-color: ${C.blueB}; box-shadow: 0 5px 14px rgba(15,23,42,.18); }
         .planilla-obras .planilla-contexto { display: block; }
-        .planilla-obras .planilla-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+        .planilla-obras .planilla-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .planilla-obras .planilla-buscador { flex: 1 1 300px; }
+        .planilla-obras .planilla-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; min-width: 0; }
+        .planilla-obras .planilla-workspace.con-detalle { grid-template-columns: minmax(0, 1fr) 340px; }
+        .planilla-obras .planilla-detalle { display: grid; gap: 16px; padding: 18px; background: var(--panel-solid); border: 1px solid var(--border); border-radius: 14px; color: var(--text); max-height: 72vh; overflow-y: auto; animation: planilla-entrada .18s ease-out; }
+        @keyframes planilla-entrada { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+        .planilla-obras .planilla-celda-detalle { display: block; width: 100%; min-height: 40px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+        .planilla-obras .planilla-celda-detalle:hover { border-color: var(--blue); }
+        .planilla-obras .planilla-celda-detalle[aria-pressed="true"] { outline: 2px solid var(--blue); outline-offset: -2px; }
+        .planilla-obras .planilla-nombre { display: block; width: 100%; padding: 0; background: transparent; border: none; text-align: left; color: var(--text); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; line-height: 1.4; }
+        .planilla-obras .planilla-nombre:hover { color: var(--blue); }
+        .planilla-compacta .planilla-celda-fija { padding-block: 5px !important; }
+        .planilla-compacta .planilla-nombre { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .planilla-compacta .planilla-origen-fila { display: none !important; }
+        .planilla-compacta .planilla-celda-detalle { min-height: 34px; }
+        @media (max-width: 1100px) {
+          .planilla-obras .planilla-workspace.con-detalle { grid-template-columns: minmax(0, 1fr); }
+          .planilla-obras .planilla-detalle { grid-row: 1; max-height: 48vh; }
+        }
+        @media (max-width: 760px) {
+          .planilla-obras .planilla-celda-fija { position: static !important; }
+          .planilla-obras .planilla-material-head { left: auto !important; }
+        }
         .planilla-obras .planilla-cabecera-obras th { background-color: var(--panel-solid); background-clip: padding-box; }
         .planilla-obras .planilla-cabecera-obras { filter: drop-shadow(0 7px 8px rgba(15,23,42,.10)); }
         .planilla-obras .planilla-senales > * { flex: 0 1 auto; }
@@ -844,74 +950,33 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         }
       `}</style>
 
-      <section
-        className="planilla-central"
-        style={{
-          ...panel,
-          position: "relative",
-          overflow: "hidden",
-          padding: isMobile ? 14 : "17px 18px 15px",
-          display: "grid",
-          gap: 14,
-          background: "linear-gradient(118deg, var(--panel-solid) 0%, var(--panel-solid) 58%, var(--blue-soft) 145%)",
-          boxShadow: "0 16px 42px color-mix(in srgb, var(--blue) 7%, transparent)",
-        }}
-      >
-        <div aria-hidden="true" style={{ position: "absolute", width: 360, height: 360, right: -120, top: -205, borderRadius: 999, pointerEvents: "none", background: "radial-gradient(circle, color-mix(in srgb, var(--blue) 13%, transparent), transparent 68%)" }} />
-        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <MotionDiv
-            initial={reducirMovimiento ? false : { opacity: 0, scale: 0.88, rotate: -4 }}
-            animate={{ opacity: 1, scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 310, damping: 24 }}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              display: "grid",
-              placeItems: "center",
-              color: C.blue,
-              background: C.blueL,
-              border: `1px solid ${C.blueB}`,
-              boxShadow: "0 8px 20px color-mix(in srgb, var(--blue) 15%, transparent)",
-              flexShrink: 0,
-            }}
-          >
-            <Layers3 size={20} />
-          </MotionDiv>
-          <div style={{ minWidth: 220, flex: 1 }}>
-            <div style={{ color: C.blue, fontSize: 9.5, fontWeight: 950, letterSpacing: 1.35, textTransform: "uppercase" }}>Central de abastecimiento</div>
-            <h2 style={{ margin: "3px 0 0", color: C.text, fontSize: isMobile ? 19 : 21, lineHeight: 1.08, fontWeight: 950, letterSpacing: -.35 }}>Planillas por obra</h2>
-            <p style={{ margin: "5px 0 0", maxWidth: 720, color: C.dim, fontSize: 11.5, fontWeight: 700, lineHeight: 1.4 }}>
-              Matriz, adicionales, compras y pañol en una sola vista para decidir qué mover a continuación.
-            </p>
+      <section className="planilla-central" style={{ ...panel, padding: isMobile ? "10px 12px" : "10px 14px", display: "grid", gap: 9 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, flexShrink: 0 }}>
+            <Layers3 size={16} />
+          </span>
+          <div style={{ minWidth: 180, flex: 1 }}>
+            <h2 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 18, lineHeight: 1.15, fontWeight: 950 }}>Planillas por obra</h2>
+            <p style={{ margin: "2px 0 0", color: C.dim, fontSize: 10.5, fontWeight: 700 }}>Compará materiales y obras en una sola tabla.</p>
           </div>
-          {datos ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-              <span style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "5px 9px", fontFamily: C.mono, fontSize: 10.5, fontWeight: 950 }}>{linea}</span>
-              <span style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.dim, borderRadius: 999, padding: "5px 9px", fontSize: 10.5, fontWeight: 850 }}>{datos.obras.length} obras activas</span>
-            </div>
-          ) : null}
+          {datos ? <span style={{ color: C.dim, fontSize: 11, fontWeight: 800 }}>{datos.obras.length} obras · {resumenFoco.materiales} materiales</span> : null}
+          <button type="button" aria-expanded={resumenAbierto} onClick={() => setResumenAbierto(actual => !actual)} style={{ ...control, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 6, color: resumenAbierto ? C.blue : C.dim }}>
+            Resumen <ChevronDown size={13} style={{ transform: resumenAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+          </button>
         </div>
-
-        {datos ? (
-          <MotionDiv
-            initial={reducirMovimiento ? false : { opacity: 0, y: 7 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, delay: 0.05 }}
-            className="planilla-senales"
-            style={{ display: "flex", gap: 7, flexWrap: "wrap", position: "relative" }}
-          >
-            <Metric valor={resumenFoco.materiales} etiqueta="materiales visibles" icono={Table2} />
+        {resumenAbierto && datos ? (
+          <MotionDiv initial={reducirMovimiento ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="planilla-senales" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
             <Metric valor={resumenFoco.aComprar} etiqueta="requieren compra" color={C.amber} icono={ShoppingCart} />
             <Metric valor={resumenFoco.pendientes} etiqueta="con faltantes" color={C.red} icono={AlertTriangle} />
             <Metric valor={resumenFoco.enPanol} etiqueta="esperando retiro" color={C.cyan} icono={PackageCheck} />
             <Metric valor={resumenFoco.entregados} etiqueta="con entregas" color={C.green} icono={CheckCircle2} />
+            {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="secundarios para costo" color={C.violet} icono={FlaskConical} /> : null}
             {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={C.amber} icono={CircleAlert} /> : null}
           </MotionDiv>
         ) : null}
       </section>
 
-      {datos?.obras.length ? (
+      {resumenAbierto && datos?.obras.length ? (
         <section className="planilla-contexto" style={{ ...panel, overflow: "hidden" }}>
           <div style={{
             padding: 15,
@@ -953,20 +1018,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                 <div>
                   <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>{linea} · todas las obras activas</div>
                   <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
-                    El fondo de cada celda es la señal: cuanto más rojo, mayor la cantidad que falta de ese material en ese barco.
+                    Rojo significa que falta material, sin importar si falta una unidad o varias. La cifra indica la cantidad.
                   </div>
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 10.5, fontWeight: 850 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.dim }}>
-                    falta poco
-                    <span style={{ display: "inline-flex", borderRadius: 3, overflow: "hidden" }}>
-                      <i style={{ width: 14, height: 11, background: `color-mix(in srgb, ${C.red} 14%, transparent)` }} />
-                      <i style={{ width: 14, height: 11, background: `color-mix(in srgb, ${C.red} 30%, transparent)` }} />
-                      <i style={{ width: 14, height: 11, background: `color-mix(in srgb, ${C.red} 46%, transparent)` }} />
-                      <i style={{ width: 14, height: 11, background: `color-mix(in srgb, ${C.red} 62%, transparent)` }} />
-                      <i style={{ width: 14, height: 11, background: `color-mix(in srgb, ${C.red} 70%, transparent)` }} />
-                    </span>
-                    falta mucho
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.red }}>
+                    <i style={{ width: 14, height: 11, borderRadius: 3, background: C.redL, border: `1px solid ${C.redB}` }} /> faltante
                   </span>
                   <span style={{ color: C.cyan }}>■ esperando retiro</span>
                   <span style={{ color: C.green }}>■ entregado</span>
@@ -1032,7 +1089,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         <div className="planilla-filtros">
         <select
           value={linea}
-          onChange={(event) => setLinea(event.target.value)}
+          onChange={(event) => cambiarLinea(event.target.value)}
           aria-label="Línea de producción"
           title="Línea de producción"
           style={{ ...control, minWidth: 82, borderColor: C.blueB, background: C.blueL, color: C.blue, fontWeight: 950 }}
@@ -1051,6 +1108,35 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             <option key={obra.id} value={obra.id}>{obra.codigo} · {obra.pendientes} pendientes</option>
           ))}
         </select>
+        <div className="planilla-buscador" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 240, border: `1px solid ${C.border2}`, background: "var(--panel-2)", borderRadius: 9, padding: "7px 10px" }}>
+          <Search size={14} color={C.dim} />
+          <input
+            ref={buscadorRef}
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+            placeholder="Buscar material, código, rubro o proveedor…"
+            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}
+          />
+          {busqueda ? (
+            <button type="button" onClick={() => { setBusqueda(""); buscadorRef.current?.focus(); }} aria-label="Limpiar búsqueda" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 0 }}>
+              <X size={13} />
+            </button>
+          ) : null}
+        </div>
+        <button type="button" aria-expanded={filtrosAbiertos} onClick={() => setFiltrosAbiertos(actual => !actual)} style={{ ...control, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderColor: cantidadFiltrosActivos ? C.blueB : C.border2, color: cantidadFiltrosActivos ? C.blue : C.text }}>
+          <Filter size={14} /> Filtros{cantidadFiltrosActivos ? ` · ${cantidadFiltrosActivos}` : ""}
+          <ChevronDown size={13} style={{ transform: filtrosAbiertos ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        </button>
+        <button type="button" aria-expanded={vistaAbierta} onClick={() => setVistaAbierta(actual => !actual)} style={{ ...control, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, color: vistaAbierta ? C.blue : C.text }}>
+          <Settings2 size={14} /> Vista
+        </button>
+        <button type="button" onClick={() => cargar(linea)} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+          {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
+        </button>
+        </div>
+
+        {filtrosAbiertos ? <>
+        <div className="planilla-filtros planilla-filtros-secundarios" style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
         <button
           type="button"
           onClick={() => setSelectorObrasAvisoAbierto((current) => !current)}
@@ -1075,21 +1161,6 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           </span>
           <ChevronDown size={13} style={{ transform: selectorObrasAvisoAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
-        <div className="planilla-buscador" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 240, border: `1px solid ${C.border2}`, background: "var(--panel-2)", borderRadius: 9, padding: "7px 10px" }}>
-          <Search size={14} color={C.dim} />
-          <input
-            ref={buscadorRef}
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
-            placeholder="Buscar material, código, rubro o proveedor…"
-            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}
-          />
-          {busqueda ? (
-            <button type="button" onClick={() => { setBusqueda(""); buscadorRef.current?.focus(); }} aria-label="Limpiar búsqueda" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 0 }}>
-              <X size={13} />
-            </button>
-          ) : null}
-        </div>
         {!obraSeleccionada ? (
           <div style={{ display: "inline-flex", gap: 2, border: `1px solid ${C.border2}`, borderRadius: 9, padding: 2, background: "var(--panel-solid)" }}>
             {VISTAS.map((item) => (
@@ -1149,9 +1220,6 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           <button type="button" onClick={exportar} disabled={!datos || exportando} title="Descargar Excel con resumen, vista por obra y detalle" style={{ ...control, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: exportando ? .65 : 1 }}>
             {exportando ? <LoaderCircle size={14} className="spin" /> : <Download size={14} />} {exportando ? "Armando…" : "Excel"}
           </button>
-          <button type="button" onClick={() => cargar(linea)} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, display: "grid", placeItems: "center" }}>
-            {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
-          </button>
         </div>
         </div>
 
@@ -1202,6 +1270,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           })}
           <span style={{ marginLeft: "auto", flexShrink: 0, color: C.dim, fontSize: 10.5, fontWeight: 800 }}>{filasVisibles.length} visibles</span>
         </div>
+        </> : null}
       </section>
 
       {selectorObrasAvisoAbierto ? (
@@ -1266,6 +1335,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         <div style={{ ...panel, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 800 }}>{error}</div>
       ) : null}
 
+      {vistaAbierta ? <PlanillaHerramientas key={profile?.id || "local"} usuario={profile?.id}
+        config={{ linea, obraFoco, busqueda, agrupar, vista, origenFiltro, soloPendientes, soloSinOpcion }} onApply={aplicarVista}
+        densidad={densidad} onDensidad={setDensidad} anchoMaterial={anchoMaterial} onAnchoMaterial={setAnchoMaterial}
+        anchoObra={anchoObra} onAnchoObra={setAnchoObra} cantidad={filasVisibles.length} /> : null}
+
       {cargando && !datos ? (
         <div style={{ ...panel, padding: 36, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
           <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
@@ -1288,49 +1362,52 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           ) : null}
         </div>
       ) : (
-        <div className="planilla-tabla-wrap" style={{ ...panel, overflowX: isMobile ? "auto" : "visible", position: "relative" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: obraSeleccionada ? 1120 : 370 + obrasVisibles.length * (vista === "todo" ? 100 : 72), fontFamily: C.sans }}>
+        <div className={`planilla-workspace${filaDetalle ? " con-detalle" : ""}`}>
+        <div onScroll={manejarScrollPlanilla} role="region" aria-label="Planilla de materiales por obra, desplazable" tabIndex={0} className="planilla-tabla-wrap" style={{ ...panel, overflow: "auto", maxHeight: "72vh", minWidth: 0, position: "relative", scrollbarWidth: "thin", scrollPaddingTop: 52 }}>
+          <table style={{ borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed", width: "100%", minWidth: obraSeleccionada ? anchoMaterial + 800 : anchoMaterial + 142 + obrasVisibles.length * anchoObra, fontFamily: C.sans }}>
+            <colgroup><col style={{ width: anchoMaterial }} />{obraSeleccionada ? <><col style={{ width: 230 }} />{Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: 95 }} />)}</> : <><col style={{ width: 68 }} /><col style={{ width: 74 }} />{obrasVisibles.map(obra => <col key={obra.id} style={{ width: anchoObra }} />)}</>}</colgroup>
             <thead className="planilla-cabecera-obras">
               <tr>
-                <th style={{ ...th, ...colFija, textAlign: "left", minWidth: 380, zIndex: 14, paddingLeft: 12 }}>Material</th>
+                <th className="planilla-material-head" scope="col" style={{ ...th, ...colFija, textAlign: "left", zIndex: 14, paddingLeft: 12 }}>Material</th>
                 {obraSeleccionada ? (
                   <>
                     <th style={{ ...th, minWidth: 230, color: C.blue }}>
-                      <div>Producto para esta obra</div>
+                      <div>{origenFiltro === "secundario" ? "Circuito" : "Producto para esta obra"}</div>
                       <div style={{ marginTop: 2, color: C.dim, fontSize: 8.5, fontWeight: 750, letterSpacing: 0, textTransform: "none" }}>{obraSeleccionada.codigo}</div>
                     </th>
-                    <th style={{ ...th, minWidth: 82 }}>Necesita</th>
-                    <th style={{ ...th, minWidth: 82 }}>Entregado</th>
-                    <th style={{ ...th, minWidth: 82 }}>En pañol</th>
-                    <th style={{ ...th, minWidth: 82 }}>Faltante</th>
-                    <th style={{ ...th, minWidth: 54 }} title="Lo que el pañol tiene sin obra asignada: sirve para cualquier barco.">Libre</th>
-                    <th style={{ ...th, minWidth: 92, color: C.red }}>A comprar</th>
+                    <th style={{ ...th, minWidth: 82 }}>{origenFiltro === "secundario" ? "Plan" : "Necesita"}</th>
+                    <th style={{ ...th, minWidth: 82 }}>{origenFiltro === "secundario" ? "Consumido" : "Entregado"}</th>
+                    <th style={{ ...th, minWidth: 82 }}>{origenFiltro === "secundario" ? "Restante" : "En pañol"}</th>
+                    <th style={{ ...th, minWidth: 82 }}>{origenFiltro === "secundario" ? "Precio unit." : "Faltante"}</th>
+                    <th style={{ ...th, minWidth: 54 }} title={origenFiltro === "secundario" ? "Costo planificado de este material en la obra" : "Lo que el pañol tiene sin obra asignada: sirve para cualquier barco."}>{origenFiltro === "secundario" ? "Costo" : "Libre"}</th>
+                    <th style={{ ...th, minWidth: 92, color: origenFiltro === "secundario" ? C.violet : C.red }}>{origenFiltro === "secundario" ? "Estado" : "A comprar"}</th>
                   </>
                 ) : (
                   <>
                     <th style={{ ...th, minWidth: 54 }} title="Lo que el pañol tiene sin obra asignada: sirve para cualquier barco.">Libre</th>
                     <th style={{ ...th, minWidth: 62, color: C.red }} title="Lo que falta para toda la línea, descontando lo que el pañol ya tiene libre.">Comprar</th>
-                    {obrasVisibles.map((obra) => <th key={obra.id} style={{ ...th, minWidth: vista === "todo" ? 100 : 72 }}>{obra.codigo}</th>)}
+                    {obrasVisibles.map((obra) => <th key={obra.id} scope="col" style={th}>{obra.codigo}</th>)}
                   </>
                 )}
               </tr>
             </thead>
             <tbody>
-              {grupos.flatMap((grupo) => {
+              {gruposRenderizados.flatMap((grupo) => {
                 const cerrado = gruposCerrados.has(grupo.nombre);
-                const todosPuestos = grupo.filas.every((fila) => elegidos.has(fila.id));
+                const filasOperativas = grupo.filas.filter((fila) => !fila.secundario);
+                const todosPuestos = filasOperativas.length > 0 && filasOperativas.every((fila) => elegidos.has(fila.id));
                 const cabecera = (
                   <tr key={`g-${grupo.nombre}`}>
                     <td colSpan={columnas} style={{ background: grupo.sinProveedor ? C.redL : "var(--panel-2)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px" }}>
-                        <input type="checkbox" className="planilla-check" checked={todosPuestos} onChange={() => alternarGrupo(grupo)} title="Elegir todo el grupo" style={{ accentColor: C.blue, width: 18, height: 18, cursor: "pointer", flexShrink: 0 }} />
+                        <input type="checkbox" className="planilla-check" checked={todosPuestos} disabled={!filasOperativas.length} onChange={() => alternarGrupo(grupo)} title={filasOperativas.length ? "Elegir todo el grupo" : "Circuito informativo: no genera acciones de Pañol"} style={{ accentColor: C.blue, width: 18, height: 18, cursor: filasOperativas.length ? "pointer" : "not-allowed", opacity: filasOperativas.length ? 1 : .35, flexShrink: 0 }} />
                         <button type="button" onClick={() => alternarCerrado(grupo.nombre)} style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", cursor: "pointer", padding: 0, fontFamily: C.sans }}>
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: grupo.sinProveedor ? C.red : C.text, fontSize: 11.5, fontWeight: 900, letterSpacing: 0.35, textTransform: "uppercase" }}>
                             <ChevronDown size={13} style={{ transform: cerrado ? "rotate(-90deg)" : "none", transition: "transform .16s ease" }} />
                             {grupo.nombre}
                           </span>
                           <span style={{ color: C.dim, fontSize: 11, fontWeight: 750, marginLeft: 8 }}>
-                            {grupo.filas.length} materiales · {grupo.pendientes} requieren atención{grupo.aComprar ? ` · ${grupo.aComprar} requieren compra` : ""}
+                            {grupo.filas.length} materiales{grupo.secundarios === grupo.filas.length ? " · circuito secundario · costo y consumo" : ` · ${grupo.pendientes} requieren atención${grupo.aComprar ? ` · ${grupo.aComprar} requieren compra` : ""}`}
                           </span>
                         </button>
                       </div>
@@ -1338,12 +1415,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   </tr>
                 );
                 if (cerrado) return [cabecera];
-                return [cabecera, ...grupo.filas.map((fila) => {
+                return [cabecera, ...grupo.filasRenderizadas.map((fila) => {
                   const puesto = elegidos.has(fila.id);
                   const celdaFoco = obraSeleccionada ? fila.porObra[obraSeleccionada.id] : null;
                   const aComprar = cantidadComprar(fila);
                   const origenesFila = celdaFoco?.origenes?.length ? celdaFoco.origenes : (fila.origenes || ["fuera_matriz"]);
-                  const origenPrincipal = ["matriz", "opcional", "adicional", "panol", "fuera_matriz"].find((origen) => origenesFila.includes(origen)) || "fuera_matriz";
+                  const origenPrincipal = ["secundario", "matriz", "opcional", "adicional", "panol", "fuera_matriz"].find((origen) => origenesFila.includes(origen)) || "fuera_matriz";
                   const origenTono = ORIGEN_TONOS[origenPrincipal];
                   const requisitoMaterial = celdaFoco ? catalogoPorId.get(celdaFoco.requisitoId) || null : null;
                   const productoMaterial = celdaFoco?.productoMaterialId ? catalogoPorId.get(celdaFoco.productoMaterialId) || null : null;
@@ -1383,18 +1460,20 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                       className="planilla-fila"
                       tabIndex={0}
                       aria-selected={puesto}
-                      onClick={() => alternarFila(fila.id)}
+                      onClick={() => { if (!fila.secundario) alternarFila(fila.id); }}
                       onKeyDown={(event) => {
+                        if (fila.secundario) return;
+                        if (event.target !== event.currentTarget) return;
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           alternarFila(fila.id);
                         }
                       }}
-                      style={{ borderBottom: `1px solid ${C.border}`, background: puesto ? C.blueL : "transparent", cursor: "pointer", boxShadow: `inset 3px 0 0 ${origenTono.color}` }}
+                      style={{ borderBottom: `1px solid ${C.border}`, background: puesto ? C.blueL : fila.secundario ? "color-mix(in srgb, var(--panel-2) 72%, transparent)" : "transparent", cursor: fila.secundario ? "default" : "pointer", boxShadow: `inset 3px 0 0 ${origenTono.color}` }}
                     >
                       <td className="planilla-celda-fija" style={{ ...colFija, background: puesto ? C.blueL : "var(--panel-solid)", padding: "9px 12px 9px 13px", maxWidth: 414 }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-                          <input type="checkbox" className="planilla-check" checked={puesto} readOnly tabIndex={-1} style={{ accentColor: C.blue, width: 18, height: 18, marginTop: 3, cursor: "pointer", flexShrink: 0 }} />
+                          <input type="checkbox" className="planilla-check" checked={puesto} disabled={fila.secundario} onClick={event => event.stopPropagation()} onChange={() => alternarFila(fila.id)} aria-label={fila.secundario ? `${nombreVisible}: circuito secundario, sólo costo y consumo` : `Seleccionar ${nombreVisible}`} style={{ accentColor: C.blue, width: 18, height: 18, marginTop: 3, cursor: fila.secundario ? "not-allowed" : "pointer", opacity: fila.secundario ? .32 : 1, flexShrink: 0 }} />
                           {fila.imagenUrl ? (
                             <button
                               type="button"
@@ -1432,24 +1511,57 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             </span>
                           )}
                           <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ color: C.text, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreVisible}</div>
+                            <button type="button" className="planilla-nombre" title={fila.secundario ? "Material secundario: costo y consumo" : `Ver detalle de ${nombreVisible}`} onClick={event => { if (!fila.secundario) abrirDetalle(event, fila); }}>{nombreVisible}</button>
                             <div style={{ marginTop: 2, color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {[codigoVisible, fila.unidad, agrupar === "rubro" ? (fila.proveedor || "sin proveedor") : fila.rubro].filter(Boolean).join(" · ")}
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
+                            <div className="planilla-origen-fila" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
                               {origenesFila.map((origen) => <OrigenBadge key={origen} origen={origen} compacto />)}
                               {celdaFoco?.avisoPendiente ? (
                                 <span style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "2px 6px", fontSize: 9, fontWeight: 900 }}>Aviso abierto</span>
                               ) : null}
                             </div>
                           </div>
-                          <button type="button" className="planilla-ficha" onClick={(event) => abrirFicha(event, celdaFoco?.requisitoId || fila.id)} title="Abrir ficha del catálogo" aria-label={`Abrir la ficha de ${nombreVisible}`} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 4, cursor: "pointer", border: `1px solid ${C.border2}`, background: "var(--panel-2)", color: C.dim }}>
-                            <SquarePen size={12} />
-                          </button>
+                          {!fila.secundario ? (
+                            <button type="button" className="planilla-ficha" onClick={(event) => abrirFicha(event, celdaFoco?.requisitoId || fila.id)} title="Abrir ficha del catálogo" aria-label={`Abrir la ficha de ${nombreVisible}`} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 4, cursor: "pointer", border: `1px solid ${C.border2}`, background: "var(--panel-2)", color: C.dim }}>
+                              <SquarePen size={12} />
+                            </button>
+                          ) : null}
                         </div>
                       </td>
 
-                      {obraSeleccionada ? (
+                      {obraSeleccionada ? (fila.secundario ? (
+                        <>
+                          <td style={{ padding: 8, borderLeft: `1px solid ${C.border}`, verticalAlign: "middle" }}>
+                            <div style={{ color: origenTono.color, fontSize: 11, fontWeight: 950 }}>
+                              {fila.circuito === "laminacion" ? "Circuito de Laminación" : "Consumo de Maderas"}
+                            </div>
+                            <div style={{ marginTop: 3, color: C.dim, fontSize: 9.5, fontWeight: 750, lineHeight: 1.3 }}>
+                              No genera compras ni avisos en Pañol.
+                            </div>
+                          </td>
+                          <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
+                            {celdaFoco?.soloConsumo ? <span style={{ color: C.dim, fontSize: 10 }}>Sin matriz</span> : <EstadoNumero value={celdaFoco?.requerido} suffix={fila.unidad} />}
+                          </td>
+                          <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title="Cantidad retirada para esta obra">
+                            <EstadoNumero value={celdaFoco?.consumido} tone="success" />
+                          </td>
+                          <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title="Cantidad planificada que todavía no fue retirada">
+                            {celdaFoco?.soloConsumo ? <span style={{ color: C.dim }}>—</span> : <EstadoNumero value={celdaFoco?.restanteUso} tone="info" />}
+                          </td>
+                          <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title={fila.precioInfo?.fuente || "Todavía no hay precio cargado"}>
+                            <span style={{ color: fila.precioInfo ? C.text : C.amber, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{fmtPrecioSecundario(fila.precioInfo)}</span>
+                          </td>
+                          <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title="Costo planificado para esta obra">
+                            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
+                              {celdaFoco?.soloConsumo || !fila.precioInfo ? "—" : fmtPrecioSecundario({ ...fila.precioInfo, precio_unidad_matriz: Number(fila.precioInfo.precio_unidad_matriz || 0) * Number(celdaFoco?.requerido || 0) })}
+                            </span>
+                          </td>
+                          <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
+                            <span style={{ display: "inline-flex", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 950 }}>Sólo costo</span>
+                          </td>
+                        </>
+                      ) : (
                         <>
                           <td
                             onClick={(event) => event.stopPropagation()}
@@ -1533,23 +1645,25 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             <EstadoNumero value={aComprar} tone="danger" />
                           </td>
                         </>
-                      ) : (
+                      )) : (
                         <>
                           <td
                             style={{ padding: "6px 4px", textAlign: "center" }}
-                            title={Number(fila.reservado) > 0
+                            title={fila.secundario ? "No usa stock libre de Pañol" : Number(fila.reservado) > 0
                               ? `${mostrarNumero(fila.enPanolLibre)} ${fila.unidad} libres · ${mostrarNumero(fila.reservado)} apartados a otras obras`
                               : `${mostrarNumero(fila.enPanolLibre)} ${fila.unidad} libres en el pañol`}
                           >
-                            <strong style={{ color: Number(fila.enPanolLibre) > 0 ? C.text : C.border2, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, fontVariantNumeric: "tabular-nums" }}>{mostrarNumero(fila.enPanolLibre)}</strong>
+                            <strong style={{ color: Number(fila.enPanolLibre) > 0 ? C.text : C.border2, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, fontVariantNumeric: "tabular-nums" }}>{fila.secundario ? "·" : mostrarNumero(fila.enPanolLibre)}</strong>
                           </td>
                           <td
                             style={{ padding: "6px 4px", textAlign: "center" }}
-                            title={aComprar > 0
+                            title={fila.secundario ? "Circuito separado: no entra en la compra de Pañol" : aComprar > 0
                               ? `Hay que comprar ${mostrarNumero(aComprar)} ${fila.unidad}`
                               : "No hay que comprar nada de este material"}
                           >
-                            {aComprar > 0 ? (
+                            {fila.secundario ? (
+                              <span style={{ color: C.violet, fontSize: 9, fontWeight: 950 }}>SEC.</span>
+                            ) : aComprar > 0 ? (
                               <strong style={{ color: C.red, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, fontVariantNumeric: "tabular-nums" }}>{mostrarNumero(aComprar)}</strong>
                             ) : <Check size={13} color={C.green} />}
                           </td>
@@ -1563,26 +1677,20 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                                 key={obra.id}
                                 style={{ padding: 2, textAlign: "center", borderLeft: `1px solid ${C.border}`, verticalAlign: "middle", background: celda ? "transparent" : "var(--panel-2)" }}
                                 title={celda
-                                  ? `${obra.codigo} · necesita ${celda.requerido} · entregados ${celda.egresado} · esperando en pañol ${celda.enPanol} · faltan ${celda.pendiente}${detalleConfiguracion ? ` · ${detalleConfiguracion}` : ""}`
+                                  ? celda.secundario
+                                    ? `${obra.codigo} · ${celda.soloConsumo ? "consumido" : "plan"} ${celda.soloConsumo ? celda.consumido : celda.requerido} ${fila.unidad}${celda.soloConsumo ? "" : ` · consumido ${celda.consumido} · restante ${celda.restanteUso}`}`
+                                    : `${obra.codigo} · necesita ${celda.requerido} · entregados ${celda.egresado} · esperando en pañol ${celda.enPanol} · faltan ${celda.pendiente}${detalleConfiguracion ? ` · ${detalleConfiguracion}` : ""}`
                                   : `${obra.codigo} · este barco no lleva este material`}
                               >
-                                {celda?.requiereProductoConcreto && !celda.productoDefinido ? (
                                   <button
                                     type="button"
-                                    title={`${obra.codigo} · falta definir qué producto concreto lleva ${nombreVisible}. Tocá para resolverlo.`}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      cambiarObra(obra.id);
-                                      setSoloSinOpcion(true);
-                                    }}
-                                    className="celda-definir"
-                                    style={{ display: "block", width: "100%", border: "none", background: "transparent", padding: 0, cursor: "pointer", fontFamily: C.sans }}
+                                    aria-label={`Ver ${nombreVisible} en ${obra.codigo}${celda ? `: necesita ${celda.requerido}, entregado ${celda.egresado}, en pañol ${celda.enPanol}, faltante ${celda.pendiente}` : ": sin necesidad registrada"}`}
+                                    aria-pressed={detalle?.filaId === fila.id && detalle?.obraId === obra.id}
+                                    onClick={event => { if (!fila.secundario) abrirDetalle(event, fila, obra.id); }}
+                                    className="planilla-celda-detalle"
                                   >
-                                    <CeldaCalor celda={celda} vista={vista} techo={techoCalor} />
+                                    <CeldaCalor celda={celda} vista={vista} />
                                   </button>
-                                ) : (
-                                  <CeldaCalor celda={celda} vista={vista} techo={techoCalor} />
-                                )}
                               </td>
                             );
                           })}
@@ -1594,8 +1702,25 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               })}
             </tbody>
           </table>
+          {quedanFilas ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "14px 12px 18px", background: C.panel, borderTop: `1px solid ${C.border}` }}>
+              <button
+                type="button"
+                onClick={cargarMasFilas}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 36, padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel2, color: C.text, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
+              >
+                Mostrando {cantidadRenderizada} de {filasVisibles.length} · Cargar más
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {filaDetalle && <PlanillaDetalle fila={filaDetalle} obra={obraDetalle} obras={datos.obras} catalogoPorId={catalogoPorId}
+          onObra={obraId => setDetalle(current => ({ ...current, obraId }))} onClose={cerrarDetalle} onImagen={setFoto}
+          onDefinir={() => { cambiarObra(obraDetalle.id); setBusqueda(filaDetalle.descripcion); setOrigenFiltro("todos"); setSoloPendientes(false); setSoloSinOpcion(false); setGruposCerrados(new Set()); setDetalle(null); }} />}
         </div>
       )}
+
+      {foto && <PlanillaFoto fila={foto} onClose={() => setFoto(null)} />}
 
       <AnimatePresence>
       {seleccionados.length ? (

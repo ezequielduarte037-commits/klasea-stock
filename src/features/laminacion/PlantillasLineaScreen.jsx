@@ -244,7 +244,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
 
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "280px minmax(0, 1fr)",
+          gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0, 1fr)",
           gap: 14,
           alignItems: "start",
         }}>

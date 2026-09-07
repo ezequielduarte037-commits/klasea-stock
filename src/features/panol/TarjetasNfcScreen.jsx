@@ -242,7 +242,7 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
         .nfc-btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.06)}
         @media(prefers-reduced-motion:reduce){.nfc-card,.nfc-btn{transition:none!important}}
       `}</style>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px minmax(0,1fr)", height: "100%" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0,1fr)", height: "100%" }}>
         <Sidebar profile={profile} signOut={signOut} />
         <main style={{ minWidth: 0, minHeight: 0, overflowY: "auto" }}>
           <header style={{

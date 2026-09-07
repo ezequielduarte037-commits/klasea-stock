@@ -31,8 +31,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import {
   aplicarPreciosComprobante,
-  asignarProveedorPrincipalMasivo,
-  asociarProveedorAlternativoMasivo,
+  agregarProveedorAMateriales,
   asociarProveedorMaterial,
   borrarComprobante,
   fetchCatalogo,
@@ -44,8 +43,10 @@ import {
   guardarProveedor,
   indiceProveedoresPorNombre,
   leerPresupuestoConIA,
+  precioDeProveedor,
   precioDesactualizado,
-  proveedorPrincipalId,
+  precioVencido,
+  proveedorGuardadoId,
   registrarOfertaMaterial,
   revertirAltasAutomaticasComprobantes,
   vincularComprobanteConIA,
@@ -342,13 +343,13 @@ function MaterialItem({
 }) {
   const [hover, setHover] = useState(false);
   const providerId = provider?.id;
-  const alternative = (material.proveedores_lista || []).find(
-    (item) => item.proveedor_id === providerId,
-  );
-  const isMain = material.proveedor_id === providerId;
-  const value = isMain ? material.precio_unitario : alternative?.precio;
-  const currency = isMain ? material.moneda : alternative?.moneda;
-  const stale = value != null && isMain && precioDesactualizado(material);
+  // Lo que ese proveedor cotizó, esté donde esté guardado. Antes esto miraba
+  // en un lado o en otro según si era "el principal", y por eso un precio que
+  // existía en el historial aparecía como "Sin precio".
+  const cotizado = precioDeProveedor(material, providerId);
+  const value = cotizado?.precio ?? null;
+  const currency = cotizado?.moneda;
+  const stale = value != null && precioVencido(cotizado?.fecha);
   const variants = Array.isArray(material.variantes) ? material.variantes : [];
   return (
     <button
@@ -426,9 +427,7 @@ function MaterialItem({
             >
               {material.descripcion}
             </span>
-            {/* Sólo marcamos la excepción: si es proveedor alternativo. Poner
-                "Principal" en todas las filas no aporta información. */}
-            {!isMain && <Pill kind="neutral">Alternativo</Pill>}
+
           </div>
           <div style={{ color: C.t2, fontSize: 10.5, marginTop: 3 }}>
             {material.codigo || "Sin código"}
@@ -501,10 +500,11 @@ function QuoteEditor({ material, provider, providers, onSaved, toast }) {
     try {
       const supplier = await ensureProvider();
       if (mode === "link") {
-        // asociarProveedorMaterial no hace nada si ya es el proveedor principal:
-        // avisamos con precisión en vez de mostrar un "guardado" que no ocurrió.
+        // asociarProveedorMaterial no hace nada si el material ya lo tiene en
+        // la ficha: avisamos con precisión en vez de mostrar un "guardado" que
+        // no ocurrió.
         if (material.proveedor_id === supplier.id) {
-          toast.info(`${supplier.nombre} ya es el proveedor vigente.`);
+          toast.info(`${supplier.nombre} ya está en ${material.descripcion}.`);
         } else {
           await asociarProveedorMaterial(material, supplier);
           toast.success(
@@ -528,28 +528,15 @@ function QuoteEditor({ material, provider, providers, onSaved, toast }) {
           });
           toast.success(`Precio guardado para la variante ${variant}.`);
         } else {
-          // Multi-proveedor: cotizar un proveedor distinto del principal NO debe
-          // robarle el puesto (si lo hacía, el material se iba de la lista del
-          // proveedor en el que estabas parado y parecía que no se guardaba).
-          //   - Sin principal, o es el mismo → pasa a ser el precio vigente.
-          //   - Otro proveedor → se guarda como oferta alternativa, sin tocar el vigente.
-          const esPrincipal =
-            !material.proveedor_id || material.proveedor_id === supplier.id;
-          if (esPrincipal) {
-            await registrarOfertaMaterial(material, supplier, {
-              precio: numeric,
-              moneda: currency,
-            });
-            toast.success(`Precio vigente actualizado con ${supplier.nombre}.`);
-          } else {
-            await asociarProveedorMaterial(material, supplier, {
-              precio: numeric,
-              moneda: currency,
-            });
-            toast.success(
-              `Cotización de ${supplier.nombre} guardada como alternativa.`,
-            );
-          }
+          // Un solo camino: la cotización se guarda con SU proveedor y su
+          // fecha, y el material queda con los dos precios. Antes esto se
+          // bifurcaba para no "robarle el puesto" al proveedor de la ficha —
+          // el puesto ya no existe, así que la bifurcación tampoco.
+          await registrarOfertaMaterial(material, supplier, {
+            precio: numeric,
+            moneda: currency,
+          });
+          toast.success(`Precio de ${supplier.nombre} guardado.`);
         }
       }
       await onSaved?.();
@@ -2247,13 +2234,12 @@ export default function PreciosScreen({ profile, signOut }) {
       ]),
     );
     for (const material of materials) {
-      // El proveedor principal puede venir del id o del nombre en el campo de
+      // El proveedor de la ficha puede venir del id o del nombre en el campo de
       // texto viejo: hay 215 materiales activos que solo tienen el texto y sin
       // esto no aparecían en la bandeja de nadie.
-      const principalId = proveedorPrincipalId(material, providerIndex);
       const ids = new Set(
         [
-          principalId,
+          proveedorGuardadoId(material, providerIndex),
           ...(material.proveedores_lista || []).map((row) => row.proveedor_id),
         ].filter(Boolean),
       );
@@ -2261,15 +2247,10 @@ export default function PreciosScreen({ profile, signOut }) {
         if (!map.has(id)) continue;
         const info = map.get(id);
         info.materialIds.add(material.id);
-        const price =
-          principalId === id
-            ? material.precio_unitario
-            : (material.proveedores_lista || []).find(
-                (row) => row.proveedor_id === id,
-              )?.precio;
-        if (price == null) info.missing += 1;
-        if (principalId === id && price != null && precioDesactualizado(material))
-          info.stale += 1;
+        // El precio de ESE proveedor, sin importar por dónde esté guardado.
+        const cotizado = precioDeProveedor(material, id, providerIndex);
+        if (cotizado?.precio == null) info.missing += 1;
+        else if (precioVencido(cotizado.fecha)) info.stale += 1;
       }
     }
     return [...map.values()]
@@ -2314,21 +2295,10 @@ export default function PreciosScreen({ profile, signOut }) {
       .filter((material) => {
         // Mismo criterio que la bandeja y que la lista de precios: el id, o el
         // nombre suelto en el campo texto cuando no hay id.
-        const esPrincipal =
-          proveedorPrincipalId(material, providerIndex) === selectedProvider.id;
-        const linked =
-          esPrincipal ||
-          (material.proveedores_lista || []).some(
-            (row) => row.proveedor_id === selectedProvider.id,
-          );
-        if (!linked) return false;
-        const price = esPrincipal
-          ? material.precio_unitario
-          : (material.proveedores_lista || []).find(
-              (row) => row.proveedor_id === selectedProvider.id,
-            )?.precio;
-        const providerStale =
-          esPrincipal && price != null && precioDesactualizado(material);
+        const cotizado = precioDeProveedor(material, selectedProvider.id, providerIndex);
+        if (!cotizado) return false;
+        const price = cotizado.precio;
+        const providerStale = price != null && precioVencido(cotizado.fecha);
         const matches =
           !term ||
           normalize(
@@ -2828,9 +2798,10 @@ export default function PreciosScreen({ profile, signOut }) {
     setBulkSaving(true);
     try {
       const seleccionados = currentRows.filter((material) => bulkIds.has(material.id));
-      const n = view === "sin-asignar"
-        ? await asignarProveedorPrincipalMasivo([...bulkIds], proveedor)
-        : await asociarProveedorAlternativoMasivo(seleccionados, proveedor);
+      // Un solo verbo: se le agrega el proveedor. Cuando el material no tenía
+      // ninguno -la bandeja "sin asignar"- agregar y asignar son lo mismo, así
+      // que no hacen falta dos caminos.
+      const n = await agregarProveedorAMateriales(seleccionados.map((material) => material.id), proveedor);
       toast.success(
         view === "sin-asignar"
           ? `${n} material${n === 1 ? "" : "es"} asignado${n === 1 ? "" : "s"} a ${proveedor.nombre}.`
@@ -3394,7 +3365,7 @@ export default function PreciosScreen({ profile, signOut }) {
                         {bulkIds.size}
                       </span>
                       <span style={{ fontSize: 12, color: C.t1 }}>
-                        {view === "sin-asignar" ? "asignar como principal a" : "agregar como proveedor"}
+                        agregar como proveedor
                       </span>
                       <select
                         value={bulkProviderId}

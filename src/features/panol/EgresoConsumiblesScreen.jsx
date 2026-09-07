@@ -251,7 +251,7 @@ export default function EgresoConsumiblesScreen({ profile, signOut }) {
         @media (prefers-reduced-motion: reduce) { .caja-nuevo, .caja-late { animation: none; } }
       `}</style>
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px minmax(0,1fr)", height: "100%" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0,1fr)", height: "100%" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>

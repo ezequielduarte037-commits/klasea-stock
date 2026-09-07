@@ -1236,8 +1236,9 @@ export default function EnviarAPanolModal({
   function sembrarReparto(obrasIds) {
     if (obrasIds.length < 2) return;
     setItems((prev) => prev.map((it) => {
-      const puedeRepartirse = !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id;
-      if (!puedeRepartirse || Array.isArray(it.distribucion)) return it;
+      // Todos los renglones, incluidos los que vienen de un pedido de compra:
+      // ese es justo el caso en que el reparto hace falta.
+      if (Array.isArray(it.distribucion)) return it;
       return { ...it, distribucion: obrasIds.map((id) => ({ obra_id: id, cantidad: "" })) };
     }));
   }
@@ -1908,15 +1909,24 @@ export default function EnviarAPanolModal({
           };
           delete base.distribucion;
           const total = num(it.cantidad);
-          const soloDirecto = !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id;
-          const dist = soloDirecto && Array.isArray(it.distribucion)
+          const dist = Array.isArray(it.distribucion)
             ? it.distribucion.map((d) => ({ obra_id: d.obra_id || null, cantidad: num(d.cantidad) })).filter((d) => d.cantidad > 0)
             : [];
           if (dist.length) {
+            const obraOriginal = it.obra_id || obraId || null;
+            // `obra_snapshot_item_id` es el renglón del requerimiento de UNA obra.
+            // La parte que va a esa obra lo conserva; las que van a otra lo
+            // pierden, porque la recepción le vuelve a poner al renglón la obra
+            // del requerimiento (ver hydrateEnvioItemObras) y el reparto se
+            // borraría solo. El vínculo con el pedido de compra sí queda en
+            // todas: las tres partes salieron de ese mismo renglón comprado.
+            const parte = (obra) => (obra === obraOriginal
+              ? { ...base }
+              : { ...base, obra_snapshot_item_id: null });
             // Un ítem de envío por cada obra del reparto; el resto va a la obra por defecto / stock general.
-            const partes = dist.map((d) => ({ ...base, obra_id: d.obra_id, cantidad: String(d.cantidad) }));
+            const partes = dist.map((d) => ({ ...parte(d.obra_id), obra_id: d.obra_id, cantidad: String(d.cantidad) }));
             const resto = Math.round((total - dist.reduce((s, d) => s + d.cantidad, 0)) * 100) / 100;
-            if (resto > 0) partes.push({ ...base, obra_id: it.obra_id || obraId || null, cantidad: String(resto) });
+            if (resto > 0) partes.push({ ...base, obra_id: obraOriginal, cantidad: String(resto) });
             return partes;
           }
           return [{ ...base, obra_id: it.obra_id || obraId || null }];
@@ -2659,10 +2669,14 @@ export default function EnviarAPanolModal({
                         a Panol no aparecia, y por eso una compra para cuatro obras
                         obligaba a cargar cuatro avisos iguales. La imputacion es
                         por item, asi que un aviso puede llevar material de varias
-                        obras sin problema. */}
-                    {!it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && (
-                      <ItemObrasRow item={it} obras={obrasActivas} multiObra={obrasDelAviso.length > 1} onChange={(patch) => updateItem(i, patch)} />
-                    )}
+                        obras sin problema.
+
+                        Tampoco se mostraba en los renglones que venian de un pedido
+                        de compra, y ese es JUSTO el caso comun: se compran 100 m de
+                        cable en un renglon y sirven para tres barcos. Ahora aparece
+                        siempre; lo que el guardado desarma es el vinculo con el
+                        requerimiento, que sí es de una obra sola. */}
+                    <ItemObrasRow item={it} obras={obrasActivas} multiObra={obrasDelAviso.length > 1} onChange={(patch) => updateItem(i, patch)} />
                     {it.proveedor && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Proveedor: {it.proveedor}</span>

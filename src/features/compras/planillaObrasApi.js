@@ -1,7 +1,7 @@
 import { supabase } from "@/supabaseClient";
 import { rowDelta } from "@/features/panol/panolMovimientos";
 import { fetchRequisitoProductos } from "@/features/materiales/productosAsignadosApi";
-import { fetchMatrizCondicionantes } from "@/features/materiales/materialesConfig";
+import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 
 /**
  * Planilla operativa de una linea.
@@ -15,6 +15,7 @@ import { fetchMatrizCondicionantes } from "@/features/materiales/materialesConfi
 const ESTADOS_EGRESADO = new Set(["egresado"]);
 const ESTADOS_EN_PANOL = new Set(["en_panol", "recibido", "parcial"]);
 const ESTADOS_PENDIENTE = new Set(["pendiente", "pedido", "comprado"]);
+const planillasEnCurso = new Map();
 
 const redondear = (n) => Math.round(Number(n || 0) * 100) / 100;
 const normalizarModelo = (value) => String(value || "")
@@ -35,12 +36,30 @@ async function traerTodo(tabla, select) {
   return filas;
 }
 
+async function traerTodoDeObras(tabla, select, obraIds) {
+  if (!obraIds.length) return [];
+  const filas = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await supabase
+      .from(tabla)
+      .select(select)
+      .in("obra_id", obraIds)
+      .range(desde, desde + 999);
+    if (error) throw error;
+    if (!data?.length) break;
+    filas.push(...data);
+    if (data.length < 1000) break;
+  }
+  return filas;
+}
+
 const SNAPSHOT_SELECT = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,tipo,tipo_label,es_adicional,especificaciones,recepcion_estado,panol_envio_id,panol_envio_item_id,created_at";
 const SNAPSHOT_SELECT_COMPATIBLE = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,panol_envio_id,panol_envio_item_id,created_at";
+const STOCK_SELECT = "material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado";
 
-async function traerLedgerPlanilla() {
+async function traerLedgerPlanilla(obraIds) {
   try {
-    return await traerTodo("panol_obra_materiales_snapshot", SNAPSHOT_SELECT);
+    return await traerTodoDeObras("panol_obra_materiales_snapshot", SNAPSHOT_SELECT, obraIds);
   } catch (error) {
     const mensaje = [error?.code, error?.message, error?.details, error?.hint]
       .filter(Boolean)
@@ -48,15 +67,16 @@ async function traerLedgerPlanilla() {
     const esCampoNoDisponible = ["42703", "PGRST204"].includes(String(error?.code || ""))
       || /(?:column|schema cache).*(?:tipo_label|es_adicional|tipo)/i.test(mensaje);
     if (!esCampoNoDisponible) throw error;
-    return traerTodo("panol_obra_materiales_snapshot", SNAPSHOT_SELECT_COMPATIBLE);
+    return traerTodoDeObras("panol_obra_materiales_snapshot", SNAPSHOT_SELECT_COMPATIBLE, obraIds);
   }
 }
 
-async function traerConfiguracionObras() {
+async function traerConfiguracionObras(obraIds) {
   try {
-    return await traerTodo(
+    return await traerTodoDeObras(
       "panol_obra_matriz_condicionantes",
       "obra_id,condicionante_id,activo,notas,created_at,updated_at",
+      obraIds,
     );
   } catch (error) {
     const mensaje = [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ");
@@ -65,12 +85,58 @@ async function traerConfiguracionObras() {
   }
 }
 
-async function traerExclusionesObras() {
+async function traerExclusionesObras(obraIds) {
   try {
-    return await traerTodo("panol_obra_material_exclusiones", "obra_id,material_id,motivo");
+    return await traerTodoDeObras("panol_obra_material_exclusiones", "obra_id,material_id,motivo", obraIds);
   } catch (error) {
     const mensaje = [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ");
     if (["42P01", "PGRST205"].includes(String(error?.code || "")) || /does not exist|schema cache/i.test(mensaje)) return [];
+    throw error;
+  }
+}
+
+async function traerCondicionantesLinea(linea) {
+  try {
+    const condicionantes = (await traerTodo(
+      "panol_matriz_condicionantes",
+      "id,modelo,nombre,tipo,descripcion,activo_por_defecto,activo,orden,created_at,updated_at",
+    ))
+      .filter((row) => normalizarModelo(row.modelo) === normalizarModelo(linea))
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || String(a.nombre || "").localeCompare(String(b.nombre || ""), "es"));
+    const ids = condicionantes.map((row) => row.id).filter(Boolean);
+    if (!ids.length) return { ok: true, condicionantes: [] };
+
+    const items = [];
+    for (let desde = 0; ; desde += 1000) {
+      const { data, error } = await supabase
+        .from("panol_matriz_condicionante_items")
+        .select("id,condicionante_id,material_id,descripcion,cantidad,unidad,tipo_item,notas,activo,orden,created_at,updated_at")
+        .in("condicionante_id", ids)
+        .order("orden")
+        .range(desde, desde + 999);
+      if (error) throw error;
+      items.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+
+    const itemsPorCondicionante = new Map();
+    for (const item of items) {
+      const grupo = itemsPorCondicionante.get(item.condicionante_id) ?? [];
+      grupo.push(item);
+      itemsPorCondicionante.set(item.condicionante_id, grupo);
+    }
+    return {
+      ok: true,
+      condicionantes: condicionantes.map((row) => ({
+        ...row,
+        items: itemsPorCondicionante.get(row.id) ?? [],
+      })),
+    };
+  } catch (error) {
+    const mensaje = [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ");
+    if (["42P01", "PGRST205"].includes(String(error?.code || "")) || /does not exist|schema cache/i.test(mensaje)) {
+      return { ok: false, condicionantes: [] };
+    }
     throw error;
   }
 }
@@ -162,17 +228,30 @@ function materialMeta(material, rubros, imagenes) {
   };
 }
 
-export async function calcularPlanillaDeLinea(linea) {
-  const [materiales, modelos, obras, ledger, rubros, imagenesRows, condicionantesRes, configuracionObras, exclusionesObras] = await Promise.all([
+async function construirPlanillaDeLinea(linea) {
+  const obras = await traerTodo("produccion_obras", "id,codigo,linea_nombre,estado,fecha_inicio");
+  const modeloElegido = normalizarModelo(linea);
+  const lineasDisponibles = [...new Set(
+    obras.map((o) => String(o.linea_nombre || "").trim()).filter(Boolean),
+  )].sort();
+  const obrasDeLinea = obras
+    .filter((o) => normalizarModelo(o.linea_nombre) === modeloElegido)
+    .filter((o) => o.estado === "activa")
+    .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
+  const obraIds = obrasDeLinea.map((obra) => obra.id);
+  const idsDeObra = new Set(obraIds);
+  const secundariosPromise = fetchMaterialesSecundariosPlanilla({ linea, obras: obrasDeLinea });
+
+  const [materiales, modelos, ledger, stockLedger, rubros, imagenesRows, condicionantesRes, configuracionObras, exclusionesObras] = await Promise.all([
     traerTodo("panol_materiales", "id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,categoria_id,es_consumible,es_requisito,activo,imagen_url,notas"),
     traerTodo("panol_material_modelo", "material_id,modelo,cantidad,variante,producto_predeterminado_id"),
-    traerTodo("produccion_obras", "id,codigo,linea_nombre,estado,fecha_inicio"),
-    traerLedgerPlanilla(),
+    traerLedgerPlanilla(obraIds),
+    traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT),
     traerRubros(),
     traerTodo("panol_material_imagenes", "material_id,url,created_at"),
-    fetchMatrizCondicionantes(),
-    traerConfiguracionObras(),
-    traerExclusionesObras(),
+    traerCondicionantesLinea(linea),
+    traerConfiguracionObras(obraIds),
+    traerExclusionesObras(obraIds),
   ]);
 
   const porMaterial = new Map(materiales.filter((m) => m.activo !== false).map((m) => [m.id, m]));
@@ -182,22 +261,11 @@ export async function calcularPlanillaDeLinea(linea) {
       imagenes.set(imagen.material_id, imagen.url);
     }
   }
-  const modeloElegido = normalizarModelo(linea);
   const matrizBase = modelos
     .filter((row) => normalizarModelo(row.modelo) === modeloElegido)
     .filter((row) => String(row.variante || "standard").toLowerCase() === "standard")
     .filter((row) => Number(row.cantidad || 0) > 0)
     .filter((row) => porMaterial.has(row.material_id));
-
-  const lineasDisponibles = [...new Set(
-    obras.map((o) => String(o.linea_nombre || "").trim()).filter(Boolean),
-  )].sort();
-
-  const obrasDeLinea = obras
-    .filter((o) => normalizarModelo(o.linea_nombre) === modeloElegido)
-    .filter((o) => o.estado === "activa")
-    .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
-  const idsDeObra = new Set(obrasDeLinea.map((o) => o.id));
 
   const condicionantesLinea = (condicionantesRes?.condicionantes ?? [])
     .filter((condicionante) => condicionante.activo !== false)
@@ -316,7 +384,7 @@ export async function calcularPlanillaDeLinea(linea) {
   // reservado a otra obra se muestra, pero no descuenta compras.
   const stockLibre = new Map();
   const stockReservado = new Map();
-  for (const fila of ledger) {
+  for (const fila of stockLedger) {
     if (!fila.material_id) continue;
     const delta = rowDelta(fila);
     if (!delta) continue;
@@ -528,7 +596,9 @@ export async function calcularPlanillaDeLinea(linea) {
     }
   }
 
-  const listaFilas = [...filas.values()].sort((a, b) => {
+  const secundarios = await secundariosPromise;
+  const listaFilas = [...filas.values(), ...(secundarios.filas || [])].sort((a, b) => {
+    if (a.secundario !== b.secundario) return a.secundario ? 1 : -1;
     if ((b.faltaComprar > 0) !== (a.faltaComprar > 0)) return b.faltaComprar > 0 ? 1 : -1;
     if ((b.totales.pendiente > 0) !== (a.totales.pendiente > 0)) return b.totales.pendiente > 0 ? 1 : -1;
     const porRubro = a.rubro.localeCompare(b.rubro, "es");
@@ -580,11 +650,32 @@ export async function calcularPlanillaDeLinea(linea) {
       opcionesPendientes: listaFilas.reduce((total, fila) => total + Object.values(fila.porObra)
         .filter((celda) => celda.requiereProductoConcreto && !celda.productoDefinido).length, 0),
       origenes: Object.fromEntries(
-        ["matriz", "opcional", "adicional", "panol", "fuera_matriz"]
+        ["matriz", "opcional", "adicional", "panol", "fuera_matriz", "secundario", "laminacion", "maderas"]
           .map((origen) => [origen, listaFilas.filter((fila) => fila.origenes.includes(origen)).length]),
       ),
+      secundarios: secundarios.resumen,
     },
   };
+}
+
+/**
+ * React monta los componentes dos veces en desarrollo para detectar efectos
+ * inseguros. Sin compartir la promesa, la planilla repetia en paralelo todas
+ * las lecturas pesadas de Supabase. Deducuplicamos solamente solicitudes en
+ * curso: cada recarga terminada sigue consultando datos frescos.
+ */
+export async function calcularPlanillaDeLinea(linea) {
+  const clave = normalizarModelo(linea);
+  const existente = planillasEnCurso.get(clave);
+  if (existente) return existente;
+
+  const solicitud = construirPlanillaDeLinea(linea);
+  planillasEnCurso.set(clave, solicitud);
+  try {
+    return await solicitud;
+  } finally {
+    if (planillasEnCurso.get(clave) === solicitud) planillasEnCurso.delete(clave);
+  }
 }
 
 export async function marcarAvisoPlanillaComoComprado(envioId) {

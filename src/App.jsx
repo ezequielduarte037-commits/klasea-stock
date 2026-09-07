@@ -163,6 +163,8 @@ const CalibrarPesosScreen = pantalla(() => import("@/features/panol/CalibrarPeso
 const EtiquetasScreen = pantalla(() => import("@/features/inventario/EtiquetasScreen"));
 const RrhhScreen = pantalla(() => import("@/features/rrhh/RrhhScreen"));
 const PreciosScreen = pantalla(() => import("@/features/precios/PreciosScreen"));
+const CostoBarcoScreen = pantalla(() => import("@/features/costos/CostoBarcoScreen"));
+const TicketsScreen = pantalla(() => import("@/features/tickets/TicketsScreen"));
 const ComprasEtapasScreen = pantalla(() => import("@/features/produccion/ComprasEtapasScreen"));
 const RecepcionPanolScreen = pantalla(() => import("@/features/panol/RecepcionPanolScreen"));
 const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/SolicitudesPanolScreen"));
@@ -366,13 +368,20 @@ function LoginScreen({ onLoggedIn }) {
         : [toLocalEmail(u.toLowerCase()), toClientEmail(u.toLowerCase())];
 
       let data = null;
+      let ultimoError = null;
       for (const email of intentos) {
         const res = await supabase.auth.signInWithPassword({ email, password });
         if (!res.error && res.data?.session) { data = res.data; break; }
+        if (res.error) ultimoError = res.error;
       }
 
       if (!data?.session) {
-        setErr("Usuario o contraseña incorrectos.");
+        // Un usuario dado de baja queda baneado en auth. Con el mensaje
+        // genérico se quedaría probando contraseñas que nunca van a entrar.
+        const motivo = String(ultimoError?.message || "").toLowerCase();
+        setErr(motivo.includes("banned") || motivo.includes("disabled")
+          ? "Tu usuario está dado de baja. Hablá con el administrador."
+          : "Usuario o contraseña incorrectos.");
         return;
       }
 
@@ -601,12 +610,12 @@ export default function App() {
       let { data: pData, error: pErr } = await withStartupTimeout(
         supabase
           .from("profiles")
-          .select("id,username,role,is_admin,is_demo,sede,must_change_password")
+          .select("id,username,role,is_admin,is_demo,sede,must_change_password,activo")
           .eq("id", s.user.id)
           .maybeSingle(),
         "Carga del perfil",
       );
-      if (pErr && ["must_change_password", "is_demo"].some((field) => String(pErr.message || "").includes(field))) {
+      if (pErr && ["must_change_password", "is_demo", "activo"].some((field) => String(pErr.message || "").includes(field))) {
         const retry = await withStartupTimeout(supabase
           .from("profiles")
           .select("id,username,role,is_admin,sede")
@@ -616,6 +625,15 @@ export default function App() {
         pErr = retry.error;
       }
       if (pErr) throw pErr;
+
+      // Dado de baja: el corte real lo hace el ban en auth (no le dan tokens
+      // nuevos), pero una sesión ya abierta sigue viva hasta que expira. Acá se
+      // la cierra; si vuelve a intentar entrar, el login le explica por qué.
+      if (pData && pData.activo === false) {
+        await supabase.auth.signOut();
+        if (loadId === profileLoadIdRef.current) setProfile(null);
+        return;
+      }
 
       if (pData) {
         const normalizedProfile = pData.is_demo
@@ -828,6 +846,8 @@ export default function App() {
         <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><Suspense fallback={<RouteLoader label="Cargando materiales..." />}><MaterialesScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
         <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/tickets" element={<RequireAuth session={session}><Suspense fallback={<RouteLoader label="Abriendo los tickets..." />}><TicketsScreen {...A} /></Suspense></RequireAuth>} />
+        <Route path="/costo-barco" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><Suspense fallback={<RouteLoader label="Calculando el costo..." />}><CostoBarcoScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
         <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
 
         {/* Admin / Oficina */}

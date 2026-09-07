@@ -4,6 +4,7 @@ import autoTable from "jspdf-autotable";
 import logoKUrl from "@/assets/logos/logo-k.png";
 import {
   CalendarRange,
+  ChevronDown,
   FileDown,
   Plus,
   Receipt,
@@ -447,6 +448,9 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   const [cierres, setCierres] = useState([]);
   const [selectedCierreId, setSelectedCierreId] = useState("");
   const [cierreForm, setCierreForm] = useState(EMPTY_CIERRE);
+  // Una caja cerrada esta rendida: no se borra, pero tampoco tiene por que
+  // seguir ocupando la lista de las que se usan.
+  const [verCerradas, setVerCerradas] = useState(false);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -581,6 +585,54 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
 
   const cajaCerrada = selectedCierre?.estado === "cerrado";
 
+  // Abiertas arriba y siempre a la vista. Cerradas detras de un desplegable y
+  // de la mas nueva a la mas vieja: son historial, no lugares donde cargar.
+  const cierresAbiertos = useMemo(
+    () => cierres.filter((cierre) => cierre.estado !== "cerrado"),
+    [cierres],
+  );
+  const cierresCerrados = useMemo(() => {
+    const cuando = (cierre) => cierre.fecha_hasta || cierre.fecha_desde || cierre.created_at || "";
+    return cierres
+      .filter((cierre) => cierre.estado === "cerrado")
+      .sort((a, b) => String(cuando(b)).localeCompare(String(cuando(a))));
+  }, [cierres]);
+
+  const tarjetaCierre = (cierre) => {
+    const elegida = selectedCierreId === cierre.id;
+    const cerrada = cierre.estado === "cerrado";
+    return (
+      <button
+        key={cierre.id}
+        type="button"
+        onClick={() => setSelectedCierreId(cierre.id)}
+        style={{
+          textAlign: "left",
+          border: `1px solid ${elegida ? C.blueB : C.border}`,
+          background: elegida ? C.blueL : C.panel2,
+          color: C.text,
+          borderRadius: 10,
+          padding: 11,
+          cursor: "pointer",
+          display: "grid",
+          gap: 5,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <strong style={{ fontSize: 13 }}>{cierre.nombre}</strong>
+          {/* Abierta = azul (está en uso), cerrada = gris apagado (ya está
+              rendida). El verde sugería "correcta" y las dos lo son; lo que
+              cambia es si admite movimientos. */}
+          <span style={pill(cerrada ? C.dim : C.blue)}>{cerrada ? "Cerrada" : "Abierta"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 12 }}>
+          <CalendarRange size={13} /> {cierreDateLabel(cierre)}
+        </div>
+        {cierre.notas && <div style={{ color: C.dim, fontSize: 12 }}>{cierre.notas}</div>}
+      </button>
+    );
+  };
+
   // Sólo las abiertas: un recibo no puede ir a parar a una caja ya rendida.
   const cajasAbiertas = useMemo(
     () => cierres.filter((cierre) => cierre.estado !== "cerrado").map((cierre) => ({ id: cierre.id, nombre: cierre.nombre })),
@@ -609,9 +661,17 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     if (!selectedCierre || cierreBusy) return;
     setCierreBusy(true);
     try {
+      // Si la caja se creó sin fecha de inicio, se toma la del movimiento más
+      // viejo: una caja rendida que figura "sin fechas" no se puede archivar
+      // ni buscar después.
+      const masViejo = rows
+        .map((row) => row.fecha)
+        .filter(Boolean)
+        .sort()[0];
       await updateCajaChicaClosure(selectedCierre.id, {
         estado: "cerrado",
         fecha_hasta: selectedCierre.fecha_hasta || new Date().toISOString().slice(0, 10),
+        ...(selectedCierre.fecha_desde || !masViejo ? {} : { fecha_desde: masViejo }),
       });
       setCerrarOpen(false);
       await refreshAll();
@@ -1003,49 +1063,51 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12 }}>
           <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
-            {/* Abiertas primero. Mezcladas, con una lista larga, terminás
-                cargando movimientos en una caja de hace tres meses. */}
-            {cierres.length ? [...cierres].sort((a, b) => {
-              const ra = a.estado === "cerrado" ? 1 : 0;
-              const rb = b.estado === "cerrado" ? 1 : 0;
-              return ra - rb;
-            }).map((cierre) => (
-              <button
-                key={cierre.id}
-                type="button"
-                onClick={() => setSelectedCierreId(cierre.id)}
-                style={{
-                  textAlign: "left",
-                  border: `1px solid ${selectedCierreId === cierre.id ? C.blueB : C.border}`,
-                  background: selectedCierreId === cierre.id ? C.blueL : C.panel2,
-                  color: C.text,
-                  borderRadius: 10,
-                  padding: 11,
-                  cursor: "pointer",
-                  display: "grid",
-                  gap: 5,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                  <strong style={{ fontSize: 13 }}>{cierre.nombre}</strong>
-                  {/* Abierta = azul (está en uso), cerrada = gris apagado (ya
-                      está rendida). El verde sugería "correcta" y las dos lo
-                      son; lo que cambia es si admite movimientos. */}
-                  <span style={pill(cierre.estado === "cerrado" ? C.dim : C.blue)}>{cierre.estado === "cerrado" ? "Cerrada" : "Abierta"}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 12 }}>
-                  <CalendarRange size={13} /> {cierreDateLabel(cierre)}
-                </div>
-                {cierre.notas && <div style={{ color: C.dim, fontSize: 12 }}>{cierre.notas}</div>}
-              </button>
-            )) : (
+            {cierres.length ? (
+              <>
+                {cierresAbiertos.map(tarjetaCierre)}
+
+                {cierresCerrados.length ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setVerCerradas((actual) => !actual)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                        border: `1px solid ${C.border}`, background: C.panel, color: C.muted,
+                        borderRadius: 10, padding: "9px 11px", cursor: "pointer",
+                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, textAlign: "left",
+                      }}
+                    >
+                      <span>Cerradas · {cierresCerrados.length}</span>
+                      <ChevronDown size={14} style={{ transform: verCerradas ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
+                    </button>
+                    {/* Aunque esten plegadas, la que se esta mirando sigue a la
+                        vista: si no, seleccionar una y que desaparezca. */}
+                    {(verCerradas
+                      ? cierresCerrados
+                      : cierresCerrados.filter((cierre) => cierre.id === selectedCierreId)
+                    ).map(tarjetaCierre)}
+                  </>
+                ) : null}
+
+                {!cierresAbiertos.length && !verCerradas ? (
+                  <div style={{ border: `1px dashed ${C.border2}`, borderRadius: 10, padding: 14, color: C.dim, fontSize: 12.5, lineHeight: 1.5 }}>
+                    No hay ninguna caja abierta. Creá una nueva acá al lado, o abrí las cerradas para consultarlas.
+                  </div>
+                ) : null}
+              </>
+            ) : (
               <div style={{ border: `1px dashed ${C.border2}`, borderRadius: 10, padding: 18, color: C.dim, fontSize: 13 }}>
                 No hay cierres cargados todavía.
               </div>
             )}
           </div>
 
-          <form onSubmit={handleCreateCierre} style={{ display: "grid", gap: 8, border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: 12 }}>
+          {/* alignSelf start: sin esto el formulario se estira hasta la altura
+              de la lista de la izquierda y, como es un grid, sus filas crecen
+              con el: con diez cajas cargadas los campos quedaban gigantes. */}
+          <form onSubmit={handleCreateCierre} style={{ display: "grid", gap: 8, alignSelf: "start", alignContent: "start", border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 850, color: C.text }}>Nuevo cierre</div>
             <Field label="Nombre">
               <input value={cierreForm.nombre} onChange={(e) => patchCierreForm({ nombre: e.target.value })} placeholder="Ej: Cierre 14/05 al 21/05" style={inputStyle()} />

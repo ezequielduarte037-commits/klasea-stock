@@ -3873,7 +3873,7 @@ export default function TorneriaScreen({ profile, signOut }) {
         ? "1fr"
         : desktopCircuitFocus
           ? "minmax(0,1fr)"
-          : "280px minmax(0,1fr)",
+          : "auto minmax(0,1fr)",
       overflow: "hidden",
       background: C.bg,
       // Halo ambiental, igual que Obras: da profundidad sin agregar un div ni

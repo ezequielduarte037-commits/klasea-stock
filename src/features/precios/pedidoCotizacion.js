@@ -5,9 +5,8 @@ import { loadNavyLogo } from "@/lib/pdfLogo";
 import { descargarXlsx, celdaRef } from "@/features/compras/xlsx";
 import {
   indiceProveedoresPorNombre,
-  precioDesactualizado,
-  precioVigente,
-  proveedorPrincipalId,
+  precioDeProveedor,
+  precioVencido,
 } from "@/features/materiales/api";
 
 /**
@@ -85,39 +84,32 @@ function plata(valor, moneda = "ARS") {
 /* ── Selección de ítems ──────────────────────────────────────────────────── */
 
 /**
- * Materiales que se le compran a un proveedor, con el precio que hoy tenemos
- * cargado PARA ESE proveedor.
+ * Materiales que le vende ese proveedor, con el precio que hoy tenemos cargado
+ * PARA ESE proveedor.
  *
- * `incluirAlternativos` trae además los materiales cuyo proveedor principal es
- * otro y este figura como alternativa. Viene apagado porque en la práctica esos
- * vínculos son casi todos basura heredada: de los 56 que hay en el catálogo, 10
- * son ventanas de Mercoglass colgadas de Favicur por el nombre viejo
- * "Mercoglass/Favicur". Pedirle a un proveedor lo que le compramos a otro es la
- * excepción, no la regla.
+ * Antes esto tenía un interruptor -`incluirAlternativos`- para decidir si
+ * además entraban los materiales donde el proveedor no era "el principal". Ya
+ * no hay principal: si el proveedor figura en el material, le vende ese
+ * material y va al pedido. Ese era justamente el punto de poder ponerle dos
+ * proveedores a un artículo — pedirle a los dos y comparar.
  */
-export function itemsDeProveedor(materiales, proveedor, { incluirAlternativos = false } = {}) {
+export function itemsDeProveedor(materiales, proveedor) {
   const proveedorId = proveedor?.id;
   if (!proveedorId) return [];
   const indice = indiceProveedoresPorNombre([proveedor]);
   const salida = [];
   for (const material of materiales || []) {
     if (material.activo === false) continue;
-    const esPrincipal = proveedorPrincipalId(material, indice) === proveedorId;
-    const alterno = incluirAlternativos
-      ? (material.proveedores_lista || []).find((row) => row.proveedor_id === proveedorId)
-      : null;
-    if (!esPrincipal && !alterno) continue;
-    const precio = esPrincipal ? material.precio_unitario : alterno?.precio;
-    const vigente = esPrincipal ? precioVigente(material) : null;
+    const cotizado = precioDeProveedor(material, proveedorId, indice);
+    if (!cotizado) continue;
     salida.push({
       material,
-      esPrincipal,
-      precio: precio ?? null,
-      moneda: (esPrincipal ? material.moneda : alterno?.moneda) || "ARS",
-      fecha: vigente?.fecha || null,
-      // "Vencido" solo aplica al proveedor principal: es el único que tiene
-      // historial de precios con fecha en panol_precios.
-      vencido: esPrincipal && precio != null && precioDesactualizado(material),
+      precio: cotizado.precio ?? null,
+      moneda: cotizado.moneda || "ARS",
+      fecha: cotizado.fecha || null,
+      // Ahora cualquier proveedor puede tener fecha: su precio sale del
+      // historial, que la guarda. Los que no la tienen cuentan como vencidos.
+      vencido: cotizado.precio != null && precioVencido(cotizado.fecha),
     });
   }
   return salida.sort((a, b) =>

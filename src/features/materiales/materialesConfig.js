@@ -59,8 +59,11 @@ export async function setMaterialAreas(materialId, categoriaIds) {
   }
 }
 
-// ── Proveedores alternativos por material (cada uno con su precio) ───────────
-// El proveedor principal vive en panol_materiales; acá van las alternativas.
+// ── Vínculo material ↔ proveedor ─────────────────────────────────────────────
+// Quién más vende este material, con el precio suelto que se le conozca. NO es
+// "los alternativos": no hay proveedor principal. Los precios con fecha viven
+// en panol_precios; acá quedan los vínculos y los importes heredados sin fecha,
+// y `proveedoresDeMaterial` junta las dos cosas.
 // Tolerante: {} si la tabla aún no existe.
 export async function fetchProveedoresMaterialMap() {
   const { ok, rows } = await pagedSafe("panol_material_proveedores", "material_id, proveedor_id, precio, moneda", "material_id");

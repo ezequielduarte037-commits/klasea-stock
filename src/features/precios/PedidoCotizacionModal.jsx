@@ -163,13 +163,12 @@ export default function PedidoCotizacionModal({
   const [alcance, setAlcance] = useState(seleccionados.size ? "seleccion" : "pendientes");
   const [porVariante, setPorVariante] = useState(true);
   const [mostrarUltimoPrecio, setMostrarUltimoPrecio] = useState(false);
-  const [incluirAlternativos, setIncluirAlternativos] = useState(false);
   const [trabajando, setTrabajando] = useState("");
   const fecha = hoyISO();
 
   const itemsProveedor = useMemo(
-    () => itemsDeProveedor(materials, provider, { incluirAlternativos }),
-    [materials, provider, incluirAlternativos],
+    () => itemsDeProveedor(materials, provider),
+    [materials, provider],
   );
 
   // Los contadores pasan por el mismo armado que la lista (variantes expandidas
@@ -213,11 +212,11 @@ export default function PedidoCotizacionModal({
     if (destino !== "todos") return [];
     return providers
       .filter((item) => item.activo !== false)
-      .map((item) => armar(item, itemsDeProveedor(materials, item, { incluirAlternativos })))
+      .map((item) => armar(item, itemsDeProveedor(materials, item)))
       .filter((pedido) => pedido.filas.length > 0)
       .sort((a, b) => b.filas.length - a.filas.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- idem pedidoUnico
-  }, [destino, providers, materials, opciones, alcance, porVariante, seleccionados, incluirAlternativos]);
+  }, [destino, providers, materials, opciones, alcance, porVariante, seleccionados]);
 
   const pedidos = destino === "todos" ? pedidosTodos : [pedidoUnico];
   const totalFilas = pedidos.reduce((suma, pedido) => suma + pedido.filas.length, 0);
@@ -485,12 +484,6 @@ export default function PedidoCotizacionModal({
               onChange={setMostrarUltimoPrecio}
               titulo="Mostrar el último precio que tenemos"
               detalle="Sirve de referencia, pero le adelanta al proveedor de qué número partimos."
-            />
-            <Casilla
-              checked={incluirAlternativos}
-              onChange={setIncluirAlternativos}
-              titulo="Incluir lo que le compramos a otro proveedor"
-              detalle="Materiales cuyo proveedor principal es otro y este figura como alternativa."
             />
           </div>
 

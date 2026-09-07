@@ -388,11 +388,170 @@ export function indiceProveedoresPorNombre(proveedores) {
   return indice;
 }
 
-/** Proveedor principal del material: el id si está, si no el nombre del texto. */
-export function proveedorPrincipalId(material, indice) {
+/**
+ * El id del proveedor que quedó guardado en la ficha del material.
+ *
+ * OJO: esto NO es "el proveedor principal". No hay proveedor principal — un
+ * material tiene los proveedores que tiene, y quiénes son se pregunta con
+ * `proveedoresDeMaterial`. `panol_materiales.proveedor_id` sobrevive como un
+ * dato denormalizado: el último proveedor que se le grabó a la ficha. Lo leen
+ * pañol, compras y comprobantes para tener un nombre a mano sin salir a buscar
+ * el historial, y por eso se sigue manteniendo al día.
+ */
+export function proveedorGuardadoId(material, indice) {
   if (material?.proveedor_id) return material.proveedor_id;
   const llave = nombreProveedorLlave(material?.proveedor);
   return (llave && indice?.get(llave)) || null;
+}
+
+/**
+ * TODOS los proveedores de un material, sin jerarquía, del precio más nuevo al
+ * más viejo. Los que todavía no cotizaron van al final, sin importe.
+ *
+ * Es la única forma de preguntar "quién vende esto". Antes había tres lugares
+ * distintos donde mirar y ninguno era el bueno del todo:
+ *
+ *   panol_precios              el historial: con fecha, con proveedor, ya
+ *                              multiproveedor. ES LA VERDAD.
+ *   panol_material_proveedores una segunda tabla de precios, SIN fecha. Sirve
+ *                              para una cosa que la otra no puede: dejar
+ *                              anotado que un proveedor vende algo cuando
+ *                              todavía no cotizó.
+ *   panol_materiales.proveedor el último proveedor grabado en la ficha. Es una
+ *                              copia, no una cuarta opinión.
+ *
+ * Acá se juntan las tres en una lista sola. Cada proveedor aparece UNA vez, con
+ * su precio más reciente. Se deduplica por id, y por nombre normalizado cuando
+ * la fila vieja no tiene id -que es la mitad de los datos heredados-.
+ *
+ * @returns {{proveedorId: string|null, proveedor: string|null, precio: number|null,
+ *   moneda: "ARS"|"USD", fecha: string|null, fuente: string|null, sinCotizar: boolean}[]}
+ */
+export function proveedoresDeMaterial(material) {
+  const porClave = new Map();   // la fila de cada proveedor
+  // Un mismo proveedor puede llegar con id en una fuente y sólo con el nombre
+  // escrito en otra -hay 215 materiales heredados así-. Con dos índices, la
+  // fila que trae el id encuentra a la que sólo tenía el nombre, y al revés.
+  const porId = new Map();      // proveedor_id -> clave
+  const porNombre = new Map();  // nombre normalizado -> clave
+
+  const sumar = (fila) => {
+    const nombre = nombreProveedorLlave(fila.proveedor);
+    const llave = (fila.proveedorId && porId.get(fila.proveedorId))
+      || (nombre && porNombre.get(nombre))
+      || fila.proveedorId
+      || nombre
+      || null;
+    if (!llave) return;
+
+    const previo = porClave.get(llave);
+    let final = fila;
+    if (previo) {
+      // Gana el más nuevo. Sin fecha se considera más viejo que cualquier
+      // fecha: una fila de panol_material_proveedores no dice cuándo se cargó,
+      // así que no puede desplazar a un precio que sí sabe su día.
+      if ((fila.fecha || "") <= (previo.fecha || "")) {
+        // Aunque no gane, puede completar lo que al otro le falta.
+        if (previo.precio == null && fila.precio != null) {
+          previo.precio = fila.precio;
+          previo.moneda = fila.moneda;
+          previo.sinCotizar = false;
+        }
+        if (!previo.proveedorId && fila.proveedorId) previo.proveedorId = fila.proveedorId;
+        if (!previo.proveedor && fila.proveedor) previo.proveedor = fila.proveedor;
+        final = previo;
+      } else {
+        fila.proveedorId = fila.proveedorId || previo.proveedorId;
+        fila.proveedor = fila.proveedor || previo.proveedor;
+      }
+    }
+    porClave.set(llave, final);
+    if (final.proveedorId) porId.set(final.proveedorId, llave);
+    const nombreFinal = nombreProveedorLlave(final.proveedor);
+    if (nombreFinal) porNombre.set(nombreFinal, llave);
+  };
+
+  // 1. El historial de precios, que es el que tiene fecha.
+  for (const row of material?.precio_historial || []) {
+    const precio = Number(row?.precio_unitario);
+    if (!Number.isFinite(precio) || precio <= 0) continue;
+    sumar({
+      proveedorId: row.proveedor_id || null,
+      proveedor: String(row.proveedor || "").trim() || null,
+      precio,
+      moneda: row.moneda === "USD" ? "USD" : "ARS",
+      fecha: row.fecha || (row.created_at ? String(row.created_at).slice(0, 10) : null),
+      fuente: row.fuente || null,
+      sinCotizar: false,
+    });
+  }
+
+  // 2. Los vínculos sueltos: con precio viejo sin fecha, o sin precio todavía.
+  for (const alterno of material?.proveedores_lista || []) {
+    const precio = Number(alterno?.precio);
+    const tiene = Number.isFinite(precio) && precio > 0;
+    sumar({
+      proveedorId: alterno.proveedor_id || null,
+      proveedor: String(alterno.proveedor?.nombre || "").trim() || null,
+      precio: tiene ? precio : null,
+      moneda: alterno.moneda === "USD" ? "USD" : "ARS",
+      fecha: null,
+      fuente: null,
+      sinCotizar: !tiene,
+    });
+  }
+
+  // 3. Lo que quedó grabado en la ficha, por si su precio nunca llegó al
+  //    historial. Va último justamente porque es una copia.
+  const suelto = Number(material?.precio_unitario);
+  if (material?.proveedor_id || material?.proveedor) {
+    sumar({
+      proveedorId: material.proveedor_id || null,
+      proveedor: String(material.proveedor || "").trim() || null,
+      precio: Number.isFinite(suelto) && suelto > 0 ? suelto : null,
+      moneda: material.moneda === "USD" ? "USD" : "ARS",
+      fecha: null,
+      fuente: "catalogo",
+      sinCotizar: !(Number.isFinite(suelto) && suelto > 0),
+    });
+  }
+
+  return [...porClave.values()].sort((a, b) => {
+    // Con precio antes que sin precio; después, el más reciente arriba.
+    if (a.sinCotizar !== b.sinCotizar) return a.sinCotizar ? 1 : -1;
+    return String(b.fecha || "").localeCompare(String(a.fecha || ""));
+  });
+}
+
+/** Seis meses es el corte. Sin fecha se considera vencido: no se sabe de cuándo es. */
+export function precioVencido(fecha) {
+  if (!fecha) return true;
+  const dia = new Date(fecha);
+  if (Number.isNaN(dia.getTime())) return true;
+  const corte = new Date();
+  corte.setMonth(corte.getMonth() - 6);
+  return dia < corte;
+}
+
+/**
+ * Lo que se sabe del precio de ESE proveedor para ese material, o null si no
+ * lo vende. Una sola pregunta para lo que antes había que contestar en dos
+ * ramas -"¿es el de la ficha o es de los otros?"- y con dos fórmulas distintas.
+ *
+ * `indice` (el de `indiceProveedoresPorNombre`) es para los heredados: hay
+ * materiales que sólo tienen el nombre del proveedor escrito, sin id, y sin
+ * esto no aparecerían en la bandeja de nadie.
+ */
+export function precioDeProveedor(material, proveedorId, indice) {
+  if (!proveedorId) return null;
+  for (const row of proveedoresDeMaterial(material)) {
+    if (row.proveedorId && row.proveedorId === proveedorId) return row;
+    if (!row.proveedorId) {
+      const llave = nombreProveedorLlave(row.proveedor);
+      if (llave && indice?.get(llave) === proveedorId) return row;
+    }
+  }
+  return null;
 }
 
 export function precioVigente(material) {
@@ -3014,6 +3173,9 @@ export async function aplicarPrecioMaterial(
     proveedor = null,
     proveedor_id = null,
     categoria_id = null,
+    // De donde salio el precio. Queda en el historial para poder distinguir
+    // despues un precio cotizado de uno que se leyo de un remito real.
+    fuente = "presupuesto",
   } = {},
 ) {
   if (!materialId) return false;
@@ -3041,7 +3203,7 @@ export async function aplicarPrecioMaterial(
         proveedor: proveedor || null,
         precio_unitario: pu,
         moneda: mon,
-        fuente: "presupuesto",
+        fuente,
         fecha: new Date().toISOString().slice(0, 10),
       });
     } catch {
@@ -3090,31 +3252,82 @@ export async function registrarOfertaMaterial(
 }
 
 /**
- * Asigna el proveedor PRINCIPAL a varios materiales de una sola vez, sin exigir
- * precio (aplicarPrecioMaterial sólo setea el proveedor cuando hay precio, así
- * que no sirve para la asignación masiva de la bandeja "Sin proveedor").
+ * Le suma un proveedor MÁS a varios materiales, sin sacarle el que ya tienen.
  *
- * No toca precios ni proveedores alternativos: sólo completa quién provee.
- * Devuelve la cantidad de materiales actualizados.
+ * Es lo que hace falta para pedir el mismo artículo a dos o tres y después
+ * comparar: mientras un proveedor no figure en la lista del material, ese
+ * material no entra en su pedido de precios. Y no hace falta tener el precio
+ * para eso -justamente se lo está por pedir-, así que la fila entra sin
+ * importe y se completa cuando el proveedor contesta.
+ *
+ * Si ya estaba, la fila NO se toca: `ignoreDuplicates` es lo que garantiza que
+ * agregar un proveedor nunca borre un precio ya cargado. Es la diferencia con
+ * `setProveedoresMaterial`, que reemplaza la lista entera.
+ *
+ * Devuelve cuántos materiales se mandaron a la base.
  */
-export async function asignarProveedorPrincipalMasivo(materialIds, proveedor) {
+export async function agregarProveedorAMateriales(materialIds, proveedor) {
   const ids = [...new Set((materialIds || []).filter(Boolean))];
   if (!ids.length) return 0;
   if (!proveedor?.id) throw new Error("Elegí un proveedor.");
 
-  // En tandas: un .in() con miles de ids revienta el límite de la URL.
   const LOTE = 200;
   let total = 0;
   for (let i = 0; i < ids.length; i += LOTE) {
     const lote = ids.slice(i, i + LOTE);
     const { error } = await supabase
-      .from("panol_materiales")
-      .update({ proveedor_id: proveedor.id, proveedor: proveedor.nombre ?? null })
-      .in("id", lote);
+      .from("panol_material_proveedores")
+      .upsert(
+        lote.map((materialId) => ({ material_id: materialId, proveedor_id: proveedor.id })),
+        { onConflict: "material_id,proveedor_id", ignoreDuplicates: true },
+      );
     if (error) throw error;
     total += lote.length;
   }
   return total;
+}
+
+/**
+ * Le saca un proveedor a varios materiales. Es el deshacer de las dos de
+ * arriba: sin esto, un clic en el desplegable equivocado deja cuarenta
+ * materiales colgados del proveedor que no es y hay que arreglarlos de a uno.
+ *
+ * Saca las dos formas en que un material puede estar atado a un proveedor: la
+ * fila de alternativo y, si además era EL proveedor de la ficha, también eso.
+ * Lo que no toca es el precio de la ficha: el número sigue ahí, sólo deja de
+ * tener a quién atribuírselo.
+ *
+ * Devuelve cuántos materiales quedaron efectivamente sin ese proveedor.
+ */
+export async function quitarProveedorMasivo(materialIds, proveedor) {
+  const ids = [...new Set((materialIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  if (!proveedor?.id) throw new Error("Elegí un proveedor.");
+
+  const LOTE = 200;
+  const tocados = new Set();
+  for (let i = 0; i < ids.length; i += LOTE) {
+    const lote = ids.slice(i, i + LOTE);
+
+    const { data: alternativos, error: errAlt } = await supabase
+      .from("panol_material_proveedores")
+      .delete()
+      .eq("proveedor_id", proveedor.id)
+      .in("material_id", lote)
+      .select("material_id");
+    if (errAlt) throw errAlt;
+    for (const fila of alternativos || []) tocados.add(fila.material_id);
+
+    const { data: principales, error: errPrin } = await supabase
+      .from("panol_materiales")
+      .update({ proveedor_id: null, proveedor: null })
+      .eq("proveedor_id", proveedor.id)
+      .in("id", lote)
+      .select("id");
+    if (errPrin) throw errPrin;
+    for (const fila of principales || []) tocados.add(fila.id);
+  }
+  return tocados.size;
 }
 
 export async function asociarProveedorMaterial(
@@ -3140,19 +3353,6 @@ export async function asociarProveedorMaterial(
     moneda: moneda || null,
   });
   await setProveedoresMaterial(material.id, [...alternatives.values()]);
-}
-
-// Adds an alternate supplier without replacing the primary supplier or its price.
-export async function asociarProveedorAlternativoMasivo(materiales, proveedor) {
-  const rows = [...new Map((materiales || []).filter((item) => item?.id).map((item) => [item.id, item])).values()];
-  if (!rows.length) return 0;
-  if (!proveedor?.id) throw new Error("Elegi un proveedor.");
-
-  const lote = 12;
-  for (let i = 0; i < rows.length; i += lote) {
-    await Promise.all(rows.slice(i, i + lote).map((material) => asociarProveedorMaterial(material, proveedor)));
-  }
-  return rows.length;
 }
 
 // A variant quote belongs to the selected variant and must not overwrite the base price.

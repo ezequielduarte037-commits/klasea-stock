@@ -56,6 +56,7 @@ function escalonDeCalor(cantidad, techo) {
 
 function estadoDeCelda(celda) {
   if (!celda) return "nolleva";
+  if (celda.secundario) return "secundario";
   if (celda.requiereProductoConcreto && !celda.productoDefinido) return "sindef";
   if (nOf(celda.pendiente) > 0) return "falta";
   if (nOf(celda.enPanol) > 0) return "espera";
@@ -136,6 +137,14 @@ export async function exportarPlanillaXlsx({
         const celda = fila.porObra[obra.id];
         const estado = estadoDeCelda(celda);
         if (estado === "nolleva") return { v: "", s: vacio };
+        if (estado === "secundario") {
+          const consumido = nOf(celda.consumido);
+          const plan = nOf(celda.requerido);
+          return {
+            v: celda.soloConsumo ? consumido : `${consumido} / ${plan}`,
+            s: { fuente: { b: true, sz: 9, color: T.violeta }, fondo: T.violetaSuave, borde: bordeSuave, alineacion: { h: "center", v: "center" } },
+          };
+        }
         if (estado === "sindef") return { v: "?", s: { fuente: { b: true, sz: 10, color: T.violeta }, fondo: T.violetaSuave, borde: bordeSuave, alineacion: { h: "center", v: "center" } } };
         if (estado === "falta") {
           const paso = escalonDeCalor(nOf(celda.pendiente), techo);
@@ -258,7 +267,40 @@ export async function exportarPlanillaXlsx({
     [{ v: "Sistema", s: textoTenue }, { v: "Klase A · Planilla por obra", s: textoTenue }],
   ];
 
-  descargarXlsx(`planilla-${linea}${obraSeleccionada ? `-${obraSeleccionada.codigo}` : ""}.xlsx`, [
+  /* ── Hoja 4 · Secundarios ─────────────────────────────────────────────── */
+  const secundarios = filas.filter(({ fila }) => fila.secundario);
+  const hojaSecundarios = [
+    [{ v: `MATERIALES SECUNDARIOS · ${linea}`, s: titulo }, ...Array(11).fill({ v: "", s: titulo })],
+    [{ v: "Laminación y Maderas: costo y consumo, fuera del circuito de compra de Pañol.", s: subtitulo }, ...Array(11).fill({ v: "", s: subtitulo })],
+    [],
+    ["Circuito", "Material", "Unidad", "Obra", "Plan", "Consumido", "Restante", "Precio unit.", "Moneda", "Costo plan", "Costo consumido", "Fuente"]
+      .map((v, index) => ({ v, s: index === 1 ? cabeceraIzq : cabecera })),
+  ];
+  for (const { fila } of secundarios) {
+    for (const obra of obras) {
+      const celda = fila.porObra[obra.id];
+      if (!celda) continue;
+      const precio = Number(fila.precioInfo?.precio_unidad_matriz || 0);
+      const plan = celda.soloConsumo ? 0 : nOf(celda.requerido);
+      const consumido = nOf(celda.consumido);
+      hojaSecundarios.push([
+        { v: fila.circuito === "laminacion" ? "Laminación" : "Maderas", s: textoTenue },
+        { v: fila.descripcion, s: texto },
+        { v: fila.unidad || "", s: textoTenue },
+        { v: obra.codigo, s: textoTenue },
+        { v: plan || "", s: num },
+        { v: consumido || "", s: num },
+        { v: celda.soloConsumo ? "" : nOf(celda.restanteUso) || "", s: num },
+        { v: precio || "", s: num },
+        { v: fila.precioInfo?.moneda || "", s: textoTenue },
+        { v: precio && plan ? redondear(precio * plan) : "", s: num },
+        { v: precio && consumido ? redondear(precio * consumido) : "", s: num },
+        { v: fila.precioInfo?.fuente || "Sin precio", s: fila.precioInfo ? textoTenue : { ...textoTenue, fuente: { sz: 9, color: T.rojo } } },
+      ]);
+    }
+  }
+
+  const hojas = [
     {
       nombre: "Planilla",
       filas: hoja,
@@ -281,7 +323,19 @@ export async function exportarPlanillaXlsx({
       autofiltro: `A${filaCabCompra + 1}:E${filaCabCompra + 1}`,
     },
     { nombre: "Resumen", filas: resumen, merges: ["A1:C1", "A2:C2"], altos: { 0: 30, 1: 18 }, anchos: [42, 20, 4] },
-  ]);
+  ];
+  if (secundarios.length) {
+    hojas.push({
+      nombre: "Secundarios",
+      filas: hojaSecundarios,
+      merges: ["A1:L1", "A2:L2"],
+      altos: { 0: 30, 1: 18, 3: 28 },
+      anchos: [14, 38, 10, 12, 10, 12, 11, 14, 10, 15, 17, 34],
+      congelar: { fila: 4, col: 1 },
+      autofiltro: `A4:L4`,
+    });
+  }
+  descargarXlsx(`planilla-${linea}${obraSeleccionada ? `-${obraSeleccionada.codigo}` : ""}.xlsx`, hojas);
 
   return { materiales: filas.length, comprar: aComprar.length };
 }

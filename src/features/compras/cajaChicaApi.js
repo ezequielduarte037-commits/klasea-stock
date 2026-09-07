@@ -30,6 +30,7 @@ function normalizeEntry(entry = {}) {
   };
 }
 
+// Para el ALTA: completa todo, porque una fila nueva necesita todos los campos.
 function normalizeClosure(cierre = {}) {
   return {
     nombre: cleanText(cierre.nombre) || "Cierre caja chica",
@@ -39,6 +40,33 @@ function normalizeClosure(cierre = {}) {
     notas: cleanText(cierre.notas),
     owner_id: cierre.owner_id || null,
   };
+}
+
+/**
+ * Para la MODIFICACION: toca unicamente los campos que vinieron en el patch.
+ *
+ * Esto era el bug de las cajas. Cerrar una caja manda `{estado, fecha_hasta}`,
+ * y como se pasaba por `normalizeClosure` -que devuelve SIEMPRE los seis
+ * campos con sus valores por defecto- cada cierre pisaba lo que nadie habia
+ * pedido cambiar:
+ *
+ *   nombre       -> "Cierre caja chica"   (por eso quedaron todas con el mismo)
+ *   fecha_desde  -> null                  (por eso solo se ve "hasta ...")
+ *   notas        -> null
+ *   owner_id     -> null                  (la caja de un cadete saltaba a Compras)
+ *
+ * Es el mismo criterio que ya estaba escrito para `updateCajaChicaEntry`, que
+ * nunca se habia aplicado aca.
+ */
+function normalizeClosurePatch(patch = {}) {
+  const cambios = {};
+  if ("nombre" in patch) cambios.nombre = cleanText(patch.nombre) || "Cierre caja chica";
+  if ("fecha_desde" in patch) cambios.fecha_desde = patch.fecha_desde || null;
+  if ("fecha_hasta" in patch) cambios.fecha_hasta = patch.fecha_hasta || null;
+  if ("estado" in patch) cambios.estado = patch.estado === "cerrado" ? "cerrado" : "abierto";
+  if ("notas" in patch) cambios.notas = cleanText(patch.notas);
+  if ("owner_id" in patch) cambios.owner_id = patch.owner_id || null;
+  return cambios;
 }
 
 // ownerId: undefined = todas · null = caja de compras (sin dueño) · uuid = caja de ese usuario (cadete)
@@ -100,9 +128,14 @@ export async function createCajaChicaClosure(cierre) {
 }
 
 export async function updateCajaChicaClosure(id, patch) {
+  const cambios = normalizeClosurePatch(patch);
+  if (!Object.keys(cambios).length) {
+    throw new Error("No hay nada para cambiar en el cierre.");
+  }
+
   const { data, error } = await supabase
     .from(CLOSURES_TABLE)
-    .update(normalizeClosure(patch))
+    .update(cambios)
     .eq("id", id)
     .select("*")
     .single();

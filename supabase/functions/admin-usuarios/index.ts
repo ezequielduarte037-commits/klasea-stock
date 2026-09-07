@@ -7,9 +7,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 // key NUNCA viaja al frontend). Verifica que el que llama sea admin antes de
 // hacer nada. Reemplaza el viejo getAdminClient() que exponía la service key
 // bundleada en el JS del navegador.
-//   action: "create_user"      { username, password, role, is_admin }  → { uid }
+//   action: "create_user"      { username, password, role, is_admin, sede } → { uid }
+//   action: "update_profile"   { user_id, role, is_admin, is_demo, sede }   → { ok }
 //   action: "delete_user"      { user_id }                              → { ok }
 //   action: "update_password"  { user_id, password }                   → { ok }
+//
+// POR QUE update_profile VIVE ACA Y NO EN EL FRONT. Antes la pantalla de
+// Configuración hacía `supabase.from("profiles").update(...)` directo desde el
+// navegador. RLS descarta esa escritura y PostgREST responde OK con 0 filas
+// afectadas, así que la app decía "Permisos actualizados" y el rol no cambiaba
+// nunca. Todo lo que toca perfiles ajenos pasa por acá, que corre con service
+// key y valida que el que llama sea admin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const corsHeaders = {
@@ -24,6 +32,18 @@ function json(body: unknown, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   })
 }
+
+// Referencias a profiles con ON DELETE RESTRICT, o sea: lo que impide borrar a
+// alguien que ya trabajó en el sistema. Si se agrega otra tabla con RESTRICT
+// contra profiles, va acá para que el mensaje siga siendo completo.
+const DEPENDENCIAS_USUARIO = [
+  { tabla: "purchase_requests", columna: "created_by", nombre: "pedidos de compra" },
+  { tabla: "request_comments", columna: "author_id", nombre: "comentarios en pedidos" },
+  { tabla: "purchase_log", columna: "created_by", nombre: "registros de compra" },
+  { tabla: "panol_envios", columna: "created_by", nombre: "envíos de pañol" },
+  { tabla: "compras_avisos", columna: "created_by", nombre: "avisos de compras" },
+  { tabla: "compras_aviso_comentarios", columna: "author_id", nombre: "comentarios en avisos" },
+]
 
 function validatePassword(password: string, username = ""): string | null {
   const value = String(password || "")
@@ -86,6 +106,7 @@ serve(async (req) => {
       const isDemo = body.is_demo === true
       const effectiveRole = isDemo ? "tecnica" : role
       const isAdminFlag = isDemo ? false : body.is_admin === true
+      const sede = String(body.sede ?? "").trim()
       if (!username || !password || !role) return json({ error: "Faltan datos (username/password/role)" }, 400)
       const passwordError = validatePassword(password, username)
       if (passwordError) return json({ error: passwordError }, 400)
@@ -108,6 +129,9 @@ serve(async (req) => {
           role: effectiveRole,
           is_admin: isAdminFlag,
           is_demo: isDemo,
+          // La sede se guarda acá y no con un update posterior desde el front:
+          // ese update lo comía RLS y la sede elegida se perdía sin avisar.
+          sede: sede || null,
           must_change_password: !isDemo && effectiveRole !== "cliente",
         }, { onConflict: "id" })
       if (profErr) {
@@ -119,11 +143,93 @@ serve(async (req) => {
       return json({ uid })
     }
 
+    if (action === "update_profile") {
+      const userId = String(body.user_id ?? "")
+      const role = String(body.role ?? "").trim()
+      if (!userId) return json({ error: "Falta user_id" }, 400)
+      if (!role) return json({ error: "Falta el rol" }, 400)
+
+      const isDemo = body.is_demo === true
+      const isAdminFlag = isDemo ? false : body.is_admin === true
+      // Sin esto un admin se puede sacar a sí mismo el acceso y quedar afuera
+      // de la pantalla que necesita para devolvérselo.
+      if (userId === callerId && !isAdminFlag) {
+        return json({ error: "No podés quitarte a vos mismo el acceso de administrador" }, 400)
+      }
+
+      const sede = String(body.sede ?? "").trim()
+      const patch: Record<string, unknown> = {
+        role: isDemo ? "tecnica" : role,
+        is_admin: isAdminFlag,
+        is_demo: isDemo,
+        sede: sede || null,
+      }
+      if (isDemo) patch.must_change_password = false
+
+      const { data, error } = await admin
+        .from("profiles")
+        .update(patch)
+        .eq("id", userId)
+        .select("id")
+      if (error) return json({ error: error.message }, 400)
+      if (!data?.length) return json({ error: "No existe el perfil " + userId }, 404)
+      return json({ ok: true })
+    }
+
+    if (action === "set_activo") {
+      const userId = String(body.user_id ?? "")
+      const activo = body.activo === true
+      if (!userId) return json({ error: "Falta user_id" }, 400)
+      if (userId === callerId) return json({ error: "No podés darte de baja a vos mismo" }, 400)
+
+      // El ban es lo que corta el acceso de verdad: sin token no entra ni
+      // aunque el front tuviera un bug. La columna `activo` es para las listas.
+      const { error: banErr } = await admin.auth.admin.updateUserById(userId, {
+        ban_duration: activo ? "none" : "876000h", // ~100 años
+      })
+      if (banErr) return json({ error: "No se pudo cortar el acceso: " + banErr.message }, 400)
+
+      const { data, error } = await admin
+        .from("profiles")
+        .update({ activo })
+        .eq("id", userId)
+        .select("id")
+      if (error) return json({ error: error.message }, 400)
+      if (!data?.length) return json({ error: "No existe el perfil " + userId }, 404)
+      return json({ ok: true })
+    }
+
     if (action === "delete_user") {
       const userId = String(body.user_id ?? "")
       if (!userId) return json({ error: "Falta user_id" }, 400)
+      if (userId === callerId) return json({ error: "No podés eliminar tu propio usuario" }, 400)
+
+      // Estas seis tablas referencian profiles con ON DELETE RESTRICT: son la
+      // historia del usuario (qué pidió, qué comentó, qué despachó) y la base
+      // se niega a borrarlo para no dejarla sin autor. Se chequea ANTES para
+      // poder decir qué lo bloquea; si no, GoTrue devuelve un opaco "Database
+      // error deleting user" que no le sirve a nadie.
+      const bloqueos: string[] = []
+      for (const dep of DEPENDENCIAS_USUARIO) {
+        const { count, error: cErr } = await admin
+          .from(dep.tabla)
+          .select("id", { count: "exact", head: true })
+          .eq(dep.columna, userId)
+        if (cErr) continue // tabla inexistente en este proyecto: no bloquea
+        if (count) bloqueos.push(`${count} ${dep.nombre}`)
+      }
+      if (bloqueos.length) {
+        return json({
+          error: `No se puede eliminar: el usuario tiene ${bloqueos.join(", ")}. `
+            + "Borrarlo dejaría ese historial sin autor. Usá \"Dar de baja\": le corta el acceso y conserva lo que hizo.",
+        }, 409)
+      }
+
       const { error } = await admin.auth.admin.deleteUser(userId)
       if (error) return json({ error: error.message }, 400)
+      // Por si profiles no tiene ON DELETE CASCADE contra auth.users: si ya se
+      // fue con el cascade, este delete no encuentra nada y no molesta.
+      await admin.from("profiles").delete().eq("id", userId)
       return json({ ok: true })
     }
 

@@ -949,7 +949,8 @@ export default function PostVentaScreen({ profile, signOut }) {
     page:         { position:"fixed", inset:0, background:C.bg, color:C.t0, fontFamily:C.sans, overflow:"hidden" },
     mapLayer:     { position:"absolute", inset:0, zIndex:0 },
     uiLayer:      { position:"absolute", inset:0, zIndex:10, display:"flex", pointerEvents:"none" },
-    sidebarWrap:  { width: "280px", height: "100%", pointerEvents: "auto", background: C.bg },
+    // Sin ancho fijo: el sidebar decide el suyo (280 abierto, 64 plegado).
+    sidebarWrap:  { flexShrink: 0, height: "100%", pointerEvents: "auto", background: C.bg },
     mainUI:       { flex:1, position:"relative", pointerEvents:"none" },
     topbar:       { position:"absolute", top:0, left:0, right:0, minHeight:56, background:"linear-gradient(180deg, var(--topbar) 0%, transparent 100%)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, padding:"10px 20px", pointerEvents:"auto", flexWrap:"wrap" },
     glassPanel:   { position:"absolute", top:72, left:20, bottom:20, width:368, background:"var(--panel-solid)", backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)", border:`1px solid ${C.border}`, borderRadius:14, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 18px 44px rgba(15,23,42,.28)" },

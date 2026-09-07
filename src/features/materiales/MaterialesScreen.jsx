@@ -1502,16 +1502,19 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
-  const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).map((p) => ({ ...p })));
+  const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).filter((p) => !p.proveedor_id || p.proveedor_id !== material.proveedor_id).map((p) => ({ ...p })));
   const variantes = materialVariants(material);
   const variantesPrecios = material?.variantes_precios || {};
   const [saving, setSaving] = useState(false);
+  // El primero de la lista de proveedores es el que vive en la ficha del
+  // material, que es de donde lo leen pañol y compras.
+  const hayProveedorFicha = Boolean(draft.proveedor_id || String(draft.proveedor || "").trim());
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
     setCantidades(toBomMap(material));
     setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
-    setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
+    setProvExtra((material.proveedores_lista || []).filter((p) => !p.proveedor_id || p.proveedor_id !== material.proveedor_id).map((p) => ({ ...p })));
   }, [material]);
 
   async function save() {
@@ -1647,14 +1650,26 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 3 }}>Se conservan sólo como historial. Los productos nuevos se gestionan como filas independientes.</span>
             </div>
           )}
+          {/* ── PROVEEDORES ──────────────────────────────────────────────
+              Una sola lista. Antes eran dos bloques -"Proveedor principal" y
+              "Otros proveedores"- y esa división no existe: un material tiene
+              los proveedores que tiene. El primero es además el que queda
+              grabado en la ficha, que es de donde lo leen pañol y compras. */}
           <div>
-            <span style={lbl}>Proveedor principal</span>
-            <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))} />
-            <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="O escribir libre…" style={{ ...INP, width: "100%", marginTop: 5 }} />
-          </div>
-          <div>
-            <span style={lbl}>Otros proveedores · cada uno con su precio</span>
+            <span style={lbl}>Proveedores · cada uno con su precio</span>
             <div style={{ display: "grid", gap: 6 }}>
+              {hayProveedorFicha ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 92px 78px 34px", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {draft.proveedor || proveedores.find((pr) => pr.id === draft.proveedor_id)?.nombre || "—"}
+                  </span>
+                  <input type="number" step="any" placeholder="Precio" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
+                  <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
+                  {/* Sacar el primero asciende al siguiente: la ficha nunca
+                      queda sin proveedor mientras la lista tenga alguno. */}
+                  <button type="button" onClick={() => { const [siguiente, ...resto] = provExtra; setDraft((d) => ({ ...d, proveedor_id: siguiente?.proveedor_id || null, proveedor: siguiente ? (proveedores.find((pr) => pr.id === siguiente.proveedor_id)?.nombre || null) : null, precio_unitario: siguiente ? (siguiente.precio ?? "") : d.precio_unitario, moneda: siguiente ? (siguiente.moneda || d.moneda) : d.moneda })); setProvExtra(resto); }} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                </div>
+              ) : null}
               {provExtra.map((p, i) => (
                 <div key={p.proveedor_id || i} style={{ display: "grid", gridTemplateColumns: "1fr 92px 78px 34px", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proveedores.find((pr) => pr.id === p.proveedor_id)?.nombre || "—"}</span>
@@ -1663,16 +1678,31 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                   <button type="button" onClick={() => setProvExtra((prev) => prev.filter((_, j) => j !== i))} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
                 </div>
               ))}
-              <select value="" onChange={(e) => { const id = e.target.value; if (!id) return; if (provExtra.some((x) => x.proveedor_id === id) || draft.proveedor_id === id) return; setProvExtra((prev) => [...prev, { proveedor_id: id, precio: "", moneda: draft.moneda || "" }]); }} style={{ ...INP, width: "100%" }}>
-                <option value="">+ Agregar proveedor alternativo…</option>
-                {proveedores.filter((pr) => pr.activo !== false).map((pr) => <option key={pr.id} value={pr.id} style={OPT_ST}>{pr.nombre}</option>)}
-              </select>
+              {/* Si la ficha todavía no tiene ninguno, el que se elija va ahí;
+                  si ya tiene, se suma abajo. Para quien carga es el mismo gesto. */}
+              {hayProveedorFicha ? (
+                <select value="" onChange={(e) => { const id = e.target.value; if (!id) return; if (provExtra.some((x) => x.proveedor_id === id) || draft.proveedor_id === id) return; setProvExtra((prev) => [...prev, { proveedor_id: id, precio: "", moneda: draft.moneda || "" }]); }} style={{ ...INP, width: "100%" }}>
+                  <option value="">+ Agregar otro proveedor…</option>
+                  {proveedores.filter((pr) => pr.activo !== false).map((pr) => <option key={pr.id} value={pr.id} style={OPT_ST}>{pr.nombre}</option>)}
+                </select>
+              ) : (
+                <>
+                  <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))} />
+                  <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="O escribir libre…" style={{ ...INP, width: "100%" }} />
+                </>
+              )}
             </div>
+            <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 5, lineHeight: 1.45 }}>
+              El precio del primero es el que queda en la ficha del material. Todos se guardan igual y se comparan en Costo del barco.
+            </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
             <div><span style={lbl}>UM</span><input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} /><datalist id="materiales-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist></div>
-            <div><span style={lbl}>Precio</span><input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} /></div>
-            <div><span style={lbl}>Moneda</span><select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>{MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}</select></div>
+            {/* Con proveedor, el precio se edita en su renglón de arriba:
+                repetirlo acá eran dos campos para un mismo dato. Sin proveedor
+                se sigue pudiendo saber cuánto sale. */}
+            {!hayProveedorFicha ? <div><span style={lbl}>Precio</span><input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} /></div> : <div />}
+            {!hayProveedorFicha ? <div><span style={lbl}>Moneda</span><select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>{MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}</select></div> : <div />}
             <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
           </div>
           <MaterialBarcodeEditor material={material} onChanged={onChanged} />

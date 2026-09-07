@@ -1042,7 +1042,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
     }
   }
 
-  const panelGrid = isMobile ? "1fr" : "280px minmax(0, 1fr)";
+  const panelGrid = isMobile ? "1fr" : "auto minmax(0, 1fr)";
 
   if (loading) {
     return (
