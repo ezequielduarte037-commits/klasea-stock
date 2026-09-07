@@ -200,8 +200,7 @@ with valores(nombre, precio, moneda, unidad) as (
     ('Fibrofacil 6mm', 20600::numeric, 'ARS', 'placa'),
     ('Fibrofacil 9mm', 29019::numeric, 'ARS', 'placa'),
     ('Fibrofacil 12mm', 35900::numeric, 'ARS', 'placa'),
-    ('Fibrofacil 15mm', 46031::numeric, 'ARS', 'placa'),
-    ('Tablón Lenga', 3600::numeric, 'ARS', 'tablón')
+    ('Fibrofacil 15mm', 46031::numeric, 'ARS', 'placa')
 )
 insert into public.materiales_secundarios_precios (
   catalogo, material_id, proveedor, precio_base, moneda, unidad_precio,

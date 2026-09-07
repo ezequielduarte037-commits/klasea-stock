@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import FichaBarco from "./FichaBarco";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -936,6 +937,12 @@ export default function PostVentaScreen({ profile, signOut }) {
   })();
   const sinGpsCount = flota.filter(b => !b.latitud || !b.longitud).length;
 
+  // Aislar un barco en el mapa. Del mail de Gastón: para mandarle la
+  // ubicación a un tercerizado hay que poder sacar una captura con ESE barco
+  // y no con los treinta.
+  const [soloBarco, setSoloBarco] = useState(null);
+  const [fichaBarco, setFichaBarco] = useState(null);
+
   const barcosFiltrados = flota.filter(b => {
     const q = filtro.toLowerCase();
     const matchText    = !q || b.nombre_barco?.toLowerCase().includes(q) || b.propietario?.toLowerCase().includes(q) || b.ubicacion_general?.toLowerCase().includes(q) || b.obras?.codigo?.toLowerCase().includes(q);
@@ -1066,7 +1073,10 @@ export default function PostVentaScreen({ profile, signOut }) {
             />
           )}
           {/* Solo pinear los barcos que tienen coords */}
-          {barcosFiltrados.filter(b => b.latitud && b.longitud).map(barco => (
+          {barcosFiltrados
+            .filter(b => b.latitud && b.longitud)
+            .filter(b => !soloBarco || b.id === soloBarco)
+            .map(barco => (
             <Marker
               key={barco.id}
               position={[barco.latitud, barco.longitud]}
@@ -1104,6 +1114,24 @@ export default function PostVentaScreen({ profile, signOut }) {
           transition: "width .22s ease",
         }}><Sidebar profile={profile} signOut={signOut} /></div>
         <div style={S.mainUI}>
+          {/* Aislar un barco cambia lo que se ve en el mapa: si no lo dijera,
+              alguien que scrollea la lista se encuentra un mapa con un solo
+              pin y sin forma evidente de volver. */}
+          {soloBarco && (() => {
+            const aislado = flota.find(b => b.id === soloBarco);
+            return (
+              <div style={{ position:"absolute", top:76, left:"50%", transform:"translateX(-50%)", zIndex:900, pointerEvents:"auto", display:"flex", alignItems:"center", gap:10, padding:"7px 9px 7px 14px", borderRadius:99, background:"var(--panel-solid)", border:`1px solid ${tinta(C.violet, 0.45)}`, boxShadow:"0 10px 30px rgba(0,0,0,.35)" }}>
+                <Eye size={13} color={C.violet} />
+                <span style={{ fontSize:12.5, color:C.t0, fontWeight:700 }}>
+                  Mostrando sólo <b style={{ color:C.violet }}>{aislado?.nombre_barco || "un barco"}</b>
+                </span>
+                <button type="button" onClick={()=>setSoloBarco(null)}
+                  style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, borderRadius:99, padding:"4px 12px", fontSize:11.5, fontWeight:800, cursor:"pointer", fontFamily:C.sans }}>
+                  Ver todos
+                </button>
+              </div>
+            );
+          })()}
           {isSelecting && (
             <div style={{ position:"absolute", top:76, left:"50%", transform:"translateX(-50%)", background:C.green, color:"#000", padding:"12px 26px", borderRadius:99, fontWeight:700, fontSize:14, pointerEvents:"auto`, boxShadow:`0 8px 32px ${tinta(C.green, 0.4)}`, display:`flex", alignItems:"center", gap:10, zIndex:9999, cursor:"pointer" }}
               onClick={()=>{ setIsSelecting(false); setShowModal(true); }}>
@@ -1243,6 +1271,24 @@ export default function PostVentaScreen({ profile, signOut }) {
                           <button style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
                             onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={11} style={{marginRight:4}}/> Centrar</button>
                         )}
+
+                        {/* Aislar el barco en el mapa, para la captura que se
+                            le manda al tercerizado. */}
+                        {!sinGps && (
+                          <button
+                            title={soloBarco === b.id ? "Volver a ver todos los barcos" : "Ver sólo este barco en el mapa"}
+                            style={{ background: soloBarco === b.id ? tinta(C.violet, 0.16) : "var(--panel)", border:`1px solid ${soloBarco === b.id ? tinta(C.violet, 0.45) : C.b0}`, color: soloBarco === b.id ? C.violet : C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4 }}
+                            onClick={e=>{ e.stopPropagation(); const aislar = soloBarco !== b.id; setSoloBarco(aislar ? b.id : null); if (aislar) centrarMapa(b.latitud, b.longitud); }}>
+                            <Eye size={11}/> {soloBarco === b.id ? "Viendo solo este" : "Solo este"}
+                          </button>
+                        )}
+
+                        {/* Todo lo que el técnico necesita saber del barco. */}
+                        <button
+                          style={{ background:tinta(C.green, 0.1), border:`1px solid ${tinta(C.green, 0.3)}`, color:C.green, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4 }}
+                          onClick={e=>{ e.stopPropagation(); setFichaBarco(b); }}>
+                          <Phone size={11}/> Ficha
+                        </button>
 
                         {/* Editar siempre visible */}
                         <button
@@ -1415,6 +1461,17 @@ export default function PostVentaScreen({ profile, signOut }) {
             </div>
           </div>
         </div>
+      )}
+
+      {fichaBarco && (
+        <FichaBarco
+          barco={fichaBarco}
+          onCerrar={() => setFichaBarco(null)}
+          onCambio={(actualizado) => {
+            setFlota(f => f.map(b => (b.id === actualizado.id ? { ...b, ...actualizado } : b)));
+            setFichaBarco(actualizado);
+          }}
+        />
       )}
 
       {editBarco && (

@@ -91,6 +91,7 @@ import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEnt
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
+import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
 
@@ -4361,7 +4362,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       // Marcar si el grupo contiene adicionales
       if (row.source === "addon" || row.bucket?.key === "addon") group.esAddon = true;
       if (row.review?.flag) group.revisar += 1;
-      const qty = toNum(row.cantidad) || 1;
+      const qty = row.secundario && row.circuito === "maderas" ? 0 : (toNum(row.cantidad) || 1);
       if (row.precio.amount) {
         if (row.precio.moneda === "USD") group.usd += row.precio.amount * qty;
         else group.ars += row.precio.amount * qty;
@@ -4392,8 +4393,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const hiddenRowCount = Math.max(0, visibleRows.length - Math.min(effectiveRenderLimit, visibleRows.length));
 
   const kpis = useMemo(() => rows.reduce((acc, row) => {
-    const qty = toNum(row.cantidad) || 1;
+    const qty = row.secundario && row.circuito === "maderas" ? 0 : (toNum(row.cantidad) || 1);
     acc.items += 1;
+    if (row.secundario) acc.secundarios += 1;
     if (row.bucket.key === "linea_eje") acc.lineaEje += 1;
     if (row.bucket.key === "variante") acc.variantes += 1;
     if (row.bucket.key === "condicionante" || row.condicionantes?.length) acc.condicionantes += 1;
@@ -6292,11 +6294,31 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   const [outOfMatrixResolver, setOutOfMatrixResolver] = useState(null);
   const [outOfMatrixResolveBusy, setOutOfMatrixResolveBusy] = useState(false);
   const [outOfMatrixResolveError, setOutOfMatrixResolveError] = useState("");
+  const [secondaryState, setSecondaryState] = useState({ rows: [], loading: false, error: "" });
   const [renderState, setRenderState] = useState({ key: "", limit: LINEA_INITIAL_RENDER });
   const code = String(linea?.codigo || "").replace(/^K/i, "");
   const title = linea?.nombre || `K${code}`;
   const lineObras = useMemo(() => (obras ?? []).filter((obra) => obra?.id), [obras]);
   const lineObraIds = useMemo(() => lineObras.map((obra) => obra.id), [lineObras]);
+
+  useEffect(() => {
+    let active = true;
+    if (!["52", "55"].includes(code) || !lineObras.length) {
+      setSecondaryState({ rows: [], loading: false, error: "" });
+      return () => { active = false; };
+    }
+    setSecondaryState((current) => ({ ...current, loading: true, error: "" }));
+    fetchMaterialesSecundariosPlanilla({ linea: `K${code}`, obras: lineObras })
+      .then((result) => {
+        if (!active) return;
+        setSecondaryState({ rows: result?.filas ?? [], loading: false, error: "" });
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSecondaryState({ rows: [], loading: false, error: error?.message || "No se pudieron cargar los materiales secundarios." });
+      });
+    return () => { active = false; };
+  }, [code, lineObras]);
 
   const cargarLineSnapshots = useCallback(async () => {
     setLineSnapshotsLoading(true);
@@ -6323,7 +6345,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     setLineSnapshotsLoaded(false);
   }, [code]);
 
-  const rows = useMemo(() => (materiales ?? [])
+  const primaryRows = useMemo(() => (materiales ?? [])
     .filter(materialActivo)
     .filter((m) => materialQty(m, code) > 0)
     .map((m) => {
@@ -6355,14 +6377,47 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         || a.descripcion.localeCompare(b.descripcion, "es");
     }), [materiales, code, categorias, opciones, proveedores]);
 
+  const secondaryRows = useMemo(() => (secondaryState.rows ?? []).map((row) => {
+    const precioAmount = Number(row.precioInfo?.precio_unidad_matriz || 0);
+    const moneda = row.precioInfo?.moneda === "USD" ? "USD" : "ARS";
+    const primeraCelda = Object.values(row.porObra || {})[0] || null;
+    const cantidadPlan = row.circuito === "laminacion" ? Number(primeraCelda?.requerido || 0) : 0;
+    const cantidadConsumida = Number(row.totales?.egresado || 0);
+    const bucketLabel = row.circuito === "laminacion" ? "Secundario · Laminación" : "Secundario · Maderas";
+    return {
+      ...row,
+      materialId: row.materialSecundarioId,
+      material: null,
+      cantidad: cantidadPlan,
+      cantidadConsumida,
+      proveedor: row.proveedor || "Sin proveedor",
+      proveedorMeta: proveedorMeta(row.proveedor || "", proveedores),
+      precio: {
+        amount: precioAmount,
+        moneda,
+        text: precioAmount ? fmtMoney(precioAmount, moneda) : "Sin precio",
+        proveedor: row.proveedor || "",
+      },
+      bucket: { key: "secundario", label: bucketLabel, color: C.violet },
+      obs: row.circuito === "laminacion"
+        ? "Costo y consumo de Laminación · no genera compras ni avisos de Pañol"
+        : "Consumo real de Maderas · no genera compras ni avisos de Pañol",
+      revisado: true,
+      review: { flag: false, reason: "" },
+      secundario: true,
+    };
+  }), [secondaryState.rows, proveedores]);
+
+  const rows = useMemo(() => [...primaryRows, ...secondaryRows], [primaryRows, secondaryRows]);
+
   const materialById = useMemo(
     () => new Map((materiales ?? []).map((material) => [material.id, material])),
     [materiales],
   );
 
   const matrizLiveKeys = useMemo(
-    () => new Set(rows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)),
-    [rows],
+    () => new Set(primaryRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)),
+    [primaryRows],
   );
   const outOfMatrixItems = useMemo(() => {
     const obrasById = new Map(lineObras.map((obra) => [obra.id, obra]));
@@ -6489,11 +6544,11 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       acc.ars += row.precio.amount * qty;
     }
     return acc;
-  }, { items: 0, proveedores: new Set(), rubros: new Set(), sinPrecio: 0, revisar: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+  }, { items: 0, secundarios: 0, proveedores: new Set(), rubros: new Set(), sinPrecio: 0, revisar: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
 
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
-    return base.map((r) => ({
+    return base.filter((r) => !r.secundario).map((r) => ({
       descripcion: r.descripcion,
       codigo: r.codigo,
       cantidad: r.cantidad,
@@ -6506,6 +6561,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   }, [visibleRows, selected]);
 
   function toggleSelected(id) {
+    if (secondaryRows.some((row) => row.id === id)) return;
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -6601,6 +6657,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   }
 
   async function removeFromLine(row) {
+    if (row.secundario) return;
     if (!window.confirm(`¿Sacar "${row.descripcion}" de ${title}? No se borra del catálogo.`)) return;
     setRemovingId(row.id);
     try {
@@ -6718,6 +6775,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
             {[
               ["Items", kpis.items, C.blue],
+              ["Secundarios", kpis.secundarios, C.violet],
               ["Proveedores", kpis.proveedores.size, C.green],
               ["Rubros", kpis.rubros.size, C.violet],
               ["A revisar", kpis.revisar, C.amber],
@@ -6817,6 +6875,28 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         ) : null}
       </div>
 
+      {(secondaryState.loading || secondaryRows.length > 0 || secondaryState.error) && (
+        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", border: `1px solid ${secondaryState.error ? C.redB : `${C.violet}44`}`, background: secondaryState.error ? "rgba(239,68,68,0.07)" : "color-mix(in srgb, var(--panel) 90%, #8b5cf6 7%)", borderRadius: 14, padding: "9px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: secondaryState.error ? C.red : C.violet, boxShadow: `0 0 0 4px ${secondaryState.error ? C.red : C.violet}18`, flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: secondaryState.error ? C.red : C.t0, fontSize: 12.5, fontWeight: 950 }}>
+                {secondaryState.loading ? "Cargando materiales secundarios…" : secondaryState.error ? "No se pudieron cargar los secundarios" : `${secondaryRows.length} materiales secundarios incluidos en K${code}`}
+              </div>
+              <div style={{ color: C.t2, fontSize: 10.5, marginTop: 2 }}>
+                Laminación y Maderas aparecen en la búsqueda y en costos, pero conservan su circuito propio.
+              </div>
+            </div>
+          </div>
+          {!secondaryState.loading && !secondaryState.error && (
+            <span style={{ color: C.violet, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", borderRadius: 999, padding: "4px 9px", fontSize: 10.5, fontWeight: 900 }}>
+              No genera OC de Pañol
+            </span>
+          )}
+          {secondaryState.error && <span style={{ color: C.t2, fontSize: 10.5 }}>{secondaryState.error}</span>}
+        </div>
+      )}
+
       {outOfMatrixResolver ? (
         <ResolverFueraDeMatrizModal
           key={outOfMatrixResolver.key}
@@ -6860,6 +6940,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             ["todos", "Todo", C.blue],
             ["sin_precio", "Sin precio", C.red],
             ["revisar", "A revisar", C.amber],
+            ["secundario", "Secundarios", C.violet],
           ].map(([key, label, color]) => (
             <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
               {label}
@@ -6926,8 +7007,12 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             </div>
             <div style={{ display: "grid", gap: 6, padding: 8, overflowX: "auto" }}>
               {group.rows.map((row) => {
-                const qty = toNum(row.cantidad) || 1;
-                const total = row.precio.amount ? row.precio.amount * qty : null;
+                const qty = row.secundario && row.circuito === "maderas"
+                  ? Number(row.cantidadConsumida || 0)
+                  : (toNum(row.cantidad) || 1);
+                const total = row.precio.amount && !(row.secundario && row.circuito === "maderas")
+                  ? row.precio.amount * qty
+                  : null;
                 const editing = editingId === row.id;
                 return (
                   <div key={row.id} style={{ display: "grid", gap: 8 }}>
@@ -6946,12 +7031,16 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                         alignItems: "center",
                         minWidth: 900,
                         padding: "11px 12px",
-                        border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
+                        border: `1px solid ${row.secundario ? `${C.violet}44` : selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
                         borderRadius: 12,
-                        background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : "color-mix(in srgb, var(--panel) 70%, var(--bg) 30%)",
+                        background: row.secundario ? "color-mix(in srgb, var(--panel) 88%, #8b5cf6 6%)" : selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : "color-mix(in srgb, var(--panel) 70%, var(--bg) 30%)",
                       }}
                     >
-                      <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
+                      {row.secundario ? (
+                        <span title="Material secundario: conserva su circuito propio" style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 7, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", color: C.violet, fontSize: 9, fontWeight: 950 }}>S</span>
+                      ) : (
+                        <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} title="Seleccionar para la orden" />
+                      )}
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
                           <span style={{ fontSize: 14, fontWeight: 950, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
@@ -6965,9 +7054,9 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
-                        <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: tieneAjusteCondicionante(row) ? C.amber : C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
-                        <DesgloseCantidad row={row} />
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>{row.secundario ? (row.circuito === "maderas" ? "Consumo real" : "Por barco") : "Cantidad"}</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: row.secundario ? C.violet : tieneAjusteCondicionante(row) ? C.amber : C.t0 }}>{qtyText(qty, row.unidad)}</div>
+                        {!row.secundario && <DesgloseCantidad row={row} />}
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
@@ -6984,12 +7073,18 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                         {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
                       </div>
                       <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-                        <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: "6px 8px", color: editing ? C.blue : C.t2 }} title="Editar item">
-                          <Pencil size={13} />
-                        </button>
-                        <button type="button" onClick={() => removeFromLine(row)} disabled={removingId === row.id} style={{ ...BTN, padding: "6px 8px", color: C.red, borderColor: "rgba(239,68,68,0.28)" }} title={`Sacar de ${title}`}>
-                          <Trash2 size={13} />
-                        </button>
+                        {row.secundario ? (
+                          <span title="Se administra desde su módulo de origen" style={{ color: C.violet, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", borderRadius: 999, padding: "5px 8px", fontSize: 9.5, fontWeight: 950, whiteSpace: "nowrap" }}>Sólo costo</span>
+                        ) : (
+                          <>
+                            <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: "6px 8px", color: editing ? C.blue : C.t2 }} title="Editar item">
+                              <Pencil size={13} />
+                            </button>
+                            <button type="button" onClick={() => removeFromLine(row)} disabled={removingId === row.id} style={{ ...BTN, padding: "6px 8px", color: C.red, borderColor: "rgba(239,68,68,0.28)" }} title={`Sacar de ${title}`}>
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     {editing && (
@@ -8097,6 +8192,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
   const [sel, setSel] = useState("");
   const [selObra, setSelObra] = useState(null);
   const [q, setQ] = useState("");
+  const [secondaryByLine, setSecondaryByLine] = useState({});
   const [, startRouteTransition] = useTransition();
 
   const ums = useMemo(
@@ -8108,35 +8204,82 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     return base.map((l) => ({ ...l, codigo: String(l.codigo || "").replace(/^K/i, "") }));
   }, [lineas]);
 
+  useEffect(() => {
+    let active = true;
+    const targets = listaLineas.filter((item) => ["52", "55"].includes(String(item.codigo)));
+    if (!targets.length) return () => { active = false; };
+
+    Promise.all(targets.map(async (item) => {
+      const lineObras = (obras ?? []).filter((obra) => String(obra.modelo) === String(item.codigo));
+      if (!lineObras.length) return [item.codigo, { rows: [], loading: false, error: "" }];
+      try {
+        const result = await fetchMaterialesSecundariosPlanilla({ linea: `K${item.codigo}`, obras: lineObras });
+        return [item.codigo, { rows: result?.filas ?? [], loading: false, error: "" }];
+      } catch (error) {
+        return [item.codigo, { rows: [], loading: false, error: error?.message || "No se pudo calcular Laminación." }];
+      }
+    })).then((entries) => {
+      if (!active) return;
+      setSecondaryByLine((current) => ({ ...current, ...Object.fromEntries(entries) }));
+    });
+
+    return () => { active = false; };
+  }, [listaLineas, obras]);
+
   const cards = useMemo(() => listaLineas.map((linea) => {
     const mats = (materiales ?? []).filter(materialActivo).filter((m) => materialQty(m, linea.codigo) > 0);
     const proveedoresSet = new Set();
     const rubrosSet = new Set();
-    let usd = 0;
-    let ars = 0;
-    let sinPrecio = 0;
+    let baseUsd = 0;
+    let baseArs = 0;
+    let baseSinPrecio = 0;
     mats.forEach((m) => {
       const precio = priceInfo(m);
       const qty = materialQty(m, linea.codigo) || 1;
       if (precio.proveedor || m.proveedor) proveedoresSet.add(precio.proveedor || m.proveedor);
       rubrosSet.add(categoriaNombre(categorias, m.categoria_id));
-      if (!precio.amount) sinPrecio += 1;
-      else if (precio.moneda === "USD") usd += precio.amount * qty;
-      else ars += precio.amount * qty;
+      if (!precio.amount) baseSinPrecio += 1;
+      else if (precio.moneda === "USD") baseUsd += precio.amount * qty;
+      else baseArs += precio.amount * qty;
     });
-    const conPrecio = mats.length - sinPrecio;
+    const secondaryState = secondaryByLine[linea.codigo] || {};
+    const supportsSecondaries = ["52", "55"].includes(String(linea.codigo));
+    const laminacionRows = (secondaryState.rows || []).filter((row) => row.circuito === "laminacion");
+    let laminacionUsd = 0;
+    let laminacionArs = 0;
+    let laminacionSinPrecio = 0;
+    laminacionRows.forEach((row) => {
+      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      if (row.rubro) rubrosSet.add(row.rubro);
+      const precio = Number(row.precioInfo?.precio_unidad_matriz || 0);
+      const requerido = Number(Object.values(row.porObra || {})[0]?.requerido || 0);
+      if (!(precio > 0)) laminacionSinPrecio += 1;
+      else if (row.precioInfo?.moneda === "USD") laminacionUsd += precio * requerido;
+      else laminacionArs += precio * requerido;
+    });
+    const items = mats.length + laminacionRows.length;
+    const sinPrecio = baseSinPrecio + laminacionSinPrecio;
+    const conPrecio = items - sinPrecio;
     return {
       ...linea,
-      items: mats.length,
+      items,
+      matrizItems: mats.length,
+      laminacionItems: laminacionRows.length,
       proveedores: proveedoresSet.size,
       rubros: rubrosSet.size,
       sinPrecio,
-      usd,
-      ars,
-      progreso: mats.length ? Math.round((conPrecio / mats.length) * 100) : 0,
+      baseUsd,
+      baseArs,
+      laminacionUsd,
+      laminacionArs,
+      usd: baseUsd + laminacionUsd,
+      ars: baseArs + laminacionArs,
+      secundariosLoading: supportsSecondaries && !secondaryState.rows && !secondaryState.error,
+      secundariosError: secondaryState.error || "",
+      progreso: items ? Math.round((conPrecio / items) * 100) : 0,
       obras: (obras ?? []).filter((o) => String(o.modelo) === String(linea.codigo)),
     };
-  }), [listaLineas, materiales, categorias, obras]);
+  }), [listaLineas, materiales, categorias, obras, secondaryByLine]);
 
   const visibles = useMemo(() => {
     const terms = norm(q).split(/\s+/).filter(Boolean);
@@ -8328,7 +8471,18 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.t2, fontWeight: 600, flexWrap: "wrap" }}>
-                <span>{linea.items} items</span>
+                <span>{linea.matrizItems} matriz</span>
+                {linea.secundariosLoading ? (
+                  <>
+                    <span style={{ opacity: 0.5 }}>+</span>
+                    <span style={{ color: C.violet }}>sumando Laminación…</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ opacity: 0.5 }}>+</span>
+                    <span style={{ color: C.violet }}>{linea.laminacionItems} laminación</span>
+                  </>
+                )}
                 <span style={{ opacity: 0.5 }}>·</span>
                 <span style={{ color: linea.progreso > 80 ? C.green : C.blue }}>{linea.progreso}% costeado</span>
               </div>
@@ -8347,10 +8501,20 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
               ))}
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto", paddingTop: 4 }}>
-              {linea.usd ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 12, color: C.blue, border: `1px solid ${C.blueB}`, background: "color-mix(in srgb, var(--panel) 82%, transparent)", borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.blue }} />{fmtMoney(linea.usd, "USD")}</span> : null}
-              {linea.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}>{fmtMoney(linea.ars, "ARS")}</span> : null}
-              {linea.sinPrecio ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.amber, border: "1px solid rgba(245,158,11,0.24)", background: "rgba(245,158,11,0.045)", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.amber }} />{linea.sinPrecio} sin precio</span> : null}
+            <div style={{ display: "grid", gap: 8, marginTop: "auto", paddingTop: 4 }}>
+              {!linea.secundariosLoading && !linea.secundariosError && (linea.laminacionUsd || linea.laminacionArs) ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", fontSize: 10.5, color: C.t2, fontWeight: 750 }}>
+                  <span style={{ textTransform: "uppercase", letterSpacing: 0.55 }}>Costo por barco</span>
+                  {linea.laminacionUsd ? <span><strong style={{ color: C.t1 }}>USD:</strong> Matriz {fmtMoney(linea.baseUsd, "USD")} + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionUsd, "USD")}</strong></span> : null}
+                  {linea.laminacionArs ? <span><strong style={{ color: C.t1 }}>ARS:</strong> Matriz {fmtMoney(linea.baseArs, "ARS")} + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionArs, "ARS")}</strong></span> : null}
+                </div>
+              ) : null}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {linea.usd ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 12, color: C.blue, border: `1px solid ${C.blueB}`, background: "color-mix(in srgb, var(--panel) 82%, transparent)", borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.blue }} />TOTAL {fmtMoney(linea.usd, "USD")}</span> : null}
+                {linea.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}>TOTAL {fmtMoney(linea.ars, "ARS")}</span> : null}
+                {linea.sinPrecio ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.amber, border: "1px solid rgba(245,158,11,0.24)", background: "rgba(245,158,11,0.045)", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.amber }} />{linea.sinPrecio} sin precio</span> : null}
+                {linea.secundariosError ? <span style={{ fontSize: 11, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 999, padding: "5px 9px", fontWeight: 850 }}>Laminación sin calcular</span> : null}
+              </div>
             </div>
           </button>
         ))}
