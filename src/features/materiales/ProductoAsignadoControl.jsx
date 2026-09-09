@@ -236,6 +236,7 @@ export default function ProductoAsignadoControl({
         <div
           role="dialog"
           aria-modal="true"
+          onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (!busy) setOpen(false); } }}
           onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setOpen(false); }}
           style={{ position: "fixed", inset: 0, zIndex: 10020, display: "grid", placeItems: "center", padding: isMobile ? 8 : 18, background: "rgba(2,6,23,.58)", backdropFilter: "blur(5px)" }}
         >

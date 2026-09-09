@@ -19,16 +19,9 @@ import {
 } from "./postventaFichaApi";
 
 /**
- * La ficha de un barco entregado.
+ * Ficha del barco: contactos, horario de trabajo, fotos y documentación.
  *
- * Está armada alrededor de una pregunta: "voy a mandar un técnico a este barco,
- * ¿qué necesita saber?". A quién llamar, cómo se ve la embarcación, qué papel le
- * van a pedir en la guardia y a qué hora lo dejan entrar. Todo eso estaba en el
- * WhatsApp de alguien y por eso había que preguntar cada vez.
- *
- * El botón que más importa es el de abajo: copia todo eso en un mensaje. Mandar
- * una captura del mapa era la forma de resolver esto con lo que había; un texto
- * con el link del GPS, el teléfono y el horario le sirve más al que va.
+ * "Copiar ficha" arma un texto con todo eso para mandárselo a un técnico externo.
  */
 
 const tinta = (color, alfa) => `color-mix(in srgb, ${color} ${Math.round(alfa * 100)}%, transparent)`;
@@ -199,8 +192,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
     }
   }
 
-  // El acceso se guarda al salir del campo, como el resto de la pantalla. Sólo
-  // si cambió: sin esto, abrir la ficha y cerrarla escribía igual.
+  // Se guarda al salir del campo, y sólo si cambió.
   async function guardarAccesoSiCambio() {
     const previo = accesoGuardado.current;
     if (previo.acceso_dias === acceso.acceso_dias
@@ -219,9 +211,9 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
     const texto = fichaComoTexto({ ...barco, ...acceso }, contactos, papeles);
     try {
       await navigator.clipboard.writeText(texto);
-      toast.success("Ficha copiada. Pegala en el WhatsApp del técnico.");
+      toast.success("Ficha copiada.");
     } catch {
-      toast.error("No se pudo copiar. Copiala a mano desde el cuadro.");
+      toast.error("No se pudo copiar al portapapeles.");
     }
   }
 
@@ -265,8 +257,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           {faltaMigracion ? (
             <div style={{ margin: 18, padding: 14, borderRadius: 10, border: `1px solid ${tinta(C.violet, 0.35)}`, background: tinta(C.violet, 0.1), color: C.t1, fontSize: 12.5, lineHeight: 1.55 }}>
-              Falta correr la migración <b style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t0 }}>20260907170000_postventa_ficha_tecnico.sql</b> en
-              el editor SQL de Supabase. Hasta entonces la ficha se ve pero no guarda nada.
+              Migración pendiente: <b style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t0 }}>20260907170000_postventa_ficha_tecnico.sql</b>. Hasta correrla, la ficha no guarda.
             </div>
           ) : null}
 
@@ -279,7 +270,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 icono={Phone}
                 titulo={`Contactos${contactos.length ? ` · ${contactos.length}` : ""}`}
                 extra={(
-                  <button type="button" title="Agregar contacto"
+                  <button type="button" title="Agregar"
                     onClick={() => setContactos((a) => [...a, { nombre: "", rol: "", telefono: "", orden: a.length }])}
                     style={{ background: tinta(C.blue, 0.1), border: `1px solid ${tinta(C.blue, 0.28)}`, color: C.blue, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <UserPlus size={11} /> Sumar
@@ -301,13 +292,13 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                   />
                 )) : (
                   <div style={{ fontSize: 12, color: C.border2, lineHeight: 1.5 }}>
-                    Nadie cargado. El dueño, el marinero, quien abra la puerta: el que va necesita a quién llamar.
+                    Sin contactos cargados.
                   </div>
                 )}
               </Seccion>
 
               {/* ACCESO */}
-              <Seccion icono={Clock} titulo="Cuándo se puede entrar">
+              <Seccion icono={Clock} titulo="Horario de trabajo">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                   <div>
                     <span style={LBL}>Días</span>
@@ -317,14 +308,14 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                   </div>
                   <div>
                     <span style={LBL}>Horario</span>
-                    <input value={acceso.acceso_horario} placeholder="8 a 17"
+                    <input value={acceso.acceso_horario} placeholder="08:00 a 17:00"
                       onChange={(e) => setAcceso((a) => ({ ...a, acceso_horario: e.target.value }))}
                       onBlur={guardarAccesoSiCambio} style={INP} />
                   </div>
                 </div>
-                <span style={LBL}>Cómo se pasa la guardia</span>
+                <span style={LBL}>Detalles</span>
                 <textarea value={acceso.acceso_notas} rows={2}
-                  placeholder="A quién avisar, con cuánta anticipación, qué documentación piden en la entrada."
+                  placeholder="Accesos, avisos previos, restricciones…"
                   onChange={(e) => setAcceso((a) => ({ ...a, acceso_notas: e.target.value }))}
                   onBlur={guardarAccesoSiCambio}
                   style={{ ...INP, resize: "vertical", lineHeight: 1.5 }} />
@@ -333,7 +324,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
               {/* FOTOS */}
               <Seccion
                 icono={ImagePlus}
-                titulo={`Fotos de la embarcación${fotos.length ? ` · ${fotos.length}` : ""}`}
+                titulo={`Fotos${fotos.length ? ` · ${fotos.length}` : ""}`}
                 extra={(
                   <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     {subiendo === "foto" ? <LoaderCircle size={11} className="spin" /> : <Plus size={11} />} Subir
@@ -359,7 +350,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                   </div>
                 ) : (
                   <div style={{ fontSize: 12, color: C.border2, lineHeight: 1.5 }}>
-                    Ninguna. Una foto del barco y de dónde está amarrado le ahorra al técnico dar vueltas por el muelle.
+                    Sin fotos cargadas.
                   </div>
                 )}
               </Seccion>
@@ -367,7 +358,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
               {/* PAPELES */}
               <Seccion
                 icono={Paperclip}
-                titulo={`Papeles${papeles.length ? ` · ${papeles.length}` : ""}`}
+                titulo={`Documentación${papeles.length ? ` · ${papeles.length}` : ""}`}
                 extra={(
                   <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     {subiendo === "documento" ? <LoaderCircle size={11} className="spin" /> : <Plus size={11} />} Subir
@@ -383,7 +374,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                       style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: C.t0, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {p.nombre || "archivo"}
                     </a>
-                    <button type="button" title="Copiar el link para mandarlo"
+                    <button type="button" title="Copiar link"
                       onClick={async () => {
                         try { await navigator.clipboard.writeText(p.url); toast.success("Link copiado."); }
                         catch { toast.error("No se pudo copiar."); }
@@ -398,7 +389,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                   </div>
                 )) : (
                   <div style={{ fontSize: 12, color: C.border2, lineHeight: 1.5 }}>
-                    Ninguno. Acá va el seguro que piden en la guardia, para tenerlo a mano y poder mandarlo.
+                    Sin documentación cargada.
                   </div>
                 )}
               </Seccion>
@@ -410,10 +401,10 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
         <div style={{ borderTop: `1px solid ${C.b0}`, padding: 14, flexShrink: 0, background: "var(--panel)" }}>
           <button type="button" onClick={copiarFicha}
             style={{ width: "100%", background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.4)}`, color: C.blue, borderRadius: 9, padding: "11px 14px", fontSize: 13, fontWeight: 850, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: C.sans }}>
-            <Copy size={14} /> Copiar la ficha para el técnico
+            <Copy size={14} /> Copiar ficha
           </button>
           <div style={{ color: C.t2, fontSize: 11, marginTop: 7, lineHeight: 1.45, textAlign: "center" }}>
-            Se copia con el link del GPS, los teléfonos, el horario de entrada y los papeles. Listo para pegar en un WhatsApp.
+            Ubicación, contactos, horario y documentación.
           </div>
         </div>
       </div>

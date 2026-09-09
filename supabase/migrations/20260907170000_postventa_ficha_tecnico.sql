@@ -1,25 +1,18 @@
--- Barcos entregados: todo lo que el técnico necesita para llegar y entrar.
+-- Post venta: ficha del barco entregado.
 --
--- POR QUÉ. Del mail de Gastón (07/09): cuando hay que mandar a un tercerizado a
--- un barco, hoy no hay dónde mirar el teléfono del dueño, ni cómo se ve la
--- embarcación, ni el seguro que le van a pedir en la guardia, ni el horario en
--- que lo dejan entrar. Todo eso vive en WhatsApp de alguien. La pantalla ya
--- sabe DÓNDE está el barco; le falta lo demás para que sirva sin preguntar.
+-- Pedido de Área técnica (mail del 07/09). Agrega a la flota lo que hace falta
+-- para mandar un técnico: contactos, horario de trabajo, fotos y documentación.
 --
--- Cuatro cosas:
+--   acceso_*                horario en que se permite trabajar en el barco
+--   postventa_contactos     personas de contacto, con teléfono
+--   postventa_adjuntos      fotos y documentación
+--   bucket `postventa`      almacenamiento de esos archivos
 --
---   acceso_*                cuándo se puede entrar al barrio o la marina
---   postventa_contactos     dueño + marinero + familiar, cada uno con teléfono
---   postventa_adjuntos      fotos de la embarcación y papeles (el seguro)
---   bucket `postventa`      donde viven esos archivos
---
--- Los horarios son TEXTO LIBRE a propósito. "Lunes a viernes de 8 a 17, avisar
--- con 24 h en la guardia" es más útil que tres columnas estructuradas que nadie
--- va a completar y que igual no cubren el caso raro, que en las marinas es la
--- mitad de los casos.
+-- El horario es el de TRABAJO, no el de apertura del lugar: no siempre
+-- coinciden. Va como texto libre porque las excepciones son frecuentes.
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1. Acceso: cuándo se puede entrar
+-- 1. Horario en que se puede trabajar
 -- ─────────────────────────────────────────────────────────────────────────────
 alter table public.postventa_flota
   add column if not exists acceso_dias    text,
@@ -27,25 +20,23 @@ alter table public.postventa_flota
   add column if not exists acceso_notas   text;
 
 comment on column public.postventa_flota.acceso_dias is
-  'Días en que dejan entrar a trabajar. Texto libre: "Lunes a viernes", "todos menos domingo".';
+  'Días en que se permite trabajar en el barco. Texto libre.';
 comment on column public.postventa_flota.acceso_horario is
-  'Franja horaria permitida. Texto libre: "8 a 17", "8 a 12 y 14 a 18".';
+  'Franja horaria de trabajo. No es la de apertura del lugar: no siempre coinciden.';
 comment on column public.postventa_flota.acceso_notas is
-  'Lo que hay que saber para pasar la guardia: a quién avisar, con cuánta anticipación, qué piden.';
+  'Detalles libres del acceso: avisos previos, restricciones, a quién dirigirse.';
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. Contactos del barco
 --
--- Una tabla y no tres columnas: el mail pide "el dueño y otras 2 personas", pero
--- en cuanto exista va a haber un barco con cuatro. Con filas, sumar uno más no
--- es una migración.
+-- Tabla y no columnas fijas: la cantidad de contactos por barco es variable.
 -- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.postventa_contactos (
   id         uuid primary key default gen_random_uuid(),
   barco_id   uuid not null references public.postventa_flota(id) on delete cascade,
   nombre     text not null,
-  -- Quién es respecto del barco: dueño, marinero, encargado, familiar…
+  -- Relación con el barco: propietario, marinero, encargado…
   rol        text,
   telefono   text,
   notas      text,
@@ -58,15 +49,14 @@ create index if not exists postventa_contactos_barco_idx
   on public.postventa_contactos (barco_id, orden);
 
 comment on table public.postventa_contactos is
-  'Quién atiende por cada barco: dueño, marinero, familiar. Con teléfono, para que el técnico llame antes de ir.';
+  'Personas de contacto del barco, con teléfono.';
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. Fotos y papeles
 --
--- Fotos y documentos en la MISMA tabla, separados por `tipo`: son el mismo
--- gesto -subir un archivo del barco- y tenerlos en dos lados obligaría a
--- duplicar permisos, borrado y limpieza del bucket.
+-- Fotos y documentos en la misma tabla, separados por `tipo`: mismo permiso,
+-- mismo borrado, misma limpieza del bucket.
 -- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.postventa_adjuntos (
   id         uuid primary key default gen_random_uuid(),
@@ -84,15 +74,13 @@ create index if not exists postventa_adjuntos_barco_idx
   on public.postventa_adjuntos (barco_id, tipo, created_at);
 
 comment on column public.postventa_adjuntos.ruta is
-  'Ruta dentro del bucket. Se guarda además de la URL para poder borrar el archivo y no dejarlo colgado.';
+  'Ruta en el bucket. Necesaria para borrar el archivo, no sólo la fila.';
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. El bucket
 --
--- Público porque el punto es MANDARLE el link a un técnico tercerizado, que no
--- tiene usuario del sistema. Quien sube decide qué sube: acá va la foto del
--- barco y la póliza, no papeles del astillero.
+-- Público: los links se comparten con técnicos externos, que no tienen usuario.
 -- ─────────────────────────────────────────────────────────────────────────────
 insert into storage.buckets (id, name, public)
 values ('postventa', 'postventa', true)
@@ -149,7 +137,7 @@ with check (public.puede_ver_postventa(auth.uid()));
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- CONTROL — los cuatro tienen que dar lo esperado
+-- CONTROL
 -- ─────────────────────────────────────────────────────────────────────────────
 select 'columnas de acceso' as control, count(*) as debe_dar_3
 from information_schema.columns

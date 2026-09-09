@@ -3,6 +3,7 @@ import {
   aplicarPrecioMaterial,
   precioVencido,
   proveedoresDeMaterial,
+  RUBRO_CONSUMIBLES,
 } from "@/features/materiales/api";
 
 /**
@@ -151,18 +152,27 @@ export function evaluarMaterial(material, modelo, recuperables = new Map(), crit
   };
 }
 
-/** El rubro con el que cuenta un material: su categoría raíz, una sola vez. */
+/**
+ * El rubro con el que cuenta un material, una sola vez.
+ *
+ * Los consumibles suben todos a Consumibles: abrir Mechas y Lijas como rubros
+ * propios no ayuda a leer el costo de un barco. El resto cuenta con su nombre
+ * propio aunque cuelgue de otro, así Broncería y Griferías se leen solas.
+ *
+ * Es la misma regla que usan las listas: `rubroDeLista` en materiales/api.
+ */
 function rubroDeMaterial(material, categorias) {
   const porId = categorias.porId;
-  let actual = porId.get(material.categoria_id);
-  // Sube hasta la raíz. El tope evita quedarse colgado si alguna categoría
-  // quedó apuntándose a sí misma.
-  for (let saltos = 0; actual?.parent_id && saltos < 8; saltos += 1) {
-    const padre = porId.get(actual.parent_id);
-    if (!padre) break;
-    actual = padre;
+  const propia = porId.get(material.categoria_id);
+  if (!propia) return null;
+  let actual = propia;
+  // El tope evita quedarse colgado si alguna categoría se apunta a sí misma.
+  for (let saltos = 0; actual && saltos < 8; saltos += 1) {
+    if (actual.nombre === RUBRO_CONSUMIBLES) return actual;
+    if (!actual.parent_id) break;
+    actual = porId.get(actual.parent_id);
   }
-  return actual || null;
+  return propia;
 }
 
 function acumuladorVacio() {

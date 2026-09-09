@@ -51,7 +51,6 @@ import {
   reemplazarObraMaterialSnapshotSeguro,
   updateObraSnapshotRows,
   actualizarMaterialDatos,
-  rubroDeLista,
 } from "./api";
 import ProductoAsignadoControl from "./ProductoAsignadoControl";
 import {
@@ -67,8 +66,6 @@ import {
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
-import { ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
-import { obraThemeScope } from "./obra/obraListaPresentation";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney, textoTooltip } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
@@ -155,8 +152,10 @@ import {
 } from "./materialesSharedComponents";
 
 const CATALOG_RENDER_BATCH = 30;
+const OBRA_RENDER_BATCH = 24;
 const LINEA_RENDER_BATCH = 36;
 const CATALOG_INITIAL_RENDER = 18;
+const OBRA_INITIAL_RENDER = 16;
 const LINEA_INITIAL_RENDER = 24;
 
 function limitGroupedRows(groups = [], limit = LINEA_RENDER_BATCH) {
@@ -462,7 +461,7 @@ function MaterialLinksEditor({ value = [], onChange, compact = false }) {
       {links.length > 0 && (
         <div style={{ display: "grid", gap: 6 }}>
           {links.map((link, index) => (
-            <div key={`${link.url}-${index}`} className="material-links-row" style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, 1fr) minmax(180px, 1.4fr) 34px" : "minmax(120px, .7fr) minmax(220px, 1.3fr) minmax(160px, .9fr) 34px", gap: 6, alignItems: "center" }}>
+            <div key={`${link.url}-${index}`} style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, 1fr) minmax(180px, 1.4fr) 34px" : "minmax(120px, .7fr) minmax(220px, 1.3fr) minmax(160px, .9fr) 34px", gap: 6, alignItems: "center" }}>
               <input value={link.label || ""} onChange={(e) => updateLink(index, { label: e.target.value })} placeholder="Etiqueta" style={INP} />
               <input value={link.url || ""} onChange={(e) => updateLink(index, { url: e.target.value })} placeholder="https://..." style={{ ...INP, fontFamily: C.mono }} />
               {!compact && <input value={link.nota || ""} onChange={(e) => updateLink(index, { nota: e.target.value })} placeholder="Nota breve" style={INP} />}
@@ -473,7 +472,7 @@ function MaterialLinksEditor({ value = [], onChange, compact = false }) {
           ))}
         </div>
       )}
-      <div className="material-links-row" style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, .7fr) minmax(180px, 1.3fr) auto" : "minmax(120px, .7fr) minmax(220px, 1.4fr) minmax(160px, .9fr) auto", gap: 6, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, .7fr) minmax(180px, 1.3fr) auto" : "minmax(120px, .7fr) minmax(220px, 1.4fr) minmax(160px, .9fr) auto", gap: 6, alignItems: "center" }}>
         <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder="Ficha / ML / proveedor" style={INP} />
         <input value={draft.url} onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitDraft(); } }} placeholder="Pegar link" style={{ ...INP, fontFamily: C.mono }} />
         {!compact && <input value={draft.nota} onChange={(e) => setDraft((d) => ({ ...d, nota: e.target.value }))} placeholder="Nota opcional" style={INP} />}
@@ -1246,7 +1245,7 @@ function MaterialBarcodeEditor({ material, onChanged }) {
       ) : (
         <div style={{ color: C.t2, fontSize: 11.5 }}>Sin codigos cargados.</div>
       )}
-      <div className="material-barcode-row" style={{ display: "grid", gridTemplateColumns: material.variantes?.length > 0 ? "minmax(130px, 1fr) minmax(100px, 0.7fr) minmax(100px, 0.7fr) auto" : "minmax(160px, 1fr) minmax(120px, 0.7fr) auto", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: material.variantes?.length > 0 ? "minmax(130px, 1fr) minmax(100px, 0.7fr) minmax(100px, 0.7fr) auto" : "minmax(160px, 1fr) minmax(120px, 0.7fr) auto", gap: 6 }}>
         <input
           value={newCode}
           onChange={(e) => setNewCode(e.target.value)}
@@ -1498,7 +1497,7 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
   );
 }
 
-function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false, stockInfo = null, inDrawer = false }) {
+function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false, stockInfo = null }) {
   const [editing, setEditing] = useState(initialOpen);
   const [hovered, setHovered] = useState(false);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
@@ -1547,7 +1546,6 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
 
   return (
     <div
-      className={inDrawer ? "obra-material-editor" : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -1635,7 +1633,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No suma stock por marca/modelo. En cada obra se le asigna un producto concreto del catálogo.</span>
             </span>
           </label>
-          <div className="material-editor-pair" style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
             <div>
               <span style={lbl}>Alias / nombre corto</span>
               <input value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} placeholder="Opcional" style={{ ...INP, width: "100%" }} />
@@ -1662,7 +1660,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <span style={lbl}>Proveedores · cada uno con su precio</span>
             <div style={{ display: "grid", gap: 6 }}>
               {hayProveedorFicha ? (
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 78px 34px", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 92px 78px 34px", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {draft.proveedor || proveedores.find((pr) => pr.id === draft.proveedor_id)?.nombre || "—"}
                   </span>
@@ -1674,7 +1672,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                 </div>
               ) : null}
               {provExtra.map((p, i) => (
-                <div key={p.proveedor_id || i} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 78px 34px", gap: 6, alignItems: "center" }}>
+                <div key={p.proveedor_id || i} style={{ display: "grid", gridTemplateColumns: "1fr 92px 78px 34px", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proveedores.find((pr) => pr.id === p.proveedor_id)?.nombre || "—"}</span>
                   <input type="number" step="any" placeholder="Precio" value={p.precio ?? ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, precio: e.target.value } : x)))} style={{ ...INP, fontFamily: C.mono }} />
                   <select value={p.moneda || ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, moneda: e.target.value || null } : x)))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
@@ -1699,7 +1697,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               El precio del primero es el que queda en la ficha del material. Todos se guardan igual y se comparan en Costo del barco.
             </span>
           </div>
-          <div className="material-editor-fields" style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
             <div><span style={lbl}>UM</span><input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} /><datalist id="materiales-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist></div>
             {/* Con proveedor, el precio se edita en su renglón de arriba:
                 repetirlo acá eran dos campos para un mismo dato. Sin proveedor
@@ -1774,7 +1772,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
         cantidad: materialQty(m, linea) || 1,
         unidad: m.unidad_medida || "unidad",
         proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
-        rubro: rubroDeLista(categorias, m.categoria_id),
+        rubro: categoriaNombre(categorias, m.categoria_id),
         tipo: materialBucket(m).label,
         obs: m.notas || "",
         precio,
@@ -2344,7 +2342,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
       cantidad: payload.cantidad || 1,
       unidad: payload.unidad || "unidad",
       proveedor: payload.proveedor || null,
-      rubro: rubroDeLista(categorias, payload.categoria_id) || null,
+      rubro: categoriaNombre(categorias, payload.categoria_id) || null,
       tipo: "addon",
       tipo_label: addonTipoMeta(payload.tipo || tipo).label,
       precio_unitario: payload.precio_unitario ?? null,
@@ -3864,14 +3862,16 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
   const deferredQ = useDeferredValue(q);
+  const [renderState, setRenderState] = useState({ key: "", limit: OBRA_INITIAL_RENDER });
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [rubroFilter, setRubroFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [estadoFilter, setEstadoFilter] = useState("todos");
-  const [groupBy, setGroupBy] = useState("rubro");
+  const [groupBy, setGroupBy] = useState("proveedor");
   const [selected, setSelected] = useState(() => new Set());
   const [copied, setCopied] = useState(false);
   const [addons, setAddons] = useState([]);
+  const [addonQ, setAddonQ] = useState("");
   const [addonModalOpen, setAddonModalOpen] = useState(false);
   const [editingAddon, setEditingAddon] = useState(null);
   const [reassignAddon, setReassignAddon] = useState(null);
@@ -3905,8 +3905,6 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [editingMaterialRowId, setEditingMaterialRowId] = useState("");
   // Fila con el panel de estado/acciones secundarias abierto (⋯). Una a la vez.
   const [openActionsRowId, setOpenActionsRowId] = useState("");
-  const [detailTab, setDetailTab] = useState("resumen");
-  const detailTriggerRef = useRef(null);
 
   const cargarAddons = useCallback(async () => {
     try {
@@ -4002,6 +4000,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setCondicionantesObra(new Map());
     setExclusionesObra([]);
     setObraPanel("");
+    setAddonQ("");
     setAddonModalOpen(false);
     setEditingAddon(null);
     setReassignAddon(null);
@@ -4085,7 +4084,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         cantidad: materialQty(m, linea),
         unidad: m.unidad_medida || "unidad",
         proveedor: precio.proveedor || producto?.proveedor || m.proveedor || "Sin proveedor",
-        rubro: rubroDeLista(categorias, m.categoria_id),
+        rubro: categoriaNombre(categorias, m.categoria_id),
         precio,
         bucket,
         obs: m.notas || "",
@@ -4166,9 +4165,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           baseCantidad: 0,
           unidad: item.unidad || material?.unidad_medida || "unidad",
           proveedor: precio.proveedor || material?.proveedor || "Sin proveedor",
-          rubro: material ? rubroDeLista(categorias, material.categoria_id) : "Condicionante",
+          rubro: material ? categoriaNombre(categorias, material.categoria_id) : "Condicionante",
           precio,
-          bucket: { key: "condicionante", label: "Condicionante", color: C.violet },
+          bucket: { key: "condicionante", label: "Condicionante", color: C.amber },
           obs: [condicionante.nombre, item.notas].filter(Boolean).join(" - "),
           imagen_url: material?.imagen_url || "",
           links: normalizeMaterialLinks(material?.links),
@@ -4232,6 +4231,26 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       ? { label: "Lista parcial", color: C.blue, border: C.blueB, bg: C.blueL }
       : { label: "Lista fijada", color: C.green, border: C.greenB, bg: C.greenL }
     : { label: "Matriz viva", color: C.t2, border: C.b0, bg: C.s0 };
+
+  const addonPanelRows = useMemo(() => {
+    return (addons ?? [])
+      .map((addon) => {
+        const row = addonRowToView(addon, materialById, categorias);
+        const snap = snapshotRows.find((item, index) => snapshotMergeKey(item, index) === snapshotMergeKey(row));
+        const editable = { ...addon, __snapshotId: snap?.snapshotId || null, __snapshotLocked: snap ? snapshotLockedForAddon(snap) : false };
+        return { addon: editable, row };
+      })
+      .filter(({ row, addon }) => matchesFlexibleSearch(
+        addonQ,
+        row.descripcion,
+        row.codigo,
+        row.proveedor,
+        row.rubro,
+        row.obs,
+        addon.observaciones || "",
+        ...materialSearchFields(row.material),
+      ));
+  }, [addonQ, addons, categorias, materialById, snapshotRows]);
 
   const facets = useMemo(() => {
     const proveedoresSet = new Set();
@@ -4359,6 +4378,20 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     });
   }, [visibleRows, groupBy, etapaFilter, etapasDeRow]);
 
+  // Sólo la obra resetea cuántas filas hay pintadas. Antes lo hacía cualquier
+  // filtro: una obra tiene 250 a 450 ítems, se pintan 16 por vez, y llegar al
+  // final cuesta trece clicks en "mostrar más" — que se perdían enteros apenas
+  // tocabas un chip. Filtrar es lo que hacés PARA llegar a algo; castigarte por
+  // filtrar es exactamente al revés. El límite es un techo: si el filtro deja
+  // menos filas, no molesta que esté alto.
+  const renderFilterKey = obra?.id || "";
+  const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : OBRA_INITIAL_RENDER;
+  const renderedGroupedRows = useMemo(
+    () => limitGroupedRows(groupedRows, effectiveRenderLimit),
+    [groupedRows, effectiveRenderLimit],
+  );
+  const hiddenRowCount = Math.max(0, visibleRows.length - Math.min(effectiveRenderLimit, visibleRows.length));
+
   const kpis = useMemo(() => rows.reduce((acc, row) => {
     const qty = row.secundario && row.circuito === "maderas" ? 0 : (toNum(row.cantidad) || 1);
     acc.items += 1;
@@ -4425,6 +4458,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       text: `Falta elegir el producto real en ${productosPendientesOrden.length} ítem${productosPendientesOrden.length === 1 ? "" : "s"}: ${preview}${extra}.`,
     });
     return false;
+  }
+
+  function toggleSelected(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
   async function guardarEtapaMaterial(row, { origen, destinoId }) {
@@ -5119,83 +5160,967 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
-  const obraButton = { ...BTN, minHeight: isMobile ? 44 : 32, padding: "5px 9px", borderRadius: 6, fontSize: 12, fontWeight: 550, boxShadow: "none", background: C.panelSolid, color: C.text };
-  const obraSelect = { ...INP, height: isMobile ? 44 : 34, minWidth: 0, width: "auto", maxWidth: isMobile ? "100%" : 240, borderRadius: 6, fontSize: 12, padding: "5px 8px" };
-  const activeObraFilterCount = [proveedorFilter, rubroFilter, estadoFilter !== "todos", tipoFilter !== "todos", etapaFilter !== "todos", q.trim()].filter(Boolean).length;
-  const detailRow = visibleRows.find((row) => row.id === openActionsRowId) || rows.find((row) => row.id === openActionsRowId);
-  const detailIndex = visibleRows.findIndex((row) => row.id === openActionsRowId);
-
-  function openObraDetail(row, trigger) {
-    detailTriggerRef.current = trigger;
-    setDetailTab("resumen");
-    setOpenActionsRowId(row.id);
-  }
-  const closeObraDetail = useCallback(() => setOpenActionsRowId(""), []);
-  useEffect(() => {
-    if (!detailRow && detailTriggerRef.current) {
-      detailTriggerRef.current.focus?.({ preventScroll: true });
-      detailTriggerRef.current = null;
-    }
-  }, [detailRow]);
-
-  function getObraRowView(row) {
-    const cant = cantidadesDeFila(row);
-    const estado = estadoObraForRow(row);
-    const partial = (estado !== "egresado" && row.recepcion_estado === "parcial") || (cant.entregado > 0 && cant.entregado < cant.necesita);
-    const meta = recepcionMetaForRow(row);
-    const status = partial ? { label: "Parcial", color: C.violet, bg: C.violetL, border: C.violetB, title: `Recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}` } : { ...meta, label: estado === "pedido" ? "Pedido" : estado === "egresado" ? "Entregado" : meta.label };
-    const material = row.material || materialById.get(row.materialId);
-    const rowImageUrl = row.producto?.imagen_url || materialVariantImageUrl(material, row.variante) || String(row.imagen_url || material?.imagen_url || material?.imagenes?.[0]?.url || "").trim();
-    const action = accionDeFila(row);
-    return {
-      status, cant,
-      needed: qtyText(row.cantidad, row.unidad), received: fmtQtyCorto(cant.panol), delivered: fmtQtyCorto(cant.entregado),
-      quantityTitle: `Necesario ${fmtQtyCorto(cant.necesita)} · recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`,
-      imageMaterial: { ...(row.producto || material || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion },
-      uploadMaterial: row.producto?.id ? row.producto : material,
-      origin: row.bucket?.key === "addon" ? "Adicional" : snapshotOnlyForRow(row) ? "Fuera de matriz" : "",
-      issue: action.trabado ? action.texto : row.review?.flag ? "A revisar" : "",
-    };
-  }
-
-  function renderObraDetail(row, tab) {
-    const view = getObraRowView(row);
-    const cant = view.cant;
-    const materialForRow = row.material || materialById.get(row.materialId);
-    const editableAddon = addonForVisibleRow(row);
-    const addonPromotion = editableAddon ? addonPromotionMeta(editableAddon) : null;
-    const snapshotOnly = snapshotOnlyForRow(row);
-    const snapshotPromotion = snapshotOnly ? snapshotPromotionMeta(row, materialForRow) : null;
-    const editingMaterial = editingMaterialRowId === row.id;
-    const etapasRow = etapasDeRow(row);
-    const miniBtn = { ...obraButton, minHeight: isMobile ? 44 : 32 };
-    const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
-    if (tab === "resumen") return <div style={{ display: "grid", gap: 14, fontSize: 12 }}>
-      {[["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
-      <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
-        <strong style={{ fontWeight: 650 }}>Cantidades</strong>
-        {[["Necesario", cant.necesita], ["Recibido", cant.panol], ["Entregado", cant.entregado], ["Por comprar", cant.faltaComprar], ["Por entregar", cant.faltaEntregar]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.muted }}>{label}</span><span style={{ fontFamily: C.mono }}>{qtyText(value, row.unidad)}</span></div>)}
-        <DesgloseCantidad row={row} />
-        {row.cantidadOrigenEtapa && <span style={{ color: C.blue }}>Cantidad de esta etapa</span>}
+  const filterPillStyle = (on, color = C.blue) => ({
+    border: `1px solid ${on ? `${color}66` : C.b0}`,
+    background: on ? `${color}16` : "transparent",
+    color: on ? color : C.t2,
+    borderRadius: 999,
+    padding: "7px 11px",
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: "pointer",
+    fontFamily: C.sans,
+    transition: "background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease",
+    whiteSpace: "nowrap",
+  });
+  const activeObraFilterCount = [
+    proveedorFilter,
+    rubroFilter,
+    estadoFilter !== "todos",
+    tipoFilter !== "todos",
+    etapaFilter !== "todos",
+    q.trim(),
+  ].filter(Boolean).length;
+  const totalObraLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
+  const panelControlStyle = (active, color = C.blue) => ({
+    border: `1px solid ${active ? `${color}55` : "transparent"}`,
+    background: active ? `${color}16` : "transparent",
+    color: active ? color : C.t1,
+    borderRadius: 999,
+    padding: "7px 11px",
+    fontSize: 12,
+    fontWeight: 950,
+    cursor: "pointer",
+    fontFamily: C.sans,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    whiteSpace: "nowrap",
+    transition: "background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease",
+  });
+  const panelControls = [
+    { key: "config", label: "Configuracion", value: `${condicionantesActivos.length}/${condicionantesModelo.length}`, color: C.amber },
+    { key: "adicionales", label: "Adicionales", value: addonStats.total, color: C.green },
+    { key: "excluidos", label: "Excluidos", value: exclusionesDetalle.length, color: C.red },
+  ];
+  return (
+    <div>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: isMobile ? 13 : 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 360px", minWidth: 240 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: C.t2, fontSize: 12, fontWeight: 850 }}>
+              <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", padding: 0, color: C.blue, fontWeight: 950, cursor: "pointer", fontFamily: C.sans }}>
+                {lineaNombre}
+              </button>
+              <span>/</span>
+              <span style={{ color: C.t1 }}>Obra</span>
+              <span>/</span>
+              <span style={{ color: C.t0, fontWeight: 950 }}>{obra.codigo}</span>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h2 style={{ margin: 0, color: C.t0, fontSize: isMobile ? 23 : 28, lineHeight: 1.05, fontWeight: 950, letterSpacing: -0.2 }}>{obra.codigo}</h2>
+              <span style={{ fontSize: 11, fontWeight: 950, color: snapshotStatus.color, border: `1px solid ${snapshotStatus.border}`, background: snapshotStatus.bg, borderRadius: 999, padding: "4px 9px" }}>
+                {snapshotStatus.label}
+              </span>
+              {kpis.sinPrecio ? (
+                <span style={{ fontSize: 11, fontWeight: 950, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 8px" }}>
+                  {kpis.sinPrecio} sin precio
+                </span>
+              ) : null}
+              {kpis.productosPendientes ? (
+                <span title="Necesidades genéricas que todavía no tienen un producto real asignado" style={{ fontSize: 11, fontWeight: 950, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "4px 8px" }}>
+                  {kpis.productosPendientes} productos por definir
+                </span>
+              ) : null}
+              {!etapasObraError ? (
+                <>
+                  <span style={{ fontSize: 11, fontWeight: 950, color: C.green, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 999, padding: "4px 8px" }}>
+                    {asignadosCount} en etapas
+                  </span>
+                  {sinAsignarCount ? (
+                    <button type="button" onClick={() => setEtapaFilter("sin_asignar")} style={{ border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", color: C.red, borderRadius: 999, padding: "4px 8px", fontSize: 11, lineHeight: 1.2, fontWeight: 950, fontFamily: C.sans, cursor: "pointer" }}>
+                      {sinAsignarCount} sin asignar
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+            <div style={{ color: C.t2, fontSize: 12.5, marginTop: 6 }}>
+              Lista aplicada a esta obra. Ajustes puntuales sin ensuciar la matriz base.
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div title="Presupuesto estimado de esta vista" style={{ minWidth: 142, textAlign: "right" }}>
+              <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Total obra</div>
+              <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalObraLabel}</div>
+            </div>
+            <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 38, padding: "0 13px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
+              <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+            </button>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+          <div style={{ display: "inline-flex", gap: 3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: 4, background: "color-mix(in srgb, var(--panel) 70%, transparent)", maxWidth: "100%", overflowX: "auto" }}>
+            {panelControls.map((item) => {
+              const active = obraPanel === item.key;
+              return (
+                <button key={item.key} type="button" onClick={() => setObraPanel((panel) => (panel === item.key ? "" : item.key))} style={panelControlStyle(active, item.color)}>
+                  {item.label}
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: active ? item.color : C.t2 }}>{item.value}</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* La lista de una obra no es un inventario: es trabajo por hacer.
+              Por eso arriba no van estados sino las dos preguntas que se
+              contestan mirándola —qué hay que comprar y qué hay que ir a
+              buscar—, que son cosas distintas y confundirlas cuesta comprar dos
+              veces lo mismo. Cada uno filtra, y volver a tocarlo lo saca. */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <CompactStat
+              label="Todo"
+              value={kpis.items}
+              color={C.t2}
+              active={estadoFilter === "todos"}
+              onClick={() => setEstadoFilter("todos")}
+            />
+            <CompactStat
+              label="Falta comprar"
+              value={kpis.pendientes}
+              color={C.blue}
+              active={estadoFilter === "pendiente"}
+              onClick={() => setEstadoFilter(estadoFilter === "pendiente" ? "todos" : "pendiente")}
+            />
+            {/* En el medio de "hay que comprarlo" y "hay que ir a buscarlo"
+                está esto: ya salió de la obra pero todavía no llegó al pañol.
+                Sin este casillero, un ítem enviado a compras figuraba como
+                comprado y nadie volvía a mirarlo. */}
+            <CompactStat
+              label="En compras"
+              value={kpis.pedidos + kpis.comprados}
+              color={C.cyan}
+              active={estadoFilter === "en_compras"}
+              onClick={() => setEstadoFilter(estadoFilter === "en_compras" ? "todos" : "en_compras")}
+            />
+            <CompactStat
+              label="Falta entregar"
+              value={kpis.enPanol}
+              color={C.violet}
+              active={estadoFilter === "falta_entregar"}
+              onClick={() => setEstadoFilter(estadoFilter === "falta_entregar" ? "todos" : "falta_entregar")}
+            />
+            <CompactStat
+              label="Entregado"
+              value={kpis.egresados}
+              color={C.green}
+              active={estadoFilter === "egresado"}
+              onClick={() => setEstadoFilter(estadoFilter === "egresado" ? "todos" : "egresado")}
+            />
+          </div>
+        </div>
       </div>
-      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.muted }}>Stock libre</span><span style={{ fontFamily: C.mono }}>{stockLibreLoading ? "Cargando…" : stockLibreInfo ? qtyText(stockLibreInfo.cantidad, stockLibreInfo.unidad) : "Sin disponibilidad informada"}</span></div>
-      <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
-      <div aria-label="Estado actual del abastecimiento" style={{ display: "flex", gap: 4, padding: "12px 0" }}>{[["pedido", "Pedido"], ["comprado", "Comprado"], ["en_panol", "En pañol"], ["egresado", "Entregado"]].map(([key, label]) => <div key={key} style={{ flex: 1, textAlign: "center", color: estadoObraForRow(row) === key ? C.blue : C.muted, borderTop: `2px solid ${estadoObraForRow(row) === key ? C.blue : C.border}`, paddingTop: 7, fontSize: 11 }}>{label}{estadoObraForRow(row) === key ? " · actual" : ""}</div>)}</div>
-      {view.issue && <div style={{ color: C.red }}>{view.issue}</div>}
-      {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
-      {!!row.condicionantes?.length && <div style={{ display: "grid", gap: 5 }}><strong>Condicionantes</strong>{row.condicionantes.map((item) => <span key={`${item.id}-${item.condicionante}`} style={{ color: item.delta < 0 ? C.red : C.violet }}>{item.condicionante}: {item.label}</span>)}</div>}
-      {productSpecEntries(row.especificaciones).map((item) => <div key={item.key}><span style={{ color: C.muted }}>{item.label}: </span>{item.value}</div>)}
-      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
-      <RecepcionDetalle row={row} />
-    </div>;
-    if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
-      <div><strong style={{ fontSize: 12 }}>Estado y regularización</strong><div style={{ marginTop: 10 }}><ObraEstadoControl key={row.id} row={row} busy={estadoBusy === row.id || snapshotBusy} onChange={regularizarEstadoRow} /></div></div>
-      <EtapaCompraEditor row={row} etapas={etapasObra} asignaciones={etapasRow} busy={asignarEtapaBusy === row.id} error={etapasObraError} onSave={(payload) => guardarEtapaMaterial(row, payload)} />
-      <RecepcionDetalle row={row} />
-      {(row.purchase_request_id || row.recepcion_envio?.titulo) && <div style={{ fontSize: 12, color: C.muted, overflowWrap: "anywhere" }}>{row.purchase_request_id ? `Pedido vinculado: ${row.purchase_request_id}` : ""}{row.recepcion_envio?.titulo ? ` · ${row.recepcion_envio.titulo}` : ""}</div>}
-    </div>;
-    return <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "none", border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: isMobile ? 13 : 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← {lineaNombre}</button>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{obra.codigo}</div>
+            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>
+              Lista completa aplicada a esta obra · {lineaNombre}
+            </div>
+          </div>
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          </button>
+          <span style={{ fontSize: 11, fontWeight: 900, color: snapshotStatus.color, border: `1px solid ${snapshotStatus.border}`, background: snapshotStatus.bg, borderRadius: 999, padding: "5px 10px" }}>
+            {snapshotStatus.label}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <CompactStat label="Items" value={kpis.items} color={C.blue} active={estadoFilter === "todos"} onClick={() => setEstadoFilter("todos")} />
+          <CompactStat label="Pendiente" value={kpis.pendientes} color={C.t2} active={estadoFilter === "pendiente"} onClick={() => setEstadoFilter("pendiente")} />
+          <CompactStat label="Comprado" value={kpis.comprados} color={C.amber} active={estadoFilter === "comprado"} onClick={() => setEstadoFilter("comprado")} />
+          <CompactStat label="En pañol" value={kpis.enPanol} color={C.violet} active={estadoFilter === "en_panol"} onClick={() => setEstadoFilter("en_panol")} />
+          <CompactStat label="Egresado" value={kpis.egresados} color={C.green} active={estadoFilter === "egresado"} onClick={() => setEstadoFilter("egresado")} />
+        </div>
+      </div>
+
+      <div style={{ display: "none", border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 8, marginBottom: 12, gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => setObraPanel((panel) => (panel === "config" ? "" : "config"))} style={{ ...BTN, padding: "7px 11px", color: obraPanel === "config" ? C.amber : C.t1, background: obraPanel === "config" ? C.amberL : C.s0, borderColor: obraPanel === "config" ? C.amberB : C.b0, fontWeight: 900 }}>
+          Configuracion <span style={{ color: C.amber, fontFamily: C.mono }}>{condicionantesActivos.length}/{condicionantesModelo.length}</span>
+        </button>
+        <button type="button" onClick={() => setObraPanel((panel) => (panel === "adicionales" ? "" : "adicionales"))} style={{ ...BTN, padding: "7px 11px", color: obraPanel === "adicionales" ? C.green : C.t1, background: obraPanel === "adicionales" ? C.greenL : C.s0, borderColor: obraPanel === "adicionales" ? C.greenB : C.b0, fontWeight: 900 }}>
+          Adicionales <span style={{ color: C.green, fontFamily: C.mono }}>{addonStats.total}</span>
+        </button>
+        <button type="button" onClick={() => setObraPanel((panel) => (panel === "excluidos" ? "" : "excluidos"))} style={{ ...BTN, padding: "7px 11px", color: obraPanel === "excluidos" ? C.red : C.t1, background: obraPanel === "excluidos" ? "rgba(239,68,68,0.10)" : C.s0, borderColor: obraPanel === "excluidos" ? "rgba(239,68,68,0.30)" : C.b0, fontWeight: 900 }}>
+          Excluidos <span style={{ color: C.red, fontFamily: C.mono }}>{exclusionesDetalle.length}</span>
+        </button>
+        <div style={{ flex: "1 1 180px", color: C.t2, fontSize: 11.5 }}>
+          La lista queda abajo. Estos paneles se abren solo para ajustar la obra.
+        </div>
+        {obraPanel && (
+          <button type="button" onClick={() => setObraPanel("")} style={{ ...BTN, padding: "6px 9px", fontSize: 11, color: C.t2 }}>
+            Cerrar
+          </button>
+        )}
+      </div>
+
+      {obraPanel === "config" && condicionantesModelo.length > 0 && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 10, marginBottom: 12, display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Configuracion de esta obra</div>
+              <div style={{ fontSize: 11, color: C.t2, marginTop: 2, lineHeight: 1.35 }}>
+                Se toca una vez: base + condicionantes activos.
+              </div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 9px" }}>
+              {condicionantesActivos.length}/{condicionantesModelo.length} activos
+            </span>
+          </div>
+          {snapshotActivo && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "7px 9px" }}>
+              <span>Esta obra ya tiene lista fijada. Los cambios quedan guardados, pero para que impacten en cantidades hay que regenerar la lista antes de pedir/avisar.</span>
+              <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...BTN, padding: "5px 9px", fontSize: 11, color: C.amber, borderColor: C.amberB, background: C.bg }}>
+                {snapshotBusy ? "Regenerando..." : "Regenerar lista"}
+              </button>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 6, maxHeight: 210, overflowY: "auto" }}>
+            {condicionantesModelo.map((condicionante) => {
+              const active = condicionante.activoEnObra;
+              const items = (condicionante.items ?? []).filter((item) => item.activo !== false);
+              return (
+                <div key={condicionante.id} style={{ border: `1px solid ${active ? C.greenB : C.b0}`, background: active ? C.greenL : C.s0, borderRadius: 10, padding: "7px 8px", display: "grid", gap: 5 }} title={condicionante.descripcion || condicionante.nombre}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionante.nombre}</div>
+                      <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
+                        {condicionante.definidoEnObra ? "Definido en esta obra" : condicionante.activo_por_defecto ? "Activo por defecto" : "Apagado por defecto"}
+                      </div>
+                    </div>
+                    <button type="button" disabled={condicionanteBusy === condicionante.id} onClick={() => toggleCondicionanteObra(condicionante)} style={{ ...BTN, padding: "4px 8px", color: active ? C.green : C.t2, borderColor: active ? C.greenB : C.b0, background: active ? C.bg : C.s0, fontSize: 10.5, fontWeight: 900 }}>
+                      {active ? "Lleva" : "No lleva"}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {items.length ? items.slice(0, 4).map((item) => (
+                      <span key={item.id} style={{ fontSize: 10.5, color: condicionanteDelta(item) < 0 ? C.red : C.t1, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 999, padding: "2px 7px" }}>
+                        {condicionanteItemLabel(item)}
+                      </span>
+                    )) : <span style={{ fontSize: 10.5, color: C.t3 }}>Sin items asociados</span>}
+                    {items.length > 4 && <span style={{ fontSize: 10.5, color: C.t3 }}>+{items.length - 4} mas</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {obraPanel === "excluidos" && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Items quitados solo de {obra.codigo}</div>
+            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
+              No se borran del catalogo ni de la matriz K{linea}; simplemente no aplican a esta obra.
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 7 }}>
+            {exclusionesDetalle.map((item) => (
+              <div key={item.material_id} style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 10, flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.material?.descripcion || "Material excluido"}</div>
+                  <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{item.material?.codigo || "sin codigo"}{item.motivo ? ` · ${item.motivo}` : ""}</div>
+                </div>
+                <button type="button" disabled={exclusionBusy === item.material_id} onClick={() => restaurarRowEnObra(item.material_id)} style={{ ...BTN_GREEN, padding: "7px 10px", fontSize: 11 }}>
+                  {exclusionBusy === item.material_id ? "Restaurando..." : "Restaurar"}
+                </button>
+              </div>
+            ))}
+            {!exclusionesDetalle.length && (
+              <div style={{ padding: 16, border: `1px dashed ${C.b0}`, borderRadius: 11, textAlign: "center", color: C.t2, fontSize: 12 }}>
+                No hay items excluidos en esta obra.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {obraPanel === "adicionales" && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Items propios de {obra.codigo}</div>
+              <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
+                {addonStats.total} total · {addonStats.adicionales} adicionales del cliente · {addonStats.opcionales} opcionales de configuracion.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input value={addonQ} onChange={(e) => setAddonQ(e.target.value)} placeholder="Buscar adicional..." style={{ ...INP, width: 240, height: 34 }} />
+              <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...BTN_GREEN, padding: "8px 12px" }}>
+                <PackagePlus size={14} /> Agregar item
+              </button>
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 7 }}>
+            {addonPanelRows.map(({ addon, row }) => {
+              const promotion = addonPromotionMeta(addon);
+              return (
+              <div key={addon.id} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 11, padding: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 900, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+                    <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, border: `1px solid ${row.bucket.color}44`, background: `${row.bucket.color}16`, borderRadius: 999, padding: "2px 7px" }}>{row.bucket.label}</span>
+                    {addon.__snapshotLocked ? (
+                      <span style={{ fontSize: 10, fontWeight: 850, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px" }}>Con movimiento</span>
+                    ) : null}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.t2, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {qtyText(row.cantidad, row.unidad)} · {row.proveedor || "Sin proveedor"} · {row.rubro || "Sin rubro"}{row.obs ? ` · ${row.obs}` : ""}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    disabled={promotion.disabled}
+                    onClick={() => promoteAddonToMatrix(addon)}
+                    style={{
+                      ...BTN,
+                      padding: "6px 8px",
+                      color: promotion.disabled ? C.t3 : C.blue,
+                      borderColor: promotion.disabled ? C.b0 : C.blueB,
+                      background: promotion.disabled ? C.s0 : C.blueL,
+                      fontSize: 11,
+                      opacity: promotion.disabled ? 0.68 : 1,
+                    }}
+                    title={promotion.title}
+                  >
+                    <PackagePlus size={12} /> {promotion.label}
+                  </button>
+                  <button type="button" onClick={() => { setEditingAddon(addon); setAddonModalOpen(true); }} style={{ ...BTN, padding: "6px 8px", color: C.blue, fontSize: 11 }}>
+                    <Pencil size={12} /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={addon.__snapshotLocked}
+                    onClick={() => openReassignAddon(addon)}
+                    style={{ ...BTN, padding: "6px 8px", color: addon.__snapshotLocked ? C.t3 : C.violet, fontSize: 11, opacity: addon.__snapshotLocked ? 0.55 : 1 }}
+                  >
+                    <RefreshCw size={12} /> Reasignar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={addonDeleteBusy === addon.id}
+                    onClick={() => deleteAddonRow(addon)}
+                    style={{ ...BTN, padding: "6px 8px", color: addon.__snapshotLocked ? C.t3 : C.red, fontSize: 11, opacity: addon.__snapshotLocked ? 0.8 : 1 }}
+                    title={addon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
+                  >
+                    <Trash2 size={12} /> {addonDeleteBusy === addon.id ? "Quitando..." : "Quitar de esta obra"}
+                  </button>
+                </div>
+              </div>
+              );
+            })}
+            {!addonPanelRows.length && (
+              <div style={{ padding: 16, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 11, color: C.t2, fontSize: 12 }}>
+                No hay items propios con ese filtro.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <ObraAddonModal
+        open={addonModalOpen}
+        obra={obra}
+        obras={obras}
+        addon={editingAddon}
+        materiales={materiales}
+        categorias={categorias}
+        proveedores={proveedores}
+        ums={ums}
+        onClose={() => { setAddonModalOpen(false); setEditingAddon(null); }}
+        onSaved={async () => {
+          setAddonModalOpen(false);
+          setEditingAddon(null);
+          await cargarAddons();
+          await onChanged?.();
+        }}
+        onChanged={onChanged}
+      />
+
+      {/* Confirmación antes de mandar a compras. El pedido le genera trabajo a
+          otra persona y darlo de baja es a mano, así que se muestra qué se manda
+          antes de que salga. */}
+      {pedidoConfirm ? (
+        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
+          <div style={{ width: "min(560px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>
+                  ¿Mandar {pedidoConfirm.rows.length} {pedidoConfirm.rows.length === 1 ? "ítem" : "ítems"} a Compras?
+                </div>
+                <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
+                  Obra {obra.codigo} · pedido {pedidoConfirm.tipo}
+                </div>
+              </div>
+              <button type="button" onClick={() => setPedidoConfirm(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
+                <X size={14} />
+              </button>
+            </div>
+
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", color: C.t2 }}>
+                Título del pedido
+              </span>
+              <input
+                value={pedidoTitulo}
+                onChange={(e) => setPedidoTitulo(e.target.value)}
+                placeholder={buildPedidoTitulo({ obra, rows: pedidoConfirm.rows })}
+                maxLength={120}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  border: `1px solid ${C.b0}`,
+                  borderRadius: 9,
+                  background: C.bg,
+                  color: C.t0,
+                  padding: "9px 10px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: C.sans,
+                  outline: "none",
+                }}
+              />
+              <span style={{ fontSize: 10.5, color: C.t3 }}>
+                Es lo que ve Compras en la lista. Podés cambiarlo.
+              </span>
+            </label>
+
+            <div style={{ display: "grid", gap: 4, maxHeight: 280, overflowY: "auto", border: `1px solid ${C.b0}`, borderRadius: 10, padding: 8 }}>
+              {pedidoConfirm.rows.map((row, index) => (
+                <div key={row.id || index} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "5px 4px", borderBottom: index === pedidoConfirm.rows.length - 1 ? "none" : `1px solid ${C.b0}` }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                    <div style={{ fontSize: 10.5, color: C.t3 }}>{row.proveedor || "Sin proveedor"}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: tieneAjusteCondicionante(row) ? C.amber : C.t1, whiteSpace: "nowrap" }}>
+                      {qtyText(row.cantidad, row.unidad)}
+                    </div>
+                    <DesgloseCantidad row={row} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setPedidoConfirm(null)} style={{ ...BTN, padding: "8px 14px" }}>Cancelar</button>
+              <button type="button" onClick={pedirAComprasObra} disabled={!!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "8px 16px" }}>
+                <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Enviando…" : "Sí, mandar a Compras"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {reassignAddon ? (
+        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
+          <div style={{ width: "min(460px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>Reasignar adicional</div>
+                <div style={{ fontSize: 12, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {reassignAddon.descripcion || "Item adicional"}
+                </div>
+              </div>
+              <button type="button" onClick={() => setReassignAddon(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
+                <X size={14} />
+              </button>
+            </div>
+
+            {reassignAddon.__snapshotLocked ? (
+              <div style={{ fontSize: 12, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "8px 9px", lineHeight: 1.35 }}>
+                Este adicional ya tuvo movimiento de panol. Para moverlo hay que hacerlo desde stock y conservar el kardex.
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.35 }}>
+                Lo mueve de {obra.codigo} a otra obra. Si solo tenia pedido/aviso pendiente tambien se actualiza ese vinculo.
+              </div>
+            )}
+
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 900, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <select
+                value={reassignObraId}
+                disabled={reassignAddon.__snapshotLocked || reassignBusy}
+                onChange={(e) => setReassignObraId(e.target.value)}
+                style={{ ...INP, height: 38 }}
+              >
+                {obrasDestinoReassign.map((item) => (
+                  <option key={item.id} value={item.id} style={OPT_ST}>
+                    {item.codigo || "Sin codigo"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setReassignAddon(null)} disabled={reassignBusy} style={{ ...BTN, padding: "8px 12px" }}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)}
+                onClick={submitReassignAddon}
+                style={{
+                  ...BTN_GREEN,
+                  padding: "8px 13px",
+                  opacity: (reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)) ? 0.55 : 1,
+                }}
+              >
+                {reassignBusy ? "Guardando..." : "Reasignar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{ position: "sticky", top: 0, zIndex: 23, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", padding: 10, marginBottom: 14, display: "grid", gap: 10, boxShadow: "0 16px 42px -38px rgba(15,23,42,0.7)" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 260 }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+          </div>
+          {[
+            ["todos", `Todo (${kpis.items})`, C.blue],
+            ["sin_precio", `Sin precio (${kpis.sinPrecio})`, C.red],
+            ["addon", `Adicionales (${addonStats.total})`, C.violet],
+          ].map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+          <button type="button" onClick={() => setFiltersOpen((v) => !v)} style={{ ...BTN, height: 40, padding: "0 12px", color: filtersOpen || activeObraFilterCount ? C.blue : C.t1, borderColor: filtersOpen || activeObraFilterCount ? C.blueB : C.b0, background: filtersOpen || activeObraFilterCount ? C.blueL : C.s0 }}>
+            <SlidersHorizontal size={14} /> Filtros{activeObraFilterCount ? ` (${activeObraFilterCount})` : ""}
+          </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 10, overflowX: "auto", scrollbarWidth: "thin" }}>
+          <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 950, color: C.t2, textTransform: "uppercase", letterSpacing: 0.65, marginRight: 2 }}>
+            Etapa de compra
+          </span>
+          {etapasObraError ? (
+            <>
+              <span style={{ flexShrink: 0, fontSize: 11, color: C.red }}>{etapasObraError}</span>
+              <button type="button" onClick={cargarEtapasObra} style={{ ...BTN, minHeight: 30, padding: "5px 9px", fontSize: 10.5, color: C.red, borderColor: C.redB }}>
+                <RefreshCw size={12} /> Reintentar
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => setEtapaFilter("todos")} style={filterPillStyle(etapaFilter === "todos", C.blue)}>
+                Todas <span style={{ fontFamily: C.mono, opacity: 0.8 }}>{rows.length}</span>
+              </button>
+              <button type="button" onClick={() => setEtapaFilter("sin_asignar")} style={filterPillStyle(etapaFilter === "sin_asignar", sinAsignarCount ? C.red : C.green)}>
+                Sin asignar <span style={{ fontFamily: C.mono, opacity: 0.85 }}>{sinAsignarCount}</span>
+              </button>
+              {etapasObra.map((etapa) => {
+                const active = etapaFilter === etapa.id;
+                const count = etapaStats.get(etapa.id) || 0;
+                const fecha = String(etapa.fecha_compra || "");
+                const fechaCompra = fecha ? new Date(fecha.includes("T") ? fecha : `${fecha}T12:00:00`).toLocaleDateString("es-AR") : "";
+                return (
+                  <button
+                    key={etapa.id}
+                    type="button"
+                    onClick={() => setEtapaFilter(etapa.id)}
+                    title={fechaCompra ? `${etapa.nombre} · compra ${fechaCompra}` : etapa.nombre}
+                    style={{ ...filterPillStyle(active, etapa.color), display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color, flexShrink: 0 }} />
+                    {etapa.nombre}
+                    <span style={{ fontFamily: C.mono, opacity: 0.8 }}>{count}</span>
+                  </button>
+                );
+              })}
+              {!etapasObra.length ? (
+                <span style={{ flexShrink: 0, fontSize: 11, color: C.amber }}>Esta obra todavía no tiene etapas cargadas.</span>
+              ) : null}
+            </>
+          )}
+        </div>
+        {filtersOpen && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+            <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 205, height: 38, borderRadius: 12 }} title="Filtrar proveedor">
+              <option value="" style={OPT_ST}>Todos los proveedores</option>
+              {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
+            </select>
+            <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38, borderRadius: 12 }} title="Filtrar rubro">
+              <option value="" style={OPT_ST}>Todos los rubros</option>
+              {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
+            </select>
+            <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)} style={{ ...INP, width: 190, height: 38, borderRadius: 12 }} title="Filtrar estado del item">
+              {recepcionFilterOptions(kpis).map(([key, label]) => (
+                <option key={key} value={key} style={OPT_ST}>{label}</option>
+              ))}
+            </select>
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }}>
+              <option value="proveedor" style={OPT_ST}>Proveedor</option>
+              <option value="rubro" style={OPT_ST}>Rubro</option>
+              <option value="tipo" style={OPT_ST}>Tipo</option>
+              {(etapasObra.length > 0 || sinAsignarCount > 0) && <option value="etapa" style={OPT_ST}>Etapa de compra</option>}
+            </select>
+            {[
+              ["base", "Base", C.green],
+              ["condicionante", "Condicionantes", C.amber],
+              ["linea_eje", "Linea eje", C.violet],
+              ["variante", "Variantes", C.amber],
+              ["revisar", "A revisar", C.amber],
+            ].map(([key, label, color]) => (
+              <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <FileText size={15} style={{ color: C.blue }} />
+          <div style={{ flex: "1 1 220px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Orden de compra</div>
+            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} - agrupado por {groupBy === "proveedor" ? "proveedor" : groupBy === "rubro" ? "rubro" : groupBy === "etapa" ? "etapa de compra" : "tipo"}.</div>
+          </div>
+          <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
+            {[
+              { value: "stock", label: "Stock", color: C.green },
+              { value: "estandar", label: "Estandar", color: C.blue },
+              { value: "adicional", label: "Adicional", color: C.violet },
+            ].map(({ value, label, color }) => (
+              <button key={label} type="button" onClick={() => setPedidoObraTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoObraTipo === value ? color : C.t2, background: pedidoObraTipo === value ? `${color}18` : "transparent", borderColor: pedidoObraTipo === value ? color : "transparent", fontWeight: 900 }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "9px 14px" }}>
+            <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Creando..." : "Pedir"}
+          </button>
+          <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <PackagePlus size={14} /> {actionBusy === "panol" || snapshotBusy ? "Preparando..." : "Avisar panol"}
+          </button>
+        </div>
+        {flowMsg && (
+          <div style={{ fontSize: 12.5, fontWeight: 750, color: flowMsg.type === "err" ? C.red : C.green, border: `1px solid ${flowMsg.type === "err" ? "rgba(239,68,68,0.30)" : C.greenB}`, background: flowMsg.type === "err" ? "rgba(239,68,68,0.10)" : C.greenL, borderRadius: 10, padding: "8px 10px" }}>
+            {flowMsg.text}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "none", position: "sticky", top: 0, zIndex: 22, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", padding: 11, marginBottom: 16, gap: 10, boxShadow: "0 20px 50px -42px rgba(15,23,42,0.75)" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 280px" }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, código..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 38 }} />
+          </div>
+          <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 178, height: 40, borderRadius: 12 }} title="Filtrar proveedor">
+            <option value="" style={OPT_ST}>Todos los proveedores</option>
+            {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
+          </select>
+          <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38 }} title="Filtrar rubro">
+            <option value="" style={OPT_ST}>Todos los rubros</option>
+            {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
+          </select>
+          <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)} style={{ ...INP, width: 190, height: 38 }} title="Filtrar estado del item">
+            {recepcionFilterOptions(kpis).map(([key, label]) => (
+              <option key={key} value={key} style={OPT_ST}>{label}</option>
+            ))}
+          </select>
+          {[
+            ["todos", "Todo", C.blue],
+            ["base", "Base", C.green],
+            ["addon", "Adicionales", C.violet],
+            ["condicionante", "Condicionantes", C.amber],
+            ["linea_eje", "Línea eje", C.violet],
+            ["variante", "Variantes", C.amber],
+            ["sin_precio", "Sin precio", C.red],
+            ["revisar", "A revisar", C.amber],
+          ].map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+          <PackagePlus size={16} style={{ color: C.green }} />
+          <div style={{ fontSize: 12, fontWeight: 900, color: C.t0, marginRight: 2 }}>Estado</div>
+          {recepcionFilterOptions(kpis).map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setEstadoFilter(key)} style={filterPillStyle(estadoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <FileText size={15} style={{ color: C.blue }} />
+          <div style={{ flex: "1 1 220px" }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: C.t0 }}>Orden de compra</div>
+            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} · se copia el texto para compras.</div>
+          </div>
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }}>
+            <option value="proveedor" style={OPT_ST}>Proveedor</option>
+            <option value="rubro" style={OPT_ST}>Rubro</option>
+            <option value="tipo" style={OPT_ST}>Tipo</option>
+            {etapaPorMaterial.size > 0 && <option value="etapa" style={OPT_ST}>Etapa</option>}
+          </select>
+          <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
+            {[
+              { value: "stock", label: "Stock pañol", color: C.green },
+              { value: "estandar", label: "Estándar", color: C.blue },
+              { value: "adicional", label: "Adicional", color: C.violet },
+            ].map(({ value, label, color }) => (
+              <button key={label} type="button" onClick={() => setPedidoObraTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoObraTipo === value ? color : C.t2, background: pedidoObraTipo === value ? `${color}18` : "transparent", borderColor: pedidoObraTipo === value ? color : "transparent", fontWeight: 900 }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          </button>
+          <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "9px 14px" }}>
+            <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Creando..." : "Pedir a compras"}
+          </button>
+          <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <PackagePlus size={14} /> {actionBusy === "panol" || snapshotBusy ? "Preparando..." : "Avisar recepcion a pañol"}
+          </button>
+        </div>
+        {flowMsg && (
+          <div style={{ fontSize: 12.5, fontWeight: 750, color: flowMsg.type === "err" ? C.red : C.green, border: `1px solid ${flowMsg.type === "err" ? "rgba(239,68,68,0.30)" : C.greenB}`, background: flowMsg.type === "err" ? "rgba(239,68,68,0.10)" : C.greenL, borderRadius: 10, padding: "8px 10px" }}>
+            {flowMsg.text}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {renderedGroupedRows.map((group) => (
+          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", overflow: "hidden", boxShadow: "0 16px 48px -44px rgba(15,23,42,0.75)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: group.color || C.blue, boxShadow: `0 0 0 3px ${group.color || C.blue}18`, flexShrink: 0 }} />
+                  <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
+                  {group.totalRows ?? group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {/* Teal y no ámbar: "a revisar" no es una alarma, es una tarea
+                    pendiente, y tiene que distinguirse del azul (comprar) y del
+                    violeta (ir a buscar) de un vistazo. */}
+                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.teal, border: `1px solid ${C.tealB}`, borderRadius: 999, padding: "4px 9px", background: C.tealL }}>{group.revisar} a revisar</span> : null}
+                {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.usd, "USD")}</span> : null}
+                {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: 6, padding: 8, overflowX: "auto" }}>
+              {group.rows.map((row) => {
+                const qty = toNum(row.cantidad) || 1;
+                const total = row.precio.amount ? row.precio.amount * qty : null;
+                const cant = cantidadesDeFila(row);
+                const accion = accionDeFila(row);
+                const etapasRow = etapasDeRow(row);
+                const materialForRow = row.material || materialById.get(row.materialId);
+                const rowImageUrl = row.producto?.imagen_url
+                  || materialVariantImageUrl(materialForRow, row.variante)
+                  || String(row.imagen_url || materialForRow?.imagen_url || materialForRow?.imagenes?.[0]?.url || "").trim();
+                const editableAddon = addonForVisibleRow(row);
+                const addonPromotion = editableAddon ? addonPromotionMeta(editableAddon) : null;
+                const snapshotOnly = snapshotOnlyForRow(row);
+                const snapshotPromotion = snapshotOnly ? snapshotPromotionMeta(row, materialForRow) : null;
+                const editingMaterial = editingMaterialRowId === row.id;
+                const actionsOpen = openActionsRowId === row.id;
+                const rowSelected = selected.has(row.id);
+                // El borde de "a revisar" acompaña al chip del grupo: mismo
+                // color, misma idea. Antes eran dos ámbares distintos peleando.
+                const rowBorder = rowSelected ? C.blueB : row.review?.flag ? C.tealB : actionsOpen ? C.b1 : C.b0;
+                const rowBg = rowSelected ? C.blueL : C.bg;
+                const miniBtn = { ...BTN, padding: "5px 9px", minHeight: 27, borderRadius: 8, fontSize: 11, gap: 5 };
+                const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
+                const specificationEntries = productSpecEntries(row.especificaciones);
+                return (
+                  <div key={row.id} style={{ display: "grid", gap: 6 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        // La tablet de 1024 en horizontal —el aparato real del
+                        // galpón— deja 684px útiles con el sidebar puesto, y
+                        // esta grilla pedía ~806. Resultado: la columna de
+                        // acción y el "⋯" quedaban fuera de pantalla, detrás de
+                        // un scroll horizontal. Justo la columna que se lee en
+                        // diagonal. Ahora entra en ~570.
+                        gridTemplateColumns: isMobile
+                          ? "24px minmax(0, 1fr) auto"
+                          : "24px minmax(150px, 1fr) 104px 108px 78px auto",
+                        gap: isMobile ? 8 : 12,
+                        alignItems: "start",
+                        padding: isMobile ? "8px 10px" : "8px 12px",
+                        border: `1px solid ${rowBorder}`,
+                        borderRadius: 10,
+                        background: rowBg,
+                      }}
+                    >
+                      <input type="checkbox" checked={rowSelected} onChange={() => toggleSelected(row.id)} style={{ marginTop: 4 }} />
+                      <div style={{ minWidth: 0, display: "flex", alignItems: "flex-start", gap: rowImageUrl ? 9 : 0 }}>
+                        {rowImageUrl ? (
+                          <MaterialThumb
+                            material={{ ...(materialForRow || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion }}
+                            size={isMobile ? 38 : 42}
+                          />
+                        ) : null}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
+                            {(row.esRequisito || row.source === "matriz") && (
+                              <ProductoAsignadoControl
+                                row={row}
+                                materiales={materiales}
+                                compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []}
+                                busy={productoBusy === row.id || snapshotBusy}
+                                obraCodigo={obra?.codigo || "esta obra"}
+                                linea={linea}
+                                specOnly={!row.esRequisito}
+                                onSave={cambiarProductoRow}
+                              />
+                            )}
+                            <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                              {row.bucket.label}
+                            </span>
+                            {etapasObraError ? (
+                              <span title={etapasObraError} style={{ fontSize: 9.5, fontWeight: 900, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                Etapas no disponibles
+                              </span>
+                            ) : (
+                              <>
+                                {etapasRow.slice(0, 2).map((etapa) => (
+                                  <span key={etapa.filaId} title={`Etapa de compra: ${etapa.nombre} · ${qtyText(etapa.cantidad, etapa.unidad || row.unidad)}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 900, color: etapa.color, background: `${etapa.color}1c`, border: `1px solid ${etapa.color}55`, borderRadius: 999, padding: "1px 7px 1px 5px", whiteSpace: "nowrap" }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color }} />
+                                    {etapa.nombre}
+                                  </span>
+                                ))}
+                                {etapasRow.length > 2 ? (
+                                  <span title={etapasRow.slice(2).map((etapa) => etapa.nombre).join(", ")} style={{ fontSize: 9.5, fontWeight: 900, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                    +{etapasRow.length - 2}
+                                  </span>
+                                ) : null}
+                                {!etapasRow.length ? (
+                                  <span style={{ fontSize: 9.5, fontWeight: 900, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                    Sin asignar
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                            {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
+                            <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
+                            {snapshotOnly ? (
+                              <span title="Fila histórica: abrí ⋯ para ver el tracking y la forma segura de corregirla." style={{ fontSize: 9.5, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap", cursor: "help" }}>
+                                Fuera de matriz
+                              </span>
+                            ) : null}
+                          </div>
+                          <div style={{ fontSize: 10.8, color: C.t2, marginTop: 3, lineHeight: 1.3 }}>
+                            {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
+                          </div>
+                          {specificationEntries.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                              {specificationEntries.map((specification) => (
+                                <span key={specification.key} title={`${specification.label}: ${specification.value}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, maxWidth: 230, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 800 }}>
+                                  <Settings2 size={10} />
+                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{specification.label}: {specification.value}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {row.condicionantes?.length ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                              {row.baseCantidad != null && row.baseCantidad !== row.cantidad && (
+                                <span style={{ fontSize: 10.5, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "2px 7px" }}>
+                                  Base {qtyText(row.baseCantidad, row.unidad)}
+                                </span>
+                              )}
+                              {row.condicionantes.map((detalle) => (
+                                <span key={`${detalle.id}-${detalle.condicionante}`} style={{ fontSize: 10.5, color: detalle.delta < 0 ? C.red : C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px" }}>
+                                  {detalle.condicionante}: {detalle.label}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          <RecepcionDetalle row={row} />
+                        </div>
+                      </div>
+                      {/* overflow hidden: el desglose del condicionante es un
+                          renglón largo ("0 unidad base + 1 = 1 unidad") y sin
+                          esto se desbordaba encima de la acción y del
+                          proveedor de la fila. */}
+                      <div style={{ minWidth: 0, overflow: "hidden", gridColumn: isMobile ? "2 / -1" : undefined }} title={`Necesita ${fmtQtyCorto(cant.necesita)} · en pañol ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`}>
+                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: tieneAjusteCondicionante(row) ? C.teal : C.t0, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                        {/* El recorrido en números, y sólo cuando pasó algo: una
+                            fila que todavía no se movió no gana nada mostrando
+                            "pañol 0 · entr 0" cuatrocientas veces. */}
+                        {(cant.panol > 0 || cant.entregado > 0) && (
+                          <div style={{ fontFamily: C.mono, fontSize: 10, whiteSpace: "nowrap", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                            <span style={{ color: cant.panol > 0 ? C.green : C.t3 }}>pañol {fmtQtyCorto(cant.panol)}</span>
+                            <span style={{ color: C.t3 }}> · </span>
+                            <span style={{ color: cant.entregado > 0 ? C.violet : C.t3 }}>entr {fmtQtyCorto(cant.entregado)}</span>
+                          </div>
+                        )}
+                        {/* La cuenta a la vista. Sin esto no hay forma de saber
+                            si el número ya incluye lo que suma el condicionante
+                            o si todavía le falta, que es exactamente la duda que
+                            genera ver "32" al lado de un cartel que dice "+8". */}
+                        <DesgloseCantidad row={row} />
+                        {row.cantidadOrigenEtapa ? <div style={{ fontSize: 9.5, color: C.blue, marginTop: 2 }}>en esta etapa</div> : null}
+                      </div>
+                      {/* Qué hay que hacer con esta fila, en un verbo y un
+                          número. Es la única columna que se lee en diagonal
+                          cuando la lista tiene cuatrocientos ítems. El proveedor
+                          baja a segunda línea: informa, pero no decide. */}
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Qué hacer · proveedor">
+                        <div style={{ fontSize: 11, fontWeight: 950, letterSpacing: 0.3, color: accion.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: isMobile ? 0 : 2 }}>
+                          {accion.texto}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
+                      </div>
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Precio unitario">
+                        <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, color: row.precio.amount ? C.t2 : C.amber, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{row.precio.text}</div>
+                        {total ? <div style={{ fontFamily: C.mono, fontSize: 10, color: C.t3, whiteSpace: "nowrap" }}>tot {fmtMoney(total, row.precio.moneda)}</div> : null}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", gridColumn: isMobile ? "3" : undefined, gridRow: isMobile ? "1" : undefined }}>
+                        <RecepcionChip row={row} />
+                        <button
+                          type="button"
+                          onClick={() => setOpenActionsRowId((id) => (id === row.id ? "" : row.id))}
+                          title="Estado, historial y acciones"
+                          style={{ ...BTN, padding: "4px 6px", minHeight: 24, borderRadius: 8, color: actionsOpen ? C.blue : C.t2, border: `1px solid ${actionsOpen ? C.blueB : C.b0}` }}
+                        >
+                          <MoreHorizontal size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    {actionsOpen ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start", padding: "10px 12px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0 }}>
+                        <EtapaCompraEditor
+                          row={row}
+                          etapas={etapasObra}
+                          asignaciones={etapasRow}
+                          busy={asignarEtapaBusy === row.id}
+                          error={etapasObraError}
+                          onSave={(payload) => guardarEtapaMaterial(row, payload)}
+                        />
+                        <div style={{ flex: "1 1 300px", minWidth: 0, maxWidth: 460 }}>
+                          <ObraEstadoControl
+                            row={row}
+                            busy={estadoBusy === row.id || snapshotBusy}
+                            onChange={regularizarEstadoRow}
+                          />
+                        </div>
                         {snapshotOnly ? (
                           <SnapshotTraceCard
                             key={row.snapshotId}
@@ -5293,7 +6218,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             </button>
                           ) : null}
                         </div>
-                          {editingMaterial && materialForRow ? (
+                      </div>
+                    ) : null}
+                    {editingMaterial && materialForRow ? (
                       <MaterialFila
                         material={materialForRow}
                         categorias={categorias}
@@ -5304,333 +6231,29 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                           await cargarSnapshot();
                         }}
                         linea={linea}
-                        inDrawer
                         initialOpen
                       />
                     ) : null}
-    </div>;
-  }
-
-  return (
-    <div className="obra-workspace" style={{ ...obraThemeScope, minWidth: 0 }}>
-      <ObraWorkspaceStyles />
-      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "3px 0 7px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ minWidth: 160 }}>
-          <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", color: C.muted, cursor: "pointer", padding: "0 0 4px", fontSize: 11, fontFamily: C.sans }}>← {lineaNombre}</button>
-          <h2 style={{ margin: 0, fontSize: 20, lineHeight: 1.2, fontWeight: 650, color: C.text }}>Obra {obra.codigo}</h2>
-          <span style={{ fontSize: 11, color: C.muted }}>{kpis.items.toLocaleString("es-AR")} ítems · {snapshotStatus.label}</span>
-        </div>
-        <div style={{ display: "flex", flex: "1 1 auto", gap: 3, flexWrap: "wrap" }}>
-          {[
-            ["pendiente", "Por comprar", kpis.pendientes, C.blue],
-            ["en_compras", "En compras", kpis.pedidos + kpis.comprados, C.cyan],
-            ["falta_entregar", "Por entregar", kpis.enPanol, C.violet],
-            ["egresado", "Entregados", kpis.egresados, C.green],
-          ].map(([key, label, value, color]) => <button key={key} type="button" aria-pressed={estadoFilter === key} onClick={() => setEstadoFilter(estadoFilter === key ? "todos" : key)} style={{ display: "grid", gap: 3, border: "none", borderLeft: `1px solid ${C.border}`, borderBottom: `2px solid ${estadoFilter === key ? color : "transparent"}`, background: "transparent", textAlign: "left", padding: "4px 13px", cursor: "pointer", fontFamily: C.sans }}><span style={{ display: "block", fontSize: 11, color: C.muted }}>{label}</span><strong style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 650, color }}>{value.toLocaleString("es-AR")}</strong></button>)}
-        </div>
-        <div style={{ fontSize: 11, color: C.muted, textAlign: "right" }}>
-          <div>Valorización parcial</div>
-          <div style={{ fontFamily: C.mono, color: C.text }}>{[kpis.usd ? fmtMoney(kpis.usd, "USD") : "", kpis.ars ? fmtMoney(kpis.ars, "ARS") : ""].filter(Boolean).join(" · ") || "Sin precios"}</div>
-          <span>{kpis.items ? Math.round((kpis.items - kpis.sinPrecio) / kpis.items * 100) : 0}% con precio</span>
-        </div>
-      </header>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", padding: "5px 0" }}>
-        <button type="button" onClick={() => setObraPanel(obraPanel === "config" ? "" : "config")} aria-expanded={obraPanel === "config"} style={{ ...obraButton, color: obraPanel === "config" ? C.blue : C.muted }}><Settings2 size={13} />Configuración · {condicionantesActivos.length}/{condicionantesModelo.length}</button>
-        <button type="button" onClick={() => setObraPanel(obraPanel === "excluidos" ? "" : "excluidos")} aria-expanded={obraPanel === "excluidos"} style={{ ...obraButton, color: C.muted }}>Excluidos · {exclusionesDetalle.length}</button>
-        <button type="button" aria-pressed={tipoFilter === "addon"} onClick={() => setTipoFilter(tipoFilter === "addon" ? "todos" : "addon")} style={{ ...obraButton, color: tipoFilter === "addon" ? C.violet : C.muted }}>Adicionales · {addonStats.total}</button>
-        {snapshotActivo && <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...obraButton, color: C.muted }}><RefreshCw size={12} />Regenerar lista</button>}
-        <div style={{ flex: 1 }} />
-        <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}><Plus size={13} />Adicional</button>
-        {obraPanel && <button type="button" onClick={() => setObraPanel("")} style={obraButton} aria-label="Cerrar configuración"><X size={13} /></button>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+        <MaterialLoadMore
+          hiddenCount={hiddenRowCount}
+          batchSize={OBRA_RENDER_BATCH}
+          onMore={() => setRenderState((current) => ({
+            key: renderFilterKey,
+            limit: (current.key === renderFilterKey ? current.limit : OBRA_INITIAL_RENDER) + OBRA_RENDER_BATCH,
+          }))}
+        />
+        {!groupedRows.length && (
+          <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
+            No hay items con esos filtros.
+          </div>
+        )}
       </div>
-      {obraPanel === "config" && !condicionantesModelo.length && <div style={{ color: C.muted, padding: 12, fontSize: 12 }}>Esta línea no tiene condicionantes cargados.</div>}
-
-      {obraPanel === "config" && condicionantesModelo.length > 0 && (
-        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 10, marginBottom: 12, display: "grid", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Configuracion de esta obra</div>
-              <div style={{ fontSize: 11, color: C.t2, marginTop: 2, lineHeight: 1.35 }}>
-                Se toca una vez: base + condicionantes activos.
-              </div>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 900, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 999, padding: "4px 9px" }}>
-              {condicionantesActivos.length}/{condicionantesModelo.length} activos
-            </span>
-          </div>
-          {snapshotActivo && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, padding: "7px 9px" }}>
-              <span>Esta obra ya tiene lista fijada. Los cambios quedan guardados, pero para que impacten en cantidades hay que regenerar la lista antes de pedir/avisar.</span>
-              <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...BTN, padding: "5px 9px", fontSize: 11, color: C.violet, borderColor: C.violetB, background: C.bg }}>
-                {snapshotBusy ? "Regenerando..." : "Regenerar lista"}
-              </button>
-            </div>
-          )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 6, maxHeight: 210, overflowY: "auto" }}>
-            {condicionantesModelo.map((condicionante) => {
-              const active = condicionante.activoEnObra;
-              const items = (condicionante.items ?? []).filter((item) => item.activo !== false);
-              return (
-                <div key={condicionante.id} style={{ border: `1px solid ${active ? C.greenB : C.b0}`, background: active ? C.greenL : C.s0, borderRadius: 10, padding: "7px 8px", display: "grid", gap: 5 }} title={condicionante.descripcion || condicionante.nombre}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionante.nombre}</div>
-                      <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
-                        {condicionante.definidoEnObra ? "Definido en esta obra" : condicionante.activo_por_defecto ? "Activo por defecto" : "Apagado por defecto"}
-                      </div>
-                    </div>
-                    <button type="button" disabled={condicionanteBusy === condicionante.id} onClick={() => toggleCondicionanteObra(condicionante)} style={{ ...BTN, padding: "4px 8px", color: active ? C.green : C.t2, borderColor: active ? C.greenB : C.b0, background: active ? C.bg : C.s0, fontSize: 10.5, fontWeight: 900 }}>
-                      {active ? "Lleva" : "No lleva"}
-                    </button>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                    {items.length ? items.slice(0, 4).map((item) => (
-                      <span key={item.id} style={{ fontSize: 10.5, color: condicionanteDelta(item) < 0 ? C.red : C.t1, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 999, padding: "2px 7px" }}>
-                        {condicionanteItemLabel(item)}
-                      </span>
-                    )) : <span style={{ fontSize: 10.5, color: C.t3 }}>Sin items asociados</span>}
-                    {items.length > 4 && <span style={{ fontSize: 10.5, color: C.t3 }}>+{items.length - 4} mas</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {obraPanel === "excluidos" && (
-        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 10 }}>
-          <div>
-            <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Items quitados solo de {obra.codigo}</div>
-            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
-              No se borran del catalogo ni de la matriz K{linea}; simplemente no aplican a esta obra.
-            </div>
-          </div>
-          <div style={{ display: "grid", gap: 7 }}>
-            {exclusionesDetalle.map((item) => (
-              <div key={item.material_id} style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 10, flexWrap: "wrap" }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 900, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.material?.descripcion || "Material excluido"}</div>
-                  <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{item.material?.codigo || "sin codigo"}{item.motivo ? ` · ${item.motivo}` : ""}</div>
-                </div>
-                <button type="button" disabled={exclusionBusy === item.material_id} onClick={() => restaurarRowEnObra(item.material_id)} style={{ ...BTN_GREEN, padding: "7px 10px", fontSize: 11 }}>
-                  {exclusionBusy === item.material_id ? "Restaurando..." : "Restaurar"}
-                </button>
-              </div>
-            ))}
-            {!exclusionesDetalle.length && (
-              <div style={{ padding: 16, border: `1px dashed ${C.b0}`, borderRadius: 11, textAlign: "center", color: C.t2, fontSize: 12 }}>
-                No hay items excluidos en esta obra.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <ObraAddonModal
-        open={addonModalOpen}
-        obra={obra}
-        obras={obras}
-        addon={editingAddon}
-        materiales={materiales}
-        categorias={categorias}
-        proveedores={proveedores}
-        ums={ums}
-        onClose={() => { setAddonModalOpen(false); setEditingAddon(null); }}
-        onSaved={async () => {
-          setAddonModalOpen(false);
-          setEditingAddon(null);
-          await cargarAddons();
-          await onChanged?.();
-        }}
-        onChanged={onChanged}
-      />
-
-      {/* Confirmación antes de mandar a compras. El pedido le genera trabajo a
-          otra persona y darlo de baja es a mano, así que se muestra qué se manda
-          antes de que salga. */}
-      {pedidoConfirm ? (
-        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
-          <div style={{ width: "min(560px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>
-                  ¿Mandar {pedidoConfirm.rows.length} {pedidoConfirm.rows.length === 1 ? "ítem" : "ítems"} a Compras?
-                </div>
-                <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
-                  Obra {obra.codigo} · pedido {pedidoConfirm.tipo}
-                </div>
-              </div>
-              <button type="button" onClick={() => setPedidoConfirm(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
-                <X size={14} />
-              </button>
-            </div>
-
-            <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", color: C.t2 }}>
-                Título del pedido
-              </span>
-              <input
-                value={pedidoTitulo}
-                onChange={(e) => setPedidoTitulo(e.target.value)}
-                placeholder={buildPedidoTitulo({ obra, rows: pedidoConfirm.rows })}
-                maxLength={120}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  border: `1px solid ${C.b0}`,
-                  borderRadius: 9,
-                  background: C.bg,
-                  color: C.t0,
-                  padding: "9px 10px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontFamily: C.sans,
-                  outline: "none",
-                }}
-              />
-              <span style={{ fontSize: 10.5, color: C.t3 }}>
-                Es lo que ve Compras en la lista. Podés cambiarlo.
-              </span>
-            </label>
-
-            <div style={{ display: "grid", gap: 4, maxHeight: 280, overflowY: "auto", border: `1px solid ${C.b0}`, borderRadius: 10, padding: 8 }}>
-              {pedidoConfirm.rows.map((row, index) => (
-                <div key={row.id || index} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "5px 4px", borderBottom: index === pedidoConfirm.rows.length - 1 ? "none" : `1px solid ${C.b0}` }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
-                    <div style={{ fontSize: 10.5, color: C.t3 }}>{row.proveedor || "Sin proveedor"}</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: tieneAjusteCondicionante(row) ? C.violet : C.t1, whiteSpace: "nowrap" }}>
-                      {qtyText(row.cantidad, row.unidad)}
-                    </div>
-                    <DesgloseCantidad row={row} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setPedidoConfirm(null)} style={{ ...BTN, padding: "8px 14px" }}>Cancelar</button>
-              <button type="button" onClick={pedirAComprasObra} disabled={!!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "8px 16px" }}>
-                <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Enviando…" : "Sí, mandar a Compras"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {reassignAddon ? (
-        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
-          <div style={{ width: "min(460px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>Reasignar adicional</div>
-                <div style={{ fontSize: 12, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {reassignAddon.descripcion || "Item adicional"}
-                </div>
-              </div>
-              <button type="button" onClick={() => setReassignAddon(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
-                <X size={14} />
-              </button>
-            </div>
-
-            {reassignAddon.__snapshotLocked ? (
-              <div style={{ fontSize: 12, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, padding: "8px 9px", lineHeight: 1.35 }}>
-                Este adicional ya tuvo movimiento de panol. Para moverlo hay que hacerlo desde stock y conservar el kardex.
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.35 }}>
-                Lo mueve de {obra.codigo} a otra obra. Si solo tenia pedido/aviso pendiente tambien se actualiza ese vinculo.
-              </div>
-            )}
-
-            <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ fontSize: 10, fontWeight: 900, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
-              <select
-                value={reassignObraId}
-                disabled={reassignAddon.__snapshotLocked || reassignBusy}
-                onChange={(e) => setReassignObraId(e.target.value)}
-                style={{ ...INP, height: 38 }}
-              >
-                {obrasDestinoReassign.map((item) => (
-                  <option key={item.id} value={item.id} style={OPT_ST}>
-                    {item.codigo || "Sin codigo"}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setReassignAddon(null)} disabled={reassignBusy} style={{ ...BTN, padding: "8px 12px" }}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)}
-                onClick={submitReassignAddon}
-                style={{
-                  ...BTN_GREEN,
-                  padding: "8px 13px",
-                  opacity: (reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)) ? 0.55 : 1,
-                }}
-              >
-                {reassignBusy ? "Guardando..." : "Reasignar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div style={{ display: "grid", gap: 5, padding: "2px 0 6px" }}>
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-          <div style={{ position: "relative", flex: "1 1 250px", minWidth: 160 }}>
-            <Search aria-hidden="true" size={14} style={{ position: "absolute", top: "50%", left: 10, transform: "translateY(-50%)", color: C.muted }} />
-            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar material, código o proveedor" style={{ ...INP, width: "100%", boxSizing: "border-box", paddingLeft: 32, height: 34, borderRadius: 6, fontSize: 12 }} />
-          </div>
-          <select aria-label="Estado del material" value={estadoFilter} onChange={(event) => setEstadoFilter(event.target.value)} style={obraSelect}>
-            {[...recepcionFilterOptions(kpis), ["pedido", `Pedido (${kpis.pedidos || 0})`], ["en_compras", `En compras (${kpis.pedidos + kpis.comprados})`], ["falta_entregar", `Por entregar (${kpis.enPanol || 0})`]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}
-          </select>
-          <select aria-label="Agrupar materiales" value={groupBy} onChange={(event) => setGroupBy(event.target.value)} style={obraSelect}>
-            <option value="rubro" style={OPT_ST}>Por rubro</option><option value="proveedor" style={OPT_ST}>Por proveedor</option><option value="etapa" style={OPT_ST}>Por etapa</option><option value="tipo" style={OPT_ST}>Por tipo</option>
-          </select>
-          <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} style={{ ...obraButton, color: activeObraFilterCount ? C.blue : C.muted }}><SlidersHorizontal size={13} />Filtros{activeObraFilterCount ? ` · ${activeObraFilterCount}` : ""}</button>
-          {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadoFilter("todos"); setEtapaFilter("todos"); }} style={obraButton}>Limpiar filtros</button>}
-        </div>
-        {filtersOpen && <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          <select aria-label="Proveedor" value={proveedorFilter} onChange={(event) => setProveedorFilter(event.target.value)} style={{ ...obraSelect, maxWidth: "100%" }}><option value="" style={OPT_ST}>Todos los proveedores</option>{facets.proveedores.map((name) => <option key={name} value={name} style={OPT_ST}>{name}</option>)}</select>
-          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", "Adicionales"], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
-          <select aria-label="Etapa de compra" value={etapaFilter} onChange={(event) => setEtapaFilter(event.target.value)} disabled={!!etapasObraError} style={{ ...obraSelect, maxWidth: "100%" }}><option value="todos" style={OPT_ST}>Todas las etapas · {asignadosCount} asignados</option><option value="sin_asignar" style={OPT_ST}>Sin asignar · {sinAsignarCount}</option>{etapasObra.map((etapa) => <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre} · {etapaStats.get(etapa.id) || 0}{etapa.fecha_compra ? ` · ${String(etapa.fecha_compra).slice(0, 10)}` : ""}</option>)}</select>
-        </div>}
-        {etapasObraError && <div role="alert" style={{ fontSize: 12, color: C.red }}>{etapasObraError} <button type="button" onClick={cargarEtapasObra} style={obraButton}>Reintentar etapas</button></div>}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "4px 7px", border: `1px solid ${selected.size ? C.blueB : C.border}`, borderRadius: 6, background: selected.size ? C.blueL : C.panel }}>
-          <span style={{ flex: "1 1 180px", fontSize: 12, color: C.text }}>{selected.size ? `${orderRows.length} seleccionados en el filtro` : `${orderRows.length} ${orderRows.length === 1 ? "ítem" : "ítems"} del filtro`}{selected.size > orderRows.length ? ` · ${selected.size - orderRows.length} fuera del filtro` : ""}</span>
-          {!!selected.size && <button type="button" onClick={() => setSelected(new Set())} style={obraButton}>Limpiar selección</button>}
-          <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
-          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
-          <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>
-          <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
-        </div>
-        {flowMsg && <div role={flowMsg.type === "err" ? "alert" : "status"} style={{ fontSize: 12, color: flowMsg.type === "err" ? C.red : C.green, padding: "7px 9px", border: `1px solid ${flowMsg.type === "err" ? C.redB : C.greenB}`, borderRadius: 6 }}>{flowMsg.text}</div>}
-      </div>
-      <ObraListaTable
-        key={obra.id}
-        groups={groupedRows} allRows={rows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
-        filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, estadoFilter, etapaFilter, groupBy])}
-        selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={openActionsRowId}
-        onImageUploaded={async () => { await onChanged?.(); await cargarSnapshot(); }}
-      />
-      {detailRow && <ObraItemDrawer
-        row={detailRow} view={getObraRowView(detailRow)} obraLabel={`${obra.codigo} · ${lineaNombre}`} tab={detailTab} onTab={setDetailTab}
-        onClose={closeObraDetail} suspendEscape={!!(addonModalOpen || reassignAddon || pedidoConfirm || panolPrefill)}
-        onPrevious={detailIndex > 0 ? () => setOpenActionsRowId(visibleRows[detailIndex - 1].id) : null}
-        onNext={detailIndex >= 0 && detailIndex < visibleRows.length - 1 ? () => setOpenActionsRowId(visibleRows[detailIndex + 1].id) : null}
-        editing={detailTab === "mas" && editingMaterialRowId === detailRow.id}
-        renderContent={renderObraDetail}
-        footer={<div style={{ display: "flex", gap: 6 }}><button type="button" onClick={() => setDetailTab("compras")} style={{ ...obraButton, flex: 1, background: C.blueL, color: C.blue, borderColor: C.blueB }}>Estado y recepción</button><button type="button" onClick={() => setDetailTab("mas")} style={obraButton}>Más acciones</button></div>}
-      />}
-
       <EnviarAPanolModal
         open={!!panolPrefill}
         prefill={panolPrefill}
@@ -5739,7 +6362,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         unidad: m.unidad_medida || "unidad",
         proveedor,
         proveedorMeta: proveedorMeta(proveedor, proveedores),
-        rubro: rubroDeLista(categorias, m.categoria_id),
+        rubro: categoriaNombre(categorias, m.categoria_id),
         precio,
         bucket,
         obs: m.notas || "",
@@ -6917,7 +7540,7 @@ function SnapshotTraceCard({
   const origen = String(row.source || "matriz").replaceAll("_", " ");
 
   return (
-    <div style={{ flex: "1 1 360px", minWidth: 0, display: "grid", gap: 8, padding: "10px 11px", border: `1px solid ${C.amberB}`, borderRadius: 10, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 88%, var(--amber) 7%), var(--panel))" }}>
+    <div style={{ flex: "1 1 360px", minWidth: 0, display: "grid", gap: 8, padding: "10px 11px", border: `1px solid ${C.amberB}`, borderRadius: 10, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 88%, #f59e0b 7%), var(--panel))" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 950 }}>Tracking de fila histórica</div>
@@ -7107,10 +7730,7 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
   const codigo = requisito?.codigo || row.codigo;
   const proveedor = producto?.proveedor || row.proveedor || materialPrice?.proveedor || material?.proveedor || "Sin proveedor";
   const rubroMaterial = requisito || producto;
-  // El rubro no es una foto: es la clasificación de hoy. El texto guardado en el
-  // snapshot quedó congelado cuando se creó la fila y arrastra nombres que ya no
-  // existen, así que sólo se usa si la fila no llegó a ningún material.
-  const rubro = rubroMaterial ? rubroDeLista(categorias, rubroMaterial.categoria_id) : row.rubro || "Sin rubro";
+  const rubro = rubroMaterial ? categoriaNombre(categorias, rubroMaterial.categoria_id) : row.rubro || "Sin rubro";
   const pedidoOriginal = originalSnapshotLabel(row.descripcion, requisito?.descripcion || producto?.descripcion);
   const obs = mergeNotes(producto?.notas || material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
   const reason = reviewReasonForText(`${descripcion || ""} ${codigo || ""} ${obs || ""}`);
@@ -7316,9 +7936,7 @@ function mergeSnapshotIntoLive(live, snapshot) {
       : cantidadConCondicionantes ?? cantidadFijada ?? toNum(live.cantidad) ?? 0,
     unidad: remitoDeAddon ? live.unidad || snapshot.unidad : snapshot.unidad || live.unidad,
     proveedor: linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
-    // A diferencia de descripción y proveedor, acá no se prefiere el texto del
-    // snapshot: el rubro es una clasificación y vale la del catálogo de hoy.
-    rubro: live.rubro || snapshot.rubro || "Sin rubro",
+    rubro: linkedToCatalog ? live.rubro || snapshot.rubro : preferSnapshotText(snapshot.rubro, live.rubro, "Sin rubro"),
     precio: snapshot.productoMaterialId
       ? snapshot.precio
       : linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
@@ -7950,7 +8568,7 @@ const NORMALIZATION_KIND_META = {
   proveedor: { label: "Proveedor", color: C.blue, bg: C.blueL, border: C.blueB },
   codigo: { label: "Código", color: C.green, bg: C.greenL, border: C.greenB },
   unidad: { label: "Unidad", color: C.teal || C.green, bg: "rgba(20,184,166,0.1)", border: "rgba(20,184,166,0.32)" },
-  rubro: { label: "Rubro", color: C.violet, bg: C.violetL, border: C.violetB },
+  rubro: { label: "Rubro", color: C.amber, bg: C.amberL, border: C.amberB },
   fraccion: { label: "Fracción", color: C.red, bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.28)" },
 };
 
@@ -9294,8 +9912,8 @@ export default function MaterialesScreen({ profile, signOut }) {
       <Sidebar profile={profile} signOut={signOut} />
 
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
-        <div className="materiales-page-body" style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
-          <div className="materiales-page-heading" style={{ marginBottom: 28, paddingLeft: isMobile ? 40 : 0 }}>
+        <div style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
+          <div style={{ marginBottom: 28, paddingLeft: isMobile ? 40 : 0 }}>
             <h1 style={{ fontSize: 32, fontWeight: 900, background: "linear-gradient(135deg, var(--t0) 0%, var(--t2) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
             <div style={{ fontSize: 14, color: C.t2, marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 600 }}>Líneas de producción</span>
@@ -9317,7 +9935,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               {(() => {
                 const moreActive = TABS_MORE.find((t) => t.key === tab);
                 return (
-                  <div className="materiales-page-tabs" style={{ display: "flex", marginBottom: 22, minWidth: 0, overflow: "visible", position: "relative", zIndex: 70 }}>
+                  <div style={{ display: "flex", marginBottom: 22, minWidth: 0, overflow: "visible", position: "relative", zIndex: 70 }}>
                     <div className="materiales-tabbar">
                     {TABS_MAIN.map((t) => (
                       <button key={t.key} type="button" onClick={() => switchTab(t.key)} className={`materiales-tab${tab === t.key ? " is-active" : ""}`}>{t.label}</button>

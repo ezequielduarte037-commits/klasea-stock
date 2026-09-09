@@ -1,16 +1,9 @@
 import { supabase } from "@/supabaseClient";
 
 /**
- * La ficha de un barco entregado: contactos, fotos, papeles y horarios.
+ * Ficha del barco entregado: contactos, horario de trabajo, fotos y documentación.
  *
- * Sale del mail de Gastón del 07/09. Lo que pedía, en una frase: cuando hay que
- * mandar a un tercerizado a un barco, la pantalla sabe DÓNDE está y nada más.
- * Falta a quién llamar, cómo se ve la embarcación, el seguro que le piden en la
- * guardia y a qué hora lo dejan entrar. Todo eso vive hoy en el WhatsApp de
- * alguien.
- *
- * Tolerante a que las tablas no existan todavía: la pantalla lo dice y sigue
- * funcionando en vez de romperse, igual que el resto del sistema.
+ * Tolerante a que las tablas no existan: la pantalla lo informa en vez de fallar.
  */
 
 const BUCKET = "postventa";
@@ -31,8 +24,8 @@ const limpio = (valor) => {
 
 /* ── CONTACTOS ─────────────────────────────────────────────────────────────── */
 
-/** Los roles que se ofrecen. Texto libre igual: siempre aparece uno nuevo. */
-export const ROLES = ["Dueño", "Marinero", "Encargado", "Familiar", "Capitán", "Guardia"];
+/** Sugerencias de rol. El campo acepta texto libre. */
+export const ROLES = ["Propietario", "Marinero", "Encargado", "Capitán", "Familiar", "Guardia"];
 
 export async function fetchContactos(barcoId) {
   if (!barcoId) return { contactos: [], falta: false };
@@ -51,7 +44,7 @@ export async function fetchContactos(barcoId) {
 
 export async function guardarContacto(barcoId, contacto) {
   const nombre = limpio(contacto?.nombre);
-  if (!barcoId || !nombre) throw new Error("Poné al menos el nombre.");
+  if (!barcoId || !nombre) throw new Error("El nombre es obligatorio.");
   const fila = {
     barco_id: barcoId,
     nombre,
@@ -76,7 +69,7 @@ export async function borrarContacto(id) {
   if (error) throw error;
 }
 
-/* ── FOTOS Y PAPELES ───────────────────────────────────────────────────────── */
+/* ── ADJUNTOS ──────────────────────────────────────────────────────────────── */
 
 export async function fetchAdjuntos(barcoId) {
   if (!barcoId) return { adjuntos: [], falta: false };
@@ -92,14 +85,11 @@ export async function fetchAdjuntos(barcoId) {
   return { adjuntos: data || [], falta: false };
 }
 
-/**
- * Sube un archivo del barco. `tipo` decide dónde se muestra, no qué se acepta:
- * una foto del seguro sacada con el teléfono es un documento aunque sea un JPG.
- */
+/** Sube un archivo. `tipo` decide en qué sección se muestra, no qué se acepta. */
 export async function subirAdjunto(barcoId, archivo, tipo = "foto") {
   if (!barcoId || !archivo) return null;
   if (archivo.size > PESO_MAXIMO) {
-    throw new Error("El archivo pasa de 12 MB. Si es una foto, sacale una captura más chica.");
+    throw new Error("El archivo supera los 12 MB.");
   }
   const seguro = String(archivo.name || "archivo").replace(/[^a-zA-Z0-9._-]/g, "_").slice(-60);
   const ruta = `${barcoId}/${tipo}/${Date.now()}_${seguro}`;
@@ -108,7 +98,7 @@ export async function subirAdjunto(barcoId, archivo, tipo = "foto") {
     .from(BUCKET).upload(ruta, archivo, { cacheControl: "3600", upsert: false });
   if (errSubida) {
     if (String(errSubida.message || "").toLowerCase().includes("bucket not found")) {
-      throw new Error("Falta correr la migración de post venta: todavía no existe el bucket.");
+      throw new Error("Migración de post venta pendiente: falta el bucket.");
     }
     throw new Error(errSubida.message || "No se pudo subir el archivo.");
   }
@@ -120,16 +110,15 @@ export async function subirAdjunto(barcoId, archivo, tipo = "foto") {
     .select("id, barco_id, tipo, url, ruta, nombre, mime, created_at")
     .single();
   if (error) {
-    // El archivo ya subió pero la fila no entró: se limpia en vez de dejarlo
-    // colgado en el bucket sin nada que lo referencie.
+    // El archivo subió pero la fila no: se limpia para no dejarlo huérfano.
     await supabase.storage.from(BUCKET).remove([ruta]).catch(() => {});
-    if (faltaLaTabla(error)) throw new Error("Falta correr la migración de post venta.");
+    if (faltaLaTabla(error)) throw new Error("Migración de post venta pendiente.");
     throw error;
   }
   return data;
 }
 
-/** Borra la fila y el archivo. Si el archivo ya no está, la fila se va igual. */
+/** Borra la fila y el archivo. */
 export async function borrarAdjunto(adjunto) {
   if (!adjunto?.id) return;
   if (adjunto.ruta) await supabase.storage.from(BUCKET).remove([adjunto.ruta]).catch(() => {});
@@ -156,7 +145,7 @@ export async function guardarAcceso(barcoId, { acceso_dias, acceso_horario, acce
   return true;
 }
 
-/* ── LO QUE SE LE MANDA AL TÉCNICO ─────────────────────────────────────────── */
+/* ── COMPARTIR ─────────────────────────────────────────────────────────────── */
 
 const soloDigitos = (tel) => String(tel || "").replace(/\D/g, "");
 
@@ -168,14 +157,7 @@ export function linkWhatsApp(telefono) {
   return `https://wa.me/${conPais}`;
 }
 
-/**
- * La ficha en texto, lista para pegar en un WhatsApp.
- *
- * Es la respuesta de fondo al pedido de "mandar una captura del mapa con un solo
- * barco": lo que el técnico necesita no es una imagen, es el link que le abre el
- * GPS en el teléfono, a quién llamar y a qué hora puede entrar. La captura es
- * una forma de mandar eso; esto es la forma que no se pierde.
- */
+/** La ficha en texto plano, para pegar en un mensaje. */
 export function fichaComoTexto(barco, contactos = [], papeles = []) {
   const l = [];
   l.push(`*${barco.nombre_barco || "Barco"}*`);
@@ -191,7 +173,7 @@ export function fichaComoTexto(barco, contactos = [], papeles = []) {
 
   if (barco.acceso_dias || barco.acceso_horario) {
     l.push("");
-    l.push(`*Acceso:* ${[barco.acceso_dias, barco.acceso_horario].filter(Boolean).join(" · ")}`);
+    l.push(`*Horario de trabajo:* ${[barco.acceso_dias, barco.acceso_horario].filter(Boolean).join(" · ")}`);
     if (barco.acceso_notas) l.push(barco.acceso_notas);
   }
 
@@ -205,7 +187,7 @@ export function fichaComoTexto(barco, contactos = [], papeles = []) {
 
   if (papeles.length) {
     l.push("");
-    l.push("*Papeles:*");
+    l.push("*Documentación:*");
     for (const p of papeles) l.push(`· ${p.nombre || "archivo"}: ${p.url}`);
   }
 

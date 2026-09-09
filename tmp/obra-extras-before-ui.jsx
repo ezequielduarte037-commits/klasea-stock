@@ -6,18 +6,13 @@ import { C } from "@/theme";
 import { precioDesactualizado, precioVigente, uploadMaterialImage, setMainMaterialImage, deleteMaterialImage } from "./api";
 import { fmtDate, fmtMoney } from "./format";
 
-export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMaterial, onUploaded }) {
-  const [localImages, setLocalImages] = useState(null);
-  const sourceKey = `${material?.id || ""}:${material?.imagen_url || ""}`;
-  const displayed = localImages?.sourceKey === sourceKey ? { ...material, ...localImages.value } : material;
-  const url = displayed?.imagen_url || displayed?.imagenes?.[0]?.url;
-  const imagenes = displayed?.imagenes || (url ? [{ id: 'main', url }] : []);
+export function MaterialThumb({ material, size = 42 }) {
+  const url = material?.imagen_url || material?.imagenes?.[0]?.url;
+  const imagenes = material?.imagenes || (url ? [{ id: 'main', url }] : []);
   const [open, setOpen] = useState(false);
-  const [failedUrl, setFailedUrl] = useState(null);
   const frameStyle = {
       width: size,
       height: size,
-      minHeight: size,
       borderRadius: 8,
       border: `1px solid ${C.b0}`,
       background: C.s0,
@@ -29,12 +24,8 @@ export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMateri
       position: "relative",
   };
 
-  if (!url || failedUrl === url) {
-    const empty = fallbackLabel
-      ? <span aria-hidden="true" style={{ fontSize: 11, color: C.t2, fontWeight: 600 }}>{fallbackLabel.toLocaleUpperCase("es-AR")}</span>
-      : <Camera aria-hidden="true" size={Math.max(14, Math.round(size * 0.38))} color={C.t2} />;
-    if (uploadMaterial?.id && onUploaded) return <MaterialImageUploader material={uploadMaterial} onUploaded={onUploaded} compact triggerContent={empty} triggerLabel={`Cargar foto de ${material?.descripcion || "material"}`} triggerStyle={{ ...frameStyle, borderRadius: 5, background: "transparent", cursor: "pointer" }} />;
-    return <div style={frameStyle}>{empty}</div>;
+  if (!url) {
+    return <div style={frameStyle}><Camera size={Math.max(14, Math.round(size * 0.38))} color={C.t2} /></div>;
   }
 
   const alt = material?.descripcion || "Material";
@@ -54,23 +45,21 @@ export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMateri
         }}
         aria-label={`Abrir imagen de ${alt}`}
         title="Abrir imagen"
-        style={{ ...frameStyle, cursor: "zoom-in" }}
+        style={{ ...frameStyle, cursor: "zoom-in", outline: "none" }}
       >
-        <img src={url} loading="lazy" alt={alt} onError={() => setFailedUrl(url)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <img src={url} loading="lazy" alt={alt} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         {multiple && (
           <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 9, fontWeight: 900, padding: "2px 5px", borderTopLeftRadius: 6, backdropFilter: "blur(2px)" }}>
             {imagenes.length} <Camera size={8} style={{ display: "inline", verticalAlign: "middle" }} />
           </div>
         )}
       </div>
-      {open && <MaterialImageLightbox material={displayed} imagenes={imagenes} alt={alt} themeAware={!!fallbackLabel} onChanged={async (value) => { setLocalImages({ sourceKey, value }); await onUploaded?.(); }} onClose={() => setOpen(false)} />}
+      {open && <MaterialImageLightbox material={material} imagenes={imagenes} alt={alt} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export function MaterialImageLightbox({ material, imagenes: initialImages = [], alt = "Imagen del material", onClose, onChanged, themeAware = false }) {
-  const [imagenes, setImagenes] = useState(initialImages);
-  const [mainUrl, setMainUrl] = useState(material?.imagen_url);
+export function MaterialImageLightbox({ material, imagenes = [], alt = "Imagen del material", onClose }) {
   const [idx, setIdx] = useState(() => {
     if (!material?.imagen_url) return 0;
     const found = imagenes.findIndex(i => i.url === material.imagen_url);
@@ -82,7 +71,7 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
   
   useEffect(() => {
     const onKeyDown = (event) => { 
-      if (event.key === "Escape") { event.preventDefault(); onClose?.(); }
+      if (event.key === "Escape") onClose?.(); 
       if (event.key === "ArrowLeft") setIdx(i => (i > 0 ? i - 1 : imagenes.length - 1));
       if (event.key === "ArrowRight") setIdx(i => (i < imagenes.length - 1 ? i + 1 : 0));
     };
@@ -95,11 +84,13 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
       
       setLoading(true);
       try {
-        const uploaded = await uploadMaterialImage(material.id, file);
-        setImagenes((previous) => [...previous, uploaded]);
-        setMainUrl(uploaded.url);
-        setIdx(imagenes.length);
-        await onChanged?.({ imagen_url: uploaded.url, imagenes: [...imagenes, uploaded] });
+        await uploadMaterialImage(material.id, file);
+        // Refresh? We don't have a direct callback here to refresh the parent list,
+        // but adding it to the local array works for the lightbox view immediately.
+        const url = URL.createObjectURL(file);
+        material.imagenes = [...(material.imagenes || []), { id: Date.now(), url }];
+        material.imagen_url = url;
+        setIdx(material.imagenes.length - 1);
       } catch(e) {
         alert("Error al pegar imagen: " + e.message);
       }
@@ -112,7 +103,7 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("paste", onPaste);
     }
-  }, [onClose, onChanged, imagenes, material, loading]);
+  }, [onClose, imagenes.length, material, loading]);
 
   if (!url && imagenes.length === 0) return null;
 
@@ -121,8 +112,7 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
     setLoading(true);
     try {
       await setMainMaterialImage(material.id, url);
-      setMainUrl(url);
-      await onChanged?.({ imagen_url: url, imagenes });
+      material.imagen_url = url;
     } catch(e) {
       alert("Error: " + e.message);
     }
@@ -134,10 +124,11 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
     setLoading(true);
     try {
       await deleteMaterialImage(current.id, url);
-      const remaining = imagenes.filter((image) => image.id !== current.id);
-      setImagenes(remaining);
-      if (mainUrl === url) setMainUrl(remaining[0]?.url || null);
-      await onChanged?.({ imagen_url: mainUrl === url ? remaining[0]?.url || null : mainUrl, imagenes: remaining });
+      const index = material.imagenes.findIndex(i => i.id === current.id);
+      if (index >= 0) material.imagenes.splice(index, 1);
+      if (material.imagen_url === url) {
+        material.imagen_url = material.imagenes?.[0]?.url || null;
+      }
       onClose();
     } catch(e) {
       alert("Error: " + e.message);
@@ -145,22 +136,21 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
     setLoading(false);
   }
 
-  const isMain = mainUrl === url;
+  const isMain = material?.imagen_url === url;
 
   return createPortal(
     <div
       role="dialog"
-      data-material-lightbox="true"
       aria-modal="true"
       aria-label={alt}
       onClick={(event) => { event.stopPropagation(); onClose?.(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 6000, background: themeAware ? "color-mix(in srgb, var(--bg) 85%, transparent)" : "rgba(2,6,23,0.88)", backdropFilter: "blur(7px)", display: "grid", placeItems: "center", padding: 20 }}
+      style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(2,6,23,0.88)", backdropFilter: "blur(7px)", display: "grid", placeItems: "center", padding: 20 }}
     >
-      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: themeAware ? C.panelSolid : "rgba(15,23,42,0.94)", borderRadius: 12, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto" }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(15,23,42,0.94)", borderRadius: 12, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto" }}>
         <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-          <div title={alt} style={{ color: themeAware ? C.text : "#f8fafc", fontSize: 13, fontWeight: 850, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
+          <div title={alt} style={{ color: "#f8fafc", fontSize: 13, fontWeight: 850, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
           
-          <button type="button" onClick={makeMain} disabled={loading || isMain} title={isMain ? "Ya es la foto principal" : "Hacer foto principal"} style={{ height: 34, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: isMain ? (themeAware ? C.blueL : "rgba(250,204,21,0.2)") : "transparent", color: themeAware ? (isMain ? C.blue : C.text) : (isMain ? "#facc15" : "#cbd5e1"), display: "flex", alignItems: "center", gap: 6, cursor: loading || isMain ? "default" : "pointer" }}>
+          <button type="button" onClick={makeMain} disabled={loading || isMain} title={isMain ? "Ya es la foto principal" : "Hacer foto principal"} style={{ height: 34, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: isMain ? "rgba(250,204,21,0.2)" : "transparent", color: isMain ? "#facc15" : "#cbd5e1", display: "flex", alignItems: "center", gap: 6, cursor: loading || isMain ? "default" : "pointer" }}>
             <Star size={15} fill={isMain ? "currentColor" : "none"} /> <span style={{ fontSize: 12, fontWeight: 700 }}>{isMain ? "Principal" : "Hacer Principal"}</span>
           </button>
           
@@ -170,10 +160,10 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
             </button>
           )}
 
-          <a href={url} target="_blank" rel="noreferrer" title="Abrir archivo original" aria-label="Abrir archivo original" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", color: themeAware ? C.text : "#cbd5e1", display: "grid", placeItems: "center" }}>
+          <a href={url} target="_blank" rel="noreferrer" title="Abrir archivo original" aria-label="Abrir archivo original" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", color: "#cbd5e1", display: "grid", placeItems: "center" }}>
             <ExternalLink size={15} />
           </a>
-          <button type="button" onClick={onClose} title="Cerrar" aria-label="Cerrar imagen" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: "transparent", color: themeAware ? C.text : "#f8fafc", display: "grid", placeItems: "center", cursor: "pointer" }}>
+          <button type="button" onClick={onClose} title="Cerrar" aria-label="Cerrar imagen" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: "transparent", color: "#f8fafc", display: "grid", placeItems: "center", cursor: "pointer" }}>
             <X size={17} />
           </button>
         </div>
@@ -209,7 +199,7 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
   );
 }
 
-export function MaterialImageUploader({ material, onUploaded, compact = false, triggerContent, triggerLabel, triggerStyle }) {
+export function MaterialImageUploader({ material, onUploaded, compact = false }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState(null);
@@ -230,9 +220,7 @@ export function MaterialImageUploader({ material, onUploaded, compact = false, t
 
   return (
     <div 
-      style={{ display: "grid", gap: 6, position: "relative", flexShrink: 0 }}
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
+      style={{ display: "grid", gap: 6, outline: "none" }}
       onPaste={(e) => {
         const file = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"))?.getAsFile();
         if (file) {
@@ -245,16 +233,14 @@ export function MaterialImageUploader({ material, onUploaded, compact = false, t
         type="button" 
         onClick={() => inputRef.current?.click()} 
         disabled={uploading} 
-        title={triggerLabel || "Click para subir o Ctrl+V para pegar"}
-        aria-label={triggerLabel}
+        title="Click para subir o Ctrl+V para pegar"
         style={{
           ...(compact ? BTN : BTN_PRIMARY),
           padding: compact ? "5px 8px" : "7px 12px",
           opacity: uploading ? 0.65 : 1,
-          ...triggerStyle,
         }}
       >
-        {triggerContent ? (uploading ? <Clock size={13} aria-label="Subiendo" /> : triggerContent) : <><ImagePlus size={13} /> {uploading ? "Subiendo…" : compact ? "Foto" : "Subir imagen"}</>}
+        <ImagePlus size={13} /> {uploading ? "Subiendo…" : compact ? "Foto" : "Subir imagen"}
       </button>
       <input
         ref={inputRef}
@@ -263,7 +249,7 @@ export function MaterialImageUploader({ material, onUploaded, compact = false, t
         style={{ display: "none" }}
         onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }}
       />
-      {err && <span role="alert" style={{ fontSize: 11, color: C.red, ...(triggerContent ? { position: "absolute", top: "100%", left: 0, width: 200, padding: 6, background: C.panelSolid, border: `1px solid ${C.redB}`, zIndex: 5 } : {}) }}>{String(err.message ?? err)}</span>}
+      {err && <span style={{ fontSize: 11, color: C.red }}>{String(err.message ?? err)}</span>}
     </div>
   );
 }

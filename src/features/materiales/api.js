@@ -581,6 +581,39 @@ export function precioDesactualizado(material) {
   return date < sixMonthsAgo;
 }
 
+export const RUBRO_CONSUMIBLES = "Consumibles";
+
+/**
+ * El rubro con el que un material aparece en las listas generales.
+ *
+ * Los consumibles se cuentan todos juntos. En la lista de una obra no aporta
+ * nada abrir Mechas, Lijas y abrasivos y Fijaciones como tres rubros: la
+ * división sigue existiendo y se ve entrando a Consumibles.
+ *
+ * El resto conserva su nombre propio aunque cuelgue de otro rubro. Broncería y
+ * Griferías se leen solas, no como parte de Mecánica y Sanitarios.
+ *
+ * Acepta el array de fetchCategorias, un Map por id, o el índice { porId }.
+ */
+export function rubroDeLista(categorias, categoriaId, fallback = "Sin rubro") {
+  const buscar = categorias instanceof Map
+    ? (id) => categorias.get(id)
+    : categorias?.porId instanceof Map
+      ? (id) => categorias.porId.get(id)
+      : (id) => (Array.isArray(categorias) ? categorias : []).find((c) => c.id === id);
+
+  const propia = buscar(categoriaId);
+  if (!propia) return fallback;
+  let actual = propia;
+  // El tope evita quedarse colgado si alguna categoría se apunta a sí misma.
+  for (let saltos = 0; actual && saltos < 8; saltos += 1) {
+    if (actual.nombre === RUBRO_CONSUMIBLES) return RUBRO_CONSUMIBLES;
+    if (!actual.parent_id) break;
+    actual = buscar(actual.parent_id);
+  }
+  return propia.nombre || fallback;
+}
+
 export async function fetchCategorias() {
   // parent_id permite subdivisiones (sector padre → subsectores). Puede no existir
   // todavía la columna: si falla, reintentamos sin ella para no romper la pantalla.

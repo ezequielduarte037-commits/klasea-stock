@@ -57,7 +57,7 @@ const ORIGENES = [
   { valor: "opcional", etiqueta: "Configuración", ayuda: "Materiales agregados o cantidades modificadas por la configuración particular del barco.", icono: Sparkles },
   { valor: "adicional", etiqueta: "Adicionales", ayuda: "Extras incorporados específicamente para una obra.", icono: PlusCircle },
   { valor: "panol", etiqueta: "Desde pañol", ayuda: "Ítems incorporados desde movimientos o listas operativas de pañol.", icono: Warehouse },
-  { valor: "secundario", etiqueta: "Secundarios", ayuda: "Laminación y Maderas: cuentan para costo y consumo, pero no generan compras ni avisos de Pañol.", icono: FlaskConical },
+  { valor: "secundario", etiqueta: "Producción", ayuda: "Laminación y Maderas: forman parte del costo productivo y conservan su circuito operativo propio.", icono: FlaskConical },
   { valor: "fuera_matriz", etiqueta: "A revisar", ayuda: "Filas históricas o manuales sin una clasificación confiable en la matriz.", icono: AlertTriangle },
 ];
 
@@ -66,7 +66,7 @@ const ORIGEN_TONOS = {
   opcional: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Config.", icono: Sparkles },
   adicional: { color: C.teal, fondo: C.tealL, borde: C.tealB, texto: "Adicional", icono: PlusCircle },
   panol: { color: C.cyan, fondo: C.cyanL, borde: C.cyanB, texto: "Pañol", icono: Warehouse },
-  secundario: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Secundario", icono: FlaskConical },
+  secundario: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Producción", icono: FlaskConical },
   laminacion: { color: C.blue, fondo: C.blueL, borde: C.blueB, texto: "Laminación", icono: FlaskConical },
   maderas: { color: C.amber, fondo: C.amberL, borde: C.amberB, texto: "Maderas", icono: TreePine },
   fuera_matriz: { color: C.red, fondo: C.redL, borde: C.redB, texto: "A revisar", icono: AlertTriangle },
@@ -970,7 +970,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             <Metric valor={resumenFoco.pendientes} etiqueta="con faltantes" color={C.red} icono={AlertTriangle} />
             <Metric valor={resumenFoco.enPanol} etiqueta="esperando retiro" color={C.cyan} icono={PackageCheck} />
             <Metric valor={resumenFoco.entregados} etiqueta="con entregas" color={C.green} icono={CheckCircle2} />
-            {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="secundarios para costo" color={C.violet} icono={FlaskConical} /> : null}
+            {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="materiales de producción" color={C.violet} icono={FlaskConical} /> : null}
             {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={C.amber} icono={CircleAlert} /> : null}
           </MotionDiv>
         ) : null}
@@ -1407,7 +1407,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             {grupo.nombre}
                           </span>
                           <span style={{ color: C.dim, fontSize: 11, fontWeight: 750, marginLeft: 8 }}>
-                            {grupo.filas.length} materiales{grupo.secundarios === grupo.filas.length ? " · circuito secundario · costo y consumo" : ` · ${grupo.pendientes} requieren atención${grupo.aComprar ? ` · ${grupo.aComprar} requieren compra` : ""}`}
+                            {grupo.filas.length} materiales{grupo.secundarios === grupo.filas.length ? " · circuito productivo · costo y consumo" : ` · ${grupo.pendientes} requieren atención${grupo.aComprar ? ` · ${grupo.aComprar} requieren compra` : ""}`}
                           </span>
                         </button>
                       </div>
@@ -1473,7 +1473,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                     >
                       <td className="planilla-celda-fija" style={{ ...colFija, background: puesto ? C.blueL : "var(--panel-solid)", padding: "9px 12px 9px 13px", maxWidth: 414 }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-                          <input type="checkbox" className="planilla-check" checked={puesto} disabled={fila.secundario} onClick={event => event.stopPropagation()} onChange={() => alternarFila(fila.id)} aria-label={fila.secundario ? `${nombreVisible}: circuito secundario, sólo costo y consumo` : `Seleccionar ${nombreVisible}`} style={{ accentColor: C.blue, width: 18, height: 18, marginTop: 3, cursor: fila.secundario ? "not-allowed" : "pointer", opacity: fila.secundario ? .32 : 1, flexShrink: 0 }} />
+                          <input type="checkbox" className="planilla-check" checked={puesto} disabled={fila.secundario} onClick={event => event.stopPropagation()} onChange={() => alternarFila(fila.id)} aria-label={fila.secundario ? `${nombreVisible}: material de producción, costo y consumo` : `Seleccionar ${nombreVisible}`} style={{ accentColor: C.blue, width: 18, height: 18, marginTop: 3, cursor: fila.secundario ? "not-allowed" : "pointer", opacity: fila.secundario ? .32 : 1, flexShrink: 0 }} />
                           {fila.imagenUrl ? (
                             <button
                               type="button"
@@ -1511,7 +1511,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             </span>
                           )}
                           <div style={{ minWidth: 0, flex: 1 }}>
-                            <button type="button" className="planilla-nombre" title={fila.secundario ? "Material secundario: costo y consumo" : `Ver detalle de ${nombreVisible}`} onClick={event => { if (!fila.secundario) abrirDetalle(event, fila); }}>{nombreVisible}</button>
+                            <button type="button" className="planilla-nombre" title={fila.secundario ? "Material de producción: costo y consumo" : `Ver detalle de ${nombreVisible}`} onClick={event => { if (!fila.secundario) abrirDetalle(event, fila); }}>{nombreVisible}</button>
                             <div style={{ marginTop: 2, color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {[codigoVisible, fila.unidad, agrupar === "rubro" ? (fila.proveedor || "sin proveedor") : fila.rubro].filter(Boolean).join(" · ")}
                             </div>
@@ -1539,6 +1539,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             <div style={{ marginTop: 3, color: C.dim, fontSize: 9.5, fontWeight: 750, lineHeight: 1.3 }}>
                               No genera compras ni avisos en Pañol.
                             </div>
+                            {fila.circuito === "maderas" && fila.referenciaMaderasObraId === obraSeleccionada.id ? (
+                              <div style={{ marginTop: 4, color: C.violet, fontSize: 9.5, fontWeight: 950 }}>
+                                Referencia de costo por barco
+                              </div>
+                            ) : null}
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
                             {celdaFoco?.soloConsumo ? <span style={{ color: C.dim, fontSize: 10 }}>Sin matriz</span> : <EstadoNumero value={celdaFoco?.requerido} suffix={fila.unidad} />}
@@ -1558,7 +1563,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             </span>
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
-                            <span style={{ display: "inline-flex", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 950 }}>Sólo costo</span>
+                            <span style={{ display: "inline-flex", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 950 }}>Circuito propio</span>
                           </td>
                         </>
                       ) : (

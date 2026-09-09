@@ -2,6 +2,10 @@ import { supabase } from "@/supabaseClient";
 
 const redondear = (value) => Math.round(Number(value || 0) * 10000) / 10000;
 
+const REFERENCIA_MADERAS_POR_LINEA = Object.freeze({
+  K55: "55-1",
+});
+
 export function normalizarCodigoObra(value) {
   return String(value || "")
     .trim()
@@ -55,6 +59,33 @@ async function traerMovimientosLaminacion(codigos) {
   return [...filas.values()];
 }
 
+async function traerMovimientosMadera(obras) {
+  const codigos = obras.map((obra) => String(obra.codigo || "").trim()).filter(Boolean);
+  const obraIds = obras.map((obra) => obra.id).filter(Boolean);
+  const consultas = [];
+  if (obraIds.length) {
+    consultas.push(supabase
+      .from("movimientos")
+      .select("id,material_id,delta,obra,produccion_obra_id")
+      .lt("delta", 0)
+      .in("produccion_obra_id", obraIds));
+  }
+  if (codigos.length) {
+    consultas.push(supabase
+      .from("movimientos")
+      .select("id,material_id,delta,obra,produccion_obra_id")
+      .lt("delta", 0)
+      .in("obra", codigos));
+  }
+  const resultados = await Promise.all(consultas);
+  const filas = new Map();
+  for (const resultado of resultados) {
+    if (resultado.error) throw resultado.error;
+    for (const row of resultado.data || []) filas.set(row.id, row);
+  }
+  return [...filas.values()];
+}
+
 function costoVacio() {
   return { planificadoArs: 0, planificadoUsd: 0, consumidoArs: 0, consumidoUsd: 0, conPrecio: 0, sinPrecio: 0 };
 }
@@ -82,6 +113,11 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
 
   const codigos = obras.map((obra) => String(obra.codigo || "").trim()).filter(Boolean);
   const obraPorCodigo = new Map(obras.map((obra) => [normalizarCodigoObra(obra.codigo), obra]));
+  const obraPorId = new Map(obras.map((obra) => [obra.id, obra]));
+  const referenciaMaderasCodigo = REFERENCIA_MADERAS_POR_LINEA[codigoLinea] || "";
+  const referenciaMaderasObra = referenciaMaderasCodigo
+    ? obraPorCodigo.get(normalizarCodigoObra(referenciaMaderasCodigo)) || null
+    : null;
 
   const [{ data: plantillas, error: plantillaError }, precios] = await Promise.all([
     supabase.from("linea_plantillas").select("id,linea,nombre").eq("linea", codigoLinea).eq("activa", true).order("created_at", { ascending: false }).limit(1),
@@ -90,18 +126,17 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
   if (plantillaError) throw plantillaError;
   const plantilla = plantillas?.[0] || null;
 
-  const [itemsRes, movimientosLam, movimientosMaderaRes] = await Promise.all([
+  const [itemsRes, movimientosLam, movimientosMadera] = await Promise.all([
     plantilla
       ? supabase.from("linea_plantilla_items").select("material_id,cantidad,orden").eq("plantilla_id", plantilla.id).order("orden")
       : Promise.resolve({ data: [], error: null }),
     traerMovimientosLaminacion(codigos),
-    supabase.from("movimientos").select("id,material_id,delta,obra").lt("delta", 0).in("obra", codigos),
+    traerMovimientosMadera(obras),
   ]);
   if (itemsRes.error) throw itemsRes.error;
-  if (movimientosMaderaRes.error) throw movimientosMaderaRes.error;
 
   const lamIds = [...new Set((itemsRes.data || []).map((row) => row.material_id).filter(Boolean))];
-  const maderaIds = [...new Set((movimientosMaderaRes.data || []).map((row) => row.material_id).filter(Boolean))];
+  const maderaIds = [...new Set((movimientosMadera || []).map((row) => row.material_id).filter(Boolean))];
   const [lamMaterialesRes, maderasRes] = await Promise.all([
     lamIds.length
       ? supabase.from("laminacion_materiales").select("id,nombre,categoria,unidad").in("id", lamIds)
@@ -171,8 +206,9 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
   }).filter(Boolean);
 
   const consumoMadera = new Map();
-  for (const movimiento of movimientosMaderaRes.data || []) {
-    const obra = obraPorCodigo.get(normalizarCodigoObra(movimiento.obra));
+  for (const movimiento of movimientosMadera || []) {
+    const obra = obraPorId.get(movimiento.produccion_obra_id)
+      || obraPorCodigo.get(normalizarCodigoObra(movimiento.obra));
     if (!obra) continue;
     const clave = `${movimiento.material_id}|${obra.id}`;
     consumoMadera.set(clave, redondear((consumoMadera.get(clave) || 0) + Math.abs(Number(movimiento.delta || 0))));
@@ -202,6 +238,9 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
         origenes: ["secundario", "maderas"],
       };
     }
+    const cantidadReferencia = referenciaMaderasObra
+      ? redondear(consumoMadera.get(`${material.id}|${referenciaMaderasObra.id}`) || 0)
+      : null;
     sumarCosto(costos, { precio, planificado: 0, consumido: consumidoTotal });
     return {
       id: `sec:maderas:${material.id}`,
@@ -217,6 +256,9 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
       secundario: true,
       circuito: "maderas",
       soloCosto: true,
+      referenciaMaderasCodigo: referenciaMaderasObra?.codigo || referenciaMaderasCodigo || "",
+      referenciaMaderasObraId: referenciaMaderasObra?.id || null,
+      cantidadReferencia,
       origenes: ["secundario", "maderas"],
       origenPrincipal: "secundario",
       precioInfo: precio,

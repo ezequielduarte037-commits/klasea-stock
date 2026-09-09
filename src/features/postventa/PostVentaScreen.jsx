@@ -6,7 +6,7 @@ import React, { useEffect, useState, useRef } from "react";
 import {
   MapPin, Crosshair, Pencil, Ticket, ExternalLink,
   Phone, CheckCircle2, Link2, AlertTriangle, X as XIcon,
-  Circle, Navigation, Globe, Eye
+  Circle, Navigation, Globe, Eye, Focus, FileText
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
@@ -937,9 +937,7 @@ export default function PostVentaScreen({ profile, signOut }) {
   })();
   const sinGpsCount = flota.filter(b => !b.latitud || !b.longitud).length;
 
-  // Aislar un barco en el mapa. Del mail de Gastón: para mandarle la
-  // ubicación a un tercerizado hay que poder sacar una captura con ESE barco
-  // y no con los treinta.
+  // Enfocar: el mapa muestra sólo ese barco.
   const [soloBarco, setSoloBarco] = useState(null);
   const [fichaBarco, setFichaBarco] = useState(null);
 
@@ -960,6 +958,9 @@ export default function PostVentaScreen({ profile, signOut }) {
     sidebarWrap:  { flexShrink: 0, height: "100%", pointerEvents: "auto", background: C.bg },
     mainUI:       { flex:1, position:"relative", pointerEvents:"none" },
     topbar:       { position:"absolute", top:0, left:0, right:0, minHeight:56, background:"linear-gradient(180deg, var(--topbar) 0%, transparent 100%)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, padding:"10px 20px", pointerEvents:"auto", flexWrap:"wrap" },
+    // Dos tamaños de acción: con nombre y sólo icono.
+    accionPrimaria: { display:"inline-flex", alignItems:"center", gap:5, padding:"5px 11px", borderRadius:8, border:`1px solid ${C.b0}`, fontSize:12, fontWeight:750, cursor:"pointer", fontFamily:C.sans, lineHeight:1.2 },
+    accionIcono:    { display:"grid", placeItems:"center", width:26, height:24, borderRadius:6, border:"none", background:"transparent", color:C.t1, cursor:"pointer", padding:0 },
     glassPanel:   { position:"absolute", top:72, left:20, bottom:20, width:368, background:"var(--panel-solid)", backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)", border:`1px solid ${C.border}`, borderRadius:14, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 18px 44px rgba(15,23,42,.28)" },
     card:         { padding:"12px 20px", borderBottom:`1px solid var(--panel)`, cursor:"pointer", transition:"background 0.15s", background:"transparent" },
     searchInput:  { width:"100%", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px 10px 38px", borderRadius:10, fontSize:14, outline:"none", transition:"border-color 0.2s", boxSizing:"border-box" },
@@ -1027,6 +1028,10 @@ export default function PostVentaScreen({ profile, signOut }) {
         .flota-accion, .flota-seg { transition: border-color .14s ease, color .14s ease, background .14s ease; }
         .flota-accion:hover, .flota-seg:hover { border-color: ${C.blueB} !important; color: ${C.blue} !important; }
         .boat-card:focus-visible { outline:2px solid var(--blue); outline-offset:-2px }
+        /* Borrar se atenúa hasta pasar por la tarjeta. */
+        .boat-borrar { opacity:.35; transition:opacity .15s ease, color .15s ease }
+        .boat-card:hover .boat-borrar { opacity:1 }
+        .boat-borrar:hover { color:var(--red) !important }
         .postventa button { transition: border-color .15s ease, background .15s ease, color .15s ease; }
         .postventa button:focus-visible, .postventa input:focus-visible, .postventa select:focus-visible { outline:2px solid var(--blue); outline-offset:2px }
         .postventa .chip { transition: border-color .15s ease, background .15s ease; }
@@ -1114,20 +1119,18 @@ export default function PostVentaScreen({ profile, signOut }) {
           transition: "width .22s ease",
         }}><Sidebar profile={profile} signOut={signOut} /></div>
         <div style={S.mainUI}>
-          {/* Aislar un barco cambia lo que se ve en el mapa: si no lo dijera,
-              alguien que scrollea la lista se encuentra un mapa con un solo
-              pin y sin forma evidente de volver. */}
+          {/* Avisa que el mapa está filtrado y da la salida. */}
           {soloBarco && (() => {
             const aislado = flota.find(b => b.id === soloBarco);
             return (
               <div style={{ position:"absolute", top:76, left:"50%", transform:"translateX(-50%)", zIndex:900, pointerEvents:"auto", display:"flex", alignItems:"center", gap:10, padding:"7px 9px 7px 14px", borderRadius:99, background:"var(--panel-solid)", border:`1px solid ${tinta(C.violet, 0.45)}`, boxShadow:"0 10px 30px rgba(0,0,0,.35)" }}>
-                <Eye size={13} color={C.violet} />
+                <Focus size={13} color={C.violet} />
                 <span style={{ fontSize:12.5, color:C.t0, fontWeight:700 }}>
-                  Mostrando sólo <b style={{ color:C.violet }}>{aislado?.nombre_barco || "un barco"}</b>
+                  Enfocado en <b style={{ color:C.violet }}>{aislado?.nombre_barco || "un barco"}</b>
                 </span>
                 <button type="button" onClick={()=>setSoloBarco(null)}
                   style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, borderRadius:99, padding:"4px 12px", fontSize:11.5, fontWeight:800, cursor:"pointer", fontFamily:C.sans }}>
-                  Ver todos
+                  Quitar
                 </button>
               </div>
             );
@@ -1198,11 +1201,11 @@ export default function PostVentaScreen({ profile, signOut }) {
                 <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                   <button onClick={()=>setSoloActivos(a=>!a)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloActivos?`1px solid ${tinta(C.red, 0.5)}`:`1px solid ${C.b0}`, background:soloActivos?tinta(C.red, 0.12):"transparent", color:soloActivos?C.red:C.t1, fontSize:12, fontWeight: 700, cursor:"pointer", transition:"all 0.15s" }}>
                     <span style={{ width:7, height:7, borderRadius:"50%", background:soloActivos?C.red:C.t2 }} />
-                    {soloActivos ? "Con tickets" : "Todos"}
+                    Con tickets
                   </button>
                   {sinGpsCount > 0 && (
                     <button onClick={()=>setSoloSinGps(s=>!s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloSinGps?`1px solid ${tinta(C.violet, 0.5)}`:`1px solid ${C.b0}`, background:soloSinGps?tinta(C.violet, 0.12):"transparent", color:soloSinGps?C.violet:C.t1, fontSize:12, fontWeight: 700, cursor:"pointer", transition:"all 0.15s" }}>
-                      <MapPin size={9} style={{marginRight:3}}/> {soloSinGps ? `Sin GPS (${sinGpsCount})` : "Todos"}
+                      <MapPin size={9} style={{marginRight:3}}/> Sin ubicación · {sinGpsCount}
                     </button>
                   )}
                 </div>
@@ -1223,6 +1226,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                   const procCount = bTickets.filter(t=>t.estado==="en_proceso").length;
                   const solCount  = bTickets.filter(t=>t.estado==="solucionado").length;
                   const sinGps    = !b.latitud || !b.longitud;
+                  const enfocado  = soloBarco === b.id;
                   return (
                     <div key={b.id} style={{ ...S.card, borderLeft: sinGps ? `2px solid ${tinta(C.violet, 0.4)}` : "2px solid transparent" }} className="boat-card" onClick={()=>!sinGps && centrarMapa(b.latitud,b.longitud)}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
@@ -1232,16 +1236,16 @@ export default function PostVentaScreen({ profile, signOut }) {
                               {b.nombre_barco}
                             </span>
                             {sinGps && (
-                              <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.3)}`, color:C.violet, flexShrink:0 }}>sin GPS</span>
+                              <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.3)}`, color:C.violet, flexShrink:0 }}>sin ubicación</span>
                             )}
                           </div>
                           <div style={{ fontSize:12, color:C.t2, marginTop:1 }}>{b.propietario || "—"}</div>
                         </div>
                         <div style={{ display:"flex", gap:5, flexShrink:0, marginLeft:8 }}>
-                          {pendCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.red, 0.15), border:`1px solid ${tinta(C.red, 0.35)}`, color:C.red, fontSize:10, fontWeight:700 }}>{pendCount}</span>}
-                          {procCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.35)}`, color:C.violet, fontSize:10, fontWeight:700 }}>{procCount}</span>}
-                          {solCount  > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.green, 0.15), border:`1px solid ${tinta(C.green, 0.35)}`, color:C.green, fontSize:10, fontWeight:700 }}>✓{solCount}</span>}
-                          <button onClick={e=>eliminarBarco(e,b.id,b.nombre_barco)} style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", fontSize:16, padding:"2px 4px" }} title="Eliminar">×</button>
+                          {pendCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.red, 0.15), border:`1px solid ${tinta(C.red, 0.35)}`, color:C.red, fontSize:10, fontWeight:700 }} title={`${pendCount} pendiente${pendCount === 1 ? "" : "s"}`}>{pendCount}</span>}
+                          {procCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.35)}`, color:C.violet, fontSize:10, fontWeight:700 }} title={`${procCount} en proceso`}>{procCount}</span>}
+                          {solCount  > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.green, 0.15), border:`1px solid ${tinta(C.green, 0.35)}`, color:C.green, fontSize:10, fontWeight:700 }} title={`${solCount} solucionado${solCount === 1 ? "" : "s"}`}>✓{solCount}</span>}
+                          <button onClick={e=>eliminarBarco(e,b.id,b.nombre_barco)} className="boat-borrar" style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", padding:3, marginLeft:4, display:"flex" }} title="Eliminar"><XIcon size={13}/></button>
                         </div>
                       </div>
 
@@ -1261,74 +1265,70 @@ export default function PostVentaScreen({ profile, signOut }) {
                       <div style={{ marginBottom:8 }}>
                         {b.ubicacion_general
                           ? <span style={{ fontSize:13, color:C.muted }}>{b.ubicacion_general}{b.detalle_ubicacion && <span style={{ fontSize:12, color:C.t1 }}> · {b.detalle_ubicacion}</span>}</span>
-                          : <span style={{ fontSize:12, color:C.border2, fontStyle:"italic" }}>Sin lugar registrado</span>
+                          : <span style={{ fontSize:12, color:C.border2, }}>Sin ubicación</span>
                         }
                       </div>
 
-                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                        {/* Si tiene GPS, mostrar centrar. Si no, ocultar centrar */}
-                        {!sinGps && (
-                          <button style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
-                            onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={11} style={{marginRight:4}}/> Centrar</button>
-                        )}
-
-                        {/* Aislar el barco en el mapa, para la captura que se
-                            le manda al tercerizado. */}
+                      {/* Acciones en dos niveles: las de uso diario con su
+                          nombre, el resto agrupadas como iconos. */}
+                      <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
                         {!sinGps && (
                           <button
-                            title={soloBarco === b.id ? "Volver a ver todos los barcos" : "Ver sólo este barco en el mapa"}
-                            style={{ background: soloBarco === b.id ? tinta(C.violet, 0.16) : "var(--panel)", border:`1px solid ${soloBarco === b.id ? tinta(C.violet, 0.45) : C.b0}`, color: soloBarco === b.id ? C.violet : C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4 }}
-                            onClick={e=>{ e.stopPropagation(); const aislar = soloBarco !== b.id; setSoloBarco(aislar ? b.id : null); if (aislar) centrarMapa(b.latitud, b.longitud); }}>
-                            <Eye size={11}/> {soloBarco === b.id ? "Viendo solo este" : "Solo este"}
+                            title={enfocado ? "Ver toda la flota" : "Ver sólo este barco"}
+                            style={{ ...S.accionPrimaria, background: enfocado ? tinta(C.violet, 0.16) : "var(--panel)", borderColor: enfocado ? tinta(C.violet, 0.45) : C.b0, color: enfocado ? C.violet : C.t1 }}
+                            onClick={e=>{ e.stopPropagation(); setSoloBarco(enfocado ? null : b.id); if (!enfocado) centrarMapa(b.latitud, b.longitud); }}>
+                            <Focus size={12}/> {enfocado ? "Enfocado" : "Enfocar"}
                           </button>
                         )}
 
-                        {/* Todo lo que el técnico necesita saber del barco. */}
                         <button
-                          style={{ background:tinta(C.green, 0.1), border:`1px solid ${tinta(C.green, 0.3)}`, color:C.green, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4 }}
+                          title="Ficha del barco"
+                          style={{ ...S.accionPrimaria, background:tinta(C.green, 0.1), borderColor:tinta(C.green, 0.3), color:C.green }}
                           onClick={e=>{ e.stopPropagation(); setFichaBarco(b); }}>
-                          <Phone size={11}/> Ficha
+                          <FileText size={12}/> Ficha
                         </button>
 
-                        {/* Editar siempre visible */}
                         <button
-                          style={{ background:tinta(C.blue, 0.08), border:`1px solid ${tinta(C.blue, 0.25)}`, color:C.blue, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
+                          title="Editar"
+                          style={{ ...S.accionPrimaria, background:tinta(C.blue, 0.08), borderColor:tinta(C.blue, 0.25), color:C.blue }}
                           onClick={e=>{ e.stopPropagation(); setEditBarco({ barco: b, autoFocusGps: false }); }}>
-                          ✎ Editar
+                          <Pencil size={12}/> Editar
                         </button>
-                        {/* GPS pendiente como botón separado */}
+
                         {sinGps && (
                           <button
-                            style={{ background:tinta(C.violet, 0.12), border:`1px solid ${tinta(C.violet, 0.4)}`, color:C.violet, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer" }}
+                            title="Cargar ubicación"
+                            style={{ ...S.accionPrimaria, background:tinta(C.violet, 0.12), borderColor:tinta(C.violet, 0.4), color:C.violet }}
                             onClick={e=>{ e.stopPropagation(); setEditBarco({ barco: b, autoFocusGps: true }); }}>
-                            📍 GPS
+                            <MapPin size={12}/> Ubicación
                           </button>
                         )}
 
                         {bTickets.length > 0 && (
-                          <button style={{ background:tinta(C.red, 0.08), border:`1px solid ${tinta(C.red, 0.25)}`, color:C.red, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
+                          <button
+                            title="Tickets"
+                            style={{ ...S.accionPrimaria, background:tinta(C.red, 0.08), borderColor:tinta(C.red, 0.25), color:C.red }}
                             onClick={e=>{ e.stopPropagation(); setDrawerBarco({barco:b,tickets:bTickets}); }}>
-                            🎫 Tickets ({bTickets.length})
+                            <Ticket size={12}/> {bTickets.length}
                           </button>
                         )}
-                        {!sinGps && (
-                          <>
-                            <button
-                              className="flota-accion"
-                              style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 10px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer" }}
-                              onClick={e=>{ e.stopPropagation(); verEnEarth3D(b.latitud, b.longitud); }}
-                              title="Ver el lugar en 3D con Google Earth"
-                            ><Globe size={11} style={{marginRight:4}}/> 3D</button>
-                            <button
-                              className="flota-accion"
-                              style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 10px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer" }}
-                              onClick={e=>{ e.stopPropagation(); verEnStreetView(b.latitud, b.longitud); }}
-                              title="Ver el lugar en Street View (si hay cobertura)"
-                            ><Eye size={11} style={{marginRight:4}}/> Calle</button>
-                          </>
-                        )}
-                        <button className="flota-accion" style={{ background:tinta(C.green, 0.1), border:`1px solid ${tinta(C.green, 0.3)}`, color:C.green, padding:"5px 10px", borderRadius:7, fontSize:12, cursor:"pointer" }}
-                          onClick={e=>compartirWhatsApp(e,b)} title="Compartir por WhatsApp"><ExternalLink size={11}/></button>
+
+                        <span style={{ flex:1 }} />
+
+                        <div style={{ display:"flex", gap:1, border:`1px solid ${C.b0}`, borderRadius:8, padding:2, background:"var(--panel)" }}>
+                          {!sinGps && (
+                            <>
+                              <button className="flota-accion" style={S.accionIcono} title="Centrar en el mapa"
+                                onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={12}/></button>
+                              <button className="flota-accion" style={S.accionIcono} title="Ver en 3D"
+                                onClick={e=>{ e.stopPropagation(); verEnEarth3D(b.latitud, b.longitud); }}><Globe size={12}/></button>
+                              <button className="flota-accion" style={S.accionIcono} title="Street View"
+                                onClick={e=>{ e.stopPropagation(); verEnStreetView(b.latitud, b.longitud); }}><Eye size={12}/></button>
+                            </>
+                          )}
+                          <button className="flota-accion" style={S.accionIcono} title="Compartir por WhatsApp"
+                            onClick={e=>compartirWhatsApp(e,b)}><ExternalLink size={12}/></button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1341,7 +1341,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                   {color:C.green,  label:"Sin tickets"},
                   {color:C.cyan,   label:"En proceso"},
                   {color:C.red,    label:"Pendiente"},
-                  {color:C.violet, label:"Sin GPS", border:true},
+                  {color:C.violet, label:"Sin ubicación", border:true},
                 ].map(l=>(
                   <div key={l.label} style={{ display:"flex", alignItems:"center", gap:5 }}>
                     {l.border
