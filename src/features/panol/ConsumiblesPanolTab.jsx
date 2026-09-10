@@ -33,6 +33,7 @@ import {
 } from "@/features/materiales/api";
 import {
   egresarProducto,
+  fetchConsumibleIds,
   fetchMaterialesEgreso,
   fetchPanolCatalogMini,
   ingresarStockGeneral,
@@ -45,6 +46,8 @@ import {
 import { fmtDate, rowDelta, rowIsAnulado, rowIsEgreso, rowMovementAt, stockPorMaterial } from "@/features/panol/panolMovimientos";
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
+// Cuántos movimientos se dibujan de una. La cuenta de la solapa no usa esto.
+const MOV_RENDER_MAX = 500;
 
 const CARD = {
   border: `1px solid ${C.border}`,
@@ -214,6 +217,9 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
 
   const [items, setItems] = useState([]);
   const [ledgerRows, setLedgerRows] = useState([]);
+  // Todo material marcado consumible, activo o no: es el mismo conjunto que el
+  // historial general usa para excluirlos.
+  const [consumibleIdsTodos, setConsumibleIdsTodos] = useState(() => new Set());
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -246,12 +252,14 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
     setLoading(true);
     try {
       const sede = sedeLocked || null;
-      const [consumibles, cats, ledger] = await Promise.all([
+      const [consumibles, cats, ledger, idsTodos] = await Promise.all([
         fetchConsumiblesPanol(),
         fetchCategorias(),
         fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
+        fetchConsumibleIds().catch(() => new Set()),
       ]);
       setItems(consumibles);
+      setConsumibleIdsTodos(idsTodos);
       setCategorias(cats);
       setLedgerRows(ledger);
       setSelectedId((prev) => (consumibles.some((item) => item.id === prev) ? prev : consumibles[0]?.id || null));
@@ -298,11 +306,26 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
     const stock = stockMap.get(item.id) ?? { total: 0, sedes: new Map(), movimientos: 0 };
     return { ...item, stock_total: stock.total, stock_sedes: stock.sedes, stock_movimientos: stock.movimientos };
   }), [items, stockMap]);
-  const consumibleIds = useMemo(() => new Set(items.map((item) => item.id).filter(Boolean)), [items]);
-  const consumibleMovimientos = useMemo(() => ledgerRows
+  // El mismo conjunto que usa el historial general para excluirlos, así son
+  // exactamente complementarios. Sin filtrar por activo: un consumible dado de
+  // baja sigue siendo un consumible y sus movimientos viejos van acá.
+  const consumibleIds = useMemo(() => {
+    const set = new Set(items.map((item) => item.id).filter(Boolean));
+    for (const id of consumibleIdsTodos) set.add(id);
+    return set;
+  }, [items, consumibleIdsTodos]);
+  // Este apartado es el único lugar donde se ven los movimientos de
+  // consumibles: en el stock maestro y en el historial general ya no aparecen.
+  // Por eso la cuenta que se muestra tiene que ser la de verdad, y el tope de
+  // 160 que había antes queda sólo como límite de dibujo.
+  const consumibleMovimientosTodos = useMemo(() => ledgerRows
     .filter((row) => row.material_id && consumibleIds.has(row.material_id))
-    .sort((a, b) => new Date(rowMovementAt(b) || 0) - new Date(rowMovementAt(a) || 0))
-    .slice(0, 160), [consumibleIds, ledgerRows]);
+    .sort((a, b) => new Date(rowMovementAt(b) || 0) - new Date(rowMovementAt(a) || 0)),
+  [consumibleIds, ledgerRows]);
+  const consumibleMovimientos = useMemo(
+    () => consumibleMovimientosTodos.slice(0, MOV_RENDER_MAX),
+    [consumibleMovimientosTodos],
+  );
 
   const selected = useMemo(() => enriched.find((item) => item.id === selectedId) || null, [enriched, selectedId]);
   const selectedHistory = useMemo(() => {
@@ -1034,7 +1057,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11 }}>
             <SegTab active={panel === "operar"} onClick={() => setPanel("operar")}><Scale size={13} /> Operar</SegTab>
-            <SegTab active={panel === "movimientos"} onClick={() => setPanel("movimientos")}><Clock3 size={13} /> Movimientos ({consumibleMovimientos.length})</SegTab>
+            <SegTab active={panel === "movimientos"} onClick={() => setPanel("movimientos")}><Clock3 size={13} /> Movimientos ({consumibleMovimientosTodos.length})</SegTab>
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>

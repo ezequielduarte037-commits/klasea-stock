@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, ListFilter, MoreHorizontal, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Filter, ListFilter, MoreHorizontal, X } from "lucide-react";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MaterialThumb } from "../MaterialExtras";
@@ -18,6 +18,10 @@ export function ObraWorkspaceStyles() {
     .obra-workspace button:disabled { cursor: default !important; opacity: .5; }
     .obra-workspace button:not(:disabled):hover { filter: brightness(.97); border-color: var(--blue-border); }
     .obra-workspace .obra-data-row:hover { background: var(--panel-2) !important; }
+    .obra-workspace .obra-filtro-opcion:hover { background: var(--panel-2); }
+    .obra-workspace .obra-filtro-solo { opacity: 0; transition: opacity 120ms ease; }
+    .obra-workspace .obra-filtro-opcion:hover .obra-filtro-solo,
+    .obra-workspace .obra-filtro-solo:focus-visible { opacity: 1; }
     .obra-workspace .obra-data-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; background: var(--blue-soft) !important; }
     .obra-workspace .obra-scroll { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
     .obra-workspace .obra-data-row { transition: background 140ms ease; }
@@ -54,6 +58,99 @@ export function ObraWorkspaceStyles() {
   `}</style>;
 }
 
+/**
+ * Filtro de columna, como el de una planilla: se hace clic en el encabezado y
+ * se tildan los valores que se quieren ver.
+ *
+ * Las opciones salen de lo que la columna muestra realmente, no de una tabla
+ * aparte: si en pantalla dice "Parcial", en el filtro dice "Parcial".
+ *
+ * El panel va con position:fixed porque el encabezado vive adentro de un
+ * contenedor con overflow y si no queda recortado.
+ */
+export function ObraColumnFilter({ label, options, selected, onChange, align = "left" }) {
+  const [open, setOpen] = useState(false);
+  const [caja, setCaja] = useState(null);
+  const botonRef = useRef(null);
+  const panelRef = useRef(null);
+  const activo = selected.size > 0;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const afuera = (event) => {
+      if (panelRef.current?.contains(event.target) || botonRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    // En captura y cortando la propagación: si no, el Escape también cierra el
+    // detalle que pueda estar abierto detrás.
+    const escape = (event) => { if (event.key === "Escape") { event.stopPropagation(); setOpen(false); botonRef.current?.focus(); } };
+    const mover = () => setOpen(false);
+    document.addEventListener("mousedown", afuera);
+    document.addEventListener("keydown", escape, true);
+    window.addEventListener("resize", mover);
+    return () => {
+      document.removeEventListener("mousedown", afuera);
+      document.removeEventListener("keydown", escape, true);
+      window.removeEventListener("resize", mover);
+    };
+  }, [open]);
+
+  function abrir() {
+    const r = botonRef.current?.getBoundingClientRect();
+    if (r) setCaja({ top: r.bottom + 4, left: r.left, right: window.innerWidth - r.right });
+    setOpen((v) => !v);
+  }
+  function alternar(value) {
+    const next = new Set(selected);
+    next.has(value) ? next.delete(value) : next.add(value);
+    onChange(next);
+  }
+
+  const total = options.reduce((sum, o) => sum + o.count, 0);
+  const panel = open && caja ? createPortal(
+    <div ref={panelRef} role="dialog" aria-label={`Filtrar por ${label}`} className="obra-workspace" style={{
+      position: "fixed", top: caja.top, ...(align === "right" ? { right: caja.right } : { left: caja.left }),
+      zIndex: 60, minWidth: 210, maxWidth: 280, background: C.panelSolid, border: `1px solid ${C.border}`,
+      borderRadius: 8, boxShadow: "0 14px 40px var(--shadow)", padding: 6, fontFamily: C.sans,
+      // Va por portal al body: no hereda el color de la tabla, hay que decirlo.
+      color: C.text,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "3px 6px 6px" }}>
+        <span style={{ fontSize: 11, fontWeight: 650, color: C.muted }}>{label}</span>
+        <button type="button" onClick={() => onChange(new Set())} disabled={!activo} style={{ ...button, minHeight: 24, padding: "2px 7px", fontSize: 11, border: "none", background: "transparent", color: activo ? C.blue : C.muted }}>Todos</button>
+      </div>
+      <div className="obra-scroll" style={{ maxHeight: 260, overflowY: "auto" }}>
+        {options.map((o) => {
+          const marcado = selected.has(o.value);
+          return <div key={o.value} className="obra-filtro-opcion" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 6 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, cursor: "pointer" }}>
+              <input type="checkbox" checked={marcado} onChange={() => alternar(o.value)} style={{ accentColor: C.blue, margin: 0 }} />
+              {o.color && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 3, background: o.color, flexShrink: 0 }} />}
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{o.label}</span>
+            </label>
+            <span style={{ ...numberStyle, fontSize: 11, color: C.muted }}>{o.count.toLocaleString("es-AR")}</span>
+            <button type="button" className="obra-filtro-solo" onClick={() => onChange(new Set([o.value]))} title={`Ver sólo ${o.label}`} style={{ border: "none", background: "transparent", color: C.blue, fontSize: 10.5, cursor: "pointer", padding: "0 2px", fontFamily: C.sans }}>sólo</button>
+          </div>;
+        })}
+        {!options.length && <div style={{ padding: "14px 8px", textAlign: "center", ...muted, fontSize: 11 }}>Nada para filtrar.</div>}
+      </div>
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, padding: "6px 6px 2px", ...muted, fontSize: 11 }}>
+        {activo ? `${options.filter((o) => selected.has(o.value)).reduce((s, o) => s + o.count, 0).toLocaleString("es-AR")} de ${total.toLocaleString("es-AR")}` : `${total.toLocaleString("es-AR")} ítems`}
+      </div>
+    </div>, document.body) : null;
+
+  return <>
+    <button ref={botonRef} type="button" onClick={abrir} aria-haspopup="dialog" aria-expanded={open}
+      title={activo ? `${label}: ${[...selected].join(", ")}` : `Filtrar por ${label}`}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "100%", border: "none", background: "transparent", padding: "0 8px", minHeight: 32, color: activo ? C.blue : "inherit", font: "inherit", fontWeight: 650, cursor: "pointer" }}>
+      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <Filter size={11} style={{ flexShrink: 0, opacity: activo ? 1 : 0.45 }} />
+      {activo && <span style={{ ...numberStyle, fontSize: 10, color: C.blue }}>{selected.size}</span>}
+    </button>
+    {panel}
+  </>;
+}
+
 export function ObraStatusBadge({ status }) {
   return <span title={status.title || status.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: status.color, background: status.bg, border: `1px solid ${status.border}`, borderRadius: 5, fontSize: 11, fontWeight: 650, lineHeight: 1.2, padding: "3px 6px", whiteSpace: "nowrap" }}>{status.label}</span>;
 }
@@ -67,7 +164,7 @@ function SelectionBox({ rows, selected, onToggle, label }) {
   </label>;
 }
 
-export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded }) {
+export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {} }) {
   const { isMobile } = useResponsive();
   const containerRef = useRef(null);
   const scrollRef = useRef(null);
@@ -148,7 +245,9 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
               <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Necesario</div>
               {!narrow && <><div role="columnheader" style={{ ...cell, textAlign: "right" }}>Recibido</div><div role="columnheader" style={{ ...cell, textAlign: "right" }}>Entregado</div></>}
               {!narrow && !compact && <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Precio unit.</div>}
-              <div role="columnheader" style={cell}>Estado</div><div role="columnheader" aria-label="Detalle" />
+              <div role="columnheader" style={{ ...cell, padding: 0 }}>
+                <ObraColumnFilter label="Estado" options={estadoOpciones} selected={estadosSel} onChange={onEstados} align="right" />
+              </div><div role="columnheader" aria-label="Detalle" />
             </div>
             {pagination.groups.map((group) => <Fragment key={group.label}>
               <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 34, background: C.panel, borderBottom: `1px solid ${C.border}` }}>

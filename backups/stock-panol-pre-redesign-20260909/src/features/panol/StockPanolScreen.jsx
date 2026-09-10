@@ -1,6 +1,6 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, BarChart3, ChevronDown, ChevronRight, DollarSign, Inbox, List, Map as MapIcon, Plus, RefreshCw, Search, ShipWheel, SlidersHorizontal, Warehouse, X } from "lucide-react";
+import { AlertTriangle, ChevronRight, DollarSign, Inbox, Plus, RefreshCw, Scale, ScanLine, ShipWheel, Warehouse, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -9,7 +9,7 @@ import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
-import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
+import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolMaterialCreations, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -355,9 +355,12 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "maestro", label: "Inventario" },
   { key: "obra", label: "Por obra" },
+  { key: "maestro", label: "Stock maestro" },
   { key: "movimientos", label: "Movimientos" },
+  { key: "devoluciones", label: "Devoluciones" },
+  { key: "reconciliar", label: "A reconciliar" },
+  { key: "mapa", label: "Mapa" },
 ];
 
 // ─── Panel de movimientos (historial general: ingresos y egresos) ──────────────
@@ -387,6 +390,7 @@ const MOV_KIND = {
   reasignacion_egreso: { label: "Reasig. -> egreso", color: C.violet, sign: "−" },
   liberacion:   { label: "A stock",      color: C.violet,  sign: "←" },
   consumible:   { label: "Consumible",   color: C.violet, sign: "−" },
+  creacion:     { label: "Producto creado", color: C.blue, sign: "" },
 };
 const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso", "reasignacion_egreso", "liberacion"]);
 // Movimientos donde el material efectivamente salió del pañol hacia una persona.
@@ -454,40 +458,43 @@ function movDetalleDestino(row, kind, obraById) {
 
 function MovKpi({ label, value, detail, color }) {
   return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 999, padding: "5px 9px", minWidth: 0, display: "inline-flex", alignItems: "center", gap: 7 }}>
-      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 950, color, lineHeight: 1 }}>{value}</span>
-      <span style={{ fontSize: 10.5, color: C.text, fontWeight: 850 }}>{label}</span>
-      <span style={{ fontSize: 9.5, color: C.dim }}>{detail}</span>
+    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: "8px 12px", minWidth: 108 }}>
+      <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: C.text, fontWeight: 800, marginTop: 3 }}>{label}</div>
+      <div style={{ fontSize: 10, color: C.dim }}>{detail}</div>
     </div>
   );
 }
 
-function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
+function MovRow({ m, obraById, onDevolucion }) {
   const meta = MOV_KIND[m.kind] || MOV_KIND.ingreso;
   const col = m.anulado ? C.dim : meta.color;
   const detalle = String(m.row.egreso_nota || m.row.stock_nota || m.row.notas || "").replace(/\[anulado\]/gi, "").trim();
+  const isCreation = m.kind === "creacion";
   const esSalida = MOV_SALIDA.has(m.kind);
   const desc = m.row.descripcion || "(sin descripción)";
+  const code = m.row.codigo ? ` · ${m.row.codigo}` : "";
   const variant = String(m.row.variante || "").trim();
   const retira = rowMovimientoRetira(m.row);
   const usuario = rowMovimientoUsuario(m.row) || "sin registrar";
+  const creationDetail = [
+    fmtDate(m.fecha),
+    "Catálogo completo",
+    `Usuario: ${usuario}`,
+    m.row.proveedor || null,
+    m.row.origen ? `origen ${m.row.origen}` : null,
+  ].filter(Boolean).join(" · ");
   return (
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : "108px minmax(0, 1fr) auto", gap: isMobile ? 8 : 12, alignItems: "start", padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
-      <span style={{ width: "fit-content", fontSize: 9.5, fontWeight: 950, color: col, background: C.panel, border: `1px solid ${col}`, borderRadius: 999, padding: "3px 7px", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap" }}>{m.anulado ? "Anulado" : meta.label}</span>
-      <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto", gridRow: isMobile ? 2 : "auto" }}>
-        <div style={{ fontSize: 13, fontWeight: 850, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{desc}</div>
-        <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
-          <span>{fmtDate(m.fecha)}</span>
-          {m.row.codigo && <span style={{ fontFamily: C.mono }}>{m.row.codigo}</span>}
-          <span>{movDetalleDestino(m.row, m.kind, obraById)}</span>
-          {variant && <span>Variante: {variant}</span>}
-          {retira && <span>Retira: {retira}</span>}
-          <span>Usuario: {usuario}</span>
-          {detalle && <span style={{ color: C.muted }}>{detalle}</span>}
+    <div style={{ display: "grid", gridTemplateColumns: "84px 1fr auto", gap: 10, alignItems: "center", padding: "9px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
+      <span style={{ fontSize: 10, fontWeight: 950, color: col, textTransform: "uppercase", letterSpacing: 0.3 }}>{m.anulado ? "Anulado" : meta.label}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{desc}{code}</div>
+        <div style={{ fontSize: 11, color: C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {isCreation ? creationDetail : `${fmtDate(m.fecha)} · ${movDetalleDestino(m.row, m.kind, obraById)}${variant ? ` · Variante: ${variant}` : ""}${retira ? ` · Retira: ${retira}` : ""}${usuario ? ` · Usuario: ${usuario}` : ""}${detalle ? ` · ${detalle}` : ""}`}
         </div>
       </div>
-      <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, whiteSpace: "nowrap", gridColumn: isMobile ? 2 : "auto", gridRow: isMobile ? 1 : "auto" }}>
-        <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 950, color: col }}>{meta.sign}{fmtQty(m.cant)} {m.row.unidad || ""}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+        <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: col }}>{isCreation ? "Nuevo" : `${meta.sign}${fmtQty(m.cant)} ${m.row.unidad || ""}`}</span>
         {/* Distinto de revertir: revertir deshace un movimiento que no debió
             existir; esto registra que salió bien y volvió fallado. */}
         {esSalida && !m.anulado && onDevolucion && (
@@ -495,9 +502,9 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
             type="button"
             onClick={() => onDevolucion(m.row)}
             title="Salió bien pero el operario lo devolvió fallado"
-            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, minHeight: 30, padding: "5px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}
+            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}
           >
-            {isMobile ? "Devolver" : "Generar devolución"}
+            Generar devolución
           </button>
         )}
       </span>
@@ -505,16 +512,13 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
   );
 }
 
-function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumiblesOcultos = 0 }) {
+function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMobile = false, consumiblesOcultos = 0 }) {
   const [q, setQ] = useState("");
   const [tipo, setTipo] = useState("todos");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [sedeF, setSedeF] = useState("todas");
   const [incluirAnulados, setIncluirAnulados] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [renderLimit, setRenderLimit] = useState(120);
   const [devolucion, setDevolucion] = useState(null);
   const [devolucionBusy, setDevolucionBusy] = useState(false);
   const toastMov = useToast();
@@ -533,7 +537,16 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
     // Ocultar el espejo negativo de las asignaciones: la acción se ve como asignación azul.
     .filter((m) => !rowIsAsignacionMirrorOut(m.row))
     .filter((m) => m.delta !== 0 || m.row.estado === "egresado" || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
-    return ledger
+    const creations = (materialCreations || []).map((row) => ({
+      key: `creacion:${row.id}`,
+      row,
+      kind: "creacion",
+      cant: 0,
+      delta: 0,
+      fecha: row.created_at,
+      anulado: false,
+    }));
+    return [...ledger, ...creations]
     .filter((m) => {
       if (!incluirAnulados && m.anulado) return false;
       if (tipo === "traspasos") { if (!MOV_INTERNAL.has(m.kind)) return false; }
@@ -543,31 +556,28 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
       if (hasta && (!m.fecha || new Date(m.fecha) > new Date(`${hasta}T23:59:59`))) return false;
       if (q.trim()) {
         const t = norm(q);
-        const destino = movDetalleDestino(m.row, m.kind, obraById);
+        const destino = m.kind === "creacion" ? "catalogo completo producto creado" : movDetalleDestino(m.row, m.kind, obraById);
         const hay = norm([m.row.descripcion, m.row.codigo, m.row.variante, destino, m.row.proveedor, m.row.origen, m.row.retirado_por, m.row.egreso_por_nombre, m.row.created_by_nombre, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
         if (!hay.includes(t)) return false;
       }
       return true;
     })
     .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
-  }, [rows, q, tipo, sedeF, desde, hasta, incluirAnulados, obraById]);
+  }, [rows, materialCreations, q, tipo, sedeF, desde, hasta, incluirAnulados, obraById]);
 
   const kpis = useMemo(() => {
-    let ing = 0, egr = 0, tras = 0, uIn = 0, uOut = 0;
+    let ing = 0, egr = 0, tras = 0, cre = 0, consumibles = 0, uIn = 0, uOut = 0;
     for (const m of movimientos) {
       if (m.kind === "egreso" || m.kind === "solicitud") { egr += 1; uOut += m.cant; }
+      else if (m.kind === "consumible") { consumibles += 1; }
       else if (m.kind === "ingreso") { ing += 1; uIn += m.cant; }
+      else if (m.kind === "creacion") { cre += 1; }
       else { tras += 1; }
     }
-    return { ing, egr, tras, uIn, uOut };
+    return { ing, egr, tras, cre, consumibles, uIn, uOut };
   }, [movimientos]);
 
-  const advancedFilterCount = [sedeF !== "todas", desde, hasta, incluirAnulados].filter(Boolean).length;
-
-  useEffect(() => { setRenderLimit(120); }, [q, tipo, sedeF, desde, hasta, incluirAnulados]);
-
   const retirosDashboard = useMemo(() => {
-    if (!showStats) return [];
     const physicalKinds = new Set(["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "consumible"]);
     return movimientos
       .filter((movement) => physicalKinds.has(movement.kind) && !movement.anulado)
@@ -588,45 +598,28 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
           tipo: movement.kind,
         };
       });
-  }, [movimientos, obraById, showStats]);
+  }, [movimientos, obraById]);
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "16px 18px 28px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        <div>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>Historial operativo</div>
-          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>{movimientos.length} movimientos con los filtros actuales</div>
-        </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-          <button
-            type="button"
-            className="stock-workspace-control"
-            onClick={() => setShowAdvanced((value) => !value)}
-            aria-expanded={showAdvanced}
-            style={{ minHeight: isMobile ? 44 : 34, border: `1px solid ${showAdvanced || advancedFilterCount ? C.blueB : C.border}`, background: showAdvanced || advancedFilterCount ? C.blueL : C.panelSolid, color: showAdvanced || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "6px 9px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}
-          >
-            <SlidersHorizontal size={13} aria-hidden="true" /> Más filtros
-            {advancedFilterCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 4px", borderRadius: 999, display: "grid", placeItems: "center", background: C.blue, color: "#fff", fontFamily: C.mono, fontSize: 9.5 }}>{advancedFilterCount}</span>}
-          </button>
-          <button
-            type="button"
-            className="stock-workspace-control"
-            onClick={() => setShowStats((value) => !value)}
-            aria-expanded={showStats}
-            style={{ minHeight: isMobile ? 44 : 34, border: `1px solid ${showStats ? C.violetB : C.border}`, background: showStats ? C.violetL : C.panelSolid, color: showStats ? C.violet : C.text, borderRadius: 9, padding: "6px 9px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}
-          >
-            <BarChart3 size={13} aria-hidden="true" /> Resumen <ChevronDown size={12} aria-hidden="true" style={{ transform: showStats ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-        </div>
-      </div>
       {consumiblesOcultos > 0 && (
-        <div style={{ marginBottom: 9, color: C.dim, fontSize: 10.5 }}>
-          Los consumibles siguen en su circuito propio. <a href="/recepcion-panol?tab=consumibles" style={{ color: C.violet, fontWeight: 850, textDecoration: "none" }}>Ver {consumiblesOcultos} movimientos de consumibles</a>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginBottom: 12, padding: "8px 11px", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, fontSize: 12 }}>
+          <span style={{ color: C.t1 }}>Los consumibles no se mezclan acá: tienen su propio circuito, con su stock y sus movimientos.</span>
+          <a href="/recepcion-panol?tab=consumibles" style={{ marginLeft: "auto", color: C.violet, fontWeight: 800, textDecoration: "none", whiteSpace: "nowrap" }}>
+            Ver los {consumiblesOcultos} movimientos de consumibles →
+          </a>
         </div>
       )}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <MovKpi label="Ingresos" value={kpis.ing} detail={`${fmtQty(kpis.uIn)} u`} color={C.green} />
+        <MovKpi label="Egresos" value={kpis.egr} detail={`${fmtQty(kpis.uOut)} u`} color={C.red} />
+        <MovKpi label="Traspasos" value={kpis.tras} detail="asig/reasig/stock" color={C.blue} />
+        <MovKpi label="Productos" value={kpis.cre} detail="creados" color={C.blue} />
+        <MovKpi label="Movimientos" value={movimientos.length} detail="filtrados" color={C.violet} />
+      </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
-        <input className="stock-workspace-control" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto, código, obra, quién..." style={{ ...MOV_INP, flex: "1 1 240px", minWidth: 200 }} />
-        <select className="stock-workspace-control" value={tipo} onChange={(e) => setTipo(e.target.value)} style={MOV_INP}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto, código, obra, quién..." style={{ ...MOV_INP, flex: "1 1 240px", minWidth: 200 }} />
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={MOV_INP}>
           <option value="todos">Todos</option>
           <option value="ingreso">Ingresos</option>
           <option value="egreso">Egresos</option>
@@ -635,47 +628,30 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
           <option value="asignacion">Asignaciones</option>
           <option value="reasignacion">Reasignaciones</option>
           <option value="liberacion">A stock (liberar)</option>
+          <option value="creacion">Productos creados</option>
         </select>
-        {(q || tipo !== "todos" || sedeF !== "todas" || desde || hasta || incluirAnulados) && (
-          <button type="button" onClick={() => { setQ(""); setTipo("todos"); setSedeF("todas"); setDesde(""); setHasta(""); setIncluirAnulados(false); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 750, textDecoration: "underline" }}>Limpiar</button>
+        <select value={sedeF} onChange={(e) => setSedeF(e.target.value)} style={MOV_INP}>
+          <option value="todas">Todas las sedes</option>
+          <option value="Pampa">Pampa</option>
+          <option value="Chubut">Chubut</option>
+        </select>
+        <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Desde<input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={MOV_INP} /></label>
+        <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Hasta<input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={MOV_INP} /></label>
+        <label style={{ fontSize: 11, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center" }}><input type="checkbox" checked={incluirAnulados} onChange={(e) => setIncluirAnulados(e.target.checked)} /> ver anulados</label>
+        {(q || tipo !== "todos" || sedeF !== "todas" || desde || hasta) && (
+          <button type="button" onClick={() => { setQ(""); setTipo("todos"); setSedeF("todas"); setDesde(""); setHasta(""); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 750, textDecoration: "underline" }}>Limpiar</button>
         )}
       </div>
-      {showAdvanced && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "-4px 0 12px", padding: "9px 10px", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, alignItems: "center" }}>
-          <select className="stock-workspace-control" value={sedeF} onChange={(e) => setSedeF(e.target.value)} style={MOV_INP}>
-            <option value="todas">Todas las sedes</option>
-            <option value="Pampa">Pampa</option>
-            <option value="Chubut">Chubut</option>
-          </select>
-          <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Desde<input className="stock-workspace-control" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={MOV_INP} /></label>
-          <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Hasta<input className="stock-workspace-control" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={MOV_INP} /></label>
-          <label style={{ minHeight: isMobile ? 44 : 34, fontSize: 11, color: C.dim, display: "inline-flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={incluirAnulados} onChange={(e) => setIncluirAnulados(e.target.checked)} /> Ver anulados</label>
-        </div>
-      )}
-      {showStats && (
-        <div style={{ marginBottom: 12, display: "grid", gap: 9 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            <MovKpi label="Ingresos" value={kpis.ing} detail={`${fmtQty(kpis.uIn)} u`} color={C.green} />
-            <MovKpi label="Egresos" value={kpis.egr} detail={`${fmtQty(kpis.uOut)} u`} color={C.red} />
-            <MovKpi label="Traspasos" value={kpis.tras} detail="internos" color={C.blue} />
-            <MovKpi label="Total" value={movimientos.length} detail="filtrados" color={C.violet} />
-          </div>
-          <PanolRetirosDashboard rows={retirosDashboard} isMobile={isMobile} />
-        </div>
-      )}
+      <PanolRetirosDashboard rows={retirosDashboard} isMobile={isMobile} />
       {movimientos.length === 0 ? (
         <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13, border: `1px dashed ${C.border}`, borderRadius: 12 }}>Sin movimientos con esos filtros.</div>
       ) : (
         <div style={{ display: "grid", gap: 6 }}>
-          {movimientos.slice(0, renderLimit).map((m) => (
-            <MovRow key={m.key} m={m} obraById={obraById} isMobile={isMobile}
+          {movimientos.slice(0, 500).map((m) => (
+            <MovRow key={m.key} m={m} obraById={obraById}
               onDevolucion={(row) => setDevolucion({ row, cantidad: String(Math.abs(Number(row.cantidad) || 0) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion", responsable: "sin_definir" })} />
           ))}
-          {movimientos.length > renderLimit && (
-            <button type="button" className="stock-workspace-control" onClick={() => setRenderLimit((value) => Math.min(value + 120, movimientos.length))} style={{ minHeight: 38, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.blue, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>
-              Mostrar {Math.min(120, movimientos.length - renderLimit)} más · quedan {movimientos.length - renderLimit}
-            </button>
-          )}
+          {movimientos.length > 500 && <div style={{ textAlign: "center", color: C.dim, fontSize: 12, padding: 10 }}>Mostrando 500 de {movimientos.length}. Afiná los filtros (fecha/producto) para ver el resto.</div>}
         </div>
       )}
 
@@ -917,14 +893,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = embedded ? "" : (searchParams.get("tab") || "");
-  const requestedView = embedded ? "" : (searchParams.get("view") || "");
   const requestedMaterialId = embedded ? "" : (searchParams.get("material") || "");
   const requestedQuery = embedded ? "" : (searchParams.get("q") || "");
-  const normalizedRequestedTab = requestedTab === "mapa" || requestedTab === "reconciliar"
-    ? "maestro"
-    : requestedTab === "devoluciones"
-      ? "movimientos"
-      : requestedTab;
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
   // desbordaba y "rompía" la pantalla. Por debajo de 1180 usamos el layout apilado.
   const { isMobile } = useResponsive(1180);
@@ -939,14 +909,11 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const canSeePrices = role !== "panol"; // el pañol no ve precios ni costos
 
   // ── Navegación ──
-  const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === normalizedRequestedTab) ? normalizedRequestedTab : "maestro");
-  const [inventoryView, setInventoryView] = useState(() => requestedTab === "mapa" || requestedView === "mapa" ? "mapa" : "lista");
-  const [movimientosView, setMovimientosView] = useState(() => requestedTab === "devoluciones" ? "devoluciones" : "todos");
-  const [maestroScope, setMaestroScope] = useState(() => requestedTab === "reconciliar" ? "reconciliar" : "existencia");
+  const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === requestedTab) ? requestedTab : "obra");
+  const [maestroScope, setMaestroScope] = useState("existencia");
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
-  const [obraQuery, setObraQuery] = useState("");
-  const [soloActivas, setSoloActivas] = useState(true); // las obras cerradas quedan fuera hasta pedirlas
+  const [soloActivas, setSoloActivas] = useState(false); // filtro nivel 2 (obras de la línea)
   const [showNuevaObraExterna, setShowNuevaObraExterna] = useState(false);
 
   // ── Datos ──
@@ -955,59 +922,44 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   // del stock maestro y del historial general.
   const [consumibleIds, setConsumibleIds] = useState(() => new Set());
   const [obras, setObras] = useState([]);
+  const [materialCreations, setMaterialCreations] = useState([]);
   const [transitRows, setTransitRows] = useState([]);
   const [replenishmentCatalog, setReplenishmentCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [obrasLoading, setObrasLoading] = useState(true);
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    setObrasLoading(true);
     try {
       const sede = sedeLocked || null;
-      // El ledger y el índice de consumibles alcanzan para pintar Stock maestro.
-      // Obras, tránsito y reposición arrancan a la vez pero se hidratan después,
-      // sin mantener bloqueada toda la pantalla.
-      const obrasPromise = fetchObrasEgreso().catch(() => []);
-      const transitPromise = fetchPanolInTransitInventory().catch(() => []);
-      const replenishmentPromise = fetchPanolReplenishmentCatalog().catch(() => []);
-      const [stockRows, consumibles] = await Promise.all([
+      const [stockRows, obraRows, creationRows, transitInventory, replenishmentRows, consumibles] = await Promise.all([
         fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
+        fetchObrasEgreso().catch(() => []),
+        fetchPanolMaterialCreations().catch(() => []),
+        fetchPanolInTransitInventory().catch(() => []),
+        fetchPanolReplenishmentCatalog().catch(() => []),
         fetchConsumibleIds().catch(() => new Set()),
       ]);
       setRows(stockRows);
       setConsumibleIds(consumibles);
-      setLoading(false);
-
-      const obraRows = await obrasPromise;
       setObras(obraRows);
-      setObrasLoading(false);
-
-      const [transitInventory, replenishmentRows] = await Promise.all([
-        transitPromise,
-        replenishmentPromise,
-      ]);
+      setMaterialCreations(creationRows);
       setTransitRows(transitInventory);
       setReplenishmentCatalog(replenishmentRows);
     } catch (e) {
       toast.error(e.message || "No se pudo cargar el stock.");
     } finally {
       setLoading(false);
-      setObrasLoading(false);
     }
   }, [sedeLocked, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
   useEffect(() => {
-    if (embedded) return;
-    if (requestedTab === "mapa" || requestedView === "mapa") setInventoryView("mapa");
-    else if (normalizedRequestedTab === "maestro") setInventoryView("lista");
-    if (requestedTab === "reconciliar") setMaestroScope("reconciliar");
-    if (requestedTab === "devoluciones") setMovimientosView("devoluciones");
-    if (!TABS.some((entry) => entry.key === normalizedRequestedTab) || normalizedRequestedTab === tab) return;
-    setTab(normalizedRequestedTab);
-  }, [embedded, normalizedRequestedTab, requestedTab, requestedView, tab]);
+    if (embedded || !TABS.some((entry) => entry.key === requestedTab) || requestedTab === tab) return;
+    setTab(requestedTab);
+    setSelLinea(null);
+    setSelObraId(null);
+  }, [embedded, requestedTab, tab]);
 
   // ── Índice: filas agrupadas por obraId ──
   const rowsByObraId = useMemo(() => {
@@ -1049,6 +1001,22 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     return map;
   }, [lineasVisibles, obras]);
 
+  // ── Estadísticas por línea ──
+  const lineaStats = useMemo(() => {
+    const result = {};
+    for (const linea of lineasVisibles) {
+      const lineaObras = obrasByLinea.get(linea) || [];
+      const statsList = lineaObras.map(o => calcObraStats(rowsByObraId.get(o.id) || []));
+      result[linea] = {
+        totalObras: lineaObras.length,
+        obrasActivas: lineaObras.filter(o => !["terminada", "cancelada", "archivada"].includes(o.estado)).length,
+        negativos: statsList.reduce((s, st) => s + st.negativos, 0),
+        costoUsd: statsList.reduce((s, st) => s + st.costoUsdStd + st.costoUsdAdd, 0),
+      };
+    }
+    return result;
+  }, [lineasVisibles, obrasByLinea, rowsByObraId]);
+
   // ── Estadísticas por obra ──
   const obraStatsMap = useMemo(() => {
     const map = new Map();
@@ -1056,32 +1024,21 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     return map;
   }, [obras, rowsByObraId]);
 
-  const obrasResumen = useMemo(() => {
-    let activas = 0, inactivas = 0, conStock = 0, conAlertas = 0;
-    for (const obra of obras) {
-      const activa = !["terminada", "cancelada", "archivada"].includes(obra.estado);
-      if (activa) activas += 1;
-      else inactivas += 1;
-      const stats = obraStatsMap.get(obra.id) || {};
-      const totalItems = (stats.itemsStock || 0) + (stats.itemsStd || 0) + (stats.itemsAdd || 0);
-      if (totalItems > 0) conStock += 1;
-      if (Number(stats.negativos || 0) > 0) conAlertas += 1;
+  // ── Señales globales: negativos (badge en la pestaña) + consumido USD total ──
+  const globalExtras = useMemo(() => {
+    let consumidoUsd = 0;
+    const productMap = new Map();
+    for (const row of rows) {
+      const key = (rowIsAdditional(row) ? "add" : "std") + "::" + (row.material_id || row.descripcion || row.id || "?");
+      productMap.set(key, (productMap.get(key) || 0) + rowDelta(row));
+      if (row.estado === "egresado" && String(row.moneda || "").toUpperCase() === "USD" && !rowSource(row).startsWith("transferencia")) {
+        consumidoUsd += Math.abs(rowDelta(row)) * qty(row.precio_unitario, 0);
+      }
     }
-    return { activas, inactivas, conStock, conAlertas };
-  }, [obraStatsMap, obras]);
-
-  const obraGroupsVisibles = useMemo(() => {
-    const query = norm(obraQuery);
-    return lineasVisibles.map((linea) => {
-      const lineaObras = (obrasByLinea.get(linea) || []).filter((obra) => {
-        const activa = !["terminada", "cancelada", "archivada"].includes(obra.estado);
-        if (soloActivas && !activa) return false;
-        if (!query) return true;
-        return norm([obra.codigo, obra.linea_nombre, lineaLabel(linea)].filter(Boolean).join(" ")).includes(query);
-      });
-      return { linea, obras: lineaObras };
-    }).filter((group) => group.obras.length > 0);
-  }, [obraQuery, lineasVisibles, obrasByLinea, soloActivas]);
+    let negativos = 0;
+    for (const [, total] of productMap) if (total < 0) negativos++;
+    return { consumidoUsd, negativos };
+  }, [rows]);
 
   // Filtro por obra completa para pre-filtrar StockWmsPanel al hacer drill-down.
   const selObraLocationKey = useMemo(() => {
@@ -1094,23 +1051,18 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   // ── Cambio de tab resetea la navegación ──
   function handleTabChange(key) {
     setTab(key);
+    setSelLinea(null);
+    setSelObraId(null);
     if (!embedded) {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set("tab", key);
-      if (key !== "maestro") nextParams.delete("view");
       setSearchParams(nextParams, { replace: true });
     }
   }
 
-  function handleInventoryView(view) {
-    setInventoryView(view);
-    if (!embedded) {
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.set("tab", "maestro");
-      if (view === "mapa") nextParams.set("view", "mapa");
-      else nextParams.delete("view");
-      setSearchParams(nextParams, { replace: true });
-    }
+  function openStockMasterScope(scope) {
+    setMaestroScope(scope);
+    handleTabChange("maestro");
   }
 
   // Lo que ve el stock maestro y el historial: todo menos los consumibles.
@@ -1153,6 +1105,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       else nav("/catalogo-maestro");
     },
   };
+  const isLevel3 = tab === "obra" && selObraId != null;
+
   const refreshBtn = (
     <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 8, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center", flexShrink: 0 }}>
       <RefreshCw size={15} />
@@ -1161,11 +1115,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
   const body = (
         <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh", overflow: "hidden" }}>
-          <style>{`
-            @keyframes stkNav{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-            .stock-primary-tab:focus-visible,.stock-view-toggle:focus-visible,.stock-workspace-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-            @media (prefers-reduced-motion:reduce){.stock-workspace-content{animation:none!important}}
-          `}</style>
+          <style>{"@keyframes stkNav{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}"}</style>
 
           {/* ── Header (solo pantalla completa) ── */}
           {!embedded && (
@@ -1198,17 +1148,15 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
           )}
 
           {/* ── Tabs ── */}
-          <div style={{ minHeight: 43, background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "0 10px" : "0 18px", display: "flex", alignItems: "stretch", gap: 2, flexShrink: 0, overflowX: "auto" }}>
+          <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 2, flexShrink: 0, overflowX: "auto" }}>
             {TABS.map(t => (
               <button
                 key={t.key}
                 type="button"
-                className="stock-primary-tab"
                 onClick={() => handleTabChange(t.key)}
-                aria-current={tab === t.key ? "page" : undefined}
                 style={{
-                  minHeight: 42, padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: C.sans,
-                  fontWeight: tab === t.key ? 900 : 650,
+                  padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: C.sans,
+                  fontWeight: tab === t.key ? 800 : 500,
                   color: tab === t.key ? C.text : C.dim,
                   background: "transparent", border: "none",
                   borderBottom: `2px solid ${tab === t.key ? C.blue : "transparent"}`,
@@ -1217,207 +1165,187 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 }}
               >
                 {t.label}
+                {t.key === "reconciliar" && globalExtras.negativos > 0 && (
+                  <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 950, color: "#fff", background: C.red, borderRadius: 999, padding: "1px 6px", lineHeight: 1.4 }}>
+                    {globalExtras.negativos}
+                  </span>
+                )}
               </button>
             ))}
+            {/* Acceso a las herramientas de balanza (calibración de peso por pieza). */}
             <div style={{ marginLeft: "auto", alignSelf: "center", display: "flex", alignItems: "center", gap: 8, paddingLeft: 12 }}>
-              {tab === "maestro" && (
-                <div role="group" aria-label="Vista del inventario" style={{ display: "inline-flex", gap: 2, padding: 3, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 9 }}>
-                  {[
-                    ["lista", List, "Lista"],
-                    ["mapa", MapIcon, "Mapa"],
-                  ].map(([key, Icon, label]) => {
-                    const active = inventoryView === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        className="stock-view-toggle"
-                        onClick={() => handleInventoryView(key)}
-                        aria-pressed={active}
-                        style={{ minHeight: isMobile ? 44 : 30, minWidth: isMobile ? 44 : "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
-                      >
-                        {createElement(Icon, { size: 13 })} {!isMobile && label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => nav("/balanza/calibrar")}
+                title="Cargar el peso por pieza de los consumibles usando la balanza"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                  border: `1px solid ${C.border}`, background: C.panel, color: C.violet,
+                  borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontSize: 12, fontWeight: 850,
+                }}
+              >
+                <Scale size={14} /> Balanza
+              </button>
+              <button
+                type="button"
+                onClick={() => nav("/scan-pedido")}
+                title="Pantalla del colector: escanear productos y pedir reposición a compras"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                  border: `1px solid ${C.border}`, background: C.panel, color: C.blue,
+                  borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontSize: 12, fontWeight: 850,
+                }}
+              >
+                <ScanLine size={14} /> Colector
+              </button>
               {embedded && refreshBtn}
             </div>
           </div>
 
           {/* ── Área de contenido ── */}
-          <div className="stock-workspace-content" key={`nav-${tab}-${inventoryView}`} style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", animation: "stkNav .22s ease-out" }}>
+          <div key={`nav-${tab}-${selLinea || ""}-${selObraId || ""}`} style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", animation: "stkNav .28s ease-out" }}>
 
-            {/* ── TAB: Por obra — selector persistente + inventario de la obra ── */}
-            {tab === "obra" && (
-              <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "284px minmax(0, 1fr)", background: C.bg }}>
-                <aside
-                  aria-label="Selector de obras"
-                  style={{
-                    minHeight: 0,
-                    display: isMobile && selObra ? "none" : "flex",
-                    flexDirection: "column",
-                    borderRight: isMobile ? "none" : `1px solid ${C.border}`,
-                    background: C.panel,
-                  }}
-                >
-                  <div style={{ padding: "12px 12px 10px", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 9, flexShrink: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <div>
-                        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>Obras</div>
-                        <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>{obrasResumen.activas} activas · {obrasResumen.conStock} con stock</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="stock-workspace-control"
-                        aria-pressed={!soloActivas}
-                        onClick={() => setSoloActivas((value) => !value)}
-                        style={{ minHeight: isMobile ? 44 : 30, border: `1px solid ${!soloActivas ? C.violetB : C.border}`, background: !soloActivas ? C.violetL : C.panelSolid, color: !soloActivas ? C.violet : C.dim, borderRadius: 999, padding: "4px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
-                      >
-                        {soloActivas ? `Ver inactivas (${obrasResumen.inactivas})` : "Ocultar inactivas"}
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                      <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>{obrasResumen.activas} activas</span>
-                      {obrasResumen.conAlertas > 0 && <span style={{ color: C.red, background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>{obrasResumen.conAlertas} a reconciliar</span>}
-                    </div>
-                    <div style={{ position: "relative" }}>
-                      <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
-                      <input
-                        className="stock-workspace-control"
-                        value={obraQuery}
-                        onChange={(event) => setObraQuery(event.target.value)}
-                        aria-label="Buscar obra"
-                        placeholder="Buscar obra…"
-                        style={{ width: "100%", boxSizing: "border-box", minHeight: isMobile ? 44 : 34, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "7px 34px 7px 30px", outline: "none", fontFamily: C.sans, fontSize: 12 }}
-                      />
-                      {obraQuery && (
-                        <button type="button" className="stock-workspace-control" onClick={() => setObraQuery("")} title="Limpiar búsqueda" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", width: isMobile ? 36 : 26, height: isMobile ? 36 : 26, border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", borderRadius: 6 }}>
-                          <X size={12} />
-                        </button>
-                      )}
-                    </div>
-                    <div aria-label="Composición de stock por obra" style={{ display: "flex", alignItems: "center", gap: 9, color: C.dim, fontSize: 9.5 }}>
-                      {[[C.green, "Stock"], [C.blue, "Asignado"], [C.violet, "Adicional"]].map(([color, label]) => (
-                        <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, background: color }} />{label}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 7px 12px" }}>
-                    {obrasLoading ? (
-                      <div style={{ padding: "28px 12px", textAlign: "center", color: C.dim, fontSize: 12 }}>Cargando obras…</div>
-                    ) : obraGroupsVisibles.length === 0 ? (
-                      <div style={{ margin: 5, padding: "24px 12px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 10, display: "grid", justifyItems: "center", gap: 8 }}>
-                        <Inbox size={20} />
-                        <span style={{ fontSize: 11.5 }}>No hay obras para esos filtros.</span>
-                      </div>
-                    ) : obraGroupsVisibles.map(({ linea, obras: lineaObras }) => (
-                      <section key={linea} style={{ marginBottom: 10 }}>
-                        <div style={{ padding: "4px 8px 5px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.9 }}>Línea {lineaLabel(linea)}</span>
-                          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5 }}>{lineaObras.length}</span>
-                        </div>
-                        <div style={{ display: "grid", gap: 3 }}>
-                          {lineaObras.map((obra) => {
-                            const selected = obra.id === selObraId;
-                            const stats = obraStatsMap.get(obra.id) || {};
-                            const totalItems = (stats.itemsStock || 0) + (stats.itemsStd || 0) + (stats.itemsAdd || 0);
-                            const hasIssue = Number(stats.negativos || 0) > 0;
-                            const activa = !["terminada", "cancelada", "archivada"].includes(obra.estado);
-                            const stockPart = totalItems ? ((stats.itemsStock || 0) / totalItems) * 100 : 0;
-                            const stdPart = totalItems ? ((stats.itemsStd || 0) / totalItems) * 100 : 0;
-                            const addPart = Math.max(0, 100 - stockPart - stdPart);
-                            return (
-                              <button
-                                key={obra.id}
-                                type="button"
-                                className="stock-workspace-control"
-                                aria-current={selected ? "page" : undefined}
-                                onClick={() => { setSelLinea(linea); setSelObraId(obra.id); }}
-                                style={{ width: "100%", minHeight: isMobile ? 56 : 54, border: `1px solid ${selected ? C.blueB : "transparent"}`, borderLeft: `3px solid ${selected ? C.blue : hasIssue ? C.red : activa ? C.green : C.border2}`, background: selected ? C.blueL : "transparent", color: selected ? C.blue : C.text, borderRadius: 9, padding: "7px 8px", cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8, textAlign: "left", fontFamily: C.sans, opacity: activa ? 1 : 0.72 }}
-                              >
-                                <span style={{ minWidth: 0 }}>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: C.mono, fontSize: 12, fontWeight: 950 }}>{obra.codigo}</span>
-                                    <span style={{ flexShrink: 0, color: activa ? C.green : C.dim, border: `1px solid ${activa ? C.greenB : C.border}`, background: activa ? C.greenL : C.panelSolid, borderRadius: 999, padding: "1px 5px", fontSize: 8.5, fontWeight: 900, textTransform: "uppercase" }}>{obra.estado || "sin estado"}</span>
-                                  </span>
-                                  <span title={`Stock ${stats.itemsStock || 0} · Asignado ${stats.itemsStd || 0} · Adicional ${stats.itemsAdd || 0}`} style={{ display: "flex", height: 4, marginTop: 7, overflow: "hidden", borderRadius: 999, background: C.panel2 }}>
-                                    {stockPart > 0 && <span style={{ width: `${stockPart}%`, background: C.green }} />}
-                                    {stdPart > 0 && <span style={{ width: `${stdPart}%`, background: C.blue }} />}
-                                    {addPart > 0 && totalItems > 0 && <span style={{ width: `${addPart}%`, background: C.violet }} />}
-                                  </span>
-                                </span>
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: hasIssue ? C.red : selected ? C.blue : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
-                                  {hasIssue && <span title={`${stats.negativos} ítems a reconciliar`} style={{ width: 6, height: 6, borderRadius: 999, background: C.red }} />}
-                                  <span title={`${totalItems} productos con saldo`}>{totalItems}</span>
-                                  <ChevronRight size={12} />
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-
-                  {(isAdmin || role === "panol") && (
-                    <div style={{ padding: 9, borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
-                      <button type="button" className="stock-workspace-control" onClick={() => setShowNuevaObraExterna(true)} style={{ width: "100%", minHeight: isMobile ? 44 : 34, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                        <Plus size={13} /> Nuevo Hunter / Antago
-                      </button>
-                    </div>
-                  )}
-                </aside>
-
-                <section style={{ minWidth: 0, minHeight: 0, display: isMobile && !selObra ? "none" : "flex", flexDirection: "column", background: C.bg }}>
-                  {selObra && selObraLocationKey ? (() => {
-                    const stats = obraStatsMap.get(selObraId) || {};
-                    const consumido = (stats.costoUsdStd || 0) + (stats.costoUsdAdd || 0) + (stats.costoUsdStock || 0);
+            {/* ── TAB: Por obra — Level 3 (drill-down a obra) ── */}
+            {tab === "obra" && isLevel3 && selObraLocationKey && (
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "10px 18px 0", flexShrink: 0 }}>
+                  <Breadcrumb items={[
+                    { label: "Líneas", onClick: () => { setSelLinea(null); setSelObraId(null); } },
+                    { label: `Linea ${lineaLabel(selLinea)}`, onClick: () => setSelObraId(null) },
+                    { label: selObra?.codigo || selObraId },
+                  ]} />
+                  {selObra && (() => {
+                    const st = obraStatsMap.get(selObraId) || {};
+                    const consumido = (st.costoUsdStd || 0) + (st.costoUsdAdd || 0) + (st.costoUsdStock || 0);
                     const estadoColors = { activa: C.green, terminada: C.dim, pausada: C.violet, cancelada: C.red, archivada: C.dim };
                     const estadoColor = estadoColors[selObra.estado] || C.dim;
                     return (
-                      <>
-                        <div style={{ minHeight: 58, padding: isMobile ? "8px 12px" : "8px 18px", borderBottom: `1px solid ${C.border}`, background: C.panel, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", flexShrink: 0 }}>
-                          {isMobile && (
-                            <button type="button" className="stock-workspace-control" onClick={() => setSelObraId(null)} style={{ minHeight: 44, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
-                              Volver a obras
-                            </button>
-                          )}
-                          <div style={{ minWidth: 150 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: C.text }}>{selObra.codigo}</span>
-                              <span style={{ fontSize: 9.5, fontWeight: 850, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 6px", textTransform: "uppercase" }}>{selObra.estado}</span>
-                            </div>
-                            <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Línea {lineaLabel(selLinea || lineaKeyFromObra(selObra))}</div>
-                          </div>
-                          <div style={{ display: "flex", gap: isMobile ? 12 : 18, marginLeft: isMobile ? 0 : "auto", alignItems: "center", flexWrap: "wrap" }}>
-                            <StatMini label="Stock" value={stats.itemsStock ?? 0} color={C.green} />
-                            <StatMini label="Asignado" value={stats.itemsStd ?? 0} color={C.blue} />
-                            <StatMini label="Adicional" value={stats.itemsAdd ?? 0} color={C.violet} />
-                            <StatMini label="A reconciliar" value={stats.negativos ?? 0} color={stats.negativos ? C.red : C.dim} />
-                            {canSeePrices && consumido > 0 && <StatMini label="Consumido USD" value={fmtQty(consumido)} color={C.green} />}
-                          </div>
+                      <div style={{ margin: "0 0 10px", padding: "9px 14px", border: `1px solid ${C.border}`, borderRadius: 12, background: C.panelSolid, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 950, color: C.text }}>{selObra.codigo}</span>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>{selObra.estado}</span>
+                        {selObra.linea_nombre && <span style={{ fontSize: 11, color: C.dim }}>{selObra.linea_nombre}</span>}
+                        <div style={{ display: "flex", gap: 16, marginLeft: "auto", alignItems: "center", flexWrap: "wrap" }}>
+                          <StatMini label="Stock" value={st.itemsStock ?? 0} color={C.green} />
+                          <StatMini label="Asignado" value={st.itemsStd ?? 0} color={C.blue} />
+                          <StatMini label="Adicional" value={st.itemsAdd ?? 0} color={C.violet} />
+                          <StatMini label="Neg." value={st.negativos ?? 0} color={st.negativos ? C.red : C.dim} />
+                          {canSeePrices && consumido > 0 && <StatMini label="Consumido USD" value={fmtQty(consumido)} color={C.green} />}
                         </div>
-                        <StockWmsPanel key={`obra-${selObraId}`} {...wmsProps} tableWorkspace initialFObra={selObraLocationKey} />
-                      </>
-                    );
-                  })() : (
-                    <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 24 }}>
-                      <div style={{ maxWidth: 360, textAlign: "center", display: "grid", justifyItems: "center", gap: 9 }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 14, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}><ShipWheel size={22} /></div>
-                        <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Elegí una obra</div>
-                        <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45 }}>Seleccioná un barco de la columna izquierda para consultar su stock sin perder el contexto.</div>
                       </div>
-                    </div>
-                  )}
-                </section>
+                    );
+                  })()}
+                </div>
+                <StockWmsPanel
+                  key={`obra-${selObraId}`}
+                  {...wmsProps}
+                  initialFObra={selObraLocationKey}
+                />
               </div>
             )}
 
-            {/* ── TAB: Inventario ── */}
-            {tab === "maestro" && inventoryView === "lista" && (
+            {/* ── TAB: Por obra — Level 2 (obras de la línea) ── */}
+            {tab === "obra" && selLinea && !selObraId && (() => {
+              const todas = obrasByLinea.get(selLinea) || [];
+              const activas = todas.filter(o => !["terminada", "cancelada", "archivada"].includes(o.estado));
+              const visiblesObras = soloActivas ? activas : todas;
+              return (
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                <div style={{ padding: "16px 18px 32px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <Breadcrumb items={[
+                      { label: "Líneas", onClick: () => setSelLinea(null) },
+                      { label: `Linea ${lineaLabel(selLinea)}` },
+                    ]} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <span style={{ fontSize: 11, color: C.dim, fontWeight: 750 }}>{todas.length} obras · {activas.length} activas</span>
+                      {todas.length !== activas.length && (
+                        <button
+                          type="button"
+                          onClick={() => setSoloActivas(v => !v)}
+                          style={{ border: `1px solid ${soloActivas ? C.greenB : C.border}`, background: soloActivas ? C.greenL : C.panelSolid, color: soloActivas ? C.green : C.dim, borderRadius: 999, padding: "4px 11px", cursor: "pointer", fontSize: 11, fontWeight: 850, fontFamily: C.sans }}
+                        >
+                          {soloActivas ? "✓ " : ""}Solo activas
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {loading ? (
+                    <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando...</div>
+                  ) : visiblesObras.length === 0 ? (
+                    <div style={{ padding: "44px 24px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 14, background: C.panel, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.dim }}>
+                        <Inbox size={22} />
+                      </div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{todas.length ? "No hay obras activas en esta línea" : `No hay obras con stock en la linea ${lineaLabel(selLinea)}`}</div>
+                      <div style={{ fontSize: 12 }}>{todas.length ? "Sacá el filtro “Solo activas” para ver el resto." : "Cuando compras envíe materiales a una obra de esta línea, van a aparecer acá."}</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(290px, 1fr))", gap: 12 }}>
+                      {visiblesObras.map(obra => (
+                        <ObraCard
+                          key={obra.id}
+                          obra={obra}
+                          stats={obraStatsMap.get(obra.id) || { itemsStock: 0, itemsStd: 0, itemsAdd: 0, negativos: 0, costoUsdStd: 0, costoUsdAdd: 0 }}
+                          onClick={() => setSelObraId(obra.id)}
+                          canSeePrices={canSeePrices}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              );
+            })()}
+
+            {/* ── TAB: Por obra — Level 1 (líneas) ── */}
+            {tab === "obra" && !selLinea && !selObraId && (
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                <div style={{ padding: "18px 18px 32px" }}>
+                  <GlobalKpiBar
+                    rows={rows}
+                    consumidoUsd={canSeePrices ? globalExtras.consumidoUsd : 0}
+                    onSelectScope={openStockMasterScope}
+                  />
+                  <div style={{ margin: "2px 0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 950, color: C.text }}>Barcos por línea</div>
+                      <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>Entrá a una línea para ver el stock de cada barco.</div>
+                    </div>
+                    {(isAdmin || role === "panol") && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNuevaObraExterna(true)}
+                        style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        <Plus size={14} /> Nuevo Hunter / Antago
+                      </button>
+                    )}
+                  </div>
+                  {loading ? (
+                    <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando stock...</div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(250px, 1fr))", gap: 14 }}>
+                      {(() => {
+                        const maxCostoUsd = Math.max(0, ...lineasVisibles.map(l => lineaStats[l]?.costoUsd || 0));
+                        return lineasVisibles.map(linea => (
+                          <LineaCard
+                            key={linea}
+                            codigo={lineaLabel(linea)}
+                            stats={lineaStats[linea] || { totalObras: 0, obrasActivas: 0, negativos: 0, costoUsd: 0 }}
+                            onClick={() => setSelLinea(linea)}
+                            canSeePrices={canSeePrices}
+                            maxCostoUsd={maxCostoUsd}
+                          />
+                        ));
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB: Stock maestro ── */}
+            {tab === "maestro" && (
               <StockWmsPanel
                 key={`maestro-${requestedMaterialId || "todos"}-${maestroScope}`}
                 {...wmsProps}
@@ -1429,32 +1357,22 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               />
             )}
 
-            {tab === "maestro" && inventoryView === "mapa" && (
-              <MapaPanolTab isMobile={isMobile} toast={toast} canEdit={isManager} />
-            )}
-
             {/* ── TAB: Movimientos (historial general de ingresos/egresos) ── */}
             {tab === "movimientos" && (
-              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-                <div style={{ minHeight: 44, padding: isMobile ? "6px 12px" : "6px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  <div role="group" aria-label="Tipo de movimiento" style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 9 }}>
-                    {[
-                      ["todos", "Todos los movimientos"],
-                      ["devoluciones", "Devoluciones"],
-                    ].map(([key, label]) => {
-                      const active = movimientosView === key;
-                      return (
-                        <button key={key} type="button" onClick={() => setMovimientosView(key)} aria-pressed={active} style={{ minHeight: 30, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                {movimientosView === "devoluciones"
-                  ? <DevolucionesPanel isMobile={isMobile} />
-                  : <MovimientosPanel rows={rowsSinConsumibles} obras={obras} isMobile={isMobile} consumiblesOcultos={consumiblesOcultos} />}
-              </div>
+              <MovimientosPanel rows={rowsSinConsumibles} obras={obras} materialCreations={materialCreations} isMobile={isMobile} consumiblesOcultos={consumiblesOcultos} />
+            )}
+
+            {tab === "devoluciones" && (
+              <DevolucionesPanel isMobile={isMobile} />
+            )}
+
+            {/* ── TAB: A reconciliar ── */}
+            {tab === "reconciliar" && (
+              <StockWmsPanel key="reconciliar" {...wmsProps} sharedRows={rowsSinConsumibles} initialScope="negativos" />
+            )}
+
+            {tab === "mapa" && (
+              <MapaPanolTab isMobile={isMobile} toast={toast} canEdit={isManager} />
             )}
           </div>
           {showNuevaObraExterna && (

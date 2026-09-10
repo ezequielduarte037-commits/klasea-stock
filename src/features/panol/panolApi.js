@@ -196,14 +196,20 @@ async function fetchBarcodeRowsForMaterialIds(materialIds = []) {
   if (!ids.length) return new Map();
   try {
     const byMaterial = new Map();
-    for (let from = 0; from < ids.length; from += MAX_IDS_EN_FILTRO) {
-      const chunk = ids.slice(from, from + MAX_IDS_EN_FILTRO);
+    const chunks = [];
+    for (let from = 0; from < ids.length; from += MAX_IDS_EN_FILTRO) chunks.push(ids.slice(from, from + MAX_IDS_EN_FILTRO));
+    const results = await Promise.all(chunks.map(async (chunk) => {
       const { data, error } = await supabase
         .from("panol_material_codigos_barra")
         .select("id,material_id,codigo,etiqueta,activo")
         .in("material_id", chunk)
         .eq("activo", true);
-      if (error) throw error;
+      return { data: data ?? [], error };
+    }));
+    const failed = results.find((result) => result.error);
+    if (failed) throw failed.error;
+    for (const result of results) {
+      const { data } = result;
       for (const row of data ?? []) {
         const list = byMaterial.get(row.material_id) ?? [];
         list.push(row);
@@ -378,6 +384,36 @@ const materialesEgresoEnVuelo = new Map();
 // Varias vistas de Pañol se montan juntas y necesitan el mismo ledger. Compartir
 // únicamente la promesa en curso evita consultas duplicadas sin cachear saldos:
 // una lectura posterior a un ingreso/egreso siempre vuelve a Supabase.
+/**
+ * Los ids de todo material marcado como consumible.
+ *
+ * Los consumibles tienen su propio apartado, con su stock y sus movimientos.
+ * En el stock maestro y en el historial general no van: ahí sólo va lo que se
+ * compra para los barcos.
+ *
+ * Los dos lados usan este mismo conjunto para que sean exactamente
+ * complementarios. Si cada pantalla decidiera por su cuenta -una mirando
+ * `source`, otra mirando `tipo`- habría movimientos que aparecen en las dos o
+ * en ninguna.
+ *
+ * Sin filtrar por `activo`: un consumible dado de baja sigue siendo un
+ * consumible y sus movimientos viejos tienen que quedar en su apartado.
+ */
+export async function fetchConsumibleIds() {
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("id")
+    .eq("es_consumible", true);
+  if (error) throw error;
+  return new Set((data || []).map((row) => row.id).filter(Boolean));
+}
+
+/** Saca del historial general lo que pertenece al apartado de consumibles. */
+export function sinConsumibles(rows = [], consumibleIds) {
+  if (!consumibleIds?.size) return rows;
+  return rows.filter((row) => !row.material_id || !consumibleIds.has(row.material_id));
+}
+
 export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol", "recibido", "parcial", "problema"] } = {}) {
   const key = JSON.stringify([
     canonicalPanolSede(sede) || "todas",
@@ -417,6 +453,17 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
   }
   if (error) throw error;
   const rows = data ?? [];
+  // Obras y actores no dependen de la metadata del material. Arrancan junto con
+  // ella para no sumar dos esperas completas al final de la hidratación.
+  const obraIds = [...new Set(rows.map((row) => row.obra_id).filter(Boolean))];
+  const obrasPromise = obraIds.length ? fetchObrasEgreso().catch(() => []) : Promise.resolve([]);
+  const egresoActorPromise = fetchProfilesMap([
+    ...rows.map((row) => row.egreso_por),
+    ...rows.map((row) => row.created_by),
+    ...rows.map((row) => row.panol_envio?.recibido_por),
+    ...rows.map((row) => row.panol_envio?.created_by),
+    ...rows.map((row) => row.panol_envio_item?.marcado_por),
+  ]);
   // Se necesitan ambas identidades: `requisito_material_id` es el ítem de la
   // matriz (ej. "TV 32") y `material_id` es la opción concreta asignada
   // (ej. Samsung). Si sólo hidratamos el segundo, el stock pierde el contexto
@@ -427,20 +474,23 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
   const opcionLegacyByPair = new Map();
   if (materialIds.length) {
     let materiales = [];
-    const fetchMaterialMetadata = async (select) => {
-      const metadata = [];
+    const fetchMaterialMetadata = async (select, ids = materialIds) => {
+      const batches = [];
       // PostgREST puede rechazar o truncar filtros `in` demasiado grandes. El
       // stock maestro hoy supera ampliamente los 1.000 materiales, así que la
-      // metadata se busca por lotes igual que los códigos de barra.
-      for (let from = 0; from < materialIds.length; from += 400) {
+      // metadata se busca por lotes. Las tandas son independientes, por eso se
+      // ejecutan en paralelo: antes cada una agregaba otra latencia de red.
+      for (let from = 0; from < ids.length; from += 400) batches.push(ids.slice(from, from + 400));
+      const results = await Promise.all(batches.map(async (batchIds) => {
         const { data: batch, error: batchError } = await supabase
           .from("panol_materiales")
           .select(select)
-          .in("id", materialIds.slice(from, from + 400));
-        if (batchError) return { data: null, error: batchError };
-        metadata.push(...(batch ?? []));
-      }
-      return { data: metadata, error: null };
+          .in("id", batchIds);
+        return { data: batch ?? [], error: batchError };
+      }));
+      const failed = results.find((result) => result.error);
+      if (failed) return { data: null, error: failed.error };
+      return { data: results.flatMap((result) => result.data), error: null };
     };
     try {
       // Escalera de selects de más completo a más viejo: la pantalla tiene que
@@ -476,29 +526,34 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
         }
       }
     }
-    // Esta consulta mínima es deliberadamente independiente de toda la
-    // metadata opcional. Aunque una instalación vieja obligue a usar alguno de
-    // los fallbacks anteriores, el cliente siempre necesita saber si el ID es
-    // un requisito genérico: de eso depende mostrar el selector de producto y
-    // enviar `producto_material_id` al RPC de egreso.
-    try {
-      const { data: identityRows, error: identityError } = await fetchMaterialMetadata("id,es_requisito");
-      if (!identityError) {
-        const currentById = new Map(materiales.map((material) => [material.id, material]));
-        for (const identity of identityRows ?? []) {
-          currentById.set(identity.id, { ...(currentById.get(identity.id) ?? {}), ...identity });
+    // Todos los selects normales ya incluyen `es_requisito`. Sólo hacemos la
+    // consulta mínima de respaldo si una fila realmente llegó sin identidad;
+    // antes se repetía el catálogo completo en cada carga aunque no hiciera falta.
+    const currentById = new Map(materiales.map((material) => [material.id, material]));
+    const identityMissingIds = materialIds.filter((id) => {
+      const material = currentById.get(id);
+      return !material || !Object.prototype.hasOwnProperty.call(material, "es_requisito");
+    });
+    if (identityMissingIds.length) {
+      try {
+        const { data: identityRows, error: identityError } = await fetchMaterialMetadata("id,es_requisito", identityMissingIds);
+        if (!identityError) {
+          for (const identity of identityRows ?? []) {
+            currentById.set(identity.id, { ...(currentById.get(identity.id) ?? {}), ...identity });
+          }
+          materiales = [...currentById.values()];
         }
-        materiales = [...currentById.values()];
+      } catch {
+        // El RPC seguirá siendo la última protección si la conexión falla.
       }
-    } catch {
-      // El RPC seguirá siendo la última protección si la conexión falla.
     }
-    const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(materialIds);
-    for (const mat of materiales) {
-      materialById.set(mat.id, { ...mat, codigos_barra: codigosByMaterial.get(mat.id) ?? [] });
-    }
+    for (const mat of materiales) materialById.set(mat.id, { ...mat, codigos_barra: [] });
     const requisitoIds = materiales.filter((mat) => mat.es_requisito).map((mat) => mat.id);
-    if (requisitoIds.length) {
+    const categoriaIds = [...new Set(materiales.map((mat) => mat.categoria_id).filter(Boolean))];
+
+    const codigosPromise = fetchBarcodeRowsForMaterialIds(materialIds);
+    const compatiblesPromise = (async () => {
+      if (!requisitoIds.length) return;
       try {
         const { data: links, error: linksError } = await supabase
           .from("panol_requisito_productos")
@@ -554,9 +609,9 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
         // Si el esquema viejo no la tiene, el resto del stock debe seguir cargando.
         if (!isMissingTable(compatiblesError) && !isMissingColumn(compatiblesError)) throw compatiblesError;
       }
-    }
-    const categoriaIds = [...new Set(materiales.map((mat) => mat.categoria_id).filter(Boolean))];
-    if (categoriaIds.length) {
+    })();
+    const categoriasPromise = (async () => {
+      if (!categoriaIds.length) return;
       try {
         const { data: categorias, error: catError } = await supabase
           .from("panol_categorias")
@@ -568,17 +623,19 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
       } catch {
         // La categoria es informativa para filtros; si falla, el stock sigue cargando.
       }
+    })();
+
+    // Códigos, compatibilidades y categorías dependen sólo de la metadata base.
+    // Ninguno necesita esperar al otro, así que comparten la misma ventana de red.
+    const [codigosByMaterial] = await Promise.all([codigosPromise, compatiblesPromise, categoriasPromise]);
+    for (const mat of materiales) {
+      materialById.set(mat.id, { ...materialById.get(mat.id), codigos_barra: codigosByMaterial.get(mat.id) ?? [] });
     }
   }
-  const obraIds = [...new Set(rows.map((row) => row.obra_id).filter(Boolean))];
   let obrasById = new Map();
   if (obraIds.length) {
-    try {
-      const obras = await fetchObrasEgreso();
-      obrasById = new Map(obras.filter((obra) => obraIds.includes(obra.id)).map((obra) => [obra.id, obra]));
-    } catch {
-      obrasById = new Map();
-    }
+    const obras = await obrasPromise;
+    obrasById = new Map(obras.filter((obra) => obraIds.includes(obra.id)).map((obra) => [obra.id, obra]));
   }
   const requestIds = [...new Set(rows.map((row) => row.purchase_request_id).filter(Boolean))];
   const requestById = new Map();
@@ -607,13 +664,7 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
       }
     }
   }
-  const egresoActorById = await fetchProfilesMap([
-    ...rows.map((row) => row.egreso_por),
-    ...rows.map((row) => row.created_by),
-    ...rows.map((row) => row.panol_envio?.recibido_por),
-    ...rows.map((row) => row.panol_envio?.created_by),
-    ...rows.map((row) => row.panol_envio_item?.marcado_por),
-  ]);
+  const egresoActorById = await egresoActorPromise;
   const transferActorByKey = new Map();
   for (const row of rows) {
     if (row.source !== "transferencia_egreso" || !isUuidLike(row.egreso_por)) continue;
@@ -1682,7 +1733,15 @@ export async function olvidarAliasDeProveedor(materialId, textoDelRemito) {
   return !upErr;
 }
 
+let obrasEgresoEnVuelo = null;
+
 export async function fetchObrasEgreso() {
+  if (obrasEgresoEnVuelo) return obrasEgresoEnVuelo;
+  obrasEgresoEnVuelo = fetchObrasEgresoSinCache().finally(() => { obrasEgresoEnVuelo = null; });
+  return obrasEgresoEnVuelo;
+}
+
+async function fetchObrasEgresoSinCache() {
   try {
     const { data, error } = await supabase
       .from("produccion_obras")

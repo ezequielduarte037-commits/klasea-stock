@@ -17,7 +17,6 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
-  SlidersHorizontal,
   Warehouse,
   X,
 } from "lucide-react";
@@ -508,10 +507,6 @@ function categoryLabel(row) {
   return row.categoria_nombre || row.categoria || row.rubro || "";
 }
 
-function providerLabel(row) {
-  return row.proveedor || row.material?.proveedor || "";
-}
-
 function defaultLocation(defaultSede) {
   return {
     key: `${defaultSede || "general"}::stock`,
@@ -981,7 +976,6 @@ function MinimumEditor({ group, canEdit, onSave }) {
   const initial = group.stockMinimo == null ? "" : String(group.stockMinimo);
   const [draft, setDraft] = useState(initial);
   const [saving, setSaving] = useState(false);
-  const [focused, setFocused] = useState(false);
   useEffect(() => {
     setDraft(group.stockMinimo == null ? "" : String(group.stockMinimo));
   }, [group.stockMinimo]);
@@ -1005,24 +999,21 @@ function MinimumEditor({ group, canEdit, onSave }) {
   return (
     <div onClick={(event) => event.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5 }}>
       <input
-        className={`stock-minimum-input${dirty || focused || !valid ? " is-active" : ""}`}
         type="number"
         min="0"
         step="0.01"
         value={draft}
         disabled={!canEdit || saving}
         onChange={(event) => setDraft(event.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
             save();
           }
         }}
-        placeholder="—"
+        placeholder="Sin definir"
         title="Dejalo vacío para quitar el mínimo"
-        style={{ width: 72, minWidth: 0, boxSizing: "border-box", border: `1px solid ${!valid ? C.redB : dirty || focused ? C.blueB : "transparent"}`, background: dirty || focused ? C.panelSolid : "transparent", color: C.text, borderRadius: 7, padding: "5px 6px", textAlign: "right", fontFamily: C.mono, fontSize: 11.5, fontWeight: 850, outline: "none", opacity: canEdit ? 1 : 0.72 }}
+        style={{ width: 88, minWidth: 0, boxSizing: "border-box", border: `1px solid ${!valid ? C.redB : dirty ? C.blueB : C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 7px", fontFamily: C.mono, fontSize: 11.5, fontWeight: 850, outline: "none", opacity: canEdit ? 1 : 0.72 }}
       />
       {canEdit && dirty && (
         <button type="button" disabled={!valid || saving} onClick={save} style={{ border: `1px solid ${valid ? C.greenB : C.border}`, background: valid ? C.greenL : C.panel2, color: valid ? C.green : C.dim, borderRadius: 7, padding: "6px 7px", cursor: valid && !saving ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 900 }}>
@@ -1061,7 +1052,6 @@ function OptionStockSummary({ group, compact = false, max = 3 }) {
 function ProductPrimaryAction({ action, compact = false }) {
   if (!action?.onClick) return null;
   const Icon = action.Icon || ArrowUpRight;
-  const isCompact = compact || action.compact;
   return (
     <span
       role="button"
@@ -1080,23 +1070,22 @@ function ProductPrimaryAction({ action, compact = false }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: isCompact && action.badge ? 4 : isCompact ? 0 : 5,
-        minWidth: isCompact ? 28 : 0,
-        height: isCompact ? 28 : 26,
+        gap: compact ? 0 : 5,
+        minWidth: compact ? 26 : 0,
+        height: compact ? 24 : 26,
         border: `1px solid ${action.border}`,
         background: action.background,
         color: action.color,
         borderRadius: 8,
-        padding: isCompact ? "0 7px" : "0 9px",
+        padding: compact ? "0 6px" : "0 9px",
         fontSize: 10.5,
         fontWeight: 900,
         cursor: "pointer",
         whiteSpace: "nowrap",
       }}
     >
-      <Icon size={13} aria-hidden="true" />
-      {!isCompact && action.label}
-      {isCompact && action.badge && <span style={{ fontFamily: C.mono, fontSize: 9.5, fontWeight: 950 }}>{action.badge}</span>}
+      <Icon size={compact ? 12 : 13} />
+      {!compact && action.label}
     </span>
   );
 }
@@ -1213,7 +1202,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
               onMouseEnter={() => setCartHover(true)}
               onMouseLeave={() => setCartHover(false)}
-              title={inCart ? "Agregar una unidad más al carrito" : "Agregar una unidad al carrito"}
+              title={inCart ? "Ya está en el carrito · click para actualizar" : "Agregar al carrito"}
               style={{ flexShrink: 0, display: "grid", placeItems: "center", width: 24, height: 19, borderRadius: 999, border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`, background: inCart || cartHover ? C.greenL : "transparent", color: inCart || cartHover ? C.green : C.dim, cursor: "pointer", transition: "color .12s, border-color .12s, background .12s" }}
             >
               <ShoppingCart size={11} />
@@ -1308,7 +1297,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
             onMouseEnter={() => setCartHover(true)}
             onMouseLeave={() => setCartHover(false)}
-            title={inCart ? "Agregar una unidad más al carrito" : "Agregar una unidad al carrito"}
+            title={inCart ? "Ya está en el carrito · click para actualizar" : "Agregar al carrito"}
             style={{
               flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
               border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`,
@@ -1335,10 +1324,8 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
 
 // Grilla compartida por el encabezado y las filas. Una sola constante para que
 // no se desalineen cuando se toca una y se olvida la otra.
-const STOCK_ROW_COLS = "48px minmax(250px,2.35fr) minmax(100px,.85fr) 76px 112px 82px minmax(125px,1fr) 112px 116px";
-const STOCK_ROW_MIN = 1135;
-const STOCK_ROW_COMPACT_COLS = "44px minmax(190px,2fr) 68px 88px minmax(105px,1fr) 96px";
-const STOCK_ROW_COMPACT_MIN = 620;
+const STOCK_ROW_COLS = "48px minmax(230px,2.1fr) 82px 116px 84px minmax(130px,1.1fr) 104px 116px";
+const STOCK_ROW_MIN = 1010;
 
 const VERIF_META = {
   ok: { label: "Revisado", Icon: CheckCircle2, color: C.green, bg: C.greenL, border: C.greenB },
@@ -1362,36 +1349,6 @@ function VerificacionChip({ estado, compact = false }) {
   );
 }
 
-// En la tabla mostramos una sola señal operativa. El resto de los datos de
-// control sigue disponible en la ficha, sin competir con la lectura del stock.
-function ProductTableStatus({ group }) {
-  const level = stockLevel(group);
-  let meta;
-  if (group.verificacion === "problema") {
-    meta = { label: "A revisar", color: C.red, bg: C.redL, border: C.redB };
-  } else if (group.inTransit) {
-    meta = { label: "En camino", color: C.blue, bg: C.blueL, border: C.blueB };
-  } else if (group.negativo || level.key === "critico") {
-    meta = { label: "Crítico", color: C.red, bg: C.redL, border: C.redB };
-  } else if (level.key === "alerta") {
-    meta = { label: "Stock bajo", color: C.violet, bg: C.violetL, border: C.violetB };
-  } else if (qty(group.total, 0) > 0) {
-    meta = { label: "Disponible", color: C.green, bg: C.greenL, border: C.greenB };
-  } else {
-    meta = { label: "Sin stock", color: C.dim, bg: C.panel2, border: C.border };
-  }
-
-  return (
-    <span
-      title={group.verificacion === "pendiente" ? `${meta.label} · control pendiente` : meta.label}
-      style={{ display: "inline-flex", alignItems: "center", gap: 6, color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg, borderRadius: 999, padding: "4px 9px", fontSize: 10.5, lineHeight: 1, fontWeight: 850, whiteSpace: "nowrap" }}
-    >
-      <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: meta.color, flexShrink: 0 }} />
-      {meta.label}
-    </span>
-  );
-}
-
 // Un dato que falta y hace falta. Se muestra como etiqueta en la fila porque el
 // objetivo de la revisión es justamente que estas etiquetas desaparezcan.
 function FaltaChip({ children }) {
@@ -1406,38 +1363,19 @@ function FaltaChip({ children }) {
   );
 }
 
-function productListVariantIdentity(group) {
-  const rawNames = (group.opciones || []).map((option) => option?.nombre);
-  if (!rawNames.length && group.variantesEnStock instanceof Set) rawNames.push(...group.variantesEnStock);
-  const names = [...new Set(rawNames
-    .map((name) => String(name || "").trim())
-    .filter((name) => name && norm(name) !== "standard" && norm(name) !== norm(group.label)))];
-  if (names.length === 1 && !norm(group.label).includes(norm(names[0]))) {
-    return { displayLabel: `${group.label} · ${names[0]}`, variantsMeta: "" };
-  }
-  if (names.length > 1) {
-    return {
-      displayLabel: group.label,
-      variantsMeta: `${names.slice(0, 2).join(" · ")}${names.length > 2 ? ` · +${names.length - 2} modelos` : ""}`,
-    };
-  }
-  return { displayLabel: group.label, variantsMeta: "" };
-}
-
-const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction, compact = false }) {
+const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
   const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
   const categoria = [...(group.categorias || [])].filter(Boolean)[0] || "";
-  const { displayLabel, variantsMeta } = productListVariantIdentity(group);
   // Lo que la revisión viene a completar. Se calcula acá y no en el detalle
   // porque el valor está en verlo sin abrir: así se elige a cuál entrar.
   const sinUbicacion = !group.ubicacion;
-  const descripcionPobre = String(displayLabel || "").trim().length < 12;
+  const sinCodigo = !group.codigo;
+  const descripcionPobre = String(group.label || "").trim().length < 12;
 
   return (
     <div
-      className="stock-product-row"
       role="button"
       tabIndex={0}
       onClick={() => onOpen(group.key)}
@@ -1450,14 +1388,14 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        minWidth: compact ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN,
+        minWidth: STOCK_ROW_MIN,
         display: "grid",
-        gridTemplateColumns: compact ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS,
+        gridTemplateColumns: STOCK_ROW_COLS,
         alignItems: "center",
         gap: 12,
-        padding: "7px 12px",
+        padding: "9px 12px",
         borderBottom: `1px solid ${C.border}`,
-        borderLeft: `3px solid ${active ? C.blue : "transparent"}`,
+        borderLeft: `3px solid ${active ? C.blue : level.color}`,
         background: active ? C.blueL : hover ? C.panel : C.panelSolid,
         color: C.text,
         cursor: "pointer",
@@ -1468,62 +1406,66 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
     >
       {/* La foto es el primer filtro visual: reconocer la pieza sin leer.
           MaterialThumb ya trae el lightbox y frena la propagación del click. */}
-      <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={40} />
+      <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={42} />
 
       <div style={{ minWidth: 0 }}>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
           {/* Si el producto se renombró, el nombre viejo queda a mano: es el
               que figura en los movimientos y en los papeles impresos de antes,
               y sin esto nadie entiende por qué no coinciden. */}
           <span
-            title={group.labelHistorico ? `${displayLabel} · antes se llamaba: ${group.labelHistorico}` : displayLabel}
-            style={{ display: "block", width: "fit-content", maxWidth: "100%", color: C.text, fontSize: 13, lineHeight: 1.25, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: group.labelHistorico ? `1px dotted ${C.border2}` : "none" }}
+            title={group.labelHistorico ? `Antes se llamaba: ${group.labelHistorico}` : undefined}
+            style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: group.labelHistorico ? `1px dotted ${C.border2}` : "none" }}
           >
-            {displayLabel}
+            {group.label}
           </span>
+          <StockLevelChip group={group} compact hideUnset />
+          {/* Un requisito de matriz y un producto concreto se ven casi iguales
+              en la lista —mismo nombre, mismo codigo— y el de arriba no es algo
+              que se pueda agarrar del estante. Sin esta marca, el del galpon no
+              tiene como distinguirlos. */}
+          {group.esRequisito && (
+            <span
+              title="Requisito de matriz: es generico, no un producto concreto. El stock real vive en los productos que lo resuelven."
+              style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}
+            >
+              MATRIZ
+            </span>
+          )}
+          {group.esRequisito && onArchivarMatriz && group.verificacion !== "ok" && (
+            <button
+              type="button"
+              onClick={(event) => { event.stopPropagation(); onArchivarMatriz(group); }}
+              title="Marcarlo como revisado y sacarlo de la lista: es un requisito, no una pieza del estante."
+              style={{ flexShrink: 0, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 6, padding: "1px 6px", fontSize: 9, fontWeight: 900, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+            >
+              ARCHIVAR
+            </button>
+          )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, minWidth: 0 }}>
-          {variantsMeta && <><span title={`Modelos con stock: ${variantsMeta}`} style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.2, fontWeight: 800 }}>{variantsMeta}</span><span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span></>}
-          {group.codigo
-            ? <span title={group.codigo} style={{ color: C.blue, fontSize: 10.5, lineHeight: 1.2, fontFamily: C.mono, fontWeight: 850 }}>{group.codigo}</span>
-            : <FaltaChip>código</FaltaChip>}
-          <span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span>
-          <span title={group.proveedor || "Proveedor sin registrar"} style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: compact ? 112 : 170 }}>{group.proveedor || "sin proveedor"}</span>
-          {compact && categoria && <><span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span><span title={categoria} style={{ color: C.dim, fontSize: 10.5 }}>{categoria}</span></>}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
+          <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>{group.codigo || "sin código"}</span>
+          {group.proveedor && <span style={{ color: C.dim, fontSize: 10.5 }}>· {group.proveedor}</span>}
+          {categoria && <span style={{ color: C.dim, fontSize: 10.5 }}>· {categoria}</span>}
+          {sinCodigo && <FaltaChip>código</FaltaChip>}
           {descripcionPobre && <FaltaChip>descripción</FaltaChip>}
         </div>
-        {compact && group.esRequisito && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
-            <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 950, letterSpacing: 0.5 }}>MATRIZ</span>
-            {onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
-          </div>
-        )}
+        <div style={{ marginTop: 5 }}><OptionStockSummary group={group} compact max={2} /></div>
       </div>
 
-      {!compact && (
-        <div title={categoria || "Rubro sin registrar"} style={{ minWidth: 0, color: categoria ? C.text : C.dim, fontSize: 11.5, fontWeight: categoria ? 750 : 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {categoria || "Sin rubro"}
-        </div>
-      )}
-
-      <div style={{ textAlign: "right", paddingRight: 4 }}>
-        <div style={{ color: level.key === "critico" ? level.color : C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 900, whiteSpace: "nowrap" }}>
-          {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 650 }}>{group.unidad || "u"}</span>
-        </div>
+      <div>
+        <div style={{ color: level.color, fontFamily: C.mono, fontSize: 15, fontWeight: 950 }}>{fmtQty(group.total)}</div>
+        <div style={{ color: C.dim, fontSize: 9.5 }}>{group.unidad || "u"}</div>
       </div>
 
-      {compact ? (
-        <div title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, whiteSpace: "nowrap" }}>
-          {level.faltante > 0 ? `−${fmtQty(level.faltante)}` : "—"}
+      <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} />
+
+      <div>
+        <div style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>
+          {level.faltante > 0 ? fmtQty(level.faltante) : "—"}
         </div>
-      ) : (
-        <>
-          <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} />
-          <div title={level.faltante > 0 ? `Faltan ${fmtQty(level.faltante)} ${group.unidad || "u"} para el mínimo` : "Sin faltante"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900, whiteSpace: "nowrap" }}>
-            {level.faltante > 0 ? fmtQty(level.faltante) : "—"}
-          </div>
-        </>
-      )}
+        <div style={{ color: C.dim, fontSize: 9.5 }}>{level.faltante > 0 ? "para el mínimo" : "sin faltante"}</div>
+      </div>
 
       <div style={{ minWidth: 0 }}>
         {sinUbicacion ? <FaltaChip>ubicación</FaltaChip> : (
@@ -1541,13 +1483,23 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
         )}
       </div>
 
-      {!compact && <div style={{ minWidth: 0, display: "grid", justifyItems: "start", gap: 4 }}>
-        <ProductTableStatus group={group} />
-        {group.esRequisito && (
-          <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 950, letterSpacing: 0.5 }}>MATRIZ</span>
+      {/* El tipo de problema se lee desde la lista: es lo que permite decidir a
+          cuál entrar sin abrirlos de a uno. */}
+      <div style={{ minWidth: 0 }}>
+        <VerificacionChip estado={group.verificacion} compact />
+        {group.verificacion === "problema" && (group.verificacionProblemas || []).length > 0 && (
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3 }}>
+            {group.verificacionProblemas.slice(0, 2).map((clave) => (
+              <span key={clave} style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 5, padding: "0 5px", fontSize: 9, fontWeight: 900, whiteSpace: "nowrap" }}>
+                {PROBLEMA_LABEL[clave] || clave}
+              </span>
+            ))}
+            {group.verificacionProblemas.length > 2 && (
+              <span style={{ color: C.dim, fontSize: 9, fontWeight: 900 }}>+{group.verificacionProblemas.length - 2}</span>
+            )}
+          </div>
         )}
-        {group.esRequisito && onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
-      </div>}
+      </div>
 
       <ProductPrimaryAction action={primaryAction} />
     </div>
@@ -1601,41 +1553,38 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const isAssignment = rowIsAsignacionStock(row);
   const isTransit = rowIsTransit(row);
   const egresoMeta = rowEgresoMeta(row);
-  const label = isLocation ? "Ubicación" : isAssignment ? egresoMeta.label : isTransit ? "Tránsito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
+  const label = isLocation ? "Ubicacion" : isAssignment ? egresoMeta.label : isTransit ? "Transito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
   const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.violet : isOut ? egresoMeta.color : C.green;
   const descripcion = row.descripcion || "(sin descripcion)";
+  const codigo = row.codigo ? ` · ${row.codigo}` : "";
   const variante = String(row.variante || "").trim();
-  const ruta = (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`;
-  const retira = rowMovimientoRetira(row);
-  const usuario = rowMovimientoUsuario(row) || "sin registrar";
-  const nota = String(row.egreso_nota || row.notas || "").replace(/\[anulado\]/gi, "").trim();
+  const detalle = [
+    fmtDate(rowMovementAt(row)),
+    (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`,
+    variante ? `Variante: ${variante}` : "",
+    rowMovimientoRetira(row) ? `Retira: ${rowMovimientoRetira(row)}` : "",
+    `Usuario: ${rowMovimientoUsuario(row) || "sin registrar"}`,
+    row.egreso_nota || row.notas || "",
+  ].filter(Boolean).join(" · ");
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
   const yaAnulado = rowIsAnulado(row);
   return (
-    <article style={{ padding: "10px 0", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 7 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ color: labelColor, background: C.panel, border: `1px solid ${labelColor}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.3 }}>{yaAnulado ? "Anulado" : label}</span>
-          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.3, overflowWrap: "anywhere" }}>{descripcion}</span>
-          {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
-        </div>
-        <span style={{ flexShrink: 0, color: delta < 0 ? C.red : delta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>
-          {delta > 0 ? "+" : ""}{fmtQty(delta)} {row.unidad || ""}
+    <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 86px 150px", gap: 10, alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+      <span style={{ color: labelColor, fontSize: 11, fontWeight: 950 }}>{label}</span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{descripcion}{codigo}</span>
+        <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {detalle}
         </span>
-      </div>
-      <div style={{ color: C.text, fontSize: 11, lineHeight: 1.4, overflowWrap: "anywhere" }}>{ruta}</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
-        <span>{fmtDate(rowMovementAt(row))}</span>
-        {variante && <span>Variante: {variante}</span>}
-        {retira && <span>Retira: {retira}</span>}
-        <span>Usuario: {usuario}</span>
-      </div>
-      {nota && <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, paddingLeft: 8, borderLeft: `2px solid ${C.border2}` }}>{nota}</div>}
+      </span>
+      <span style={{ color: delta < 0 ? C.red : delta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, textAlign: "right" }}>
+        {delta > 0 ? "+" : ""}{fmtQty(delta)}
+      </span>
       {/* Revertir y devolver son cosas distintas y conviven:
             · Revertir  — el movimiento no debió existir. Se deshace.
             · Devolución — el movimiento estuvo bien, el material salió de
               verdad, pero volvió fallado. Es un evento nuevo, no un deshacer. */}
-      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+      <span style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
         {delta !== 0 && (
           <button
             type="button"
@@ -1658,8 +1607,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
             Generar devolución
           </button>
         )}
-      </div>
-    </article>
+      </span>
+    </div>
   );
 }
 
@@ -2979,8 +2928,6 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const [creatingLocationMaterial, setCreatingLocationMaterial] = useState(false);
   // Toggle C: ocultar filas ya anuladas en el kardex
   const [ocultarAnulados, setOcultarAnulados] = useState(false);
-  const [detailTab, setDetailTab] = useState("resumen");
-  const [actionOpen, setActionOpen] = useState(false);
   const obraById = useMemo(() => new Map((obras || []).map((obra) => [obra.id, obra])), [obras]);
 
   if (!group) {
@@ -3234,35 +3181,6 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     return <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>{locationEditor}</div>;
   }
 
-  function addSelectedToCart() {
-    const location = selectedLocation?.available > 0
-      ? selectedLocation
-      : group.locations.find((item) => item.available > 0);
-    if (!location) {
-      toast?.warning?.(`${group.label}: no hay stock recibido para agregar.`);
-      return;
-    }
-    const item = makeCartItem(group, location, {
-      cantidad: Math.min(1, location.available),
-      sede: sedeLocked || location.sede,
-      codigo: group.codigo,
-      unidad: group.unidad,
-    });
-    const currentQty = qty(cart.find((row) => row.key === item.key)?.cantidad, 0);
-    if (currentQty >= item.available - 0.0001) {
-      toast?.warning?.(`${group.label}: ya agregaste todo el stock disponible.`);
-      return;
-    }
-    setCart((current) => {
-      const exists = current.some((row) => row.key === item.key);
-      if (!exists) return [...current, item];
-      return current.map((row) => row.key === item.key
-        ? { ...row, cantidad: String(Math.min(qty(row.cantidad, 0) + 1, item.available)) }
-        : row);
-    });
-    toast?.success?.(`+1 ${group.label} al carrito`);
-  }
-
   return (
     <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -3287,53 +3205,28 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         </div>
       </div>
 
-      {mode !== "egreso" && (
-        <div role="tablist" aria-label="Detalle del producto" style={{ minHeight: 39, padding: "0 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "stretch", gap: 2, overflowX: "auto", flexShrink: 0 }}>
-          {[
-            ["resumen", "Resumen"],
-            ["movimientos", "Movimientos"],
-            ["control", "Control"],
-          ].map(([key, label]) => {
-            const active = !actionOpen && detailTab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                className="stock-wms-control"
-                role="tab"
-                aria-selected={active}
-                onClick={() => { setActionOpen(false); setDetailTab(key); }}
-                style={{ minHeight: isMobile ? 44 : 38, padding: "7px 10px", border: "none", borderBottom: `2px solid ${active ? C.blue : "transparent"}`, background: "transparent", color: active ? C.blue : C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: active ? 950 : 750, fontFamily: C.sans, whiteSpace: "nowrap" }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
-        {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && <div>
+        <div>
           <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Saldos por deposito / obra</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 7 }}>
             {group.locations.map((loc) => (
               <LocationButton key={loc.key} location={loc} active={selectedLocation?.key === loc.key} onClick={() => setSelectedLocationKey(loc.key)} />
             ))}
           </div>
-        </div>}
+        </div>
 
 
         {/* Sin la guarda de catalogOnly: escondía el panel en casos que no
             valía la pena adivinar, y desaparecer sin decir nada es peor que
             aparecer deshabilitado. Cuando no se puede revisar, el panel lo
             explica adentro. */}
-        {mode !== "egreso" && !actionOpen && detailTab === "control" && (
+        {mode !== "egreso" && (
           <VerificacionPanel group={group} canEdit={canReceive} onDone={onDone} toast={toast} />
         )}
 
-        {mode !== "egreso" && !actionOpen && detailTab === "control" && renderLocationSection()}
+        {mode !== "egreso" && renderLocationSection()}
 
-        {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && group.esAdicional && detalleAdicional.length > 0 && (
+        {group.esAdicional && detalleAdicional.length > 0 && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 6 }}>
             <div style={{ color: C.violet, fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 1 }}>Detalle del adicional</div>
             {detalleAdicional.map((detalle) => (
@@ -3342,7 +3235,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           </div>
         )}
 
-        {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && negativeLocations.length > 0 && (
+        {negativeLocations.length > 0 && (
           <div style={{ border: `1px solid ${group.negativo ? C.redB : C.violetB}`, background: group.negativo ? C.redL : C.violetL, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
             <div style={{ color: group.negativo ? C.red : C.violet, fontSize: 12.5, fontWeight: 950 }}>{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
             {!group.negativo && <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4 }}>El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
@@ -3372,7 +3265,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             cart={cart}
             setCart={setCart}
           />
-        ) : actionOpen ? (
+        ) : (
           <ProductActionPanel
             group={group}
             selectedLocation={selectedLocation}
@@ -3384,11 +3277,11 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             onDone={onDone}
             toast={toast}
           />
-        ) : null}
+        )}
 
         {mode === "egreso" && renderLocationSection(true)}
 
-        {(mode === "egreso" || (!actionOpen && detailTab === "movimientos")) && <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
+        <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1 }}>Kardex</div>
             <button
@@ -3413,26 +3306,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               {(ocultarAnulados && sortedRows.length) ? "Todos los movimientos están anulados. Desactivá el filtro para verlos." : "Producto sin movimientos todavía. Registrá un ingreso o una recepción antes de egresarlo."}
             </div>
           )}
-        </div>}
-      </div>
-      {mode !== "egreso" && canReceive && (
-        <div style={{ padding: "10px 12px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, display: "grid", gridTemplateColumns: actionOpen ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 8, flexShrink: 0 }}>
-          {actionOpen ? (
-            <button type="button" className="stock-wms-control" onClick={() => { setActionOpen(false); setDetailTab("resumen"); }} style={{ minHeight: isMobile ? 44 : 38, border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
-              Volver al resumen
-            </button>
-          ) : (
-            <>
-              <button type="button" className="stock-wms-control" onClick={() => setActionOpen(true)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
-                Registrar movimiento
-              </button>
-              <button type="button" className="stock-wms-control" onClick={addSelectedToCart} disabled={!group.locations.some((item) => item.available > 0)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 11px", cursor: group.locations.some((item) => item.available > 0) ? "pointer" : "default", opacity: group.locations.some((item) => item.available > 0) ? 1 : 0.5, fontSize: 12, fontWeight: 950, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                <ShoppingCart size={14} aria-hidden="true" /> Agregar al carrito
-              </button>
-            </>
-          )}
         </div>
-      )}
+      </div>
       {/* Devolución: el operario probó el material y volvió fallado. No vuelve a
           stock — queda apartado y Compras decide si se repara o se reclama. */}
       {devolucionTarget && (
@@ -4083,7 +3958,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const productListRef = useRef(null);
   const loadMoreRef = useRef(null);
@@ -4099,22 +3974,19 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fSede, setFSede] = useState(sedeLocked || "todas");
   const [fObra, setFObra] = useState(initialFObra);
   const [fCategoria, setFCategoria] = useState("todos");
-  const [fProveedor, setFProveedor] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
   const [scope, setScope] = useState(stockMaster && initialScope === "todos" ? "existencia" : initialScope);
   const [verifScope, setVerifScope] = useState("todos");
   const [verArchivados, setVerArchivados] = useState(false);
-  const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster || tableWorkspace ? "estado" : "default");
+  const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
-  const [stockView, setStockView] = useState(() => stockMaster || tableWorkspace ? "lista" : readStoredStockView());
+  const [stockView, setStockView] = useState(() => readStoredStockView());
   const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState(null);
   const [catalogMatches, setCatalogMatches] = useState([]);
   const [creating, setCreating] = useState(false);
   const [draftGroup, setDraftGroup] = useState(null);
-  const stockManagement = stockMaster || showCatalogInventory || tableWorkspace;
-  const streamlinedToolbar = stockMaster || tableWorkspace;
+  const stockManagement = stockMaster || showCatalogInventory;
   const obraScoped = fObra !== "todas";
   const canArchiveMatrix = canReceive && (stockMaster || obraScoped);
   // Carrito PERSISTENTE (localStorage): si estás egresando y surge otra cosa,
@@ -4158,15 +4030,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     } catch { /* almacenamiento bloqueado: seguimos sin persistir */ }
   }, [savedCarts]);
   const cartGroupKeys = useMemo(() => new Set(cart.map((it) => it.groupKey)), [cart]);
-  const cartGroupQuantity = useMemo(() => {
-    const map = new Map();
-    for (const item of cart) map.set(item.groupKey, (map.get(item.groupKey) || 0) + qty(item.cantidad, 0));
-    return map;
-  }, [cart]);
 
-  // Agregado rápido al carrito: suma una unidad desde la ubicación principal.
-  // El drawer no se abre solo para que se puedan seleccionar varios productos
-  // sin que un overlay interrumpa la lista.
+  // Agregado rápido al carrito desde la tarjeta (modo egreso): toma el stock disponible
+  // de la ubicación principal y lo suma al carrito, sin abrir el detalle.
   // useCallback: identidad estable para que las tarjetas memoizadas no se
   // re-rendericen todas en cada cambio de estado del panel.
   const quickAddToCart = useCallback((group) => {
@@ -4177,28 +4043,22 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return;
     }
     const item = makeCartItem(group, loc, {
-      cantidad: Math.min(1, loc.available),
+      cantidad: loc.available > 0 ? Number(loc.available.toFixed(2)) : 1,
       sede: sedeLocked || loc.sede,
       codigo: group.codigo,
       unidad: group.unidad,
     });
-    const currentQty = qty(cart.find((row) => row.key === item.key)?.cantidad, 0);
-    if (currentQty >= item.available - 0.0001) {
-      toast?.warning?.(`${group.label}: ya agregaste todo el stock disponible.`);
-      return;
-    }
     setCart((prev) => {
       const exists = prev.find((row) => row.key === item.key);
       if (!exists) return [...prev, item];
-      return prev.map((row) => row.key === item.key
-        ? { ...row, cantidad: String(Math.min(qty(row.cantidad, 0) + 1, item.available)) }
-        : row);
+      return prev.map((row) => row.key === item.key ? { ...row, ...item } : row);
     });
-    toast?.success?.(`+1 ${group.label} al carrito`);
-  }, [canReceive, cart, sedeLocked, toast]);
+    setCartOpen(true);
+    toast?.success?.(`${group.label} → carrito`);
+  }, [canReceive, sedeLocked, toast]);
 
   const primaryActionFor = useCallback((group) => {
-    if (!stockMaster && !tableWorkspace) return null;
+    if (!stockMaster) return null;
     const hasStock = Number(group?.total || 0) > 0.0001;
     const shouldReceive = group?.buckets?.has("en_camino") && (scope === "en_camino" || !hasStock);
     const shouldReplenish = group?.buckets?.has("reponer") && (scope === "reponer" || (!hasStock && !shouldReceive));
@@ -4226,13 +4086,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       };
     }
     if (hasStock && canReceive) {
-      const inCartQty = cartGroupQuantity.get(group.key) || 0;
+      const alreadyInCart = cartGroupKeys.has(group.key);
       return {
-        label: inCartQty > 0 ? `+1 · ${fmtQty(inCartQty)} u` : "Agregar",
-        title: inCartQty > 0 ? `${fmtQty(inCartQty)} ${group.unidad || "u"} en el carrito. Agregar una más` : "Agregar una unidad al carrito",
-        Icon: ShoppingCart,
-        compact: true,
-        badge: inCartQty > 0 ? fmtQty(inCartQty) : "",
+        label: alreadyInCart ? "En carrito" : "Egresar",
+        title: alreadyInCart ? "Actualizar el producto en el carrito" : "Agregar al egreso",
+        Icon: ArrowUpRight,
         color: C.green,
         border: C.greenB,
         background: C.greenL,
@@ -4260,7 +4118,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       };
     }
     return null;
-  }, [canReceive, cartGroupQuantity, onReceiveStock, onRequestReplenishment, quickAddToCart, scope, stockMaster, tableWorkspace]);
+  }, [canReceive, cartGroupKeys, onReceiveStock, onRequestReplenishment, quickAddToCart, scope, stockMaster]);
 
   const defaultSede = sedeLocked || (fSede !== "todas" ? fSede : "Pampa");
   const canShowHistory = mode === "egreso" || fObra !== "todas";
@@ -4356,21 +4214,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     return filtered;
   }, [inventoryRows, q, fObra, fCategoria, fSede, focusedMaterialId]);
 
-  // La agrupación del maestro es la parte más costosa con cientos de filas.
-  // Se calcula una sola vez para el alcance "Todos" y se reutiliza tanto en
-  // los contadores como en la lista, en lugar de recorrer el ledger dos veces.
-  const allKindGroups = useMemo(() => buildProductGroups(baseFilteredRows, fObra), [baseFilteredRows, fObra]);
   const kindCounts = useMemo(() => {
-    const groups = fProveedor === "todos"
-      ? allKindGroups
-      : allKindGroups.filter((group) => norm(group.proveedor) === norm(fProveedor));
+    const groups = buildProductGroups(baseFilteredRows, fObra);
     return {
       todos: groups.length,
       stock: groups.filter((group) => group.tipoPedido === "stock").length,
       estandar: groups.filter((group) => group.tipoPedido === "estandar").length,
       adicional: groups.filter((group) => group.tipoPedido === "adicional").length,
     };
-  }, [allKindGroups, fProveedor]);
+  }, [baseFilteredRows, fObra]);
 
   const searchedRows = useMemo(() => {
     if (kindScope === "stock") return baseFilteredRows.filter((row) => rowTipoPedido(row) === "stock");
@@ -4393,10 +4245,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   }, [obras, rows]);
 
   const categoriaOptions = useMemo(() => filterOptions(inventoryRows, categoryLabel), [inventoryRows]);
-  const proveedorOptions = useMemo(
-    () => filterOptions([...inventoryRows, ...replenishmentCatalog, ...catalogRows], providerLabel),
-    [catalogRows, inventoryRows, replenishmentCatalog],
-  );
   const scanRows = useMemo(() => {
     let filtered = rows;
     if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
@@ -4406,14 +4254,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     if (kindScope === "adicional") filtered = filtered.filter((row) => rowTipoPedido(row) === "adicional");
     return filtered;
   }, [rows, fObra, fCategoria, kindScope]);
-  const scanGroups = useMemo(
-    () => buildProductGroups(scanRows, fObra).filter((group) => fProveedor === "todos" || norm(group.proveedor) === norm(fProveedor)),
-    [fObra, fProveedor, scanRows],
-  );
+  const scanGroups = useMemo(() => buildProductGroups(scanRows, fObra), [scanRows, fObra]);
 
   const productGroupsBase = useMemo(() => {
-    const stockGroups = (kindScope === "todos" ? allKindGroups : buildProductGroups(searchedRows, fObra))
-      .filter((group) => fProveedor === "todos" || norm(group.proveedor) === norm(fProveedor));
+    const stockGroups = buildProductGroups(searchedRows, fObra);
     if (stockMaster) {
       const stockedIds = new Set(stockGroups.map((group) => group.material?.id).filter(Boolean));
       const term = norm(q);
@@ -4422,7 +4266,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         .filter((material) => !focusedMaterialId || material.id === focusedMaterialId)
         .filter((material) => !term || materialMatchScore(material, q) >= 42)
         .filter(() => fCategoria === "todos")
-        .filter((material) => fProveedor === "todos" || norm(providerLabel(material)) === norm(fProveedor))
         .map((material) => {
           const group = emptyCatalogGroup(material, sedeLocked || (fSede !== "todas" ? fSede : "Pampa"));
           group.catalogOnly = false;
@@ -4445,7 +4288,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const catalogOnly = catalogRows
       .filter((material) => !stockedIds.has(material.id))
       .filter((material) => !term || materialMatchScore(material, q) >= 42)
-      .filter((material) => fProveedor === "todos" || norm(providerLabel(material)) === norm(fProveedor))
       .map((material) => {
         const group = emptyCatalogGroup(material, sedeLocked || (fSede !== "todas" ? fSede : "Pampa"));
         const category = categoryById.get(material.categoria_id) || "";
@@ -4455,7 +4297,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       })
       .filter((group) => fCategoria === "todos" || group.categorias.has(fCategoria));
     return [...stockGroups, ...catalogOnly];
-  }, [allKindGroups, catalogRows, fCategoria, fObra, fProveedor, fSede, focusedMaterialId, kindScope, q, replenishmentCatalog, rows, searchedRows, sedeLocked, showCatalogInventory, stockMaster]);
+  }, [catalogRows, fCategoria, fObra, fSede, focusedMaterialId, kindScope, q, replenishmentCatalog, rows, searchedRows, sedeLocked, showCatalogInventory, stockMaster]);
   const stockLevelCounts = useMemo(() => {
     const counts = { critico: 0, alerta: 0, ok: 0, sin_minimo: 0 };
     productGroupsBase.forEach((group) => { counts[stockLevel(group).key] += 1; });
@@ -4584,7 +4426,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   useEffect(() => {
     setRenderLimit(PRODUCT_RENDER_BATCH);
-  }, [fCategoria, fObra, fProveedor, fSede, kindScope, orderBy, q, scope, stockView, verArchivados, verifScope]);
+  }, [fCategoria, fObra, fSede, kindScope, orderBy, q, scope, stockView, verArchivados, verifScope]);
 
   // La lista se entrega en tandas para no congelar la pantalla, pero cargar la
   // tanda siguiente no debe depender de que alguien descubra un botón al final.
@@ -4632,10 +4474,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   useEffect(() => {
     if (fCategoria !== "todos" && !categoriaOptions.some(([key]) => key === fCategoria)) setFCategoria("todos");
   }, [fCategoria, categoriaOptions]);
-
-  useEffect(() => {
-    if (fProveedor !== "todos" && !proveedorOptions.some(([key]) => key === fProveedor)) setFProveedor("todos");
-  }, [fProveedor, proveedorOptions]);
 
   useEffect(() => {
     let alive = true;
@@ -4775,44 +4613,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     onScan: applyScanCode,
   });
 
-  const defaultOrder = showCatalogInventory || stockMaster || tableWorkspace ? "estado" : "default";
-  const advancedFilterCount = [
-    verifScope !== "todos",
-    orderBy !== defaultOrder,
-    kindScope !== "todos",
-    fObra !== initialFObra,
-    fCategoria !== "todos",
-    fProveedor !== "todos",
-    !sedeLocked && fSede !== "todas",
-  ].filter(Boolean).length;
-  const compactStockTable = stockManagement && hasSelectedProduct;
-
-  function clearAdvancedFilters() {
-    setVerifScope("todos");
-    setOrderBy(defaultOrder);
-    setKindScope("todos");
-    setFObra(initialFObra || "todas");
-    setFCategoria("todos");
-    setFProveedor("todos");
-    if (!sedeLocked) setFSede("todas");
-  }
-
   return (
     <>
-      <style>{`
-        .stock-wms-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-        .stock-product-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
-        .stock-minimum-input:not(.is-active):hover:not(:disabled){border-color:var(--border)!important;background:var(--panel-solid)!important}
-      `}</style>
       <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "grid", gap: 7, flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 320 }}>
             <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
             <input
-              className="stock-wms-control"
               ref={searchInputRef}
               value={q}
-              aria-label={stockMaster ? "Buscar producto, código o ubicación" : "Escanear o buscar producto"}
               onChange={(event) => { setQ(event.target.value); setFocusedMaterialId(""); }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === "Tab") {
@@ -4820,56 +4629,26 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   applyScanCode(q);
                 }
               }}
-              placeholder={stockMaster ? "Buscar producto, código o ubicación…" : mode === "egreso" ? "Escanear o buscar código / producto…" : "Escanear o buscar código, producto, obra o proveedor…"}
+              placeholder={mode === "egreso" ? "Escanear o buscar codigo / producto..." : "Escanear o buscar codigo, producto, obra, proveedor..."}
               title="Acepta lector USB/PC: escanea y confirma con Enter o Tab"
-              style={{ width: "100%", minHeight: isMobile ? 44 : 36, boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "9px 34px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }}
+              style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "9px 34px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }}
             />
             {q && (
               <button type="button" onClick={() => { setQ(""); setFocusedMaterialId(""); }} title="Limpiar" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 4 }}>
-              <X size={14} />
+                <X size={14} />
               </button>
             )}
           </div>
-          {streamlinedToolbar && (
-            <button
-              type="button"
-              className="stock-wms-control"
-              onClick={() => setFiltersOpen((value) => !value)}
-              aria-expanded={filtersOpen}
-              aria-controls="stock-advanced-filters"
-              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${filtersOpen || advancedFilterCount ? C.blueB : C.border}`, background: filtersOpen || advancedFilterCount ? C.blueL : C.panelSolid, color: filtersOpen || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
-            >
-              <SlidersHorizontal size={14} />
-              Filtros
-              {advancedFilterCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: C.blue, color: "#fff", fontFamily: C.mono, fontSize: 10, fontWeight: 950 }}>{advancedFilterCount}</span>}
-            </button>
-          )}
-          <button type="button" className="stock-wms-control" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
+          <button type="button" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
             <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
           </button>
-          {canReceive && (cart.length > 0 || savedCarts.length > 0) && (
-            <button
-              type="button"
-              className="stock-wms-control"
-              onClick={() => setCartOpen((value) => !value)}
-              aria-expanded={cartOpen}
-              title={cart.length ? `${cart.length} productos · ${fmtQty(cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0))} unidades` : `${savedCarts.length} carritos guardados`}
-              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.greenB}`, background: cartOpen ? C.green : C.greenL, color: cartOpen ? "#fff" : C.green, borderRadius: 10, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 900, fontFamily: C.sans, flexShrink: 0 }}
-            >
-              {cart.length ? <ShoppingCart size={15} aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}
-              {!isMobile && <span>Carrito</span>}
-              <span aria-label={cart.length ? `${cart.length} productos en el carrito` : `${savedCarts.length} carritos guardados`} style={{ minWidth: 19, height: 19, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: cartOpen ? "rgba(255,255,255,0.2)" : C.panelSolid, color: cartOpen ? "#fff" : C.green, fontFamily: C.mono, fontSize: 10, fontWeight: 950 }}>
-                {cart.length || savedCarts.length}
-              </span>
-            </button>
-          )}
-          {canReceive && !streamlinedToolbar && (
+          {canReceive && (
             <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla para la persona que retira" style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
               <MonitorUp size={16} />{!isMobile && <span>Pantalla de retiro</span>}
             </button>
           )}
           <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
-          {canShowHistory && !streamlinedToolbar && (
+          {canShowHistory && (
             <div style={{ display: "inline-flex", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: 3, gap: 3, flexShrink: 0 }}>
               {[
                 ["egresar", mode === "egreso" ? "Egresar" : "Stock"],
@@ -4899,9 +4678,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           )}
         </div>
 
-        {(!streamlinedToolbar || filtersOpen) && (
-        <div id="stock-advanced-filters" style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", minWidth: 0, padding: streamlinedToolbar ? "8px 10px" : 0, border: streamlinedToolbar ? `1px solid ${C.border}` : "none", borderRadius: streamlinedToolbar ? 10 : 0, background: streamlinedToolbar ? C.panelSolid : "transparent" }}>
-          {!streamlinedToolbar && <SelectFilter label="Estado" value={scope} onChange={setScope} options={[
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", minWidth: 0 }}>
+          <SelectFilter label="Estado" value={scope} onChange={setScope} options={stockMaster ? [
+            ["existencia", `Hay (${kpis.productos})`],
+            ["reponer", `Reponer (${kpis.reponer || 0})`],
+            ["en_camino", `En camino (${productGroupsBase.filter((group) => group.buckets?.has("en_camino")).length})`],
+            ["sin_ubicacion", `Sin ubicación (${kpis.sinUbicacion})`],
+            ["reconciliar", `A reconciliar (${kpis.negativos})`],
+            ["todos", `Todo operativo (${productGroupsBase.length})`],
+          ] : [
             ["todos", "Todos"],
             ...(showCatalogInventory ? [
               ["critico", `Críticos (${stockLevelCounts.critico})`],
@@ -4911,7 +4696,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ] : []),
             ["negativos", "A reconciliar"],
             ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
-          ]} />}
+          ]} />
           {stockManagement && (
             <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
               ["todos", `Todos (${verifCounts.todos})`],
@@ -4929,43 +4714,27 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
           <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
-          <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedorOptions} />
           {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}
-          {streamlinedToolbar && advancedFilterCount > 0 && (
-            <button type="button" onClick={clearAdvancedFilters} style={{ minHeight: 36, border: "none", background: "transparent", color: C.blue, padding: "7px 8px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>
-              Limpiar filtros
-            </button>
-          )}
           <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: "9px 10px", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center" }}>
             <RefreshCw size={15} />
           </button>
         </div>
-        )}
 
         {stockMaster && (
-          <div aria-label="Señales rápidas de inventario" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30 }}>
             {[
-              ["existencia", "Con stock", kpis.productos, C.green, C.greenL, C.greenB],
-              ["reponer", "Reponer", kpis.reponer || 0, C.amber, C.amberL, C.amberB],
+              ["existencia", "Hay", kpis.productos, C.green, C.greenL, C.greenB],
+              ["reponer", "Reponer", kpis.reponer || 0, C.red, C.redL, C.redB],
               ["en_camino", "En camino", productGroupsBase.filter((group) => group.buckets?.has("en_camino")).length, C.blue, C.blueL, C.blueB],
               ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, C.violet, C.violetL, C.violetB],
-              ["revisar", "A revisar", verifCounts.pendiente, C.violet, C.violetL, C.violetB],
               ["reconciliar", "A reconciliar", kpis.negativos, C.red, C.redL, C.redB],
             ].map(([key, label, count, color, background, border]) => {
-              const active = key === "revisar" ? verifScope === "pendiente" : scope === key && verifScope !== "pendiente";
+              const active = scope === key;
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => {
-                    if (key === "revisar") {
-                      setScope("todos");
-                      setVerifScope(active ? "todos" : "pendiente");
-                    } else {
-                      setVerifScope("todos");
-                      setScope(active ? "todos" : key);
-                    }
-                  }}
+                  onClick={() => setScope(active ? "todos" : key)}
                   aria-pressed={active}
                   style={{
                     display: "inline-flex",
@@ -4992,11 +4761,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             })}
             <button
               type="button"
-              onClick={() => { setScope("todos"); setVerifScope("todos"); }}
+              onClick={() => setScope("todos")}
               style={{
                 border: "none",
                 background: "transparent",
-                color: scope === "todos" && verifScope === "todos" ? C.blue : C.dim,
+                color: scope === "todos" ? C.blue : C.dim,
                 padding: "5px 7px",
                 cursor: "pointer",
                 fontSize: 10.5,
@@ -5004,8 +4773,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 fontFamily: C.sans,
               }}
             >
-              Ver todo ({productGroupsBase.length})
+              Ver todo operativo ({productGroupsBase.length})
             </button>
+            <span style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>
+              Un producto puede aparecer en más de una señal.
+            </span>
           </div>
         )}
 
@@ -5037,7 +4809,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             stock, que el Stock maestro dejo de mostrar. Se llevo puesto de
             paso la barrita y los filtros de revisado, que contestan otra
             pregunta distinta. Ahora van por su cuenta. */}
-        {stockManagement && verifCounts.todos > 0 && (!streamlinedToolbar || filtersOpen) && (
+        {stockManagement && verifCounts.todos > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 6, marginTop: 6 }}>
             <ShieldCheck size={13} style={{ color: C.blue, flexShrink: 0 }} />
             <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
@@ -5102,7 +4874,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
         </div>
       ) : (
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "12px 16px 16px", display: "grid", gridTemplateColumns: isMobile || !hasSelectedProduct ? "1fr" : stockManagement ? "minmax(0, 1fr) minmax(360px, 430px)" : "330px minmax(0, 1fr)", gap: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "12px 16px 16px", display: "grid", gridTemplateColumns: isMobile || !hasSelectedProduct ? "1fr" : "330px minmax(0, 1fr)", gap: 12 }}>
         {/* En mobile, con un producto abierto el detalle ocupa TODO: apilados se
             peleaban la altura y el detalle quedaba cortado. El botón "Lista" del
             detalle vuelve a la lista. En desktop conviven lado a lado. */}
@@ -5148,26 +4920,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </div>
           <div ref={productListRef} style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
             {stockManagement && stockView === "lista" && !loading && productGroups.length > 0 && (
-              <div style={{ minWidth: compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS, gap: 12, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 10.5, fontWeight: 850, letterSpacing: 0.15 }}>
+              <div style={{ minWidth: STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: STOCK_ROW_COLS, gap: 12, padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
                 <span />
                 <span>Producto</span>
-                {!compactStockTable && <span>Rubro</span>}
-                <span style={{ textAlign: "right", paddingRight: 4 }}>Stock</span>
-                {compactStockTable ? (
-                  <>
-                    <span>Faltante</span>
-                    <span>Ubicación</span>
-                    <span>Acción</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Mínimo</span>
-                    <span>Faltante</span>
-                    <span>Ubicación</span>
-                    <span>Estado</span>
-                    <span>Acción</span>
-                  </>
-                )}
+                <span>Stock</span>
+                <span>Mínimo</span>
+                <span>Faltante</span>
+                <span>Ubicación</span>
+                <span>Revisión</span>
+                <span>Acción</span>
               </div>
             )}
             {loading ? (
@@ -5188,7 +4949,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {renderedProductGroups.map((group) => {
                   const primaryAction = primaryActionFor(group);
                   return stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} />
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} />
                     : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />;
                 })}
                 {hiddenProductCount > 0 && (
@@ -5198,7 +4959,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                     onClick={() => setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length))}
                     style={{
                       gridColumn: "1 / -1",
-                      minWidth: stockManagement && stockView === "lista" ? (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN) : 0,
+                      minWidth: stockManagement && stockView === "lista" ? STOCK_ROW_MIN : 0,
                       border: `1px solid ${C.blueB}`,
                       background: C.blueL,
                       color: C.blue,
@@ -5268,20 +5029,44 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       </div>
       )}
 
-      {/* El acceso vive en la barra superior: no tapa el pie del detalle ni la lista. */}
-      {canReceive && cartOpen && (cart.length > 0 || savedCarts.length > 0) && (
-        <CartDrawer
-          cart={cart}
-          setCart={setCart}
-          obras={obras}
-          canReceive={canReceive}
-          onDone={async () => { setCartOpen(false); await cargar({ force: true }); }}
-          toast={toast}
-          isMobile={isMobile}
-          onClose={() => setCartOpen(false)}
-          savedCarts={savedCarts}
-          setSavedCarts={setSavedCarts}
-        />
+      {/* ── Carrito flotante (stock maestro / por obra): juntar ítems y egresar/asignar en lote ── */}
+      {canReceive && (cart.length > 0 || savedCarts.length > 0) && (
+        <>
+          {cartOpen && (
+            <CartDrawer
+              cart={cart}
+              setCart={setCart}
+              obras={obras}
+              canReceive={canReceive}
+              onDone={async () => { setCartOpen(false); await cargar({ force: true }); }}
+              toast={toast}
+              isMobile={isMobile}
+              onClose={() => setCartOpen(false)}
+              savedCarts={savedCarts}
+              setSavedCarts={setSavedCarts}
+            />
+          )}
+          {/* Corrido a la izquierda para no tapar la campanita de notificaciones (esquina inferior derecha) */}
+          <button
+            type="button"
+            onClick={() => setCartOpen((v) => !v)}
+            title="Carrito: egresar o asignar los ítems juntados"
+            style={{
+              position: "fixed", right: isMobile ? 70 : 88, bottom: isMobile ? 12 : 20, zIndex: 81,
+              display: "inline-flex", alignItems: "center", gap: 8,
+              border: "none", background: "#059669", color: "#fff",
+              borderRadius: 999, padding: "12px 18px", cursor: "pointer",
+              fontSize: 13.5, fontWeight: 950, fontFamily: C.sans,
+              boxShadow: "0 10px 26px -8px rgba(5,150,105,0.55)",
+            }}
+          >
+            <ShoppingCart size={17} />
+            Carrito
+            <span title={cart.length ? `${cart.length} producto(s) · ${fmtQty(cart.reduce((sum, it) => sum + qty(it.cantidad, 0), 0))} unidades` : `${savedCarts.length} guardado(s)`} style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, background: "rgba(255,255,255,0.25)", borderRadius: 999, padding: "1px 8px" }}>
+              {cart.length ? `${cart.length} · ${fmtQty(cart.reduce((sum, it) => sum + qty(it.cantidad, 0), 0))} u` : `💾${savedCarts.length}`}
+            </span>
+          </button>
+        </>
       )}
     </>
   );

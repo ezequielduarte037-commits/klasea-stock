@@ -1,6 +1,6 @@
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -67,7 +67,7 @@ import {
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
-import { ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
+import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
 import { obraThemeScope } from "./obra/obraListaPresentation";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney, textoTooltip } from "./format";
@@ -3867,7 +3867,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [rubroFilter, setRubroFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
-  const [estadoFilter, setEstadoFilter] = useState("todos");
+  // Conjunto de etiquetas de estado elegidas en el filtro de la columna.
+  // Vacío = todas, como una planilla sin filtro puesto.
+  const [estadosSel, setEstadosSel] = useState(() => new Set());
   const [groupBy, setGroupBy] = useState("rubro");
   const [selected, setSelected] = useState(() => new Set());
   const [copied, setCopied] = useState(false);
@@ -3998,7 +4000,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setSelected(new Set());
     setSnapshot([]);
     setFlowMsg(null);
-    setEstadoFilter("todos");
+    setEstadosSel(new Set());
     setCondicionantesObra(new Map());
     setExclusionesObra([]);
     setObraPanel("");
@@ -4233,19 +4235,6 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       : { label: "Lista fijada", color: C.green, border: C.greenB, bg: C.greenL }
     : { label: "Matriz viva", color: C.t2, border: C.b0, bg: C.s0 };
 
-  const facets = useMemo(() => {
-    const proveedoresSet = new Set();
-    const rubrosSet = new Set();
-    rows.forEach((row) => {
-      if (row.proveedor) proveedoresSet.add(row.proveedor);
-      if (row.rubro) rubrosSet.add(row.rubro);
-    });
-    return {
-      proveedores: [...proveedoresSet].sort((a, b) => a.localeCompare(b, "es")),
-      rubros: [...rubrosSet].sort((a, b) => a.localeCompare(b, "es")),
-    };
-  }, [rows]);
-
   // Etapas de compra donde está cargado el material de esta fila. Los adicionales
   // sin material_id nunca están en una etapa: cuentan como "sin asignar", que es
   // justamente lo que hay que revisar.
@@ -4269,7 +4258,10 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     return counts;
   }, [etapasObra, rows, etapasDeRow]);
 
-  const visibleRows = useMemo(() => {
+  // Todo menos el estado. El filtro de la columna Estado cuenta sobre esto, como
+  // en una planilla: los números que muestra ya tienen aplicado el resto de los
+  // filtros, no son los de la obra entera.
+  const rowsSinEstado = useMemo(() => {
     return rows
       .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
@@ -4280,20 +4272,6 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         return etapas.some((e) => e.id === etapaFilter);
       })
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
-      .filter((row) => {
-        if (estadoFilter === "todos") return true;
-        const estado = estadoObraForRow(row);
-        // Tres cosas distintas que antes eran una sola:
-        //   · falta comprar  → nadie hizo nada. Se compra.
-        //   · en compras     → salió de la obra, todavía no llegó. Se espera.
-        //   · falta entregar → está en el pañol. Se va a buscar.
-        // Lo que estaba comprado pero no recibido NO es "falta entregar":
-        // mandar a alguien al pañol a buscar algo que no llegó es el viaje al
-        // pedo que este casillero evita.
-        if (estadoFilter === "en_compras") return estado === "pedido" || estado === "comprado";
-        if (estadoFilter === "falta_entregar") return estado === "en_panol";
-        return estado === estadoFilter;
-      })
       .filter((row) => matchesFlexibleSearch(
         deferredQ,
         row.descripcion,
@@ -4318,7 +4296,34 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           cantidadOrigenEtapa: true,
         };
       });
-  }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, estadoFilter, etapaFilter, etapasDeRow]);
+  }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, etapaFilter, etapasDeRow]);
+
+  // Cuenta por etiqueta sobre toda la obra. La usan los números de arriba.
+  const conteoEstadoObra = useMemo(() => {
+    const m = new Map();
+    for (const row of rows) { const l = estadoMetaDeFila(row).label; m.set(l, (m.get(l) || 0) + 1); }
+    return m;
+  }, [rows]);
+
+  // Las opciones del filtro de la columna Estado: las etiquetas que la columna
+  // muestra de verdad, con su cuenta, en el orden del recorrido del material.
+  const estadoOpciones = useMemo(() => {
+    const cuenta = new Map();
+    for (const row of rowsSinEstado) {
+      const meta = estadoMetaDeFila(row);
+      const previo = cuenta.get(meta.label);
+      cuenta.set(meta.label, { value: meta.label, label: meta.label, color: meta.color, count: (previo?.count || 0) + 1 });
+    }
+    return [...cuenta.values()].sort((a, b) => {
+      const ia = ORDEN_ETIQUETA_ESTADO.indexOf(a.label), ib = ORDEN_ETIQUETA_ESTADO.indexOf(b.label);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }, [rowsSinEstado]);
+
+  const visibleRows = useMemo(
+    () => (estadosSel.size ? rowsSinEstado.filter((row) => estadosSel.has(estadoMetaDeFila(row).label)) : rowsSinEstado),
+    [rowsSinEstado, estadosSel],
+  );
 
   const groupedRows = useMemo(() => {
     const map = new Map();
@@ -5121,7 +5126,20 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   const obraButton = { ...BTN, minHeight: isMobile ? 44 : 32, padding: "5px 9px", borderRadius: 6, fontSize: 12, fontWeight: 550, boxShadow: "none", background: C.panelSolid, color: C.text };
   const obraSelect = { ...INP, height: isMobile ? 44 : 34, minWidth: 0, width: "auto", maxWidth: isMobile ? "100%" : 240, borderRadius: 6, fontSize: 12, padding: "5px 8px" };
-  const activeObraFilterCount = [proveedorFilter, rubroFilter, estadoFilter !== "todos", tipoFilter !== "todos", etapaFilter !== "todos", q.trim()].filter(Boolean).length;
+  const facets = useMemo(() => {
+    const proveedoresSet = new Set();
+    const rubrosSet = new Set();
+    rows.forEach((row) => {
+      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      if (row.rubro) rubrosSet.add(row.rubro);
+    });
+    return {
+      proveedores: [...proveedoresSet].sort((a, b) => a.localeCompare(b, "es")),
+      rubros: [...rubrosSet].sort((a, b) => a.localeCompare(b, "es")),
+    };
+  }, [rows]);
+
+  const activeObraFilterCount = [proveedorFilter, rubroFilter, estadosSel.size > 0, tipoFilter !== "todos", etapaFilter !== "todos", q.trim()].filter(Boolean).length;
   const detailRow = visibleRows.find((row) => row.id === openActionsRowId) || rows.find((row) => row.id === openActionsRowId);
   const detailIndex = visibleRows.findIndex((row) => row.id === openActionsRowId);
 
@@ -5140,10 +5158,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   function getObraRowView(row) {
     const cant = cantidadesDeFila(row);
-    const estado = estadoObraForRow(row);
-    const partial = (estado !== "egresado" && row.recepcion_estado === "parcial") || (cant.entregado > 0 && cant.entregado < cant.necesita);
-    const meta = recepcionMetaForRow(row);
-    const status = partial ? { label: "Parcial", color: C.violet, bg: C.violetL, border: C.violetB, title: `Recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}` } : { ...meta, label: estado === "pedido" ? "Pedido" : estado === "egresado" ? "Entregado" : meta.label };
+    const status = estadoMetaDeFila(row);
     const material = row.material || materialById.get(row.materialId);
     const rowImageUrl = row.producto?.imagen_url || materialVariantImageUrl(material, row.variante) || String(row.imagen_url || material?.imagen_url || material?.imagenes?.[0]?.url || "").trim();
     const action = accionDeFila(row);
@@ -5320,13 +5335,20 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           <h2 style={{ margin: 0, fontSize: 20, lineHeight: 1.2, fontWeight: 650, color: C.text }}>Obra {obra.codigo}</h2>
           <span style={{ fontSize: 11, color: C.muted }}>{kpis.items.toLocaleString("es-AR")} ítems · {snapshotStatus.label}</span>
         </div>
+        {/* Cada número es un atajo al filtro de la columna Estado: cuenta las
+            mismas etiquetas que después vas a ver, así el número y el resultado
+            no se pueden despegar. */}
         <div style={{ display: "flex", flex: "1 1 auto", gap: 3, flexWrap: "wrap" }}>
           {[
-            ["pendiente", "Por comprar", kpis.pendientes, C.blue],
-            ["en_compras", "En compras", kpis.pedidos + kpis.comprados, C.cyan],
-            ["falta_entregar", "Por entregar", kpis.enPanol, C.violet],
-            ["egresado", "Entregados", kpis.egresados, C.green],
-          ].map(([key, label, value, color]) => <button key={key} type="button" aria-pressed={estadoFilter === key} onClick={() => setEstadoFilter(estadoFilter === key ? "todos" : key)} style={{ display: "grid", gap: 3, border: "none", borderLeft: `1px solid ${C.border}`, borderBottom: `2px solid ${estadoFilter === key ? color : "transparent"}`, background: "transparent", textAlign: "left", padding: "4px 13px", cursor: "pointer", fontFamily: C.sans }}><span style={{ display: "block", fontSize: 11, color: C.muted }}>{label}</span><strong style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 650, color }}>{value.toLocaleString("es-AR")}</strong></button>)}
+            ["Por comprar", ["Pendiente"], C.blue],
+            ["En compras", ["Pedido", "Comprado"], C.cyan],
+            ["Por entregar", ["En pañol"], C.violet],
+            ["Entregados", ["Entregado"], C.green],
+          ].map(([label, etiquetas, color]) => {
+            const value = etiquetas.reduce((sum, e) => sum + (conteoEstadoObra.get(e) || 0), 0);
+            const puesto = etiquetas.length === estadosSel.size && etiquetas.every((e) => estadosSel.has(e));
+            return <button key={label} type="button" aria-pressed={puesto} onClick={() => setEstadosSel(puesto ? new Set() : new Set(etiquetas))} style={{ display: "grid", gap: 3, border: "none", borderLeft: `1px solid ${C.border}`, borderBottom: `2px solid ${puesto ? color : "transparent"}`, background: "transparent", textAlign: "left", padding: "4px 13px", cursor: "pointer", fontFamily: C.sans }}><span style={{ display: "block", fontSize: 11, color: C.muted }}>{label}</span><strong style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 650, color }}>{value.toLocaleString("es-AR")}</strong></button>;
+          })}
         </div>
         <div style={{ fontSize: 11, color: C.muted, textAlign: "right" }}>
           <div>Valorización parcial</div>
@@ -5589,14 +5611,11 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             <Search aria-hidden="true" size={14} style={{ position: "absolute", top: "50%", left: 10, transform: "translateY(-50%)", color: C.muted }} />
             <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar material, código o proveedor" style={{ ...INP, width: "100%", boxSizing: "border-box", paddingLeft: 32, height: 34, borderRadius: 6, fontSize: 12 }} />
           </div>
-          <select aria-label="Estado del material" value={estadoFilter} onChange={(event) => setEstadoFilter(event.target.value)} style={obraSelect}>
-            {[...recepcionFilterOptions(kpis), ["pedido", `Pedido (${kpis.pedidos || 0})`], ["en_compras", `En compras (${kpis.pedidos + kpis.comprados})`], ["falta_entregar", `Por entregar (${kpis.enPanol || 0})`]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}
-          </select>
           <select aria-label="Agrupar materiales" value={groupBy} onChange={(event) => setGroupBy(event.target.value)} style={obraSelect}>
             <option value="rubro" style={OPT_ST}>Por rubro</option><option value="proveedor" style={OPT_ST}>Por proveedor</option><option value="etapa" style={OPT_ST}>Por etapa</option><option value="tipo" style={OPT_ST}>Por tipo</option>
           </select>
           <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} style={{ ...obraButton, color: activeObraFilterCount ? C.blue : C.muted }}><SlidersHorizontal size={13} />Filtros{activeObraFilterCount ? ` · ${activeObraFilterCount}` : ""}</button>
-          {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadoFilter("todos"); setEtapaFilter("todos"); }} style={obraButton}>Limpiar filtros</button>}
+          {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadosSel(new Set()); setEtapaFilter("todos"); }} style={obraButton}>Limpiar filtros</button>}
         </div>
         {filtersOpen && <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <select aria-label="Proveedor" value={proveedorFilter} onChange={(event) => setProveedorFilter(event.target.value)} style={{ ...obraSelect, maxWidth: "100%" }}><option value="" style={OPT_ST}>Todos los proveedores</option>{facets.proveedores.map((name) => <option key={name} value={name} style={OPT_ST}>{name}</option>)}</select>
@@ -5617,8 +5636,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       <ObraListaTable
         key={obra.id}
         groups={groupedRows} allRows={rows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
-        filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, estadoFilter, etapaFilter, groupBy])}
+        filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, [...estadosSel].sort(), etapaFilter, groupBy])}
         selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={openActionsRowId}
+        estadoOpciones={estadoOpciones} estadosSel={estadosSel} onEstados={setEstadosSel}
         onImageUploaded={async () => { await onChanged?.(); await cargarSnapshot(); }}
       />
       {detailRow && <ObraItemDrawer
@@ -5647,12 +5667,35 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   );
 }
 
+// Ocho columnas fijas con scroll horizontal por debajo de 860px. Colapsarlas
+// en pantalla angosta no achica la fila: envuelve y cada ítem pasa a medir
+// varios renglones, que es justo lo que se quería sacar.
+const MATRIZ_COLS = "38px minmax(230px,1.7fr) minmax(104px,.5fr) minmax(140px,.7fr) 104px 104px 100px 72px";
+
 function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiales, proveedores = [], opciones = [], ums, onChanged, onBack, onSelectObra, onSelectLinea }) {
+  // La tabla necesita alto propio: un contenedor con overflow-x crea su propio
+  // scrollport y sin alto el encabezado sticky no se pega a nada.
+  const listaRef = useRef(null);
+  const [listaAlto, setListaAlto] = useState(560);
+  useEffect(() => {
+    const medir = () => {
+      const caja = listaRef.current?.getBoundingClientRect();
+      if (caja) setListaAlto(Math.max(360, window.innerHeight - caja.top - 16));
+    };
+    const obs = new ResizeObserver(medir);
+    if (listaRef.current) obs.observe(listaRef.current);
+    window.addEventListener("resize", medir);
+    medir();
+    return () => { obs.disconnect(); window.removeEventListener("resize", medir); };
+  }, []);
+
   const [q, setQ] = useState("");
   const deferredQ = useDeferredValue(q);
-  const [proveedorFilter, setProveedorFilter] = useState("");
+  // Conjuntos, no valores sueltos: se filtra desde el encabezado de la
+  // columna y se pueden tildar varios, como en una planilla.
+  const [proveedoresSel, setProveedoresSel] = useState(() => new Set());
   const [proveedorTipoFilter, setProveedorTipoFilter] = useState("todos");
-  const [rubroFilter, setRubroFilter] = useState("");
+  const [rubrosSel, setRubrosSel] = useState(() => new Set());
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [groupBy, setGroupBy] = useState("proveedor");
   const [selected, setSelected] = useState(() => new Set());
@@ -5661,7 +5704,6 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   const [removingId, setRemovingId] = useState("");
   const [statsOpen, setStatsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [obrasOpen, setObrasOpen] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [lineSnapshots, setLineSnapshots] = useState([]);
   const [lineSnapshotsLoading, setLineSnapshotsLoading] = useState(false);
@@ -5856,24 +5898,11 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     [outOfMatrixItems],
   );
 
-  const facets = useMemo(() => {
-    const proveedoresSet = new Set();
-    const rubrosSet = new Set();
-    rows.forEach((row) => {
-      if (row.proveedor) proveedoresSet.add(row.proveedor);
-      if (row.rubro) rubrosSet.add(row.rubro);
-    });
-    return {
-      proveedores: [...proveedoresSet].sort((a, b) => a.localeCompare(b, "es")),
-      rubros: [...rubrosSet].sort((a, b) => a.localeCompare(b, "es")),
-    };
-  }, [rows]);
-
-  const visibleRows = useMemo(() => {
+  // Todo lo que no es de columna. Los filtros de Proveedor y Rubro cuentan
+  // sobre esto: los números que muestran ya tienen la búsqueda aplicada.
+  const rowsBase = useMemo(() => {
     return rows
-      .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
       .filter((row) => proveedorTipoFilter === "todos" || row.proveedorMeta?.tipo === proveedorTipoFilter)
-      .filter((row) => !rubroFilter || row.rubro === rubroFilter)
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
       .filter((row) => matchesFlexibleSearch(
         deferredQ,
@@ -5884,7 +5913,34 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         row.obs,
         ...materialSearchFields(row.material),
       ));
-  }, [rows, deferredQ, proveedorFilter, proveedorTipoFilter, rubroFilter, tipoFilter]);
+  }, [rows, deferredQ, proveedorTipoFilter, tipoFilter]);
+
+  // Opciones de cada filtro de columna, con su cuenta. Cada una se cuenta sin
+  // su propio filtro puesto: si no, tildar un proveedor dejaría el resto en 0 y
+  // no se podría sumar otro.
+  const opcionesColumna = useMemo(() => {
+    const contar = (lista, campo, vacio) => {
+      const m = new Map();
+      for (const row of lista) {
+        const v = row[campo] || vacio;
+        m.set(v, (m.get(v) || 0) + 1);
+      }
+      return [...m.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], "es"))
+        .map(([value, count]) => ({ value, label: value, count }));
+    };
+    const sinRubro = rubrosSel.size ? rowsBase.filter((row) => rubrosSel.has(row.rubro)) : rowsBase;
+    const sinProv = proveedoresSel.size ? rowsBase.filter((row) => proveedoresSel.has(row.proveedor)) : rowsBase;
+    return {
+      proveedores: contar(sinRubro, "proveedor", "Sin proveedor"),
+      rubros: contar(sinProv, "rubro", "Sin rubro"),
+    };
+  }, [rowsBase, proveedoresSel, rubrosSel]);
+
+  const visibleRows = useMemo(() => rowsBase
+    .filter((row) => !proveedoresSel.size || proveedoresSel.has(row.proveedor || "Sin proveedor"))
+    .filter((row) => !rubrosSel.size || rubrosSel.has(row.rubro || "Sin rubro")),
+  [rowsBase, proveedoresSel, rubrosSel]);
 
   const groupedRows = useMemo(() => {
     const map = new Map();
@@ -5906,7 +5962,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     return [...map.values()].sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es"));
   }, [visibleRows, groupBy]);
 
-  const renderFilterKey = `${code}|${deferredQ}|${proveedorFilter}|${proveedorTipoFilter}|${rubroFilter}|${tipoFilter}|${groupBy}`;
+  const renderFilterKey = `${code}|${deferredQ}|${[...proveedoresSel].sort()}|${proveedorTipoFilter}|${[...rubrosSel].sort()}|${tipoFilter}|${groupBy}`;
   const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : LINEA_INITIAL_RENDER;
   const renderedGroupedRows = useMemo(
     () => limitGroupedRows(groupedRows, effectiveRenderLimit),
@@ -6073,9 +6129,9 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     whiteSpace: "nowrap",
   });
   const activeFilterCount = [
-    proveedorFilter,
+    proveedoresSel.size > 0,
     proveedorTipoFilter !== "todos",
-    rubroFilter,
+    rubrosSel.size > 0,
     tipoFilter !== "todos",
     q.trim(),
   ].filter(Boolean).length;
@@ -6084,50 +6140,44 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   const totalLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
 
   return (
-    <div>
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 360px", minWidth: 260 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12, color: C.t2, fontWeight: 850 }}>
-              <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", padding: 0, color: C.blue, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>
-                Lineas de produccion
-              </button>
-              <span>/</span>
-              <select
-                value={code}
-                onChange={(event) => onSelectLinea?.(event.target.value)}
-                style={{ ...INP, width: 128, height: 34, borderRadius: 999, padding: "0 28px 0 12px", fontWeight: 950, color: C.t0, background: C.s0 }}
-                title="Cambiar linea"
-              >
-                {lineOptions.map((item) => {
-                  const optionCode = String(item?.codigo || "").replace(/^K/i, "");
-                  return <option key={optionCode || item?.nombre} value={optionCode} style={OPT_ST}>{item?.nombre || `K${optionCode}`}</option>;
-                })}
-              </select>
-              <span>/</span>
-              <span style={{ color: C.t1 }}>Base matriz</span>
-            </div>
-            <div style={{ marginTop: 8, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <h2 style={{ margin: 0, fontSize: 28, lineHeight: 1.05, fontWeight: 950, color: C.t0, letterSpacing: -0.2 }}>{title}</h2>
-              {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 950, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 8px" }}>{kpis.sinPrecio} sin precio</span> : null}
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div title="Presupuesto base estimado" style={{ minWidth: 170, textAlign: "right" }}>
-              <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Presupuesto total</div>
-              <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 950, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</div>
-            </div>
+    <div className="linea-workspace">
+      {/* Una banda de una línea, no una tarjeta con gradiente. La anterior medía
+          349px de alto y dejaba dos materiales en pantalla. El camino completo ya
+          está arriba, en el encabezado de la página: acá no hace falta repetirlo. */}
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: "9px 13px", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+          <button type="button" onClick={onBack} title="Volver a las líneas de producción" style={{ ...BTN, height: 32, padding: "0 10px 0 7px", color: C.blue }}>
+            <ChevronLeft size={14} /> Líneas
+          </button>
+          <select
+            value={code}
+            onChange={(event) => onSelectLinea?.(event.target.value)}
+            style={{ ...INP, width: 112, height: 32, borderRadius: 8, padding: "0 24px 0 10px", fontWeight: 900, color: C.t0, background: C.s0 }}
+            title="Cambiar linea"
+          >
+            {lineOptions.map((item) => {
+              const optionCode = String(item?.codigo || "").replace(/^K/i, "");
+              return <option key={optionCode || item?.nombre} value={optionCode} style={OPT_ST}>{item?.nombre || `K${optionCode}`}</option>;
+            })}
+          </select>
+          {/* El selector de al lado ya dice K37: repetirlo de título no agrega nada. */}
+          {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 800, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" }}>{kpis.sinPrecio} sin precio</span> : null}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" }}>
+            <span title="Presupuesto base estimado" style={{ display: "inline-flex", alignItems: "baseline", gap: 7, marginRight: 3 }}>
+              <span style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Presupuesto</span>
+              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 900, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</span>
+            </span>
             {lineSnapshotsLoading ? (
               <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 850 }}>Revisando listas de obras...</span>
             ) : lineSnapshotsError ? (
-              <button type="button" onClick={cargarLineSnapshots} style={{ ...BTN, height: 38, padding: "0 11px", color: C.red, borderColor: C.redB, background: "rgba(239,68,68,0.08)" }} title={lineSnapshotsError}>
+              <button type="button" onClick={cargarLineSnapshots} style={{ ...BTN, height: 32, padding: "0 10px", color: C.red, borderColor: C.redB, background: "rgba(239,68,68,0.08)" }} title={lineSnapshotsError}>
                 <AlertTriangle size={14} /> Reintentar control
               </button>
             ) : !lineSnapshotsLoaded ? (
               <button
                 type="button"
                 onClick={() => { setOutOfMatrixOpen(true); cargarLineSnapshots(); }}
-                style={{ ...BTN, height: 38, padding: "0 11px", color: C.t2 }}
+                style={{ ...BTN, height: 32, padding: "0 10px", color: C.t2 }}
                 title="Comparar las listas históricas de las obras con la matriz viva"
               >
                 <RefreshCw size={14} /> Revisar matriz
@@ -6136,22 +6186,19 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
               <button
                 type="button"
                 onClick={() => setOutOfMatrixOpen((open) => !open)}
-                style={{ ...BTN, height: 38, padding: "0 11px", color: outOfMatrixOpen ? C.red : C.amber, borderColor: outOfMatrixOpen ? C.redB : C.amberB, background: outOfMatrixOpen ? "rgba(239,68,68,0.09)" : C.amberL }}
+                style={{ ...BTN, height: 32, padding: "0 10px", color: outOfMatrixOpen ? C.red : C.teal, borderColor: outOfMatrixOpen ? C.redB : C.tealB, background: outOfMatrixOpen ? "rgba(239,68,68,0.09)" : C.tealL }}
                 title="Ver items de las obras que no existen en la matriz de esta linea"
               >
                 <AlertTriangle size={14} /> Fuera de matriz ({outOfMatrixItems.length})
               </button>
             ) : null}
-            <button type="button" onClick={() => setStatsOpen((v) => !v)} style={{ ...BTN, height: 38, padding: "0 11px" }} title="Ver estadisticas">
+            <button type="button" onClick={() => setStatsOpen((v) => !v)} style={{ ...BTN, height: 32, padding: "0 10px" }} title="Ver estadisticas">
               {statsOpen ? "Ocultar stats" : "Stats"}
             </button>
-            <button type="button" onClick={() => setObrasOpen((v) => !v)} style={{ ...BTN, height: 38, padding: "0 12px", color: obrasOpen ? C.blue : C.t1, borderColor: obrasOpen ? C.blueB : C.b0, background: obrasOpen ? C.blueL : C.s0 }}>
-              Obras ({visibleObras.length})
-            </button>
-            <button type="button" onClick={() => setShowAddItem((v) => !v)} style={{ ...BTN_GREEN, height: 38, padding: "0 13px" }}>
+            <button type="button" onClick={() => setShowAddItem((v) => !v)} style={{ ...BTN_GREEN, height: 32, padding: "0 11px" }}>
               <Plus size={14} /> Agregar item
             </button>
-            <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 38, padding: "0 13px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
+            <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 32, padding: "0 11px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
               <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
             </button>
           </div>
@@ -6163,7 +6210,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
               ["Producción", kpis.secundarios, C.violet],
               ["Proveedores", kpis.proveedores.size, C.green],
               ["Rubros", kpis.rubros.size, C.violet],
-              ["A revisar", kpis.revisar, C.amber],
+              ["A revisar", kpis.revisar, C.teal],
               ["Base ARS", kpis.ars ? fmtMoney(kpis.ars, "ARS") : "-", C.t2],
               ["Linea eje USD", kpis.ejeUsd ? fmtMoney(kpis.ejeUsd, "USD") : "-", C.t2],
             ].map(([label, value, color]) => (
@@ -6174,28 +6221,42 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             ))}
           </div>
         )}
-        {obrasOpen && (
-          <div style={{ marginTop: 14, borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-              {visibleObras.map((obra) => {
-                const meta = obraRecepcionResumenMeta(obra.materiales_recepcion);
-                return (
-                  <button
-                    type="button"
-                    key={obra.id}
-                    onClick={() => onSelectObra?.(obra)}
-                    className="obra-linea-tag"
-                    style={{ border: `1px solid ${meta.border}`, borderRadius: 13, background: meta.bg, color: C.t1, fontFamily: C.sans, fontSize: 12, fontWeight: 850, padding: "9px 11px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, cursor: "pointer", textAlign: "left" }}
-                  >
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", color: C.t0, fontWeight: 950 }}>{obra.codigo}</span>
-                      <span style={{ display: "block", color: meta.color, fontSize: 10.5, fontWeight: 900 }}>{obraRecepcionResumenLabel(obra.materiales_recepcion)}</span>
-                    </span>
-                    <span style={{ color: C.blue, fontWeight: 950 }}>›</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* Las obras son a dónde se va desde acá: van siempre a la vista, no
+            detrás de un botón. La matriz se mira para entrar a una obra.
+            Cada una muestra su avance con una barra en vez de un texto: de un
+            vistazo se ve cuál está arrancando y cuál está por terminar. */}
+        {visibleObras.length > 0 && (
+          <div style={{ marginTop: 8, borderTop: `1px solid ${C.b0}`, paddingTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {visibleObras.map((obra) => {
+              const r = obra.materiales_recepcion || {};
+              const total = Number(r.total || 0);
+              const entregado = Number(r.egresado || 0);
+              const enPanol = Number(r.en_panol || 0);
+              const pc = (n) => (total ? `${Math.min(100, (n / total) * 100)}%` : "0%");
+              return (
+                <button
+                  type="button"
+                  key={obra.id}
+                  onClick={() => onSelectObra?.(obra)}
+                  className="obra-linea-card"
+                  title={`Abrir la lista de ${obra.codigo} · ${total ? obraRecepcionResumenLabel(r) : "sin lista"}`}
+                  style={{ border: `1px solid ${C.b0}`, borderRadius: 8, background: C.panelSolid, color: C.t1, fontFamily: C.sans, padding: "0 8px 0 9px", height: 30, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                >
+                  <span style={{ color: C.t0, fontWeight: 800, fontSize: 12.5, letterSpacing: -0.2 }}>{obra.codigo}</span>
+                  {/* La barra dice el avance sin que haya que leer el número. */}
+                  <span style={{ display: "flex", width: 34, height: 4, borderRadius: 99, overflow: "hidden", background: C.panel3 }}>
+                    {total ? <>
+                      <i style={{ width: pc(entregado), background: C.green }} />
+                      <i style={{ width: pc(enPanol), background: C.violet }} />
+                    </> : null}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 650, whiteSpace: "nowrap" }}>
+                    {total ? obraRecepcionResumenLabel(r) : "sin lista"}
+                  </span>
+                  <ChevronRight className="obra-linea-flecha" size={13} style={{ color: C.t2 }} />
+                </button>
+              );
+            })}
           </div>
         )}
         {outOfMatrixOpen && outOfMatrixItems.length ? (
@@ -6221,11 +6282,11 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                 const readyToAdd = !!(linkedMaterial && materialActivo(linkedMaterial));
                 const actionLabel = readyToAdd ? `Agregar a K${code}` : issue.materialId ? "Revisar catálogo" : "Vincular y agregar";
                 return (
-                  <div key={issue.key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.amberB}`, background: "color-mix(in srgb, var(--panel) 88%, #f59e0b 6%)", borderRadius: 11, padding: "8px 9px" }}>
+                  <div key={issue.key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.tealB}`, background: "color-mix(in srgb, var(--panel) 88%, #14b8a6 6%)", borderRadius: 11, padding: "8px 9px" }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <span style={{ minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{issue.descripcion}</span>
-                        <span style={{ fontSize: 9.5, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 6px", fontWeight: 900, textTransform: "capitalize" }}>{tipoLabel}</span>
+                        <span style={{ fontSize: 9.5, color: C.teal, border: `1px solid ${C.tealB}`, background: C.tealL, borderRadius: 999, padding: "2px 6px", fontWeight: 900, textTransform: "capitalize" }}>{tipoLabel}</span>
                         {!issue.materialId ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 900 }}>Sin vínculo catálogo</span> : null}
                         {issue.cantidadesDistintas ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 900 }}>Cantidades distintas</span> : null}
                       </div>
@@ -6315,16 +6376,16 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         </div>
       )}
 
-      <div style={{ position: "sticky", top: 0, zIndex: 24, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(14px)", padding: 10, marginBottom: 14, display: "grid", gap: 10, boxShadow: "0 16px 42px -38px rgba(15,23,42,0.7)" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 24, border: `1px solid ${C.b0}`, borderRadius: 12, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(14px)", padding: 7, marginBottom: 10, display: "grid", gap: 7 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 320px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 34, height: 34, borderRadius: 9 }} />
           </div>
           {[
             ["todos", "Todo", C.blue],
             ["sin_precio", "Sin precio", C.red],
-            ["revisar", "A revisar", C.amber],
+            ["revisar", "A revisar", C.teal],
             ["secundario", "Producción", C.violet],
           ].map(([key, label, color]) => (
             <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
@@ -6337,15 +6398,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         </div>
         {filtersOpen && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
-            <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 205, height: 38, borderRadius: 12 }} title="Filtrar proveedor">
-              <option value="" style={OPT_ST}>Todos los proveedores</option>
-              {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
-            </select>
             <ProveedorTipoFilter value={proveedorTipoFilter} onChange={setProveedorTipoFilter} style={{ ...INP, width: 188, height: 38, borderRadius: 12 }} />
-            <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38, borderRadius: 12 }} title="Filtrar rubro">
-              <option value="" style={OPT_ST}>Todos los rubros</option>
-              {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
-            </select>
             <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }} title="Agrupar por">
               <option value="proveedor" style={OPT_ST}>Proveedor</option>
               <option value="rubro" style={OPT_ST}>Rubro</option>
@@ -6354,7 +6407,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             {[
               ["base", "Base", C.green],
               ["linea_eje", "Linea eje", C.violet],
-              ["variante", "Variantes", C.amber],
+              ["variante", "Variantes", C.cyan],
             ].map(([key, label, color]) => (
               <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
                 {label}
@@ -6369,136 +6422,148 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
-        {renderedGroupedRows.map((group) => (
-          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", overflow: "hidden", boxShadow: "0 16px 48px -44px rgba(15,23,42,0.75)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 999, background: group.color || C.blue, boxShadow: `0 0 0 3px ${group.color || C.blue}18`, flexShrink: 0 }} />
-                  <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
-                </div>
-                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
-                  {group.totalRows ?? group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
-                </div>
+        {/* Una sola tabla con encabezado fijo, en lugar de una tarjeta por grupo
+            con las etiquetas repetidas adentro de cada celda. El encabezado dice
+            qué es cada columna una vez y desde ahí se filtra, como en una
+            planilla. Cada material pasa de tres renglones a uno. */}
+        <div ref={listaRef} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, overflow: "clip", background: "var(--panel)" }}>
+          <div style={{ overflow: "auto", height: listaAlto, minHeight: 320, scrollbarWidth: "thin", scrollbarColor: "var(--border) transparent" }}>
+            <div style={{ minWidth: 940, fontSize: 12.5 }}>
+              <div role="row" style={{ display: "grid", gridTemplateColumns: MATRIZ_COLS, alignItems: "center", minHeight: 42, position: "sticky", top: 0, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.b1}`, color: C.t2, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <span />
+                <span style={{ padding: "0 12px" }}>Material</span>
+                <ObraColumnFilter label="Rubro" options={opcionesColumna.rubros} selected={rubrosSel} onChange={setRubrosSel} />
+                <ObraColumnFilter label="Proveedor" options={opcionesColumna.proveedores} selected={proveedoresSel} onChange={setProveedoresSel} />
+                <span style={{ padding: "0 12px", textAlign: "right" }}>Cantidad</span>
+                <span style={{ padding: "0 12px", textAlign: "right" }}>Precio</span>
+                <span style={{ padding: "0 12px", textAlign: "right" }}>Total</span>
+                <span />
               </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {/* Teal y no ámbar: "a revisar" no es una alarma, es una tarea
-                    pendiente, y tiene que distinguirse del azul (comprar) y del
-                    violeta (ir a buscar) de un vistazo. */}
-                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.teal, border: `1px solid ${C.tealB}`, borderRadius: 999, padding: "4px 9px", background: C.tealL }}>{group.revisar} a revisar</span> : null}
-                {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.usd, "USD")}</span> : null}
-                {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
-              </div>
-            </div>
-            <div style={{ display: "grid", gap: 6, padding: 8, overflowX: "auto" }}>
-              {group.rows.map((row) => {
-                const qty = row.secundario && row.circuito === "maderas"
-                  ? Number(row.cantidadConsumida || 0)
-                  : (toNum(row.cantidad) || 1);
-                const total = row.precio.amount && !(row.secundario && row.circuito === "maderas")
-                  ? row.precio.amount * qty
-                  : null;
-                const editing = editingId === row.id;
-                return (
-                  <div key={row.id} style={{ display: "grid", gap: 8 }}>
-                    <div
-                      className="linea-data-row"
-                      style={{
-                        display: "grid",
-                        // Seis columnas SIEMPRE. Colapsarlas a tres en pantalla
-                        // angosta no achica la fila: envuelve las celdas que
-                        // sobran y cada ítem pasa a medir varios renglones.
-                        // Lo que sí entra es bajar los mínimos: de 862px a
-                        // ~600, que es lo que hace falta para que el precio no
-                        // quede fuera de pantalla en una tablet.
-                        gridTemplateColumns: "24px minmax(190px, 1.6fr) minmax(74px, .2fr) minmax(116px, .4fr) minmax(92px, .26fr) 60px",
-                        gap: 12,
-                        alignItems: "center",
-                        minWidth: 900,
-                        padding: "11px 12px",
-                        border: `1px solid ${row.secundario ? `${C.violet}44` : selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
-                        borderRadius: 12,
-                        background: row.secundario ? "color-mix(in srgb, var(--panel) 88%, #8b5cf6 6%)" : selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : "color-mix(in srgb, var(--panel) 70%, var(--bg) 30%)",
-                      }}
-                    >
-                      {row.secundario ? (
-                        <span title="Material de producción: conserva su circuito propio" style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 7, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", color: C.violet, fontSize: 9, fontWeight: 950 }}>P</span>
-                      ) : (
-                        <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} title="Seleccionar para la orden" />
-                      )}
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 14, fontWeight: 950, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
-                          <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
-                            {row.bucket.label}
-                          </span>
-                          {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
-                          {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>{row.secundario ? (row.circuito === "maderas" ? (row.referenciaMaderasCodigo ? "Referencia por barco" : "Consumo acumulado") : "Plan por barco") : "Cantidad"}</div>
-                        <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: row.secundario ? C.violet : tieneAjusteCondicionante(row) ? C.amber : C.t0 }}>{qtyText(qty, row.unidad)}</div>
-                        {row.secundario && row.circuito === "maderas" ? <div style={{ marginTop: 2, color: C.t2, fontSize: 9.5, fontWeight: 750 }}>{row.referenciaMaderasCodigo ? `Patrón: ${row.referenciaMaderasCodigo}` : `${lineObras.length} ${lineObras.length === 1 ? "obra K" : "obras K"}${code}`}</div> : null}
-                        {!row.secundario && <DesgloseCantidad row={row} />}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                          <span style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</span>
-                          <ProveedorTipoBadge meta={row.proveedorMeta} compact />
-                        </div>
-                        <ProveedorAlternativasHint proveedor={row.proveedor} proveedores={proveedores} compact />
-                        <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.bucket.label}</div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
-                        <div style={{ display: "inline-flex", justifyContent: "flex-end", fontFamily: C.mono, fontSize: row.precio.amount ? 12.5 : 11.5, fontWeight: 900, color: row.precio.amount ? C.t0 : C.amber, background: row.precio.amount ? "transparent" : C.amberL, border: row.precio.amount ? "none" : `1px solid ${C.amberB}`, borderRadius: 8, padding: row.precio.amount ? 0 : "3px 7px" }}>{row.precio.amount ? row.precio.text : "Sin precio"}</div>
-                        {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
-                      </div>
-                      <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-                        {row.secundario ? (
-                          <span title="Se administra desde su módulo de origen" style={{ color: C.violet, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", borderRadius: 999, padding: "5px 8px", fontSize: 9.5, fontWeight: 950, whiteSpace: "nowrap" }}>Circuito propio</span>
-                        ) : (
-                          <>
-                            <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: "6px 8px", color: editing ? C.blue : C.t2 }} title="Editar item">
-                              <Pencil size={13} />
-                            </button>
-                            <button type="button" onClick={() => removeFromLine(row)} disabled={removingId === row.id} style={{ ...BTN, padding: "6px 8px", color: C.red, borderColor: "rgba(239,68,68,0.28)" }} title={`Sacar de ${title}`}>
-                              <Trash2 size={13} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {editing && (
-                      <MaterialFila
-                        key={`${row.id}-editor`}
-                        material={row.material}
-                        categorias={categorias}
-                        ums={ums}
-                        proveedores={proveedores}
-                        onChanged={onChanged}
-                        linea={code}
-                        initialOpen
-                      />
-                    )}
+              {renderedGroupedRows.map((group) => (
+                <Fragment key={group.label}>
+                  {/* Fondo sólido, no var(--panel-2): al quedar fijo, un fondo
+                      con transparencia deja ver la fila que pasa por debajo. */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 42, padding: "0 14px", background: C.panelSolid2, borderBottom: `1px solid ${C.b0}`, boxShadow: `inset 3px 0 0 ${group.color || C.blue}`, position: "sticky", top: 34, zIndex: 2 }}>
+                    <strong style={{ fontSize: 13, fontWeight: 800, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{group.label}</strong>
+                    <span style={{ fontSize: 11, color: C.t2, background: C.panel2, borderRadius: 6, padding: "2px 7px", fontWeight: 700, whiteSpace: "nowrap" }}>{group.totalRows ?? group.rows.length}</span>
+                    {group.sinPrecio ? <span style={{ fontSize: 11, color: C.red, whiteSpace: "nowrap" }}>{group.sinPrecio} sin precio</span> : null}
+                    <span style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", whiteSpace: "nowrap" }}>
+                      {/* Teal y no ámbar: "a revisar" es una tarea pendiente, no una alarma. */}
+                      {group.revisar ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.teal }}>{group.revisar} a revisar</span> : null}
+                      {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, color: C.t1 }}>{fmtMoney(group.usd, "USD")}</span> : null}
+                      {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, color: C.t1 }}>{fmtMoney(group.ars, "ARS")}</span> : null}
+                    </span>
                   </div>
-                );
-              })}
+                  {group.rows.map((row) => {
+                    const qty = row.secundario && row.circuito === "maderas"
+                      ? Number(row.cantidadConsumida || 0)
+                      : (toNum(row.cantidad) || 1);
+                    const total = row.precio.amount && !(row.secundario && row.circuito === "maderas")
+                      ? row.precio.amount * qty
+                      : null;
+                    const editing = editingId === row.id;
+                    return (
+                      <Fragment key={row.id}>
+                        <div
+                          className="linea-data-row"
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: MATRIZ_COLS,
+                            alignItems: "center",
+                            minHeight: 56,
+                            borderBottom: `1px solid ${C.b0}`,
+                            background: row.secundario ? "var(--violet-soft)" : selected.has(row.id) ? C.blueL : "transparent",
+                            transition: "background 140ms ease",
+                          }}
+                        >
+                          <div style={{ display: "grid", placeItems: "center" }}>
+                            {row.secundario ? (
+                              <span title="Material de producción: conserva su circuito propio" style={{ width: 18, height: 18, display: "grid", placeItems: "center", borderRadius: 5, border: `1px solid ${C.violet}44`, color: C.violet, fontSize: 9, fontWeight: 950 }}>P</span>
+                            ) : (
+                              <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} title="Seleccionar para la orden" style={{ accentColor: C.blue, margin: 0 }} />
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0, padding: "6px 12px" }}>
+                            {/* fallbackLabel: 96 de cada 100 materiales no tienen foto.
+                                La inicial del rubro es más callada que un ícono de cámara
+                                repetido en toda la columna. */}
+                            <MaterialThumb material={row.material} size={34} fallbackLabel={row.rubro?.slice(0, 1) || "M"} />
+                            <div style={{ minWidth: 0, display: "grid", gap: 3 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                                <span style={{ fontSize: 13.5, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{row.descripcion}</span>
+                                <span style={{ fontSize: 10, fontWeight: 800, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{row.bucket.label}</span>
+                                {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
+                              </div>
+                              <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
+                              </div>
+                            </div>
+                          </div>
+                          <div title={row.rubro} style={{ padding: "0 12px", minWidth: 0, color: C.t2, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro || "Sin rubro"}</div>
+                          <div style={{ padding: "0 12px", minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <span title={row.proveedor} style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</span>
+                              <ProveedorTipoBadge meta={row.proveedorMeta} compact />
+                            </div>
+                            <ProveedorAlternativasHint proveedor={row.proveedor} proveedores={proveedores} compact />
+                          </div>
+                          <div style={{ padding: "0 12px", textAlign: "right" }}>
+                            <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 800, color: row.secundario ? C.violet : tieneAjusteCondicionante(row) ? C.cyan : C.t0 }}>{qtyText(qty, row.unidad)}</span>
+                            {row.secundario && row.circuito === "maderas"
+                              ? <div style={{ color: C.t2, fontSize: 9.5 }}>{row.referenciaMaderasCodigo ? `Patrón: ${row.referenciaMaderasCodigo}` : `${lineObras.length} ${lineObras.length === 1 ? "obra K" : "obras K"}${code}`}</div>
+                              : null}
+                            {!row.secundario && <DesgloseCantidad row={row} />}
+                          </div>
+                          {/* Sin precio va en rojo: es lo que traba una compra, no un aviso. */}
+                          <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: row.precio.amount ? 13 : 11.5, fontWeight: 800, color: row.precio.amount ? C.t0 : C.red }}>{row.precio.amount ? row.precio.text : "Sin precio"}</div>
+                          <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{total ? fmtMoney(total, row.precio.moneda) : ""}</div>
+                          <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", paddingRight: 10 }}>
+                            {row.secundario ? (
+                              <span title="Se administra desde su módulo de origen" style={{ color: C.violet, fontSize: 9.5, fontWeight: 900 }}>propio</span>
+                            ) : (
+                              <>
+                                <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: 5, minHeight: 28, color: editing ? C.blue : C.t2, borderColor: "transparent", background: "transparent" }} title="Editar item">
+                                  <Pencil size={13} />
+                                </button>
+                                <button type="button" onClick={() => removeFromLine(row)} disabled={removingId === row.id} style={{ ...BTN, padding: 5, minHeight: 28, color: C.red, borderColor: "transparent", background: "transparent" }} title={`Sacar de ${title}`}>
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {editing && (
+                          <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.b0}`, background: "var(--panel-2)" }}>
+                            <MaterialFila
+                              key={`${row.id}-editor`}
+                              material={row.material}
+                              categorias={categorias}
+                              ums={ums}
+                              proveedores={proveedores}
+                              onChanged={onChanged}
+                              linea={code}
+                              initialOpen
+                            />
+                          </div>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </Fragment>
+              ))}
+              <div style={{ padding: 10 }}>
+                <MaterialLoadMore
+                  hiddenCount={hiddenRowCount}
+                  batchSize={LINEA_RENDER_BATCH}
+                  onMore={() => setRenderState((current) => ({
+                    key: renderFilterKey,
+                    limit: (current.key === renderFilterKey ? current.limit : LINEA_INITIAL_RENDER) + LINEA_RENDER_BATCH,
+                  }))}
+                />
+              </div>
             </div>
-          </section>
-        ))}
-        <MaterialLoadMore
-          hiddenCount={hiddenRowCount}
-          batchSize={LINEA_RENDER_BATCH}
-          onMore={() => setRenderState((current) => ({
-            key: renderFilterKey,
-            limit: (current.key === renderFilterKey ? current.limit : LINEA_INITIAL_RENDER) + LINEA_RENDER_BATCH,
-          }))}
-        />
+          </div>
+        </div>
         {!groupedRows.length && (
           <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
             No hay items con esos filtros.
@@ -6628,15 +6693,29 @@ function recepcionMetaForRow(row) {
   return SNAPSHOT_ESTADO_META[estado] || SNAPSHOT_ESTADO_META.pendiente;
 }
 
-function recepcionFilterOptions(kpis) {
-  return [
-    ["todos", `Todo (${kpis.items || 0})`, C.blue],
-    ["pendiente", `Pendiente (${kpis.pendientes || 0})`, C.t2],
-    ["comprado", `Comprado (${kpis.comprados || 0})`, C.blue],
-    ["en_panol", `En pañol (${kpis.enPanol || 0})`, C.green],
-    ["egresado", `Egresado (${kpis.egresados || 0})`, C.violet],
-  ];
+/**
+ * La pastilla que se ve en la columna Estado.
+ *
+ * Vive acá y no adentro de la vista de la fila porque el filtro de la columna
+ * usa exactamente esto: lo que se ve es lo que se filtra. Si se calcularan por
+ * separado, tildar "Parcial" podría no traer las filas que dicen "Parcial".
+ */
+function estadoMetaDeFila(row) {
+  const cant = cantidadesDeFila(row);
+  const estado = estadoObraForRow(row);
+  const parcial = (estado !== "egresado" && row.recepcion_estado === "parcial")
+    || (cant.entregado > 0 && cant.entregado < cant.necesita);
+  if (parcial) {
+    return { label: "Parcial", color: C.violet, bg: C.violetL, border: C.violetB,
+      title: `Recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}` };
+  }
+  const meta = recepcionMetaForRow(row);
+  return { ...meta, label: estado === "pedido" ? "Pedido" : estado === "egresado" ? "Entregado" : meta.label };
 }
+
+// El recorrido real de un material, para listar los estados en ese orden y no
+// alfabéticamente.
+const ORDEN_ETIQUETA_ESTADO = ["Pendiente", "Pedido", "Comprado", "En pañol", "Parcial", "Entregado"];
 
 function condicionanteActivoEnObra(condicionante, overrides) {
   const override = overrides?.get?.(condicionante.id);
@@ -7068,19 +7147,11 @@ function obraRecepcionResumenLabel(resumen) {
   return `${resumen.pendiente || 0}/${resumen.total} pend.`;
 }
 
-function obraRecepcionResumenMeta(resumen) {
-  if (!resumen?.total) return { color: C.t2, bg: C.bg, border: C.b0 };
-  if ((resumen.egresado || 0) === resumen.total) return SNAPSHOT_ESTADO_META.egresado;
-  if (resumen.en_panol) return SNAPSHOT_ESTADO_META.en_panol;
-  if (resumen.comprado || resumen.pedido) return SNAPSHOT_ESTADO_META.comprado;
-  return SNAPSHOT_ESTADO_META.pendiente;
-}
-
 function snapshotBucket(row) {
   const key = row?.es_adicional === true ? "addon" : row?.tipo || "base";
   if (key === "linea_eje") return { key, label: row?.tipo_label || "Linea eje", color: C.violet };
-  if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.amber };
-  if (key === "condicionante") return { key, label: row?.tipo_label || "Condicionante", color: C.amber };
+  if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.cyan };
+  if (key === "condicionante") return { key, label: row?.tipo_label || "Condicionante", color: C.violet };
   if (key === "addon") return { key, label: row?.tipo_label || "Addon", color: C.blue };
   return { key: "base", label: row?.tipo_label || "Base", color: C.green };
 }
@@ -9218,6 +9289,31 @@ export default function MaterialesScreen({ profile, signOut }) {
           transform: translateY(-1px);
           filter: saturate(1.04);
           box-shadow: 0 18px 38px -28px rgba(37,99,235,0.85);
+        }
+        .materiales-page-body:has(.linea-workspace) { padding: 12px 24px 18px !important; }
+        .materiales-page-body:has(.linea-workspace) .materiales-page-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px !important; }
+        .materiales-page-body:has(.linea-workspace) .materiales-page-heading h1 { font-size: 20px !important; line-height: 1.2; }
+        .materiales-page-body:has(.linea-workspace) .materiales-page-heading > div { font-size: 11px !important; margin-top: 0 !important; }
+        .materiales-page-body:has(.linea-workspace) .materiales-page-tabs { margin-bottom: 8px !important; }
+        .materiales-page-body:has(.linea-workspace) .materiales-tabbar { padding: 3px; }
+        .materiales-page-body:has(.linea-workspace) .materiales-tab { min-height: 30px; padding: 0 12px; font-size: 12px; }
+        @media (max-width: 899px) {
+          .materiales-page-body:has(.linea-workspace) { padding: 10px 12px 18px !important; }
+          .materiales-page-body:has(.linea-workspace) .materiales-tab { min-height: 44px; }
+        }
+        .obra-linea-card {
+          transition: background .16s ease, border-color .16s ease;
+        }
+        .obra-linea-card:hover {
+          border-color: var(--blue-border);
+          background: var(--blue-soft);
+        }
+        .obra-linea-card .obra-linea-flecha {
+          transition: transform .16s ease, color .16s ease;
+        }
+        .obra-linea-card:hover .obra-linea-flecha {
+          transform: translateX(2px);
+          color: var(--blue);
         }
         .linea-data-row {
           transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
