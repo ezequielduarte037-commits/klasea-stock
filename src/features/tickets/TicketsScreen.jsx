@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -711,10 +712,15 @@ export default function TicketsScreen({ profile, signOut }) {
   const [cargando, setCargando] = useState(true);
   const [faltaTabla, setFaltaTabla] = useState(false);
   const [error, setError] = useState("");
-  const [filtro, setFiltro] = useState("abiertos");
-  const [busca, setBusca] = useState("");
+  // El buscador global entra por acá: `?open=` abre un ticket puntual y `?q=`
+  // deja el filtro escrito. Si se viene a buscar uno concreto se arranca en
+  // "todos", porque el que se busca suele ser justamente uno ya cerrado.
+  const [searchParams] = useSearchParams();
+  const ticketPedido = searchParams.get("open") || null;
+  const [filtro, setFiltro] = useState(() => (ticketPedido ? "todos" : "abiertos"));
+  const [busca, setBusca] = useState(() => searchParams.get("q") || "");
   const [soloMios, setSoloMios] = useState(false);
-  const [abierto, setAbierto] = useState(null);
+  const [abierto, setAbierto] = useState(ticketPedido);
   const [nuevo, setNuevo] = useState(false);
   const [votando, setVotando] = useState("");
   // Las capturas son una migración aparte: si todavía no se corrió, la

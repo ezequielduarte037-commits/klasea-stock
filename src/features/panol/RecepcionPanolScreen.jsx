@@ -466,6 +466,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") || "";
   const requestedEnvio = searchParams.get("envio") || "";
+  const requestedQuery = searchParams.get("q") || "";
   const requestedMaterial = searchParams.get("material") || "";
   const requestedItem = searchParams.get("item") || "";
 
@@ -853,7 +854,10 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
 
         </>
       ) : tab === "remitos" ? (
-        <RemitosArchivoTab isMobile={isMobile} puedeReasignar={isAdmin} />
+        /* El `key` con la búsqueda: si el buscador global manda acá estando ya
+           en la pantalla, React no remonta y el archivo se quedaba mostrando lo
+           anterior. Con esto arranca de cero filtrado por lo que se buscó. */
+        <RemitosArchivoTab key={`remitos-${requestedQuery}`} isMobile={isMobile} puedeReasignar={isAdmin} busquedaInicial={requestedQuery} />
       ) : tab === "scanner" ? (
         <ScannerRemitosTab
           profile={profile}

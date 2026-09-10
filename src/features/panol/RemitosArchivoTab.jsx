@@ -370,7 +370,7 @@ function EditorRemito({
     </div>
   );
 }
-export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = false }) {
+export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = false, busquedaInicial = "" }) {
   const toast = useToast();
   const [remitos, setRemitos] = useState([]);
   const [obras, setObras] = useState([]);
@@ -381,7 +381,9 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   const [hayCarpetas, setHayCarpetas] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
-  const [busqueda, setBusqueda] = useState("");
+  // Puede venir del buscador global: se entra ya filtrado por el proveedor o el
+  // número que se buscó, en vez de caer en la pila entera y volver a escribirlo.
+  const [busqueda, setBusqueda] = useState(busquedaInicial);
   const [filtro, setFiltro] = useState("todos");
   const [ocupado, setOcupado] = useState("");
   const [editando, setEditando] = useState(null);

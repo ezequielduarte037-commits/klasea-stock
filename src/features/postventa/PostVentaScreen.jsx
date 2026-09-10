@@ -3,6 +3,7 @@ import { C } from "@/theme";
 // SINCRONIZACIÓN: Los clientes creados en ConfiguracionScreen aparecen
 // automáticamente aquí. Los que no tienen GPS muestran un aviso para completar la ubicación.
 import React, { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   MapPin, Crosshair, Pencil, Ticket, ExternalLink,
   Phone, CheckCircle2, Link2, AlertTriangle, X as XIcon,
@@ -695,7 +696,10 @@ export default function PostVentaScreen({ profile, signOut }) {
   const [ticketMap,    setTicketMap]    = useState({});
   const [obras,        setObras]        = useState([]);
   const [loading,      setLoading]      = useState(true);
-  const [filtro,       setFiltro]       = useState("");
+  // El buscador global puede mandar acá apuntando a un barco entregado: se
+  // entra con el nombre ya escrito en el filtro.
+  const [searchParams] = useSearchParams();
+  const [filtro,       setFiltro]       = useState(() => searchParams.get("q") || "");
   const [soloActivos,  setSoloActivos]  = useState(false);
   // false = mostrar todos | true = solo los sin GPS
   const [soloSinGps,   setSoloSinGps]   = useState(false);

@@ -1,5 +1,6 @@
 import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -101,6 +102,7 @@ import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td,
 import {
   TABS_MAIN,
   TABS_MORE,
+  TAB_KEYS,
   MONEDAS,
   materialEnArea,
   esRaiz,
@@ -9127,7 +9129,14 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
 
 export default function MaterialesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const [tab, setTab] = useState("lineas");
+  // La solapa vive en la URL: sin esto no había forma de mandar a alguien a
+  // Condicionantes o a Proveedores -ni desde el buscador, ni con un link
+  // pegado en un mensaje-, había que decirle "entrá a Materiales y buscá".
+  const [searchParams, setSearchParams] = useSearchParams();
+  // La URL es la única fuente: así un link pegado abre la solapa correcta y no
+  // hay que sincronizar un estado local con el parámetro cada vez que cambia.
+  const tabPedida = searchParams.get("tab") || "";
+  const tab = TAB_KEYS.includes(tabPedida) ? tabPedida : "lineas";
   const [moreOpen, setMoreOpen] = useState(false);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
@@ -9217,8 +9226,13 @@ export default function MaterialesScreen({ profile, signOut }) {
 
   const switchTab = useCallback((nextTab) => {
     setMoreOpen(false);
-    if (nextTab !== tab) setTab(nextTab);
-  }, [tab]);
+    if (nextTab === tab) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", nextTab);
+    // `replace` para no llenar el historial: el botón de atrás tiene que salir
+    // de Materiales, no recorrer las once solapas que se miraron.
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, tab]);
 
   const listo = categorias != null && materiales != null;
 

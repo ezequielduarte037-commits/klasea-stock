@@ -14,6 +14,7 @@ import { C } from "@/theme";
  * existe todavía, todo sigue funcionando sin ella.
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -968,7 +969,10 @@ export default function CalendarioScreen({ profile, signOut }) {
   const [loading,    setLoading]    = useState(true);
   const [dbErr,      setDbErr]      = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("todos");
-  const [busqueda,   setBusqueda]   = useState("");
+  // El buscador global puede entrar apuntando a un movimiento: se abre con el
+  // historial ya filtrado, que es donde está lo que se buscó.
+  const [searchParams] = useSearchParams();
+  const [busqueda,   setBusqueda]   = useState(() => searchParams.get("q") || "");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const [buscando,   setBuscando]   = useState(false);
   const [barcos,     setBarcos]     = useState([]);

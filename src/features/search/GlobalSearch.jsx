@@ -2,30 +2,44 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
+  BookOpenText,
   Boxes,
+  Building2,
   ClipboardList,
+  Compass,
   CornerDownLeft,
+  FileText,
+  LifeBuoy,
   LoaderCircle,
   Send,
   Search,
   Ship,
   ShoppingCart,
   Sparkles,
+  Truck,
   UsersRound,
   X,
 } from "lucide-react";
 import { C } from "@/theme";
 import { askKlaseaAssistant, canUseKlaseaAssistant } from "./assistantApi";
-import { globalSearchScopes, searchGlobal } from "./globalSearchApi";
+import { groupRank, searchGlobal, searchSectionsOnly } from "./globalSearchApi";
+import { seccionesVisibles } from "./navIndex";
 
 export const OPEN_GLOBAL_SEARCH_EVENT = "klasea:open-global-search";
 
 const GROUP_META = {
+  secciones: { label: "Ir a", Icon: Compass, color: C.cyan, bg: C.cyanL, border: C.cyanB },
   obras: { label: "Obras", Icon: Ship, color: C.blue, bg: C.blueL, border: C.blueB },
   materiales: { label: "Materiales", Icon: Boxes, color: C.teal, bg: C.tealL, border: C.tealB },
+  remitos: { label: "Remitos", Icon: FileText, color: C.orange, bg: C.orangeL, border: C.orangeB },
   compras: { label: "Pedidos a compras", Icon: ShoppingCart, color: C.violet, bg: C.violetL, border: C.violetB },
   solicitudes: { label: "Solicitudes de pañol", Icon: ClipboardList, color: C.green, bg: C.greenL, border: C.greenB },
-  personas: { label: "Personas", Icon: UsersRound, color: C.amber, bg: C.amberL, border: C.amberB },
+  proveedores: { label: "Proveedores", Icon: Building2, color: C.orange, bg: C.orangeL, border: C.orangeB },
+  personas: { label: "Personas", Icon: UsersRound, color: C.cyan, bg: C.cyanL, border: C.cyanB },
+  logistica: { label: "Logística", Icon: Truck, color: C.blue, bg: C.blueL, border: C.blueB },
+  postventa: { label: "Barcos entregados", Icon: LifeBuoy, color: C.teal, bg: C.tealL, border: C.tealB },
+  procedimientos: { label: "Procedimientos", Icon: BookOpenText, color: C.violet, bg: C.violetL, border: C.violetB },
+  tickets: { label: "Tickets", Icon: LifeBuoy, color: C.green, bg: C.greenL, border: C.greenB },
 };
 
 const STATUS_LABELS = {
@@ -34,6 +48,7 @@ const STATUS_LABELS = {
   terminada: "Terminada",
   nuevo: "Nuevo",
   en_revision: "En revisión",
+  en_curso: "En curso",
   cotizando: "Cotizando",
   comprado: "Comprado",
   recibido: "Recibido",
@@ -44,6 +59,12 @@ const STATUS_LABELS = {
   listo: "Listo",
   entregado: "Entregado",
   activo: "Activo",
+  inactivo: "Inactivo",
+  consumible: "Consumible",
+  archivado: "Archivado",
+  pendiente: "Pendiente",
+  hecho: "Hecho",
+  descartado: "Descartado",
   "ex empleado": "Ex empleado",
   "no ficha": "No ficha",
 };
@@ -53,6 +74,11 @@ const ASSISTANT_SUGGESTIONS = [
   "¿Cómo ingreso un material que llegó al pañol?",
   "Buscá información sobre la obra K55-3",
 ];
+
+// Lo que se abre cuando todavía no se escribió nada. Sale del mismo índice que
+// la búsqueda, así que ya viene filtrado por rol: no hay que mantener dos
+// listas que dicen quién ve qué.
+const ACCESOS_RAPIDOS = ["obras", "catalogo-maestro", "stock-maestro", "compras", "panol-solicitudes", "panol-remitos"];
 
 function assistantDisplayText(value) {
   const raw = String(value || "");
@@ -69,20 +95,32 @@ function assistantDisplayText(value) {
 }
 
 function quickGroups(profile) {
-  const allowed = new Set(globalSearchScopes(profile));
-  const rows = [
-    { key: "obras", title: "Abrir Obras", subtitle: "Producción, etapas y tareas", path: "/obras" },
-    { key: "materiales", title: "Abrir Catálogo maestro", subtitle: "Productos, códigos y ubicaciones", path: "/catalogo-maestro" },
-    { key: "compras", title: "Abrir Gestión de compras", subtitle: "Pedidos y estados de compra", path: "/compras" },
-    { key: "solicitudes", title: "Abrir Solicitudes de pañol", subtitle: "Preparación, retiro e historial", path: "/solicitudes-panol" },
-    { key: "personas", title: "Abrir Recursos humanos", subtitle: "Empleados y presentismo", path: "/rrhh?tab=empleados" },
-  ].filter((item) => allowed.has(item.key));
-  return rows.length ? [{ key: "accesos", items: rows.map((item) => ({ ...item, id: `quick-${item.key}`, type: item.key })) }] : [];
+  const visibles = seccionesVisibles(profile);
+  const porId = new Map(visibles.map((seccion) => [seccion.id, seccion]));
+  const elegidas = ACCESOS_RAPIDOS.map((id) => porId.get(id)).filter(Boolean);
+  // Si el rol no llega a ninguna de las de siempre, se le muestran las primeras
+  // que sí puede abrir. Un panel de accesos vacío no le sirve a nadie.
+  const items = (elegidas.length ? elegidas : visibles.slice(0, 6)).map((seccion) => ({
+    id: seccion.id,
+    type: "seccion",
+    title: seccion.label,
+    subtitle: seccion.hint,
+    meta: seccion.modulo,
+    path: seccion.path,
+    Icon: seccion.Icon,
+  }));
+  return items.length ? [{ key: "secciones", items }] : [];
 }
 
-function ResultIcon({ groupKey }) {
+/** Un grupo que acaba de responder entra en su lugar, no al final. */
+function mergeGroup(groups, group) {
+  const rest = groups.filter((current) => current.key !== group.key);
+  return [...rest, group].sort((a, b) => groupRank(a.key) - groupRank(b.key));
+}
+
+function ResultIcon({ groupKey, Icon: OwnIcon }) {
   const meta = GROUP_META[groupKey] || GROUP_META.materiales;
-  const Icon = meta.Icon;
+  const Icon = OwnIcon || meta.Icon;
   return (
     <span style={{ width: 34, height: 34, borderRadius: 9, display: "grid", placeItems: "center", flexShrink: 0, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}` }}>
       <Icon size={16} strokeWidth={1.8} />
@@ -168,9 +206,20 @@ export default function GlobalSearch({ profile }) {
 
     const currentRequest = ++requestIdRef.current;
     setLoading(true);
+    setErrors([]);
+    // Las secciones no piden nada a la red: se muestran en la misma tecla, sin
+    // esperar el rebote ni la tabla más lenta. Es lo que hace que el buscador
+    // se sienta inmediato aunque atrás haya once consultas en vuelo.
+    setGroups(searchSectionsOnly(term, profile));
+
     const timer = window.setTimeout(async () => {
       try {
-        const result = await searchGlobal(term, profile);
+        const result = await searchGlobal(term, profile, {
+          onGroup: (group) => {
+            if (requestIdRef.current !== currentRequest) return;
+            setGroups((current) => mergeGroup(current, group));
+          },
+        });
         if (requestIdRef.current !== currentRequest) return;
         cacheRef.current.set(cacheKey, result);
         setGroups(result.groups);
@@ -192,9 +241,11 @@ export default function GlobalSearch({ profile }) {
   }, [groups, profile, query]);
 
   const flatResults = useMemo(
-    () => shownGroups.flatMap((group) => group.items.map((item) => ({ ...item, groupKey: group.key === "accesos" ? item.key : group.key }))),
+    () => shownGroups.flatMap((group) => group.items.map((item) => ({ ...item, groupKey: group.key }))),
     [shownGroups]
   );
+
+  const totalResultados = flatResults.length;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -342,6 +393,11 @@ export default function GlobalSearch({ profile }) {
               <Sparkles size={14} /> Preguntar a la IA <span style={{ fontSize: 8.5, opacity: .78 }}>BETA</span>
             </button>
           )}
+          {hasQuery && !!totalResultados && (
+            <span style={{ marginLeft: "auto", paddingRight: 4, color: C.dim, fontFamily: C.mono, fontSize: 10 }}>
+              {totalResultados} {totalResultados === 1 ? "resultado" : "resultados"}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 62, padding: "0 14px 0 18px", borderBottom: `1px solid ${C.border}` }}>
           {loading || assistantLoading ? <LoaderCircle size={20} color={assistantMode ? C.violet : C.blue} style={{ flexShrink: 0, animation: "global-search-spin .75s linear infinite" }} /> : assistantMode ? <Sparkles size={20} color={C.violet} style={{ flexShrink: 0 }} /> : <Search size={20} color={C.blue} style={{ flexShrink: 0 }} />}
@@ -350,7 +406,7 @@ export default function GlobalSearch({ profile }) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder={assistantMode ? "Preguntale algo sobre Klase A…" : "Buscar obra, material, pedido, solicitud o persona…"}
+            placeholder={assistantMode ? "Preguntale algo sobre Klase A…" : "Buscar una pantalla, obra, producto, remito, pedido o persona…"}
             autoComplete="off"
             spellCheck="false"
             style={{ flex: 1, minWidth: 0, height: 60, border: 0, outline: 0, background: "transparent", color: C.text, fontFamily: C.sans, fontSize: 16, fontWeight: 600 }}
@@ -408,15 +464,16 @@ export default function GlobalSearch({ profile }) {
               <div>
                 <Search size={28} color={C.dim} style={{ marginBottom: 10 }} />
                 <div style={{ color: C.text, fontSize: 14, fontWeight: 850 }}>No encontramos “{query.trim()}”</div>
-                <div style={{ color: C.dim, fontSize: 12, marginTop: 5 }}>Probá con menos palabras, un código, DNI o número de solicitud.</div>
+                <div style={{ color: C.dim, fontSize: 12, marginTop: 5 }}>Probá con menos palabras, el nombre de la pantalla, un código, DNI o número de solicitud.</div>
               </div>
             </div>
           )}
           {shownGroups.map((group) => {
-            const groupMeta = group.key === "accesos" ? null : GROUP_META[group.key];
+            const groupMeta = GROUP_META[group.key];
+            const esSeccion = group.key === "secciones";
             return (
               <section key={group.key} style={{ marginBottom: 8 }}>
-                {groupMeta && (
+                {groupMeta && hasQuery && (
                   <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px 5px", color: groupMeta.color, fontSize: 10, fontWeight: 900, letterSpacing: ".1em", textTransform: "uppercase" }}>
                     <groupMeta.Icon size={12} strokeWidth={2} /> {groupMeta.label}
                     <span style={{ color: C.dim, fontFamily: C.mono }}>{group.items.length}</span>
@@ -427,10 +484,9 @@ export default function GlobalSearch({ profile }) {
                     globalIndex += 1;
                     const index = globalIndex;
                     const active = index === activeIndex;
-                    const key = group.key === "accesos" ? item.key : group.key;
                     return (
                       <button
-                        key={`${key}-${item.id}`}
+                        key={`${group.key}-${item.id}`}
                         ref={(node) => { if (node) rowRefs.current.set(index, node); else rowRefs.current.delete(index); }}
                         type="button"
                         className="global-search-row"
@@ -438,15 +494,18 @@ export default function GlobalSearch({ profile }) {
                         onClick={() => goTo(item)}
                         style={{ width: "100%", minHeight: 54, display: "flex", alignItems: "center", gap: 11, padding: "8px 10px", border: `1px solid ${active ? C.blueB : "transparent"}`, borderRadius: 10, background: active ? C.blueL : "transparent", color: C.text, cursor: "pointer", textAlign: "left", fontFamily: C.sans, transition: "background .12s ease, border-color .12s ease" }}
                       >
-                        <ResultIcon groupKey={key} />
+                        <ResultIcon groupKey={group.key} Icon={item.Icon} />
                         <span style={{ minWidth: 0, flex: 1 }}>
                           <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13.5, fontWeight: 850 }}>{item.title}</span>
+                            {/* En una sección el módulo es lo que la ubica ("Pañol › Archivo de
+                                remitos"), así que va al lado del nombre y no perdido a la derecha. */}
+                            {esSeccion && item.meta && <span style={{ flexShrink: 0, borderRadius: 999, padding: "2px 7px", background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 9.5, fontWeight: 850 }}>{item.meta}</span>}
                             {item.status && <span style={{ flexShrink: 0, borderRadius: 999, padding: "2px 6px", background: C.panel2, border: `1px solid ${C.border}`, color: C.muted, fontSize: 9.5, fontWeight: 850 }}>{STATUS_LABELS[item.status] || item.status}</span>}
                           </span>
                           <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.dim, fontSize: 11.5, marginTop: 3 }}>{item.subtitle}</span>
                         </span>
-                        {item.meta && <span style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.dim, fontSize: 10.5 }}>{item.meta}</span>}
+                        {!esSeccion && item.meta && <span style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.dim, fontSize: 10.5 }}>{item.meta}</span>}
                         <ArrowRight size={14} color={active ? C.blue : C.dim} style={{ flexShrink: 0 }} />
                       </button>
                     );
@@ -456,7 +515,7 @@ export default function GlobalSearch({ profile }) {
             );
           })}
           {!!errors.length && !loading && (
-            <div title={errors.map((error) => `${error.key}: ${error.message}`).join("\n")} style={{ margin: "8px 10px 2px", padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, fontSize: 10.5 }}>
+            <div title={errors.map((error) => `${error.key}: ${error.message}`).join("\n")} style={{ margin: "8px 10px 2px", padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 10.5 }}>
               Algunas secciones no respondieron. Podés seguir usando los resultados visibles.
             </div>
           )}
@@ -464,7 +523,7 @@ export default function GlobalSearch({ profile }) {
         </div>
 
         <div className="global-search-footer" style={{ minHeight: 38, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "7px 13px", borderTop: `1px solid ${C.border}`, background: C.panel2, color: C.dim, fontSize: 10.5 }}>
-          <span>{assistantMode ? "IA gratuita · puede tener límites o demoras." : "Buscá también por código, DNI, proveedor o número."}</span>
+          <span>{assistantMode ? "IA gratuita · puede tener límites o demoras." : "Buscá una pantalla por su nombre, o por código, DNI, proveedor o número."}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>{!assistantMode && <span>↑ ↓ recorrer</span>}<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><CornerDownLeft size={11} /> {assistantMode ? "preguntar" : "abrir"}</span></span>
         </div>
       </div>

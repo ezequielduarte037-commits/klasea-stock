@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -30,7 +31,10 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
   const [items,   setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [q,       setQ]       = useState("");
+  // Puede llegar desde el buscador global apuntando a un procedimiento
+  // concreto: se entra con el filtro puesto y no en la lista completa.
+  const [searchParams] = useSearchParams();
+  const [q,       setQ]       = useState(() => searchParams.get("q") || "");
   const [err,     setErr]     = useState("");
   const [msg,     setMsg]     = useState("");
 

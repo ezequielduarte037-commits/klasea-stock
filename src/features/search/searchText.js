@@ -17,7 +17,7 @@ const STOPWORDS = new Set([
 export function normalize(value = "") {
   return String(value)
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
@@ -147,16 +147,19 @@ export function scoreFields(row, fields, tokens, rawQuery = "") {
 /**
  * Ordena por puntaje y corta.
  *
- * Las filas con puntaje 0 se van: entraron por el OR de la base porque otra
- * palabra coincidía en otra columna, no porque tengan que ver.
+ * Se descarta dos veces. Las de puntaje 0 entraron por el OR de la base -otra
+ * palabra coincidía en otra columna- y no tienen nada que ver. Y las que quedan
+ * muy por debajo de la mejor tampoco: si algo coincide de lleno, lo que apenas
+ * roza la consulta en una nota al pie es ruido y le saca el lugar a otra cosa.
  */
-export function rankRows(rows, fields, tokens, rawQuery = "", limit = 6) {
+export function rankRows(rows, fields, tokens, rawQuery = "", limit = 6, minRatio = 0.18) {
   const primary = Object.keys(fields)[0];
-  return [...(rows ?? [])]
+  const puntuadas = [...(rows ?? [])]
     .map((row) => ({ row, score: scoreFields(row, fields, tokens, rawQuery) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score
-      || String(a.row?.[primary] || "").localeCompare(String(b.row?.[primary] || ""), "es", { numeric: true }))
-    .slice(0, limit)
-    .map(({ row, score }) => ({ row, score }));
+      || String(a.row?.[primary] || "").localeCompare(String(b.row?.[primary] || ""), "es", { numeric: true }));
+  if (!puntuadas.length) return [];
+  const piso = puntuadas[0].score * minRatio;
+  return puntuadas.filter(({ score }) => score >= piso).slice(0, limit);
 }

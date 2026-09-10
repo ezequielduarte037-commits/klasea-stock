@@ -183,6 +183,8 @@ export const C = {
   tealB: "var(--teal-border)",
   cyanL: "var(--cyan-soft)",
   cyanB: "var(--cyan-border)",
+  orangeL: "var(--orange-soft)",
+  orangeB: "var(--orange-border)",
   mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
   sans: "'Outfit', system-ui, sans-serif",
   ...status,

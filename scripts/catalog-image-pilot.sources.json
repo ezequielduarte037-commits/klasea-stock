@@ -1,0 +1,10 @@
+{
+  "policy": "Sólo se cargan fotos cuando el código del material coincide exactamente con el publicado por la fuente. Se omiten materiales ambiguos y materiales que ya tienen imagen.",
+  "source": "Barón Argentina",
+  "source_search": "https://www.baron.com.ar/buscar/resorte",
+  "pilot_codes": [
+    "R05899",
+    "R05788",
+    "R05472"
+  ]
+}

@@ -918,6 +918,9 @@ const TABS_MORE = [
   { key: "resumen", label: "Resumen" },
   { key: "lector", label: "Lector" },
 ];
+// Las solapas que se pueden pedir por URL. Se arma de las dos listas para que
+// agregar una solapa nueva la haga enlazable sin acordarse de tocar nada más.
+const TAB_KEYS = [...TABS_MAIN, ...TABS_MORE].map((t) => t.key);
 
 const MONEDAS = ["", "USD", "ARS"];
 
@@ -940,6 +943,7 @@ function proveedorNombre(proveedores, id, fallback = "") {
 export {
   TABS_MAIN,
   TABS_MORE,
+  TAB_KEYS,
   MONEDAS,
   materialEnArea,
   esRaiz,

@@ -6,11 +6,14 @@ const PURCHASE_STATUSES = ["nuevo", "en_revision", "cotizando", "comprado", "rec
 const PURCHASE_COUNTS_TTL_MS = 30_000;
 let purchaseCountsCache = { expiresAt: 0, value: null };
 
+// "secciones" va primero en todos: la mitad de lo que se le pregunta al
+// asistente es dónde se hace algo, y sin el mapa del sistema en el contexto
+// contestaba de memoria o no contestaba.
 const ASSISTANT_SECTIONS_BY_ROLE = {
-  admin: ["obras", "materiales", "compras", "solicitudes"],
-  tecnica: ["obras", "materiales", "compras", "solicitudes"],
-  compras: ["materiales", "compras", "solicitudes"],
-  panol: ["materiales", "compras", "solicitudes"],
+  admin: ["secciones", "obras", "materiales", "remitos", "compras", "solicitudes", "proveedores"],
+  tecnica: ["secciones", "obras", "materiales", "remitos", "compras", "solicitudes", "proveedores"],
+  compras: ["secciones", "materiales", "compras", "solicitudes", "proveedores"],
+  panol: ["secciones", "materiales", "remitos", "compras", "solicitudes"],
 };
 
 function assistantRole(profile) {
