@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCheck, CheckCircle2, PackageOpen, ShoppingCart, Truck } from "lucide-react";
 import useNotificaciones from "@/hooks/useNotificaciones";
@@ -30,10 +31,30 @@ function counterByType(lista) {
   return out;
 }
 
-export default function NotificacionesBell({ profile }) {
+/**
+ * La campanita vive DENTRO del menú lateral, no flotando sobre la pantalla.
+ *
+ * Antes era un botón fijo abajo a la derecha, y ahí tapaba lo que hubiera
+ * debajo. En Tornería caía justo encima del lápiz de editar del último renglón
+ * y no se podía tocar. Ya se había parcheado escondiéndola en Tornería en
+ * celular, lo que dejaba el mismo problema intacto en la computadora y encima
+ * dejaba sin avisos a quien entra desde el teléfono.
+ *
+ * Un botón que flota sobre el contenido siempre va a tapar algo: el contenido
+ * cambia y el botón no se entera. Por eso ahora se monta donde ya hay lugar
+ * reservado para los controles de la sesión, al lado de salir y cambiar la
+ * contraseña.
+ *
+ * El panel sale por portal porque el <aside> del menú tiene overflow: hidden y
+ * lo recortaría. Se ubica midiendo el botón, y se abre para arriba o para abajo
+ * según de qué lado de la pantalla esté, sin salirse nunca del borde.
+ */
+export default function NotificacionesBell({ profile, size = 28, iconSize = 15, estiloBoton = null }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("todos");
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const panelRef = useRef(null);
   const navigate = useNavigate();
   const isAdmin = hasAdminAccess(profile);
   const { lista, unreadCount, loading, markLeido, markTodoLeido, resolverAlerta } = useNotificaciones(profile);
@@ -42,13 +63,54 @@ export default function NotificacionesBell({ profile }) {
     [filter, lista],
   );
 
+  // El panel se ubica midiendo el botón. Se abre hacia arriba si el botón está
+  // en la mitad de abajo de la pantalla -que es donde queda en el menú- y hacia
+  // abajo si está arriba, como en el celular al lado del botón de menú.
+  const ubicar = useCallback(() => {
+    const boton = ref.current;
+    if (!boton) return;
+    const r = boton.getBoundingClientRect();
+    const margen = 12;
+    const ancho = Math.min(390, window.innerWidth - margen * 2);
+    const left = Math.max(margen, Math.min(r.left, window.innerWidth - ancho - margen));
+    const arriba = r.top > window.innerHeight / 2;
+    const libre = arriba ? r.top - margen * 2 : window.innerHeight - r.bottom - margen * 2;
+    setPos({
+      ancho,
+      left,
+      ...(arriba ? { bottom: window.innerHeight - r.top + 8 } : { top: r.bottom + 8 }),
+      maxHeight: Math.max(220, Math.min(620, libre)),
+    });
+  }, []);
+
   useEffect(() => {
+    // Cerrar al tocar afuera tiene que mirar los DOS: el botón y el panel, que
+    // ahora son ramas distintas del DOM. Con un solo ref, hacer clic adentro del
+    // panel lo cerraba.
     function handleClick(event) {
-      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+      const fueraDelBoton = ref.current && !ref.current.contains(event.target);
+      const fueraDelPanel = !panelRef.current || !panelRef.current.contains(event.target);
+      if (fueraDelBoton && fueraDelPanel) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    ubicar();
+    const onEsc = (event) => { if (event.key === "Escape") setOpen(false); };
+    // En captura: si no, un scroll dentro de una lista no lo avisa y el panel
+    // queda colgado lejos del botón.
+    window.addEventListener("resize", ubicar);
+    window.addEventListener("scroll", ubicar, true);
+    window.addEventListener("keydown", onEsc);
+    return () => {
+      window.removeEventListener("resize", ubicar);
+      window.removeEventListener("scroll", ubicar, true);
+      window.removeEventListener("keydown", onEsc);
+    };
+  }, [open, ubicar]);
 
   const role = profile?.is_admin ? "admin" : profile?.role;
   if (!profile || role === "cliente") return null;
@@ -63,52 +125,55 @@ export default function NotificacionesBell({ profile }) {
 
   const S = {
     wrapper: {
-      position: "fixed",
-      right: 20,
-      bottom: "max(18px, env(safe-area-inset-bottom, 18px))",
-      zIndex: 9000,
+      position: "relative",
+      display: "inline-flex",
+      flexShrink: 0,
     },
+    // Mismo cuerpo que los otros botones del pie del menú -salir, contraseña,
+    // WhatsApp- para que se lea como uno más y no como algo pegado encima.
     bell: {
       position: "relative",
-      width: 40,
-      height: 40,
-      borderRadius: "50%",
+      width: size,
+      height: size,
+      borderRadius: 7,
+      boxSizing: "border-box",
       background: open ? C.panel2 : C.panel,
-      border: `1px solid ${unreadCount > 0 ? C.amberB : C.border}`,
-      backdropFilter: "var(--glass-filter)",
-      WebkitBackdropFilter: "var(--glass-filter)",
+      border: `1px solid ${unreadCount > 0 ? C.blueB : C.border}`,
       cursor: "pointer",
       display: "grid",
       placeItems: "center",
-      color: unreadCount > 0 ? C.amber : C.dim,
-      transition: "all 0.2s",
-      boxShadow: unreadCount > 0 ? "0 0 18px rgba(245,158,11,0.16)" : "none",
+      color: unreadCount > 0 ? C.blue : C.dim,
+      transition: "color .2s, border-color .2s, background .2s",
+      padding: 0,
+      // Para que en el celular se vea igual que el botón de menú que tiene al lado.
+      ...(estiloBoton || {}),
     },
     badge: {
       position: "absolute",
-      top: -4,
-      right: -4,
-      minWidth: 18,
-      height: 18,
+      top: -6,
+      right: -6,
+      minWidth: 16,
+      height: 16,
       borderRadius: 99,
       background: C.red,
       color: "#fff",
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: 950,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      padding: "0 5px",
+      padding: "0 4px",
       border: `2px solid ${C.bg}`,
       fontFamily: C.mono,
+      pointerEvents: "none",
     },
     panel: {
-      position: "absolute",
-      bottom: 48,
-      right: 0,
-      width: 390,
-      maxWidth: "calc(100vw - 24px)",
-      maxHeight: "min(620px, calc(100vh - 80px))",
+      position: "fixed",
+      zIndex: 9000,
+      left: pos?.left ?? 0,
+      ...(pos && "bottom" in pos ? { bottom: pos.bottom } : { top: pos?.top ?? 0 }),
+      width: pos?.ancho ?? 390,
+      maxHeight: pos?.maxHeight ?? 620,
       overflow: "hidden",
       background: C.panelSolid,
       backdropFilter: "var(--glass-filter)",
@@ -196,13 +261,20 @@ export default function NotificacionesBell({ profile }) {
 
   return (
     <div style={S.wrapper} ref={ref}>
-      <button type="button" style={S.bell} onClick={() => setOpen((value) => !value)} title="Notificaciones">
-        <Bell size={18} />
+      <button
+        type="button"
+        style={S.bell}
+        onClick={() => setOpen((value) => !value)}
+        title="Notificaciones"
+        aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : "Notificaciones"}
+        aria-expanded={open}
+      >
+        <Bell size={iconSize} />
         {unreadCount > 0 && <span style={S.badge}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
 
-      {open && (
-        <div style={S.panel}>
+      {open && pos && createPortal(
+        <div ref={panelRef} style={S.panel}>
           <div style={S.header}>
             <div>
               <div style={S.title}>Notificaciones</div>
@@ -282,7 +354,8 @@ export default function NotificacionesBell({ profile }) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

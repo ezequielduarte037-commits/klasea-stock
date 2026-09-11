@@ -6,6 +6,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
 import { useTheme } from "@/theme/useTheme";
+import NotificacionesBell from "@/components/NotificacionesBell";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import VincularWhatsAppModal from "@/features/cuenta/VincularWhatsAppModal";
 import { supabase } from "@/supabaseClient";
@@ -742,6 +743,41 @@ export default function Sidebar({ profile, signOut }) {
           }}>
             {menuVisible ? <X size={18} /> : <Menu size={18} />}
           </button>
+
+          {/* En el celular la campanita va al lado del botón de menú, arriba a
+              la izquierda. Adentro del cajón también está -en el pie- pero ahí
+              no se ve sin abrirlo, y un aviso que hay que ir a buscar no avisa.
+              Arriba a la izquierda no pisa nada: los botones de acción de las
+              listas viven abajo a la derecha, que es de donde venimos.
+              Con el cajón abierto se desvanece -el cajón va en z-index 1000 y
+              esto en 1001, así que si no, flotaría encima-. Se OCULTA, no se
+              desmonta: useNotificaciones abre canales de realtime al montar, y
+              montar y desmontar en cada toque del menú los estaría abriendo y
+              cerrando todo el día. */}
+          {(
+            <div style={{
+              position: "fixed",
+              top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+              left: "calc(env(safe-area-inset-left, 0px) + 62px)",
+              zIndex: 1001,
+              opacity: menuVisible ? 0 : 1,
+              pointerEvents: menuVisible ? "none" : "auto",
+              transition: "opacity .2s",
+            }}>
+              <NotificacionesBell
+                profile={profile}
+                size={42}
+                iconSize={18}
+                estiloBoton={{
+                  borderRadius: 10,
+                  background: C.panelSolid,
+                  backdropFilter: "blur(6px)",
+                  WebkitBackdropFilter: "blur(6px)",
+                  boxShadow: "0 10px 30px var(--shadow)",
+                }}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -960,6 +996,9 @@ export default function Sidebar({ profile, signOut }) {
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
           }}>
             {botonPlegar}
+            {/* Con el menú plegado el pie es lo único que queda: si la campanita
+                no entra acá, el que trabaja con el menú chico no ve un aviso. */}
+            <NotificacionesBell profile={profile} size={30} iconSize={15} />
             <div
               title={`${username} · ${role}`}
               style={{
@@ -1028,6 +1067,12 @@ export default function Sidebar({ profile, signOut }) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              {/* Va primera de los controles de sesión: es la que más se mira.
+                  En el celular NO va acá: ahí está la de al lado del botón de
+                  menú, y montar las dos a la vez abriría dos veces los mismos
+                  canales de realtime -useNotificaciones los nombra por usuario-,
+                  con lo que al desmontar una se le cortaba la escucha a la otra. */}
+              {!isMobile && <NotificacionesBell profile={profile} size={28} iconSize={14} />}
               <button
                 type="button"
                 onClick={() => {

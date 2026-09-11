@@ -1,13 +1,11 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import AppVersionGuard from "@/components/AppVersionGuard";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
-import NotificacionesBell from "@/components/NotificacionesBell";
-import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import { canonicalPanolSede } from "@/features/panol/panolApi";
 import ComprasBicho from "@/features/compras/ComprasBicho";
@@ -247,19 +245,14 @@ function esRutaDeColector() {
   return typeof window !== "undefined" && RUTAS_COLECTOR.has(window.location.pathname);
 }
 
-// Pantallas que en el celular son una lista larga a pantalla completa: la
-// campanita queda flotando encima del último renglón y del botón de acción, y
-// el que trabaja ahí termina tocándola sin querer. En Tornería el mecánico usa
-// el teléfono todo el día, así que ahí se saca; en la compu no molesta y queda.
-const RUTAS_SIN_CAMPANITA_EN_CELULAR = new Set(["/torneria"]);
-
-function CampanitaSalvoColector({ profile }) {
-  const { pathname } = useLocation();
-  const { isMobile } = useResponsive(768);
-  if (RUTAS_COLECTOR.has(pathname)) return null;
-  if (isMobile && RUTAS_SIN_CAMPANITA_EN_CELULAR.has(pathname)) return null;
-  return <NotificacionesBell profile={profile} />;
-}
+// La campanita ya no se monta acá. Vivía flotando abajo a la derecha y tapaba
+// lo que hubiera debajo: en Tornería caía justo sobre el lápiz de editar del
+// último renglón y no se podía tocar. El parche era esconderla en Tornería en
+// el celular, que dejaba el mismo problema intacto en la computadora y encima
+// dejaba sin avisos a quien entra desde el teléfono.
+//
+// Ahora vive en el menú lateral, que es chrome y no tapa contenido. Ver
+// components/Sidebar.jsx y components/NotificacionesBell.jsx.
 
 function RequireAuth({ session, children }) {
   if (!session) return <Navigate to="/login" replace />;
@@ -890,7 +883,6 @@ export default function App() {
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />}
-      {!modoColector && session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
       {!modoColector && session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
           </ConfirmProvider>
         </ToastProvider>

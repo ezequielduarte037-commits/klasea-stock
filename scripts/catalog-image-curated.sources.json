@@ -1131,6 +1131,186 @@
       "sourceTokens": ["Jabsco", "35440-0000", "250"],
       "imageProof": "embedded",
       "imageUrl": "https://www.westmarine.com/on/demandware.static/-/Sites-wm-master-catalog/default/dw82807ff0/images/orig/109894_1500.17012019033003.jpg"
+    },
+    {
+      "materialId": "76454f0d-d6b6-4552-8c6a-7aa0235893ea",
+      "expectedDescription": "HOLDING TANK MATROMARINE ITALIANO 73 LITROS 12V",
+      "model": "Matromarine 9400000573 73 L 12V waste tank kit",
+      "sourceName": "7ft.ru",
+      "sourcePage": "https://7ft.ru/t661810/",
+      "sourceTokens": ["Matromarine", "9400000573", "73"],
+      "imageProof": "embedded",
+      "imageUrl": "https://7ft.ru/upload/iblock/ff0/rnlhyktoe7vl8e6wn4tmtw7hyd46aeqm/bak_stochnyy_pryamougolnyy_73_l_760x390x290_mm_782111_3869688434.jpg"
+    },
+    {
+      "materialId": "2224e859-ba28-43b3-b96f-c1f48009a712",
+      "expectedDescription": "PARLANTE 6.5 FUSION SG-FL653SPW",
+      "model": "Fusion Signature Series 3i SG-FL653SPW 6.5 in white",
+      "sourceName": "RG Sound",
+      "sourcePage": "https://www.rgsound.it/010-02771-10-sg-fl653spw-speaker-nautici-crgbw-da-6-5-finitura-bianca_fusion-id-58467.html",
+      "sourceTokens": ["Fusion", "SG-FL653SPW", "010-02771-10"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/fusion-010-02771-10-pid-58467.jpg"
+    },
+    {
+      "materialId": "35c09cf3-3edc-49d7-be9b-a683abc14945",
+      "expectedDescription": "PARLANTE FUSION 6.5\" XS-FL65SPGW",
+      "model": "Fusion XS-FL65SPGW 6.5 in RGB sports marine speakers",
+      "sourceName": "NVN Marine",
+      "sourcePage": "https://nvnmarine.com/products/86401-fusion-xs-fl65spgw-xs-series-6-5-rgb",
+      "sourceTokens": ["FUSION", "XS-FL65SPGW", "6.5"],
+      "imageProof": "embedded",
+      "imageUrl": "https://nvnmarine.com/cdn/shop/files/86401-fusion-xs-fl65spgw-xs-series-6-5-rgb-0.jpg?v=1734803012&width=1400"
+    },
+    {
+      "materialId": "13afaaea-39b0-4b9c-84f7-06704f211706",
+      "expectedDescription": "PARLANTE FUSION 6.5\" XS-F65CWB",
+      "model": "Fusion XS-F65CWB 6.5 in Classic marine speakers / 010-02196-00",
+      "sourceName": "NVN Marine",
+      "sourcePage": "https://nvnmarine.com/products/86400-fusion-xs-f65cwb-xs-series-6-5-200-watt",
+      "sourceTokens": ["Fusion", "XS-F65CWB", "010-02196-00"],
+      "imageProof": "embedded",
+      "imageUrl": "https://nvnmarine.com/cdn/shop/files/86400-fusion-xs-f65cwb-xs-series-6-5-200-watt-0.jpg?v=1734803022&width=1400"
+    },
+    {
+      "materialId": "7956a42d-54a7-4e7a-adf4-c24bc5c2255f",
+      "expectedDescription": "PARLANTE DE TORRE JL M6-880ETXV3-SB-S-GMTI-I GRIS",
+      "model": "JL Audio M6-880ETXv3-Sb-S-GmTi-i 8.8 in tower speakers",
+      "sourceName": "RG Sound",
+      "sourcePage": "https://www.rgsound.it/m6-880etxv3-sb-s-gmti-i_jl-audio-id-45637.html",
+      "sourceTokens": ["JL", "M6-880ETXv3-Sb-S-GmTi-i", "8.8"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/jl-audio-m6-880etxv3-sb-s-gmti-i-pid-45637.jpg"
+    },
+    {
+      "materialId": "d9041b57-3b35-42ac-a4be-97726661d267",
+      "expectedDescription": "CONTROL REMOTO JL MMR-20BE",
+      "model": "JL Audio MMR-20BE wired marine remote control",
+      "sourceName": "MB Car Audio",
+      "sourcePage": "https://mbcaraudio.nl/remote-controls-marine-audio/jl-audio-mmr-20be.html",
+      "sourceTokens": ["JL", "MMR-20BE"],
+      "imageProof": "embedded",
+      "imageUrl": "https://mbcaraudio.nl/38677-large_default/jl-audio-mmr-20be.jpg"
+    },
+    {
+      "materialId": "54a93d27-15f2-4105-82ed-fe279aa0c0ef",
+      "expectedDescription": "JL- MLC-RW CONTROL LED RGB",
+      "model": "JL Audio MLC-RW RGB marine lighting controller / 010-13428-00",
+      "sourceName": "MCOR Automotive",
+      "sourcePage": "https://shop.mcorautomotive.com/products/mlc-rw",
+      "sourceTokens": ["JL", "MLC-RW", "010-13428-00"],
+      "imageProof": "embedded",
+      "imageUrl": "https://shop.mcorautomotive.com/cdn/shop/files/1_ad37a6af-2d7b-4230-9091-57780b4dab62.webp?v=1770175876&width=1445"
+    },
+    {
+      "materialId": "3ac16bda-6682-4f9d-8dc4-98cae7ec125e",
+      "expectedDescription": "PARLANTE JL M3-650VeX-Gw-S-Gw-i",
+      "model": "JL Audio M3-650VEX-Gw-S-Gw-i tower speaker / 93402",
+      "sourceName": "MNI Boats",
+      "sourcePage": "https://www.mniboats.com/JL-Audio-M3-650VEX-Gw-S-Gw-i-p/93402.htm",
+      "sourceTokens": ["JL", "M3-650VEX-Gw-S-Gw-i", "93402"],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn4.volusion.store/cgrfj-cjkum/v/vspfiles/photos/93402-2.png?v-cache=1666687657"
+    },
+    {
+      "materialId": "6c99865e-3856-4e3a-9166-4b160cd4abe7",
+      "expectedDescription": "Parlantes 6,5\" Fusion FM-F65RW blancos",
+      "model": "Fusion FM-F65RW 6.5 in white marine speakers / 010-02299-00",
+      "sourceName": "Marineshop",
+      "sourcePage": "https://www.marineshop.no/fusion/139951/40064-fusion-fm-series-h%C3%B8yttalere-6-5-120w-rund-lavprofil-hvit-par",
+      "sourceTokens": ["Fusion", "FM-F65RW", "010-02299-00"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.marineshop.no/userfiles/static/garmin/010-02299-00-FM-speakers-product-image-01-df55358c-f0d1-47a5-83a3-277ea70af33a.jpg"
+    },
+    {
+      "materialId": "02b1198c-bcdf-4661-bb47-4d6fd20b7732",
+      "expectedDescription": "PLOTTER GARMIN ECHOMAP UHD2 72SV + TRANSDUCER",
+      "model": "Garmin ECHOMAP UHD2 72sv with GT54UHD-TM transducer / 010-02683-01",
+      "sourceName": "Garmin",
+      "sourcePage": "https://www.garmin.com/en-PH/p/pn/010-02683-01/",
+      "sourceTokens": ["ECHOMAP", "72sv", "010-02683-01"],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en_PH/products/010-02683-01/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "2835bff5-374d-4780-9ea9-e6c09a1c3802",
+      "expectedDescription": "ECOSONDA P319 · GARMIN",
+      "model": "Garmin Airmar P319 8-pin depth and temperature transducer / 010-10194-21",
+      "sourceName": "Garmin",
+      "sourcePage": "https://www.garmin.com.sg/products/onthewater/plastic-thru-hull-mount-transducer-with-depth-temperature-8-pin-airmar/",
+      "sourceTokens": ["Garmin", "P319", "010-10194-21"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.garmin.com.sg/m/sg/g/products/cf-lg_99.jpg"
+    },
+    {
+      "materialId": "cba38028-9ec0-4dfe-957d-0e95ceae0210",
+      "expectedDescription": "BICHERO PLASTI 2 TRAMOS 120/210CM",
+      "model": "Plastimo telescopic boat hook 120-210 cm / 62094",
+      "sourceName": "CH Marine",
+      "sourcePage": "https://www.chmarine.com/plastimo-telescopic-boat-hook-120-210cm/",
+      "sourceTokens": ["Plastimo", "120-210cm", "P62094"],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-lmnt0zg7g8/images/stencil/1280x1280/products/21856/41834/plastimo-telescopic-boat-hook__86535.1643381158.jpg?c=2"
+    },
+    {
+      "materialId": "4f17a37c-50d4-4fab-8a09-fc488bd54716",
+      "expectedDescription": "CAJA ROKER PR409",
+      "model": "Roker PR409 4-module surface DIN enclosure",
+      "sourceName": "Genrod",
+      "sourcePage": "https://genrod.cwei.com.ar/cajas-para-tmpvc-sobreponer-ext/12797-roker-pr409-caja-termica-sobreponer-4-bocas-din-pvc-ip40-100-x-159-x-88.html",
+      "sourceTokens": ["Roker", "PR409", "4"],
+      "imageProof": "embedded",
+      "imageUrl": "https://genrod.cwei.com.ar/56861-thickbox_default/roker-pr409-caja-termica-sobreponer-4-bocas-din-pvc-ip40-100-x-159-x-88.jpg"
+    },
+    {
+      "materialId": "8d472ee5-cdb2-45a7-bc60-428bd2a97b2e",
+      "expectedDescription": "Parlantes 6,5\" Fusion FM-F65RB negros",
+      "model": "Fusion FM-F65RB 6.5 in black marine speakers / 010-02299-01",
+      "sourceName": "RG Sound",
+      "sourcePage": "https://www.rgsound.it/010-02299-01-fm-f65rb-altoparlanti-da-incasso-165-mm-finitura-nera_fusion-id-46371.html",
+      "sourceTokens": ["Fusion", "FM-F65RB", "010-02299-01"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/fusion-010-02299-01-pid-46371.jpg"
+    },
+    {
+      "materialId": "e8810490-9d0f-4311-a9e8-0baf003f6d6f",
+      "expectedDescription": "PARLANTE DE TORRE 6.5\" FUSION SG-FLT653SPB",
+      "model": "Fusion Signature Series 3i SG-FLT653SPB 6.5 in black tower speakers / 010-02771-51",
+      "sourceName": "RG Sound",
+      "sourcePage": "https://www.rgsound.it/010-02771-51-sg-flt653spb-altoparlante-con-griglia-sport-nera_fusion-id-59774.html",
+      "sourceTokens": ["Fusion", "SG-FLT653SPB", "010-02771-51"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/fusion-010-02771-51-pid-59774.jpg"
+    },
+    {
+      "materialId": "31e950ac-2f6d-4ecd-8877-1d1db113a9e5",
+      "expectedDescription": "SOPORTE TORRE JL M-SWMCPv3-1.660",
+      "model": "JL Audio M-SWMCPv3-1.660 swivel tube mount / 010-13716-00",
+      "sourceName": "Garmin",
+      "sourcePage": "https://www.garmin.com/es-MX/p/1866921/pn/010-13716-00/",
+      "sourceTokens": ["JL", "M-SWMCPv3-1.660", "010-13716-00"],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en/products/010-13716-00/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "acb69118-9cbc-4706-9cba-281e899f6a41",
+      "expectedDescription": "CERBO GX VICTRON ENERGY",
+      "model": "Victron Cerbo GX communication centre",
+      "sourceName": "Victron Energy",
+      "sourcePage": "https://www.victronenergy.com/communication-centres/cerbo-gx",
+      "sourceTokens": ["Victron", "Cerbo", "GX"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.victronenergy.com/upload/documents/Cerbo%20GX%20%28front%29.png"
+    },
+    {
+      "materialId": "0103e4e4-aee4-4184-8d57-736cd1d8fa0c",
+      "expectedDescription": "SMART STUNT 500A VICTRON ENERGY",
+      "model": "Victron SmartShunt 500A-50mV battery monitor",
+      "sourceName": "Victron Energy",
+      "sourcePage": "https://www.victronenergy.com/battery-monitors/smart-battery-shunt",
+      "sourceTokens": ["Victron", "SmartShunt", "500A"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.victronenergy.com/upload/documents/SmartShunt%20500A-50mV%20%28front%29.png"
     }
   ]
 }
