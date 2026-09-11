@@ -1,0 +1,168 @@
+{
+  "search": "FV",
+  "count": 18,
+  "rows": [
+    {
+      "id": "18839a3f-a7e7-4a4f-ba6e-b59455181ff7",
+      "codigo": null,
+      "descripcion": "CABLE DIRECCIÓN FAYVA SIMPLE SERIE FVC 3000 C/CONO DC350022",
+      "proveedor": "Fayva",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 50
+    },
+    {
+      "id": "8b2425a5-c21f-417b-b9ca-8c463ee2a7e9",
+      "codigo": null,
+      "descripcion": "MONOCOMANDO LAVATORIO FV EPUYEN 0181.02/L2",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "5f33610f-1b58-4e44-8840-d30db1660ec1",
+      "codigo": null,
+      "descripcion": "MONOCOMANDO LAVATORIO FV EPUYEN 0181.02/L2 · CROMADO",
+      "proveedor": "Gabriel Sanitarios",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "8f015fa1-fcaf-4969-a6ee-3c376a04a02b",
+      "codigo": "FV",
+      "descripcion": "MONOCOMANDO LAVATORIO LIBBY 181.02/39",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "965d2996-bec7-4fee-a520-f6e3f688dd4b",
+      "codigo": null,
+      "descripcion": "MONOCOMANDO COCINA FV TEMPLE 411/87",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "1dd21b67-9e5d-4297-99b8-2cd41c931852",
+      "codigo": null,
+      "descripcion": "Monocomando cocina FV Arizona alto 411.02/B1",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "c32389e2-cf7d-4a3b-a0f7-d25921cba629",
+      "codigo": null,
+      "descripcion": "PERCHA DOMINIC 166R/85 FV",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "547dbfb1-04e5-4517-a7a1-7c65a12218b8",
+      "codigo": null,
+      "descripcion": "PORTARROLLO DOMINIC 167R/85 FV",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "58d6dc03-a53c-4a04-92e6-a26584f7c25c",
+      "codigo": null,
+      "descripcion": "TOALLERO BARRAL FV DOMINIC 164R/85",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "097716a8-5c97-4d75-b412-049ab02ada8f",
+      "codigo": "108/39",
+      "descripcion": "Griferia De Ducha Fv Libby Monocomando 108/39 Plateado Cromado",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 8
+    },
+    {
+      "id": "aea86d5b-23d9-4829-8eb1-dba3659e17a8",
+      "codigo": null,
+      "descripcion": "Bidet · FV",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "e5f685f6-e7af-4577-aa83-edc735855868",
+      "codigo": null,
+      "descripcion": "Duchador con barral FV Polca 0128.17",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "d786e85d-e73b-4a9c-807e-66b4cb8df5d4",
+      "codigo": null,
+      "descripcion": "Monocomando ducha FV Libby",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "31abfee0-65f4-4392-8b0d-1c59f0df12c6",
+      "codigo": null,
+      "descripcion": "Monocomando lavatorio FV Libby 206/39",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "deb7f716-5e8b-479a-9562-955072bd76d6",
+      "codigo": null,
+      "descripcion": "Percha FV Libby 166/39",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "5f5ebc3f-3166-4dc2-95ed-eb984b738b17",
+      "codigo": null,
+      "descripcion": "Portarrollo FV Libby 167/39",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "c65feda3-74db-4b56-95b1-22fd62ab65df",
+      "codigo": null,
+      "descripcion": "Tubo PRFV (tubo bocina) D.int=75mm, D.ext=92mm, largo=1m",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "d3b24dd9-f8c4-4e48-9b78-d37a2b26f8a5",
+      "codigo": null,
+      "descripcion": "Tubo PRFV Dint=76mm, esp=7mm - tubo bocina",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

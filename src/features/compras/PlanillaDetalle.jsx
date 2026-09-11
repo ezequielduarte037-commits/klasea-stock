@@ -34,7 +34,7 @@ export default function PlanillaDetalle({ fila, obra, obras, onObra, onClose, on
     </div>
     {celda && <section style={{ display: "grid", gap: 8, fontSize: 13 }}>
       <strong>Producto y configuración</strong>
-      <span style={{ color: sinDefinir ? C.amber : C.dim }}>{sinDefinir ? "Falta definir qué producto lleva esta obra" : producto?.descripcion || (celda.requiereProductoConcreto ? "Producto definido" : "Producto directo")}</span>
+      <span style={{ color: sinDefinir ? C.cyan : C.dim }}>{sinDefinir ? "Falta definir qué producto lleva esta obra" : producto?.descripcion || (celda.requiereProductoConcreto ? "Producto definido" : "Producto directo")}</span>
       {celda.requiereProductoConcreto && <button type="button" onClick={onDefinir} style={{ ...boton, borderColor: C.blueB, color: C.blue }}> {sinDefinir ? "Definir producto en esta obra" : "Revisar producto de esta obra"} <ArrowUpRight size={13} /></button>}
       {(celda.configuraciones || []).map((item, i) => <span key={`${item.nombre}-${i}`} style={{ color: C.violet }}>{item.nombre}: {Number(item.delta) > 0 ? "+" : ""}{numero(item.delta)} {fila.unidad}</span>)}
       {celda.avisoPendiente && <span style={{ color: C.green }}>Tiene un aviso de recepción abierto.</span>}

@@ -128,6 +128,14 @@ function normalizeSearch(value = "") {
     .trim();
 }
 
+function materialVariantImageUrl(material, variantName = "") {
+  const selected = normalizeSearch(variantName);
+  const variants = material?.variantes_precios;
+  if (!selected || !variants || typeof variants !== "object" || Array.isArray(variants)) return "";
+  const match = Object.entries(variants).find(([name]) => normalizeSearch(name) === selected);
+  return String(match?.[1]?.imagen_url || match?.[1]?.imagenUrl || "").trim();
+}
+
 // Conectores/palabras que no aportan a la b\u00fasqueda (los cargan distinto entre \u00edtems).
 const SEARCH_STOPWORDS = new Set(["de", "del", "la", "el", "los", "las", "con", "para", "por", "y", "o", "a", "en", "un", "una", "que", "al", "sin"]);
 
@@ -496,14 +504,14 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
       // Escalera de selects de más completo a más viejo: la pantalla tiene que
       // seguir funcionando en un entorno donde las migraciones nuevas todavía
       // no se aplicaron, mostrando menos en vez de romper.
-      let res = await fetchMaterialMetadata("id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas");
+      let res = await fetchMaterialMetadata("id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,variantes_precios,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas");
       if (res.error && isMissingColumn(res.error)) {
         res = await fetchMaterialMetadata(
           // `es_requisito` es parte de la identidad operativa del material, no
           // metadata opcional. Antes se perdia en este fallback cuando faltaba
           // alguna columna de verificacion; el carrito parecia un producto
           // normal y el RPC recien lo rechazaba al confirmar.
-          "id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas",
+          "id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,variantes_precios,stock_minimo,imagen_url,notas",
         );
       }
       if (res.error && isMissingColumn(res.error)) {
@@ -693,6 +701,7 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
     const opcionAsignada = tieneProductoConcreto
       ? (opcionVinculada || opcionDesdeDescripcion || productoDescripcion)
       : (opcionLegacy && opcionLegacy.toLowerCase() !== "standard" ? opcionLegacy : "");
+    const imagenVariante = materialVariantImageUrl(meta, opcionAsignada || opcionLegacy);
     const request = row.purchase_request_id ? requestById.get(row.purchase_request_id) || null : null;
     const categoriaId = row.categoria_id || meta?.categoria_id || null;
     const directActor = isUuidLike(row.egreso_por) ? egresoActorById.get(row.egreso_por) || null : null;
@@ -762,7 +771,7 @@ async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol
       ubicacion: meta?.ubicacion || null,
       ubicacion_obs: meta?.ubicacion_obs || null,
       stock_minimo: meta?.stock_minimo ?? null,
-      imagen_url: meta?.imagen_url || null,
+      imagen_url: imagenVariante || meta?.imagen_url || null,
       notas: meta?.notas || null,
       es_requisito: meta?.es_requisito === true,
       productos_compatibles: Array.isArray(meta?.productos_compatibles) ? meta.productos_compatibles : [],

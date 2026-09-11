@@ -1,0 +1,78 @@
+{
+  "search": "FV",
+  "count": 8,
+  "rows": [
+    {
+      "id": "18839a3f-a7e7-4a4f-ba6e-b59455181ff7",
+      "codigo": null,
+      "descripcion": "CABLE DIRECCIÓN FAYVA SIMPLE SERIE FVC 3000 C/CONO DC350022",
+      "proveedor": "Fayva",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 50
+    },
+    {
+      "id": "8b2425a5-c21f-417b-b9ca-8c463ee2a7e9",
+      "codigo": null,
+      "descripcion": "MONOCOMANDO LAVATORIO FV EPUYEN 0181.02/L2",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "5f33610f-1b58-4e44-8840-d30db1660ec1",
+      "codigo": null,
+      "descripcion": "MONOCOMANDO LAVATORIO FV EPUYEN 0181.02/L2 · CROMADO",
+      "proveedor": "Gabriel Sanitarios",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "1dd21b67-9e5d-4297-99b8-2cd41c931852",
+      "codigo": null,
+      "descripcion": "Monocomando cocina FV Arizona alto 411.02/B1",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "aea86d5b-23d9-4829-8eb1-dba3659e17a8",
+      "codigo": null,
+      "descripcion": "Bidet · FV",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "d786e85d-e73b-4a9c-807e-66b4cb8df5d4",
+      "codigo": null,
+      "descripcion": "Monocomando ducha FV Libby",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "c65feda3-74db-4b56-95b1-22fd62ab65df",
+      "codigo": null,
+      "descripcion": "Tubo PRFV (tubo bocina) D.int=75mm, D.ext=92mm, largo=1m",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "d3b24dd9-f8c4-4e48-9b78-d37a2b26f8a5",
+      "codigo": null,
+      "descripcion": "Tubo PRFV Dint=76mm, esp=7mm - tubo bocina",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

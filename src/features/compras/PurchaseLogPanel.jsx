@@ -1205,8 +1205,15 @@ export default function PurchaseLogPanel({ profile }) {
         borderRadius: 12,
         overflow: "hidden",
       }}>
-        <KpiCell icon={DollarSign} label="Este mes" value={fmtMoney(monthlyTotal)} detail={`${monthlyCount} carga${monthlyCount === 1 ? "" : "s"}`} color={C.green} loading={loading} />
-        <KpiCell icon={FileText} label="Registrado" value={fmtMoney(manualTotal)} detail={sinPrecioCargas > 0 ? `${sinPrecioCargas} items sin precio` : `${entries.length} registros`} color={sinPrecioCargas > 0 ? WARN : C.blue} loading={loading} />
+        {/* Los de plata sólo cuando hay plata cargada. Con las cargas manuales
+            todavía sin usar, dos de los cuatro recuadros mostraban "$0 · 0
+            cargas" y ocupaban media banda diciendo nada. */}
+        {(monthlyCount > 0 || monthlyTotal > 0) && (
+          <KpiCell icon={DollarSign} label="Este mes" value={fmtMoney(monthlyTotal)} detail={`${monthlyCount} carga${monthlyCount === 1 ? "" : "s"}`} color={C.green} loading={loading} />
+        )}
+        {entries.length > 0 && (
+          <KpiCell icon={FileText} label="Registrado" value={fmtMoney(manualTotal)} detail={sinPrecioCargas > 0 ? `${sinPrecioCargas} items sin precio` : `${entries.length} registros`} color={sinPrecioCargas > 0 ? WARN : C.blue} loading={loading} />
+        )}
         <KpiCell icon={Warehouse} label="A Pañol activos" value={panolKpis.enviados} detail={`${panolKpis.itemsPendientes} items pendientes`} color={C.violet} loading={loading} />
         <KpiCell icon={AlertTriangle} label="Novedades Pañol" value={panolKpis.novedades} detail="faltantes, sin info o rechazados" color={panolKpis.novedades > 0 ? C.red : C.dim} loading={loading} />
       </div>

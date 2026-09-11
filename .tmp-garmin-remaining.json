@@ -1,0 +1,276 @@
+{
+  "search": "GARMIN",
+  "count": 30,
+  "rows": [
+    {
+      "id": "53ab1b0e-629f-4ae4-a6b3-430634e99e84",
+      "codigo": null,
+      "descripcion": "AMPLIFICADOR SUBWOOFER XDM 1000/1",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "133eae17-2967-4778-a2bf-a44113df64cf",
+      "codigo": null,
+      "descripcion": "PARLANTE FUSION APOLLO 10\" LED SPEAKERS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "ced84627-9bee-4edd-9ff9-6058e3df579e",
+      "codigo": "23989056",
+      "descripcion": "PLOTTER GARMIN/VOLVO GPSMAP B9",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 20
+    },
+    {
+      "id": "c9af1d20-7058-4591-b990-fc3412327994",
+      "codigo": null,
+      "descripcion": "PARELANTE JL 7.7\" M3-770 GRIS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "2224e859-ba28-43b3-b96f-c1f48009a712",
+      "codigo": null,
+      "descripcion": "PARLANTE 6.5 FUSION SG-FL653SPW",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "e8810490-9d0f-4311-a9e8-0baf003f6d6f",
+      "codigo": null,
+      "descripcion": "PARLANTE DE TORRE 6.5\" FUSION SG-FLT653SPB",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "codigo": null,
+      "descripcion": "PARLANTE DE TORRE JL 7.7\" M3-770 BLANCO",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "3ae53c35-f2dc-4a01-b54d-37b16885ea15",
+      "codigo": null,
+      "descripcion": "PARLANTE DE TORRE JL 7.7\" M3-770 GRIS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "650f9431-8b03-4880-9f9e-b2674d726219",
+      "codigo": null,
+      "descripcion": "PARLANTE DE TORRE JL 7.7\" M6-770 GRIS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "024d4042-5549-4afb-8081-a653ba709759",
+      "codigo": null,
+      "descripcion": "PARLANTE DE TORRE JL M6-770 GW BLANCO",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "7956a42d-54a7-4e7a-adf4-c24bc5c2255f",
+      "codigo": null,
+      "descripcion": "PARLANTE DE TORRE JL M6-880ETXV3-SB-S-GMTI-I GRIS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "35c09cf3-3edc-49d7-be9b-a683abc14945",
+      "codigo": null,
+      "descripcion": "PARLANTE FUSION 6.5\" XS-FL65SPGW",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "f177bdf6-6aac-4035-b16c-d6f446e339cf",
+      "codigo": null,
+      "descripcion": "PARLANTE JL 6.5\" M6-650 GRIS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "c6f2657a-0de2-4eae-966e-d044591b51c2",
+      "codigo": null,
+      "descripcion": "PARLANTE JL 7.7\" M6-770 GRIS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "5fd05a9b-44d9-4d0e-a71d-b161ba4ac0dc",
+      "codigo": null,
+      "descripcion": "PARLANTE JL M3-650X-C-GW BLANCO",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "49dd02a1-c426-4812-9000-750cccaf2c64",
+      "codigo": null,
+      "descripcion": "PARLANTE SUBWOOFER JL M6-10IB-S-GWGW-4",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "8d472ee5-cdb2-45a7-bc60-428bd2a97b2e",
+      "codigo": null,
+      "descripcion": "Parlantes 6,5\" Fusion FM-F65RB negros",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "6c99865e-3856-4e3a-9166-4b160cd4abe7",
+      "codigo": null,
+      "descripcion": "Parlantes 6,5\" Fusion FM-F65RW blancos",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 18
+    },
+    {
+      "id": "dbb3e9a4-0fee-443d-9643-722212d95a53",
+      "codigo": null,
+      "descripcion": "cable gws 10, 30m (garmin)",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "2835bff5-374d-4780-9ea9-e6c09a1c3802",
+      "codigo": null,
+      "descripcion": "ECOSONDA P319 · GARMIN",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "05477365-09eb-4732-a2b8-45e286ed8d51",
+      "codigo": null,
+      "descripcion": "PARLANTE GARMIN JL AUDIO M6 7.7\" SPEAKERS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "777756e9-8993-471e-97f3-272cfa38b62a",
+      "codigo": null,
+      "descripcion": "PLOTTER 8612xsv · Garmin/VOLVO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "02b1198c-bcdf-4661-bb47-4d6fd20b7732",
+      "codigo": null,
+      "descripcion": "PLOTTER GARMIN ECHOMAP UHD2 72SV + TRANSDUCER",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "dee3ab68-5c3a-4960-a46d-259a1402ce29",
+      "codigo": null,
+      "descripcion": "Plotter GPSMAP 1223xsv Garmin",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "0b1ab9b8-2bf9-4e1c-b4a4-75f1fa1cbd9b",
+      "codigo": "010-00705-78",
+      "descripcion": "Piloto Automatico Reactor 40 Hydraulic Corepack",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 8
+    },
+    {
+      "id": "85fc7cbd-690a-4890-941c-0b8bae1d6a9c",
+      "codigo": null,
+      "descripcion": "PARLANTE FUSION 7.7\" LED SPEAKERS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "003401cb-c820-41ee-b456-93e6de08417c",
+      "codigo": null,
+      "descripcion": "PARLANTE FUSION APOLLO 6.5\"LED SPEAKERS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "d305ac42-b348-4f65-8dc7-26276420a4d2",
+      "codigo": null,
+      "descripcion": "PARLANTE JL AUDIO M6 6.5\" SPEAKERS BLANCO",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "800cbfc4-117c-40f4-869c-f1577e23524a",
+      "codigo": null,
+      "descripcion": "Plotter",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "063f8854-c307-42ba-bf33-0190924b8202",
+      "codigo": null,
+      "descripcion": "SOPORTE TORRE JL M-MCPv3-DM",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

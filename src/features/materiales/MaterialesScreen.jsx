@@ -933,10 +933,17 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
     }
   }
 
+  // Si el borrado falla hay que decirlo. Antes la promesa se rompía sin catch:
+  // no pasaba nada, la fila seguía ahí y no aparecía ningún mensaje, así que
+  // desde afuera se ve igual que un botón que no anda.
   async function remove() {
     if (!window.confirm(`¿Borrar "${material.descripcion}"?`)) return;
-    await borrarMaterial(material.id);
-    onChanged?.();
+    try {
+      await borrarMaterial(material.id);
+      onChanged?.();
+    } catch (error) {
+      window.alert(error?.message || "No se pudo borrar el producto.");
+    }
   }
 
   return (
@@ -1535,7 +1542,14 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   }
   async function remove() {
     if (!window.confirm(`¿Borrar "${material.descripcion}"?`)) return;
-    await borrarMaterial(material.id); onChanged?.();
+    // Igual que en la fila de la tabla: sin catch, un borrado que falla no
+    // muestra nada y parece que el botón está roto.
+    try {
+      await borrarMaterial(material.id);
+      onChanged?.();
+    } catch (error) {
+      window.alert(error?.message || "No se pudo borrar el producto.");
+    }
   }
 
   const sector = categorias.find((c) => c.id === material.categoria_id)?.nombre;
@@ -1777,7 +1791,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
         unidad: m.unidad_medida || "unidad",
         proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
         rubro: rubroDeLista(categorias, m.categoria_id),
-        tipo: materialBucket(m).label,
+        tipo: materialBucket(m, [], linea).label,
         obs: m.notas || "",
         precio,
       };
@@ -3634,7 +3648,7 @@ function costoMaterialModelo(m, modelo, opciones = []) {
   const price = precioVigente(m);
   const pu = price?.precio_unitario != null && price.precio_unitario !== "" ? Number(price.precio_unitario) : null;
   const tienePrecio = pu != null && Number.isFinite(pu) && pu > 0;
-  const bucket = materialBucket(m, opciones);
+  const bucket = materialBucket(m, opciones, modelo);
   return {
     tieneCant,
     moneda: price?.moneda === "USD" ? "USD" : "ARS",
@@ -4071,7 +4085,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         ? materialById.get(modeloConfig.producto_predeterminado_id) || null
         : null;
       const precio = priceInfo(producto || m);
-      const bucket = materialBucket(m, opciones);
+      const bucket = materialBucket(m, opciones, linea);
       return {
         id: m.id,
         materialId: m.id,
@@ -5771,7 +5785,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     .filter((m) => materialQty(m, code) > 0)
     .map((m) => {
       const precio = priceInfo(m);
-      const bucket = materialBucket(m, opciones);
+      const bucket = materialBucket(m, opciones, code);
       const proveedor = precio.proveedor || m.proveedor || "Sin proveedor";
       return {
         id: m.id,
@@ -5837,6 +5851,14 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   }), [secondaryState.rows, proveedores, lineObras.length, code]);
 
   const rows = useMemo(() => [...primaryRows, ...secondaryRows], [primaryRows, secondaryRows]);
+
+  // Cuántos renglones quedan fuera de la lista estándar por ser del paquete de
+  // línea de eje. Se avisa: un ítem que desaparece sin decir nada es peor que
+  // uno de más, porque nadie sabe si falta o si nunca estuvo.
+  const ocultosLineaEje = useMemo(
+    () => rows.filter((row) => row.bucket?.key === "linea_eje").length,
+    [rows],
+  );
 
   const materialById = useMemo(
     () => new Map((materiales ?? []).map((material) => [material.id, material])),
@@ -5905,7 +5927,15 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   const rowsBase = useMemo(() => {
     return rows
       .filter((row) => proveedorTipoFilter === "todos" || row.proveedorMeta?.tipo === proveedorTipoFilter)
-      .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
+      // "Todos los tipos" es el barco ESTÁNDAR, no todo lo que existe. El
+      // paquete de línea de eje no lo lleva un K37 con pata ni con dentro-fuera,
+      // así que mezclarlo en la lista hace que la matriz describa un barco que
+      // no se fabrica. Se ve con el filtro "Línea eje", que ya estaba.
+      .filter((row) => (tipoFilter === "todos"
+        ? row.bucket.key !== "linea_eje"
+        : tipoFilter === "sin_precio" ? !row.precio.amount
+          : tipoFilter === "revisar" ? row.review?.flag
+            : row.bucket.key === tipoFilter))
       .filter((row) => matchesFlexibleSearch(
         deferredQ,
         row.descripcion,
@@ -6104,7 +6134,11 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     if (!window.confirm(`¿Sacar "${row.descripcion}" de ${title}? No se borra del catálogo.`)) return;
     setRemovingId(row.id);
     try {
-      await quitarCantidadModelo(row.id, code);
+      const sacadas = await quitarCantidadModelo(row.id, code);
+      if (!sacadas) {
+        window.alert(`"${row.descripcion}" no tenía ninguna fila propia en ${title}, así que no se sacó nada.\n\nSi lo seguís viendo en la lista, viene de otro lado: puede ser una condicionante o un adicional de la obra.`);
+        return;
+      }
       setSelected((prev) => {
         const next = new Set(prev);
         next.delete(row.id);
@@ -6112,6 +6146,10 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       });
       if (editingId === row.id) setEditingId("");
       await onChanged?.();
+    } catch (error) {
+      // Había `finally` pero no `catch`: si fallaba, se apagaba el spinner y
+      // listo. La fila quedaba en su lugar sin ninguna explicación.
+      window.alert(error?.message || `No se pudo sacar "${row.descripcion}" de ${title}.`);
     } finally {
       setRemovingId("");
     }
@@ -6415,6 +6453,16 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                 {label}
               </button>
             ))}
+            {tipoFilter === "todos" && ocultosLineaEje > 0 && (
+              <button
+                type="button"
+                onClick={() => setTipoFilter("linea_eje")}
+                title={`El barco estándar no lleva línea de eje. Hay ${ocultosLineaEje} ítems que sólo van si la obra la lleva; tocá para verlos.`}
+                style={{ ...filterPillStyle(false, C.violet), color: C.t2, fontWeight: 650 }}
+              >
+                {`+${ocultosLineaEje} de línea de eje`}
+              </button>
+            )}
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: C.t2 }}>
               <FileText size={14} style={{ color: C.blue }} />
               {selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`}

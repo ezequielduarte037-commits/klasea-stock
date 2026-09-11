@@ -157,7 +157,7 @@ export default function ComprasBicho({ profile }) {
 
   const metrics = useMemo(() => buildMetrics(requests, avisos), [requests, avisos]);
   const mood = metrics.overdue.length || metrics.urgent.length ? "alerta" : metrics.byStatus.nuevo?.length >= 8 ? "atento" : metrics.byStatus.nuevo?.length ? "curioso" : "feliz";
-  const moodColor = mood === "alerta" ? C.red : mood === "atento" ? C.amber : mood === "curioso" ? C.blue : C.green;
+  const moodColor = mood === "alerta" ? C.red : mood === "atento" ? C.cyan : mood === "curioso" ? C.blue : C.green;
   const headline = metrics.overdue.length ? `${metrics.overdue.length} vencido${metrics.overdue.length === 1 ? "" : "s"}` : metrics.urgent.length ? `${metrics.urgent.length} urgente${metrics.urgent.length === 1 ? "" : "s"}` : metrics.byStatus.nuevo?.length ? `${metrics.byStatus.nuevo.length} para revisar` : "Bandeja tranquila";
   const isOnPurchases = location.pathname === "/compras";
 

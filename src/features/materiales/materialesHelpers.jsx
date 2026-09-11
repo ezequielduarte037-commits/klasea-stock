@@ -8,7 +8,7 @@ import {
 } from "./api";
 import { fmtMoney } from "./format";
 import { materialBarcodeText } from "./materialBarcodes";
-import { MODELOS, norm, toBomMap } from "./materialesParser";
+import { MODELOS, norm, toBomMap, varianteDeModelo, VARIANTE_LINEA_EJE } from "./materialesParser";
 
 // Un material puede estar en varias áreas (campo m.areas); si todavía no hay
 // M2M cargada, cae a su categoría principal.
@@ -189,10 +189,33 @@ function mentionsLineaEje(value) {
   return n.includes("linea eje") || n.includes("linea de eje") || n.includes("eje") || n.includes("helice");
 }
 
-function materialBucket(material, opciones = []) {
+/**
+ * En qué caja cae un material: base, condicionante, línea de eje.
+ *
+ * Cuando se sabe de qué línea estamos hablando, LA MATRIZ DECIDE. La columna
+ * `variante` de panol_material_modelo ya dice si el material entra siempre o
+ * sólo cuando el barco lleva línea de eje, y es el mismo dato que usa la base
+ * para no propagar el paquete condicional a las obras.
+ *
+ * Antes esto se adivinaba buscando "eje" o "helice" en la descripción, y sobre
+ * los 30 ítems que el K37 tiene marcados como línea de eje acertaba 3. El
+ * cilindro de dirección, la bomba, el tubo bocina, el manchón, el escape de 5"
+ * entero y la broncería de Parra no llevan esas palabras en el nombre: se
+ * contaban como base, y por eso el KPI "Base estimada K37 · sin línea de eje"
+ * venía inflado en unos 7.500 USD.
+ *
+ * La lectura del texto queda de respaldo para cuando no hay línea a mano o el
+ * material no está en esa matriz. Si la matriz dice "standard", es base aunque
+ * se llame "Ánodo eje": el nombre no manda sobre el dato.
+ */
+function materialBucket(material, opciones = [], modelo = null) {
+  const variante = modelo ? varianteDeModelo(material, modelo) : "";
+  if (variante === VARIANTE_LINEA_EJE) {
+    return { key: "linea_eje", label: "Línea eje", color: C.violet };
+  }
   const condicion = opciones.find((op) => (op.valores ?? []).some((v) => v.id === material.condicion_valor_id));
   const valor = condicion?.valores?.find((v) => v.id === material.condicion_valor_id)?.valor || "";
-  if (mentionsLineaEje(`${condicion?.nombre || ""} ${valor} ${material.descripcion || ""}`)) {
+  if (!variante && mentionsLineaEje(`${condicion?.nombre || ""} ${valor} ${material.descripcion || ""}`)) {
     return { key: "linea_eje", label: "Línea eje", color: C.violet };
   }
   if (material.condicion_valor_id) return { key: "condicionante", label: valor || "Condicionante", color: C.amber };

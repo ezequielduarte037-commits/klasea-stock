@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   Check,
+  ChevronDown,
   DollarSign,
   FileDown,
   ExternalLink,
@@ -39,6 +40,7 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import { useResponsive } from "@/hooks/useResponsive";
 import logoKUrl from "@/assets/logos/logo-k.png";
+import { StatStrip } from "@/features/compras/comprasUI";
 import { C } from "@/theme";
 
 const emptyRow = {
@@ -399,7 +401,7 @@ function ItemMeta({ notes, linkUrl }) {
             display: "inline-flex",
             alignItems: "center",
             gap: 3,
-            color: C.amber,
+            color: C.cyan,
             textDecoration: "none",
             fontWeight: 800,
             whiteSpace: "nowrap",
@@ -620,6 +622,22 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  // Las tablas vacías arrancan plegadas: son la mitad de la lista y no tienen
+  // nada que mirar. Se abren cuando hace falta cargarles algo.
+  const [verVacias, setVerVacias] = useState(false);
+  // El cajón de pedidos para sumar: se abre cuando se va a usar, no siempre.
+  const [verCandidatos, setVerCandidatos] = useState(false);
+  const seleccionadaRef = useCallback((nodo) => {
+    // Sólo dentro del rail: `scrollIntoView` sube por los ancestros hasta
+    // encontrar algo que scrollee, y si el rail no scrollea mueve la página
+    // entera dejando el contenido de la derecha fuera de la vista.
+    const rail = nodo?.closest?.("aside");
+    if (!nodo || !rail || rail.scrollHeight <= rail.clientHeight) return;
+    const arriba = nodo.offsetTop - rail.offsetTop;
+    if (arriba < rail.scrollTop || arriba + nodo.offsetHeight > rail.scrollTop + rail.clientHeight) {
+      rail.scrollTop = arriba - rail.clientHeight / 2 + nodo.offsetHeight / 2;
+    }
+  }, []);
   const [requestSearch, setRequestSearch] = useState("");
   const [showBoardForm, setShowBoardForm] = useState(false);
   const [boardProjectId, setBoardProjectId] = useState("");
@@ -679,6 +697,31 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
       `${board.name || ""} ${board.project?.codigo || ""} ${board.notes || ""}`.toLowerCase().includes(q),
     );
   }, [boards, search]);
+
+  /**
+   * Las tablas en dos montones: las que tienen algo cargado y las vacías.
+   *
+   * Venían en el orden en que las devuelve la base, que no es ninguno: veintiún
+   * renglones iguales mezclando códigos de obra, nombres de barco y cosas como
+   * "Respaldo Rebatible", con la mitad en cero. Encontrar una era leerlas todas.
+   *
+   * Las que tienen plata van primero y de mayor a menor, porque el sentido de
+   * esta pantalla es cuánto se le sumó a cada barco.
+   */
+  const boardsPorEstado = useMemo(() => {
+    const conDatos = [];
+    const vacias = [];
+    for (const board of filteredBoards) {
+      const stat = statsByBoard.get(board.id) || { count: 0, totalArs: 0, totalUsd: 0 };
+      (stat.count > 0 || stat.totalArs > 0 || stat.totalUsd > 0 ? conDatos : vacias).push({ board, stat });
+    }
+    const porPlata = (a, b) => (b.stat.totalArs - a.stat.totalArs)
+      || (b.stat.totalUsd - a.stat.totalUsd)
+      || (b.stat.count - a.stat.count)
+      || String(a.board.name || "").localeCompare(String(b.board.name || ""), "es", { numeric: true });
+    const porNombre = (a, b) => String(a.board.name || "").localeCompare(String(b.board.name || ""), "es", { numeric: true });
+    return { conDatos: conDatos.sort(porPlata), vacias: vacias.sort(porNombre) };
+  }, [filteredBoards, statsByBoard]);
 
   const selected = boards.find((board) => board.id === selectedId) || null;
   const selectedItems = useMemo(
@@ -1047,7 +1090,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
   if (loading) {
     return (
       <div style={{ minHeight: 260, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
-        <span style={{ display: "inline-block", width: 16, height: 16, border: `2px solid ${C.border2}`, borderTopColor: C.amber, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <span style={{ display: "inline-block", width: 16, height: 16, border: `2px solid ${C.border2}`, borderTopColor: C.cyan, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
   }
@@ -1062,9 +1105,12 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: panelGrid, gap: 14, minHeight: 0 }}>
-      <aside style={{ display: "grid", gap: 10, alignContent: "start", minWidth: 0 }}>
+      {/* El rail scrollea solo. Con veintiún tablas estiraba el alto de la
+          página, así que al bajar para ver una tabla del final también se iba
+          de pantalla el contenido de la derecha. */}
+      <aside style={{ display: "grid", gap: 10, alignContent: "start", minWidth: 0, maxHeight: "calc(100vh - 96px)", overflowY: "auto", paddingRight: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, display: "grid", placeItems: "center", background: `${C.amber}12`, color: C.amber, border: `1px solid ${C.amber}33` }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, display: "grid", placeItems: "center", background: `${C.cyan}12`, color: C.cyan, border: `1px solid ${C.cyan}33` }}>
             <Table2 size={15} />
           </div>
           <div style={{ minWidth: 0 }}>
@@ -1116,61 +1162,94 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
         )}
 
         <div style={{ display: "grid", gap: 6 }}>
-          {filteredBoards.map((board) => {
-            const active = board.id === selectedId;
-            const stat = statsByBoard.get(board.id) || { count: 0, totalArs: 0, totalUsd: 0, pending: 0 };
+          {[
+            { clave: "conDatos", titulo: "Con adicionales", lista: boardsPorEstado.conDatos },
+            { clave: "vacias", titulo: "Sin cargar", lista: boardsPorEstado.vacias },
+          ].map(({ clave, titulo, lista }) => {
+            if (!lista.length) return null;
+            const plegable = clave === "vacias";
+            const abierto = !plegable || verVacias;
             return (
-              <button
-                key={board.id}
-                type="button"
-                onClick={() => setSelectedId(board.id)}
-                style={{
-                  position: "relative",
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: 8,
-                  textAlign: "left",
-                  border: `1px solid ${active ? C.amber : C.border}`,
-                  background: active ? `${C.amber}18` : C.panel,
-                  boxShadow: active ? `0 0 0 1px ${C.amber}44 inset` : "none",
-                  borderRadius: 8,
-                  color: C.text,
-                  padding: active ? "10px 10px 10px 15px" : "9px 10px",
-                  cursor: "pointer",
-                  minWidth: 0,
-                }}
-              >
-                {active && (
-                  <span style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 8,
-                    bottom: 8,
-                    width: 3,
-                    borderRadius: "0 3px 3px 0",
-                    background: C.amber,
-                  }} />
-                )}
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                      {board.name}
-                    </span>
-                    {active && (
-                      <span style={{ color: C.amber, fontSize: 9, fontWeight: 950, textTransform: "uppercase", flexShrink: 0 }}>
-                        Seleccionada
+              <div key={clave} style={{ display: "grid", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={plegable ? () => setVerVacias((v) => !v) : undefined}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "6px 4px 2px",
+                    border: "none",
+                    background: "transparent",
+                    color: C.dim,
+                    fontFamily: C.sans,
+                    fontSize: 9.5,
+                    fontWeight: 900,
+                    letterSpacing: 1.1,
+                    textTransform: "uppercase",
+                    cursor: plegable ? "pointer" : "default",
+                    textAlign: "left",
+                  }}
+                >
+                  {titulo}
+                  <span style={{ fontFamily: C.mono, letterSpacing: 0 }}>{lista.length}</span>
+                  {plegable && (
+                    <ChevronDown size={12} style={{ marginLeft: "auto", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
+                  )}
+                </button>
+
+                {abierto && lista.map(({ board, stat }) => {
+                  const active = board.id === selectedId;
+                  const conPlata = stat.totalArs > 0 || stat.totalUsd > 0;
+                  return (
+                    <button
+                      key={board.id}
+                      type="button"
+                      // Al ordenar por plata la tabla seleccionada puede quedar
+                      // muy abajo y fuera de la vista: el rail se abría sin
+                      // mostrar cuál está abierta.
+                      ref={active ? seleccionadaRef : null}
+                      onClick={() => setSelectedId(board.id)}
+                      style={{
+                        position: "relative",
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto",
+                        gap: 8,
+                        textAlign: "left",
+                        border: `1px solid ${active ? C.cyan : C.border}`,
+                        background: active ? `${C.cyan}18` : C.panel,
+                        boxShadow: active ? `0 0 0 1px ${C.cyan}44 inset` : "none",
+                        borderRadius: 8,
+                        color: C.text,
+                        padding: active ? "9px 10px 9px 15px" : "8px 10px",
+                        cursor: "pointer",
+                        minWidth: 0,
+                      }}
+                    >
+                      {active && (
+                        <span style={{ position: "absolute", left: 0, top: 8, bottom: 8, width: 3, borderRadius: "0 3px 3px 0", background: C.cyan }} />
+                      )}
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                          {board.name}
+                        </span>
+                        <span style={{ display: "block", marginTop: 2, color: C.dim, fontSize: 11 }}>
+                          {board.project?.codigo || "Sin obra"}
+                          {stat.count > 0 ? ` · ${stat.count} ${stat.count === 1 ? "ítem" : "ítems"}` : ""}
+                        </span>
                       </span>
-                    )}
-                  </span>
-                  <span style={{ display: "block", marginTop: 2, color: C.dim, fontSize: 11 }}>
-                    {board.project?.codigo || "Sin obra"} / {stat.count} items
-                  </span>
-                </span>
-                <span style={{ display: "grid", gap: 2, justifyItems: "end", alignContent: "center", color: (stat.totalArs || stat.totalUsd) > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 11, fontWeight: 900, whiteSpace: "nowrap" }}>
-                  <span>{compactMoney(stat.totalArs, "ARS")}</span>
-                  {stat.totalUsd > 0 && <span>{compactMoney(stat.totalUsd, "USD")}</span>}
-                </span>
-              </button>
+                      {/* El "$0" iba en verde igual que un millón: los dos gritaban
+                          lo mismo. Sin plata cargada no se muestra importe. */}
+                      {conPlata && (
+                        <span style={{ display: "grid", gap: 2, justifyItems: "end", alignContent: "center", color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 900, whiteSpace: "nowrap" }}>
+                          <span>{compactMoney(stat.totalArs, "ARS")}</span>
+                          {stat.totalUsd > 0 && <span>{compactMoney(stat.totalUsd, "USD")}</span>}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
@@ -1184,7 +1263,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 8, display: "grid", placeItems: "center", background: C.panel, border: `1px solid ${C.border}`, color: C.amber }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, display: "grid", placeItems: "center", background: C.panel, border: `1px solid ${C.border}`, color: C.cyan }}>
                 <Ship size={17} />
               </div>
               <div style={{ minWidth: 0, flex: "1 1 220px" }}>
@@ -1195,7 +1274,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                   {selected.project?.codigo ? `Obra ${selected.project.codigo}` : "Barco sin obra vinculada"}
                 </div>
               </div>
-              <button type="button" onClick={() => setShowRequestForm((v) => !v)} style={toneButton(C.amber, showRequestForm)}>
+              <button type="button" onClick={() => setShowRequestForm((v) => !v)} style={toneButton(C.cyan, showRequestForm)}>
                 <PackagePlus size={13} /> Pedido
               </button>
               <button
@@ -1211,14 +1290,18 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
-              <StatBox label="Total ARS" value={compactMoney(totals.totalArs, "ARS")} color={C.green} />
-              <StatBox label="Total USD" value={compactMoney(totals.totalUsd, "USD")} color={totals.totalUsd ? C.green : C.dim} />
-              <StatBox label="Mes ARS" value={compactMoney(totals.monthArs, "ARS")} color={C.amber} />
-              <StatBox label="Mes USD" value={compactMoney(totals.monthUsd, "USD")} color={totals.monthUsd ? C.amber : C.dim} />
-              <StatBox label="Renglones" value={totals.count} color={C.text} />
-              <StatBox label="Sin importe" value={totals.pending} color={totals.pending ? C.red : C.green} />
-            </div>
+            {/* Eran seis tarjetas grandes, casi siempre en cero, ocupando una
+                banda entera arriba de la tabla. Un total es un dato de
+                referencia: va en una línea, y las monedas que están en cero no
+                se muestran en vez de gritar "USD 0". */}
+            <StatStrip items={[
+              { label: "Total ARS", value: compactMoney(totals.totalArs, "ARS"), tone: totals.totalArs ? "ok" : "neutro" },
+              totals.totalUsd ? { label: "Total USD", value: compactMoney(totals.totalUsd, "USD"), tone: "ok" } : null,
+              { label: "Este mes", value: compactMoney(totals.monthArs, "ARS"), tone: "curso" },
+              totals.monthUsd ? { label: "Mes USD", value: compactMoney(totals.monthUsd, "USD"), tone: "curso" } : null,
+              { label: "Renglones", value: totals.count },
+              totals.pending ? { label: "Sin importe", value: totals.pending, tone: "critico" } : null,
+            ]} />
 
             {selectedAudio && (
               <div style={{
@@ -1226,13 +1309,13 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                 gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0, 1fr) auto",
                 gap: 10,
                 alignItems: "center",
-                border: `1px solid ${C.amber}33`,
-                background: `${C.amber}0d`,
+                border: `1px solid ${C.cyan}33`,
+                background: `${C.cyan}0d`,
                 borderRadius: 8,
                 padding: "10px 12px",
                 minWidth: 0,
               }}>
-                <div style={{ width: 30, height: 30, borderRadius: 7, display: "grid", placeItems: "center", color: C.amber, background: C.panel, border: `1px solid ${C.border}` }}>
+                <div style={{ width: 30, height: 30, borderRadius: 7, display: "grid", placeItems: "center", color: C.cyan, background: C.panel, border: `1px solid ${C.border}` }}>
                   <Volume2 size={14} />
                 </div>
                 <div style={{ minWidth: 0 }}>
@@ -1245,7 +1328,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                   type="button"
                   disabled={audioAlreadyAdded}
                   onClick={handleAddAudioMemory}
-                  style={{ ...toneButton(C.amber, !audioAlreadyAdded), opacity: audioAlreadyAdded ? 0.55 : 1, cursor: audioAlreadyAdded ? "default" : "pointer" }}
+                  style={{ ...toneButton(C.cyan, !audioAlreadyAdded), opacity: audioAlreadyAdded ? 0.55 : 1, cursor: audioAlreadyAdded ? "default" : "pointer" }}
                 >
                   <PackagePlus size={13} /> {audioAlreadyAdded ? "Sumado" : "Sumar"}
                 </button>
@@ -1253,7 +1336,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
             )}
 
             {showRequestForm && (
-              <form onSubmit={handleCreateRequest} style={{ display: "grid", gap: 9, border: `1px solid ${C.amber}33`, background: `${C.amber}0d`, borderRadius: 8, padding: 12 }}>
+              <form onSubmit={handleCreateRequest} style={{ display: "grid", gap: 9, border: `1px solid ${C.cyan}33`, background: `${C.cyan}0d`, borderRadius: 8, padding: 12 }}>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 150px 120px 88px 120px", gap: 8 }}>
                   <input value={requestForm.detail} onChange={(e) => setRequestForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Detalle del adicional" style={inputStyle} />
                   <input value={requestForm.provider} onChange={(e) => setRequestForm((f) => ({ ...f, provider: e.target.value }))} placeholder="Proveedor" style={inputStyle} />
@@ -1271,7 +1354,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
                   <input value={requestForm.needed_at} onChange={(e) => setRequestForm((f) => ({ ...f, needed_at: e.target.value }))} type="date" style={{ ...inputStyle, width: 150 }} />
-                  <button type="submit" disabled={savingRequest || !requestForm.detail.trim()} style={{ ...toneButton(C.amber, true), opacity: savingRequest || !requestForm.detail.trim() ? 0.55 : 1 }}>
+                  <button type="submit" disabled={savingRequest || !requestForm.detail.trim()} style={{ ...toneButton(C.cyan, true), opacity: savingRequest || !requestForm.detail.trim() ? 0.55 : 1 }}>
                     <PackagePlus size={13} /> Crear pedido
                   </button>
                 </div>
@@ -1356,7 +1439,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                           </span>
                           <span style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                             {canExpandLinkedRow && (
-                              <button type="button" onClick={() => handleExpandLinkedRow(item)} title="Desglosar items del pedido" style={iconButton(C.amber)}>
+                              <button type="button" onClick={() => handleExpandLinkedRow(item)} title="Desglosar items del pedido" style={iconButton(C.cyan)}>
                                 <PackagePlus size={12} />
                               </button>
                             )}
@@ -1392,25 +1475,50 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 8 }}>
+            {/* Esto NO es la tabla: es el cajón de donde se saca material para
+                sumarle. Se llamaba "Pedidos de esta obra", que además de sonar
+                igual que la tabla era mentira -la coincidencia es por ítems, así
+                que aparecen pedidos de otras obras-. Y venía siempre abierto con
+                dieciséis renglones abajo de una tabla de uno, así que la
+                pantalla parecía ser esto. */}
+            <div style={{ display: "grid", gap: 8, borderTop: `1px solid ${C.border}`, paddingTop: 12, marginTop: 4 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <div style={{ ...labelStyle, marginBottom: 0 }}>Pedidos de esta obra</div>
-                <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>
-                  {boardRequests.length} encontrados
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setVerCandidatos((v) => !v)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    color: C.muted,
+                    fontFamily: C.sans,
+                    fontSize: 12,
+                    fontWeight: 850,
+                    cursor: "pointer",
+                  }}
+                >
+                  <ChevronDown size={13} style={{ transform: verCandidatos ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
+                  Pedidos que se pueden sumar
+                  <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{boardRequests.length}</span>
+                </button>
                 <span style={{ flex: 1 }} />
-                <div style={{ position: "relative", width: isMobile ? "100%" : 260 }}>
-                  <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
-                  <input
-                    value={requestSearch}
-                    onChange={(e) => setRequestSearch(e.target.value)}
-                    placeholder="Buscar pedido o item..."
-                    style={{ ...inputStyle, paddingLeft: 28 }}
-                  />
-                </div>
+                {verCandidatos && (
+                  <div style={{ position: "relative", width: isMobile ? "100%" : 260 }}>
+                    <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
+                    <input
+                      value={requestSearch}
+                      onChange={(e) => setRequestSearch(e.target.value)}
+                      placeholder="Buscar pedido o item..."
+                      style={{ ...inputStyle, paddingLeft: 28 }}
+                    />
+                  </div>
+                )}
               </div>
 
-              {boardRequests.length === 0 ? (
+              {!verCandidatos ? null : boardRequests.length === 0 ? (
                 <div style={{ border: `1px dashed ${C.border}`, borderRadius: 8, padding: 18, color: C.dim, fontSize: 13, textAlign: "center" }}>
                   Sin pedidos relacionados
                 </div>
@@ -1431,8 +1539,8 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                         gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto auto",
                         gap: 8,
                         alignItems: "center",
-                        border: `1px solid ${hint ? C.amber + "33" : C.border}`,
-                        background: hint ? `${C.amber}0a` : C.panel,
+                        border: `1px solid ${hint ? C.cyan + "33" : C.border}`,
+                        background: hint ? `${C.cyan}0a` : C.panel,
                         borderRadius: 8,
                         padding: "9px 10px",
                       }}>
@@ -1443,9 +1551,9 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                             </span>
                             {hint && (
                               <span style={{
-                                border: `1px solid ${C.amber}44`,
-                                color: C.amber,
-                                background: `${C.amber}12`,
+                                border: `1px solid ${C.cyan}44`,
+                                color: C.cyan,
+                                background: `${C.cyan}12`,
                                 borderRadius: 999,
                                 padding: "2px 7px",
                                 fontSize: 10,
@@ -1475,7 +1583,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                                 </div>
                               )}
                               {allItems.length !== scopedItems.length && (
-                                <div style={{ color: C.amber, fontSize: 11, fontWeight: 800 }}>
+                                <div style={{ color: C.cyan, fontSize: 11, fontWeight: 800 }}>
                                   {scopedItems.length} de {allItems.length} items coinciden con esta obra
                                 </div>
                               )}

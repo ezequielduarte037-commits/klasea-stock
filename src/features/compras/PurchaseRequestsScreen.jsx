@@ -1,10 +1,11 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Archive,
   AlertTriangle,
   BarChart3,
   Bell,
+  ChevronDown,
   ChevronRight,
   CheckCircle2,
   Clock,
@@ -29,6 +30,17 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import {
+  BarButton,
+  Empty,
+  FilterChip,
+  PageHeader,
+  Panel,
+  SearchInput,
+  Section,
+  Toolbar,
+} from "@/features/compras/comprasUI";
+import { tono } from "@/features/compras/comprasTonos";
 import {
   Area,
   AreaChart,
@@ -335,7 +347,7 @@ function RequestCard({ request, onClick, isUnread }) {
 
 const SOURCE_COLORS = {
   laminacion: "#2dd4bf",
-  madera: "#f59e0b",
+  madera: "var(--cyan)",
   inventario: "#8b5cf6",
   adicionales: "#34d399",
 };
@@ -563,18 +575,62 @@ function buildComprasInbox(requests = [], avisos = [], unreadIds = new Set()) {
     return bm.score - am.score || new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
   });
 
+  // Cada pedido abierto cae en UN grupo y en uno solo, en este orden.
+  //
+  // Antes los cuatro grupos eran filtros independientes sobre la misma lista y
+  // se pisaban entre sí: un pedido comprado y urgente salía en "Críticos" y en
+  // "Comprados por cerrar", uno nuevo y vencido en "Críticos" y en "A revisar".
+  // Por eso la bandeja mostraba 85 pedidos abiertos arriba, 184 en los chips y
+  // 112 sumando las columnas: tres números distintos de la misma cosa, los tres
+  // a la vista. No había forma de saber cuánto trabajo había.
+  //
+  // Con la cascada la suma de los grupos es exactamente `openRequests.length`.
+  const grupoDe = (request) => {
+    const vencido = requestDueDate(request) && daysBetween(requestDueDate(request)) > 0;
+    if (vencido || request.priority === "urgente") return "critico";
+    if (["nuevo", "en_revision"].includes(request.status) || unreadIds.has(request.id) || dueSoon(request)) return "revisar";
+    if (request.status === "cotizando") return "cotizando";
+    if (request.status === "comprado") return "cerrar";
+    return "otros";
+  };
+  const grupos = { critico: [], revisar: [], cotizando: [], cerrar: [], otros: [] };
+  for (const request of openRequests) grupos[grupoDe(request)].push(request);
+
   return {
     openRequests,
     activeAvisos,
+    grupos: {
+      critico: sortedRequests(grupos.critico),
+      revisar: sortedRequests(grupos.revisar),
+      cotizando: sortedRequests(grupos.cotizando),
+      cerrar: sortedRequests(grupos.cerrar),
+      otros: sortedRequests(grupos.otros),
+    },
     unreadRequests: sortedRequests(openRequests.filter((request) => unreadIds.has(request.id))),
-    criticalRequests: sortedRequests(openRequests.filter((request) => {
-      const overdue = requestDueDate(request) && daysBetween(requestDueDate(request)) > 0;
-      return overdue || request.priority === "urgente";
-    })),
-    reviewRequests: sortedRequests(openRequests.filter((request) => ["nuevo", "en_revision"].includes(request.status) || unreadIds.has(request.id) || dueSoon(request))),
-    boughtRequests: sortedRequests(openRequests.filter((request) => request.status === "comprado")),
   };
 }
+
+/**
+ * Los grupos de la bandeja, en el orden en que hay que atenderlos.
+ *
+ * El orden no es decorativo: es el mismo de la cascada que los reparte, así que
+ * leer la pantalla de arriba abajo es recorrer el trabajo por urgencia.
+ */
+/**
+ * Motivos que no aportan nada escritos en la fila.
+ *
+ * "Urgente" y "Alta prioridad" ya salen como chip al lado del título, y
+ * "Comprado, falta cerrar" es el nombre del grupo en el que está la fila.
+ */
+const MOTIVOS_REDUNDANTES = new Set(["Urgente", "Alta prioridad", "Comprado, falta cerrar"]);
+
+const GRUPOS_BANDEJA = [
+  { key: "critico", label: "Urgentes y vencidos", subtitle: "Pasaron la fecha o están marcados urgentes", tone: "critico" },
+  { key: "revisar", label: "A revisar", subtitle: "Nuevos, en revisión o con un comentario sin leer", tone: "info" },
+  { key: "cotizando", label: "Cotizando", subtitle: "Esperando presupuesto del proveedor", tone: "curso" },
+  { key: "cerrar", label: "Comprados por cerrar", subtitle: "Ya se compraron, falta recibirlos", tone: "cerrar" },
+  { key: "otros", label: "Otros abiertos", subtitle: "Sin clasificar", tone: "neutro" },
+];
 
 function ComprasCompanion({ requests, onOpenNew }) {
   const openRequests = requests.filter((request) => !ARCHIVED_STATUSES.includes(request.status));
@@ -782,10 +838,21 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [readMap, setReadMap] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pr_readMap") || "{}"); } catch { return {}; }
   });
-  const [managerTab, setManagerTab] = useState(() => {
-    const tab = searchParams.get("tab");
-    return MANAGER_TABS.includes(tab) ? tab : "pendientes";
-  });
+  // La solapa vive en la URL y no en un estado aparte.
+  //
+  // Antes era estado local y un efecto lo copiaba a la URL. O sea que la URL
+  // era de sólo escritura: entrar a /compras?tab=caja con la pantalla ya
+  // abierta cambiaba la dirección y el efecto la pisaba de vuelta con la solapa
+  // que estuviera puesta. Los links del buscador global a una solapa concreta
+  // no funcionaban por eso.
+  const tabPedida = searchParams.get("tab") || "";
+  const managerTab = MANAGER_TABS.includes(tabPedida) ? tabPedida : "pendientes";
+  const setManagerTab = useCallback((siguiente) => {
+    const next = new URLSearchParams(searchParams);
+    if (siguiente === "pendientes") next.delete("tab");
+    else next.set("tab", siguiente);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [analytics, setAnalytics] = useState(null);
   const [monthlySpending, setMonthlySpending] = useState([]);
   const [overdueItems, setOverdueItems] = useState([]);
@@ -909,11 +976,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       if (v && !isDefault) next.set(k, v);
       else next.delete(k);
     });
-    if (manager) {
-      if (managerTab !== "pendientes") next.set("tab", managerTab);
+    // La solapa del manager ya la escribe `setManagerTab`: si además se
+    // escribiera acá, este efecto le pisaría el valor a cualquier link entrante.
+    if (!manager) {
+      if (activeTab !== "mine") next.set("tab", activeTab);
       else next.delete("tab");
-    } else if (activeTab !== "mine") next.set("tab", activeTab);
-    else next.delete("tab");
+    }
     if (selectedId) next.set("open", selectedId);
     else next.delete("open");
     if (((manager && managerTab === "avisos") || (!manager && activeTab === "avisos")) && selectedAvisoId) next.set("aviso", selectedAvisoId);
@@ -945,14 +1013,13 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   }, [requests, readMap, profile?.id]);
 
   const comprasInbox = useMemo(() => buildComprasInbox(requests, avisos, unreadIds), [requests, avisos, unreadIds]);
-  const comprasAttentionCount = useMemo(() => {
-    const ids = new Set();
-    comprasInbox.unreadRequests.forEach((request) => ids.add(request.id));
-    comprasInbox.criticalRequests.forEach((request) => ids.add(request.id));
-    comprasInbox.reviewRequests.forEach((request) => ids.add(request.id));
-    comprasInbox.activeAvisos.forEach((aviso) => ids.add(`aviso:${aviso.id}`));
-    return ids.size;
-  }, [comprasInbox]);
+  // Lo que pide atención de verdad: lo crítico, lo que hay que revisar y los
+  // avisos abiertos. Cotizando y comprado están en curso, no esperan a nadie.
+  const comprasAttentionCount = useMemo(() => (
+    comprasInbox.grupos.critico.length
+    + comprasInbox.grupos.revisar.length
+    + comprasInbox.activeAvisos.length
+  ), [comprasInbox]);
 
   useEffect(() => {
     if (manager) setShowNew(false);
@@ -1467,8 +1534,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                 display: "grid", placeItems: "center",
                 borderRadius: 7,
                 color: C.cyan,
-                background: "rgba(245,158,11,0.12)",
-                border: "1px solid rgba(245,158,11,0.25)",
+                background: "color-mix(in srgb, var(--cyan) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--cyan) 25%, transparent)",
               }}>
                 <ShoppingCart size={16} />
               </div>
@@ -1477,54 +1544,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               </h1>
 
               {manager && (
-                <div className="purchase-tabs" style={{ display: "flex", gap: 2, marginLeft: isMobile ? 0 : 10 }}>
-                  <TabBtn active={managerTab === "pendientes"} onClick={() => setManagerTab("pendientes")}>
-                    <Bell size={12} /> Pendientes
-                    {comprasAttentionCount > 0 && (
-                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "pendientes" ? C.text : C.cyan }}>
-                        {comprasAttentionCount}
-                      </span>
-                    )}
-                  </TabBtn>
-                  <TabBtn active={managerTab === "comprar"} onClick={() => setManagerTab("comprar")}>
-                    <TrendingDown size={12} /> Qué comprar
-                  </TabBtn>
-                  <TabBtn active={managerTab === "planilla"} onClick={() => setManagerTab("planilla")}>
-                    <Table2 size={12} /> Planilla por obra
-                  </TabBtn>
-                  <TabBtn active={managerTab === "matriz"} onClick={() => setManagerTab("matriz")}>
-                    <Grid3x3 size={12} /> Matriz por línea
-                  </TabBtn>
-                  <TabBtn active={managerTab === "faltantes"} onClick={() => setManagerTab("faltantes")}>
-                    <PackageSearch size={12} /> Faltantes
-                  </TabBtn>
-                  <TabBtn active={managerTab === "lista"} onClick={() => setManagerTab("lista")}>
-                    <LayoutList size={12} /> Lista
-                  </TabBtn>
-                  <TabBtn active={managerTab === "dashboard"} onClick={() => setManagerTab("dashboard")}>
-                    <BarChart3 size={12} /> Dashboard
-                  </TabBtn>
-                  <TabBtn active={managerTab === "avisos"} onClick={() => setManagerTab("avisos")}>
-                    <AlertTriangle size={12} /> Avisos
-                    {avisoNuevoCount > 0 && (
-                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "avisos" ? C.text : C.cyan }}>
-                        {avisoNuevoCount}
-                      </span>
-                    )}
-                  </TabBtn>
-                  <TabBtn active={managerTab === "adicionales"} onClick={() => setManagerTab("adicionales")}>
-                    <Table2 size={12} /> Adicionales
-                  </TabBtn>
-                  <TabBtn active={managerTab === "registro"} onClick={() => setManagerTab("registro")}>
-                    <Package size={12} /> Registro
-                  </TabBtn>
-                  <TabBtn active={managerTab === "caja"} onClick={() => setManagerTab("caja")}>
-                    <Wallet size={12} /> Caja chica
-                  </TabBtn>
-                  <TabBtn active={managerTab === "ruta"} onClick={() => setManagerTab("ruta")}>
-                    <Truck size={12} /> Hoja de ruta
-                  </TabBtn>
-                </div>
+                <ComprasTabs
+                  tab={managerTab}
+                  onTab={setManagerTab}
+                  atencion={comprasAttentionCount}
+                  avisosNuevos={avisoNuevoCount}
+                />
               )}
 
               <div style={{ flex: 1 }} />
@@ -2084,7 +2109,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         alignItems: "center",
                         gap: 6,
                         border: `1px solid ${showArchived ? C.cyan + "55" : C.border}`,
-                        background: showArchived ? "rgba(245,158,11,0.1)" : "transparent",
+                        background: showArchived ? "color-mix(in srgb, var(--cyan) 10%, transparent)" : "transparent",
                         color: showArchived ? C.cyan : C.dim,
                         borderRadius: 8,
                         padding: "7px 11px",
@@ -2267,8 +2292,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <div style={{
                             width: 48, height: 48, borderRadius: 12,
                             display: "grid", placeItems: "center",
-                            background: "rgba(245,158,11,0.08)",
-                            border: "1px solid rgba(245,158,11,0.18)",
+                            background: "color-mix(in srgb, var(--cyan) 8%, transparent)",
+                            border: "1px solid color-mix(in srgb, var(--cyan) 18%, transparent)",
                             color: C.cyan,
                           }}>
                             <ShoppingCart size={20} />
@@ -2358,221 +2383,192 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 }
 
 function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loading, error, onSelectRequest, onSelectAviso, onGoList }) {
-  const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
-  const [scope, setScope] = useState("todo");
+  const [foco, setFoco] = useState("todo");
+  const [agrupar, setAgrupar] = useState("urgencia");
   const data = inbox || buildComprasInbox(requests, avisos, unreadIds);
   const openRequests = data.openRequests || EMPTY_ARRAY;
-  const reviewRequests = data.reviewRequests || EMPTY_ARRAY;
-  const urgentRequests = openRequests.filter((request) => request.priority === "urgente");
-  const overdueRequests = openRequests.filter((request) => requestDueDate(request) && daysBetween(requestDueDate(request)) > 0);
   const activeAvisos = data.activeAvisos || EMPTY_ARRAY;
+  const grupos = useMemo(() => data.grupos || {}, [data]);
 
-  const sections = useMemo(() => {
-    const base = [
-      {
-        key: "criticos",
-        title: "Criticos",
-        subtitle: "Vencidos o urgentes",
-        color: C.red,
-        icon: AlertTriangle,
-        items: data.criticalRequests || EMPTY_ARRAY,
-        type: "request",
-      },
-      {
-        key: "revisar",
-        title: "A revisar",
-        subtitle: "Nuevos, en revision o con comentario pendiente",
-        color: C.blue,
-        icon: Inbox,
-        items: reviewRequests,
-        type: "request",
-      },
-      {
-        key: "avisos",
-        title: "Avisos abiertos",
-        subtitle: "Mensajes internos que compras tiene que resolver",
-        color: C.violet,
-        icon: MessageSquare,
-        items: activeAvisos,
-        type: "aviso",
-      },
-      {
-        key: "comprados",
-        title: "Comprados por cerrar",
-        subtitle: "Comprado, falta recepcion/cierre",
-        color: C.teal,
-        icon: CheckCircle2,
-        items: data.boughtRequests || EMPTY_ARRAY,
-        type: "request",
-      },
-    ];
-
+  const coincide = useMemo(() => {
     const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const matchRequest = (request) => {
-      if (!terms.length) return true;
-      const haystack = `${request.title || ""} ${extractText(request.description || "")} ${request.creator?.username || ""} ${request.assignee?.username || ""} ${request.project?.codigo || ""} ${request.destino || ""} ${request.proveedor || ""}`.toLowerCase();
-      return terms.every((term) => haystack.includes(term));
+    const enTexto = (texto) => terms.every((term) => texto.includes(term));
+    return {
+      request: (r) => !terms.length || enTexto(`${r.title || ""} ${extractText(r.description || "")} ${r.creator?.username || ""} ${r.assignee?.username || ""} ${r.project?.codigo || ""} ${r.destino || ""} ${r.proveedor || ""}`.toLowerCase()),
+      aviso: (a) => !terms.length || enTexto(`${a.titulo || ""} ${a.detalle || ""} ${a.material || ""} ${a.creator?.username || ""} ${a.project?.codigo || ""} ${a.destino || ""}`.toLowerCase()),
     };
-    const matchAviso = (aviso) => {
-      if (!terms.length) return true;
-      const haystack = `${aviso.titulo || ""} ${aviso.detalle || ""} ${aviso.material || ""} ${aviso.creator?.username || ""} ${aviso.project?.codigo || ""} ${aviso.destino || ""}`.toLowerCase();
-      return terms.every((term) => haystack.includes(term));
-    };
+  }, [q]);
 
-    return base
-      .filter((section) => scope === "todo" || section.key === scope)
-      .map((section) => ({
-        ...section,
-        items: section.items.filter(section.type === "aviso" ? matchAviso : matchRequest),
+  // Los grupos ya filtrados por el buscador. Las cuentas de los chips salen de
+  // acá, así que siempre describen lo que se está viendo y no otra cosa.
+  const bandeja = useMemo(() => GRUPOS_BANDEJA
+    .map((grupo) => ({ ...grupo, items: (grupos[grupo.key] || EMPTY_ARRAY).filter(coincide.request) }))
+    .filter((grupo) => grupo.items.length > 0), [coincide, grupos]);
+  const avisosVisibles = useMemo(() => activeAvisos.filter(coincide.aviso), [activeAvisos, coincide]);
+
+  const totalPedidos = bandeja.reduce((suma, grupo) => suma + grupo.items.length, 0);
+  const enFoco = useMemo(
+    () => (foco === "avisos" ? EMPTY_ARRAY : bandeja.filter((grupo) => foco === "todo" || grupo.key === foco)),
+    [bandeja, foco],
+  );
+
+  /**
+   * Las mismas filas, agrupadas por como se compra de verdad.
+   *
+   * Por urgencia sirve para saber por donde arrancar, pero nadie compra pedido
+   * por pedido: se llama una vez a Iriarte y se le pide todo lo que haya, o se
+   * cierra el barco que se entrega la semana que viene. Con la lista ordenada
+   * por urgencia esos seis pedidos del mismo proveedor quedan desparramados
+   * entre los ochenta y seis y hay que buscarlos de a uno.
+   *
+   * El foco de los chips se sigue aplicando: se puede pedir "los urgentes,
+   * agrupados por proveedor".
+   */
+  const visibles = useMemo(() => {
+    if (agrupar === "urgencia") return enFoco;
+    const porClave = new Map();
+    for (const grupo of enFoco) {
+      for (const request of grupo.items) {
+        const clave = request.project?.codigo || (request.destino || "").trim() || "Sin obra";
+        if (!porClave.has(clave)) porClave.set(clave, []);
+        porClave.get(clave).push(request);
+      }
+    }
+    const sinAsignar = "Sin obra";
+    return [...porClave.entries()]
+      .map(([clave, items]) => ({
+        key: `${agrupar}:${clave}`,
+        label: clave,
+        // Lo urgente de cada grupo se dice acá, que si no al agrupar por
+        // proveedor se pierde de vista qué grupo hay que atender primero.
+        subtitle: (() => {
+          const urgentes = items.filter((r) => grupos.critico?.includes(r)).length;
+          return urgentes ? `${urgentes} ${urgentes === 1 ? "urgente o vencido" : "urgentes o vencidos"}` : null;
+        })(),
+        tone: items.some((r) => grupos.critico?.includes(r)) ? "critico" : "neutro",
+        items,
       }))
-      .filter((section) => section.items.length > 0 || scope !== "todo");
-  }, [activeAvisos, data, q, reviewRequests, scope]);
+      // Los que tienen algo urgente primero; después por cantidad, que es lo que
+      // hace que valga la pena llamar. "Sin proveedor" siempre al final.
+      .sort((a, b) => {
+        if ((a.label === sinAsignar) !== (b.label === sinAsignar)) return a.label === sinAsignar ? 1 : -1;
+        if ((a.tone === "critico") !== (b.tone === "critico")) return a.tone === "critico" ? -1 : 1;
+        return b.items.length - a.items.length || a.label.localeCompare(b.label, "es", { numeric: true });
+      });
+  }, [agrupar, enFoco, grupos]);
 
-  const totalVisible = sections.reduce((sum, section) => sum + section.items.length, 0);
+  const mostrarAvisos = (foco === "todo" || foco === "avisos") && avisosVisibles.length > 0;
+  const hayAlgo = visibles.length > 0 || mostrarAvisos;
 
-  const kpis = [
-    {
-      label: "A revisar",
-      value: reviewRequests.length,
-      color: C.blue,
-      icon: Inbox,
-      onClick: () => setScope("revisar"),
-    },
-    {
-      label: "Urgentes",
-      value: urgentRequests.length,
-      color: urgentRequests.length ? C.red : C.green,
-      icon: AlertTriangle,
-      onClick: () => onGoList({ status: "activos", priority: "urgente" }),
-    },
-    {
-      label: "Vencidos",
-      value: overdueRequests.length,
-      color: overdueRequests.length ? C.red : C.green,
-      icon: Clock,
-      onClick: () => setScope("criticos"),
-    },
-    {
-      label: "Avisos abiertos",
-      value: activeAvisos.length,
-      color: activeAvisos.length ? C.violet : C.green,
-      icon: MessageSquare,
-      onClick: () => setScope("avisos"),
-    },
-  ];
-
-  const scopeButtons = [
-    ["todo", "Todo", totalVisible],
-    ["criticos", "Criticos", data.criticalRequests?.length || 0],
-    ["revisar", "A revisar", reviewRequests.length],
-    ["avisos", "Avisos", activeAvisos.length],
-    ["comprados", "Comprados", data.boughtRequests?.length || 0],
-  ];
-
-  function requestCard(request, tone) {
-    const attention = attentionTextForRequest(request, unreadIds.has(request.id));
-    const statusLabel = REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status;
-    const priorityLabel = REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority;
-    const destination = request.project?.codigo || request.destino || "Sin destino";
+  function fila({ key, tone, sinLeer, titulo, meta, chips, fecha, onClick }) {
     return (
       <button
-        key={request.id}
+        key={key}
         type="button"
-        onClick={() => onSelectRequest(request.id)}
+        className="compras-row"
+        onClick={onClick}
         style={{
+          width: "100%",
           border: `1px solid ${C.border}`,
-          borderLeft: `4px solid ${attention.color || tone}`,
+          borderLeft: `3px solid ${tone}`,
           background: C.panel,
           color: C.text,
           borderRadius: 10,
-          padding: "10px 12px",
+          padding: "9px 11px",
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) auto",
-          gap: 10,
+          gridTemplateColumns: "minmax(0, 1fr) auto auto",
+          gap: 12,
           alignItems: "center",
           textAlign: "left",
           cursor: "pointer",
+          fontFamily: C.sans,
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {request.title}
-            </span>
-            {unreadIds.has(request.id) && <span style={{ width: 7, height: 7, borderRadius: 99, background: C.violet, boxShadow: `0 0 8px ${C.violet}` }} />}
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5, color: C.dim, fontSize: 11 }}>
-            <span>{destination}</span>
-            <span style={{ color: C.border2 }}>/</span>
-            <span>{usernameOf(request.creator)}</span>
-            <span style={{ color: C.border2 }}>/</span>
-            <span>{statusLabel}</span>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
-            <Chip color={attention.color || tone} size="xs">{attention.label}</Chip>
-            {["alta", "urgente"].includes(request.priority) && <Chip color={priorityColors[request.priority] || C.dim} size="xs">{priorityLabel}</Chip>}
-          </div>
-        </div>
-        <ChevronRight size={16} color={C.dim} />
+        {/* Todo lo que distingue una fila de otra va junto y a la izquierda.
+            Antes los chips estaban pegados al borde derecho: en una pantalla
+            ancha quedaban a más de mil píxeles del título, con un vacío en el
+            medio, y había que barrer la fila entera para saber por qué estaba
+            ahí. A la derecha queda sólo la fecha, que es lo único que se lee en
+            columna. */}
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+            {sinLeer && <span style={{ width: 6, height: 6, flexShrink: 0, borderRadius: 99, background: C.violet, boxShadow: `0 0 7px ${C.violet}` }} />}
+            <span style={{ fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titulo}</span>
+            <span style={{ display: "inline-flex", gap: 5, flexShrink: 0 }}>{chips}</span>
+          </span>
+          <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 3, color: C.dim, fontSize: 11 }}>
+            {meta.filter(Boolean).map((parte, index) => (
+              <span key={`${key}-m${index}`} style={{ display: "inline-flex", gap: 6 }}>
+                {index > 0 && <span style={{ color: C.border2 }}>·</span>}
+                <span>{parte}</span>
+              </span>
+            ))}
+          </span>
+        </span>
+        <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11, flexShrink: 0, whiteSpace: "nowrap" }}>{fecha}</span>
+        <ChevronRight size={15} color={C.dim} style={{ flexShrink: 0 }} />
       </button>
     );
   }
 
-  function avisoCard(aviso, tone) {
+  function requestRow(request, toneName) {
+    const attention = attentionTextForRequest(request, unreadIds.has(request.id));
+    const statusLabel = REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status;
+    const priorityLabel = REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority;
+    return fila({
+      key: request.id,
+      tone: attention.color || tono(toneName).color,
+      sinLeer: unreadIds.has(request.id),
+      titulo: request.title,
+      // El motivo por el que está en este grupo -"vencido hace 8d", "comentario
+      // sin leer"- pasa a la línea de abajo como texto: es una explicación, no
+      // una etiqueta que haga falta destacar en color.
+      //
+      // Salvo cuando ese motivo es la prioridad o el estado, que ya están a la
+      // vista: repetirlos daba filas que decían "Comprado · Comprado, falta
+      // cerrar" o el chip URGENTE seguido de la palabra "Urgente".
+      meta: [
+        request.project?.codigo || request.destino || "Sin destino",
+        usernameOf(request.creator),
+        statusLabel,
+        MOTIVOS_REDUNDANTES.has(attention.label) || attention.label === statusLabel ? "" : attention.label,
+      ],
+      chips: ["alta", "urgente"].includes(request.priority)
+        ? <Chip color={priorityColors[request.priority] || C.dim} size="xs">{priorityLabel}</Chip>
+        : null,
+      fecha: fmtDate(request.updated_at || request.created_at),
+      onClick: () => onSelectRequest(request.id),
+    });
+  }
+
+  function avisoRow(aviso) {
     const status = avisoStatusMeta(aviso.estado);
     const priority = REQUEST_PRIORITIES.find((p) => p.value === aviso.prioridad)?.label || aviso.prioridad || "Media";
-    return (
-      <button
-        key={aviso.id}
-        type="button"
-        onClick={() => onSelectAviso(aviso.id)}
-        style={{
-          border: `1px solid ${C.border}`,
-          borderLeft: `4px solid ${status.color || tone}`,
-          background: C.panel,
-          color: C.text,
-          borderRadius: 10,
-          padding: "10px 12px",
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) auto",
-          gap: 10,
-          alignItems: "center",
-          textAlign: "left",
-          cursor: "pointer",
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {aviso.titulo || aviso.material || "Aviso a compras"}
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5, color: C.dim, fontSize: 11 }}>
-            <span>{aviso.project?.codigo || aviso.destino || "Sin destino"}</span>
-            <span style={{ color: C.border2 }}>/</span>
-            <span>{aviso.creator?.username || "Sin creador"}</span>
-            <span style={{ color: C.border2 }}>/</span>
-            <span>{fmtDate(aviso.created_at)}</span>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
-            <Chip color={status.color} size="xs">{status.label}</Chip>
-            <Chip color={priorityColors[aviso.prioridad] || C.blue} size="xs">{priority}</Chip>
-            {/* Se distingue en la lista: un aviso de devolución se resuelve en
-                otra pantalla, así que conviene reconocerlo sin abrirlo. */}
-            {aviso.origen === "panol_devolucion" && <Chip color={C.cyan} size="xs">Devolución</Chip>}
-          </div>
-        </div>
-        <ChevronRight size={16} color={C.dim} />
-      </button>
-    );
+    return fila({
+      key: aviso.id,
+      tone: status.color || C.violet,
+      sinLeer: false,
+      titulo: aviso.titulo || aviso.material || "Aviso a compras",
+      meta: [aviso.project?.codigo || aviso.destino || "Sin destino", aviso.creator?.username || "Sin creador", status.label],
+      chips: (
+        <>
+          {/* Un aviso de devolución se resuelve en otra pantalla: conviene
+              reconocerlo sin tener que abrirlo. */}
+          {aviso.origen === "panol_devolucion" && <Chip color={C.cyan} size="xs">Devolución</Chip>}
+          {["alta", "urgente"].includes(aviso.prioridad) && <Chip color={priorityColors[aviso.prioridad] || C.blue} size="xs">{priority}</Chip>}
+        </>
+      ),
+      fecha: fmtDate(aviso.created_at),
+      onClick: () => onSelectAviso(aviso.id),
+    });
   }
 
   if (loading) {
     return (
       <div style={{ display: "grid", gap: 12 }}>
         <SkeletonStyles />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
-          {Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)}
-        </div>
+        <CardSkeleton />
         <CardSkeleton />
         <CardSkeleton />
       </div>
@@ -2580,159 +2576,101 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
   }
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 850 }}>Compras</div>
-          <h2 style={{ margin: "4px 0 0", fontSize: 20, color: C.text, fontWeight: 900 }}>Bandeja de pendientes</h2>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
-            {openRequests.length} pedidos abiertos / {activeAvisos.length} avisos activos
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => onGoList({ status: "activos", priority: "todos" })}
-          style={{
-            border: `1px solid ${C.border}`,
-            background: C.panel,
-            color: C.text,
-            borderRadius: 8,
-            padding: "8px 11px",
-            cursor: "pointer",
-            fontSize: 12,
-            fontWeight: 800,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-          }}
-        >
-          <LayoutList size={13} />
-          Ver lista completa
-        </button>
-      </div>
+    <div style={{ display: "grid", gap: 13, minWidth: 0 }}>
+      <PageHeader
+        eyebrow="Compras"
+        title="Bandeja de pendientes"
+        Icon={Inbox}
+        resumen={`${openRequests.length} ${openRequests.length === 1 ? "pedido abierto" : "pedidos abiertos"} · ${activeAvisos.length} ${activeAvisos.length === 1 ? "aviso" : "avisos"}`}
+        acciones={(
+          <BarButton onClick={() => onGoList({ status: "activos", priority: "todos" })}>
+            <LayoutList size={13} /> Ver lista completa
+          </BarButton>
+        )}
+      />
 
       {error && (
-        <div style={{ border: `1px solid ${C.cyan}44`, background: `${C.cyan}10`, color: C.cyan, borderRadius: 10, padding: 10, fontSize: 12, fontWeight: 750 }}>
-          {error}
+        <Panel tone="critico" padding={10}>
+          <span style={{ color: C.red, fontSize: 12, fontWeight: 750 }}>{error}</span>
+        </Panel>
+      )}
+
+      {/* Los chips SON el reparto: cada pedido abierto está en uno y en uno
+          solo, y las cuentas suman el total del encabezado. Antes había además
+          una banda de cuatro tarjetas con los mismos números, que ni siquiera
+          cerraban entre sí. */}
+      <Toolbar buscador={<SearchInput value={q} onChange={setQ} placeholder="Buscar pedido, obra, proveedor, usuario…" Icon={Search} />}>
+        <FilterChip label="Todo" count={totalPedidos} tone="info" activo={foco === "todo"} onClick={() => setFoco("todo")} />
+        {GRUPOS_BANDEJA.map((grupo) => {
+          const cuenta = bandeja.find((g) => g.key === grupo.key)?.items.length || 0;
+          if (!cuenta) return null;
+          return (
+            <FilterChip
+              key={grupo.key}
+              label={grupo.label}
+              count={cuenta}
+              tone={grupo.tone}
+              activo={foco === grupo.key}
+              onClick={() => setFoco(foco === grupo.key ? "todo" : grupo.key)}
+            />
+          );
+        })}
+        {avisosVisibles.length > 0 && (
+          <>
+            <span style={{ width: 1, alignSelf: "stretch", background: C.border, margin: "0 2px" }} />
+            <FilterChip label="Avisos" count={avisosVisibles.length} tone="aviso" activo={foco === "avisos"} onClick={() => setFoco(foco === "avisos" ? "todo" : "avisos")} />
+          </>
+        )}
+      </Toolbar>
+
+      {foco !== "avisos" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginTop: -4 }}>
+          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, letterSpacing: 0.4, textTransform: "uppercase" }}>Agrupar por</span>
+          {/* Falta "por proveedor", que sería lo más útil para salir a comprar:
+              `purchase_requests.proveedor` está vacío en las 390 filas de la
+              tabla, así que agrupar por ahí devuelve un solo montón llamado
+              "Sin proveedor". El día que se empiece a cargar, se agrega acá. */}
+          {[
+            ["urgencia", "Urgencia", "Por dónde arrancar"],
+            ["obra", "Obra", "Para cerrar un barco"],
+          ].map(([valor, etiqueta, ayuda]) => (
+            <BarButton key={valor} tone="info" activo={agrupar === valor} title={ayuda} onClick={() => setAgrupar(valor)}>
+              {etiqueta}
+            </BarButton>
+          ))}
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: 10 }}>
-        {kpis.map((kpi) => {
-          const KpiIcon = kpi.icon;
-          return (
-            <button
-              key={kpi.label}
-              type="button"
-              onClick={kpi.onClick}
-              style={{
-                border: `1px solid ${C.border}`,
-                background: C.panel,
-                borderRadius: 12,
-                padding: 12,
-                display: "grid",
-                gap: 9,
-                textAlign: "left",
-                cursor: "pointer",
-                color: C.text,
-                minHeight: 92,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 850 }}>{kpi.label}</span>
-                <KpiIcon size={15} color={kpi.color} />
-              </div>
-              <div style={{ color: kpi.color, fontSize: 25, lineHeight: 1, fontWeight: 950, fontFamily: C.mono }}>{kpi.value}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{
-        border: `1px solid ${C.border}`,
-        background: C.topbarSoft,
-        borderRadius: 12,
-        padding: 10,
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap",
-        alignItems: "center",
-      }}>
-        <div style={{ position: "relative", flex: "1 1 260px", minWidth: 180 }}>
-          <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
-          <input
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-            placeholder="Buscar pendiente, obra, proveedor, usuario..."
-            style={{ ...inputStyle, paddingLeft: 31, background: C.bg }}
-          />
-        </div>
-        {scopeButtons.map(([value, label, count]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setScope(value)}
-            style={{
-              border: `1px solid ${scope === value ? C.blue + "55" : C.border}`,
-              background: scope === value ? `${C.blue}14` : C.panel,
-              color: scope === value ? C.blue : C.dim,
-              borderRadius: 8,
-              padding: "7px 9px",
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 850,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            {label}
-            <span style={{ fontFamily: C.mono, fontSize: 11 }}>{count}</span>
-          </button>
-        ))}
-      </div>
-
-      {sections.length === 0 || totalVisible === 0 ? (
-        <div style={{ border: `1px dashed ${C.border}`, background: C.panel, borderRadius: 12, minHeight: 220, display: "grid", placeItems: "center", color: C.dim, textAlign: "center", padding: 24 }}>
-          <div style={{ display: "grid", justifyItems: "center", gap: 9 }}>
-            <CheckCircle2 size={26} color={C.green} />
-            <div style={{ color: C.text, fontSize: 15, fontWeight: 900 }}>No hay pendientes para estos filtros</div>
-            <div style={{ maxWidth: 360, fontSize: 12, lineHeight: 1.45 }}>
-              Cuando aparezcan pedidos nuevos, urgentes, vencidos o avisos abiertos, van a quedar agrupados aca.
-            </div>
-          </div>
-        </div>
+      {!hayAlgo ? (
+        <Empty
+          Icon={CheckCircle2}
+          title={q.trim() ? `Nada coincide con "${q.trim()}"` : "No queda nada pendiente"}
+          hint={q.trim() ? "Probá con menos palabras, el código de obra o el proveedor." : "Los pedidos nuevos y los avisos del pañol van a aparecer acá."}
+        />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(330px, 1fr))", gap: 12, alignItems: "start" }}>
-          {sections.map((section) => {
-            const Icon = section.icon;
-            return (
-              <section key={section.key} style={{ border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ padding: "11px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9 }}>
-                  <Icon size={15} color={section.color} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, color: C.text, fontWeight: 900 }}>{section.title}</div>
-                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{section.subtitle}</div>
-                  </div>
-                  <span style={{ color: section.color, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>{section.items.length}</span>
-                </div>
-                <div style={{ padding: 10, display: "grid", gap: 8 }}>
-                  {section.items.length === 0 ? (
-                    <div style={{ border: `1px dashed ${C.border}`, borderRadius: 10, padding: 18, color: C.dim, fontSize: 12, textAlign: "center" }}>
-                      Sin resultados
-                    </div>
-                  ) : section.items.slice(0, 12).map((item) => (
-                    section.type === "aviso" ? avisoCard(item, section.color) : requestCard(item, section.color)
-                  ))}
-                  {section.items.length > 12 && (
-                    <div style={{ color: C.dim, fontSize: 11, textAlign: "center", padding: "2px 0 4px" }}>
-                      +{section.items.length - 12} mas. Usar busqueda o lista completa.
-                    </div>
-                  )}
-                </div>
-              </section>
-            );
-          })}
+        <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+          {visibles.map((grupo) => (
+            <Section key={grupo.key} title={grupo.label} subtitle={grupo.subtitle} count={grupo.items.length} tone={grupo.tone} dense>
+              <div style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                {grupo.items.map((request) => requestRow(request, grupo.tone))}
+              </div>
+            </Section>
+          ))}
+
+          {mostrarAvisos && (
+            <Section
+              title="Avisos abiertos"
+              subtitle="Mensajes internos del pañol: no son pedidos, se responden acá"
+              count={avisosVisibles.length}
+              tone="aviso"
+              Icon={MessageSquare}
+              dense
+            >
+              <div style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                {avisosVisibles.map(avisoRow)}
+              </div>
+            </Section>
+          )}
         </div>
       )}
     </div>
@@ -3013,8 +2951,12 @@ function AvisosPanel({
         gap: 12,
         minHeight: 0,
       }}>
+        {/* `minWidth: 0`: sin esto la columna se agranda hasta el contenido más
+            ancho de la lista en vez de respetar su ancho de grilla. Los avisos
+            medían 604px dentro de una columna de 392 y se metían debajo del
+            panel de detalle. */}
         {showListPane && (
-          <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+          <div style={{ display: "grid", gap: 8, alignContent: "start", minWidth: 0 }}>
             {filtered.length === 0 ? (
               <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, padding: 26, color: C.dim, textAlign: "center", fontSize: 13 }}>
                 No hay avisos para mostrar.
@@ -3065,6 +3007,7 @@ function AvisoListItem({ aviso, active, onClick }) {
       display: "grid",
       gap: 8,
       fontFamily: C.sans,
+      minWidth: 0,
       boxShadow: active ? `inset 3px 0 0 ${C.blue}` : `inset 3px 0 0 ${C.border}`,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -3099,7 +3042,9 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
   }
   const status = avisoStatusMeta(aviso.estado);
   return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", minHeight: 360 }}>
+    // Fondo opaco: `var(--panel)` es semitransparente y dejaba ver la lista de
+    // atrás atravesando la tarjeta.
+    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, overflow: "hidden", minHeight: 360, minWidth: 0 }}>
       {onBack && (
         <button
           type="button"
@@ -3494,7 +3439,14 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
   const hasMonthlySpend = dashboard.monthlyTrend.some((d) => d.total > 0);
   const priorityTotal = dashboard.priorityData.reduce((sum, d) => sum + d.value, 0);
   const avgDays = dashboard.avgCycleDays || totals.avgDays || 0;
-  const openSubtitle = `${dashboard.openCounts.nuevo} nuevos / ${dashboard.openCounts.cotizando} cotizando / ${dashboard.openCounts.comprado} por recibir`;
+  // Se salteaba "en revisión", así que los cuatro números de abajo no daban el
+  // total de arriba y quedaba una diferencia sin explicación.
+  const openSubtitle = [
+    `${dashboard.openCounts.nuevo} nuevos`,
+    dashboard.openCounts.en_revision ? `${dashboard.openCounts.en_revision} en revisión` : "",
+    `${dashboard.openCounts.cotizando} cotizando`,
+    `${dashboard.openCounts.comprado} por recibir`,
+  ].filter(Boolean).join(" / ");
   const quoteSubtitle = `${dashboard.openCounts.nuevo} nuevos / ${dashboard.openCounts.en_revision} en revision`;
 
   function emptyState(text) {
@@ -3636,22 +3588,38 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
           </div>
           <BarChart3 size={18} color={C.blue} />
         </div>
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={dashboard.statusFunnelData} layout="vertical" margin={{ top: 4, right: 24, left: 6, bottom: 4 }}>
-            <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} domain={[0, maxStatusCount]} stroke={C.border} tick={chartAxisTick} />
-            <YAxis type="category" dataKey="label" width={88} stroke={C.border} tick={chartAxisTick} />
-            <Tooltip
-              cursor={{ fill: C.panel2 }}
-              contentStyle={chartTooltipStyle}
-              labelStyle={{ color: C.text, fontWeight: 700 }}
-              formatter={(value) => [`${value} pedidos`, "Cantidad"]}
-            />
-            <Bar dataKey="count" radius={[0, 7, 7, 0]} barSize={22}>
-              {dashboard.statusFunnelData.map((entry) => <Cell key={entry.status} fill={entry.color} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {/* En HTML y no con Recharts.
+            El `<Bar>` con hijos `<Cell>` -que es como se pintaba un color por
+            estado- renderiza un `<g>` vacío en esta versión: quedaban los ejes
+            dibujados y ni una barra, o sea 250px de gráfico en blanco. Los otros
+            dos gráficos de esta pantalla usan `<Bar fill>` sin Cells y por eso
+            sí se ven.
+            De paso se lee mejor: cinco filas con el número al lado dicen más que
+            un gráfico con grilla, y ocupan la mitad. */}
+        <div style={{ display: "grid", gap: 7 }}>
+          {dashboard.statusFunnelData.map((entry) => {
+            const porcentaje = maxStatusCount ? Math.max(entry.count / maxStatusCount, 0) * 100 : 0;
+            return (
+              <div key={entry.status} style={{ display: "grid", gridTemplateColumns: "104px minmax(0, 1fr) 52px", alignItems: "center", gap: 10 }}>
+                <span style={{ color: C.muted, fontSize: 12, fontWeight: 750, whiteSpace: "nowrap" }}>{entry.label}</span>
+                <span style={{ height: 18, borderRadius: 6, background: C.panel2, overflow: "hidden" }}>
+                  <span style={{
+                    display: "block",
+                    height: "100%",
+                    width: `${porcentaje}%`,
+                    minWidth: entry.count ? 3 : 0,
+                    borderRadius: 6,
+                    background: entry.color,
+                    transition: "width .3s ease",
+                  }} />
+                </span>
+                <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 900, color: entry.count ? C.text : C.dim, textAlign: "right" }}>
+                  {entry.count}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div style={panelStyle}>
@@ -3664,6 +3632,10 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             {formatMoney(dashboard.monthlyTrend.reduce((sum, d) => sum + d.total, 0))}
           </div>
         </div>
+        {/* Una curva plana en cero durante seis meses no informa nada y ocupa
+            260px. Cuando no hay gasto cargado se dice por qué, que además es
+            accionable: falta completar el importe real al cerrar el pedido. */}
+        {!hasMonthlySpend ? emptyState("Todavía no hay gasto real cargado. Se completa al poner el importe final en cada pedido.") : (
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart data={dashboard.monthlyTrend} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
@@ -3677,6 +3649,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             <Area type="monotone" dataKey="total" stroke={C.blue} fill={C.blue} fillOpacity={0.14} strokeWidth={2} dot={{ r: 3, fill: C.blue }} activeDot={{ r: 5 }} />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
@@ -3755,8 +3728,11 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
           <div style={{ display: "grid", gap: 7 }}>
             {dashboard.overdueItems.length > 0
               ? dashboard.overdueItems.slice(0, 8).map((item) => {
-                  const daysOverdue = Math.ceil((new Date() - new Date(item.estimated_delivery_at)) / (1000 * 60 * 60 * 24));
-                  return actionItem(item, C.red, `-${daysOverdue}d`);
+                  // La misma fecha con la que se decidió que está vencido. Con
+                  // `estimated_delivery_at` a secas, los que vencen por
+                  // `needed_at` daban la cuenta contra 1970 y salía "-20707d".
+                  const daysOverdue = daysBetween(requestDueDate(item));
+                  return actionItem(item, C.red, daysOverdue != null ? `-${daysOverdue}d` : "vencido");
                 })
               : emptyState("Sin pedidos vencidos")}
           </div>
@@ -3826,24 +3802,187 @@ function tabStyle(active) {
   };
 }
 
-function TabBtn({ active, onClick, children }) {
+/**
+ * La navegación del módulo.
+ *
+ * Eran doce solapas en una sola fila, todas al mismo nivel. Dos problemas: no
+ * se podía distinguir lo de todos los días de lo que se abre una vez por mes, y
+ * la fila era más ancha que la pantalla, así que empujaba el ancho de TODA la
+ * página -por eso las tablas de Adicionales y Caja chica quedaban cortadas a la
+ * derecha, aunque no tuvieran nada que ver-.
+ *
+ * Ahora quedan a la vista las tres de uso diario y el resto entra por un menú,
+ * agrupado por para qué sirve cada cosa.
+ */
+const TABS_DIARIO = [
+  { key: "pendientes", label: "Pendientes", Icon: Bell, badge: "atencion" },
+  { key: "comprar", label: "Qué comprar", Icon: TrendingDown },
+  { key: "avisos", label: "Avisos", Icon: AlertTriangle, badge: "avisos" },
+];
+
+const TABS_MENU = [
+  {
+    grupo: "Planificar la compra",
+    items: [
+      { key: "planilla", label: "Planilla por obra", Icon: Table2, hint: "Los materiales de cada barco" },
+      { key: "matriz", label: "Matriz por línea", Icon: Grid3x3, hint: "La receta base de cada modelo" },
+      { key: "faltantes", label: "Faltantes", Icon: PackageSearch, hint: "Lo que el pañol reportó que falta" },
+    ],
+  },
+  {
+    grupo: "Consultar",
+    items: [
+      { key: "lista", label: "Lista completa", Icon: LayoutList, hint: "Todos los pedidos, con filtros" },
+      { key: "dashboard", label: "Dashboard", Icon: BarChart3, hint: "Gasto por mes y por obra" },
+      { key: "registro", label: "Registro", Icon: Package, hint: "Historial de lo comprado" },
+    ],
+  },
+  {
+    grupo: "Gastos y logística",
+    items: [
+      { key: "adicionales", label: "Adicionales", Icon: Table2, hint: "Lo que se agrega fuera de la matriz" },
+      { key: "caja", label: "Caja chica", Icon: Wallet, hint: "Gastos menores y cierres" },
+      { key: "ruta", label: "Hoja de ruta", Icon: Truck, hint: "Lo que el cadete retira hoy" },
+    ],
+  },
+];
+
+const TAB_LABELS = Object.fromEntries([
+  ...TABS_DIARIO.map((t) => [t.key, t.label]),
+  ...TABS_MENU.flatMap((g) => g.items.map((t) => [t.key, t.label])),
+]);
+
+function ComprasTabs({ tab, onTab, atencion = 0, avisosNuevos = 0 }) {
+  const [abierto, setAbierto] = useState(false);
+  const enMenu = TABS_MENU.some((g) => g.items.some((t) => t.key === tab));
+
+  useEffect(() => {
+    if (!abierto) return undefined;
+    const cerrar = (event) => { if (event.key === "Escape") setAbierto(false); };
+    window.addEventListener("keydown", cerrar);
+    return () => window.removeEventListener("keydown", cerrar);
+  }, [abierto]);
+
+  const badgeDe = (tipo) => (tipo === "atencion" ? atencion : tipo === "avisos" ? avisosNuevos : 0);
+
   return (
-    <button type="button" onClick={onClick} style={{
-      border: "none",
-      background: "transparent",
-      color: active ? C.text : C.dim,
-      cursor: "pointer",
-      padding: "6px 10px",
-      fontSize: 12,
-      fontWeight: active ? 750 : 600,
-      fontFamily: C.sans,
-      borderRadius: 6,
-      transition: "all .12s",
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-    }}>
-      {children}
-    </button>
+    <div className="purchase-tabs" style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 8, minWidth: 0 }}>
+      {TABS_DIARIO.map((t) => {
+        const activo = tab === t.key;
+        const cuenta = badgeDe(t.badge);
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onTab(t.key)}
+            style={{
+              minHeight: 30,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 10px",
+              borderRadius: 8,
+              border: `1px solid ${activo ? C.blueB : "transparent"}`,
+              background: activo ? C.blueL : "transparent",
+              color: activo ? C.blue : C.dim,
+              fontFamily: C.sans,
+              fontSize: 12,
+              fontWeight: activo ? 850 : 700,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <t.Icon size={12} /> {t.label}
+            {cuenta > 0 && (
+              <span style={{ fontFamily: C.mono, fontSize: 10, color: activo ? C.blue : C.cyan }}>{cuenta}</span>
+            )}
+          </button>
+        );
+      })}
+
+      <div style={{ position: "relative" }}>
+        <button
+          type="button"
+          onClick={() => setAbierto((v) => !v)}
+          style={{
+            minHeight: 30,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "0 10px",
+            borderRadius: 8,
+            border: `1px solid ${enMenu ? C.blueB : "transparent"}`,
+            background: enMenu ? C.blueL : "transparent",
+            color: enMenu ? C.blue : C.dim,
+            fontFamily: C.sans,
+            fontSize: 12,
+            fontWeight: enMenu ? 850 : 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {enMenu ? TAB_LABELS[tab] : "Más"}
+          <ChevronDown size={12} style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        </button>
+
+        {abierto && (
+          <>
+            <div onClick={() => setAbierto(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+            <div style={{
+              position: "absolute",
+              top: "calc(100% + 7px)",
+              left: 0,
+              zIndex: 61,
+              width: 265,
+              maxHeight: "70vh",
+              overflowY: "auto",
+              background: C.panelSolid,
+              border: `1px solid ${C.b1}`,
+              borderRadius: 12,
+              padding: 6,
+              boxShadow: "0 20px 46px -22px rgba(0,0,0,.6)",
+            }}>
+              {TABS_MENU.map((grupo) => (
+                <div key={grupo.grupo} style={{ marginBottom: 4 }}>
+                  <div style={{ padding: "7px 9px 4px", color: C.dim, fontSize: 9, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase" }}>
+                    {grupo.grupo}
+                  </div>
+                  {grupo.items.map((t) => {
+                    const activo = tab === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => { onTab(t.key); setAbierto(false); }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 9,
+                          padding: "8px 9px",
+                          borderRadius: 9,
+                          border: "none",
+                          background: activo ? C.blueL : "transparent",
+                          color: activo ? C.blue : C.text,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          fontFamily: C.sans,
+                        }}
+                      >
+                        <t.Icon size={13} style={{ flexShrink: 0, opacity: activo ? 1 : 0.65 }} />
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: "block", fontSize: 12.5, fontWeight: 850 }}>{t.label}</span>
+                          <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 1 }}>{t.hint}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

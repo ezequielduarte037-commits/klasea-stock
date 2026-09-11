@@ -68,7 +68,7 @@ const ORIGEN_TONOS = {
   panol: { color: C.cyan, fondo: C.cyanL, borde: C.cyanB, texto: "Pañol", icono: Warehouse },
   secundario: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Producción", icono: FlaskConical },
   laminacion: { color: C.blue, fondo: C.blueL, borde: C.blueB, texto: "Laminación", icono: FlaskConical },
-  maderas: { color: C.amber, fondo: C.amberL, borde: C.amberB, texto: "Maderas", icono: TreePine },
+  maderas: { color: C.cyan, fondo: C.cyanL, borde: C.cyanB, texto: "Maderas", icono: TreePine },
   fuera_matriz: { color: C.red, fondo: C.redL, borde: C.redB, texto: "A revisar", icono: AlertTriangle },
 };
 
@@ -84,7 +84,7 @@ const FILAS_POR_BLOQUE = {
 const CARGA = {
   sin_matriz: {
     texto: "sin lista matriz",
-    color: C.amber,
+    color: C.cyan,
     ayuda: "Esta línea todavía no tiene una lista matriz configurada.",
   },
   todo_llego: {
@@ -94,7 +94,7 @@ const CARGA = {
   },
   con_pendientes: {
     texto: "requiere acción",
-    color: "#f59e0b",
+    color: "var(--cyan)",
     ayuda: "La obra todavía tiene faltantes por resolver.",
   },
 };
@@ -966,12 +966,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </div>
         {resumenAbierto && datos ? (
           <MotionDiv initial={reducirMovimiento ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="planilla-senales" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            <Metric valor={resumenFoco.aComprar} etiqueta="requieren compra" color={C.amber} icono={ShoppingCart} />
+            <Metric valor={resumenFoco.aComprar} etiqueta="requieren compra" color={C.cyan} icono={ShoppingCart} />
             <Metric valor={resumenFoco.pendientes} etiqueta="con faltantes" color={C.red} icono={AlertTriangle} />
             <Metric valor={resumenFoco.enPanol} etiqueta="esperando retiro" color={C.cyan} icono={PackageCheck} />
             <Metric valor={resumenFoco.entregados} etiqueta="con entregas" color={C.green} icono={CheckCircle2} />
             {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="materiales de producción" color={C.violet} icono={FlaskConical} /> : null}
-            {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={C.amber} icono={CircleAlert} /> : null}
+            {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={C.cyan} icono={CircleAlert} /> : null}
           </MotionDiv>
         ) : null}
       </section>
@@ -995,10 +995,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  <span style={{ color: "#f59e0b", fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.pendientes} materiales con faltantes</span>
+                  <span style={{ color: "var(--cyan)", fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.pendientes} materiales con faltantes</span>
                   <span style={{ color: C.cyan, fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.enPanol} esperando retiro</span>
                   <span style={{ color: C.green, fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.entregados} con entregas</span>
-                  {obraSeleccionada.opcionesPendientes ? <span style={{ color: C.amber, fontSize: 12, fontWeight: 950 }}>{obraSeleccionada.opcionesPendientes} productos por definir</span> : null}
+                  {obraSeleccionada.opcionesPendientes ? <span style={{ color: C.cyan, fontSize: 12, fontWeight: 950 }}>{obraSeleccionada.opcionesPendientes} productos por definir</span> : null}
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                   <span style={{
@@ -1037,8 +1037,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       ) : null}
 
       {obraSeleccionada?.opcionesPendientes ? (
-        <section style={{ ...panel, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderColor: C.amberB, background: "linear-gradient(90deg, var(--amber-soft), var(--panel-solid))" }}>
-          <span style={{ width: 30, height: 30, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 9, background: C.amberL, color: C.amber }}>
+        <section style={{ ...panel, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderColor: C.cyanB, background: "linear-gradient(90deg, var(--cyan-soft), var(--panel-solid))" }}>
+          <span style={{ width: 30, height: 30, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 9, background: C.cyanL, color: C.cyan }}>
             <CircleAlert size={16} />
           </span>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -1052,7 +1052,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           <button
             type="button"
             onClick={() => setSoloSinOpcion((actual) => !actual)}
-            style={{ ...control, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, borderColor: C.amberB, background: soloSinOpcion ? C.amber : C.amberL, color: soloSinOpcion ? "#fff" : C.amber }}
+            style={{ ...control, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, borderColor: C.cyanB, background: soloSinOpcion ? C.cyan : C.cyanL, color: soloSinOpcion ? "#fff" : C.cyan }}
           >
             <CircleAlert size={13} /> {soloSinOpcion ? "Ver todos" : "Resolver ahora"}
           </button>
@@ -1060,10 +1060,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       ) : null}
 
       {datos && !datos.matrizMateriales ? (
-        <div style={{ ...panel, display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", borderColor: C.amberB, background: C.amberL }}>
-          <AlertTriangle size={16} color={C.amber} style={{ marginTop: 1, flexShrink: 0 }} />
+        <div style={{ ...panel, display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", borderColor: C.cyanB, background: C.cyanL }}>
+          <AlertTriangle size={16} color={C.cyan} style={{ marginTop: 1, flexShrink: 0 }} />
           <div>
-            <div style={{ color: C.amber, fontSize: 12.5, fontWeight: 900 }}>{linea} todavía no tiene lista matriz</div>
+            <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 900 }}>{linea} todavía no tiene lista matriz</div>
             <div style={{ marginTop: 2, color: C.muted, fontSize: 11.5, fontWeight: 700 }}>
               Sólo pueden aparecer movimientos históricos. Configurá la línea en Materiales para que todas sus obras nazcan con pendientes.
             </div>
@@ -1207,8 +1207,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              borderColor: soloSinOpcion ? "#f59e0b" : C.amberB,
-              background: soloSinOpcion ? "rgba(245,158,11,.16)" : C.amberL,
+              borderColor: soloSinOpcion ? "var(--cyan)" : C.cyanB,
+              background: soloSinOpcion ? "color-mix(in srgb, var(--cyan) 16%, transparent)" : C.cyanL,
               color: "#b86b00",
             }}
           >
@@ -1555,7 +1555,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             {celdaFoco?.soloConsumo ? <span style={{ color: C.dim }}>—</span> : <EstadoNumero value={celdaFoco?.restanteUso} tone="info" />}
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title={fila.precioInfo?.fuente || "Todavía no hay precio cargado"}>
-                            <span style={{ color: fila.precioInfo ? C.text : C.amber, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{fmtPrecioSecundario(fila.precioInfo)}</span>
+                            <span style={{ color: fila.precioInfo ? C.text : C.cyan, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{fmtPrecioSecundario(fila.precioInfo)}</span>
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title="Costo planificado para esta obra">
                             <span style={{ color: C.text, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
@@ -1574,12 +1574,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                               padding: 7,
                               borderLeft: `1px solid ${C.border}`,
                               verticalAlign: "middle",
-                              background: celdaFoco?.requiereProductoConcreto && !celdaFoco.productoDefinido ? C.amberL : "transparent",
+                              background: celdaFoco?.requiereProductoConcreto && !celdaFoco.productoDefinido ? C.cyanL : "transparent",
                             }}
                           >
                             {celdaFoco?.requiereProductoConcreto ? (
                               <div style={{ display: "grid", gap: 6 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 5, color: celdaFoco.productoDefinido ? C.green : C.amber, fontSize: 9.5, fontWeight: 950 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, color: celdaFoco.productoDefinido ? C.green : C.cyan, fontSize: 9.5, fontWeight: 950 }}>
                                   {celdaFoco.productoDefinido ? <CheckCircle2 size={11} /> : <CircleAlert size={11} />}
                                   {celdaFoco.productoDefinido ? "Producto definido" : "Falta definir producto"}
                                 </div>
@@ -1598,9 +1598,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                                   style={{
                                     width: "100%",
                                     minWidth: 0,
-                                    border: `1px solid ${celdaFoco.productoDefinido ? C.greenB : C.amberB}`,
+                                    border: `1px solid ${celdaFoco.productoDefinido ? C.greenB : C.cyanB}`,
                                     background: "var(--panel-solid)",
-                                    color: celdaFoco.productoDefinido ? C.text : C.amber,
+                                    color: celdaFoco.productoDefinido ? C.text : C.cyan,
                                     borderRadius: 8,
                                     padding: "7px 8px",
                                     fontFamily: C.sans,
@@ -1826,7 +1826,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             </div>
 
             {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? (
-              <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 9, padding: "8px 10px", fontSize: 11.5, fontWeight: 800, lineHeight: 1.45 }}>
+              <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 9, padding: "8px 10px", fontSize: 11.5, fontWeight: 800, lineHeight: 1.45 }}>
                 {avisoPreparacion.yaAvisados ? `${avisoPreparacion.yaAvisados} ${avisoPreparacion.yaAvisados === 1 ? "asignación ya tenía" : "asignaciones ya tenían"} un aviso abierto. ` : ""}
                 {avisoPreparacion.cubiertos ? `${avisoPreparacion.cubiertos} se ${avisoPreparacion.cubiertos === 1 ? "cubre" : "cubren"} con stock libre.` : ""}
                 {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? " No se duplicarán en este aviso." : ""}

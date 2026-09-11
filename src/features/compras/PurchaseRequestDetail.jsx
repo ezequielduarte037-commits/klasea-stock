@@ -550,7 +550,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [editDescription, setEditDescription] = useState("");
   const [editQuantity, setEditQuantity] = useState("");
   const [editUnit, setEditUnit] = useState("");
-  const [costosOpen, setCostosOpen] = useState(false); // bloque costos/recepción colapsado por defecto
+  /**
+   * El bloque de costos arranca abierto cuando el pedido ya se compró y todavía
+   * no tiene importe cargado.
+   *
+   * Estaba siempre plegado detrás de un link chico, y por eso `actual_amount`
+   * está vacío en toda la tabla: el tablero de gasto mensual es una línea en
+   * cero desde hace seis meses porque nadie llega hasta acá a completarlo. Si
+   * ya está comprado y falta el número, es justo lo que hay que hacer.
+   */
+  const [costosOpen, setCostosOpen] = useState(false);
   const [panolModal, setPanolModal] = useState(false);
   const [enviosPanol, setEnviosPanol] = useState([]); // envíos a pañol vinculados a este pedido
   const [savingFollowerWa, setSavingFollowerWa] = useState(false);
@@ -573,6 +582,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   }, []);
 
   const manager = isPurchaseManager(profile);
+  // Ya se compró y no se anotó cuánto salió: es lo que falta hacer en esta
+  // pantalla, y es la razón por la que el gasto del tablero da cero.
+  const faltaImporte = ["comprado", "recibido"].includes(request?.status)
+    && request?.actual_amount == null;
   const requestAttachments = useMemo(
     () => normalizePurchaseRequestAttachments(request || {}),
     [request],
@@ -649,6 +662,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       setRequest(requestData);
       setItems(itemsData);
       setEnviosPanol(enviosData);
+      // Comprado y sin importe: se abre solo el bloque de costos, que es lo
+      // único que le falta a este pedido.
+      if (["comprado", "recibido"].includes(requestData?.status) && requestData?.actual_amount == null) {
+        setCostosOpen(true);
+      }
     } catch (err) {
       setError(err.message || "No se pudo cargar la solicitud.");
     } finally {
@@ -1497,8 +1515,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               display: "flex", alignItems: "center", justifyContent: "space-between",
               width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: "2px 0",
             }}>
-              <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
-                Costos y recepción
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                  Costos y recepción
+                </span>
+                {faltaImporte && (
+                  <span style={{ borderRadius: 999, padding: "2px 8px", background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 9.5, fontWeight: 900 }}>
+                    Falta el importe
+                  </span>
+                )}
               </span>
               <span style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>
                 {costosOpen ? "▾ ocultar" : "▸ cargar precio / recepción"}
@@ -1859,7 +1884,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 )}
               </div>
               {request.needed_at && (
-                <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.cyan, fontSize: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
+                <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.cyan, fontSize: 12, background: "color-mix(in srgb, var(--cyan) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--cyan) 20%, transparent)", borderRadius: 6, padding: "4px 8px" }}>
                   <Clock size={12} />
                   Necesario para: {new Date(request.needed_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                 </div>
@@ -2578,16 +2603,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 2 }}>
               Detalles
             </div>
-            <MetaRow icon={<CheckCircle2 size={12} />} label="Estado">
-              <span style={{ color: statusColors[request.status] || C.muted, fontWeight: 700 }}>
-                {REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status}
-              </span>
-            </MetaRow>
-            <MetaRow icon={<Paperclip size={12} />} label="Prioridad">
-              <span style={{ color: priorityColors[request.priority] || C.muted, fontWeight: 700 }}>
-                {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
-              </span>
-            </MetaRow>
+            {/* Estado y prioridad no van acá: los dos están arriba como fila de
+                botones, que además es donde se cambian. Repetirlos como texto
+                hacía que este panel fuera mitad eco de la cabecera. */}
             {request.proveedor && (
               <MetaRow icon={<Users size={12} />} label="Proveedor">
                 <span style={{ color: C.blue, fontWeight: 700 }}>{request.proveedor}</span>

@@ -6,7 +6,23 @@ import { createClient } from "@supabase/supabase-js";
 const ROOT = process.cwd();
 const BUCKET = "panol-materiales";
 const APPLY = process.argv.includes("--apply");
-const PILOT_CODES = ["R05899", "R05788", "R05472"];
+const AUTO_BARON = process.argv.includes("--auto-baron");
+const DEFAULT_CODES = ["R05899", "R05788", "R05472", "R05066"];
+
+function arg(name, fallback = "") {
+  const prefix = `--${name}=`;
+  const found = process.argv.find((item) => item.startsWith(prefix));
+  return found ? found.slice(prefix.length) : fallback;
+}
+
+const REQUESTED_CODES = [...new Set(
+  arg("codes", DEFAULT_CODES.join(","))
+    .split(",")
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean),
+)];
+const SUCCESS_LIMIT = Math.max(1, Number.parseInt(arg("limit", "20"), 10) || 20);
+const ATTEMPT_LIMIT = Math.max(SUCCESS_LIMIT, Number.parseInt(arg("attempts", String(SUCCESS_LIMIT * 5)), 10) || SUCCESS_LIMIT * 5);
 
 function readEnvFile(file) {
   const fullPath = path.join(ROOT, file);
@@ -118,42 +134,106 @@ async function downloadVerifiedImage(code, imageUrl) {
   if (!response.ok) {
     throw new Error(`La imagen respondió HTTP ${response.status}.`);
   }
-  const contentType = compactText(response.headers.get("content-type")).toLowerCase();
+  let contentType = compactText(response.headers.get("content-type")).toLowerCase();
+  if (!contentType && new URL(response.url).pathname.toLowerCase().endsWith(".webp")) {
+    contentType = "image/webp";
+  }
   if (!contentType.startsWith("image/")) {
     throw new Error(`El recurso no es una imagen (${contentType || "sin MIME"}).`);
   }
   const bytes = new Uint8Array(await response.arrayBuffer());
   const signature = Buffer.from(bytes.subarray(0, 12));
-  if (
-    contentType.includes("webp") &&
-    !(signature.toString("ascii", 0, 4) === "RIFF" && signature.toString("ascii", 8, 12) === "WEBP")
-  ) {
-    throw new Error("La firma del archivo no corresponde a una imagen WebP.");
-  }
+  const isWebp = signature.toString("ascii", 0, 4) === "RIFF" && signature.toString("ascii", 8, 12) === "WEBP";
+  const isJpeg = signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff;
+  const isPng = signature.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const detected = isWebp
+    ? { contentType: "image/webp", extension: "webp" }
+    : isJpeg
+      ? { contentType: "image/jpeg", extension: "jpg" }
+      : isPng
+        ? { contentType: "image/png", extension: "png" }
+        : null;
+  if (!detected) throw new Error("La firma del archivo no corresponde a una imagen válida.");
   if (bytes.byteLength < 2_000) {
     throw new Error("La imagen descargada es demasiado pequeña para ser válida.");
   }
   return {
     bytes,
-    contentType,
+    contentType: detected.contentType,
+    extension: detected.extension,
     sha256: createHash("sha256").update(bytes).digest("hex"),
   };
 }
 
-async function findMaterials() {
-  const { data, error } = await supabase
+async function findMaterialsAndStockRows() {
+  const { data: materials, error } = await supabase
     .from("panol_materiales")
-    .select("id, codigo, descripcion, proveedor, imagen_url, activo")
-    .in("codigo", PILOT_CODES)
+    .select("id, codigo, descripcion, proveedor, imagen_url, activo, variantes, variantes_precios")
     .order("codigo");
   if (error) throw error;
-  return data ?? [];
+  if (!AUTO_BARON) {
+    const { data: stockRows, error: stockError } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, material_id, codigo, descripcion, variante, proveedor")
+      .in("codigo", REQUESTED_CODES);
+    if (stockError) throw stockError;
+    return { materials: materials ?? [], stockRows: stockRows ?? [] };
+  }
+
+  const stockRows = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data: page, error: pageError } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, material_id, codigo, descripcion, variante, proveedor")
+      .not("codigo", "is", null)
+      .order("id")
+      .range(from, from + pageSize - 1);
+    if (pageError) throw pageError;
+    stockRows.push(...(page ?? []));
+    if (!page || page.length < pageSize) break;
+  }
+  return { materials: materials ?? [], stockRows };
 }
 
-async function attachImage(material, official, image) {
-  const code = compactText(material.codigo).toUpperCase();
+function codeCandidates(material) {
+  const candidates = [];
+  const mainCode = compactText(material.codigo).toUpperCase();
+  if (mainCode) candidates.push({ code: mainCode, variantName: "", variant: null });
+  const variantInfo =
+    material.variantes_precios && typeof material.variantes_precios === "object"
+      ? material.variantes_precios
+      : {};
+  for (const [variantName, variant] of Object.entries(variantInfo)) {
+    const configuredCode = compactText(variant?.codigo).toUpperCase();
+    const nameCode = compactText(variantName).toUpperCase().match(/^([A-Z]\d{4,})\b/)?.[1] ?? "";
+    const code = configuredCode || nameCode;
+    if (code) candidates.push({ code, variantName, variant });
+  }
+  return candidates;
+}
+
+function existingImageUrl(match) {
+  if (match.variantName) {
+    return compactText(match.variant?.imagen_url || match.variant?.imagenUrl);
+  }
+  return compactText(match.material.imagen_url);
+}
+
+function safePathPart(value) {
+  return compactText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "standard";
+}
+
+async function attachImage(match, official, image) {
+  const { material, code, variantName } = match;
   const digest = image.sha256.slice(0, 12);
-  const storagePath = `${material.id}/catalogadas/${code}-baron-${digest}.webp`;
+  const variantFolder = variantName ? `variantes/${safePathPart(variantName)}` : "catalogadas";
+  const storagePath = `${material.id}/${variantFolder}/${code}-baron-${digest}.${image.extension}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(storagePath, image.bytes, {
@@ -172,18 +252,28 @@ async function attachImage(material, official, image) {
       .insert({
         material_id: material.id,
         url: publicUrl,
-        nombre: `${code} · foto oficial Barón · ${official.sourcePage}`,
+        nombre: `${code}${variantName ? ` · ${variantName}` : ""} · foto oficial Barón · ${official.sourcePage}`,
       })
       .select("id")
       .single();
     if (imageRowError) throw imageRowError;
     imageRowId = imageRow.id;
 
+    const patch = variantName
+      ? {
+        variantes_precios: {
+          ...(material.variantes_precios ?? {}),
+          [variantName]: {
+            ...(material.variantes_precios?.[variantName] ?? {}),
+            imagen_url: publicUrl,
+          },
+        },
+      }
+      : { imagen_url: publicUrl };
     const { error: materialError } = await supabase
       .from("panol_materiales")
-      .update({ imagen_url: publicUrl })
-      .eq("id", material.id)
-      .is("imagen_url", null);
+      .update(patch)
+      .eq("id", material.id);
     if (materialError) throw materialError;
   } catch (error) {
     if (imageRowId) {
@@ -196,24 +286,70 @@ async function attachImage(material, official, image) {
 }
 
 async function run() {
-  const materials = await findMaterials();
+  const { materials, stockRows } = await findMaterialsAndStockRows();
+  const materialById = new Map(materials.map((material) => [material.id, material]));
   const grouped = new Map();
+  const pushMatch = (candidate) => {
+    if (!AUTO_BARON && !REQUESTED_CODES.includes(candidate.code)) return;
+    if (!candidate.code) return;
+    if (!grouped.has(candidate.code)) grouped.set(candidate.code, []);
+    const list = grouped.get(candidate.code);
+    const identity = `${candidate.material.id}::${compactText(candidate.variantName).toLowerCase()}`;
+    const existing = list.find((item) => item.identity === identity);
+    if (!existing) {
+      list.push({ ...candidate, identity });
+    } else {
+      existing.stockProvider ||= candidate.stockProvider;
+      existing.stockDescription ||= candidate.stockDescription;
+    }
+  };
   for (const material of materials) {
-    const code = compactText(material.codigo).toUpperCase();
-    if (!grouped.has(code)) grouped.set(code, []);
-    grouped.get(code).push(material);
+    for (const candidate of codeCandidates(material)) {
+      pushMatch({ material, ...candidate });
+    }
+  }
+  for (const row of stockRows) {
+    const code = compactText(row.codigo).toUpperCase();
+    const material = materialById.get(row.material_id);
+    if (!material) continue;
+    const variantName = compactText(row.variante);
+    const variantEntry = Object.entries(material.variantes_precios ?? {})
+      .find(([name]) => compactText(name).toLowerCase() === variantName.toLowerCase());
+    pushMatch({
+      material,
+      code,
+      variantName,
+      variant: variantEntry?.[1] ?? null,
+      stockDescription: row.descripcion,
+      stockProvider: row.proveedor,
+    });
   }
 
   const report = [];
-  for (const code of PILOT_CODES) {
+  const uniqueMissingCodes = [...grouped.entries()]
+    .filter(([, matches]) => matches.length === 1 && !existingImageUrl(matches[0]))
+    .filter(([code]) => /^[A-Z]\d{5}$/.test(code))
+    .sort(([, a], [, b]) => {
+      const aBaron = compactText(`${a[0].material.proveedor} ${a[0].stockProvider}`).toLowerCase().includes("baron") ? 0 : 1;
+      const bBaron = compactText(`${b[0].material.proveedor} ${b[0].stockProvider}`).toLowerCase().includes("baron") ? 0 : 1;
+      return aBaron - bBaron || a[0].material.descripcion.localeCompare(b[0].material.descripcion, "es", { numeric: true });
+    })
+    .map(([code]) => code);
+  const codesToProcess = AUTO_BARON
+    ? uniqueMissingCodes.slice(0, ATTEMPT_LIMIT)
+    : REQUESTED_CODES;
+  let successful = 0;
+  for (const code of codesToProcess) {
+    if (AUTO_BARON && successful >= SUCCESS_LIMIT) break;
     const matches = grouped.get(code) ?? [];
     if (matches.length !== 1) {
       report.push({ code, status: "omitido", reason: `${matches.length} coincidencias en catálogo` });
       continue;
     }
-    const material = matches[0];
-    if (compactText(material.imagen_url)) {
-      report.push({ code, status: "omitido", reason: "ya tiene imagen", material: material.descripcion });
+    const match = matches[0];
+    const { material } = match;
+    if (existingImageUrl(match)) {
+      report.push({ code, status: "omitido", reason: "ya tiene imagen", material: material.descripcion, variant: match.variantName || null });
       continue;
     }
     try {
@@ -224,27 +360,41 @@ async function run() {
           code,
           status: "validado",
           material: material.descripcion,
+          variant: match.variantName || null,
           proveedor: material.proveedor,
           sourcePage: official.sourcePage,
           imageUrl: official.imageUrl,
           imageBytes: image.bytes.byteLength,
           sha256: image.sha256,
         });
+        successful += 1;
         continue;
       }
-      const publicUrl = await attachImage(material, official, image);
+      const publicUrl = await attachImage(match, official, image);
       report.push({
         code,
         status: "cargado",
         material: material.descripcion,
+        variant: match.variantName || null,
         sourcePage: official.sourcePage,
         publicUrl,
       });
+      successful += 1;
     } catch (error) {
       report.push({ code, status: "omitido", reason: error.message });
     }
   }
-  console.log(JSON.stringify({ mode: APPLY ? "apply" : "dry-run", report }, null, 2));
+  const ambiguous = [...grouped.values()].filter((matches) => matches.length > 1).length;
+  console.log(JSON.stringify({
+    mode: APPLY ? "apply" : "dry-run",
+    selection: AUTO_BARON ? "auto-baron" : "manual",
+    candidateCodes: grouped.size,
+    uniqueWithoutImage: uniqueMissingCodes.length,
+    ambiguousCodes: ambiguous,
+    attempted: report.length,
+    successful,
+    report,
+  }, null, 2));
 }
 
 await run();

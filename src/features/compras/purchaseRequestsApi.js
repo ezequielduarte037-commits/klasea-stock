@@ -902,15 +902,20 @@ export async function fetchMonthlySpending() {
 }
 
 export async function fetchOverdueRequests() {
-  // Vencidos = fecha estimada de entrega ya pasó (estrictamente menor a hoy).
+  // Vencido = pasó la fecha en que se esperaba, y si no hay estimada de entrega
+  // vale la fecha en que se necesitaba.
+  //
+  // Antes exigía `estimated_delivery_at` no nulo, que casi nadie completa hasta
+  // que compra. Por eso el tablero mostraba "Vencidos (0)" mientras la bandeja
+  // listaba pedidos con "vencido hace 8d": eran dos definiciones distintas de
+  // la misma palabra en la misma pantalla. Esta es la que usa la bandeja.
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("purchase_requests")
     .select(REQUEST_SELECT)
-    .not("estimated_delivery_at", "is", null)
     .not("status", "in", `("recibido","cancelado")`)
-    .lt("estimated_delivery_at", today)
-    .order("estimated_delivery_at", { ascending: true });
+    .or(`estimated_delivery_at.lt.${today},and(estimated_delivery_at.is.null,needed_at.lt.${today})`)
+    .order("estimated_delivery_at", { ascending: true, nullsFirst: false });
 
   if (error) throw error;
   return data || [];
@@ -1124,7 +1129,7 @@ export async function notifyWaUpdate(payload) {
 export const ITEM_STATUSES = [
   { value: "pendiente",  label: "Pendiente",  color: "#a1a1aa" },
   { value: "en_panol",   label: "Enviado a pañol", color: "#3b82f6" },
-  { value: "pedido",     label: "Pedido",     color: "#f59e0b" },
+  { value: "pedido",     label: "Pedido",     color: "var(--cyan)" },
   // 'parcial': llegó parte de la mercadería y el pedido sigue abierto. Antes no
   // existía y una recepción parcial se veía igual que una completa (o no se veía).
   { value: "parcial",    label: "Recibido parcial", color: "#a78bfa" },

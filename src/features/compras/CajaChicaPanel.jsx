@@ -119,7 +119,7 @@ function parseDateCell(value, fallback = null) {
     return date.toISOString().slice(0, 10);
   }
 
-  const match = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  const match = text.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (!match) return fallback;
   const day = match[1].padStart(2, "0");
   const month = match[2].padStart(2, "0");
@@ -188,21 +188,6 @@ function analyzeExcelPaste(text) {
       };
       return { ...row, issues: rowIssues(row) };
     });
-}
-
-function dateInRange(value, from, to) {
-  if (!value) return true;
-  const date = String(value).slice(0, 10);
-  if (from && date < from) return false;
-  if (to && date > to) return false;
-  return true;
-}
-
-function currentMonthRange() {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { from, to };
 }
 
 function cierreDateLabel(cierre) {
@@ -451,6 +436,9 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   // Una caja cerrada esta rendida: no se borra, pero tampoco tiene por que
   // seguir ocupando la lista de las que se usan.
   const [verCerradas, setVerCerradas] = useState(false);
+  // La administración de cierres arranca plegada: la barra de arriba ya dice en
+  // cuál se está parado, que es lo único que hace falta saber para cargar.
+  const [verCierres, setVerCierres] = useState(false);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
@@ -460,8 +448,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   const [query, setQuery] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [centroFilter, setCentroFilter] = useState("todos");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [importRows, setImportRows] = useState([]);
   // Recibo imprimible: el mismo papel que se llenaba a mano. Sale de un
@@ -559,11 +545,10 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     return rows.filter((row) => {
       if (tipoFilter !== "todos" && row.tipo !== tipoFilter) return false;
       if (centroFilter !== "todos" && row.centro_costo !== centroFilter) return false;
-      if (!dateInRange(row.fecha, dateFrom, dateTo)) return false;
       if (!q) return true;
       return lowerText(`${row.fecha} ${row.proveedor} ${row.detalle} ${row.centro_costo}`).includes(q);
     });
-  }, [centroFilter, dateFrom, dateTo, query, rows, tipoFilter]);
+  }, [centroFilter, query, rows, tipoFilter]);
 
   const centrosTop = useMemo(() => {
     const map = new Map();
@@ -815,11 +800,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     }));
   }
 
-  function useCurrentMonth() {
-    const range = currentMonthRange();
-    setDateFrom(range.from);
-    setDateTo(range.to);
-  }
 
   // Desde un movimiento el gasto ya está cargado: sólo falta el papel. Por eso
   // no vuelve a ofrecer registrarlo, y si ya tenía un recibo en borrador
@@ -942,9 +922,9 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           borderRadius: 10,
           display: "grid",
           placeItems: "center",
-          background: C.amberL,
-          border: `1px solid ${C.amberB}`,
-          color: C.amber,
+          background: C.cyanL,
+          border: `1px solid ${C.cyanB}`,
+          color: C.cyan,
         }}>
           <Wallet size={18} />
         </div>
@@ -975,8 +955,8 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
 
       {(missingTable || missingClosuresTable) && (
         <div style={{
-          border: `1px solid ${C.amberB}`,
-          background: C.amberL,
+          border: `1px solid ${C.cyanB}`,
+          background: C.cyanL,
           color: C.text,
           borderRadius: 12,
           padding: 14,
@@ -1031,9 +1011,16 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, lineHeight: 1.15 }}>
                 {selectedCierre.nombre}
               </div>
+              {/* La fecha se mostraba abajo, en un bloque "Cierre activo" que
+                  repetía el nombre y la cantidad de movimientos que ya estaban
+                  acá. Un mismo cierre se nombraba tres veces en la pantalla:
+                  en esta barra, en la lista y en ese bloque. Ahora está una vez
+                  y con todo junto. */}
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
+                {cierreDateLabel(selectedCierre)}
+                {" · "}
                 {totalesCaja.movimientos} movimiento{totalesCaja.movimientos === 1 ? "" : "s"}
-                {cajaCerrada ? " · cerrada, no admite carga" : " · caja en uso"}
+                {cajaCerrada ? " · cerrada, no admite carga" : " · en uso"}
               </div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
@@ -1061,7 +1048,24 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12 }}>
+        {/* Elegir cierre y crear uno nuevo son cosas que se hacen una vez por
+            semana, no cada vez que se entra. Estaban siempre desplegadas y
+            empujaban la tabla fuera de la pantalla. */}
+        <button
+          type="button"
+          onClick={() => setVerCierres((v) => !v)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            border: "none", background: "transparent", padding: "2px 0",
+            color: C.muted, fontFamily: C.sans, fontSize: 12, fontWeight: 850, cursor: "pointer",
+          }}
+        >
+          <ChevronDown size={13} style={{ transform: verCierres ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
+          {verCierres ? "Ocultar cierres" : "Cambiar de cierre o crear uno nuevo"}
+          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{cierres.length}</span>
+        </button>
+
+        <div hidden={!verCierres} style={{ display: verCierres ? "grid" : "none", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12, marginTop: 10 }}>
           <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
             {cierres.length ? (
               <>
@@ -1130,148 +1134,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
         </div>
       </section>
 
-      {selectedCierre && (
-        <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.dim, textTransform: "uppercase", fontWeight: 850 }}>Cierre activo</div>
-            <div style={{ fontSize: 16, fontWeight: 850, marginTop: 3 }}>{selectedCierre.nombre}</div>
-            <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>{cierreDateLabel(selectedCierre)}</div>
-          </div>
-          <div style={{ fontFamily: C.mono, color: C.blue, fontWeight: 900 }}>{filteredRows.length} movimientos</div>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>
-        <section style={cardStyle()}>
-          <SectionTitle title="Nuevo movimiento" subtitle={selectedCierre ? `Se guarda en ${selectedCierre.nombre}.` : "Primero seleccioná o creá un cierre."} />
-          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
-              <Field label="Fecha">
-                <input type="date" value={form.fecha} onChange={(e) => patchForm({ fecha: e.target.value })} style={inputStyle()} />
-              </Field>
-              <Field label="Tipo">
-                <select value={form.tipo} onChange={(e) => patchForm({ tipo: e.target.value })} style={inputStyle()}>
-                  <option value="egreso">Egreso</option>
-                  <option value="ingreso">Ingreso</option>
-                </select>
-              </Field>
-              <Field label="Moneda">
-                <select value={form.moneda} onChange={(e) => patchForm({ moneda: e.target.value })} style={inputStyle()}>
-                  <option value="ARS">ARS</option>
-                  <option value="USD">USD</option>
-                </select>
-              </Field>
-              <Field label="Importe">
-                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: C.dim, fontWeight: 800 }}>{form.moneda === "USD" ? "USD" : "$"}</span>
-                  <input
-                    value={form.importe}
-                    onChange={(e) => patchForm({ importe: e.target.value })}
-                    placeholder="0"
-                    inputMode="decimal"
-                    style={{ ...inputStyle(), textAlign: "right" }}
-                  />
-                </div>
-              </Field>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
-              <Field label="Proveedor">
-                <input value={form.proveedor} onChange={(e) => patchForm({ proveedor: e.target.value })} placeholder="Ej: Uber, Casa Iriarte..." style={inputStyle()} />
-              </Field>
-              <Field label="Centro de costo">
-                <input value={form.centro_costo} onChange={(e) => patchForm({ centro_costo: e.target.value })} placeholder="Ej: 55-4, logística..." style={inputStyle()} />
-              </Field>
-            </div>
-
-            <Field label="Detalle">
-              <input value={form.detalle} onChange={(e) => patchForm({ detalle: e.target.value })} placeholder="Qué se compró o qué ingreso fue" style={inputStyle()} />
-            </Field>
-
-            <Field label="Notas">
-              <textarea value={form.notas} onChange={(e) => patchForm({ notas: e.target.value })} placeholder="Opcional" rows={3} style={{ ...inputStyle(), resize: "vertical" }} />
-            </Field>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap" }}>
-              <div style={{ color: C.dim, fontSize: 12 }}>
-                Vista previa: <strong style={{ color: form.tipo === "ingreso" ? C.green : C.red }}>{form.tipo === "ingreso" ? "+" : "-"} {fmtMoney(parseMoney(form.importe) || 0, form.moneda)}</strong>
-                {form.proveedor ? ` · ${form.proveedor}` : ""}
-                {form.centro_costo ? ` · ${form.centro_costo}` : ""}
-              </div>
-              <button type="submit" disabled={saving || missingTable || !selectedCierreId} style={primaryBtn(saving || missingTable || !selectedCierreId)}>
-                <Plus size={14} /> Guardar
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section style={cardStyle()}>
-          <SectionTitle title="Pegar desde Excel" subtitle={selectedCierre ? "Pegá filas del cierre seleccionado. Primero analizamos y después importamos." : "Seleccioná un cierre antes de importar."} />
-          <textarea
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            placeholder={"14/05/2026\tUBER\tTRASLADO A PAMPA\tLOGISTICA\t3700\t\n14/05/2026\tVERONICA\tINGRESO CAJA\t\t\t12000000"}
-            rows={8}
-            style={{ ...inputStyle(), resize: "vertical", fontFamily: C.mono, fontSize: 12, lineHeight: 1.55 }}
-          />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <div style={{ color: C.dim, fontSize: 12 }}>
-              {importRows.length
-                ? `${importReady.length} listas · ${importReview} para revisar`
-                : "Primero analizamos el pegado, después importamos."}
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={handleAnalyzePaste} disabled={!pasteText.trim()} style={smallBtn(!pasteText.trim())}>
-                <WandSparkles size={14} /> Analizar
-              </button>
-              <button type="button" onClick={handlePasteImport} disabled={saving || missingTable || !selectedCierreId || !importReady.length} style={primaryBtn(saving || missingTable || !selectedCierreId || !importReady.length)}>
-                <Upload size={14} /> Importar listas
-              </button>
-            </div>
-          </div>
-
-          {importRows.length > 0 && (
-            <div style={{ display: "grid", gap: 8, marginTop: 12, maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>
-              {importRows.map((row) => {
-                const issues = rowIssues(row);
-                const needsReview = issues.length > 0;
-                return (
-                  <div key={row.key} style={{
-                    border: `1px solid ${needsReview ? C.amberB : C.greenB}`,
-                    background: needsReview ? C.amberL : C.greenL,
-                    borderRadius: 10,
-                    padding: 10,
-                    display: "grid",
-                    gap: 8,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                      <strong style={{ color: needsReview ? C.amber : C.green, fontSize: 12 }}>
-                        {needsReview ? `Revisar: ${issues.join(", ")}` : "Lista para importar"}
-                      </strong>
-                      <span style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.raw}</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 6 }}>
-                      <input type="date" value={row.fecha || ""} onChange={(e) => patchImportRow(row.key, { fecha: e.target.value })} style={miniInput()} />
-                      <select value={row.tipo} onChange={(e) => patchImportRow(row.key, { tipo: e.target.value })} style={miniInput()}>
-                        <option value="egreso">Egreso</option>
-                        <option value="ingreso">Ingreso</option>
-                      </select>
-                      <select value={row.moneda || "ARS"} onChange={(e) => patchImportRow(row.key, { moneda: e.target.value })} style={miniInput()}>
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                      </select>
-                      <input value={row.proveedor || ""} onChange={(e) => patchImportRow(row.key, { proveedor: e.target.value })} placeholder="Proveedor" style={miniInput()} />
-                      <input value={row.detalle || ""} onChange={(e) => patchImportRow(row.key, { detalle: e.target.value })} placeholder="Detalle" style={miniInput()} />
-                      <input value={row.centro_costo || ""} onChange={(e) => patchImportRow(row.key, { centro_costo: e.target.value })} placeholder="Centro" style={miniInput()} />
-                      <input value={row.importe || ""} onChange={(e) => patchImportRow(row.key, { importe: e.target.value })} placeholder="Importe" inputMode="decimal" style={{ ...miniInput(), textAlign: "right" }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         <section style={cardStyle({ padding: 0, overflow: "hidden" })}>
@@ -1371,6 +1233,144 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
             )}
           </div>
         </aside>
+      </div>
+
+      {/* Los formularios van DEBAJO de la tabla.
+
+          Estaban arriba, así que para ver un movimiento había que pasar de largo
+          el bloque de cierres, las siete casillas de carga y el pegado de Excel:
+          tres pantallas de formulario antes del primer dato. Cargar es la acción
+          ocasional; mirar lo que se gastó es a lo que se entra. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>
+        <section style={cardStyle()}>
+          <SectionTitle title="Nuevo movimiento" subtitle={selectedCierre ? `Se guarda en ${selectedCierre.nombre}.` : "Primero seleccioná o creá un cierre."} />
+          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+              <Field label="Fecha">
+                <input type="date" value={form.fecha} onChange={(e) => patchForm({ fecha: e.target.value })} style={inputStyle()} />
+              </Field>
+              <Field label="Tipo">
+                <select value={form.tipo} onChange={(e) => patchForm({ tipo: e.target.value })} style={inputStyle()}>
+                  <option value="egreso">Egreso</option>
+                  <option value="ingreso">Ingreso</option>
+                </select>
+              </Field>
+              <Field label="Moneda">
+                <select value={form.moneda} onChange={(e) => patchForm({ moneda: e.target.value })} style={inputStyle()}>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+              </Field>
+              <Field label="Importe">
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: C.dim, fontWeight: 800 }}>{form.moneda === "USD" ? "USD" : "$"}</span>
+                  <input
+                    value={form.importe}
+                    onChange={(e) => patchForm({ importe: e.target.value })}
+                    placeholder="0"
+                    inputMode="decimal"
+                    style={{ ...inputStyle(), textAlign: "right" }}
+                  />
+                </div>
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
+              <Field label="Proveedor">
+                <input value={form.proveedor} onChange={(e) => patchForm({ proveedor: e.target.value })} placeholder="Ej: Uber, Casa Iriarte..." style={inputStyle()} />
+              </Field>
+              <Field label="Centro de costo">
+                <input value={form.centro_costo} onChange={(e) => patchForm({ centro_costo: e.target.value })} placeholder="Ej: 55-4, logística..." style={inputStyle()} />
+              </Field>
+            </div>
+
+            <Field label="Detalle">
+              <input value={form.detalle} onChange={(e) => patchForm({ detalle: e.target.value })} placeholder="Qué se compró o qué ingreso fue" style={inputStyle()} />
+            </Field>
+
+            <Field label="Notas">
+              <textarea value={form.notas} onChange={(e) => patchForm({ notas: e.target.value })} placeholder="Opcional" rows={3} style={{ ...inputStyle(), resize: "vertical" }} />
+            </Field>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div style={{ color: C.dim, fontSize: 12 }}>
+                Vista previa: <strong style={{ color: form.tipo === "ingreso" ? C.green : C.red }}>{form.tipo === "ingreso" ? "+" : "-"} {fmtMoney(parseMoney(form.importe) || 0, form.moneda)}</strong>
+                {form.proveedor ? ` · ${form.proveedor}` : ""}
+                {form.centro_costo ? ` · ${form.centro_costo}` : ""}
+              </div>
+              <button type="submit" disabled={saving || missingTable || !selectedCierreId} style={primaryBtn(saving || missingTable || !selectedCierreId)}>
+                <Plus size={14} /> Guardar
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section style={cardStyle()}>
+          <SectionTitle title="Pegar desde Excel" subtitle={selectedCierre ? "Pegá filas del cierre seleccionado. Primero analizamos y después importamos." : "Seleccioná un cierre antes de importar."} />
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={"14/05/2026\tUBER\tTRASLADO A PAMPA\tLOGISTICA\t3700\t\n14/05/2026\tVERONICA\tINGRESO CAJA\t\t\t12000000"}
+            rows={8}
+            style={{ ...inputStyle(), resize: "vertical", fontFamily: C.mono, fontSize: 12, lineHeight: 1.55 }}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+            <div style={{ color: C.dim, fontSize: 12 }}>
+              {importRows.length
+                ? `${importReady.length} listas · ${importReview} para revisar`
+                : "Primero analizamos el pegado, después importamos."}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={handleAnalyzePaste} disabled={!pasteText.trim()} style={smallBtn(!pasteText.trim())}>
+                <WandSparkles size={14} /> Analizar
+              </button>
+              <button type="button" onClick={handlePasteImport} disabled={saving || missingTable || !selectedCierreId || !importReady.length} style={primaryBtn(saving || missingTable || !selectedCierreId || !importReady.length)}>
+                <Upload size={14} /> Importar listas
+              </button>
+            </div>
+          </div>
+
+          {importRows.length > 0 && (
+            <div style={{ display: "grid", gap: 8, marginTop: 12, maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>
+              {importRows.map((row) => {
+                const issues = rowIssues(row);
+                const needsReview = issues.length > 0;
+                return (
+                  <div key={row.key} style={{
+                    border: `1px solid ${needsReview ? C.cyanB : C.greenB}`,
+                    background: needsReview ? C.cyanL : C.greenL,
+                    borderRadius: 10,
+                    padding: 10,
+                    display: "grid",
+                    gap: 8,
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                      <strong style={{ color: needsReview ? C.cyan : C.green, fontSize: 12 }}>
+                        {needsReview ? `Revisar: ${issues.join(", ")}` : "Lista para importar"}
+                      </strong>
+                      <span style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.raw}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 6 }}>
+                      <input type="date" value={row.fecha || ""} onChange={(e) => patchImportRow(row.key, { fecha: e.target.value })} style={miniInput()} />
+                      <select value={row.tipo} onChange={(e) => patchImportRow(row.key, { tipo: e.target.value })} style={miniInput()}>
+                        <option value="egreso">Egreso</option>
+                        <option value="ingreso">Ingreso</option>
+                      </select>
+                      <select value={row.moneda || "ARS"} onChange={(e) => patchImportRow(row.key, { moneda: e.target.value })} style={miniInput()}>
+                        <option value="ARS">ARS</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <input value={row.proveedor || ""} onChange={(e) => patchImportRow(row.key, { proveedor: e.target.value })} placeholder="Proveedor" style={miniInput()} />
+                      <input value={row.detalle || ""} onChange={(e) => patchImportRow(row.key, { detalle: e.target.value })} placeholder="Detalle" style={miniInput()} />
+                      <input value={row.centro_costo || ""} onChange={(e) => patchImportRow(row.key, { centro_costo: e.target.value })} placeholder="Centro" style={miniInput()} />
+                      <input value={row.importe || ""} onChange={(e) => patchImportRow(row.key, { importe: e.target.value })} placeholder="Importe" inputMode="decimal" style={{ ...miniInput(), textAlign: "right" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
 
       {/* Cerrar: el resumen va antes de la confirmación, no después. Es el

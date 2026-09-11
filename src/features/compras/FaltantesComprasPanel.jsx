@@ -155,12 +155,12 @@ export default function FaltantesComprasPanel({ toast }) {
     <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
       <section style={{
         display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 13px",
-        borderRadius: 12, border: `1px solid ${C.amber}38`,
-        background: `linear-gradient(135deg, ${C.amber}13, transparent)`,
+        borderRadius: 12, border: `1px solid ${C.cyan}38`,
+        background: `linear-gradient(135deg, ${C.cyan}13, transparent)`,
       }}>
         <span style={{
           width: 34, height: 34, display: "grid", placeItems: "center", flexShrink: 0,
-          borderRadius: 10, color: C.amber, background: `${C.amber}18`,
+          borderRadius: 10, color: C.cyan, background: `${C.cyan}18`,
         }}>
           <PackageSearch size={17} />
         </span>
@@ -183,7 +183,7 @@ export default function FaltantesComprasPanel({ toast }) {
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(120px, 1fr))", gap: 8 }}>
         <Stat icon={AlertTriangle} label="Abiertos" value={abiertos} color={C.red} />
-        <Stat icon={Clock3} label="Nuevos" value={nuevos} color={C.amber} />
+        <Stat icon={Clock3} label="Nuevos" value={nuevos} color={C.cyan} />
         <Stat icon={ShoppingCart} label="Pedido / comprado" value={pedidos} color={C.blue} />
         <Stat icon={CheckCircle2} label="Resueltos" value={resueltos} color={C.green} />
       </div>

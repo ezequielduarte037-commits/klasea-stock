@@ -173,12 +173,45 @@ export function parseMaterialesWorkbook(buffer) {
   };
 }
 
-export function toBomMap(material) {
+export const VARIANTE_BASE = "standard";
+export const VARIANTE_LINEA_EJE = "linea_eje";
+
+/**
+ * Cantidades por modelo de un material.
+ *
+ * `variante` filtra por la columna homónima de `panol_material_modelo`:
+ *
+ *   null          todas. Es el comportamiento histórico y el que necesita la
+ *                 edición, que tiene que ver lo que hay cargado sea cual sea.
+ *   "standard"    sólo el barco estándar.
+ *   "linea_eje"   sólo el paquete de línea de eje.
+ *
+ * Una fila sin variante cuenta como estándar. Es el mismo criterio que usa la
+ * base en el trigger que sincroniza las obras (`coalesce(variante,'standard')`).
+ */
+export function toBomMap(material, variante = null) {
   const out = { 37: "", 52: "", 55: "" };
   for (const row of material?.modelos ?? []) {
-    if (MODELOS.includes(String(row.modelo))) out[row.modelo] = row.cantidad ?? "";
+    if (!MODELOS.includes(String(row.modelo))) continue;
+    if (variante && (row.variante || VARIANTE_BASE) !== variante) continue;
+    out[row.modelo] = row.cantidad ?? "";
   }
   return out;
+}
+
+/**
+ * Con qué variante entra este material en esa línea. "" si no entra.
+ *
+ * Si tuviera fila estándar Y condicional -no debería, pero pasó con 7 ítems del
+ * K37 hasta septiembre de 2026- gana la estándar: un material que va siempre no
+ * deja de ir porque además esté anotado en un paquete opcional.
+ */
+export function varianteDeModelo(material, modelo) {
+  const filas = (material?.modelos ?? []).filter((row) => String(row.modelo) === String(modelo));
+  if (!filas.length) return "";
+  return filas.some((row) => (row.variante || VARIANTE_BASE) === VARIANTE_BASE)
+    ? VARIANTE_BASE
+    : (filas[0].variante || VARIANTE_BASE);
 }
 
 export function csvCell(value) {

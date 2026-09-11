@@ -810,7 +810,7 @@ export default function PedirAComprasModal({
                         gap: 6,
                         padding: "6px 8px",
                         borderTop: `1px solid ${C.border}`,
-                        background: extra ? `${C.amber}0d` : "transparent",
+                        background: extra ? `${C.cyan}0d` : "transparent",
                         alignItems: "center",
                         fontSize: 12,
                       }}>
@@ -820,9 +820,9 @@ export default function PedirAComprasModal({
                               display: "inline-flex",
                               alignItems: "center",
                               width: "fit-content",
-                              color: C.amber,
-                              background: `${C.amber}18`,
-                              border: `1px solid ${C.amber}44`,
+                              color: C.cyan,
+                              background: `${C.cyan}18`,
+                              border: `1px solid ${C.cyan}44`,
                               borderRadius: 5,
                               padding: "2px 6px",
                               fontSize: 10,
@@ -1018,7 +1018,7 @@ export default function PedirAComprasModal({
               {[
                 { v: "baja",    l: "Baja",    c: C.dim    },
                 { v: "media",   l: "Media",   c: C.blue   },
-                { v: "alta",    l: "Alta",    c: C.amber  },
+                { v: "alta",    l: "Alta",    c: C.cyan  },
                 { v: "urgente", l: "Urgente", c: C.red    },
               ].map((p) => {
                 const active = priority === p.v;

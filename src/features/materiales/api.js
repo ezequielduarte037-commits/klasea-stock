@@ -2453,6 +2453,18 @@ export async function setSectoresMaterial(materialId, ids) {
     await supabase.from("panol_material_categorias").insert(extra);
 }
 
+/**
+ * Borra un material del catálogo.
+ *
+ * Un material se toca desde muchas tablas -el ledger del pañol, los remitos,
+ * las solicitudes, los envíos, las condicionantes-. Si alguna de esas lo tiene
+ * agarrado, Postgres devuelve 23503 y el borrado no pasa; eso está bien, es
+ * historia que no se puede perder. Lo que estaba mal era el mensaje: llegaba el
+ * error crudo de Postgres, en inglés y hablando de constraints.
+ *
+ * En ese caso lo que corresponde es archivarlo -`archivarMateriales`, que lo
+ * marca `activo = false`-: sale de las listas y el historial queda.
+ */
 export async function borrarMaterial(materialId) {
   const { error: bomError } = await supabase
     .from("panol_material_modelo")
@@ -2463,7 +2475,14 @@ export async function borrarMaterial(materialId) {
     .from("panol_materiales")
     .delete()
     .eq("id", materialId);
-  if (error) throw error;
+  if (!error) return;
+  if (error.code === "23503") {
+    const e = new Error("No se puede borrar: el producto tiene movimientos, remitos o pedidos asociados. Archivalo en vez de borrarlo — sale de las listas y el historial queda.");
+    e.code = error.code;
+    e.cause = error;
+    throw e;
+  }
+  throw error;
 }
 
 export async function archivarMateriales(materialIds = []) {
@@ -3439,15 +3458,38 @@ export async function setCantidadModelo(materialId, modelo, cantidad) {
   if (error) throw error;
 }
 
+/**
+ * Saca un material de la matriz de una línea.
+ *
+ * Borra TODAS sus filas de esa línea, sea cual sea la `variante`.
+ *
+ * Antes filtraba por `variante = "standard"` y ahí estaba el bug: hay 28 filas
+ * cargadas con `variante = "linea_eje"` -los componentes de la línea de eje del
+ * K37: ánodos, bocina, hélices, sello PSS, caños inox- que ese filtro no
+ * tocaba. Como la lectura de la matriz sí las muestra (`toBomMap` ignora la
+ * variante), pasaba esto:
+ *
+ *   - el material aparece en la matriz del K37 y en TODAS sus obras,
+ *   - se le da al tacho, la consulta borra cero filas y devuelve 204,
+ *   - la pantalla recarga y el material sigue ahí.
+ *
+ * Y en los 7 materiales que tienen las dos filas -la `standard` y la
+ * `linea_eje` con la misma cantidad- era peor: borraba una, quedaba la otra y
+ * el renglón reaparecía con la misma cantidad, como si el botón no hiciera nada.
+ *
+ * Devuelve cuántas filas sacó, para que quien llama pueda avisar si no sacó
+ * ninguna en vez de dar por hecho que salió bien.
+ */
 export async function quitarCantidadModelo(materialId, modelo) {
-  if (!materialId || !modelo) return;
-  const { error } = await supabase
+  if (!materialId || !modelo) return 0;
+  const { data, error } = await supabase
     .from("panol_material_modelo")
     .delete()
     .eq("material_id", materialId)
     .eq("modelo", String(modelo))
-    .eq("variante", VARIANTE_BASE);
+    .select("id");
   if (error) throw error;
+  return (data || []).length;
 }
 
 /* ── Calibración de peso por pieza (balanza) ──────────────────────────────── */

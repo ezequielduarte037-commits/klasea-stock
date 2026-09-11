@@ -2,7 +2,7 @@ import { supabase } from "@/supabaseClient";
 
 export const FALTANTE_ESTADOS = [
   { value: "nuevo", label: "Nuevo", color: "#ef4444" },
-  { value: "en_revision", label: "En revisión", color: "#f59e0b" },
+  { value: "en_revision", label: "En revisión", color: "var(--cyan)" },
   { value: "pedido", label: "Pedido", color: "#3b82f6" },
   { value: "comprado", label: "Comprado", color: "#8b5cf6" },
   { value: "resuelto", label: "Resuelto", color: "#10b981" },
