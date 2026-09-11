@@ -255,7 +255,7 @@ function CatalogSearch({ selected, onSelect }) {
               autoFocus
               value={q}
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Buscar descripción o código…"
+              placeholder="Buscar por nombre, alias o código…"
               style={{ ...INPUT, paddingLeft: 34 }}
             />
           </div>
@@ -291,6 +291,13 @@ function CatalogSearch({ selected, onSelect }) {
                   textAlign: "left",
                 }}
               >
+                {/* El alias va arriba y resaltado: es el nombre con el que el
+                    taller pide la pieza -"Manchon", "Palma pata de gallo"- y
+                    sin verlo no se entiende por qué apareció un "Bulón Cabeza
+                    ALLEN" cuando buscaste "manchon". */}
+                {row.alias && (
+                  <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 850 }}>{row.alias}</span>
+                )}
                 <span style={{ fontSize: 12, fontWeight: 800 }}>{row.descripcion}</span>
                 <span style={{ color: C.dim, fontSize: 10.5 }}>
                   {[row.codigo, row.proveedor, row.unidad].filter(Boolean).join(" · ")}
