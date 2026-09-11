@@ -227,7 +227,10 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
       {mirando ? (
         <div onClick={() => setMirando(null)}
           style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(6,10,20,.9)", display: "grid", placeItems: "center", padding: 24, cursor: "zoom-out" }}>
-          <img src={mirando.url} alt={mirando.nombre || "foto"} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 10 }} />
+          {/* min-height:0 o la foto en retrato sale cortada: como item de grid
+              arranca con min-height:auto -su alto natural- y ese mínimo le gana
+              al max-height:100%. */}
+          <img src={mirando.url} alt={mirando.nombre || "foto"} style={{ maxWidth: "100%", maxHeight: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", borderRadius: 10 }} />
         </div>
       ) : null}
 

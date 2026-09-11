@@ -1,0 +1,540 @@
+{
+  "mode": "apply",
+  "configured": 90,
+  "successful": 0,
+  "report": [
+    {
+      "model": "Kohinoor KFA 3494/7 gris",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/759f4426-02c5-458b-8aa9-5d1ddfac7753/catalogadas/kohinoor-kfa-3494-7-gris-cfc318705873.jpg"
+    },
+    {
+      "model": "Fusion MS-RA60",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/4248fd38-1106-46fa-82eb-80407156517b/catalogadas/fusion-ms-ra60-41d3bab905a3.jpg"
+    },
+    {
+      "model": "Fusion MS-RA210",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/e9bcebbf-c28a-4cd9-abf1-e678160deae8/catalogadas/fusion-ms-ra210-d1b7fcc906ec.jpg"
+    },
+    {
+      "model": "Fusion Apollo MS-RA670",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/10f6a22b-8048-4c54-af89-39b1560e2617/catalogadas/fusion-apollo-ms-ra670-3573c4f01bb8.jpg"
+    },
+    {
+      "model": "Fusion Apollo MS-RA770",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/cbe6a9ee-00a3-428b-adfc-3a451897a77d/catalogadas/fusion-apollo-ms-ra770-bb41240a839c.jpg"
+    },
+    {
+      "model": "Garmin GT30-TH",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/ada3e398-11bd-482b-b90f-cded546528f7/catalogadas/garmin-gt30-th-cd068e5cc56f.jpg"
+    },
+    {
+      "model": "Garmin GC 200",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/6a08077a-42c5-4f63-b65a-3fee4799e5e9/catalogadas/garmin-gc-200-779e2bd1f22f.jpg"
+    },
+    {
+      "model": "Fusion MS-RA70",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/c699d08f-0a93-4972-a31c-b4e58f03d4ae/catalogadas/fusion-ms-ra70-fd90fa4c5591.jpg"
+    },
+    {
+      "model": "Garmin AIS 800",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/dec5cc4c-4a0c-4419-ad7f-2ff3240a8a67/catalogadas/garmin-ais-800-5a9fc12a5d51.jpg"
+    },
+    {
+      "model": "Garmin VHF 110",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/84faa956-d122-456c-be78-6f6aa75ff28f/catalogadas/garmin-vhf-110-66bfc09d7a6e.jpg"
+    },
+    {
+      "model": "Garmin VHF 115",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/98f1a6f3-33db-4e2f-a44b-56cae48ee072/catalogadas/garmin-vhf-115-419c1c0e0cde.jpg"
+    },
+    {
+      "model": "Garmin VHF 215",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/7e2141d2-d696-483c-ae70-6c57e5705d50/catalogadas/garmin-vhf-215-9c6706205e0e.jpg"
+    },
+    {
+      "model": "Fusion Apollo MS-RA670",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/2caad168-3b46-46ba-9752-d4d226496c0d/catalogadas/fusion-apollo-ms-ra670-3573c4f01bb8.jpg"
+    },
+    {
+      "model": "JL Audio M3-650X-S-Gm-i",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/f2080e6e-9741-42cd-a3b1-9c1a5a67f3b1/catalogadas/jl-audio-m3-650x-s-gm-i-686ccadeb52e.jpg"
+    },
+    {
+      "model": "JL Audio M3-650X-S-Gw-i",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/8aa51734-a28d-4a4f-ba05-cdb48fc0ab38/catalogadas/jl-audio-m3-650x-s-gw-i-bb94bd4b300b.jpg"
+    },
+    {
+      "model": "JL Audio M3-770X-S-Gw-i",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/b03dd940-caed-4660-92e1-c140b0d3fba0/catalogadas/jl-audio-m3-770x-s-gw-i-1190af42c9c5.jpg"
+    },
+    {
+      "model": "JL Audio M3-10IB-S-Gw-i-4",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/150fa924-9e42-4cb8-9c1a-8d0443437455/catalogadas/jl-audio-m3-10ib-s-gw-i-4-5ba43d5bf249.jpg"
+    },
+    {
+      "model": "Samsung UN32T4300AGCZB",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/96324bd9-8a8b-4f74-a230-4e58628b305c/catalogadas/samsung-un32t4300agczb-4378a9085a87.png"
+    },
+    {
+      "model": "Samsung UN50U8000FGCZB",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/919ed30c-8a0e-48cc-bf1d-69cfa1e423e6/catalogadas/samsung-un50u8000fgczb-9193cb6152b0.png"
+    },
+    {
+      "model": "Samsung NV7B4040VAS/BG",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/f6e2b26e-b80c-460c-a33a-d2844d7471c0/catalogadas/samsung-nv7b4040vas-bg-dc762de29d1f.png"
+    },
+    {
+      "model": "Victron GX Touch 50",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/e7475110-353b-460c-a115-7cfab7e57c86/catalogadas/victron-gx-touch-50-d4b179c4a286.png"
+    },
+    {
+      "model": "Whale WX1532",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/38d5461f-ce2e-4cd5-bcf0-eb1a23c60df5/catalogadas/whale-wx1532-eea9bf84e53d.jpg"
+    },
+    {
+      "model": "Whale WX1514",
+      "status": "omitido",
+      "reason": "La ficha ya no publica la imagen exacta configurada; requiere revisión manual."
+    },
+    {
+      "model": "Whale WX1514",
+      "status": "omitido",
+      "reason": "La ficha ya no publica la imagen exacta configurada; requiere revisión manual."
+    },
+    {
+      "model": "Whale WX1521",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/fd140844-dc8e-42cd-9ac2-bba91eb60d3b/catalogadas/whale-wx1521-d6ed64bb52f2.jpg"
+    },
+    {
+      "model": "Whale WX1521",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/809c4584-e94c-434d-9759-abeaa57c65fc/catalogadas/whale-wx1521-d6ed64bb52f2.jpg"
+    },
+    {
+      "model": "Whale WX1502",
+      "status": "omitido",
+      "reason": "La imagen es demasiado pequeña para ser una foto de catálogo."
+    },
+    {
+      "model": "Whale WX1502",
+      "status": "omitido",
+      "reason": "La imagen es demasiado pequeña para ser una foto de catálogo."
+    },
+    {
+      "model": "Whale WX1522",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/d49fc5d0-5fa8-4edd-8463-2797b6bc9457/catalogadas/whale-wx1522-116e703dd614.jpg"
+    },
+    {
+      "model": "Whale WX1503",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/1feb1b1c-b7e3-4a4f-8bf1-6aba68e400c3/catalogadas/whale-wx1503-4c6d734a7537.webp"
+    },
+    {
+      "model": "Whale WX1503",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/eae7ddd8-d21e-46be-898e-ab394984e154/catalogadas/whale-wx1503-4c6d734a7537.webp"
+    },
+    {
+      "model": "Whale WX1573",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/ac10335d-6041-4a9c-b782-c4292069f5ff/catalogadas/whale-wx1573-70001905f605.jpg"
+    },
+    {
+      "model": "Garmin GHS 11",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/e590e3a8-fc2a-4e13-80cd-c169d952b152/catalogadas/garmin-ghs-11-b2d0a47a4cf1.jpg"
+    },
+    {
+      "model": "Fusion MS-SW10",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/33c25913-5d3b-4605-8149-1381dfa7a152/catalogadas/fusion-ms-sw10-e7292d34c6d1.png"
+    },
+    {
+      "model": "Noblex DB24X4000",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/23cbb8bd-341f-4f66-83b6-dfa07c6678a3/catalogadas/noblex-db24x4000-981dc59094cd.webp"
+    },
+    {
+      "model": "JL Audio MV800/8i",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/95035a72-fd2e-484d-ba43-0776eea26f7d/catalogadas/jl-audio-mv800-8i-87f4a4748e9e.jpg"
+    },
+    {
+      "model": "FV 0106/M4",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/a56dc083-3bbc-40be-885f-a3c7541be73f/catalogadas/fv-0106-m4-ef17c93069c9.jpg"
+    },
+    {
+      "model": "FV 0411.01/M4 cromado",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/b69d5055-1bd0-4953-b57d-3dc7af1d040a/catalogadas/fv-0411-01-m4-cromado-1bb03fe29b89.jpg"
+    },
+    {
+      "model": "FV 0164/L2 negro",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/f5f25810-9ab1-44b7-a8b4-cc2f5766c6b7/catalogadas/fv-0164-l2-negro-099fc9e28c2b.jpg"
+    },
+    {
+      "model": "FV 0181.02/L2 negro",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/c5c554fb-5258-4ab3-ac36-ca9db2be9dbb/catalogadas/fv-0181-02-l2-negro-cf7c9867672e.jpg"
+    },
+    {
+      "model": "FV 0248.01 cromado",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/757858c8-9945-4588-b30f-50ab4c7719ed/catalogadas/fv-0248-01-cromado-d52d4e499f87.jpg"
+    },
+    {
+      "model": "JL Audio M6-10IB-S-GmTi-4",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/605d2fb7-9b1f-4d86-aa0c-182095eb760f/catalogadas/jl-audio-m6-10ib-s-gmti-4-c3cb5cfd1bf1.jpg"
+    },
+    {
+      "model": "Garmin NMEA 2000 010-11076-00",
+      "status": "omitido",
+      "reason": "La imagen es demasiado pequeña para ser una foto de catálogo."
+    },
+    {
+      "model": "JL Audio M7-12IB-S-GmTi-4",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/c6a5e1ae-a9c0-4684-806b-9a8ce2d41306/catalogadas/jl-audio-m7-12ib-s-gmti-4-e594dabf59f2.jpg"
+    },
+    {
+      "model": "Quick TCD 2044",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/e02e9579-2bcb-4bc7-b7ac-c57c4547f7ec/catalogadas/quick-tcd-2044-046d1054a674.jpg"
+    },
+    {
+      "model": "FV 0166R/85 Dominic",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/c32389e2-cf7d-4a3b-a0f7-d25921cba629/catalogadas/fv-0166r-85-dominic-859732165922.jpg"
+    },
+    {
+      "model": "FV 0167R/85 Dominic",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/547dbfb1-04e5-4517-a7a1-7c65a12218b8/catalogadas/fv-0167r-85-dominic-43abe37de744.jpg"
+    },
+    {
+      "model": "FV 0164R/85 Dominic",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/58d6dc03-a53c-4a04-92e6-a26584f7c25c/catalogadas/fv-0164r-85-dominic-41488b931c93.jpg"
+    },
+    {
+      "model": "FV 0181.02/39 Libby",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/8f015fa1-fcaf-4969-a6ee-3c376a04a02b/catalogadas/fv-0181-02-39-libby-b309824673d5.jpg"
+    },
+    {
+      "model": "FV 0411/87 Temple",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/965d2996-bec7-4fee-a520-f6e3f688dd4b/catalogadas/fv-0411-87-temple-425f42e0393e.jpg"
+    },
+    {
+      "model": "FV 0108/39 Libby",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/097716a8-5c97-4d75-b412-049ab02ada8f/catalogadas/fv-0108-39-libby-dbcc07e8fed6.jpg"
+    },
+    {
+      "model": "FV 0206/39 Libby",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/31abfee0-65f4-4392-8b0d-1c59f0df12c6/catalogadas/fv-0206-39-libby-7bc4031307bf.jpg"
+    },
+    {
+      "model": "FV 0166/39 Libby",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/deb7f716-5e8b-479a-9562-955072bd76d6/catalogadas/fv-0166-39-libby-9808af19ffde.jpg"
+    },
+    {
+      "model": "FV 0167/39 Libby",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/5f5ebc3f-3166-4dc2-95ed-eb984b738b17/catalogadas/fv-0167-39-libby-7fd8a7ebeb27.jpg"
+    },
+    {
+      "model": "FV 0128.17 Polca",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/e5f685f6-e7af-4577-aa83-edc735855868/catalogadas/fv-0128-17-polca-8ee14438f5cd.jpg"
+    },
+    {
+      "model": "FV 0166/C3 Triades",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/6a0c322b-7b2d-4436-ae33-11f6c2a60f9c/catalogadas/fv-0166-c3-triades-4a6a8a29ec3f.jpg"
+    },
+    {
+      "model": "FV 0167/C3 Triades",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/4b59ff09-9591-4367-a534-23aad6595c53/catalogadas/fv-0167-c3-triades-b6b202ebffb9.jpg"
+    },
+    {
+      "model": "FV 0411.01/90 Swing",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/22aa1937-efd9-4546-80cb-1319ac6d706b/catalogadas/fv-0411-01-90-swing-119d7ff92058.jpg"
+    },
+    {
+      "model": "Garmin GC 245",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/897bc49b-26a1-4ea4-b6dd-1a49798aae85/catalogadas/garmin-gc-245-2e3113a81a0a.png"
+    },
+    {
+      "model": "Garmin Reactor 40 010-00705-78",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/0b1ab9b8-2bf9-4e1c-b4a4-75f1fa1cbd9b/catalogadas/garmin-reactor-40-010-00705-78-9910682e011e.jpg"
+    },
+    {
+      "model": "Garmin GPSMAP 8612xsv",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/777756e9-8993-471e-97f3-272cfa38b62a/catalogadas/garmin-gpsmap-8612xsv-247021c497eb.jpg"
+    },
+    {
+      "model": "Garmin GPSMAP 1223xsv",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/dee3ab68-5c3a-4960-a46d-259a1402ce29/catalogadas/garmin-gpsmap-1223xsv-92a5a8114e57.jpg"
+    },
+    {
+      "model": "JL Audio M6-10IB-S-GwGw-4",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/49dd02a1-c426-4812-9000-750cccaf2c64/catalogadas/jl-audio-m6-10ib-s-gwgw-4-7cb8acda3f53.jpg"
+    },
+    {
+      "model": "JL Audio M3-650X-C-Gw",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/5fd05a9b-44d9-4d0e-a71d-b161ba4ac0dc/catalogadas/jl-audio-m3-650x-c-gw-8c8d41a159ed.jpg"
+    },
+    {
+      "model": "IT23942 kit conexiones de dirección",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/f1bf030a-eb27-4f00-b35d-33ebe8a508ab/catalogadas/it23942-kit-conexiones-de-direccion-112c65fb9957.jpg"
+    },
+    {
+      "model": "Kohler GM32332-KP1 Pigtail 12 in",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/77a4035c-9540-4303-9e76-7ee01b23a611/catalogadas/kohler-gm32332-kp1-pigtail-12-in-a5f54098a7be.jpg"
+    },
+    {
+      "model": "Uniden UM385",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/33866131-05b3-47bc-af70-9cf80c01dcc4/catalogadas/uniden-um385-6ca34a06d03f.png"
+    },
+    {
+      "model": "Sleipner SE80 12V",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/3e09b5e5-b8e0-43dc-addb-84e84a5b73b9/catalogadas/sleipner-se80-12v-787c5efb6ad6.jpg"
+    },
+    {
+      "model": "Sleipner SE80 12V",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/b712e21d-5f83-491e-97c2-b0526762dc56/catalogadas/sleipner-se80-12v-787c5efb6ad6.jpg"
+    },
+    {
+      "model": "Side-Power 8950 Touch Panel 12/24V",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/4f6f2241-9119-4e74-8370-3379db9d4a12/catalogadas/side-power-8950-touch-panel-12-24v-dfa1ee00889d.jpg"
+    },
+    {
+      "model": "Uflex UC168-I",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/3bffa465-455e-46e3-abee-018ebb00bd54/catalogadas/uflex-uc168-i-f9e43a2d0d4b.jpg"
+    },
+    {
+      "model": "Uflex UC168-I",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/d2329610-8da8-4819-9a18-a9dfea12a548/catalogadas/uflex-uc168-i-f9e43a2d0d4b.jpg"
+    },
+    {
+      "model": "Simrad HALO 20 Radar",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/d70f4125-466d-4af1-b627-31d42926c721/catalogadas/simrad-halo-20-radar-249ed30f7462.jpg"
+    },
+    {
+      "model": "Maxwell RC12 12/24V",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/4330b440-09c0-4cd2-b198-15513a90b098/catalogadas/maxwell-rc12-12-24v-2374c0aeff3f.jpg"
+    },
+    {
+      "model": "TEROSON PU 8511 100 ml",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/14a655f4-fdc0-4fa7-a2e7-8c4c7b62573e/catalogadas/teroson-pu-8511-100-ml-2fc996180d7c.jpg"
+    },
+    {
+      "model": "Victron VE.Can to NMEA 2000 micro-C male",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/dabc4566-e277-4fe8-99f6-da32b4d860ec/catalogadas/victron-ve-can-to-nmea-2000-micro-c-male-dffa5b81cd7d.png"
+    },
+    {
+      "model": "FV 0162/39 Libby",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/122119a1-ef5f-4276-9fce-3b128ca943a1/catalogadas/fv-0162-39-libby-30e198958948.jpg"
+    },
+    {
+      "model": "Kallay 505",
+      "status": "omitido",
+      "reason": "La ficha ya no publica la imagen exacta configurada; requiere revisión manual."
+    },
+    {
+      "model": "Seaflo SFSL1-WW-01S",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/933cb375-4491-4151-ae97-2e7408d957c4/catalogadas/seaflo-sfsl1-ww-01s-6507560d1902.png"
+    },
+    {
+      "model": "Jiecang JC35VT-1000",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/67c5725c-7f0c-479b-b496-f4f024604004/catalogadas/jiecang-jc35vt-1000-9debe09e5a52.png"
+    },
+    {
+      "model": "FV 0181.02/L2 Epuyén",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/8b2425a5-c21f-417b-b9ca-8c463ee2a7e9/catalogadas/fv-0181-02-l2-epuyen-cf7c9867672e.jpg"
+    },
+    {
+      "model": "FV 0181.02/L2 Epuyén",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/5f33610f-1b58-4e44-8840-d30db1660ec1/catalogadas/fv-0181-02-l2-epuyen-cf7c9867672e.jpg"
+    },
+    {
+      "model": "FV 0164/L2 Epuyén",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/b321889e-ec8c-460f-b325-9a14cce2e24c/catalogadas/fv-0164-l2-epuyen-099fc9e28c2b.jpg"
+    },
+    {
+      "model": "FV 0164/L2 Epuyén",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/e297f845-f1ef-41c3-83d2-adcf9e351625/catalogadas/fv-0164-l2-epuyen-099fc9e28c2b.jpg"
+    },
+    {
+      "model": "ABB AX18-30-10-80",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/daecc0dc-531a-4ae7-8b0b-e874cbe73d2d/catalogadas/abb-ax18-30-10-80-fa7b484c9809.jpg"
+    },
+    {
+      "model": "Seaflo SFMTE1-05",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/d862758e-7dd9-4e28-bcc7-993d62e3da30/catalogadas/seaflo-sfmte1-05-3c2e2c886f02.jpg"
+    },
+    {
+      "model": "Seaflo SFMTE1-06 12V",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/8768a30a-2962-4a40-9a53-cc8f7795926a/catalogadas/seaflo-sfmte1-06-12v-2f676a305a7d.jpg"
+    },
+    {
+      "model": "Shakespeare 5101-S",
+      "status": "omitido",
+      "reason": "La imagen es demasiado pequeña para ser una foto de catálogo."
+    },
+    {
+      "model": "Shakespeare 5206-N",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/df54fb2c-f42c-49e8-95bf-42ed3cda26a2/catalogadas/shakespeare-5206-n-ef978ebcccd6.jpg"
+    },
+    {
+      "model": "JL Audio M7-12IB-C-GwGw-4",
+      "status": "omitido",
+      "reason": "ya tiene imagen",
+      "publicUrl": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/abe7467d-b75b-4645-9aa6-e1be712d2f14/catalogadas/jl-audio-m7-12ib-c-gwgw-4-1d01c7cb1c57.jpg"
+    }
+  ]
+}

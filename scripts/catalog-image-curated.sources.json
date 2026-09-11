@@ -208,21 +208,21 @@
       "materialId": "55df7d97-300f-4492-a53e-18f6c7893484",
       "expectedDescription": "Adaptador rosca M 1/2\" Whale WX1514",
       "model": "Whale WX1514",
-      "sourceName": "Anfora",
-      "sourcePage": "https://www.yatmalzemeleri.com/urun/whale-wx1514-baglanti-adaptoru-yarim-parmak",
-      "sourceTokens": ["Whale", "WX1514", "1/2", "Erkek"],
+      "sourceName": "Toplicht",
+      "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-adaptor-1-2-bsp-male-wx1514",
+      "sourceTokens": ["WHALE", "WX1514", "1/2"],
       "imageProof": "embedded",
-      "imageUrl": "https://www.yatmalzemeleri.com/shop/dr/93/myassets/products/837/whale-wx1514-marin-hortum-baglanti-adaptoru-yarim-parmak.jpg?revision=1743658911"
+      "imageUrl": "https://toplicht.imgbolt.de/media/af/19/e0/1730922332/4648514.jpg?ts=1769882792"
     },
     {
       "materialId": "405d26d2-30f9-4485-b1d8-f5dcde173463",
       "expectedDescription": "Adaptador rosca M 1/2\" Whale WX1514",
       "model": "Whale WX1514",
-      "sourceName": "Anfora",
-      "sourcePage": "https://www.yatmalzemeleri.com/urun/whale-wx1514-baglanti-adaptoru-yarim-parmak",
-      "sourceTokens": ["Whale", "WX1514", "1/2", "Erkek"],
+      "sourceName": "Toplicht",
+      "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-adaptor-1-2-bsp-male-wx1514",
+      "sourceTokens": ["WHALE", "WX1514", "1/2"],
       "imageProof": "embedded",
-      "imageUrl": "https://www.yatmalzemeleri.com/shop/dr/93/myassets/products/837/whale-wx1514-marin-hortum-baglanti-adaptoru-yarim-parmak.jpg?revision=1743658911"
+      "imageUrl": "https://toplicht.imgbolt.de/media/af/19/e0/1730922332/4648514.jpg?ts=1769882792"
     },
     {
       "materialId": "fd140844-dc8e-42cd-9ac2-bba91eb60d3b",
@@ -248,21 +248,21 @@
       "materialId": "8fc8817c-6b06-4776-82b7-1f3a432b1849",
       "expectedDescription": "Conector \"T\" WHALE WX1502",
       "model": "Whale WX1502",
-      "sourceName": "Freeport Marine Supply",
-      "sourcePage": "https://www.freeportmarine.com/products/whale-wx1502-equal-tee-15mm",
-      "sourceTokens": ["Whale", "WX1502", "Equal Tee", "15mm"],
+      "sourceName": "Toplicht",
+      "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/wx1502-t-connector-whale-quick-connect",
+      "sourceTokens": ["WHALE", "WX1502", "T-connector"],
       "imageProof": "embedded",
-      "imageUrl": "https://www.freeportmarine.com/cdn/shop/files/download_1d3597e4-83f4-4d02-ba7a-b8661123296d_1024x1024.jpg?v=1728677880"
+      "imageUrl": "https://toplicht.imgbolt.de/media/ff/8d/78/1730922318/4648502.jpg?ts=1769882791"
     },
     {
       "materialId": "40df181a-cd22-42af-9ded-467172b4e02a",
       "expectedDescription": "CONECTOR \"T\" WHALE WX1502",
       "model": "Whale WX1502",
-      "sourceName": "Freeport Marine Supply",
-      "sourcePage": "https://www.freeportmarine.com/products/whale-wx1502-equal-tee-15mm",
-      "sourceTokens": ["Whale", "WX1502", "Equal Tee", "15mm"],
+      "sourceName": "Toplicht",
+      "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/wx1502-t-connector-whale-quick-connect",
+      "sourceTokens": ["WHALE", "WX1502", "T-connector"],
       "imageProof": "embedded",
-      "imageUrl": "https://www.freeportmarine.com/cdn/shop/files/download_1d3597e4-83f4-4d02-ba7a-b8661123296d_1024x1024.jpg?v=1728677880"
+      "imageUrl": "https://toplicht.imgbolt.de/media/ff/8d/78/1730922318/4648502.jpg?ts=1769882791"
     },
     {
       "materialId": "d49fc5d0-5fa8-4edd-8463-2797b6bc9457",
@@ -753,6 +753,76 @@
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0162_39-CR-SBD.jpg"
     },
     {
+      "materialId": "591f1533-7618-438a-865f-cca9f71f9330",
+      "expectedDescription": "CONTROL REMOTO FUSION MS-ARX70",
+      "model": "Fusion MS-ARX70B",
+      "sourceName": "Nautica Store Italia",
+      "sourcePage": "https://www.nauticastoreitalia.it/articolo/fusion-ms-arx70-remote-control/?features=5640694&id=5022",
+      "sourceTokens": ["MS-ARX70B", "5640694", "Fusion"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.nauticastoreitalia.it/media/nauticastoreitalia/p/5022/i/d8529ef1-b66d-44a2-b571-b029011255e2-1200x900.jpg"
+    },
+    {
+      "materialId": "e73d6ff7-69eb-4256-a5f2-32100398ab8f",
+      "expectedDescription": "Heladera WRX12",
+      "model": "Whirlpool WRX12K2",
+      "sourceName": "Digiya",
+      "sourcePage": "https://www.digiya.com.ar/productos/heladera-bajo-mesada-whirlpool-120lts-evox-wrx12k2-inox1/",
+      "sourceTokens": ["Whirlpool", "WRX12K2", "120Lts"],
+      "imageProof": "embedded",
+      "imageUrl": "https://acdn-us.mitiendanube.com/stores/006/799/596/products/blanco-5-7e5e74803c45115ff717785198977541-1024-1024.webp"
+    },
+    {
+      "materialId": "69df8ec5-fccc-4f9d-9c71-641bf8ae88c7",
+      "expectedDescription": "Heladera WRX12 · Whirpool",
+      "model": "Whirlpool WRX12K2",
+      "sourceName": "Digiya",
+      "sourcePage": "https://www.digiya.com.ar/productos/heladera-bajo-mesada-whirlpool-120lts-evox-wrx12k2-inox1/",
+      "sourceTokens": ["Whirlpool", "WRX12K2", "120Lts"],
+      "imageProof": "embedded",
+      "imageUrl": "https://acdn-us.mitiendanube.com/stores/006/799/596/products/blanco-5-7e5e74803c45115ff717785198977541-1024-1024.webp"
+    },
+    {
+      "materialId": "76109af8-89d2-4f5b-8bf4-43d45645d02f",
+      "expectedDescription": "PLOTTER SIMRAD NSX3007",
+      "model": "Simrad NSX 3007",
+      "sourceName": "Oy Esco Ab",
+      "sourcePage": "https://www.esconet.fi/shop/000-15215-001-simrad-nsx-3007-monitoiminaytto-ilman-kaikuanturia-sisaltaen-kaikutoiminnon-705",
+      "sourceTokens": ["Simrad", "NSX 3007", "000-15215-001"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.esconet.fi/web/image/product.image/1447/image_1024/000-15368-001-06_1.jpg?unique=0a7cbf1"
+    },
+    {
+      "materialId": "85a89d5f-3624-464b-900b-6adfaab735be",
+      "expectedDescription": "LAVATORIO DE MESADA HYDROS 30911",
+      "model": "Hydros Calyx 30911",
+      "sourceName": "Santagal",
+      "sourcePage": "https://santagal.com.ar/productos/banos/griferias/lavatorio-mesada/griferia-hydros-calyx-lavatorio-pico-intermedio-cromo-30911/",
+      "sourceTokens": ["Hydros", "Calyx", "30911"],
+      "imageProof": "embedded",
+      "imageUrl": "https://santagal.com.ar/wp-content/uploads/2025/09/D_805022-MLA90748654082_082025-F.jpg"
+    },
+    {
+      "materialId": "a2b05c2f-cfcc-41d1-9103-a1fc58c0337b",
+      "expectedDescription": "DUCHA DE EMBUTIR PIAZZA 10207",
+      "model": "Piazza Next 10207",
+      "sourceName": "Abelson",
+      "sourcePage": "https://abelson.com.ar/172671-piazza-10207-ducha-embutir-sin-trasfmonoc-next.html",
+      "sourceTokens": ["PIAZZA", "10207", "DUCHA EMBUTIR"],
+      "imageProof": "embedded",
+      "imageUrl": "https://abelson.com.ar/12782-thickbox_default/piazza-10207-ducha-embutir-sin-trasfmonoc-next.jpg"
+    },
+    {
+      "materialId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+      "expectedDescription": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+      "model": "Rule Model 43",
+      "sourceName": "MEC Leisure",
+      "sourcePage": "https://mecleisure.co.uk/products/deluxe-rocker-switch-12v-43",
+      "sourceTokens": ["Rule Model 43", "Bilge Pump", "12V"],
+      "imageProof": "embedded",
+      "imageUrl": "https://mecleisure.co.uk/cdn/shop/files/43.jpg?v=1750841120"
+    },
+    {
       "materialId": "7751935b-db5c-4ac1-9466-53c6f87a33c7",
       "expectedDescription": "CERRADURA KALLAY 505",
       "model": "Kallay 505",
@@ -760,7 +830,7 @@
       "sourcePage": "https://www.kallay.com/productos?modelo=505",
       "sourceTokens": ["Kallay", "505", "20x190"],
       "imageProof": "embedded",
-      "imageUrl": "https://www.kallay.com/img/products/33/gallery/20230728165925618000_image.jpg"
+      "imageUrl": "img/products/33/gallery/20230728165925618000_image.jpg"
     },
     {
       "materialId": "933cb375-4491-4151-ae97-2e7408d957c4",
@@ -855,12 +925,12 @@
     {
       "materialId": "f1d00116-723a-4ede-bce5-cee4fef243c1",
       "expectedDescription": "ANTENA VHF BASE INOX SHAKESPEARE 5101-S",
-      "model": "Shakespeare 5101-S",
-      "sourceName": "Radio Komunikasi",
-      "sourcePage": "https://radiokomunikasi.com/product/shakespeare-5101-s",
+      "model": "Shakespeare 5101-S VHF marine antenna",
+      "sourceName": "ASAP Supplies",
+      "sourcePage": "https://www.asap-supplies.com/products/shakespeare-5101-s-fibreglass-antenna-6m-cable-vhf-716562",
       "sourceTokens": ["SHAKESPEARE", "5101-S", "VHF"],
       "imageProof": "embedded",
-      "imageUrl": "https://radiokomunikasi.com/wp-content/uploads/2019/03/Shakespeare-5101-S.webp"
+      "imageUrl": "https://d1blekj7w4kc3j.cloudfront.net/images/presets/product_page_full/catalogue/products/716562.jpg"
     },
     {
       "materialId": "df54fb2c-f42c-49e8-95bf-42ed3cda26a2",
@@ -881,6 +951,186 @@
       "sourceTokens": ["M7-12IB-C-GwGw-4", "12 polegadas", "Gloss White"],
       "imageProof": "embedded",
       "imageUrl": "https://images.tcdn.com.br/img/img_prod/1178969/subwoofer_marinizado_12_polegadas_jl_audio_m7_12ib_c_gwgw_4_169_1_afd4876dfdb441c17cf946381f33547c.jpg"
+    },
+    {
+      "materialId": "2b66f5a3-bf11-4186-9994-162d311e2ce0",
+      "expectedDescription": "Panel Touch control bowthruster · QUICK 9941",
+      "model": "Quick TCD 2044",
+      "sourceName": "Hylte Jakt & Lantman",
+      "sourcePage": "https://www.hylte-lantman.com/quick-joystick-dubbel-tcd",
+      "sourceTokens": ["8057090240016", "TCD2044", "Quick"],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn.hylte-lantman.com/c7f4ba40-80a6-40ef-91df-93ad1167f5c7?m=pad&f=jpg"
+    },
+    {
+      "materialId": "0d298b15-333b-47e4-bfad-f94ce657f52b",
+      "expectedDescription": "Picaporte HL09",
+      "model": "Häfele HL09 / 903.91.636",
+      "sourceName": "Herrajes HME",
+      "sourcePage": "https://www.herrajeshme.com.ar/arquitectura/picaporte-y-manijones/",
+      "sourceTokens": ["EHK-HL09", "Hafele", "Acero Inoxidable"],
+      "imageProof": "embedded",
+      "imageUrl": "https://acdn-us.mitiendanube.com/stores/003/655/828/products/903-91-636-6a48da82f20e17710717842534219968-480-0.webp"
+    },
+    {
+      "materialId": "375b58a2-5f84-4818-a365-a55aafbd089f",
+      "expectedDescription": "Picaporte HL09 · Hafele",
+      "model": "Häfele HL09 / 903.91.636",
+      "sourceName": "Herrajes HME",
+      "sourcePage": "https://www.herrajeshme.com.ar/arquitectura/picaporte-y-manijones/",
+      "sourceTokens": ["EHK-HL09", "Hafele", "Acero Inoxidable"],
+      "imageProof": "embedded",
+      "imageUrl": "https://acdn-us.mitiendanube.com/stores/003/655/828/products/903-91-636-6a48da82f20e17710717842534219968-480-0.webp"
+    },
+    {
+      "materialId": "279aa38d-e417-4176-a759-d0305626001b",
+      "expectedDescription": "AIRE ACONDICIONADO 12000 FCF12 COMUN",
+      "model": "Webasto FCF Classic 12,000 / FCF0012023G",
+      "sourceName": "Citimarine Store",
+      "sourcePage": "https://citimarinestore.com/en/webasto-self-contained-marine-air-conditioners/8307-webasto-fcf-classic-12000-btu-marine-air-conditioner-230v.html",
+      "sourceTokens": ["FCF0012023G", "12000", "Webasto"],
+      "imageProof": "embedded",
+      "imageUrl": "https://citimarinestore.com/resize/1200x1200/30151/webasto-fcf-classic-12000-btu-marine-air-conditioner-230v.jpg"
+    },
+    {
+      "materialId": "87e37d26-a454-44ea-af5d-da29de5f3c34",
+      "expectedDescription": "AIRE ACONDICIONADO 25000 FCFP25 PLATINUM",
+      "model": "Webasto FCFP25 Platinum 25,000 BTU",
+      "sourceName": "Barón",
+      "sourcePage": "https://www.baron.com.ar/articulo/aire-acondicionado-equipos-webasto-fcfp25-platinum-25000-btu-230v/a24250",
+      "sourceTokens": ["FCFP25", "25000", "Webasto"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.baron.com.ar/articulos/A24250/A24250-G1.webp"
+    },
+    {
+      "materialId": "5c347633-6bdb-4135-993d-8032de51f17c",
+      "expectedDescription": "Juego filtros doble combustible RK18",
+      "model": "Rama RK18",
+      "sourceName": "Rama Mercosur",
+      "sourcePage": "https://ramamercosur.com/repuestos/",
+      "sourceTokens": ["RK18", "75-180RK", "RAMA"],
+      "imageProof": "embedded",
+      "imageUrl": "https://ramamercosur.com/wp-content/uploads/2023/07/RK18.1.png"
+    },
+    {
+      "materialId": "1e80aec1-58d5-48b1-a05a-ef192315858f",
+      "expectedDescription": "Juego filtros doble combustible RK18 · Rama",
+      "model": "Rama RK18",
+      "sourceName": "Rama Mercosur",
+      "sourcePage": "https://ramamercosur.com/repuestos/",
+      "sourceTokens": ["RK18", "75-180RK", "RAMA"],
+      "imageProof": "embedded",
+      "imageUrl": "https://ramamercosur.com/wp-content/uploads/2023/07/RK18.1.png"
+    },
+    {
+      "materialId": "378b0fd3-347b-47f7-92a0-e2f0d0eb32d0",
+      "expectedDescription": "DUCHADOR DE MANO OSCULATI 1547012",
+      "model": "Osculati Saturn 15.470.12 / 1547012",
+      "sourceName": "Italnordic",
+      "sourcePage": "https://www.italnordic.se/product/saturn-dusch-m-blandare-krom-vertikal",
+      "sourceTokens": ["1547012", "Saturn", "15.470.12"],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn.starwebserver.se/shops/ital-nordic/files/cache/1547012-bild_grande.jpg?_=1692270944"
+    },
+    {
+      "materialId": "58fea5e4-e441-416a-b7af-300ed4a5107c",
+      "expectedDescription": "CABLAGGIO (CABLEADO 117) IVECO",
+      "model": "FPT 5802570117 wiring loom",
+      "sourceName": "Breakwater Marine",
+      "sourcePage": "https://breakwatermarine.co.uk/product/fpt-wiring-loom-5802570117/",
+      "sourceTokens": ["5802570117", "FPT", "WIRING LOOM"],
+      "imageProof": "embedded",
+      "imageUrl": "https://breakwatermarine.co.uk/wp-content/uploads/2024/11/IMG_3130-2-Photoroom.jpg"
+    },
+    {
+      "materialId": "6ee86334-e934-41b6-9e8f-5a0cb1b07ae5",
+      "expectedDescription": "CABLAGGIO (CABLEADO 120)",
+      "model": "FPT 5802798145 wire/cable",
+      "sourceName": "Breakwater Marine",
+      "sourcePage": "https://breakwatermarine.co.uk/product/fpt-wire-cable-5802798145/",
+      "sourceTokens": ["5802798145", "FPT", "WIRE/CABLE"],
+      "imageProof": "embedded",
+      "imageUrl": "https://breakwatermarine.co.uk/wp-content/uploads/2023/12/IMG_5106.jpg"
+    },
+    {
+      "materialId": "13ec16dc-29ac-44d6-8426-4213dcd45399",
+      "expectedDescription": "EQUIPO FCF16 CLASSIC, DIG, FRIO/CALOR",
+      "model": "Webasto FCF Classic 16,000 / FCF0016000GS",
+      "sourceName": "Citimarine Store",
+      "sourcePage": "https://citimarinestore.com/en/webasto-self-contained-marine-air-conditioners/8308-webasto-fcf-classic-16000-btu-marine-air-conditioner-115v.html",
+      "sourceTokens": ["FCF0016000GS", "16000", "Webasto"],
+      "imageProof": "embedded",
+      "imageUrl": "https://citimarinestore.com/resize/1200x1200/30153/webasto-fcf-classic-16000-btu-marine-air-conditioner-115v.jpg"
+    },
+    {
+      "materialId": "026fbef3-d310-48df-b849-1a2fbc861905",
+      "expectedDescription": "FARO A CONTROL REMOTO 135 SL - 12V",
+      "model": "Jabsco 135 SL 12V / 60020-0000",
+      "sourceName": "Batbutikken",
+      "sourcePage": "https://batbutikken.no/products/sokelys-135-sl-halogen-12v-jabsco",
+      "sourceTokens": ["135-SL", "12V", "JABSCO"],
+      "imageProof": "embedded",
+      "imageUrl": "https://batbutikken.no/cdn/shop/files/sokelys-135-sl-halogen-12v-fjernkontroll-320-forfra.jpg?v=1774261075"
+    },
+    {
+      "materialId": "97dfca99-3193-4d53-bdc6-6814332904e1",
+      "expectedDescription": "AIRE ACONDICIONADO 10000 BTU PLATINUM",
+      "model": "Webasto FCFP10 Platinum 10,000 BTU",
+      "sourceName": "Barón",
+      "sourcePage": "https://www.baron.com.ar/articulo/aire-acondicionado-equipos-webasto-fcfp10-platinum-10000-btu-230v/a24810",
+      "sourceTokens": ["FCFP10", "10000", "Webasto"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.baron.com.ar/articulos/A24810/A24810-G1.webp"
+    },
+    {
+      "materialId": "53ab1b0e-629f-4ae4-a6b3-430634e99e84",
+      "expectedDescription": "AMPLIFICADOR SUBWOOFER XDM 1000/1",
+      "model": "JL Audio XDM1000/1",
+      "sourceName": "Toocap",
+      "sourcePage": "https://www.toocap.fr/systemes-audio-marins/38181-amplificateur-caisson-de-basse-xdm-1000-1-1000w.html",
+      "sourceTokens": ["XDM1000/1", "1000W", "JL"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.toocap.fr/76330-large_default/amplificateur-caisson-de-basse-xdm-1000-1-1000w.jpg"
+    },
+    {
+      "materialId": "ab1a63f0-d275-4d3f-8894-cdc03769a05e",
+      "expectedDescription": "TV 43 FULL HD T5300",
+      "model": "Samsung 43 T5300 FHD Smart TV / UN43T5300APXPA",
+      "sourceName": "Samsung Latinoamérica",
+      "sourcePage": "https://www.samsung.com/latin/tvs/full-hd-tv/t5300-43-inch-full-hd-smart-tv-un43t5300apxpa/",
+      "sourceTokens": ["Samsung", "T5300", "43"],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/latin-fhd-t5300-un43t5300apxpa-frontblack-thumb-229166471"
+    },
+    {
+      "materialId": "46b7c591-8e31-4943-b576-e8beb2ded1b6",
+      "expectedDescription": "TV 32\" Hd H5000 Smart",
+      "model": "Samsung 32 H5000 Smart TV / UN32H5000FGCZB",
+      "sourceName": "Samsung Argentina",
+      "sourcePage": "https://www.samsung.com/ar/tvs/hd-tv/32-hd-h5000-smart-tv-2025-un32h5000fgczb/",
+      "sourceTokens": ["Samsung", "H5000", "32"],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/un32h5000fgczb/gallery/ar-hd-h5000-un32h5000fgczb-548998407?$Q90_2052_1641_JPG$"
+    },
+    {
+      "materialId": "2f439668-5226-424e-b054-413135161e3b",
+      "expectedDescription": "TV 55 QLED Q6F 4K Smart",
+      "model": "Samsung 55 QLED Q6F 4K Smart TV / TQ55Q6FAAUXXC",
+      "sourceName": "Samsung",
+      "sourcePage": "https://www.samsung.com/es/tvs/qled-tv/q6f-55-inch-qled-4k-smart-tv-tq55q6faauxxc/",
+      "sourceTokens": ["Samsung", "Q6F", "55"],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/es/tq55q6faauxxc/gallery/es-qled-q6f-tq55q6faauxxc-551469193?$Q90_2052_1641_JPG$"
+    },
+    {
+      "materialId": "d1d98ba2-a575-48ea-b7c2-a5f20cf5a38f",
+      "expectedDescription": "BLOWER EXTRACTOR 250 JABSCO",
+      "model": "Jabsco Flexmount 4 in 250 CFM / 35440-0000",
+      "sourceName": "West Marine",
+      "sourcePage": "https://www.westmarine.com/jabsco-4inch-flexmount-blower-12a%4012v-draw-9-5-8inchh-x-9-1-8inchw-x-9-3-16inchl-250-cfm-109894.html",
+      "sourceTokens": ["Jabsco", "35440-0000", "250"],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.westmarine.com/on/demandware.static/-/Sites-wm-master-catalog/default/dw82807ff0/images/orig/109894_1500.17012019033003.jpg"
     }
   ]
 }

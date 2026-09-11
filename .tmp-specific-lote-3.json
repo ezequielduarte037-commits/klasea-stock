@@ -1,0 +1,996 @@
+{
+  "search": "",
+  "count": 110,
+  "rows": [
+    {
+      "id": "2b918c7d-a0c0-4aa1-9460-50b2aa94e91a",
+      "codigo": "7794880015461",
+      "descripcion": "BACHA DE APOYO REDONDA NEGRO MATE LZA-1203094-BAC DECA",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 51
+    },
+    {
+      "id": "279aa38d-e417-4176-a759-d0305626001b",
+      "codigo": null,
+      "descripcion": "AIRE ACONDICIONADO 12000 FCF12 COMUN",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 50
+    },
+    {
+      "id": "87e37d26-a454-44ea-af5d-da29de5f3c34",
+      "codigo": null,
+      "descripcion": "AIRE ACONDICIONADO 25000 FCFP25 PLATINUM",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 50
+    },
+    {
+      "id": "18839a3f-a7e7-4a4f-ba6e-b59455181ff7",
+      "codigo": null,
+      "descripcion": "CABLE DIRECCIÓN FAYVA SIMPLE SERIE FVC 3000 C/CONO DC350022",
+      "proveedor": "Fayva",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 50
+    },
+    {
+      "id": "f91e3823-04a4-47c4-98c5-b01617eca6bb",
+      "codigo": null,
+      "descripcion": "CABLE NMEA 2000 EXTENSION P/ECOSONDA DE 20'",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 50
+    },
+    {
+      "id": "2b66f5a3-bf11-4186-9994-162d311e2ce0",
+      "codigo": "8057090240016",
+      "descripcion": "Panel Touch control bowthruster · QUICK 9941",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 45
+    },
+    {
+      "id": "f1d00116-723a-4ede-bce5-cee4fef243c1",
+      "codigo": null,
+      "descripcion": "ANTENA VHF BASE INOX SHAKESPEARE 5101-S",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "fa9e38c0-6eeb-4219-a018-67a9a5a2c5d1",
+      "codigo": null,
+      "descripcion": "BASE PORTA FUSIBLE NH-00 160",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "781ba8ef-ad08-4c80-a632-f23ab5a9d80d",
+      "codigo": null,
+      "descripcion": "Cable coaxil RG-58",
+      "proveedor": "Janored/2001",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "6246dba9-4f28-4367-9692-938a73b3d638",
+      "codigo": null,
+      "descripcion": "CLAMPS 10-16MM (GENERADOR)",
+      "proveedor": "Náutica Folino",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "38937505-7ad3-4890-a4d0-b184a4098157",
+      "codigo": null,
+      "descripcion": "CLAMPS 52-55MM (GENERADOR)",
+      "proveedor": "Náutica Folino",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "591f1533-7618-438a-865f-cca9f71f9330",
+      "codigo": null,
+      "descripcion": "CONTROL REMOTO FUSION MS-ARX70",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "6e99fe99-87bf-4f99-8650-d95025f8f7fd",
+      "codigo": null,
+      "descripcion": "REFLECTOR LED OSRAM 12/24V",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "eadb6acc-7f2d-4dfb-9416-d8ac60500a0c",
+      "codigo": null,
+      "descripcion": "WD-40",
+      "proveedor": "Rebollar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 43
+    },
+    {
+      "id": "d1d98ba2-a575-48ea-b7c2-a5f20cf5a38f",
+      "codigo": null,
+      "descripcion": "BLOWER EXTRACTOR 250 JABSCO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 37
+    },
+    {
+      "id": "378b0fd3-347b-47f7-92a0-e2f0d0eb32d0",
+      "codigo": null,
+      "descripcion": "DUCHADOR DE MANO OSCULATI 1547012",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 37
+    },
+    {
+      "id": "02e3e962-d153-426c-af0d-b9d758260996",
+      "codigo": null,
+      "descripcion": "TV 24\" · LG",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 37
+    },
+    {
+      "id": "a400f870-48c8-4673-90fc-b2f9094f05ca",
+      "codigo": null,
+      "descripcion": "TV 24\" · Samsung",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 37
+    },
+    {
+      "id": "5b08d166-7132-40e4-9740-78c8e5225b0d",
+      "codigo": null,
+      "descripcion": "TV 32\" Smart · LG",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 37
+    },
+    {
+      "id": "345bb707-02b9-43e7-a968-a2781d4d0f9d",
+      "codigo": "IT13685",
+      "descripcion": "ACCESORIOS DIRECCION 2 IT13685",
+      "proveedor": "Turbodiesel",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "55df7d97-300f-4492-a53e-18f6c7893484",
+      "codigo": "WX1514",
+      "descripcion": "Adaptador rosca M 1/2\" Whale WX1514",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "58fea5e4-e441-416a-b7af-300ed4a5107c",
+      "codigo": "5802570117",
+      "descripcion": "CABLAGGIO (CABLEADO 117) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "6ee86334-e934-41b6-9e8f-5a0cb1b07ae5",
+      "codigo": "5802798145",
+      "descripcion": "CABLAGGIO (CABLEADO 120)",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "c6b393e8-1e32-4a72-b035-cdd6e1c923b5",
+      "codigo": "8052123",
+      "descripcion": "CABLAGGIO (CABLEADO 123) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "e05e1f0c-44ec-4bb3-8f4c-1da1c8efec7b",
+      "codigo": "5802798120",
+      "descripcion": "CABLAGGIO (CABLEADO 145) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "381e69a7-ed5d-43bd-9f60-a436f7c0e988",
+      "codigo": "5802799261",
+      "descripcion": "CABLAGGIO (CABLEADO 261)",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "adccf6d4-200e-4d61-b77a-2b732bfd658d",
+      "codigo": "5802540519",
+      "descripcion": "CABLAGGIO (CABLEADO 519)",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "d9540ff9-5f24-466f-8975-261fd0258cbb",
+      "codigo": "1RSSPC00401",
+      "descripcion": "CAJA DE PISO - URBEN ANTIQUE OAK CREAM 0401",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "dfa8463b-ff28-4a20-a40b-9b6f932245fb",
+      "codigo": "18088393",
+      "descripcion": "COLLARE (ABRAZADERA 393) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "f0a8a609-82c1-40e0-ab74-47f68e603d96",
+      "codigo": "18087991",
+      "descripcion": "COLLARE (ABRAZADERA 991) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "8fc8817c-6b06-4776-82b7-1f3a432b1849",
+      "codigo": "WX1502",
+      "descripcion": "Conector \"T\" WHALE WX1502",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "87e9d999-9e18-45ad-aba7-4c770760b154",
+      "codigo": "MN2017",
+      "descripcion": "Gelcoat MN2017",
+      "proveedor": "Plaquimet/ADS",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "df5aef22-98c5-4a6f-ac64-d027939cfd93",
+      "codigo": "8036411",
+      "descripcion": "INTERRUTTORE 411 IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "5c347633-6bdb-4135-993d-8032de51f17c",
+      "codigo": "RK18",
+      "descripcion": "Juego filtros doble combustible RK18",
+      "proveedor": "Rama",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "94e927f6-ba1e-430a-93d7-b18131f401be",
+      "codigo": "5126",
+      "descripcion": "LIJA EN SECO 280",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "cdf2ff59-7784-4b6e-bfdb-962e36887ab0",
+      "codigo": "24704435",
+      "descripcion": "NMEA 2000 / Easy connect inter",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "d5629498-b700-47a4-a035-5d9b49e8de26",
+      "codigo": "22805175",
+      "descripcion": "NMEA2000 Starter - Kit",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "0d298b15-333b-47e4-bfad-f94ce657f52b",
+      "codigo": "HL09",
+      "descripcion": "Picaporte HL09",
+      "proveedor": "Rincón del Herraje",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "17da39f8-a22f-4288-8ec4-4b8df982605f",
+      "codigo": "J42086",
+      "descripcion": "PISTONES Linear TechLine LA36 - 6800N",
+      "proveedor": "Novotec",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "b9fec9ae-d23e-472b-a7c6-0e2f35e471cf",
+      "codigo": "J42086",
+      "descripcion": "PISTONES Linear TechLine LA36 - 6800N",
+      "proveedor": "Novotec",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "f1f273f1-b66b-4da2-b61d-f4cd10afddb7",
+      "codigo": "3860",
+      "descripcion": "Sensor de nivel de combustible / agua eléctrico a rosca IGAUGE 145 cm",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "9d2ca04f-b2e5-40a2-be53-7803a385c77e",
+      "codigo": "WX7152",
+      "descripcion": "TUBO QC 15mm AZUL (ROLLO 50 Mts)",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "55c25202-8972-4106-a9db-fccff744e4a6",
+      "codigo": "WX7154",
+      "descripcion": "TUBO QC 15mm ROJO (ROLLO 50 Mts)",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "2782b5b8-11bc-409c-9673-1a8e0274d65f",
+      "codigo": "60734",
+      "descripcion": "VNA LAT DER EST HUNTER 60734",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "8504ca29-017e-400a-9020-621c4082e882",
+      "codigo": "60728",
+      "descripcion": "VNA LAT DER ESTRIBOR HUNTER 60728",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "c8f4d112-d431-4277-bf01-f59aba81c7bc",
+      "codigo": "60732",
+      "descripcion": "VNA LAT DER ESTRIBOR HUNTER 60732",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "ff2604f7-8fc1-4d77-99d2-91f253c149ed",
+      "codigo": "60730",
+      "descripcion": "VNA LAT DER HUNTER 60730",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "a6067408-6292-4eb8-a9cb-319c052aefb6",
+      "codigo": "63054",
+      "descripcion": "VNA LAT FIJA IZQ 63054",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "078555e6-d92c-4c21-90c0-106fa02eacc3",
+      "codigo": "60733",
+      "descripcion": "VNA LAT IZQ BABOR HUNTER 60733",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "8d9aa2c7-5ef5-4d98-89e4-f11a11b74f97",
+      "codigo": "60735",
+      "descripcion": "VNA LAT IZQ BB HUNTER 60735",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "c7131a74-635c-4b32-a4b9-bac22c2f754c",
+      "codigo": "62753",
+      "descripcion": "VNA LAT IZQ C/VANO 62753",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "6b098d9a-6614-4da8-84e1-b8400ecac3e8",
+      "codigo": "60729",
+      "descripcion": "VNA LAT IZQ HUNTER 60729",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "a8083939-4042-4c85-8184-3a0332e73a80",
+      "codigo": "60731",
+      "descripcion": "VNA LAT IZQ HUNTER 60731",
+      "proveedor": "Favicur",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 33
+    },
+    {
+      "id": "e30514ab-1782-4e44-952c-1c79ccff809d",
+      "codigo": null,
+      "descripcion": "Bowthruster 55-12V 55Kg CRAFTSMAN",
+      "proveedor": "Baron",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 30
+    },
+    {
+      "id": "9973057d-6fd1-4a31-b5f3-4e75b231e539",
+      "codigo": null,
+      "descripcion": "Divisor de carga 80A (tiene que tener línea de compensación para el alternador como el Victron Argodiodo 80-2AC)",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 30
+    },
+    {
+      "id": "e3056df0-6112-4770-b6f7-c59df1964c0f",
+      "codigo": "PM600",
+      "descripcion": "BOTAZO NEGRO 60MM K52/K55",
+      "proveedor": "Profilplast",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 26
+    },
+    {
+      "id": "9552b862-0de9-4ec5-86c5-47542c6c9ecf",
+      "codigo": "B19055",
+      "descripcion": "Bowthruster 55-12V 55Kg",
+      "proveedor": "Baron",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 26
+    },
+    {
+      "id": "ec558b9f-9fe5-4dca-a8de-0dda2ffcbc6b",
+      "codigo": "0060120000000453",
+      "descripcion": "CABLE \"Y\" P/SEGUNDO PANEL 4-LEAD",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 26
+    },
+    {
+      "id": "d627ad27-ca4d-4010-a132-815d1f7b4c68",
+      "codigo": "0714604334224",
+      "descripcion": "CERRADURA BOMETRICA TBCin CB03B-T",
+      "proveedor": "MercadoLibre",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 26
+    },
+    {
+      "id": "0fa8dd40-fd19-4846-b15d-2e054837b112",
+      "codigo": "208969",
+      "descripcion": "CILINDRO HIDRAULICO DOBLE EFECTO PORTON K-52",
+      "proveedor": "Nor Hidráulica",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 26
+    },
+    {
+      "id": "405d26d2-30f9-4485-b1d8-f5dcde173463",
+      "codigo": null,
+      "descripcion": "Adaptador rosca M 1/2\" Whale WX1514",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "97dfca99-3193-4d53-bdc6-6814332904e1",
+      "codigo": null,
+      "descripcion": "AIRE ACONDICIONADO 10000 BTU PLATINUM",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "53ab1b0e-629f-4ae4-a6b3-430634e99e84",
+      "codigo": null,
+      "descripcion": "AMPLIFICADOR SUBWOOFER XDM 1000/1",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "41b93045-e123-4ea4-a7c7-0e6e0cb4a00a",
+      "codigo": null,
+      "descripcion": "BASE PORTAFUSIBLE NH 400",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "a6158ae2-8061-4dbf-a936-c277ffab2129",
+      "codigo": null,
+      "descripcion": "BISAGRA CODO 18 CORTA",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "1ecf2eb9-fb46-4e7e-9ed3-7a6a1184f843",
+      "codigo": null,
+      "descripcion": "BISAGRA MINI CODO 18",
+      "proveedor": "Rincón del Herraje",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "8a8839f8-c9be-440e-a65f-c087d2fc58ef",
+      "codigo": null,
+      "descripcion": "BISAGRA PIVOT 64087",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "e3ffc919-a0fd-4893-b090-317c49243d0d",
+      "codigo": null,
+      "descripcion": "CABLAGGIO (CABLEADO 225) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "8415ace7-7950-4c38-a0db-a32125f4f8fe",
+      "codigo": null,
+      "descripcion": "CABLAGGIO (CABLEADO 751) IVECO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "3ac1ac38-ef4b-4e08-ad75-885484a26660",
+      "codigo": null,
+      "descripcion": "CABLE NMEA 2000 6' (1.83Mts)",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "8365ba5b-6304-4def-9e5a-97445a47ae9d",
+      "codigo": null,
+      "descripcion": "CAJA DE PISO Orbis OXFP 452-13",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "bb5f8a87-6774-4c96-9170-79ee15f409a1",
+      "codigo": null,
+      "descripcion": "CAJA DE PISO URBEN 0300 OAK WHITE",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "7ac8cb0f-8c29-481f-9810-2be9bb563219",
+      "codigo": null,
+      "descripcion": "CAJA DE PISO URBEN 0400 EUROPEA WHITE",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "4f17a37c-50d4-4fab-8a09-fc488bd54716",
+      "codigo": null,
+      "descripcion": "CAJA ROKER PR409",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "40df181a-cd22-42af-9ded-467172b4e02a",
+      "codigo": null,
+      "descripcion": "CONECTOR \"T\" WHALE WX1502",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+      "codigo": null,
+      "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "a2b05c2f-cfcc-41d1-9103-a1fc58c0337b",
+      "codigo": null,
+      "descripcion": "DUCHA DE EMBUTIR PIAZZA 10207",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "13ec16dc-29ac-44d6-8426-4213dcd45399",
+      "codigo": null,
+      "descripcion": "EQUIPO FCF16 CLASSIC, DIG, FRIO/CALOR",
+      "proveedor": "Baron",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "026fbef3-d310-48df-b849-1a2fbc861905",
+      "codigo": null,
+      "descripcion": "FARO A CONTROL REMOTO 135 SL - 12V",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "e73d6ff7-69eb-4256-a5f2-32100398ab8f",
+      "codigo": null,
+      "descripcion": "Heladera WRX12",
+      "proveedor": "MercadoLibre",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "69df8ec5-fccc-4f9d-9c71-641bf8ae88c7",
+      "codigo": null,
+      "descripcion": "Heladera WRX12 · Whirpool",
+      "proveedor": "MercadoLibre",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "76454f0d-d6b6-4552-8c6a-7aa0235893ea",
+      "codigo": null,
+      "descripcion": "HOLDING TANK MATROMARINE ITALIANO 73 LITROS 12V",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "eb50a9b7-f733-41c4-9335-0becbdece20a",
+      "codigo": null,
+      "descripcion": "HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "1e80aec1-58d5-48b1-a05a-ef192315858f",
+      "codigo": null,
+      "descripcion": "Juego filtros doble combustible RK18 · Rama",
+      "proveedor": "Rama",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "58cf5c92-8243-452d-b451-9f610b83ea7b",
+      "codigo": null,
+      "descripcion": "KIT STARTER NMEA 2000 (C/2xTEE)",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "85a89d5f-3624-464b-900b-6adfaab735be",
+      "codigo": null,
+      "descripcion": "LAVATORIO DE MESADA HYDROS 30911",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "90c43d1c-ebc9-42f6-ad71-fb533b934c46",
+      "codigo": null,
+      "descripcion": "LIJA AL AGUA 280",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "aa22601c-0ead-4a0c-bc9a-c6aa385efcfd",
+      "codigo": null,
+      "descripcion": "LIJA AL AGUA 360",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "ee5f3223-9982-4b25-a418-70638a8b829d",
+      "codigo": null,
+      "descripcion": "LT600",
+      "proveedor": "Náutica Recalada",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "ccaa6c56-536c-45cb-a4d3-ee624c5696d2",
+      "codigo": null,
+      "descripcion": "MORSE CONTROL 5000 FLEXBALL",
+      "proveedor": "Grupo Propeller",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "e8ab225c-6ca6-4699-806e-87f8d5b4558c",
+      "codigo": null,
+      "descripcion": "MORSE FLEXBALL CONTROL 4200",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "133eae17-2967-4778-a2bf-a44113df64cf",
+      "codigo": null,
+      "descripcion": "PARLANTE FUSION APOLLO 10\" LED SPEAKERS",
+      "proveedor": "Garmin",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "375b58a2-5f84-4818-a365-a55aafbd089f",
+      "codigo": null,
+      "descripcion": "Picaporte HL09 · Hafele",
+      "proveedor": "Rincón del Herraje",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "aa2d4ea3-3c45-4364-a206-31c76afc22a5",
+      "codigo": null,
+      "descripcion": "PICAPORTE SARDEGNA 7003.62 - SATINADO C/NIQUEL",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "57c35150-fafe-4a6a-a5e3-6f4135180711",
+      "codigo": null,
+      "descripcion": "Picaportes Currao SARDEGNA 7003.37 · Cromado C/NIQUEL",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "76109af8-89d2-4f5b-8bf4-43d45645d02f",
+      "codigo": null,
+      "descripcion": "PLOTTER SIMRAD NSX3007",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "249c937c-f53f-4a3f-8c58-e22200487852",
+      "codigo": null,
+      "descripcion": "Sistema FLAP 24 x 12\" Doble estacion",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "6f87639c-1818-4f61-abf1-c48dbbf0de0d",
+      "codigo": null,
+      "descripcion": "Sistema FLAP 24 x 12\" Doble estacion · Sistema FLAP Bennett 24 X 12\" Doble estacion",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "17fc414b-4aa7-4261-874d-65746ecf4306",
+      "codigo": null,
+      "descripcion": "Sistema FLAP 24 x 12\" Doble estacion · Sistema FLAP Lenco 24 x 16\" Doble piston",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "9245d633-fee3-4f15-badc-a91f4adaf4aa",
+      "codigo": null,
+      "descripcion": "SOLENOIDE MALACATE 24 V MAXWELL",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "d5bcec53-d88f-43d9-98e5-8e2e9a8882bc",
+      "codigo": null,
+      "descripcion": "SOPAPA DESAGUE SOFT TOUCH 0248.01",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "ae77bce8-eddb-4519-a0b1-4d2bef2db92c",
+      "codigo": null,
+      "descripcion": "SOPAPA DESAGUE SOFT TOUCH 0248.01 · NEGRO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "4a741bb0-0f19-43d1-affa-4fa01c8c330a",
+      "codigo": null,
+      "descripcion": "TAMBUCHO CUADRADO CHICO 52.5CM X 52.5CM",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "73eb08d9-7c8c-42a2-9fcf-7de8d9a25a74",
+      "codigo": null,
+      "descripcion": "Tender lift OPACMARE 5222/90.04",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "90f7425c-dbca-4699-9c35-0655acbc1253",
+      "codigo": null,
+      "descripcion": "TUNEL BOW THRUSTER 250 X 9MM K55",
+      "proveedor": "MER-PLAST",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "088e66f5-240b-44e9-b862-b0fc2459edcc",
+      "codigo": null,
+      "descripcion": "TV 24\"",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "46b7c591-8e31-4943-b576-e8beb2ded1b6",
+      "codigo": null,
+      "descripcion": "TV 32\" Hd H5000 Smart",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "5abeafdc-f75b-4ebe-a000-880cfe189716",
+      "codigo": null,
+      "descripcion": "TV 32\" Smart",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "ab1a63f0-d275-4d3f-8894-cdc03769a05e",
+      "codigo": null,
+      "descripcion": "TV 43 FULL HD T5300",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    },
+    {
+      "id": "2f439668-5226-424e-b054-413135161e3b",
+      "codigo": null,
+      "descripcion": "TV 55 QLED Q6F 4K Smart",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 25
+    }
+  ]
+}

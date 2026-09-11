@@ -183,7 +183,14 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
               <ChevronLeft size={24} />
             </button>
           )}
-          <img src={url} alt={alt} style={{ display: "block", maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain", borderRadius: 6 }} />
+          {/* minWidth/minHeight en 0 NO son decoración: sin eso la foto sale cortada.
+              La imagen es item de un grid, y un item de grid arranca con
+              min-height:auto, que vale el alto NATURAL de la imagen. Ese mínimo
+              le gana al max-height:100%, así que una foto en retrato -un filtro,
+              un caño parado- se dibujaba a 600x1800 dentro de una celda de
+              1100x541 y se perdían 1259 px por abajo. Las fotos apaisadas se
+              veían bien de casualidad: entraban sin necesidad de achicarse. */}
+          <img src={url} alt={alt} style={{ display: "block", maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", minWidth: 0, minHeight: 0, objectFit: "contain", borderRadius: 6 }} />
           {imagenes.length > 1 && (
             <button type="button" onClick={() => setIdx(i => (i < imagenes.length - 1 ? i + 1 : 0))} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 44, height: 44, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", zIndex: 10 }}>
               <ChevronRight size={24} />
