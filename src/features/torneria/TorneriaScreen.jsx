@@ -29,6 +29,7 @@ import {
   marcarNoLleva,
   saltearCompraTorneria,
   subirArchivosMovimiento,
+  engancharPedidoALaObra,
   vincularItemsAPedidoCompra,
 } from "./torneriaApi";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
@@ -193,11 +194,40 @@ function preparacionVigente(component, operation, etapa) {
   return !ultimoMovimiento || new Date(listoAt) > new Date(ultimoMovimiento);
 }
 
-function descripcionParaCompras(item) {
-  const cat = item.material || null;
+function descripcionParaCompras(item, material = undefined) {
+  const cat = material !== undefined ? material : (item.material || null);
   return cat
     ? [cat.codigo, cat.descripcion].filter(Boolean).join(" — ")
     : item.descripcion;
+}
+
+// El peso de la pieza, para los materiales que el proveedor cotiza por kilo.
+// Se dice "aprox." porque es peso nominal: el mismo buje 75x45 pesó 8,000 /
+// 8,200 / 7,900 kg en tres barcos. Es pieza fundida y cada una sale distinta.
+function pesoParaCompras(material) {
+  const peso = Number(material?.peso_kg);
+  if (!Number.isFinite(peso) || peso <= 0) return "";
+  const kg = peso.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+  return `Peso aprox. ${kg} kg (se cotiza por kg)`;
+}
+
+// Los materiales de catálogo que compone un renglón, en orden. Un lote tiene
+// varios; una pieza suelta, uno o ninguno.
+function materialesDelRenglon(item) {
+  return (Array.isArray(item?.materiales) ? [...item.materiales] : [])
+    .filter((row) => row?.material)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+}
+
+// Con qué descripción sale la PRIMERA línea del renglón en el pedido. Es la que
+// se usa después para reencontrarla y colgarle el seguimiento: un renglón de
+// Tornería guarda un solo purchase_request_item_id, así que un lote se engancha
+// a su primera línea y las demás viajan como renglones sueltos del pedido.
+function descripcionPrincipalParaCompras(item) {
+  const lista = materialesDelRenglon(item);
+  return lista.length > 1
+    ? descripcionParaCompras(item, lista[0].material)
+    : descripcionParaCompras(item);
 }
 
 function planosParaCompras(items = []) {
@@ -258,7 +288,36 @@ function descripcionPedidoCompras(process, items = []) {
 // usa Mecánica dentro del circuito ("Núcleo para pata de gallo", por ejemplo);
 // este segundo renglón aclara sutilmente qué producto físico hay que comprar.
 function CatalogTechnicalName({ item, compact = false }) {
+  const lista = materialesDelRenglon(item);
   const material = item?.material || null;
+
+  // Un lote son varios materiales: se listan todos con su cantidad, porque el
+  // renglón dice "1 lote" y lo único que contesta qué hay adentro es esto.
+  if (lista.length > 1) {
+    return (
+      <div style={{ display: "grid", gap: 2, marginTop: compact ? 2 : 4, minWidth: 0 }}>
+        {lista.map((row) => (
+          <div
+            key={row.id || row.material_id}
+            title="Material vinculado desde el catálogo de pañol"
+            style={{
+              display: "flex", alignItems: "center", gap: 4, minWidth: 0,
+              color: C.dim, fontSize: compact ? 9 : 9.5, lineHeight: 1.25,
+            }}
+          >
+            <Link2 size={compact ? 9 : 10} style={{ flexShrink: 0, color: C.green }} />
+            <span style={{ flexShrink: 0, fontWeight: 800, fontFamily: C.mono }}>
+              ×{Number(row.cantidad) || 1}
+            </span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {[row.material?.codigo, row.material?.descripcion].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (!material?.descripcion && !material?.codigo) return null;
   return (
     <div
@@ -372,6 +431,10 @@ function Kpi({ icon, value, label, color, activo = false, onClick, compacto = fa
 function ProcessCard({ process, selected, onClick }) {
   const progress = processProgress(process);
   const current = currentOperation(process);
+  // Sin viajes cargados y "todos los viajes volvieron" daban los dos
+  // `currentOperation === null`, y la obra sin circuito se anunciaba en verde
+  // como recibida. Son estados opuestos: uno está terminado, el otro ni empezó.
+  const sinCircuito = !(process.operaciones || []).some((row) => row.activa !== false);
   const unresolved = (process.items || []).filter(
     (item) => item.activo !== false && !item.no_lleva && item.requiere_confirmacion && !item.confirmado_at,
   ).length;
@@ -427,13 +490,14 @@ function ProcessCard({ process, selected, onClick }) {
           </div>
           <div style={{
             marginTop: 4,
-            color: current ? C.muted : C.green,
+            color: current ? C.muted : sinCircuito ? C.red : C.green,
             fontSize: 11,
+            fontWeight: sinCircuito ? 850 : 400,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}>
-            {current?.nombre || "Circuito recibido"}
+            {current?.nombre || (sinCircuito ? "Sin circuito cargado" : "Circuito recibido")}
           </div>
         </div>
         <ChevronRight size={16} color={selected ? C.blue : C.dim} style={{ flexShrink: 0 }} />
@@ -821,8 +885,36 @@ function tramoCerrado(operation, item) {
   return esInsumo(item) && ["enviado", "parcial"].includes(operation.estado);
 }
 
+// `[].every(...)` devuelve true, así que una ruta sin tramos se leía como
+// terminada: un material que todavía no salió del astillero aparecía en verde
+// como si ya hubiera vuelto. Sin viajes no hay circuito que dar por cerrado.
 function routeIsComplete(row) {
-  return row.tramos.every((operation) => tramoCerrado(operation, row.item));
+  return row.tramos.length > 0
+    && row.tramos.every((operation) => tramoCerrado(operation, row.item));
+}
+
+// Estado de una formación de conjunto. Vive en una sola función porque se lee
+// en dos lugares —la card de la transformación y el contador del grupo— y
+// mientras la regla estuvo escrita dos veces las dos se fueron por caminos
+// distintos: el contador daba "1/1 completos" a un conjunto sin componentes
+// (otra vez `[].every`) mientras la card decía que todavía no se había formado.
+function transformationState({ result, sources }) {
+  const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
+  const resultHasJourney = result.tramos.length > 0;
+  const resultReady = resultHasJourney ? routeIsComplete(result) : sourcesReady;
+  return {
+    sourcesReady,
+    resultHasJourney,
+    resultReady,
+    complete: sourcesReady && resultReady,
+    pendingSources: sources.filter((row) => !routeIsComplete(row)).length,
+  };
+}
+
+function blockIsComplete(block) {
+  return block.type === "standalone"
+    ? routeIsComplete(block.row)
+    : transformationState(block).complete;
 }
 
 // Cadena completa del circuito de un material, en un solo riel:
@@ -1018,6 +1110,7 @@ function tramoActual({ process, item, tramos, conCompra }) {
         : Number(component.cantidad_recibida) < Number(component.cantidad_requerida)
     ));
   });
+  if (!tramos.length) return { tipo: "sin_viaje" };
   if (!operation) return { tipo: "listo" };
   return { tipo: "viaje", operation, dependencias: dependencyRows(process, operation) };
 }
@@ -1043,6 +1136,20 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
       )}
     </div>
   );
+
+  // El material está en el astillero pero nadie definió por dónde tiene que
+  // pasar: sin viajes cargados no hay nada que mover, y antes esto se mostraba
+  // como "Circuito completo".
+  if (actual.tipo === "sin_viaje") {
+    return (
+      <div style={{ display: "grid", gap: 6 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5, fontWeight: 850 }}>
+          <Clock3 size={13} /> Sin viajes cargados para este material
+        </span>
+        {tiempos}
+      </div>
+    );
+  }
 
   if (actual.tipo === "listo") {
     return (
@@ -1462,12 +1569,18 @@ function TransformationFlow({
   onPedirCompra = null,
   onSkipPurchase = null,
 }) {
-  const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
-  const resultHasJourney = result.tramos.length > 0;
-  const resultReady = resultHasJourney ? routeIsComplete(result) : sourcesReady;
-  const complete = sourcesReady && resultReady;
-  const pendingSources = sources.filter((row) => !routeIsComplete(row)).length;
+  const { sourcesReady, resultHasJourney, resultReady, complete, pendingSources } =
+    transformationState({ result, sources });
   const resultItem = result.item;
+  // Un conjunto sin componentes no tiene "0 pendientes": no está armado. Decirlo
+  // así evita que se lea como que no falta nada.
+  const estadoTexto = complete
+    ? "Circuito completo"
+    : sourcesReady
+      ? "Conjunto listo"
+      : sources.length === 0
+        ? "Sin componentes cargados"
+        : `${pendingSources} componente${pendingSources === 1 ? "" : "s"} pendiente${pendingSources === 1 ? "" : "s"}`;
 
   return (
     <article className="tor-transform-card" style={{
@@ -1520,7 +1633,7 @@ function TransformationFlow({
           fontWeight: 850,
         }}>
           {complete ? <Check size={13} /> : <GitMerge size={13} />}
-          {complete ? "Circuito completo" : sourcesReady ? "Conjunto listo" : `${pendingSources} componente${pendingSources === 1 ? "" : "s"} pendiente${pendingSources === 1 ? "" : "s"}`}
+          {estadoTexto}
         </span>
       </div>
 
@@ -1625,6 +1738,12 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
   // Lo que esta obra no lleva no entra al circuito: queda a la vista en
   // Materiales, tachado, para que se sepa que fue una decisión.
   const items = (process.items || []).filter((row) => row.activo !== false && !row.no_lleva);
+  // Un componente sin viajes todavía es parte de su conjunto. Si se cae de la
+  // lista, la formación queda "sin componentes" y —antes de blockIsComplete— el
+  // grupo entero se daba por terminado sin que hubiera salido nada.
+  const clavesDeConjunto = new Set(
+    items.filter((row) => row.es_resultado).flatMap((row) => row.resultado_de || []),
+  );
   const itemRoutes = items
     .map((item) => {
       const tramos = operations
@@ -1639,7 +1758,9 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
         .sort((a, b) => (a.viaje ?? 99) - (b.viaje ?? 99) || (a.orden ?? 0) - (b.orden ?? 0));
       return { ...item, item, tramos };
     })
-    .filter((row) => row.tramos.length > 0 || (row.item.es_resultado && row.item.resultado_de?.length > 0));
+    .filter((row) => row.tramos.length > 0
+      || (row.item.es_resultado && row.item.resultado_de?.length > 0)
+      || clavesDeConjunto.has(row.item.clave));
   const legacyResultRoutes = operations
     .filter((operation) => {
       const meta = RESULT_OPERATION_META[operation.clave];
@@ -1775,10 +1896,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
       </div>
 
       {visibleGroups.map(([group, blocks]) => {
-        const completed = blocks.filter((block) => {
-          if (block.type === "standalone") return routeIsComplete(block.row);
-          return routeIsComplete(block.result) && block.sources.every(routeIsComplete);
-        }).length;
+        const completed = blocks.filter(blockIsComplete).length;
         return (
           <section key={group} style={{ display: "grid", gap: 9 }}>
             <div className="tor-group-head">
@@ -2061,6 +2179,29 @@ function CircuitTab({
   return (
     <div style={{ display: "grid", gap: 16 }}>
       {showSearch && <CircuitSearch value={search} onChange={onSearch} />}
+
+      {/* La plantilla de la línea copia items y viajes por separado. Si alguien
+          cargó los materiales y no los pasos, la obra queda sin circuito: no hay
+          nada que mover y la pantalla no lo explicaba. */}
+      {!operations.length && (
+        <section style={{
+          display: "grid",
+          gap: 6,
+          padding: "12px 13px",
+          borderRadius: 13,
+          border: `1px solid ${C.redB}`,
+          background: C.redL,
+        }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 900 }}>
+            <AlertTriangle size={14} /> Esta obra no tiene viajes cargados
+          </span>
+          <span style={{ color: C.muted, fontSize: 11, lineHeight: 1.45 }}>
+            La plantilla de {process.obra?.linea_nombre || "la línea"} trajo los materiales pero
+            ningún paso del circuito, así que no hay nada que enviar ni recibir. Cargalos desde
+            «Gestión de envíos y pasos», acá abajo.
+          </span>
+        </section>
+      )}
 
       <CompraResumen process={process} onPedirCompra={onPedirCompra} />
 
@@ -4819,10 +4960,31 @@ export default function TorneriaScreen({ profile, signOut }) {
               await vincularItemsAPedidoCompra(
                 actual.items.map((item) => ({
                   itemId: item.id,
-                  requestItemId: porDescripcion.get(descripcionParaCompras(item)) || null,
+                  requestItemId: porDescripcion.get(descripcionPrincipalParaCompras(item)) || null,
                 })),
                 created.id,
               );
+
+              // Y el mismo pedido se engancha a la lista de la obra, por
+              // material. Sin esto el renglón de la obra se queda en "pendiente"
+              // para siempre: el que mira la obra ve que falta algo que ya está
+              // pedido y lo vuelve a pedir. De acá en adelante el estado lo mueve
+              // sync_obra_snapshot_from_purchase_item, que ya existía.
+              //
+              // Va aparte y con su propio catch: si falla, el pedido ya se mandó
+              // y los renglones de Tornería ya quedaron vinculados. Perder el
+              // reflejo en la obra es molesto; tirar todo el bloque por eso sería
+              // peor.
+              const obraId = actual.proceso?.obra?.id || null;
+              if (obraId) {
+                try {
+                  await engancharPedidoALaObra(created.id, obraId);
+                } catch (obraError) {
+                  toast.error(
+                    `El pedido se envió, pero la lista de la obra no se actualizó: ${obraError.message}`,
+                  );
+                }
+              }
             }
             await load({ quiet: true, preferId: actual.proceso.id });
           } catch (linkError) {
@@ -4841,16 +5003,17 @@ export default function TorneriaScreen({ profile, signOut }) {
           source_url: "/torneria",
           attachments: planosParaCompras(pedidoCompra.items),
           defaultDestination: `Obra ${pedidoCompra.proceso.obra?.codigo || ""}`.trim(),
-          items: pedidoCompra.items.map((item) => {
+          items: pedidoCompra.items.flatMap((item) => {
+            const entregaDirecta = entregaDirectaParaCompras(pedidoCompra.proceso, item);
+            const lista = materialesDelRenglon(item);
+
             // Si está vinculado al catálogo, el pedido va con el nombre del
             // catálogo y no con el de tornería. "Nucleo de pata de gallo" es
             // cómo lo llamamos acá adentro; al proveedor hay que pedirle el
             // material como figura en el catálogo, con su código y su unidad.
-            const cat = item.material || null;
-            const entregaDirecta = entregaDirectaParaCompras(pedidoCompra.proceso, item);
-            return {
-              description: descripcionParaCompras(item),
-              quantity: String(item.cantidad ?? ""),
+            const armar = (cat, cantidad, dentroDelLote) => ({
+              description: descripcionParaCompras(item, cat),
+              quantity: String(cantidad ?? ""),
               unit: cat?.unidad_medida || item.unidad || "unidad",
               destination: entregaDirecta?.destino || undefined,
               // Con el id del catálogo, la recepción en pañol lo empareja exacto
@@ -4863,7 +5026,16 @@ export default function TorneriaScreen({ profile, signOut }) {
                 entregaDirecta?.nota || "",
                 // El nombre interno queda de referencia: es con el que el taller
                 // reconoce la pieza cuando llega.
-                cat ? `En Tornería: ${item.descripcion}` : "",
+                cat
+                  ? (dentroDelLote
+                    ? `Parte del lote: ${item.descripcion}`
+                    : `En Tornería: ${item.descripcion}`)
+                  : "",
+                // El peso, cuando el material se cotiza por kilo. La broncería
+                // de Parra se factura a USD/kg y la pieza se corta de una barra:
+                // sin el peso, el proveedor tiene el diámetro -"130x50"- pero no
+                // cuánto material lleva, que es lo que necesita para cotizar.
+                pesoParaCompras(cat),
                 item.grupo ? `Grupo: ${item.grupo}` : "",
                 (cat?.proveedor || item.proveedor_compra)
                   ? `Proveedor: ${cat?.proveedor || item.proveedor_compra}`
@@ -4874,7 +5046,17 @@ export default function TorneriaScreen({ profile, signOut }) {
                   : "",
                 item.alerta || "",
               ].filter(Boolean).join(" · ") || undefined,
-            };
+            });
+
+            // Un renglón con varios materiales sale como varios renglones del
+            // pedido. Al proveedor hay que pedirle cada pieza con su código y su
+            // cantidad, y Pañol necesita el id de catálogo de cada una para
+            // emparejar la recepción: un "lote" en una sola línea no se puede ni
+            // cotizar ni recibir pieza por pieza.
+            if (lista.length > 1) {
+              return lista.map((row) => armar(row.material, Number(row.cantidad) || 1, true));
+            }
+            return [armar(item.material || null, item.cantidad, false)];
           }),
         } : null}
       />

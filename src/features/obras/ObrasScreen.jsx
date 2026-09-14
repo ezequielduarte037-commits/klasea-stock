@@ -2023,7 +2023,11 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
   const btnIcon = { border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "2px 7px", borderRadius: 5, fontFamily: C.sans };
 
   return (
-    <Overlay onClose={onClose} maxWidth={1120}>
+    // Más ancho que el resto de los modales a propósito: acá adentro conviven la
+    // lista de etapas, la configuración de la etapa elegida y el panel de
+    // productos con su buscador y sus filtros. Con 1120 el panel de productos
+    // quedaba en una columna angosta donde las descripciones se cortaban todas.
+    <Overlay onClose={onClose} maxWidth={1440}>
       {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
       <div style={{ padding: isMobile ? 12 : 22, overflowY: "auto" }}>
         <div style={{ borderBottom: `1px solid ${C.b0}`, padding: "2px 0 14px", marginBottom: 12 }}>
@@ -2097,7 +2101,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
           ))}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "250px minmax(0, 1fr)", gap: 12, alignItems: "start", marginBottom: 12 }}>
-          <aside data-tour="obras-etapas-lista" style={{ maxHeight: isMobile ? 230 : "61vh", overflowY: "auto", padding: 10, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0 }}>
+          <aside data-tour="obras-etapas-lista" style={{ maxHeight: isMobile ? 230 : "70vh", overflowY: "auto", padding: 10, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 2px 9px" }}>
               <div>
                 <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 850 }}>1 · Recorrido</div>
@@ -2720,6 +2724,7 @@ export default function ObrasScreen({ profile, signOut }) {
   const [tareaModal,    setTareaModal]    = useState(null);
   const [tareaDetalle,  setTareaDetalle]  = useState(null);
   const [confirmModal,  setConfirmModal]  = useState(null);
+  const [desmoldeEditor, setDesmoldeEditor] = useState(null);
   const [lineasModal,         setLineasModal]         = useState(null);
   const [showNuevaLineaModal, setShowNuevaLineaModal] = useState(false);
   const [vacacionesModal, setVacacionesModal] = useState(null);
@@ -2950,6 +2955,38 @@ export default function ObrasScreen({ profile, signOut }) {
   async function cambiarEstadoObra(obraId, estado) {
     const upd = { estado }; if (estado === "terminada") upd.fecha_fin_real = today();
     await supabase.from("produccion_obras").update(upd).eq("id", obraId); cargar();
+  }
+
+  async function guardarDesmoldeEstimado() {
+    if (!desmoldeEditor || desmoldeEditor.saving) return;
+    const { obraId, value, original } = desmoldeEditor;
+    const nuevaFecha = value || null;
+    const fechaAnterior = original || null;
+    if (nuevaFecha === fechaAnterior) { setDesmoldeEditor(null); return; }
+
+    setDesmoldeEditor(prev => ({ ...prev, saving: true, error: "" }));
+    const { error } = await supabase
+      .from("produccion_obras")
+      .update({ desmolde_estimado: nuevaFecha })
+      .eq("id", obraId);
+
+    if (error) {
+      setDesmoldeEditor(prev => ({ ...prev, saving: false, error: error.message || "No se pudo guardar la fecha." }));
+      return;
+    }
+
+    // Actualización local: recalcula al instante la ruta de producción sin volver
+    // a descargar todas las obras, etapas y tareas.
+    setObras(prev => prev.map(row => row.id === obraId ? { ...row, desmolde_estimado: nuevaFecha } : row));
+    await supabase.from("fechas_auditoria").insert({
+      obra_id: obraId,
+      evento_key: null,
+      campo: "desmolde_estimado",
+      valor_anterior: fechaAnterior,
+      valor_nuevo: nuevaFecha,
+      motivo: "edición desde Obras",
+    });
+    setDesmoldeEditor(null);
   }
 
   async function cambiarEstadoEtapa(etapaId, estado) {
@@ -3217,6 +3254,82 @@ export default function ObrasScreen({ profile, signOut }) {
     );
   }
 
+  function EditableDesmolde({ obra, reference }) {
+    const editing = desmoldeEditor?.obraId === obra.id;
+    const displayDate = reference?.projected
+      ? reference.projected.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+      : "sin desmolde";
+    const content = (
+      <>
+        <NavIcon.Cal />
+        <span>Desmolde {displayDate}{reference?.source ? ` (${reference.source})` : ""}</span>
+      </>
+    );
+
+    if (!esGestion) return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, paddingLeft: 8, color: reference?.projected ? C.t1 : C.amber, borderLeft: `1px solid ${C.b0}`, fontSize: 11, fontFamily: C.mono, fontWeight: 750 }}>
+        {content}
+      </span>
+    );
+
+    return (
+      <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={() => setDesmoldeEditor({ obraId: obra.id, codigo: obra.codigo, value: obra.desmolde_estimado?.slice(0, 10) || "", original: obra.desmolde_estimado?.slice(0, 10) || "", saving: false, error: "" })}
+          aria-label={`Cambiar fecha estimada de desmolde de ${obra.codigo}`}
+          title="Cambiar fecha estimada de desmolde"
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px 4px 9px", color: reference?.projected ? C.t1 : C.amber, border: `1px solid ${editing ? C.b1 : "transparent"}`, borderLeftColor: C.b0, borderRadius: 7, background: editing ? C.s1 : "transparent", fontSize: 11, fontFamily: C.mono, fontWeight: 750, cursor: "pointer" }}
+        >
+          {content}
+          <span aria-hidden="true" style={{ color: editing ? C.blue : C.t3, fontSize: 10 }}>✎</span>
+        </button>
+
+        {editing && (
+          <form
+            onSubmit={e => { e.preventDefault(); guardarDesmoldeEstimado(); }}
+            style={{ position: "absolute", zIndex: 120, top: "calc(100% + 7px)", left: 0, width: 292, padding: 12, border: `1px solid ${C.b1}`, borderRadius: 11, background: C.panelSolid || C.bg, boxShadow: "0 16px 42px rgba(0,0,0,0.28)", fontFamily: C.sans }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 850 }}>Fecha estimada · {obra.codigo}</div>
+            <div style={{ fontSize: 10.5, color: C.t2, lineHeight: 1.45, marginTop: 3 }}>
+              Al cambiarla se reprograman las etapas relativas al desmolde.
+            </div>
+            {obra.desmolde_real && (
+              <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 7, background: "rgba(245,158,11,0.09)", color: C.amber, fontSize: 10.5, lineHeight: 1.4 }}>
+                Hay un desmolde real ({fmtDateFull(obra.desmolde_real)}): esa fecha seguirá teniendo prioridad en el cronograma.
+              </div>
+            )}
+            {!obra.desmolde_real && Number(obra.atraso_dias || 0) !== 0 && (
+              <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 7, background: C.s1, color: C.t1, fontSize: 10.5, lineHeight: 1.4 }}>
+                La proyección visible incluye un ajuste de {Number(obra.atraso_dias) > 0 ? "+" : ""}{Number(obra.atraso_dias)} días.
+              </div>
+            )}
+            <label style={{ display: "grid", gap: 4, marginTop: 10 }}>
+              <span style={{ fontSize: 9.5, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.7 }}>Nueva fecha base</span>
+              <input
+                autoFocus
+                type="date"
+                value={desmoldeEditor.value}
+                onChange={e => setDesmoldeEditor(prev => ({ ...prev, value: e.target.value, error: "" }))}
+                onKeyDown={e => { if (e.key === "Escape") setDesmoldeEditor(null); }}
+                disabled={desmoldeEditor.saving}
+                style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${C.b1}`, background: C.bg, color: C.t0, borderRadius: 8, padding: "8px 9px", fontFamily: C.mono, fontSize: 12, outline: "none", colorScheme: "var(--input-color-scheme, dark)" }}
+              />
+            </label>
+            {desmoldeEditor.error && <div role="alert" style={{ marginTop: 7, color: C.red, fontSize: 10.5 }}>{desmoldeEditor.error}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 10 }}>
+              <button type="button" onClick={() => setDesmoldeEditor(null)} disabled={desmoldeEditor.saving} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 9px", fontSize: 11, fontFamily: C.sans, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+              <button type="submit" disabled={desmoldeEditor.saving || desmoldeEditor.value === desmoldeEditor.original} style={{ border: `1px solid ${C.blue}`, background: C.blue, color: "#fff", borderRadius: 7, padding: "6px 10px", fontSize: 11, fontFamily: C.sans, fontWeight: 800, cursor: desmoldeEditor.saving ? "wait" : "pointer", opacity: desmoldeEditor.value === desmoldeEditor.original ? 0.5 : 1 }}>
+                {desmoldeEditor.saving ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════
   //  DETALLE DE OBRA (columna derecha del master-detail)
   // ═══════════════════════════════════════════════════════════════
@@ -3476,17 +3589,7 @@ export default function ObrasScreen({ profile, signOut }) {
             {obra.cliente && <><span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} /><span style={{ fontSize: 12, color: C.t2 }}>{obra.cliente}</span></>}
             <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} />
             <span style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>{diasR} días en obra</span>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 5, paddingLeft: 8,
-              color: desmoldePlan?.projected ? C.t1 : C.amber,
-              borderLeft: `1px solid ${C.b0}`,
-              fontSize: 11, fontFamily: C.mono, fontWeight: 750,
-            }}>
-              Desmolde {desmoldePlan?.projected
-                ? desmoldePlan.projected.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })
-                : "sin desmolde"}
-              {desmoldePlan?.source ? ` (${desmoldePlan.source})` : ""}
-            </span>
+            <EditableDesmolde obra={obra} reference={desmoldePlan} />
 
             <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
               {esGestion && (

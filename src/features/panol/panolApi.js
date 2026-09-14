@@ -1283,17 +1283,24 @@ const CATALOG_CREATION_ORIGINS = new Set(["remito", "conteo", "manual", "addon_o
 
 export async function fetchPanolMaterialCreations({ limit = 300 } = {}) {
   try {
-    let { data, error } = await supabase
-      .from("panol_materiales")
-      .select("id, descripcion, codigo, proveedor, unidad_medida, origen, notas, created_at, batch_id, created_by")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const fetchPages = async (select) => {
+      const collected = [];
+      const pageSize = 500;
+      for (let from = 0; from < limit; from += pageSize) {
+        const { data: page, error: pageError } = await supabase
+          .from("panol_materiales")
+          .select(select)
+          .order("created_at", { ascending: false })
+          .range(from, Math.min(from + pageSize - 1, limit - 1));
+        if (pageError) return { data: null, error: pageError };
+        collected.push(...(page ?? []));
+        if (!page || page.length < pageSize) break;
+      }
+      return { data: collected, error: null };
+    };
+    let { data, error } = await fetchPages("id,categoria_id,proveedor_id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,precio_unitario,moneda,origen,notas,imagen_url,revisado,activo,es_requisito,created_at,batch_id,created_by");
     if (error && isMissingColumn(error)) {
-      const retry = await supabase
-        .from("panol_materiales")
-        .select("id, descripcion, codigo, proveedor, unidad_medida, origen, notas, created_at, batch_id")
-        .order("created_at", { ascending: false })
-        .limit(limit);
+      const retry = await fetchPages("id,categoria_id,proveedor_id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,precio_unitario,moneda,origen,notas,imagen_url,revisado,activo,es_requisito,created_at,batch_id");
       data = retry.data;
       error = retry.error;
     }
@@ -1311,6 +1318,185 @@ export async function fetchPanolMaterialCreations({ limit = 300 } = {}) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Bandeja de productos nacidos en el circuito operativo de Pañol. Incluye su
+ * decisión actual por línea para que la UI pueda distinguir pendientes,
+ * estándares y compras puntuales sin reinterpretar el historial de stock.
+ */
+export async function fetchPanolNormalizationQueue({ limit = 2000 } = {}) {
+  const materiales = (await fetchPanolMaterialCreations({ limit }))
+    .filter((material) => material.activo !== false && material.es_requisito !== true);
+  const materialIds = materiales.map((material) => material.id).filter(Boolean);
+  if (!materialIds.length) return [];
+
+  const matrixPromise = enLotesDeIds(materialIds, async (ids) => {
+    const { data, error } = await supabase
+      .from("panol_material_modelo")
+      .select("id,material_id,modelo,cantidad,variante")
+      .in("material_id", ids);
+    if (error) throw error;
+    return data ?? [];
+  });
+  const normalizacionesPromise = enLotesDeIds(materialIds, async (ids) => {
+    let { data, error } = await supabase
+      .from("panol_material_normalizaciones")
+      .select("id,material_id,modelo,decision,cantidad,cantidad_verificada,evidencia_obra_id,evidencia_movimiento_id,revisado_at,revisado_por")
+      .in("material_id", ids);
+    if (error && isMissingColumn(error)) {
+      const retry = await supabase
+        .from("panol_material_normalizaciones")
+        .select("id,material_id,modelo,decision,cantidad,evidencia_obra_id,evidencia_movimiento_id,revisado_at,revisado_por")
+        .in("material_id", ids);
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error) throw error;
+    return data ?? [];
+  }).catch((error) => {
+    // Compatibilidad mientras se despliega la migración por línea: la bandeja
+    // sigue abriendo y conserva las decisiones globales del primer corte.
+    if (isMissingTable(error)) return [];
+    throw error;
+  });
+  const proveedoresPromise = enLotesDeIds(materialIds, async (ids) => {
+    const { data, error } = await supabase
+      .from("panol_material_proveedores")
+      .select("material_id,proveedor_id,precio,moneda")
+      .in("material_id", ids);
+    if (error) throw error;
+    return data ?? [];
+  }).catch((error) => {
+    if (isMissingTable(error)) return [];
+    throw error;
+  });
+  const [matrixRows, normalizacionRows, proveedorRows] = await Promise.all([matrixPromise, normalizacionesPromise, proveedoresPromise]);
+  const modelosByMaterial = new Map();
+  for (const row of matrixRows) {
+    if (String(row.variante || "standard") !== "standard") continue;
+    const list = modelosByMaterial.get(row.material_id) ?? [];
+    list.push({ modelo: String(row.modelo || "").trim(), cantidad: numericValue(row.cantidad, 1) });
+    modelosByMaterial.set(row.material_id, list);
+  }
+  const normalizacionesByMaterial = new Map();
+  for (const row of normalizacionRows) {
+    const list = normalizacionesByMaterial.get(row.material_id) ?? [];
+    list.push({ ...row, modelo: String(row.modelo || "").trim().replace(/^K/i, "") });
+    normalizacionesByMaterial.set(row.material_id, list);
+  }
+  const proveedoresByMaterial = new Map();
+  for (const row of proveedorRows) {
+    const list = proveedoresByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    proveedoresByMaterial.set(row.material_id, list);
+  }
+  return materiales.map((material) => ({
+    ...material,
+    modelos_estandar: (modelosByMaterial.get(material.id) ?? [])
+      .filter((row) => row.modelo)
+      .sort((a, b) => a.modelo.localeCompare(b.modelo, "es", { numeric: true })),
+    normalizaciones: (normalizacionesByMaterial.get(material.id) ?? [])
+      .filter((row) => row.modelo)
+      .sort((a, b) => a.modelo.localeCompare(b.modelo, "es", { numeric: true })),
+    proveedores_lista: proveedoresByMaterial.get(material.id) ?? [],
+  }));
+}
+
+export async function guardarNormalizacionPorLinea({
+  materialId,
+  descripcion,
+  alias = "",
+  modelo,
+  decision,
+  cantidad = null,
+  evidenciaObraId = null,
+  evidenciaMovimientoId = null,
+  codigo = "",
+  codigoBarra = "",
+  unidadMedida = "",
+  categoriaId = null,
+  notas = "",
+  proveedores = [],
+  cantidadVerificada = false,
+} = {}) {
+  if (!materialId) throw new Error("Falta el producto a normalizar.");
+  const cleanDescription = String(descripcion || "").trim();
+  const cleanModel = String(modelo || "").trim().toUpperCase().replace(/^K/, "");
+  const cleanQuantity = numericValue(cantidad, 0);
+  if (!cleanDescription) throw new Error("El nombre del producto es obligatorio.");
+  if (!cleanModel) throw new Error("Elegí la línea que querés revisar.");
+  if (!["estandar", "puntual"].includes(decision)) throw new Error("Elegí si el producto es estándar o puntual.");
+  if (decision === "estandar" && cleanQuantity <= 0) throw new Error("Indicá la cantidad necesaria por barco.");
+
+  const cleanProviders = (proveedores || []).map((row) => ({
+    proveedor_id: row.proveedor_id || null,
+    precio: numericValue(row.precio, 0) > 0 ? numericValue(row.precio, 0) : null,
+    moneda: String(row.moneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
+  })).filter((row) => row.proveedor_id);
+
+  const { data, error } = await supabase.rpc("panol_normalizar_material_detallado_por_linea", {
+    p_material_id: materialId,
+    p_descripcion: cleanDescription,
+    p_alias: String(alias || "").trim() || null,
+    p_modelo: cleanModel,
+    p_decision: decision,
+    p_cantidad: decision === "estandar" ? cleanQuantity : null,
+    p_evidencia_obra_id: evidenciaObraId || null,
+    p_evidencia_movimiento_id: evidenciaMovimientoId || null,
+    p_codigo: String(codigo || "").trim() || null,
+    p_codigo_barra: String(codigoBarra || "").trim() || null,
+    p_unidad_medida: String(unidadMedida || "").trim() || null,
+    p_categoria_id: categoriaId || null,
+    p_notas: String(notas || "").trim() || null,
+    p_proveedores: cleanProviders,
+    p_cantidad_verificada: decision === "estandar" && cantidadVerificada === true,
+  });
+  if (error) {
+    const message = String(error.message || "");
+    if (error.code === "PGRST202" || message.toLowerCase().includes("schema cache") || message.toLowerCase().includes("could not find")) {
+      throw new Error("Falta aplicar la migración de detalle de Estandarización.");
+    }
+    throw error;
+  }
+  return data ?? null;
+}
+
+export async function guardarNormalizacionIngreso({
+  materialId,
+  descripcion,
+  alias = "",
+  decision,
+  modelos = [],
+} = {}) {
+  if (!materialId) throw new Error("Falta el producto a normalizar.");
+  const cleanDescription = String(descripcion || "").trim();
+  if (!cleanDescription) throw new Error("El nombre del producto es obligatorio.");
+  if (!["estandar", "puntual"].includes(decision)) throw new Error("Elegí si el producto es estándar o puntual.");
+
+  const lineas = decision === "estandar"
+    ? (modelos || []).map((row) => ({
+      modelo: String(row.modelo || "").trim().toUpperCase().replace(/^K/, ""),
+      cantidad: numericValue(row.cantidad, 0),
+    })).filter((row) => row.modelo && row.cantidad > 0)
+    : [];
+  if (decision === "estandar" && !lineas.length) throw new Error("Seleccioná al menos una línea y una cantidad por barco.");
+
+  const { data, error } = await supabase.rpc("panol_normalizar_material_ingreso", {
+    p_material_id: materialId,
+    p_descripcion: cleanDescription,
+    p_alias: String(alias || "").trim() || null,
+    p_decision: decision,
+    p_modelos: lineas,
+  });
+  if (error) {
+    const message = String(error.message || "");
+    if (error.code === "PGRST202" || message.toLowerCase().includes("schema cache") || message.toLowerCase().includes("could not find")) {
+      throw new Error("Falta aplicar la migración de Estandarización de ingresos.");
+    }
+    throw error;
+  }
+  return data ?? null;
 }
 
 export async function guardarUbicacionMaterial(materialId, { ubicacion = null, ubicacionObs = null } = {}) {

@@ -50,7 +50,15 @@ export async function fetchTorneriaProcesos() {
       "torneria_items",
       "proceso_id",
       procesoIds,
-      "*,material:panol_materiales(id,codigo,descripcion,proveedor,unidad_medida,categoria_id)",
+      // `material` es el primero de la lista y lo mantiene un trigger: lo siguen
+      // leyendo el armador de pedidos y el cartel de Catálogo de cada renglón.
+      // `materiales` es la lista completa, que es lo que tiene un lote.
+      // peso_kg viaja porque el pedido a Compras lo necesita: la broncería se
+      // cotiza por kilo y sin el peso el proveedor tiene el diámetro pero no
+      // cuánto material lleva la pieza.
+      "*,material:panol_materiales(id,codigo,descripcion,proveedor,unidad_medida,peso_kg,categoria_id)"
+        + ",materiales:torneria_item_materiales(id,material_id,cantidad,orden"
+        + ",material:panol_materiales(id,codigo,descripcion,alias,proveedor,unidad_medida,peso_kg,precio_unitario,moneda,categoria_id))",
       { column: "orden", options: { ascending: true } },
     ),
     inQuery(
@@ -253,6 +261,62 @@ export async function saltearCompraTorneria({ procesoId, item }) {
 // permite que la recepción en pañol —que es por ítem— mueva el estado y las
 // fechas de ESE material. Si un ítem no se pudo emparejar queda con el vínculo a
 // nivel pedido, que sigue funcionando aunque sea más grueso.
+/**
+ * Cuántas unidades de este material lleva esa línea, y CON QUÉ CONDICIÓN.
+ *
+ * Es para que al sumar un material al renglón la cantidad arranque en lo que el
+ * barco realmente lleva y no en 1: el K37 lleva 2 bujes de goma 2 1/4" x 2 15/16"
+ * y 2 juegos de brazo de timón, y el sistema ya lo sabe.
+ *
+ * Devuelve también la variante, que no es un detalle: en el K37 toda la
+ * broncería de propulsión y gobierno está cargada como `linea_eje`, o sea que
+ * esas cantidades valen SÓLO si el barco lleva eje. Un K37 con pata o
+ * dentro-fuera no lleva ninguna. Si la pantalla dijera "2, según la matriz" a
+ * secas estaría afirmando que todo K37 las lleva, que es justo lo que no pasa.
+ *
+ * Devuelve null cuando el material no figura en esa línea -un insumo de taller,
+ * un consumible- y ahí la cantidad queda en 1. Un error tampoco rompe nada:
+ * sugerir un número es una ayuda, no un requisito para poder vincular.
+ *
+ * @returns {Promise<{cantidad: number, variante: string}|null>}
+ */
+export async function cantidadDeLaLinea(materialId, modelo) {
+  if (!materialId || !modelo) return null;
+  const { data, error } = await supabase
+    .from("panol_material_modelo")
+    .select("cantidad,variante")
+    .eq("material_id", materialId)
+    .eq("modelo", String(modelo));
+  if (error) return null;
+
+  const filas = data || [];
+  if (!filas.length) return null;
+  // Si tuviera fila estándar y condicional, gana la estándar: un material que va
+  // siempre no deja de ir porque además esté anotado en un paquete opcional.
+  const fila = filas.find((row) => (row.variante || "standard") === "standard") || filas[0];
+  const cantidad = Number(fila.cantidad);
+  if (!Number.isFinite(cantidad) || cantidad <= 0) return null;
+  return { cantidad, variante: fila.variante || "standard" };
+}
+
+/**
+ * Ata el pedido recién creado con los renglones de la obra, por material.
+ *
+ * Devuelve cuántos enganchó. Puede ser menos que las líneas del pedido y está
+ * bien: sólo toma renglones en "pendiente" y sin otro pedido encima, así que lo
+ * que alguien ya movió a mano se respeta. Cero también es un resultado válido
+ * -un insumo que no está en la matriz de la obra no tiene renglón que marcar-.
+ */
+export async function engancharPedidoALaObra(purchaseRequestId, obraId) {
+  if (!purchaseRequestId || !obraId) return 0;
+  const { data, error } = await supabase.rpc("torneria_enganchar_pedido_a_obra", {
+    p_request_id: purchaseRequestId,
+    p_obra_id: obraId,
+  });
+  if (error) throw error;
+  return Number(data) || 0;
+}
+
 export async function vincularItemsAPedidoCompra(vinculos = [], purchaseRequestId) {
   const lista = vinculos.filter((row) => row?.itemId);
   if (!lista.length || !purchaseRequestId) return [];
@@ -381,6 +445,49 @@ function definitionPayload(fields, planos) {
   };
 }
 
+/**
+ * Deja la lista de materiales de un renglón igual a la que mandó la pantalla.
+ *
+ * Borra sólo los que sacaron y reescribe los que quedaron, en vez de vaciar y
+ * volver a cargar: entre el borrado y el alta el renglón quedaría un instante
+ * sin ningún material, el trigger le pondría material_id en null, y cualquiera
+ * que mirara en ese momento vería el renglón "sin catálogo".
+ */
+async function sincronizarMaterialesDelRenglon(tabla, columnaItem, itemIds, materiales) {
+  const ids = [...new Set((itemIds || []).filter(Boolean))];
+  if (!ids.length) return;
+
+  const filas = [];
+  const vistos = new Set();
+  for (const row of materiales || []) {
+    const materialId = row?.material_id || row?.id || null;
+    if (!materialId || vistos.has(materialId)) continue;
+    vistos.add(materialId);
+    const cantidad = Number(row?.cantidad);
+    filas.push({
+      material_id: materialId,
+      cantidad: Number.isFinite(cantidad) && cantidad > 0 ? cantidad : 1,
+      orden: filas.length,
+    });
+  }
+
+  for (const itemId of ids) {
+    let borrado = supabase.from(tabla).delete().eq(columnaItem, itemId);
+    if (filas.length) {
+      borrado = borrado.not("material_id", "in", `(${filas.map((f) => f.material_id).join(",")})`);
+    }
+    const { error } = await borrado;
+    if (error) throw error;
+  }
+
+  if (!filas.length) return;
+  const { error } = await supabase.from(tabla).upsert(
+    ids.flatMap((itemId) => filas.map((fila) => ({ [columnaItem]: itemId, ...fila }))),
+    { onConflict: `${columnaItem},material_id` },
+  );
+  if (error) throw error;
+}
+
 export async function guardarItemDefinicion({
   item = null,
   proceso,
@@ -406,16 +513,24 @@ export async function guardarItemDefinicion({
       : fields.compra_estado || item?.compra_estado || "pendiente_solicitud",
   };
 
+  // La lista de materiales viaja aparte del payload del renglón: vive en su
+  // propia tabla. `material_id` lo repone el trigger a partir de ella.
+  const materiales = Array.isArray(fields?.materiales) ? fields.materiales : null;
+
   if (alcance !== "linea") {
     if (item?.id) {
-      return ok(await supabase
+      const guardado = ok(await supabase
         .from("torneria_items")
         .update(currentPayload)
         .eq("id", item.id)
         .select()
         .single());
+      if (materiales) {
+        await sincronizarMaterialesDelRenglon("torneria_item_materiales", "item_id", [item.id], materiales);
+      }
+      return guardado;
     }
-    return ok(await supabase
+    const creado = ok(await supabase
       .from("torneria_items")
       .insert({
         proceso_id: proceso.id,
@@ -426,6 +541,10 @@ export async function guardarItemDefinicion({
       })
       .select()
       .single());
+    if (materiales) {
+      await sincronizarMaterialesDelRenglon("torneria_item_materiales", "item_id", [creado?.id], materiales);
+    }
+    return creado;
   }
 
   if (!proceso.plantilla_id) {
@@ -501,6 +620,23 @@ export async function guardarItemDefinicion({
   const currentRow = [...(existingRows || []), ...insertedRows]
     .find((row) => row.proceso_id === proceso.id);
   if (!currentRow?.id) throw new Error("No se pudo actualizar el material de esta obra.");
+
+  // Alcance "toda la línea": la lista va a la plantilla -para las obras que
+  // vengan- y a cada obra activa que ya tiene el renglón.
+  if (materiales) {
+    await sincronizarMaterialesDelRenglon(
+      "torneria_plantilla_item_materiales",
+      "plantilla_item_id",
+      [templateItem.id],
+      materiales,
+    );
+    await sincronizarMaterialesDelRenglon(
+      "torneria_item_materiales",
+      "item_id",
+      [...existingIds, ...insertedRows.map((row) => row.id)],
+      materiales,
+    );
+  }
 
   return ok(await supabase
     .from("torneria_items")

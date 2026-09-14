@@ -3439,18 +3439,50 @@ export async function guardarPrecioVarianteMaterial(
 }
 
 // Setea la cantidad del BOM de un material para una línea/modelo, sin tocar las demás.
-export async function setCantidadModelo(materialId, modelo, cantidad) {
+/**
+ * Pone la cantidad de un material en una línea.
+ *
+ * RESPETA LA VARIANTE CON LA QUE EL MATERIAL YA ESTÁ EN ESA LÍNEA. Antes esto
+ * escribía siempre `standard`, sin mirar nada, y ahí estaba la fábrica de
+ * duplicados: editarle la cantidad a un ítem del paquete de línea de eje le
+ * creaba una fila estándar AL LADO de la condicional. El material pasaba a
+ * figurar como que el barco lo lleva siempre y además si lleva eje, y en el
+ * catálogo aparecía con el cartel "Base" aunque fuera condicional.
+ *
+ * Así se generaron los 7 duplicados que hubo que limpiar en el K37 en
+ * septiembre de 2026, y así apareció uno nuevo horas después de esa limpieza.
+ *
+ * Un material que todavía no está en la línea entra como `standard`, que es lo
+ * correcto: lo condicional se marca a propósito, no por accidente.
+ */
+export async function setCantidadModelo(materialId, modelo, cantidad, variante = null) {
   const n = toNullableNumber(cantidad);
   if (!materialId || !modelo) return;
   if (n == null || n <= 0) {
     await quitarCantidadModelo(materialId, modelo);
     return;
   }
+
+  let destino = variante;
+  if (!destino) {
+    const { data } = await supabase
+      .from("panol_material_modelo")
+      .select("variante")
+      .eq("material_id", materialId)
+      .eq("modelo", String(modelo));
+    const filas = data || [];
+    // Si tuviera las dos -que no debería-, gana la estándar: un material que va
+    // siempre no deja de ir porque además esté en un paquete opcional.
+    destino = !filas.length || filas.some((row) => (row.variante || VARIANTE_BASE) === VARIANTE_BASE)
+      ? VARIANTE_BASE
+      : (filas[0].variante || VARIANTE_BASE);
+  }
+
   const { error } = await supabase.from("panol_material_modelo").upsert(
     {
       material_id: materialId,
       modelo: String(modelo),
-      variante: VARIANTE_BASE,
+      variante: destino,
       cantidad: n,
     },
     { onConflict: "material_id,modelo,variante" },

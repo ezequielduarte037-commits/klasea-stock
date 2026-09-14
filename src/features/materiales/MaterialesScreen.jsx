@@ -73,7 +73,7 @@ import { obraThemeScope } from "./obra/obraListaPresentation";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney, textoTooltip } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
-import { csvCell, MODELOS, norm, toBomMap } from "./materialesParser";
+import { csvCell, MODELOS, norm, toBomMap, VARIANTE_BASE, VARIANTE_LINEA_EJE } from "./materialesParser";
 import {
   fetchMatrizCondicionantes,
   excluirMaterialDeObra,
@@ -1553,8 +1553,14 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   }
 
   const sector = categorias.find((c) => c.id === material.categoria_id)?.nombre;
-  const bom = toBomMap(material);
+  // Las dos matrices, separadas. Antes se mostraba una sola cifra por línea y un
+  // material del paquete de línea de eje aparecía como "K37 1", que se lee como
+  // "todo K37 lleva uno". No lo lleva: un K37 con pata o dentro-fuera no lleva
+  // ninguno. La cifra existe, pero es condicional, y el chip tiene que decirlo.
+  const bom = toBomMap(material, VARIANTE_BASE);
+  const bomEje = toBomMap(material, VARIANTE_LINEA_EJE);
   const lineasConQty = MODELOS.filter((m) => toNum(bom[m]) > 0);
+  const lineasEje = MODELOS.filter((m) => toNum(bomEje[m]) > 0);
   const review = reviewInfoForMaterial(material);
   const savedVariants = materialVariants(material);
   const precio = priceInfo(material);
@@ -1607,7 +1613,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <MaterialLinksSummary links={material.links} />
           </div>
         </div>
-        {lineasConQty.length > 0 && (
+        {(lineasConQty.length > 0 || lineasEje.length > 0) && (
           <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 220 }}>
             {lineasConQty.map((m) => {
               const on = linea === m;
@@ -1617,6 +1623,21 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                     background: on ? C.blue : "rgba(59,130,246,0.1)", border: `1px solid ${on ? C.blue : "rgba(59,130,246,0.25)"}`,
                     borderRadius: 6, padding: "2px 7px" }}>
                   K{m} {toNum(bom[m])}
+                </span>
+              );
+            })}
+            {/* En violeta y con la palabra "eje": es el color con el que la
+                línea de eje ya se muestra en el resto de la pantalla, y así no
+                se confunde con la cantidad que el barco lleva siempre. */}
+            {lineasEje.map((m) => {
+              const on = linea === m;
+              return (
+                <span key={`${m}-eje`}
+                  title={`No lo lleva todo K${m}. Son ${toNum(bomEje[m])} sólo si el barco es de línea de eje.`}
+                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: on ? "#fff" : C.violet,
+                    background: on ? C.violet : "rgba(139,92,246,0.1)", border: `1px solid ${on ? C.violet : "rgba(139,92,246,0.28)"}`,
+                    borderRadius: 6, padding: "2px 7px" }}>
+                  K{m} eje {toNum(bomEje[m])}
                 </span>
               );
             })}
@@ -3529,9 +3550,18 @@ function RevisionTab({ categorias, materiales, proveedores, onChanged }) {
 
 function exportCatalogoCsv(categorias, materiales) {
   const catById = new Map(categorias.map((c) => [c.id, c.nombre]));
-  const headers = ["Descripción", "Sector", "Proveedor", "UM", "Precio", "Moneda", "Código", "Cant 37", "Cant 52", "Cant 55", "Revisado"];
+  // Las cantidades condicionales van en su propia columna. Mezcladas con las
+  // estándar, el que abre el CSV suma un K37 que no existe: los ítems de línea
+  // de eje sólo van si el barco la lleva.
+  const headers = [
+    "Descripción", "Sector", "Proveedor", "UM", "Precio", "Moneda", "Código",
+    "Cant 37", "Cant 52", "Cant 55",
+    "Cant 37 línea de eje", "Cant 52 línea de eje", "Cant 55 línea de eje",
+    "Revisado",
+  ];
   const rows = materiales.filter(materialActivo).map((m) => {
-    const bom = toBomMap(m);
+    const bom = toBomMap(m, VARIANTE_BASE);
+    const bomEje = toBomMap(m, VARIANTE_LINEA_EJE);
     const price = precioVigente(m);
     return [
       m.descripcion,
@@ -3544,6 +3574,9 @@ function exportCatalogoCsv(categorias, materiales) {
       bom[37],
       bom[52],
       bom[55],
+      bomEje[37],
+      bomEje[52],
+      bomEje[55],
       m.revisado ? "sí" : "no",
     ];
   });

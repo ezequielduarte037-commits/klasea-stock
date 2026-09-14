@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import { buscarMateriales } from "@/features/produccion/catalogoBusquedaApi";
+import { cantidadDeLaLinea } from "./torneriaApi";
 import {
   Field, Modal,
 } from "./torneriaUi";
@@ -195,7 +196,19 @@ export function ProcesoModal({ proceso, onClose, onSave }) {
   );
 }
 
-function CatalogSearch({ selected, onSelect }) {
+/**
+ * Vínculo del renglón con el catálogo de pañol. Acepta VARIOS materiales.
+ *
+ * Un renglón como "Lote de broncería y bujes" es en la realidad cinco o seis
+ * piezas distintas, cada una con su cantidad. Con un solo vínculo el lote
+ * figuraba sin catálogo, o peor: atado a una sola pieza y costeado como si esa
+ * fuera todo el lote.
+ *
+ * La cantidad de acá es cuántas unidades de ESE material lleva el renglón, y no
+ * tiene que ver con la cantidad del renglón: el lote va 1 y adentro lleva 2
+ * bujes de una medida y 1 de otra.
+ */
+function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState([]);
@@ -222,21 +235,104 @@ function CatalogSearch({ selected, onSelect }) {
     };
   }, [open, q]);
 
+  const yaEsta = (id) => seleccionados.some((row) => row.material_id === id);
+
   return (
     <div style={{ display: "grid", gap: 8 }}>
+      {seleccionados.length > 0 && (
+        <div style={{ display: "grid", gap: 5 }}>
+          {seleccionados.map((row) => {
+            const mat = row.material || {};
+            return (
+              <div key={row.material_id} style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "7px 9px", borderRadius: 10,
+                border: `1px solid ${C.greenB}`, background: C.greenL,
+              }}>
+                {/* La unidad va PEGADA al número. Un "1" suelto no dice si es
+                    un metro, un kilo o una pieza, y ese par -cantidad + unidad-
+                    es exactamente lo que viaja al pedido de Compras. */}
+                <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={row.cantidad}
+                    onChange={(event) => onCantidad?.(row.material_id, event.target.value)}
+                    aria-label={`Cantidad de ${mat.descripcion || "material"}`}
+                    title="Cuánto de este material lleva el renglón. Es la cantidad que se le pide a Compras."
+                    style={{ ...INPUT, width: 58, minHeight: 30, padding: "0 7px", textAlign: "center" }}
+                  />
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+                    {mat.unidad_medida || mat.unidad || "unidad"}
+                  </span>
+                </div>
+                {/* De dónde salió ese número, y con qué condición.
+                    Decir "matriz" a secas sería mentir en el K37: ahí toda la
+                    broncería de eje y timón está cargada como condicional, o sea
+                    que esas cantidades valen SÓLO si el barco lleva línea de eje.
+                    Un K37 con pata no lleva ninguna. */}
+                {row.origenCantidad && (
+                  <span
+                    title={row.origenCantidad === "linea_eje"
+                      ? "Cantidad del paquete de línea de eje. Vale si este barco la lleva; si va con pata o dentro-fuera, corregila."
+                      : "Cantidad que la línea lleva siempre, según su matriz. Podés cambiarla."}
+                    style={{
+                      flexShrink: 0, fontSize: 9, fontWeight: 850,
+                      borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap",
+                      color: row.origenCantidad === "linea_eje" ? C.violet : C.blue,
+                      border: `1px solid ${row.origenCantidad === "linea_eje" ? C.violetB : C.blueB}`,
+                      background: row.origenCantidad === "linea_eje" ? C.violetL : C.blueL,
+                    }}
+                  >
+                    {row.origenCantidad === "linea_eje" ? "línea de eje" : "matriz"}
+                  </span>
+                )}
+                <div style={{ minWidth: 0, flex: 1, display: "grid" }}>
+                  {mat.alias && (
+                    <span style={{ color: C.blue, fontSize: 10, fontWeight: 850 }}>{mat.alias}</span>
+                  )}
+                  <span style={{
+                    fontSize: 11.5, fontWeight: 800, color: C.text,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {mat.descripcion || "Material del catálogo"}
+                  </span>
+                  <span style={{ color: C.dim, fontSize: 10 }}>
+                    {[mat.codigo, mat.proveedor, mat.unidad_medida || mat.unidad].filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onQuitar?.(row.material_id)}
+                  title="Quitar del renglón"
+                  aria-label="Quitar del renglón"
+                  style={{
+                    ...BUTTON, width: 30, minHeight: 30, padding: 0, flexShrink: 0,
+                    justifyContent: "center", color: C.red, borderColor: C.border, background: C.panel,
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <button type="button" onClick={() => setOpen((value) => !value)} style={{
         ...BUTTON,
         width: "100%",
         justifyContent: "flex-start",
         minHeight: 46,
-        color: selected ? C.green : C.muted,
-        borderColor: selected ? C.greenB : C.border,
-        background: selected ? C.greenL : C.panel,
+        color: seleccionados.length ? C.green : C.muted,
+        borderColor: seleccionados.length ? C.greenB : C.border,
+        background: C.panel,
       }}>
-        <Link2 size={15} />
+        {seleccionados.length ? <Plus size={15} /> : <Link2 size={15} />}
         <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {selected
-            ? `${selected.codigo ? `${selected.codigo} · ` : ""}${selected.descripcion}`
+          {seleccionados.length
+            ? `Agregar otro material · ${seleccionados.length} vinculado${seleccionados.length === 1 ? "" : "s"}`
             : "Vincular con un ítem del catálogo"}
         </span>
       </button>
@@ -270,27 +366,37 @@ function CatalogSearch({ selected, onSelect }) {
                 Sin coincidencias
               </div>
             )}
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const puesto = yaEsta(row.id);
+              return (
               <button
                 key={row.id}
                 type="button"
-                onClick={() => {
-                  onSelect(row);
-                  setOpen(false);
-                }}
+                disabled={puesto}
+                // No se cierra al elegir: un lote se arma agregando varios
+                // seguidos, y volver a abrir el buscador por cada uno era el
+                // camino largo para hacer lo mismo.
+                onClick={() => { if (!puesto) onAgregar?.(row); }}
+                title={puesto ? "Ya está en el renglón" : "Agregar al renglón"}
                 style={{
                   display: "grid",
                   gap: 2,
                   width: "100%",
                   padding: "9px 10px",
                   borderRadius: 9,
-                  border: `1px solid ${C.border}`,
-                  background: C.panelSolid,
+                  border: `1px solid ${puesto ? C.greenB : C.border}`,
+                  background: puesto ? C.greenL : C.panelSolid,
                   color: C.text,
-                  cursor: "pointer",
+                  cursor: puesto ? "default" : "pointer",
                   textAlign: "left",
+                  opacity: puesto ? 0.75 : 1,
                 }}
               >
+                {puesto && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontSize: 10, fontWeight: 850 }}>
+                    <Check size={11} /> Ya está en el renglón
+                  </span>
+                )}
                 {/* El alias va arriba y resaltado: es el nombre con el que el
                     taller pide la pieza -"Manchon", "Palma pata de gallo"- y
                     sin verlo no se entiende por qué apareció un "Bulón Cabeza
@@ -303,7 +409,8 @@ function CatalogSearch({ selected, onSelect }) {
                   {[row.codigo, row.proveedor, row.unidad].filter(Boolean).join(" · ")}
                 </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -311,9 +418,45 @@ function CatalogSearch({ selected, onSelect }) {
   );
 }
 
+/**
+ * La lista de materiales con la que abre el modal.
+ *
+ * Un renglón nuevo trae la lista de `torneria_item_materiales`; uno de antes de
+ * esto sólo tiene el material suelto. Los dos entran igual, así ninguno queda
+ * sin vínculo por haberse cargado antes.
+ */
+/**
+ * Qué modelo de barco es esta obra: "37-43" → "37".
+ *
+ * Las líneas que no tienen matriz cargada -Antago, K43, K64- devuelven null y
+ * ahí la cantidad arranca en 1, como antes.
+ */
+function modeloDelProceso(proceso) {
+  const primero = String(proceso?.obra?.codigo || "").split("-")[0].replace(/^K/i, "").trim();
+  return /^\d+$/.test(primero) ? primero : null;
+}
+
+function materialesDelItem(item) {
+  const lista = Array.isArray(item?.materiales) ? [...item.materiales] : [];
+  if (lista.length) {
+    return lista
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      .map((row) => ({
+        material_id: row.material_id,
+        cantidad: Number(row.cantidad) > 0 ? Number(row.cantidad) : 1,
+        material: row.material || null,
+      }));
+  }
+  if (item?.material_id) {
+    return [{ material_id: item.material_id, cantidad: 1, material: item.material || null }];
+  }
+  return [];
+}
+
 export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
   const isNew = !item?.id;
-  const [catalog, setCatalog] = useState(item?.material ?? null);
+  const [catalogo, setCatalogo] = useState(() => materialesDelItem(item));
+  const modeloDeLaLinea = useMemo(() => modeloDelProceso(proceso), [proceso]);
   const [alcance, setAlcance] = useState("obra");
   const [planos, setPlanos] = useState(() => Array.isArray(item?.planos) ? item.planos : []);
   const [archivosNuevos, setArchivosNuevos] = useState([]);
@@ -335,15 +478,57 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
   const [saving, setSaving] = useState(false);
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  function pickMaterial(material) {
-    setCatalog(material);
-    setForm((prev) => ({
-      ...prev,
-      material_id: material.id,
-      descripcion: prev.descripcion || material.descripcion,
-      proveedor_compra: prev.proveedor_compra || material.proveedor,
-      unidad: prev.unidad || material.unidad,
-    }));
+  // Sólo el PRIMER material completa los campos vacíos del renglón. Del segundo
+  // en adelante no: un lote tiene su propia descripción y su propia unidad, y
+  // pisarlas con las de la última pieza agregada sería borrar lo que escribieron.
+  function agregarMaterial(material) {
+    if (catalogo.some((row) => row.material_id === material.id)) return;
+    const esElPrimero = catalogo.length === 0;
+    setCatalogo((prev) => (
+      prev.some((row) => row.material_id === material.id)
+        ? prev
+        : [...prev, { material_id: material.id, cantidad: 1, material, origenCantidad: null }]
+    ));
+    if (esElPrimero) {
+      setForm((prev) => ({
+        ...prev,
+        descripcion: prev.descripcion || material.descripcion || "",
+        proveedor_compra: prev.proveedor_compra || material.proveedor || "",
+        unidad: prev.unidad || material.unidad || "unidad",
+      }));
+    }
+
+    // La cantidad de la matriz llega un instante después. El renglón ya está en
+    // pantalla con 1 y se corrige solo: si se esperara la consulta antes de
+    // mostrarlo, armar un lote de seis serían seis esperas seguidas.
+    if (!modeloDeLaLinea) return;
+    cantidadDeLaLinea(material.id, modeloDeLaLinea)
+      .then((dato) => {
+        if (!dato) return;
+        setCatalogo((prev) => prev.map((row) => (
+          // Sólo si nadie lo tocó todavía: la consulta es rápida, pero si la
+          // persona ya escribió su número, el suyo manda.
+          row.material_id === material.id && Number(row.cantidad) === 1
+            ? { ...row, cantidad: dato.cantidad, origenCantidad: dato.variante }
+            : row
+        )));
+      })
+      .catch(() => {});
+  }
+
+  function quitarMaterial(materialId) {
+    setCatalogo((prev) => prev.filter((row) => row.material_id !== materialId));
+  }
+
+  // Se guarda lo que se escribe tal cual -para poder borrar y reescribir- y se
+  // normaliza recién al mandar.
+  function cambiarCantidadMaterial(materialId, valor) {
+    setCatalogo((prev) => prev.map((row) => (
+      // Al escribirla a mano deja de venir de la línea: el cartelito se va,
+      // porque si no estaría diciendo que ese número salió de un lado del que ya
+      // no salió.
+      row.material_id === materialId ? { ...row, cantidad: valor, origenCantidad: null } : row
+    )));
   }
 
   async function submit() {
@@ -356,7 +541,13 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
         archivosNuevos,
         fields: {
           ...form,
-          material_id: form.es_resultado ? null : form.material_id || null,
+          // La lista manda; material_id queda apuntando al primero para que lo
+          // viejo -pedido a Compras, cartel de Catálogo- siga funcionando.
+          material_id: form.es_resultado ? null : catalogo[0]?.material_id || null,
+          materiales: form.es_resultado ? [] : catalogo.map((row) => ({
+            material_id: row.material_id,
+            cantidad: Number(row.cantidad) > 0 ? Number(row.cantidad) : 1,
+          })),
           cantidad: Number(form.cantidad),
           proveedor_compra: form.es_resultado ? null : form.proveedor_compra.trim() || null,
           solicitado_por_torneria: form.es_resultado ? false : form.solicitado_por_torneria,
@@ -507,7 +698,14 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           )}
         </section>
 
-        {!form.es_resultado && <CatalogSearch selected={catalog} onSelect={pickMaterial} />}
+        {!form.es_resultado && (
+          <CatalogSearch
+            seleccionados={catalogo}
+            onAgregar={agregarMaterial}
+            onQuitar={quitarMaterial}
+            onCantidad={cambiarCantidadMaterial}
+          />
+        )}
 
         {form.es_resultado && (
           <div style={{

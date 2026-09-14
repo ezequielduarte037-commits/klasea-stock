@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import MaterialPicker from "@/features/produccion/MaterialPicker";
+import { fetchRubros } from "@/features/produccion/catalogoBusquedaApi";
 import {
   assignProduccionMaterials,
   fetchProduccionMateriales,
@@ -13,6 +14,12 @@ import {
 
 const STAGE_PREFIX = "stage:";
 const TASK_PREFIX = "task:";
+
+// Claves para agrupar lo que no tiene dato. Se usan como valor del filtro, así
+// que "sin proveedor" también se puede filtrar: suele ser lo primero que hay que
+// completar antes de mandar nada a comprar.
+const SIN_PROVEEDOR = "Sin proveedor";
+const SIN_RUBRO = "__sin_rubro__";
 
 const control = {
   minHeight: 32,
@@ -92,6 +99,9 @@ export default function MaterialesProduccionPanel({
   const [notice, setNotice] = useState("");
   const [view, setView] = useState("pending");
   const [query, setQuery] = useState("");
+  const [proveedorSel, setProveedorSel] = useState("");
+  const [rubroSel, setRubroSel] = useState("");
+  const [rubrosPorId, setRubrosPorId] = useState(() => new Map());
   const [selected, setSelected] = useState(() => new Set());
   const [target, setTarget] = useState(() => targetForProcess(selectedProcessId));
   const [picker, setPicker] = useState(false);
@@ -144,14 +154,67 @@ export default function MaterialesProduccionPanel({
     () => data.assignments.filter((row) => row.linea_proceso_id === selectedProcessId),
     [data.assignments, selectedProcessId],
   );
+  // Los rubros vienen del catálogo -la matriz sólo trae categoria_id- y están
+  // cacheados por sesión, así que pedirlos acá no cuesta una vuelta más.
+  useEffect(() => {
+    let vivo = true;
+    fetchRubros()
+      .then((lista) => { if (vivo) setRubrosPorId(new Map((lista || []).map((r) => [r.id, r.nombre]))); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  const rubroDeFila = useCallback((row) => {
+    const id = row?.categoria_id || "";
+    return { clave: id || SIN_RUBRO, nombre: rubrosPorId.get(id) || "Sin rubro" };
+  }, [rubrosPorId]);
+
+  // Las opciones salen de lo que HAY en la bandeja, no del catálogo entero: un
+  // desplegable con doscientos proveedores donde seis tienen algo para asignar
+  // no filtra, estorba. Y cada una dice cuántos renglones tiene, que es lo que
+  // se mira para decidir por dónde empezar.
+  const opcionesProveedor = useMemo(() => {
+    const cuenta = new Map();
+    for (const row of pending) {
+      const nombre = String(row.proveedor || "").trim() || SIN_PROVEEDOR;
+      cuenta.set(nombre, (cuenta.get(nombre) || 0) + 1);
+    }
+    return [...cuenta.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"));
+  }, [pending]);
+
+  const opcionesRubro = useMemo(() => {
+    const cuenta = new Map();
+    for (const row of pending) {
+      const { clave, nombre } = rubroDeFila(row);
+      const previo = cuenta.get(clave);
+      if (previo) previo.total += 1;
+      else cuenta.set(clave, { nombre, total: 1 });
+    }
+    return [...cuenta.entries()].sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, "es"));
+  }, [pending, rubroDeFila]);
+
+  const filtrosPuestos = Boolean(query.trim() || proveedorSel || rubroSel);
+
   const filteredPending = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("es");
-    if (!term) return pending;
-    return pending.filter((row) =>
-      `${row.descripcion || ""} ${row.codigo || ""} ${row.proveedor || ""}`
+    return pending.filter((row) => {
+      if (proveedorSel && (String(row.proveedor || "").trim() || SIN_PROVEEDOR) !== proveedorSel) return false;
+      if (rubroSel && rubroDeFila(row).clave !== rubroSel) return false;
+      if (!term) return true;
+      return `${row.descripcion || ""} ${row.codigo || ""} ${row.proveedor || ""}`
         .toLocaleLowerCase("es")
-        .includes(term));
-  }, [pending, query]);
+        .includes(term);
+    });
+  }, [pending, query, proveedorSel, rubroSel, rubroDeFila]);
+
+  // Si se saca lo último de un proveedor o un rubro, el filtro queda apuntando a
+  // algo que ya no existe y la bandeja se ve vacía sin motivo. Se limpia solo.
+  useEffect(() => {
+    if (proveedorSel && !opcionesProveedor.some(([nombre]) => nombre === proveedorSel)) setProveedorSel("");
+  }, [opcionesProveedor, proveedorSel]);
+  useEffect(() => {
+    if (rubroSel && !opcionesRubro.some(([clave]) => clave === rubroSel)) setRubroSel("");
+  }, [opcionesRubro, rubroSel]);
 
   const targetOptions = useMemo(() => processes.flatMap((process) => [
     {
@@ -449,11 +512,58 @@ export default function MaterialesProduccionPanel({
                   style={{ ...control, width: "100%", boxSizing: "border-box", padding: "5px 9px 5px 27px" }}
                 />
               </div>
+
+              <select
+                value={proveedorSel}
+                onChange={(event) => setProveedorSel(event.target.value)}
+                aria-label="Filtrar por proveedor"
+                title="Filtrar por proveedor"
+                style={{ ...control, padding: "5px 8px", maxWidth: 190 }}
+              >
+                <option value="">Todos los proveedores</option>
+                {opcionesProveedor.map(([nombre, total]) => (
+                  <option key={nombre} value={nombre}>{nombre} ({total})</option>
+                ))}
+              </select>
+
+              <select
+                value={rubroSel}
+                onChange={(event) => setRubroSel(event.target.value)}
+                aria-label="Filtrar por rubro"
+                title="Filtrar por rubro"
+                style={{ ...control, padding: "5px 8px", maxWidth: 190 }}
+              >
+                <option value="">Todos los rubros</option>
+                {opcionesRubro.map(([clave, info]) => (
+                  <option key={clave} value={clave}>{info.nombre} ({info.total})</option>
+                ))}
+              </select>
+
+              {filtrosPuestos && (
+                <button
+                  type="button"
+                  onClick={() => { setQuery(""); setProveedorSel(""); setRubroSel(""); }}
+                  title="Limpiar los filtros"
+                  style={{ border: 0, background: "transparent", color: C.dim, cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 800 }}
+                >
+                  Limpiar
+                </button>
+              )}
+
               <button type="button" onClick={toggleAllVisible} style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 800 }}>
                 {filteredPending.length > 0 && filteredPending.every((row) => selected.has(row.id))
                   ? "Desmarcar visibles"
                   : "Seleccionar visibles"}
               </button>
+
+              {/* Con filtro puesto, "Seleccionar visibles" toma lo filtrado y no
+                  la bandeja entera. Decir cuántos son evita asignar 40 creyendo
+                  que eran 6. */}
+              {filtrosPuestos && (
+                <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>
+                  {filteredPending.length} de {pending.length}
+                </span>
+              )}
               {selected.size > 0 && (
                 <button
                   type="button"
@@ -504,9 +614,25 @@ export default function MaterialesProduccionPanel({
               </div>
             </div>
           ) : !filteredPending.length ? (
-            <div style={{ padding: 22, color: C.dim, fontSize: 11, textAlign: "center" }}>No hay productos que coincidan con “{query}”.</div>
+            <div style={{ display: "grid", justifyItems: "center", gap: 8, padding: "22px 14px", color: C.dim, fontSize: 11, textAlign: "center" }}>
+              {/* El filtro puede ser texto, proveedor o rubro: el cartel tiene
+                  que decir cuál está puesto, o parece que la bandeja se vació. */}
+              <span>
+                Ninguno de los {pending.length} productos de la bandeja coincide con
+                {query.trim() ? ` “${query.trim()}”` : ""}
+                {proveedorSel ? `${query.trim() ? " ·" : ""} ${proveedorSel}` : ""}
+                {rubroSel ? `${query.trim() || proveedorSel ? " ·" : ""} ${opcionesRubro.find(([clave]) => clave === rubroSel)?.[1]?.nombre || "ese rubro"}` : ""}.
+              </span>
+              <button
+                type="button"
+                onClick={() => { setQuery(""); setProveedorSel(""); setRubroSel(""); }}
+                style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 850 }}
+              >
+                Limpiar los filtros
+              </button>
+            </div>
           ) : (
-            <div style={{ maxHeight: 250, overflowY: "auto" }}>
+            <div style={{ maxHeight: 420, overflowY: "auto" }}>
               {filteredPending.map((row) => {
                 const checked = selected.has(row.id);
                 return (

@@ -9,6 +9,7 @@ import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
+import NormalizacionIngresosPanel from "@/features/panol/NormalizacionIngresosPanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
@@ -922,7 +923,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const requestedQuery = embedded ? "" : (searchParams.get("q") || "");
   const normalizedRequestedTab = requestedTab === "mapa" || requestedTab === "reconciliar"
     ? "maestro"
-    : requestedTab === "devoluciones"
+    : requestedTab === "devoluciones" || requestedTab === "normalizacion"
       ? "movimientos"
       : requestedTab;
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
@@ -933,6 +934,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const role = profile?.role;
   const isAdmin = hasAdminAccess(profile);
   const isManager = isAdmin || role === "compras";
+  const canNormalize = isAdmin || ["compras", "tecnica"].includes(role);
   const userSede = canonicalPanolSede(profile?.sede);
   const sedeLocked = role === "panol" && userSede ? userSede : null;
   const canReceive = isManager || role === "panol";
@@ -941,7 +943,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   // ── Navegación ──
   const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === normalizedRequestedTab) ? normalizedRequestedTab : "maestro");
   const [inventoryView, setInventoryView] = useState(() => requestedTab === "mapa" || requestedView === "mapa" ? "mapa" : "lista");
-  const [movimientosView, setMovimientosView] = useState(() => requestedTab === "devoluciones" ? "devoluciones" : "todos");
+  const [movimientosView, setMovimientosView] = useState(() => requestedTab === "devoluciones" ? "devoluciones" : requestedTab === "normalizacion" ? "normalizacion" : "todos");
   const [maestroScope, setMaestroScope] = useState(() => requestedTab === "reconciliar" ? "reconciliar" : "existencia");
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
@@ -1005,9 +1007,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     else if (normalizedRequestedTab === "maestro") setInventoryView("lista");
     if (requestedTab === "reconciliar") setMaestroScope("reconciliar");
     if (requestedTab === "devoluciones") setMovimientosView("devoluciones");
+    else if (requestedTab === "normalizacion" && canNormalize) setMovimientosView("normalizacion");
     if (!TABS.some((entry) => entry.key === normalizedRequestedTab) || normalizedRequestedTab === tab) return;
     setTab(normalizedRequestedTab);
-  }, [embedded, normalizedRequestedTab, requestedTab, requestedView, tab]);
+  }, [canNormalize, embedded, normalizedRequestedTab, requestedTab, requestedView, tab]);
 
   // ── Índice: filas agrupadas por obraId ──
   const rowsByObraId = useMemo(() => {
@@ -1113,6 +1116,15 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     }
   }
 
+  function handleMovimientosView(view) {
+    setMovimientosView(view);
+    if (embedded) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", view === "devoluciones" ? "devoluciones" : view === "normalizacion" ? "normalizacion" : "movimientos");
+    nextParams.delete("view");
+    setSearchParams(nextParams, { replace: true });
+  }
+
   // Lo que ve el stock maestro y el historial: todo menos los consumibles.
   // "Por obra" no se toca: adentro de un barco los consumibles van con el
   // resto, separados por su rubro.
@@ -1171,17 +1183,17 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
           {!embedded && (
           <div style={{
             background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.border}`,
-            padding: isMobile ? "9px 12px 9px 54px" : "10px 18px",
-            display: "flex", alignItems: "center", gap: 11, flexShrink: 0,
+            padding: isMobile ? "6px 10px 6px 50px" : "6px 14px",
+            display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
           }}>
-            <div style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
-              <Warehouse size={16} />
+            <div style={{ width: 27, height: 27, borderRadius: 8, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
+              <Warehouse size={14} />
             </div>
             {/* Título y bajada en la misma línea. La bajada explica de qué va la
                 pantalla: se lee una vez y después sólo ocupa alto útil. */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>{screenTitle || "Stock de pañol"}</div>
-              <div style={{ fontSize: 10.5, color: C.dim, letterSpacing: 0.9, textTransform: "uppercase", fontWeight: 750 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>{screenTitle || "Stock de pañol"}</div>
+              <div style={{ fontSize: 9.5, color: C.dim, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 750 }}>
                 {screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
               </div>
             </div>
@@ -1190,15 +1202,15 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               onClick={cargar}
               disabled={loading}
               title="Actualizar"
-              style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 8, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center", flexShrink: 0 }}
+              style={{ width: 29, height: 29, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: 0, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center", flexShrink: 0 }}
             >
-              <RefreshCw size={15} />
+              <RefreshCw size={13} />
             </button>
           </div>
           )}
 
           {/* ── Tabs ── */}
-          <div style={{ minHeight: 43, background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "0 10px" : "0 18px", display: "flex", alignItems: "stretch", gap: 2, flexShrink: 0, overflowX: "auto" }}>
+          <div style={{ minHeight: 36, background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "0 8px" : "0 14px", display: "flex", alignItems: "stretch", gap: 2, flexShrink: 0, overflowX: "auto" }}>
             {TABS.map(t => (
               <button
                 key={t.key}
@@ -1207,7 +1219,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 onClick={() => handleTabChange(t.key)}
                 aria-current={tab === t.key ? "page" : undefined}
                 style={{
-                  minHeight: 42, padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: C.sans,
+                  minHeight: isMobile ? 40 : 35, padding: isMobile ? "7px 12px" : "5px 12px", cursor: "pointer", fontSize: 11.5, fontFamily: C.sans,
                   fontWeight: tab === t.key ? 900 : 650,
                   color: tab === t.key ? C.text : C.dim,
                   background: "transparent", border: "none",
@@ -1436,24 +1448,36 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* ── TAB: Movimientos (historial general de ingresos/egresos) ── */}
             {tab === "movimientos" && (
               <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-                <div style={{ minHeight: 44, padding: isMobile ? "6px 12px" : "6px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  <div role="group" aria-label="Tipo de movimiento" style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 9 }}>
+                <div style={{ minHeight: isMobile ? 42 : 36, padding: isMobile ? "3px 8px" : "3px 14px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <div role="group" aria-label="Tipo de movimiento" style={{ display: "inline-flex", gap: 2, padding: 2, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 8 }}>
                     {[
-                      ["todos", "Todos los movimientos"],
+                      ["todos", "Historial"],
+                      ...(canNormalize ? [["normalizacion", "Estandarización"]] : []),
                       ["devoluciones", "Devoluciones"],
                     ].map(([key, label]) => {
                       const active = movimientosView === key;
                       return (
-                        <button key={key} type="button" onClick={() => setMovimientosView(key)} aria-pressed={active} style={{ minHeight: 30, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>
+                        <button key={key} type="button" onClick={() => handleMovimientosView(key)} aria-pressed={active} style={{ minHeight: isMobile ? 36 : 27, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
                           {label}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                {movimientosView === "devoluciones"
-                  ? <DevolucionesPanel isMobile={isMobile} />
-                  : <MovimientosPanel rows={rowsSinConsumibles} obras={obras} isMobile={isMobile} consumiblesOcultos={consumiblesOcultos} />}
+                {movimientosView === "devoluciones" ? (
+                  <DevolucionesPanel isMobile={isMobile} />
+                ) : movimientosView === "normalizacion" && canNormalize ? (
+                  <NormalizacionIngresosPanel
+                    rows={rowsSinConsumibles}
+                    obras={obras}
+                    modelos={lineasVisibles}
+                    isMobile={isMobile}
+                    onSaved={cargar}
+                    onOpenCatalog={(materialId) => nav(`/catalogo-maestro?material=${materialId}`)}
+                  />
+                ) : (
+                  <MovimientosPanel rows={rowsSinConsumibles} obras={obras} isMobile={isMobile} consumiblesOcultos={consumiblesOcultos} />
+                )}
               </div>
             )}
           </div>
