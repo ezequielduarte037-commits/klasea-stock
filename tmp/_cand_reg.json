@@ -1,0 +1,24 @@
+﻿{
+  "search": "regulador",
+  "count": 2,
+  "rows": [
+    {
+      "id": "73028345-eee8-44b8-b935-e64936b7ee15",
+      "codigo": "8033137225116",
+      "descripcion": "Regulador de presion seaflo",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 20
+    },
+    {
+      "id": "51a44763-f845-4804-80d7-776a25aa4cd4",
+      "codigo": null,
+      "descripcion": "REGULADOR DE AGUA AMARRA",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

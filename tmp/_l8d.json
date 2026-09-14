@@ -1,0 +1,42 @@
+﻿{
+  "search": "Victron",
+  "count": 4,
+  "rows": [
+    {
+      "id": "9973057d-6fd1-4a31-b5f3-4e75b231e539",
+      "codigo": null,
+      "descripcion": "Divisor de carga 80A (tiene que tener l├¡nea de compensaci├│n para el alternador como el Victron Argodiodo 80-2AC)",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 30
+    },
+    {
+      "id": "eb4f618b-e056-4e1b-a21f-b5f75a9fbddf",
+      "codigo": "3754",
+      "descripcion": "VE DIRECT CABLE 10m VICTRON ENERGY",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 20
+    },
+    {
+      "id": "5958c39d-9763-4f02-a7df-09655cff575c",
+      "codigo": null,
+      "descripcion": "Cargador inversor Victron Multiplus 12V 3000W",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    },
+    {
+      "id": "d7d100f9-c744-45e3-825e-a0232910ce06",
+      "codigo": null,
+      "descripcion": "Victron, combinador de baterias cyrix-ct",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 12
+    }
+  ]
+}

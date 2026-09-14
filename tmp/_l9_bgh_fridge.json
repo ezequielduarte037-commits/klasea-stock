@@ -1,0 +1,14 @@
+﻿{
+  "url": "https://www.bgh.com.ar/heladera-brc330i2a",
+  "status": 200,
+  "token": "BRC330",
+  "hasToken": true,
+  "title": "heladera-brc330i2a - BGH Tienda Oficial",
+  "bytes": 1589193,
+  "productImages": [],
+  "images": [
+    "https://arbghprodio.vtexassets.com/assets/vtex.file-manager-graphql/images/6239a019-9ebd-4e83-a426-214ed3e06d92___389754e7eb34402f3a71f48173496272.png",
+    "https://arbghprodio.vtexassets.com/assets/vtex/assets-builder/arbghprodio.theme/29.0.4/footer/hotsale___354306aba7f593634e8e49d4f165dd7d.webp",
+    "https://arbghprodio.vtexassets.com/assets/vtex.file-manager-graphql/images/f3224335-4228-41a8-b2b6-331440025fb1___b14067b50b2edc49cc6fc45cba975df6.png"
+  ]
+}

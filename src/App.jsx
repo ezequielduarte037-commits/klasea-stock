@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 import { ToastProvider } from "@/components/ui/Toast";
@@ -254,12 +254,34 @@ function esRutaDeColector() {
 // Ahora vive en el menú lateral, que es chrome y no tapa contenido. Ver
 // components/Sidebar.jsx y components/NotificacionesBell.jsx.
 
+// A dónde quería entrar el usuario antes de que lo mandáramos al login.
+//
+// Viaja en la URL y no en el state de <Navigate> porque el state se pierde si
+// el navegador recarga, y el caso que importa es justo ese: los mails de avisos
+// linkean a /compras?open=<id>, alguien lo abre en el celular sin sesión, y
+// hasta ahora terminaba en la home sin la solicitud que fue a ver.
+function loginConVuelta(location) {
+  const destino = `${location.pathname}${location.search}${location.hash}`;
+  if (destino === "/" || destino.startsWith("/login")) return "/login";
+  return `/login?next=${encodeURIComponent(destino)}`;
+}
+
+// Sólo rutas internas. Un next con esquema propio o que arranque con "//" sería
+// un redirect abierto: bastaría mandar un mail con ese link para que la pantalla
+// de login de Klase A deposite al usuario en otro sitio.
+function destinoSeguro(next) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 function RequireAuth({ session, children }) {
-  if (!session) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!session) return <Navigate to={loginConVuelta(location)} replace />;
   return children;
 }
 function RequireRole({ profile, allow, children }) {
-  if (!profile) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!profile) return <Navigate to={loginConVuelta(location)} replace />;
   if (profile.is_admin || allow.includes(profile.role)) return children;
   if (profile.role === "compras") return <Navigate to="/compras" replace />;
   if (profile.role === "cadete")  return <Navigate to="/cadete" replace />;
@@ -282,7 +304,8 @@ function RequireRole({ profile, allow, children }) {
  * queriendo irse.
  */
 function RequireSede({ profile, sede, children }) {
-  if (!profile) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!profile) return <Navigate to={loginConVuelta(location)} replace />;
   const propia = canonicalPanolSede(profile.sede);
   if (profile.is_admin || !propia || propia === sede) return children;
   return <Navigate to={propia === "Chubut" ? "/laminacion-chubut" : "/laminacion"} replace />;
@@ -339,6 +362,7 @@ function RouteLoader({ label = "Cargando módulo..." }) {
 // ──────────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLoggedIn }) {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [usuario,  setUsuario]  = useState("");
   const [password, setPassword] = useState("");
   const [err,      setErr]      = useState("");
@@ -379,7 +403,9 @@ function LoginScreen({ onLoggedIn }) {
       }
 
       await onLoggedIn?.(data.session);
-      nav("/", { replace: true });
+      // Vuelve a donde quería ir, si venía de un link. RequireRole se encarga
+      // de rebotarlo igual si ese destino no le corresponde por rol.
+      nav(destinoSeguro(searchParams.get("next")) || "/", { replace: true });
     } catch {
       setErr("Error inesperado. Intentá de nuevo.");
     } finally {

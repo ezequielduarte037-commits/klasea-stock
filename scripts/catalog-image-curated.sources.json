@@ -7,7 +7,12 @@
       "model": "Kohinoor KFA 3494/7 gris",
       "sourceName": "Frávega",
       "sourcePage": "https://www.fravega.com/p/heladera-con-freezer-xl-kohinoor-kfa-3494-7-311lts-acero-21257501/",
-      "sourceTokens": ["Kohinoor", "KFA-3494-7", "311Lts", "Acero"],
+      "sourceTokens": [
+        "Kohinoor",
+        "KFA-3494-7",
+        "311Lts",
+        "Acero"
+      ],
       "imageUrl": "https://images.fravega.com/f1000/1343c9cdab269f00aed25ad986b7d6bb.jpg"
     },
     {
@@ -16,7 +21,11 @@
       "model": "Fusion MS-RA60",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/702281/pn/010-02405-00/",
-      "sourceTokens": ["Fusion", "MS-RA60", "010-02405-00"],
+      "sourceTokens": [
+        "Fusion",
+        "MS-RA60",
+        "010-02405-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02405-00/g/cf-lg-6cd45175-201b-41ea-a238-c2bcc9eb7109.jpg"
     },
     {
@@ -25,7 +34,11 @@
       "model": "Fusion MS-RA210",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/667552/",
-      "sourceTokens": ["Fusion", "MS-RA210", "010-02250-00"],
+      "sourceTokens": [
+        "Fusion",
+        "MS-RA210",
+        "010-02250-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02250-00/g/cf-lg-fa40a450-758d-4097-9944-92d709230152.jpg"
     },
     {
@@ -34,7 +47,11 @@
       "model": "Fusion Apollo MS-RA670",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/635318/",
-      "sourceTokens": ["Fusion", "MS-RA670", "010-02138-00"],
+      "sourceTokens": [
+        "Fusion",
+        "MS-RA670",
+        "010-02138-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02138-00/g/cf-lg-3cff2f4f-ac28-41c0-9045-5a6baa1f5749.jpg"
     },
     {
@@ -43,7 +60,11 @@
       "model": "Fusion Apollo MS-RA770",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/595303/pn/010-01905-00/",
-      "sourceTokens": ["Fusion", "MS-RA770", "010-01905-00"],
+      "sourceTokens": [
+        "Fusion",
+        "MS-RA770",
+        "010-01905-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-01905-00/g/cf-lg-b96aac9e-8b06-4c99-ac5a-2b26cee26582.jpg"
     },
     {
@@ -52,7 +73,11 @@
       "model": "Garmin GT30-TH",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/537083/pn/010-01961-10/",
-      "sourceTokens": ["Garmin", "GT30-TH", "010-01961-10"],
+      "sourceTokens": [
+        "Garmin",
+        "GT30-TH",
+        "010-01961-10"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-01961-10/g/cf-lg-1705b179-b397-4f6b-9411-59504978e314.jpg"
     },
     {
@@ -61,7 +86,11 @@
       "model": "Garmin GC 200",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/641542/",
-      "sourceTokens": ["Garmin", "GC 200", "010-02164-00"],
+      "sourceTokens": [
+        "Garmin",
+        "GC 200",
+        "010-02164-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02164-00/g/cf-lg-5624a810-92ae-4293-9152-1152dd7538a3.jpg"
     },
     {
@@ -70,7 +99,11 @@
       "model": "Fusion MS-RA70",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-GB/p/520064/",
-      "sourceTokens": ["Fusion", "MS-RA70", "010-01516-01"],
+      "sourceTokens": [
+        "Fusion",
+        "MS-RA70",
+        "010-01516-01"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-01516-01/v/cf-lg-c9fa69ea-342d-4ba3-8795-5dfc6702b4ac.jpg"
     },
     {
@@ -79,7 +112,11 @@
       "model": "Garmin AIS 800",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/623924/pn/010-02087-00/",
-      "sourceTokens": ["Garmin", "AIS 800", "010-02087-00"],
+      "sourceTokens": [
+        "Garmin",
+        "AIS 800",
+        "010-02087-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02087-00/g/cf-lg-691df03b-2990-42fd-9d88-388c9c8525ff.jpg"
     },
     {
@@ -88,7 +125,11 @@
       "model": "Garmin VHF 110",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/545988/",
-      "sourceTokens": ["Garmin", "VHF 110", "010-01653-00"],
+      "sourceTokens": [
+        "Garmin",
+        "VHF 110",
+        "010-01653-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-01653-00/v/cf-lg.jpg"
     },
     {
@@ -97,7 +138,11 @@
       "model": "Garmin VHF 115",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/625344/",
-      "sourceTokens": ["Garmin", "VHF 115", "010-02096-00"],
+      "sourceTokens": [
+        "Garmin",
+        "VHF 115",
+        "010-02096-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02096-00/g/cf-lg-22ac0eda-0054-4f84-b18b-ac0ba3da43fc.jpg"
     },
     {
@@ -106,7 +151,11 @@
       "model": "Garmin VHF 215",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/625346/",
-      "sourceTokens": ["Garmin", "VHF 215", "010-02097-00"],
+      "sourceTokens": [
+        "Garmin",
+        "VHF 215",
+        "010-02097-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02097-00/g/cf-lg-7d6bb409-3620-45bd-9069-19fc95c8f258.jpg"
     },
     {
@@ -115,7 +164,11 @@
       "model": "Fusion Apollo MS-RA670",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/635318/",
-      "sourceTokens": ["Fusion", "MS-RA670", "010-02138-00"],
+      "sourceTokens": [
+        "Fusion",
+        "MS-RA670",
+        "010-02138-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-02138-00/g/cf-lg-3cff2f4f-ac28-41c0-9045-5a6baa1f5749.jpg"
     },
     {
@@ -124,7 +177,11 @@
       "model": "JL Audio M3-650X-S-Gm-i",
       "sourceName": "Garmin · JL Audio",
       "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03062-00/",
-      "sourceTokens": ["JL Audio", "M3-650X-S-Gm-i", "010-03062-00"],
+      "sourceTokens": [
+        "JL Audio",
+        "M3-650X-S-Gm-i",
+        "010-03062-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-03062-00/v/cf-lg.jpg"
     },
     {
@@ -133,7 +190,11 @@
       "model": "JL Audio M3-650X-S-Gw-i",
       "sourceName": "Garmin · JL Audio",
       "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03064-00/",
-      "sourceTokens": ["JL Audio", "M3-650X-S-Gw-i", "010-03064-00"],
+      "sourceTokens": [
+        "JL Audio",
+        "M3-650X-S-Gw-i",
+        "010-03064-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-03064-00/v/cf-lg.jpg"
     },
     {
@@ -142,7 +203,11 @@
       "model": "JL Audio M3-770X-S-Gw-i",
       "sourceName": "Garmin · JL Audio",
       "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03069-00/",
-      "sourceTokens": ["JL Audio", "M3-770X-S-Gw-i", "010-03069-00"],
+      "sourceTokens": [
+        "JL Audio",
+        "M3-770X-S-Gw-i",
+        "010-03069-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-03069-00/v/cf-lg.jpg"
     },
     {
@@ -151,7 +216,11 @@
       "model": "JL Audio M3-10IB-S-Gw-i-4",
       "sourceName": "Garmin · JL Audio",
       "sourcePage": "https://www.garmin.com/en-US/p/1668497/pn/010-03265-00/",
-      "sourceTokens": ["JL Audio", "M3-10IB-S-Gw-i-4", "010-03265-00"],
+      "sourceTokens": [
+        "JL Audio",
+        "M3-10IB-S-Gw-i-4",
+        "010-03265-00"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-03265-00/v/cf-lg.jpg"
     },
     {
@@ -160,7 +229,11 @@
       "model": "Samsung UN32T4300AGCZB",
       "sourceName": "Samsung Argentina",
       "sourcePage": "https://www.samsung.com/ar/tvs/hd-tv/t4300-32-inch-hd-smart-tv-un32t4300agczb/",
-      "sourceTokens": ["Samsung", "T4300", "UN32T4300AGCZB"],
+      "sourceTokens": [
+        "Samsung",
+        "T4300",
+        "UN32T4300AGCZB"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/un32t4300agczb/gallery/ar-hd-t4300-un32t4300agczb-359430380?$1164_776_PNG$"
     },
@@ -170,7 +243,11 @@
       "model": "Samsung UN50U8000FGCZB",
       "sourceName": "Samsung Argentina",
       "sourcePage": "https://www.samsung.com/ar/tvs/uhd-4k-tv/u8000f-50-inch-crystal-uhd-4k-smart-tv-un50u8000fgczb/",
-      "sourceTokens": ["Samsung", "U8000F", "UN50U8000FGCZB"],
+      "sourceTokens": [
+        "Samsung",
+        "U8000F",
+        "UN50U8000FGCZB"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/un50u8000fgczb/gallery/ar-uhd-u8000-un50u8000fgczb-548996170?$1164_776_PNG$"
     },
@@ -180,7 +257,11 @@
       "model": "Samsung NV7B4040VAS/BG",
       "sourceName": "Samsung Argentina",
       "sourcePage": "https://www.samsung.com/ar/cooking-appliances/ovens/nv7000b-4series-single-simple-steam-4series-single-simple-steam-nv7b4040vas-bg/",
-      "sourceTokens": ["Samsung", "NV7B4040VAS/BG", "Simple Steam"],
+      "sourceTokens": [
+        "Samsung",
+        "NV7B4040VAS/BG",
+        "Simple Steam"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/nv7b4040vas-bg/gallery/ar-nv7000b-nv7b4145vak-nv7b4040vas-bg-538694651?$1164_776_PNG$"
     },
@@ -190,7 +271,11 @@
       "model": "Victron GX Touch 50",
       "sourceName": "Victron Energy",
       "sourcePage": "https://www.victronenergy.com/display-and-panels/gx-touch-50",
-      "sourceTokens": ["Victron", "GX Touch 50", "five inch"],
+      "sourceTokens": [
+        "Victron",
+        "GX Touch 50",
+        "five inch"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.victronenergy.com/upload/documents/GX%20Touch%2050%20%28front%20with%20screen%29nw.png"
     },
@@ -200,7 +285,12 @@
       "model": "Whale WX1532",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-adaptor-1-2-bsp-female-wx1532",
-      "sourceTokens": ["Whale", "WX1532", "1/2", "female"],
+      "sourceTokens": [
+        "Whale",
+        "WX1532",
+        "1/2",
+        "female"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/4a/2e/8d/1730922342/4648532.jpg?ts=1769728976"
     },
@@ -210,7 +300,11 @@
       "model": "Whale WX1514",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-adaptor-1-2-bsp-male-wx1514",
-      "sourceTokens": ["WHALE", "WX1514", "1/2"],
+      "sourceTokens": [
+        "WHALE",
+        "WX1514",
+        "1/2"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/af/19/e0/1730922332/4648514.jpg?ts=1769882792"
     },
@@ -220,7 +314,11 @@
       "model": "Whale WX1514",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-adaptor-1-2-bsp-male-wx1514",
-      "sourceTokens": ["WHALE", "WX1514", "1/2"],
+      "sourceTokens": [
+        "WHALE",
+        "WX1514",
+        "1/2"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/af/19/e0/1730922332/4648514.jpg?ts=1769882792"
     },
@@ -230,7 +328,12 @@
       "model": "Whale WX1521",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-stern-tee-15mm-tube-wx1521",
-      "sourceTokens": ["Whale", "WX1521", "Stern tee", "15mm"],
+      "sourceTokens": [
+        "Whale",
+        "WX1521",
+        "Stern tee",
+        "15mm"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/a0/c7/6b/1730922363/4648-521.jpg?ts=1769728979"
     },
@@ -240,7 +343,12 @@
       "model": "Whale WX1521",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/whale-quick-connect-stern-tee-15mm-tube-wx1521",
-      "sourceTokens": ["Whale", "WX1521", "Stern tee", "15mm"],
+      "sourceTokens": [
+        "Whale",
+        "WX1521",
+        "Stern tee",
+        "15mm"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/a0/c7/6b/1730922363/4648-521.jpg?ts=1769728979"
     },
@@ -250,7 +358,11 @@
       "model": "Whale WX1502",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/wx1502-t-connector-whale-quick-connect",
-      "sourceTokens": ["WHALE", "WX1502", "T-connector"],
+      "sourceTokens": [
+        "WHALE",
+        "WX1502",
+        "T-connector"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/ff/8d/78/1730922318/4648502.jpg?ts=1769882791"
     },
@@ -260,7 +372,11 @@
       "model": "Whale WX1502",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.com/pumps-sanitation/hoses-pipes/whale-quick-connect/wx1502-t-connector-whale-quick-connect",
-      "sourceTokens": ["WHALE", "WX1502", "T-connector"],
+      "sourceTokens": [
+        "WHALE",
+        "WX1502",
+        "T-connector"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/ff/8d/78/1730922318/4648502.jpg?ts=1769882791"
     },
@@ -270,7 +386,12 @@
       "model": "Whale WX1522",
       "sourceName": "Toplicht",
       "sourcePage": "https://www.toplicht.de/pumpen-sanitaer/schlauch-leitung/whale-quick-connect/whale-quick-connect-900-winkel-verbinder-wx1522",
-      "sourceTokens": ["Whale", "WX1522", "90", "15mm"],
+      "sourceTokens": [
+        "Whale",
+        "WX1522",
+        "90",
+        "15mm"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://toplicht.imgbolt.de/media/48/69/67/1730922335/4648522.jpg?ts=1769882793"
     },
@@ -280,7 +401,11 @@
       "model": "Whale WX1503",
       "sourceName": "Marine Deals",
       "sourcePage": "https://www.marine-deals.co.nz/whale-wx1503-elbow-joiner",
-      "sourceTokens": ["Whale", "WX1503", "Elbow Joiner"],
+      "sourceTokens": [
+        "Whale",
+        "WX1503",
+        "Elbow Joiner"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://marine-deals-io.freetls.fastly.net/media/catalog/product/9/5/95030-2.jpg?format=webp&dpr=2&width=500&height=500&fit=bounds&filter=lanczos"
     },
@@ -290,7 +415,11 @@
       "model": "Whale WX1503",
       "sourceName": "Marine Deals",
       "sourcePage": "https://www.marine-deals.co.nz/whale-wx1503-elbow-joiner",
-      "sourceTokens": ["Whale", "WX1503", "Elbow Joiner"],
+      "sourceTokens": [
+        "Whale",
+        "WX1503",
+        "Elbow Joiner"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://marine-deals-io.freetls.fastly.net/media/catalog/product/9/5/95030-2.jpg?format=webp&dpr=2&width=500&height=500&fit=bounds&filter=lanczos"
     },
@@ -300,7 +429,11 @@
       "model": "Whale WX1573",
       "sourceName": "Anfora",
       "sourcePage": "https://www.yatmalzemeleri.com/urun/whale-wx1573-hizli-baglanti-parcasi-icin-vana-valf",
-      "sourceTokens": ["Whale", "WX1573", "Vana-Valf"],
+      "sourceTokens": [
+        "Whale",
+        "WX1573",
+        "Vana-Valf"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.yatmalzemeleri.com/shop/dr/93/myassets/products/765/whale-wx1573b-marin-vana-valf.jpg?revision=1743663574"
     },
@@ -310,7 +443,11 @@
       "model": "Garmin GHS 11",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/de-DE/p/568161/",
-      "sourceTokens": ["Garmin", "GHS 11", "010-01759-01"],
+      "sourceTokens": [
+        "Garmin",
+        "GHS 11",
+        "010-01759-01"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-01759-01/v/cf-lg.jpg"
     },
     {
@@ -319,7 +456,11 @@
       "model": "Fusion MS-SW10",
       "sourceName": "Mainmast Electronics",
       "sourcePage": "https://www.mainmastelectronics.com/fusion",
-      "sourceTokens": ["Fusion", "MS-SW10", "10\""],
+      "sourceTokens": [
+        "Fusion",
+        "MS-SW10",
+        "10\""
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://static.wixstatic.com/media/0afbbc_8b32e44f412d4e49b9bf54823c8a0999~mv2.png/v1/crop/x_0,y_256,w_1600,h_1088/fill/w_303,h_206,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/MS-SW10_edited.png"
     },
@@ -329,7 +470,11 @@
       "model": "Noblex DB24X4000",
       "sourceName": "Precionauta",
       "sourcePage": "https://precionauta.com.ar/producto/db24x4000-hytkPLeq1qr1",
-      "sourceTokens": ["Noblex", "DB24X4000", "24\""],
+      "sourceTokens": [
+        "Noblex",
+        "DB24X4000",
+        "24\""
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://precionauta.com.ar/images/98/1d/981dc59094cd50ffd9e5c03c7e4740c1502dbe264f695bf76f3e08cb70625087.webp"
     },
@@ -339,7 +484,11 @@
       "model": "JL Audio MV800/8i",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-IE/p/1707541/pn/010-03339-00/",
-      "sourceTokens": ["MVi", "010-03339-00", "800 watts"],
+      "sourceTokens": [
+        "MVi",
+        "010-03339-00",
+        "800 watts"
+      ],
       "imageUrl": "https://res.garmin.com/en/products/010-03339-00/v/cf-lg.jpg"
     },
     {
@@ -348,7 +497,11 @@
       "model": "FV 0106/M4",
       "sourceName": "FV Argentina",
       "sourcePage": "https://www.fvsa.com/productos/0106-m4-compacta-juego-monocomando-para-banera-y-ducha/",
-      "sourceTokens": ["FV", "0106/M4", "Compacta"],
+      "sourceTokens": [
+        "FV",
+        "0106/M4",
+        "Compacta"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2021/04/0106_M4-CR-COMPACTA-1.jpg"
     },
@@ -358,7 +511,11 @@
       "model": "FV 0411.01/M4 cromado",
       "sourceName": "FV Argentina",
       "sourcePage": "https://fvsa.com/productos/0411-01-m4-compacta-juego-monocomando-para-mesada-de-cocina/",
-      "sourceTokens": ["FV", "0411.01/M4", "Compacta"],
+      "sourceTokens": [
+        "FV",
+        "0411.01/M4",
+        "Compacta"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2021/04/0411.01_M4-COMPACTA.jpg"
     },
@@ -368,7 +525,12 @@
       "model": "FV 0164/L2 negro",
       "sourceName": "FV Argentina",
       "sourcePage": "https://fvsa.com/productos/accesorios-epuyen-toallero-toallero-barral-recto/",
-      "sourceTokens": ["FV", "0164/L2", "Toallero", "Negro"],
+      "sourceTokens": [
+        "FV",
+        "0164/L2",
+        "Toallero",
+        "Negro"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/11/0164_L2_NG.jpg"
     },
@@ -378,7 +540,11 @@
       "model": "FV 0181.02/L2 negro",
       "sourceName": "FV Argentina",
       "sourcePage": "https://fvsa.com/productos/l2-epuyen-juego-monocomando-para-bachas-tipo-vessel/",
-      "sourceTokens": ["FV", "0181.02/L2", "Epuyén"],
+      "sourceTokens": [
+        "FV",
+        "0181.02/L2",
+        "Epuyén"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/11/0181_02_L2_NG.jpg"
     },
@@ -388,7 +554,12 @@
       "model": "FV 0248.01 cromado",
       "sourceName": "FV Argentina",
       "sourcePage": "https://www.fvsa.com/productos/complementos-para-instalacion-desague-6/",
-      "sourceTokens": ["FV", "0248.01", "soft touch", "Cromo"],
+      "sourceTokens": [
+        "FV",
+        "0248.01",
+        "soft touch",
+        "Cromo"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0248.01-CR.jpg"
     },
@@ -398,7 +569,11 @@
       "model": "JL Audio M6-10IB-S-GmTi-4",
       "sourceName": "JL Audio Brasil",
       "sourcePage": "https://www.jlaudiobrasil.com.br/subwoofer-marinizado-10-polegadas-jl-audio-m6-10ib-s-gmti-4",
-      "sourceTokens": ["M6-10IB-S-GmTi-4", "10 polegadas", "JL Audio"],
+      "sourceTokens": [
+        "M6-10IB-S-GmTi-4",
+        "10 polegadas",
+        "JL Audio"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.tcdn.com.br/img/img_prod/1178969/subwoofer_marinizado_10_polegadas_jl_audio_m6_10ib_s_gmti_4_133_1_d039d2d1e834624fb2bdab72eacc1b0f.jpg"
     },
@@ -408,7 +583,11 @@
       "model": "Garmin NMEA 2000 010-11076-00",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/13491/",
-      "sourceTokens": ["NMEA 2000", "010-11076-00", "2 m"],
+      "sourceTokens": [
+        "NMEA 2000",
+        "010-11076-00",
+        "2 m"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://res.garmin.com/en/products/010-11076-00/v/cf-lg-25e9fd6b-edc5-46c2-b269-e38aff3664f3.jpg"
     },
@@ -418,7 +597,11 @@
       "model": "JL Audio M7-12IB-S-GmTi-4",
       "sourceName": "JL Audio Brasil",
       "sourcePage": "https://www.jlaudiobrasil.com.br/subwoofer-marinizado-12-polegadas-jl-audio-m7-12ib-s-gmti-4",
-      "sourceTokens": ["M7-12IB-S-GmTi-4", "12 polegadas", "JL Audio"],
+      "sourceTokens": [
+        "M7-12IB-S-GmTi-4",
+        "12 polegadas",
+        "JL Audio"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.tcdn.com.br/img/img_prod/1178969/subwoofer_marinizado_12_polegadas_jl_audio_m7_12ib_s_gmti_4_171_1_71af0935ddf4f09eacbe435dabb18a9e.jpg"
     },
@@ -428,7 +611,11 @@
       "model": "Quick TCD 2044",
       "sourceName": "Quick",
       "sourcePage": "https://www.quickitaly.com/en/products/manoeuvring-systems/remote-controls/tcd-2044/",
-      "sourceTokens": ["TCD 2044", "Control panel", "bow and stern"],
+      "sourceTokens": [
+        "TCD 2044",
+        "Control panel",
+        "bow and stern"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.quickitaly.com/resources/products/big/TCD2044.jpg"
     },
@@ -438,7 +625,11 @@
       "model": "FV 0166R/85 Dominic",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-dominic-percha/",
-      "sourceTokens": ["0166R/85", "Dominic", "Percha"],
+      "sourceTokens": [
+        "0166R/85",
+        "Dominic",
+        "Percha"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0166R_85-CR.jpg"
     },
@@ -448,7 +639,11 @@
       "model": "FV 0167R/85 Dominic",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-dominic-portarrollo/",
-      "sourceTokens": ["0167R/85", "Dominic", "Portarrollo"],
+      "sourceTokens": [
+        "0167R/85",
+        "Dominic",
+        "Portarrollo"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0167R_85-CR.jpg"
     },
@@ -458,7 +653,11 @@
       "model": "FV 0164R/85 Dominic",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-dominic-toallero-2/",
-      "sourceTokens": ["0164R/85", "Dominic", "Toallero"],
+      "sourceTokens": [
+        "0164R/85",
+        "Dominic",
+        "Toallero"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0164R_85-CR.jpg"
     },
@@ -468,7 +667,11 @@
       "model": "FV 0181.02/39 Libby",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/39-libby-monocomando-juego-monocomando-para-bachas-tipo-vessel/",
-      "sourceTokens": ["0181.02/39", "Libby", "bachas tipo vessel"],
+      "sourceTokens": [
+        "0181.02/39",
+        "Libby",
+        "bachas tipo vessel"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0181.02_39-CR-SBD.jpg"
     },
@@ -478,7 +681,11 @@
       "model": "FV 0411/87 Temple",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/87-temple-monocomando-juego-monocomando-para-mesada-de-cocina/",
-      "sourceTokens": ["0411/87", "Temple", "mesada de cocina"],
+      "sourceTokens": [
+        "0411/87",
+        "Temple",
+        "mesada de cocina"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0411_87-CR.jpg"
     },
@@ -488,7 +695,11 @@
       "model": "FV 0108/39 Libby",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/39-libby-monocomando-juego-monocomando-para-ducha/",
-      "sourceTokens": ["0108/39", "Libby", "Juego monocomando para ducha"],
+      "sourceTokens": [
+        "0108/39",
+        "Libby",
+        "Juego monocomando para ducha"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0108_39-CR.jpg"
     },
@@ -498,7 +709,11 @@
       "model": "FV 0206/39 Libby",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/39-libby-monocomando-juego-monocomando-para-lavatorio-2/",
-      "sourceTokens": ["0206/39", "Libby", "Juego monocomando para lavatorio"],
+      "sourceTokens": [
+        "0206/39",
+        "Libby",
+        "Juego monocomando para lavatorio"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0206_39-CR-SBD.jpg"
     },
@@ -508,7 +723,11 @@
       "model": "FV 0166/39 Libby",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-libby-percha/",
-      "sourceTokens": ["0166/39", "Libby", "Percha"],
+      "sourceTokens": [
+        "0166/39",
+        "Libby",
+        "Percha"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0166_39-CR-SBD.jpg"
     },
@@ -518,7 +737,11 @@
       "model": "FV 0167/39 Libby",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-libby-portarrollo/",
-      "sourceTokens": ["0167/39", "Libby", "Portarrollo"],
+      "sourceTokens": [
+        "0167/39",
+        "Libby",
+        "Portarrollo"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0167_39-CR-SBD.jpg"
     },
@@ -528,7 +751,11 @@
       "model": "FV 0128.17 Polca",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/polca-ducha-con-barral-2/",
-      "sourceTokens": ["0128.17", "Polca", "Ducha con barral"],
+      "sourceTokens": [
+        "0128.17",
+        "Polca",
+        "Ducha con barral"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/05/0128.17-CR-POLCA-II.jpg"
     },
@@ -538,7 +765,11 @@
       "model": "FV 0166/C3 Triades",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-triades-percha/",
-      "sourceTokens": ["0166/C3", "Triades", "Percha"],
+      "sourceTokens": [
+        "0166/C3",
+        "Triades",
+        "Percha"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0166_C3-CR.jpg"
     },
@@ -548,7 +779,11 @@
       "model": "FV 0167/C3 Triades",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-triades-portarrollo/",
-      "sourceTokens": ["0167/C3", "Triades", "Portarrollo"],
+      "sourceTokens": [
+        "0167/C3",
+        "Triades",
+        "Portarrollo"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0167_C3-CR.jpg"
     },
@@ -558,7 +793,11 @@
       "model": "FV 0411.01/90 Swing",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/90-swing-juego-monocomando-para-mesada-de-cocina/",
-      "sourceTokens": ["0411.01/90", "Swing", "mesada de cocina"],
+      "sourceTokens": [
+        "0411.01/90",
+        "Swing",
+        "mesada de cocina"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0411.01_90-CR.jpg"
     },
@@ -568,7 +807,11 @@
       "model": "Garmin GC 245",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/newsroom/press-release/marine/dock-your-boat-with-confidence-using-the-all-new-garmin-gc-245-and-gc-255-marine-cameras/",
-      "sourceTokens": ["GC 245", "surface-mount", "marine camera"],
+      "sourceTokens": [
+        "GC 245",
+        "surface-mount",
+        "marine camera"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://s34181.pcdn.co/en-US/newsroom/wp-content/uploads/2024/09/GC245_HR_White_Front.png"
     },
@@ -578,7 +821,11 @@
       "model": "Garmin Reactor 40 010-00705-78",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-GB/p/640242/pn/010-00705-78/",
-      "sourceTokens": ["010-00705-78", "Reactor 40", "Hydraulic Corepack"],
+      "sourceTokens": [
+        "010-00705-78",
+        "Reactor 40",
+        "Hydraulic Corepack"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://res.garmin.com/en/products/010-00705-78/g/cf-lg.jpg"
     },
@@ -588,7 +835,11 @@
       "model": "Garmin GPSMAP 8612xsv",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/799264/",
-      "sourceTokens": ["GPSMAP 8612xsv", "Chartplotter", "Sonar"],
+      "sourceTokens": [
+        "GPSMAP 8612xsv",
+        "Chartplotter",
+        "Sonar"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://res.garmin.com/en/products/010-02092-51/g/cf-lg.jpg"
     },
@@ -598,7 +849,11 @@
       "model": "Garmin GPSMAP 1223xsv",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-US/p/697312/",
-      "sourceTokens": ["GPSMAP 1223xsv", "010-02367-02", "Chartplotter"],
+      "sourceTokens": [
+        "GPSMAP 1223xsv",
+        "010-02367-02",
+        "Chartplotter"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://res.garmin.com/en/products/010-02367-02/v/cf-lg.jpg"
     },
@@ -608,7 +863,11 @@
       "model": "JL Audio M6-10IB-S-GwGw-4",
       "sourceName": "JL Audio Brasil",
       "sourcePage": "https://www.jlaudiobrasil.com.br/maritimo/alto-falantes/m6/subwoofer-marinizado-10-polegadas-jl-audio-m6-10ib-s-gwgw-4",
-      "sourceTokens": ["M6-10IB-S-GwGw-4", "10 Polegadas", "Gloss White"],
+      "sourceTokens": [
+        "M6-10IB-S-GwGw-4",
+        "10 Polegadas",
+        "Gloss White"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.tcdn.com.br/img/img_prod/1178969/subwoofer_marinizado_10_polegadas_jl_audio_m6_10ib_s_gwgw_4_135_1_21b151577526c4e0f64c93dac7833a11.jpg"
     },
@@ -618,7 +877,11 @@
       "model": "JL Audio M3-650X-C-Gw",
       "sourceName": "JL Audio Brasil",
       "sourcePage": "https://www.jlaudiobrasil.com.br/maritimo/alto-falantes/m3",
-      "sourceTokens": ["M3-650X-C-Gw", "6.5 Polegadas", "JL Audio"],
+      "sourceTokens": [
+        "M3-650X-C-Gw",
+        "6.5 Polegadas",
+        "JL Audio"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.tcdn.com.br/img/img_prod/1178969/180_alto_falante_marinizado_6_5_polegadas_jl_audio_m3_650x_c_gw_63_1_ec5bf4fd4ca3869ee51d0e0a577a8472.jpg"
     },
@@ -628,7 +891,11 @@
       "model": "IT23942 kit conexiones de dirección",
       "sourceName": "Marine Office",
       "sourcePage": "https://www.marineoffice.com.br/direcao-comando-e-flaps/direcao/",
-      "sourceTokens": ["IT23942", "KIT CONEXOES", "CO500"],
+      "sourceTokens": [
+        "IT23942",
+        "KIT CONEXOES",
+        "CO500"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://marineoffice.com.br/upload/IT23942.jpg?v=1.3"
     },
@@ -638,7 +905,11 @@
       "model": "Kohler GM32332-KP1 Pigtail 12 in",
       "sourceName": "Seafarer Marine Supply",
       "sourcePage": "https://seafarerstore.com/products/pigtail-12-d-model-1",
-      "sourceTokens": ["GM32332-KP1", "Pigtail", "D Model"],
+      "sourceTokens": [
+        "GM32332-KP1",
+        "Pigtail",
+        "D Model"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://seafarerstore.com/cdn/shop/files/8EBFB5A2-18E3-4B0B-9A57-9CBBBC6CB9BE.jpg?v=1778787184"
     },
@@ -648,7 +919,11 @@
       "model": "Uniden UM385",
       "sourceName": "Uniden",
       "sourcePage": "https://uniden.com/products/um385",
-      "sourceTokens": ["UM385", "Fixed Mount Marine Radio", "Marine Radios"],
+      "sourceTokens": [
+        "UM385",
+        "Fixed Mount Marine Radio",
+        "Marine Radios"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://uniden.com/cdn/shop/files/um385combo.png?v=1752081348"
     },
@@ -658,7 +933,11 @@
       "model": "Sleipner SE80 12V",
       "sourceName": "Sleipner",
       "sourcePage": "https://www.sleipnergroup.com/thruster-systems/thrusters/se80-tunnel-bow-stern-thruster-12v",
-      "sourceTokens": ["SE80", "tunnel bow/stern thruster", "12V"],
+      "sourceTokens": [
+        "SE80",
+        "tunnel bow/stern thruster",
+        "12V"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.sleipnergroup.com/thruster-systems/thrusters/se80-tunnel-bow-stern-thruster-12v/_/image/44b4cead-0ad3-4961-8194-953e12e925d0:3d33b4b4d572e2286063b20757bbbf6682a1d3cb/block-320-320/sleipner-tunnel-thruster-se80.jpg"
     },
@@ -668,7 +947,11 @@
       "model": "Sleipner SE80 12V",
       "sourceName": "Sleipner",
       "sourcePage": "https://www.sleipnergroup.com/thruster-systems/thrusters/se80-tunnel-bow-stern-thruster-12v",
-      "sourceTokens": ["SE80", "tunnel bow/stern thruster", "12V"],
+      "sourceTokens": [
+        "SE80",
+        "tunnel bow/stern thruster",
+        "12V"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.sleipnergroup.com/thruster-systems/thrusters/se80-tunnel-bow-stern-thruster-12v/_/image/44b4cead-0ad3-4961-8194-953e12e925d0:3d33b4b4d572e2286063b20757bbbf6682a1d3cb/block-320-320/sleipner-tunnel-thruster-se80.jpg"
     },
@@ -678,7 +961,11 @@
       "model": "Side-Power 8950 Touch Panel 12/24V",
       "sourceName": "Schiffsladen",
       "sourcePage": "https://www.schiffsladen.at/sleipner/touch-panel-in-modernem-design/",
-      "sourceTokens": ["7070969002561", "8950", "Touch-Panel"],
+      "sourceTokens": [
+        "7070969002561",
+        "8950",
+        "Touch-Panel"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.schiffsladen.at/media/2c/79/f1/1637329669/side-power-sleipner-bedienelement-bugstrahlruder-heckstrahlruder-touch-panel.jpg?ts=1646639798"
     },
@@ -688,7 +975,11 @@
       "model": "Uflex UC168-I",
       "sourceName": "Mariner Exchange",
       "sourcePage": "https://shop.marinerexchange.com/products/uflex-uc168-i-hydraulic-steering-cylinder-uc168-1",
-      "sourceTokens": ["UC168-I", "Hydraulic Steering Cylinder", "Uflex"],
+      "sourceTokens": [
+        "UC168-I",
+        "Hydraulic Steering Cylinder",
+        "Uflex"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://shop.marinerexchange.com/cdn/shop/files/98714XL.jpg?v=1725925897"
     },
@@ -698,7 +989,11 @@
       "model": "Uflex UC168-I",
       "sourceName": "Mariner Exchange",
       "sourcePage": "https://shop.marinerexchange.com/products/uflex-uc168-i-hydraulic-steering-cylinder-uc168-1",
-      "sourceTokens": ["UC168-I", "Hydraulic Steering Cylinder", "Uflex"],
+      "sourceTokens": [
+        "UC168-I",
+        "Hydraulic Steering Cylinder",
+        "Uflex"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://shop.marinerexchange.com/cdn/shop/files/98714XL.jpg?v=1725925897"
     },
@@ -708,7 +1003,11 @@
       "model": "Simrad HALO 20 Radar",
       "sourceName": "West Marine",
       "sourcePage": "https://www.westmarine.com/simrad-halo-20-20inch-radar-19773704.html",
-      "sourceTokens": ["HALO 20", "Radar", "SIMRAD"],
+      "sourceTokens": [
+        "HALO 20",
+        "Radar",
+        "SIMRAD"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.westmarine.com/on/demandware.static/-/Sites-wm-master-catalog/default/dwa5c40826/images/orig/19773704_1500.04122019123015.jpg"
     },
@@ -718,7 +1017,11 @@
       "model": "Maxwell RC12 12/24V",
       "sourceName": "Maxwell",
       "sourcePage": "https://maxwellmarine.com/product/rc12/",
-      "sourceTokens": ["RC12", "12V", "24V"],
+      "sourceTokens": [
+        "RC12",
+        "12V",
+        "24V"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://maxwellmarine.com/wp-content/uploads/2021/04/RC12.jpg"
     },
@@ -728,7 +1031,11 @@
       "model": "TEROSON PU 8511 100 ml",
       "sourceName": "Henkel",
       "sourcePage": "https://next.henkel-adhesives.com/es/en/products/industrial-adhesives/central-pdp.html/teroson-pu-8511/75695AT.html",
-      "sourceTokens": ["TEROSON", "PU 8511", "148785"],
+      "sourceTokens": [
+        "TEROSON",
+        "PU 8511",
+        "148785"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://dm.henkel-dam.com/is/image/henkel/TEROSON-PU-8511-100ml-IDH-148785"
     },
@@ -738,7 +1045,11 @@
       "model": "Victron VE.Can to NMEA 2000 micro-C male",
       "sourceName": "Victron Energy",
       "sourcePage": "https://www.victronenergy.com/cables/ve-can-to-nmea2000-micro-c-male",
-      "sourceTokens": ["VE.Can", "NMEA 2000", "micro-C male"],
+      "sourceTokens": [
+        "VE.Can",
+        "NMEA 2000",
+        "micro-C male"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.victronenergy.com/upload/documents/VE.Can%20to%20NMEA2000%20micro-C%20male_ASS030520200_new.png"
     },
@@ -748,7 +1059,11 @@
       "model": "FV 0162/39 Libby",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-libby-toallero-de-aro/",
-      "sourceTokens": ["0162/39", "Libby", "Toallero de aro"],
+      "sourceTokens": [
+        "0162/39",
+        "Libby",
+        "Toallero de aro"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0162_39-CR-SBD.jpg"
     },
@@ -758,7 +1073,11 @@
       "model": "Fusion MS-ARX70B",
       "sourceName": "Nautica Store Italia",
       "sourcePage": "https://www.nauticastoreitalia.it/articolo/fusion-ms-arx70-remote-control/?features=5640694&id=5022",
-      "sourceTokens": ["MS-ARX70B", "5640694", "Fusion"],
+      "sourceTokens": [
+        "MS-ARX70B",
+        "5640694",
+        "Fusion"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.nauticastoreitalia.it/media/nauticastoreitalia/p/5022/i/d8529ef1-b66d-44a2-b571-b029011255e2-1200x900.jpg"
     },
@@ -768,7 +1087,11 @@
       "model": "Whirlpool WRX12K2",
       "sourceName": "Digiya",
       "sourcePage": "https://www.digiya.com.ar/productos/heladera-bajo-mesada-whirlpool-120lts-evox-wrx12k2-inox1/",
-      "sourceTokens": ["Whirlpool", "WRX12K2", "120Lts"],
+      "sourceTokens": [
+        "Whirlpool",
+        "WRX12K2",
+        "120Lts"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://acdn-us.mitiendanube.com/stores/006/799/596/products/blanco-5-7e5e74803c45115ff717785198977541-1024-1024.webp"
     },
@@ -778,7 +1101,11 @@
       "model": "Whirlpool WRX12K2",
       "sourceName": "Digiya",
       "sourcePage": "https://www.digiya.com.ar/productos/heladera-bajo-mesada-whirlpool-120lts-evox-wrx12k2-inox1/",
-      "sourceTokens": ["Whirlpool", "WRX12K2", "120Lts"],
+      "sourceTokens": [
+        "Whirlpool",
+        "WRX12K2",
+        "120Lts"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://acdn-us.mitiendanube.com/stores/006/799/596/products/blanco-5-7e5e74803c45115ff717785198977541-1024-1024.webp"
     },
@@ -788,7 +1115,11 @@
       "model": "Simrad NSX 3007",
       "sourceName": "Oy Esco Ab",
       "sourcePage": "https://www.esconet.fi/shop/000-15215-001-simrad-nsx-3007-monitoiminaytto-ilman-kaikuanturia-sisaltaen-kaikutoiminnon-705",
-      "sourceTokens": ["Simrad", "NSX 3007", "000-15215-001"],
+      "sourceTokens": [
+        "Simrad",
+        "NSX 3007",
+        "000-15215-001"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.esconet.fi/web/image/product.image/1447/image_1024/000-15368-001-06_1.jpg?unique=0a7cbf1"
     },
@@ -798,7 +1129,11 @@
       "model": "Hydros Calyx 30911",
       "sourceName": "Santagal",
       "sourcePage": "https://santagal.com.ar/productos/banos/griferias/lavatorio-mesada/griferia-hydros-calyx-lavatorio-pico-intermedio-cromo-30911/",
-      "sourceTokens": ["Hydros", "Calyx", "30911"],
+      "sourceTokens": [
+        "Hydros",
+        "Calyx",
+        "30911"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://santagal.com.ar/wp-content/uploads/2025/09/D_805022-MLA90748654082_082025-F.jpg"
     },
@@ -808,7 +1143,11 @@
       "model": "Piazza Next 10207",
       "sourceName": "Abelson",
       "sourcePage": "https://abelson.com.ar/172671-piazza-10207-ducha-embutir-sin-trasfmonoc-next.html",
-      "sourceTokens": ["PIAZZA", "10207", "DUCHA EMBUTIR"],
+      "sourceTokens": [
+        "PIAZZA",
+        "10207",
+        "DUCHA EMBUTIR"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://abelson.com.ar/12782-thickbox_default/piazza-10207-ducha-embutir-sin-trasfmonoc-next.jpg"
     },
@@ -818,7 +1157,11 @@
       "model": "Rule Model 43",
       "sourceName": "MEC Leisure",
       "sourcePage": "https://mecleisure.co.uk/products/deluxe-rocker-switch-12v-43",
-      "sourceTokens": ["Rule Model 43", "Bilge Pump", "12V"],
+      "sourceTokens": [
+        "Rule Model 43",
+        "Bilge Pump",
+        "12V"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://mecleisure.co.uk/cdn/shop/files/43.jpg?v=1750841120"
     },
@@ -828,7 +1171,11 @@
       "model": "Kallay 505",
       "sourceName": "Kallay",
       "sourcePage": "https://www.kallay.com/productos?modelo=505",
-      "sourceTokens": ["Kallay", "505", "20x190"],
+      "sourceTokens": [
+        "Kallay",
+        "505",
+        "20x190"
+      ],
       "imageProof": "embedded",
       "imageUrl": "img/products/33/gallery/20230728165925618000_image.jpg"
     },
@@ -838,7 +1185,11 @@
       "model": "Seaflo SFSL1-WW-01S",
       "sourceName": "Seaflo",
       "sourcePage": "https://seaflomarinerv.com/index.php?a=index&aid=1658&c=View&m=home",
-      "sourceTokens": ["SFSL1-WW-01S", "LED Strip Light", "12V 4W"],
+      "sourceTokens": [
+        "SFSL1-WW-01S",
+        "LED Strip Light",
+        "12V 4W"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://seaflomarinerv.com/uploads/allimg/20240925/1-2409251H02M34.png"
     },
@@ -848,7 +1199,11 @@
       "model": "Jiecang JC35VT-1000",
       "sourceName": "Jiecang",
       "sourcePage": "https://www.jiecang.com/product/jc35vt.html",
-      "sourceTokens": ["JC35VT-1000", "TV Lift cabinet Base", "JIECANG"],
+      "sourceTokens": [
+        "JC35VT-1000",
+        "TV Lift cabinet Base",
+        "JIECANG"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://iirorwxhpknilk5p-static.micyjz.com/cloud/liBplKqmlqSRkjliikppip/JC35VT-800-800.png"
     },
@@ -858,7 +1213,11 @@
       "model": "FV 0181.02/L2 Epuyén",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/l2-epuyen-juego-monocomando-para-bachas-tipo-vessel/",
-      "sourceTokens": ["0181.02/L2", "Epuyén", "Juego monocomando"],
+      "sourceTokens": [
+        "0181.02/L2",
+        "Epuyén",
+        "Juego monocomando"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/11/0181_02_L2_NG.jpg"
     },
@@ -868,7 +1227,11 @@
       "model": "FV 0181.02/L2 Epuyén",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/l2-epuyen-juego-monocomando-para-bachas-tipo-vessel/",
-      "sourceTokens": ["0181.02/L2", "Epuyén", "Juego monocomando"],
+      "sourceTokens": [
+        "0181.02/L2",
+        "Epuyén",
+        "Juego monocomando"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/11/0181_02_L2_NG.jpg"
     },
@@ -878,7 +1241,11 @@
       "model": "FV 0164/L2 Epuyén",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-epuyen-toallero-toallero-barral-recto/",
-      "sourceTokens": ["0164/L2", "Epuyén", "Toallero barral"],
+      "sourceTokens": [
+        "0164/L2",
+        "Epuyén",
+        "Toallero barral"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/11/0164_L2_NG.jpg"
     },
@@ -888,7 +1255,11 @@
       "model": "FV 0164/L2 Epuyén",
       "sourceName": "FV",
       "sourcePage": "https://fvsa.com/productos/accesorios-epuyen-toallero-toallero-barral-recto/",
-      "sourceTokens": ["0164/L2", "Epuyén", "Toallero barral"],
+      "sourceTokens": [
+        "0164/L2",
+        "Epuyén",
+        "Toallero barral"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://fvsa.com/wp-content/uploads/2019/11/0164_L2_NG.jpg"
     },
@@ -898,7 +1269,11 @@
       "model": "ABB AX18-30-10-80",
       "sourceName": "ABB",
       "sourcePage": "https://new.abb.com/products/de/1SBL921074R8010/ax18-30-10-80",
-      "sourceTokens": ["AX18-30-10-80", "1SBL921074R8010", "ABB"],
+      "sourceTokens": [
+        "AX18-30-10-80",
+        "1SBL921074R8010",
+        "ABB"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://cdn.productimages.abb.com/1SBC101031V0014_master.jpg"
     },
@@ -908,7 +1283,11 @@
       "model": "Seaflo SFMTE1-05",
       "sourceName": "Francobordo",
       "sourcePage": "https://www.francobordo.com/inodoro-electrico-sfmte1-05-p-357032.html",
-      "sourceTokens": ["SFMTE1-05", "Inodoro Eléctrico", "Seaflo"],
+      "sourceTokens": [
+        "SFMTE1-05",
+        "Inodoro Eléctrico",
+        "Seaflo"
+      ],
       "imageProof": "embedded",
       "imageUrl": "images/productos/seaflo-inodoro-electrico-sfmte1-05-1-357032.jpeg"
     },
@@ -918,7 +1297,11 @@
       "model": "Seaflo SFMTE1-06 12V",
       "sourceName": "Francobordo",
       "sourcePage": "https://www.francobordo.com/inodoro-electrico-deluxe-sfmte1-06-p-357033.html",
-      "sourceTokens": ["SFMTE1-06", "Inodoro Eléctrico", "Seaflo"],
+      "sourceTokens": [
+        "SFMTE1-06",
+        "Inodoro Eléctrico",
+        "Seaflo"
+      ],
       "imageProof": "embedded",
       "imageUrl": "images/productos/seaflo-inodoro-electrico-deluxe-sfmte1-06-1-357033.jpeg"
     },
@@ -928,7 +1311,11 @@
       "model": "Shakespeare 5101-S VHF marine antenna",
       "sourceName": "ASAP Supplies",
       "sourcePage": "https://www.asap-supplies.com/products/shakespeare-5101-s-fibreglass-antenna-6m-cable-vhf-716562",
-      "sourceTokens": ["SHAKESPEARE", "5101-S", "VHF"],
+      "sourceTokens": [
+        "SHAKESPEARE",
+        "5101-S",
+        "VHF"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://d1blekj7w4kc3j.cloudfront.net/images/presets/product_page_full/catalogue/products/716562.jpg"
     },
@@ -938,7 +1325,11 @@
       "model": "Shakespeare 5206-N",
       "sourceName": "First Choice Marine",
       "sourcePage": "https://www.firstchoicemarine.com/products/shakespeare-8-vhf-antenna-5206-n",
-      "sourceTokens": ["Shakespeare", "5206-N", "VHF Antenna"],
+      "sourceTokens": [
+        "Shakespeare",
+        "5206-N",
+        "VHF Antenna"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://cdn.shopify.com/s/files/1/0015/7184/8291/products/shakespeare-8-vhf-antenna-5206-n-719441100186-11722421665891.jpg?v=1562202459"
     },
@@ -948,7 +1339,11 @@
       "model": "JL Audio M7-12IB-C-GwGw-4",
       "sourceName": "JL Audio Brasil",
       "sourcePage": "https://www.jlaudiobrasil.com.br/maritimo/alto-falantes/m6/subwoofer-marinizado-12-polegadas-jl-audio-m7-12ib-c-gwgw-4",
-      "sourceTokens": ["M7-12IB-C-GwGw-4", "12 polegadas", "Gloss White"],
+      "sourceTokens": [
+        "M7-12IB-C-GwGw-4",
+        "12 polegadas",
+        "Gloss White"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.tcdn.com.br/img/img_prod/1178969/subwoofer_marinizado_12_polegadas_jl_audio_m7_12ib_c_gwgw_4_169_1_afd4876dfdb441c17cf946381f33547c.jpg"
     },
@@ -958,7 +1353,11 @@
       "model": "Quick TCD 2044",
       "sourceName": "Hylte Jakt & Lantman",
       "sourcePage": "https://www.hylte-lantman.com/quick-joystick-dubbel-tcd",
-      "sourceTokens": ["8057090240016", "TCD2044", "Quick"],
+      "sourceTokens": [
+        "8057090240016",
+        "TCD2044",
+        "Quick"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://cdn.hylte-lantman.com/c7f4ba40-80a6-40ef-91df-93ad1167f5c7?m=pad&f=jpg"
     },
@@ -968,7 +1367,11 @@
       "model": "Häfele HL09 / 903.91.636",
       "sourceName": "Herrajes HME",
       "sourcePage": "https://www.herrajeshme.com.ar/arquitectura/picaporte-y-manijones/",
-      "sourceTokens": ["EHK-HL09", "Hafele", "Acero Inoxidable"],
+      "sourceTokens": [
+        "EHK-HL09",
+        "Hafele",
+        "Acero Inoxidable"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://acdn-us.mitiendanube.com/stores/003/655/828/products/903-91-636-6a48da82f20e17710717842534219968-480-0.webp"
     },
@@ -978,7 +1381,11 @@
       "model": "Häfele HL09 / 903.91.636",
       "sourceName": "Herrajes HME",
       "sourcePage": "https://www.herrajeshme.com.ar/arquitectura/picaporte-y-manijones/",
-      "sourceTokens": ["EHK-HL09", "Hafele", "Acero Inoxidable"],
+      "sourceTokens": [
+        "EHK-HL09",
+        "Hafele",
+        "Acero Inoxidable"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://acdn-us.mitiendanube.com/stores/003/655/828/products/903-91-636-6a48da82f20e17710717842534219968-480-0.webp"
     },
@@ -988,7 +1395,11 @@
       "model": "Webasto FCF Classic 12,000 / FCF0012023G",
       "sourceName": "Citimarine Store",
       "sourcePage": "https://citimarinestore.com/en/webasto-self-contained-marine-air-conditioners/8307-webasto-fcf-classic-12000-btu-marine-air-conditioner-230v.html",
-      "sourceTokens": ["FCF0012023G", "12000", "Webasto"],
+      "sourceTokens": [
+        "FCF0012023G",
+        "12000",
+        "Webasto"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://citimarinestore.com/resize/1200x1200/30151/webasto-fcf-classic-12000-btu-marine-air-conditioner-230v.jpg"
     },
@@ -998,7 +1409,11 @@
       "model": "Webasto FCFP25 Platinum 25,000 BTU",
       "sourceName": "Barón",
       "sourcePage": "https://www.baron.com.ar/articulo/aire-acondicionado-equipos-webasto-fcfp25-platinum-25000-btu-230v/a24250",
-      "sourceTokens": ["FCFP25", "25000", "Webasto"],
+      "sourceTokens": [
+        "FCFP25",
+        "25000",
+        "Webasto"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.baron.com.ar/articulos/A24250/A24250-G1.webp"
     },
@@ -1008,7 +1423,11 @@
       "model": "Rama RK18",
       "sourceName": "Rama Mercosur",
       "sourcePage": "https://ramamercosur.com/repuestos/",
-      "sourceTokens": ["RK18", "75-180RK", "RAMA"],
+      "sourceTokens": [
+        "RK18",
+        "75-180RK",
+        "RAMA"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://ramamercosur.com/wp-content/uploads/2023/07/RK18.1.png"
     },
@@ -1018,7 +1437,11 @@
       "model": "Rama RK18",
       "sourceName": "Rama Mercosur",
       "sourcePage": "https://ramamercosur.com/repuestos/",
-      "sourceTokens": ["RK18", "75-180RK", "RAMA"],
+      "sourceTokens": [
+        "RK18",
+        "75-180RK",
+        "RAMA"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://ramamercosur.com/wp-content/uploads/2023/07/RK18.1.png"
     },
@@ -1028,7 +1451,11 @@
       "model": "Osculati Saturn 15.470.12 / 1547012",
       "sourceName": "Italnordic",
       "sourcePage": "https://www.italnordic.se/product/saturn-dusch-m-blandare-krom-vertikal",
-      "sourceTokens": ["1547012", "Saturn", "15.470.12"],
+      "sourceTokens": [
+        "1547012",
+        "Saturn",
+        "15.470.12"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://cdn.starwebserver.se/shops/ital-nordic/files/cache/1547012-bild_grande.jpg?_=1692270944"
     },
@@ -1038,7 +1465,11 @@
       "model": "FPT 5802570117 wiring loom",
       "sourceName": "Breakwater Marine",
       "sourcePage": "https://breakwatermarine.co.uk/product/fpt-wiring-loom-5802570117/",
-      "sourceTokens": ["5802570117", "FPT", "WIRING LOOM"],
+      "sourceTokens": [
+        "5802570117",
+        "FPT",
+        "WIRING LOOM"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://breakwatermarine.co.uk/wp-content/uploads/2024/11/IMG_3130-2-Photoroom.jpg"
     },
@@ -1048,7 +1479,11 @@
       "model": "FPT 5802798145 wire/cable",
       "sourceName": "Breakwater Marine",
       "sourcePage": "https://breakwatermarine.co.uk/product/fpt-wire-cable-5802798145/",
-      "sourceTokens": ["5802798145", "FPT", "WIRE/CABLE"],
+      "sourceTokens": [
+        "5802798145",
+        "FPT",
+        "WIRE/CABLE"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://breakwatermarine.co.uk/wp-content/uploads/2023/12/IMG_5106.jpg"
     },
@@ -1058,7 +1493,11 @@
       "model": "Webasto FCF Classic 16,000 / FCF0016000GS",
       "sourceName": "Citimarine Store",
       "sourcePage": "https://citimarinestore.com/en/webasto-self-contained-marine-air-conditioners/8308-webasto-fcf-classic-16000-btu-marine-air-conditioner-115v.html",
-      "sourceTokens": ["FCF0016000GS", "16000", "Webasto"],
+      "sourceTokens": [
+        "FCF0016000GS",
+        "16000",
+        "Webasto"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://citimarinestore.com/resize/1200x1200/30153/webasto-fcf-classic-16000-btu-marine-air-conditioner-115v.jpg"
     },
@@ -1068,7 +1507,11 @@
       "model": "Jabsco 135 SL 12V / 60020-0000",
       "sourceName": "Batbutikken",
       "sourcePage": "https://batbutikken.no/products/sokelys-135-sl-halogen-12v-jabsco",
-      "sourceTokens": ["135-SL", "12V", "JABSCO"],
+      "sourceTokens": [
+        "135-SL",
+        "12V",
+        "JABSCO"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://batbutikken.no/cdn/shop/files/sokelys-135-sl-halogen-12v-fjernkontroll-320-forfra.jpg?v=1774261075"
     },
@@ -1078,7 +1521,11 @@
       "model": "Webasto FCFP10 Platinum 10,000 BTU",
       "sourceName": "Barón",
       "sourcePage": "https://www.baron.com.ar/articulo/aire-acondicionado-equipos-webasto-fcfp10-platinum-10000-btu-230v/a24810",
-      "sourceTokens": ["FCFP10", "10000", "Webasto"],
+      "sourceTokens": [
+        "FCFP10",
+        "10000",
+        "Webasto"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.baron.com.ar/articulos/A24810/A24810-G1.webp"
     },
@@ -1088,7 +1535,11 @@
       "model": "JL Audio XDM1000/1",
       "sourceName": "Toocap",
       "sourcePage": "https://www.toocap.fr/systemes-audio-marins/38181-amplificateur-caisson-de-basse-xdm-1000-1-1000w.html",
-      "sourceTokens": ["XDM1000/1", "1000W", "JL"],
+      "sourceTokens": [
+        "XDM1000/1",
+        "1000W",
+        "JL"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.toocap.fr/76330-large_default/amplificateur-caisson-de-basse-xdm-1000-1-1000w.jpg"
     },
@@ -1098,7 +1549,11 @@
       "model": "Samsung 43 T5300 FHD Smart TV / UN43T5300APXPA",
       "sourceName": "Samsung Latinoamérica",
       "sourcePage": "https://www.samsung.com/latin/tvs/full-hd-tv/t5300-43-inch-full-hd-smart-tv-un43t5300apxpa/",
-      "sourceTokens": ["Samsung", "T5300", "43"],
+      "sourceTokens": [
+        "Samsung",
+        "T5300",
+        "43"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.samsung.com/is/image/samsung/latin-fhd-t5300-un43t5300apxpa-frontblack-thumb-229166471"
     },
@@ -1108,7 +1563,11 @@
       "model": "Samsung 32 H5000 Smart TV / UN32H5000FGCZB",
       "sourceName": "Samsung Argentina",
       "sourcePage": "https://www.samsung.com/ar/tvs/hd-tv/32-hd-h5000-smart-tv-2025-un32h5000fgczb/",
-      "sourceTokens": ["Samsung", "H5000", "32"],
+      "sourceTokens": [
+        "Samsung",
+        "H5000",
+        "32"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/un32h5000fgczb/gallery/ar-hd-h5000-un32h5000fgczb-548998407?$Q90_2052_1641_JPG$"
     },
@@ -1118,7 +1577,11 @@
       "model": "Samsung 55 QLED Q6F 4K Smart TV / TQ55Q6FAAUXXC",
       "sourceName": "Samsung",
       "sourcePage": "https://www.samsung.com/es/tvs/qled-tv/q6f-55-inch-qled-4k-smart-tv-tq55q6faauxxc/",
-      "sourceTokens": ["Samsung", "Q6F", "55"],
+      "sourceTokens": [
+        "Samsung",
+        "Q6F",
+        "55"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/es/tq55q6faauxxc/gallery/es-qled-q6f-tq55q6faauxxc-551469193?$Q90_2052_1641_JPG$"
     },
@@ -1128,7 +1591,11 @@
       "model": "Jabsco Flexmount 4 in 250 CFM / 35440-0000",
       "sourceName": "West Marine",
       "sourcePage": "https://www.westmarine.com/jabsco-4inch-flexmount-blower-12a%4012v-draw-9-5-8inchh-x-9-1-8inchw-x-9-3-16inchl-250-cfm-109894.html",
-      "sourceTokens": ["Jabsco", "35440-0000", "250"],
+      "sourceTokens": [
+        "Jabsco",
+        "35440-0000",
+        "250"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.westmarine.com/on/demandware.static/-/Sites-wm-master-catalog/default/dw82807ff0/images/orig/109894_1500.17012019033003.jpg"
     },
@@ -1138,7 +1605,11 @@
       "model": "Matromarine 9400000573 73 L 12V waste tank kit",
       "sourceName": "7ft.ru",
       "sourcePage": "https://7ft.ru/t661810/",
-      "sourceTokens": ["Matromarine", "9400000573", "73"],
+      "sourceTokens": [
+        "Matromarine",
+        "9400000573",
+        "73"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://7ft.ru/upload/iblock/ff0/rnlhyktoe7vl8e6wn4tmtw7hyd46aeqm/bak_stochnyy_pryamougolnyy_73_l_760x390x290_mm_782111_3869688434.jpg"
     },
@@ -1148,7 +1619,11 @@
       "model": "Fusion Signature Series 3i SG-FL653SPW 6.5 in white",
       "sourceName": "RG Sound",
       "sourcePage": "https://www.rgsound.it/010-02771-10-sg-fl653spw-speaker-nautici-crgbw-da-6-5-finitura-bianca_fusion-id-58467.html",
-      "sourceTokens": ["Fusion", "SG-FL653SPW", "010-02771-10"],
+      "sourceTokens": [
+        "Fusion",
+        "SG-FL653SPW",
+        "010-02771-10"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/fusion-010-02771-10-pid-58467.jpg"
     },
@@ -1158,7 +1633,11 @@
       "model": "Fusion XS-FL65SPGW 6.5 in RGB sports marine speakers",
       "sourceName": "NVN Marine",
       "sourcePage": "https://nvnmarine.com/products/86401-fusion-xs-fl65spgw-xs-series-6-5-rgb",
-      "sourceTokens": ["FUSION", "XS-FL65SPGW", "6.5"],
+      "sourceTokens": [
+        "FUSION",
+        "XS-FL65SPGW",
+        "6.5"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://nvnmarine.com/cdn/shop/files/86401-fusion-xs-fl65spgw-xs-series-6-5-rgb-0.jpg?v=1734803012&width=1400"
     },
@@ -1168,7 +1647,11 @@
       "model": "Fusion XS-F65CWB 6.5 in Classic marine speakers / 010-02196-00",
       "sourceName": "NVN Marine",
       "sourcePage": "https://nvnmarine.com/products/86400-fusion-xs-f65cwb-xs-series-6-5-200-watt",
-      "sourceTokens": ["Fusion", "XS-F65CWB", "010-02196-00"],
+      "sourceTokens": [
+        "Fusion",
+        "XS-F65CWB",
+        "010-02196-00"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://nvnmarine.com/cdn/shop/files/86400-fusion-xs-f65cwb-xs-series-6-5-200-watt-0.jpg?v=1734803022&width=1400"
     },
@@ -1178,7 +1661,11 @@
       "model": "JL Audio M6-880ETXv3-Sb-S-GmTi-i 8.8 in tower speakers",
       "sourceName": "RG Sound",
       "sourcePage": "https://www.rgsound.it/m6-880etxv3-sb-s-gmti-i_jl-audio-id-45637.html",
-      "sourceTokens": ["JL", "M6-880ETXv3-Sb-S-GmTi-i", "8.8"],
+      "sourceTokens": [
+        "JL",
+        "M6-880ETXv3-Sb-S-GmTi-i",
+        "8.8"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/jl-audio-m6-880etxv3-sb-s-gmti-i-pid-45637.jpg"
     },
@@ -1188,7 +1675,10 @@
       "model": "JL Audio MMR-20BE wired marine remote control",
       "sourceName": "MB Car Audio",
       "sourcePage": "https://mbcaraudio.nl/remote-controls-marine-audio/jl-audio-mmr-20be.html",
-      "sourceTokens": ["JL", "MMR-20BE"],
+      "sourceTokens": [
+        "JL",
+        "MMR-20BE"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://mbcaraudio.nl/38677-large_default/jl-audio-mmr-20be.jpg"
     },
@@ -1198,7 +1688,11 @@
       "model": "JL Audio MLC-RW RGB marine lighting controller / 010-13428-00",
       "sourceName": "MCOR Automotive",
       "sourcePage": "https://shop.mcorautomotive.com/products/mlc-rw",
-      "sourceTokens": ["JL", "MLC-RW", "010-13428-00"],
+      "sourceTokens": [
+        "JL",
+        "MLC-RW",
+        "010-13428-00"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://shop.mcorautomotive.com/cdn/shop/files/1_ad37a6af-2d7b-4230-9091-57780b4dab62.webp?v=1770175876&width=1445"
     },
@@ -1208,7 +1702,11 @@
       "model": "JL Audio M3-650VEX-Gw-S-Gw-i tower speaker / 93402",
       "sourceName": "MNI Boats",
       "sourcePage": "https://www.mniboats.com/JL-Audio-M3-650VEX-Gw-S-Gw-i-p/93402.htm",
-      "sourceTokens": ["JL", "M3-650VEX-Gw-S-Gw-i", "93402"],
+      "sourceTokens": [
+        "JL",
+        "M3-650VEX-Gw-S-Gw-i",
+        "93402"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://cdn4.volusion.store/cgrfj-cjkum/v/vspfiles/photos/93402-2.png?v-cache=1666687657"
     },
@@ -1218,7 +1716,11 @@
       "model": "Fusion FM-F65RW 6.5 in white marine speakers / 010-02299-00",
       "sourceName": "Marineshop",
       "sourcePage": "https://www.marineshop.no/fusion/139951/40064-fusion-fm-series-h%C3%B8yttalere-6-5-120w-rund-lavprofil-hvit-par",
-      "sourceTokens": ["Fusion", "FM-F65RW", "010-02299-00"],
+      "sourceTokens": [
+        "Fusion",
+        "FM-F65RW",
+        "010-02299-00"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.marineshop.no/userfiles/static/garmin/010-02299-00-FM-speakers-product-image-01-df55358c-f0d1-47a5-83a3-277ea70af33a.jpg"
     },
@@ -1228,7 +1730,11 @@
       "model": "Garmin ECHOMAP UHD2 72sv with GT54UHD-TM transducer / 010-02683-01",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/en-PH/p/pn/010-02683-01/",
-      "sourceTokens": ["ECHOMAP", "72sv", "010-02683-01"],
+      "sourceTokens": [
+        "ECHOMAP",
+        "72sv",
+        "010-02683-01"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://res.garmin.com/en_PH/products/010-02683-01/v/cf-lg.jpg"
     },
@@ -1238,7 +1744,11 @@
       "model": "Garmin Airmar P319 8-pin depth and temperature transducer / 010-10194-21",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com.sg/products/onthewater/plastic-thru-hull-mount-transducer-with-depth-temperature-8-pin-airmar/",
-      "sourceTokens": ["Garmin", "P319", "010-10194-21"],
+      "sourceTokens": [
+        "Garmin",
+        "P319",
+        "010-10194-21"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.garmin.com.sg/m/sg/g/products/cf-lg_99.jpg"
     },
@@ -1248,7 +1758,11 @@
       "model": "Plastimo telescopic boat hook 120-210 cm / 62094",
       "sourceName": "CH Marine",
       "sourcePage": "https://www.chmarine.com/plastimo-telescopic-boat-hook-120-210cm/",
-      "sourceTokens": ["Plastimo", "120-210cm", "P62094"],
+      "sourceTokens": [
+        "Plastimo",
+        "120-210cm",
+        "P62094"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://cdn11.bigcommerce.com/s-lmnt0zg7g8/images/stencil/1280x1280/products/21856/41834/plastimo-telescopic-boat-hook__86535.1643381158.jpg?c=2"
     },
@@ -1258,7 +1772,11 @@
       "model": "Roker PR409 4-module surface DIN enclosure",
       "sourceName": "Genrod",
       "sourcePage": "https://genrod.cwei.com.ar/cajas-para-tmpvc-sobreponer-ext/12797-roker-pr409-caja-termica-sobreponer-4-bocas-din-pvc-ip40-100-x-159-x-88.html",
-      "sourceTokens": ["Roker", "PR409", "4"],
+      "sourceTokens": [
+        "Roker",
+        "PR409",
+        "4"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://genrod.cwei.com.ar/56861-thickbox_default/roker-pr409-caja-termica-sobreponer-4-bocas-din-pvc-ip40-100-x-159-x-88.jpg"
     },
@@ -1268,7 +1786,11 @@
       "model": "Fusion FM-F65RB 6.5 in black marine speakers / 010-02299-01",
       "sourceName": "RG Sound",
       "sourcePage": "https://www.rgsound.it/010-02299-01-fm-f65rb-altoparlanti-da-incasso-165-mm-finitura-nera_fusion-id-46371.html",
-      "sourceTokens": ["Fusion", "FM-F65RB", "010-02299-01"],
+      "sourceTokens": [
+        "Fusion",
+        "FM-F65RB",
+        "010-02299-01"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/fusion-010-02299-01-pid-46371.jpg"
     },
@@ -1278,7 +1800,11 @@
       "model": "Fusion Signature Series 3i SG-FLT653SPB 6.5 in black tower speakers / 010-02771-51",
       "sourceName": "RG Sound",
       "sourcePage": "https://www.rgsound.it/010-02771-51-sg-flt653spb-altoparlante-con-griglia-sport-nera_fusion-id-59774.html",
-      "sourceTokens": ["Fusion", "SG-FLT653SPB", "010-02771-51"],
+      "sourceTokens": [
+        "Fusion",
+        "SG-FLT653SPB",
+        "010-02771-51"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.rgsound.it/thumbs/2520x1680xfar0/fusion-010-02771-51-pid-59774.jpg"
     },
@@ -1288,7 +1814,11 @@
       "model": "JL Audio M-SWMCPv3-1.660 swivel tube mount / 010-13716-00",
       "sourceName": "Garmin",
       "sourcePage": "https://www.garmin.com/es-MX/p/1866921/pn/010-13716-00/",
-      "sourceTokens": ["JL", "M-SWMCPv3-1.660", "010-13716-00"],
+      "sourceTokens": [
+        "JL",
+        "M-SWMCPv3-1.660",
+        "010-13716-00"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://res.garmin.com/en/products/010-13716-00/v/cf-lg.jpg"
     },
@@ -1298,7 +1828,11 @@
       "model": "Victron Cerbo GX communication centre",
       "sourceName": "Victron Energy",
       "sourcePage": "https://www.victronenergy.com/communication-centres/cerbo-gx",
-      "sourceTokens": ["Victron", "Cerbo", "GX"],
+      "sourceTokens": [
+        "Victron",
+        "Cerbo",
+        "GX"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.victronenergy.com/upload/documents/Cerbo%20GX%20%28front%29.png"
     },
@@ -1308,9 +1842,951 @@
       "model": "Victron SmartShunt 500A-50mV battery monitor",
       "sourceName": "Victron Energy",
       "sourcePage": "https://www.victronenergy.com/battery-monitors/smart-battery-shunt",
-      "sourceTokens": ["Victron", "SmartShunt", "500A"],
+      "sourceTokens": [
+        "Victron",
+        "SmartShunt",
+        "500A"
+      ],
       "imageProof": "embedded",
       "imageUrl": "https://www.victronenergy.com/upload/documents/SmartShunt%20500A-50mV%20%28front%29.png"
+    },
+    {
+      "materialId": "2b918c7d-a0c0-4aa1-9460-50b2aa94e91a",
+      "expectedDescription": "BACHA DE APOYO REDONDA NEGRO MATE LZA-1203094-BAC DECA",
+      "model": "Deca Slim L.12030.94 negro mate redonda apoyo",
+      "sourceName": "Banchero Sanitarios",
+      "sourcePage": "https://tienda.bancherosanitarios.com.ar/productos/bacha-deca-slim-l1203094-negro-mate-red-300x135-apoyo/",
+      "sourceTokens": [
+        "Deca",
+        "L.12030.94",
+        "Negro Mate"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://acdn-us.mitiendanube.com/stores/006/005/675/products/d_821009-mla79548488473_092024-o-98adcb12152c047dc917480407651890-1024-1024.webp"
+    },
+    {
+      "materialId": "0d34e0f5-cace-4e22-8142-b1622abcf8ff",
+      "expectedDescription": "CERRADURA KALLAY 4006",
+      "model": "Kallay 4006 cerradura de seguridad",
+      "sourceName": "Kallay",
+      "sourcePage": "https://www.kallay.com/productos?modelo=4006",
+      "sourceTokens": [
+        "Kallay",
+        "4006"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.kallay.com/img/products/23/23.jpg"
+    },
+    {
+      "materialId": "3542b7d9-0271-479a-89fe-e0cfd774d83a",
+      "expectedDescription": "Regulador de presion cromado jabsco",
+      "model": "Jabsco 44411-2045 flush mount chrome pressure regulator",
+      "sourceName": "ProPride Marine",
+      "sourcePage": "https://propridemarine.com/jabsco-flush-mount-water-pressure-regulator-45psi-chrome-p-n-44411-2045/",
+      "sourceTokens": [
+        "Jabsco",
+        "44411-2045"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-dz6pzclfyw/images/stencil/original/products/162747/1556336/42518XL__02607__24069.1672863490.jpg?c=1"
+    },
+    {
+      "materialId": "d5bcec53-d88f-43d9-98e5-8e2e9a8882bc",
+      "expectedDescription": "SOPAPA DESAGUE SOFT TOUCH 0248.01",
+      "model": "FV Soft Touch 0248.01 cromo",
+      "sourceName": "FV",
+      "sourcePage": "https://fvsa.com/productos/complementos-para-instalacion-desague-6/",
+      "sourceTokens": [
+        "0248.01",
+        "Soft Touch"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0248.01-CR.jpg"
+    },
+    {
+      "materialId": "ae77bce8-eddb-4519-a0b1-4d2bef2db92c",
+      "expectedDescription": "SOPAPA DESAGUE SOFT TOUCH 0248.01 · NEGRO",
+      "model": "FV Soft Touch 0248.01-NG negro",
+      "sourceName": "Santagal",
+      "sourcePage": "https://santagal.com.ar/productos/banos/accesorios/sopapas/desague-sopapa-fv-soft-touch-pop-up-negra/",
+      "sourceTokens": [
+        "0248.01",
+        "Negra"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://santagal.com.ar/wp-content/uploads/2026/06/square-image-2-2.jpg"
+    },
+    {
+      "materialId": "57c35150-fafe-4a6a-a5e3-6f4135180711",
+      "expectedDescription": "Picaportes Currao SARDEGNA 7003.37 · Cromado C/NIQUEL",
+      "model": "Currao Sardegna 7003.37 cromado",
+      "sourceName": "CAB",
+      "sourcePage": "https://www.cab.com.ar/productos/sardegna-currao/",
+      "sourceTokens": [
+        "Sardegna",
+        "7003",
+        "Currao"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://dcdn-us.mitiendanube.com/stores/001/296/106/products/sardegna-51-d3648c3992ba18b58216049476219329-1024-1024.webp"
+    },
+    {
+      "materialId": "b9fec9ae-d23e-472b-a7c6-0e2f35e471cf",
+      "expectedDescription": "PISTONES Linear TechLine LA36 - 6800N",
+      "model": "LINAK Techline LA36 6800N",
+      "sourceName": "LINAK",
+      "sourcePage": "https://www.linak-us.com/products/linear-actuators/la36/",
+      "sourceTokens": [
+        "LA36",
+        "6800"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn.linak.com/-/media/images/products/la36/linear-actuator-la36.jpg?bc=white&as=1&h=500&iar=0&w=500&rev=72c45c15-6951-4cb9-8ade-f8538c3df66c&quality=75&hash=F1B103FFA66BD3AC3B3F3AB024822299"
+    },
+    {
+      "materialId": "17da39f8-a22f-4288-8ec4-4b8df982605f",
+      "expectedDescription": "PISTONES Linear TechLine LA36 - 6800N",
+      "model": "LINAK Techline LA36 6800N",
+      "sourceName": "LINAK",
+      "sourcePage": "https://www.linak-us.com/products/linear-actuators/la36/",
+      "sourceTokens": [
+        "LA36",
+        "6800"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn.linak.com/-/media/images/products/la36/linear-actuator-la36.jpg?bc=white&as=1&h=500&iar=0&w=500&rev=72c45c15-6951-4cb9-8ade-f8538c3df66c&quality=75&hash=F1B103FFA66BD3AC3B3F3AB024822299"
+    },
+    {
+      "materialId": "4e3ccdd5-91e1-4269-a0e5-438d2307daa3",
+      "expectedDescription": "MALACATE 1000W CAD 8MM MAXWELL",
+      "model": "Maxwell RC8-8 12V RC8812V",
+      "sourceName": "Maxwell Marine",
+      "sourcePage": "https://maxwellmarine.com/product/rc8/",
+      "sourceTokens": [
+        "Maxwell",
+        "RC8",
+        "1000"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://maxwellmarine.com/wp-content/uploads/2021/04/RC8-1.jpg"
+    },
+    {
+      "materialId": "70537d23-529b-4a02-8673-079a54fc2780",
+      "expectedDescription": "MALACATE 1000W CAD 8MM MAXWELL · Malacate Maxwell RC8 12V INOX",
+      "model": "Maxwell RC8 12V INOX",
+      "sourceName": "Maxwell Marine",
+      "sourcePage": "https://maxwellmarine.com/product/rc8/",
+      "sourceTokens": [
+        "Maxwell",
+        "RC8",
+        "1000"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://maxwellmarine.com/wp-content/uploads/2021/04/RC8-1.jpg"
+    },
+    {
+      "materialId": "b660e95e-8edc-43cc-8a7f-2003b115d23a",
+      "expectedDescription": "Cargador Victron Centaur 24v 60A de 3 salidas",
+      "model": "Victron Centaur 24/60 (3) CCH024060000",
+      "sourceName": "Off Grid Direct",
+      "sourcePage": "https://offgriddirect.com.au/products/24v-60a-centaur-triple-output-sla-charger-with-m8-connection-cch024060000",
+      "sourceTokens": [
+        "Centaur",
+        "CCH024060000",
+        "24"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://offgriddirect.com.au/cdn/shop/products/VECC-24_606601.jpg?v=1654260395"
+    },
+    {
+      "materialId": "b8877ee9-d595-4ca1-83fe-c969ef9d0df0",
+      "expectedDescription": "COMBINADOR DIODO 2 ENTRADAS 1 SALIDA 80A VICTRON",
+      "model": "Victron Argodiode 80-2AC ARG080201000",
+      "sourceName": "SeaToys",
+      "sourcePage": "https://seatoys.com/electrical/electrical-distribution/battery-isolators/victron-argodiode-battery-isolator-80-2ac-2-batteries-80a-arg080201000/",
+      "sourceTokens": [
+        "Argodiode",
+        "80-2AC",
+        "ARG080201000"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-akrdq0rr06/images/stencil/1280x1280/products/39994/55244/106480XL__55777.1730823269.jpg?c=1"
+    },
+    {
+      "materialId": "c9af1d20-7058-4591-b990-fc3412327994",
+      "expectedDescription": "PARELANTE JL 7.7\" M3-770 GRIS",
+      "model": "JL Audio M3-770X-S-Gm-i / Garmin 010-03067-00",
+      "sourceName": "Garmin · JL Audio",
+      "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03067-00/",
+      "sourceTokens": [
+        "JL Audio",
+        "M3-770",
+        "010-03067-00"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en/products/010-03067-00/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "1dd21b67-9e5d-4297-99b8-2cd41c931852",
+      "expectedDescription": "Monocomando cocina FV Arizona alto 411.02/B1",
+      "model": "FV Arizona 0411.02/B1 monocomando cocina alto",
+      "sourceName": "FV",
+      "sourcePage": "https://fvsa.com/productos/b1-arizona-juego-monocomando-para-mesada-de-cocina-3/",
+      "sourceTokens": [
+        "0411.02",
+        "Arizona"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://fvsa.com/wp-content/uploads/2019/01/0411.02_B1-CR.jpg"
+    },
+    {
+      "materialId": "77aab3f7-2ff9-4c2f-a0f4-8c71ac1da892",
+      "expectedDescription": "HELADERA SAMSUNG RB31FSRNDSA",
+      "model": "Samsung RB31FSRNDSA/B3",
+      "sourceName": "Samsung Argentina",
+      "sourcePage": "https://www.samsung.com/ar/refrigerators/bottom-mount-freezer/rb31fsrndsa-328l-silver-rb31fsrndsa-b3/",
+      "sourceTokens": [
+        "Samsung",
+        "RB31FSRNDSA"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/rb31fsrndsa-b3/gallery/ar--rb31fsrndsa-b3-550223819?$1164_776_PNG$"
+    },
+    {
+      "materialId": "e5fc5e88-3b58-48c6-8464-69f9df1fc8d5",
+      "expectedDescription": "HORNO MICROONDAS CON GRILL SAMSUNG MG22M8054AK",
+      "model": "Samsung MG22M8054AK/BG",
+      "sourceName": "Samsung Argentina",
+      "sourcePage": "https://www.samsung.com/ar/microwave-ovens/grill/mq8000m-mg22m8054ak-bg/",
+      "sourceTokens": [
+        "Samsung",
+        "MG22M8054AK"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/mg22m8054ak-bg/gallery/ar-mq8000m-mg22m8054ak-bg-532184112?$1164_776_PNG$"
+    },
+    {
+      "materialId": "f177bdf6-6aac-4035-b16c-d6f446e339cf",
+      "expectedDescription": "PARLANTE JL 6.5\" M6-650 GRIS",
+      "model": "JL Audio M6-650X-S-GmTi-i / Garmin 010-03092-00",
+      "sourceName": "Garmin · JL Audio",
+      "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03092-00/",
+      "sourceTokens": [
+        "JL Audio",
+        "M6-650",
+        "010-03092-00"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en/products/010-03092-00/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "c6f2657a-0de2-4eae-966e-d044591b51c2",
+      "expectedDescription": "PARLANTE JL 7.7\" M6-770 GRIS",
+      "model": "JL Audio M6-770X-S-GmTi-i / Garmin 010-03076-00",
+      "sourceName": "Garmin · JL Audio",
+      "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03076-00/",
+      "sourceTokens": [
+        "JL Audio",
+        "M6-770",
+        "010-03076-00"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en/products/010-03076-00/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "eb50a9b7-f733-41c4-9335-0becbdece20a",
+      "expectedDescription": "HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V",
+      "model": "Matromarine holding tank 103L 12V",
+      "sourceName": "Maranautica",
+      "sourcePage": "https://www.maranautica.es/deposito-aguas-residuales-iso-8099-103lt-12v",
+      "sourceTokens": [
+        "Matromarine",
+        "103"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.maranautica.es/image/cache/catalog/product/1/d/1/3/2/2/6/3/6/product-504815-119831-a008195f80ca-800x800.png"
+    },
+    {
+      "materialId": "f4bf9a06-066c-471b-b6fc-a30d1e23ba92",
+      "expectedDescription": "HORNO ELECTRICO SAMSUNG NV7B5645TAK",
+      "model": "Samsung NV7B5645TAK/BG",
+      "sourceName": "Samsung Argentina",
+      "sourcePage": "https://www.samsung.com/ar/cooking-appliances/ovens/nv7b5645tak-nv7b5645tak-bg/",
+      "sourceTokens": [
+        "Samsung",
+        "NV7B5645TAK"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/nv7b5645tak-bg/gallery/ar-nv7b5645tak-nv7b5645tak-bg-538694871?$1164_776_PNG$"
+    },
+    {
+      "materialId": "f1f273f1-b66b-4da2-b61d-f4cd10afddb7",
+      "expectedDescription": "Sensor de nivel de combustible / agua eléctrico a rosca IGAUGE 145 cm",
+      "model": "IGAUGE sensor a rosca 145 cm",
+      "sourceName": "Flojumar",
+      "sourcePage": "https://flojumar.com/productos/sensor-de-nivel-de-combustible-agua-electrico-a-rosca-igauge/",
+      "sourceTokens": [
+        "IGAUGE",
+        "145"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://acdn-us.mitiendanube.com/stores/001/165/081/products/igauge-rosca-4-f160930c07cf8f75a717447471416538-1024-1024.webp"
+    },
+    {
+      "materialId": "063f8854-c307-42ba-bf33-0190924b8202",
+      "expectedDescription": "SOPORTE TORRE JL M-MCPv3-DM",
+      "model": "JL Audio M-MCPv3-DM / Garmin 010-13709-00",
+      "sourceName": "Garmin · JL Audio",
+      "sourcePage": "https://www.garmin.com/en-US/p/1866921/pn/010-13709-00/",
+      "sourceTokens": [
+        "JL Audio",
+        "010-13709-00"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en/products/010-13709-00/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "d305ac42-b348-4f65-8dc7-26276420a4d2",
+      "expectedDescription": "PARLANTE JL AUDIO M6 6.5\" SPEAKERS BLANCO",
+      "model": "JL Audio M6-650X-S-GwGw / Garmin 010-03090-00",
+      "sourceName": "Garmin · JL Audio",
+      "sourcePage": "https://www.garmin.com/en-US/p/1669657/pn/010-03090-00/",
+      "sourceTokens": [
+        "JL Audio",
+        "010-03090-00"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://res.garmin.com/en/products/010-03090-00/v/cf-lg.jpg"
+    },
+    {
+      "materialId": "ccaa6c56-536c-45cb-a4d3-ee624c5696d2",
+      "expectedDescription": "MORSE CONTROL 5000 FLEXBALL",
+      "model": "Flexball 5000 electronic control head",
+      "sourceName": "Flexball Italiana",
+      "sourcePage": "https://www.flexballitaliana.com/product/5000-1.html",
+      "sourceTokens": [
+        "Flexball",
+        "5000"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.flexballitaliana.com/upload/image/485-5000-copertina-1-original.png"
+    },
+    {
+      "materialId": "e8ab225c-6ca6-4699-806e-87f8d5b4558c",
+      "expectedDescription": "MORSE FLEXBALL CONTROL 4200",
+      "model": "Flexball 4200 side mounting control",
+      "sourceName": "Flexball Italiana",
+      "sourcePage": "https://www.flexballitaliana.com/product/4200.html",
+      "sourceTokens": [
+        "Flexball",
+        "4200"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.flexballitaliana.com/upload/image/228-4200-original.png"
+    },
+    {
+      "materialId": "2c84ad48-a921-40ea-b78c-0130b2899de4",
+      "expectedDescription": "Cerraduras Kallay 503",
+      "model": "Kallay 503",
+      "sourceName": "Kallay",
+      "sourcePage": "https://www.kallay.com/productos?modelo=503",
+      "sourceTokens": [
+        "Kallay",
+        "503"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.kallay.com/img/products/32/gallery/20230728165917547100_image.jpg"
+    },
+    {
+      "materialId": "a1000bbd-aaa5-459f-8021-c97c0470cc02",
+      "expectedDescription": "Bacha de apoyo cuadrada blanco deca 30X30",
+      "model": "Deca Slim L.11030.17 blanca 30x30",
+      "sourceName": "Foschia",
+      "sourcePage": "https://foschia.com.ar/p/bacha-deca-slim-cuadrada-de-apoyo-bco-l-11030-17/c185d13e-32ad-4de6-babd-44270ebde0dc",
+      "sourceTokens": [
+        "Deca",
+        "L.11030.17"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://d2eebw31vcx88p.cloudfront.net/foschiads/uploads-r/p/d7ca71bff6aff142a1bd764bafca60a79e3d1113.jpg"
+    },
+    {
+      "materialId": "8d181543-0791-4639-845b-faba3e724c79",
+      "expectedDescription": "REGULADOR DE PRESION BLANCO SEAFLO",
+      "model": "Jabsco 44411-1045 flush mount white pressure regulator",
+      "sourceName": "ProPride Marine",
+      "sourcePage": "https://propridemarine.com/jabsco-flush-mount-water-pressure-regulator-45psi-white-p-n-44411-1045/",
+      "sourceTokens": [
+        "Jabsco",
+        "44411-1045"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-dz6pzclfyw/images/stencil/original/products/163067/1556743/42517XL__30511__56970.1672864368.jpg?c=1"
+    },
+    {
+      "materialId": "d121cbdc-83c7-4af2-96a7-2cb55d14d52c",
+      "expectedDescription": "Solenoide de inversion 12v · Maxwell",
+      "model": "Maxwell SP5104 reversing solenoid 12V",
+      "sourceName": "ProPride Marine",
+      "sourcePage": "https://propridemarine.com/maxwell-reversing-solenoid-pack-12v-p-n-sp5104/",
+      "sourceTokens": [
+        "Maxwell",
+        "SP5104"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-dz6pzclfyw/images/stencil/original/products/159616/1552920/69491XL__92095__83644.1672856576.jpg?c=1"
+    },
+    {
+      "materialId": "34709878-95c9-4ef8-9fa0-e0b3a525f59a",
+      "expectedDescription": "Solenoide Blue Sea L-Series - 250A 12/24V",
+      "model": "Blue Sea Systems 9012 L-Series 250A",
+      "sourceName": "CH Marine",
+      "sourcePage": "https://www.chmarine.com/blue-sea-l-series-solenoid---250a-12/24v/",
+      "sourceTokens": [
+        "9012",
+        "250A"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-lmnt0zg7g8/images/stencil/1280x1280/products/22994/59599/BS9012__59231.1762146113.png?c=2"
+    },
+    {
+      "materialId": "45d6ce8b-b0aa-4180-995b-df2f3a38ce41",
+      "expectedDescription": "HORNO MICROONDAS SAMSUNG MW7300B",
+      "model": "Samsung MW7300B / MC32DG7646CKBG",
+      "sourceName": "Samsung Argentina",
+      "sourcePage": "https://www.samsung.com/ar/microwave-ovens/convection/mw7300b-mc32db7746ke-convection-mwo-all-in-one-microwave-oven-smart-control-mc32dg7646ckbg/",
+      "sourceTokens": [
+        "Samsung",
+        "MW7300B"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/ar/mc32dg7646ckbg/gallery/ar-mw7300b-mc32db7746ke-mc32dg7646ckbg-548597152?$1164_776_PNG$"
+    },
+    {
+      "materialId": "668bd1df-ff77-4632-9045-9ed60811bfb2",
+      "expectedDescription": "Microondas 28L SAMSUNG MG28F3K3TAS",
+      "model": "Samsung MG28F3K3TAS/BG",
+      "sourceName": "Samsung Shop Argentina",
+      "sourcePage": "https://shop.samsung.com/ar/microondas-con-grill-de-interior-ceramico-28-l/p",
+      "sourceTokens": [
+        "Samsung",
+        "MG28F3K3TAS"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://samsungar.vtexassets.com/arquivos/ids/215146/1.jpg"
+    },
+    {
+      "materialId": "e48ea676-f3b8-45ba-81cd-7fb69654fb0f",
+      "expectedDescription": "Extractor Rule 4\" 12V",
+      "model": "Rule 240 4\" in-line blower 12V",
+      "sourceName": "Water Yacht Solutions",
+      "sourcePage": "https://wateryachtsolutions.com/rule-4-in-line-blower-240/",
+      "sourceTokens": [
+        "Rule",
+        "240"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-gelp0u88ve/images/stencil/1280x1280/products/13777/20895/718971-1677183812161__86620.1677185087.jpg?c=2"
+    },
+    {
+      "materialId": "8809cd38-f577-426d-addc-9b958040737e",
+      "expectedDescription": "Extractor Rule 4\" 12V",
+      "model": "Rule 240 4\" in-line blower 12V",
+      "sourceName": "Water Yacht Solutions",
+      "sourcePage": "https://wateryachtsolutions.com/rule-4-in-line-blower-240/",
+      "sourceTokens": [
+        "Rule",
+        "240"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-gelp0u88ve/images/stencil/1280x1280/products/13777/20895/718971-1677183812161__86620.1677185087.jpg?c=2"
+    },
+    {
+      "materialId": "d553e65c-1370-4101-a848-e71d52f864e5",
+      "expectedDescription": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+      "model": "Rule 37A SuperSwitch float switch",
+      "sourceName": "Marine Parts Source",
+      "sourcePage": "https://marinepartssource.com/superswitch-float-switch-rule-37a",
+      "sourceTokens": [
+        "Rule",
+        "37A"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://marinepartssource.com/media/catalog/product/r/u/rul37a_lg.jpg"
+    },
+    {
+      "materialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+      "expectedDescription": "Bomba achique 2000gph 12V · Rule",
+      "model": "Rule 2000 GPH Model 10",
+      "sourceName": "Water Yacht Solutions",
+      "sourcePage": "https://wateryachtsolutions.com/rule-2000-g-p-h-bilge-pump-10/",
+      "sourceTokens": [
+        "Rule",
+        "2000"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-gelp0u88ve/images/stencil/1280x1280/products/13785/20903/718985-1677182129614__73498.1677266689.jpg?c=2"
+    },
+    {
+      "materialId": "9f04de6f-b777-41f0-8876-40e62510d848",
+      "expectedDescription": "Switch automático Rule 35A",
+      "model": "Rule 35A Rule-A-Matic float switch",
+      "sourceName": "Water Yacht Solutions",
+      "sourcePage": "https://wateryachtsolutions.com/rule-a-matic-float-switch-35a/",
+      "sourceTokens": [
+        "Rule",
+        "35A"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-gelp0u88ve/images/stencil/original/products/13789/20907/718998-1677183755943__88058.1677267139.jpg"
+    },
+    {
+      "materialId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+      "expectedDescription": "Rule Panel Switch 43 tablero",
+      "model": "Rule Model 43 bilge panel switch",
+      "sourceName": "MEC Leisure",
+      "sourcePage": "https://mecleisure.co.uk/products/deluxe-rocker-switch-12v-43",
+      "sourceTokens": [
+        "Rule",
+        "43"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://mecleisure.co.uk/cdn/shop/files/43.jpg?v=1750841120"
+    },
+    {
+      "materialId": "82f25dd3-0722-4643-8945-5d6e3d534a16",
+      "expectedDescription": "Tanque acumulador presion Flojet-Jabsco",
+      "model": "Flojet/Jabsco 30573 1L accumulator tank",
+      "sourceName": "PumpAgents",
+      "sourcePage": "https://www.pumpagents.com/JabscoPumps/305730000.html",
+      "sourceTokens": [
+        "30573",
+        "Accumulator"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.pumpagents.com/store/products/JabscoPumps/big/30573-0000.jpg"
+    },
+    {
+      "materialId": "bcae926a-3ec0-4850-aba0-a7cd91deece6",
+      "expectedDescription": "CONTROL P/FARO DOBLE ESTACION JABSCO 135SL",
+      "model": "Jabsco 43670-0005 dual-station control for 135SL",
+      "sourceName": "Mack Engineering",
+      "sourcePage": "https://www.mackengineering.co.uk/43670-0005-jabsco-secondary-controller-for-135sl.html",
+      "sourceTokens": [
+        "43670-0005",
+        "135SL"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.mackengineering.co.uk/images/P/43670-0005.JPG"
+    },
+    {
+      "materialId": "184c670b-9b82-410d-a5f4-dfe9d9654579",
+      "expectedDescription": "CALEFACTOR 2D WEBASTO AUTOTERM 2000W",
+      "model": "Autoterm Air 2D 2kW",
+      "sourceName": "Autoterm",
+      "sourcePage": "https://autoterm.com/product/autoterm-air-2d",
+      "sourceTokens": [
+        "Air 2D",
+        "2"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn.autoterm.com/media/1.%20PRODUCT%20STUDIO%20PHOTOS/1.%20Air%20Heaters/Air%202D/Air%202D_MAIN.png"
+    },
+    {
+      "materialId": "d4bbb9d2-b1f0-4ab2-81e8-b74c5abfe9a2",
+      "expectedDescription": "Retén push 245.54.701 · Hafele",
+      "model": "Häfele Mini Latch 245.54.701",
+      "sourceName": "Harbor City Supply",
+      "sourcePage": "https://www.harborcitysupply.com/hafele-mini-latch-245-54-701/",
+      "sourceTokens": [
+        "245.54.701",
+        "Hafele"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-cziwra/images/stencil/1280x1280/products/3912/25492/Default-min__76370.1614115765.jpg?c=2"
+    },
+    {
+      "materialId": "686b6784-7bc4-43ac-97cc-5ae4197d3015",
+      "expectedDescription": "ECOSONDA P319 · SIMRAD",
+      "model": "xSonic Airmar P319 / Simrad 000-13915-001",
+      "sourceName": "Blue Bottle Marine",
+      "sourcePage": "https://www.bluebottlemarine.com/products/simrad-lowrance-xsonic-p319-transducer-50-200-khz.html",
+      "sourceTokens": [
+        "P319",
+        "Airmar"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-jx69vd/images/stencil/1280x1280/products/3868/76975/p319__67310.1784611409.png?c=2"
+    },
+    {
+      "materialId": "5ec241b2-77e3-4a1c-bbf8-e73e350e99cd",
+      "expectedDescription": "ADAPTADOR WHALE QCx1/2\" BSP HEMBRA",
+      "model": "Whale WX1532B QC 15mm x 1/2\" BSP female",
+      "sourceName": "Fawcett Boat Supplies",
+      "sourcePage": "https://www.fawcettboat.com/products/wws-wx1532b",
+      "sourceTokens": [
+        "WX1532",
+        "Whale"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.fawcettboat.com/cdn/shop/products/wws_wx1532b_lg_56eb27ce-807e-452c-af59-74ea1e2b4c1b.jpg?v=1756321270"
+    },
+    {
+      "materialId": "588dafe8-63a7-4d44-a9d9-467bf92429b1",
+      "expectedDescription": "Microondas 23L · Samsung",
+      "model": "Samsung MG23F3K3TAS/BG",
+      "sourceName": "Samsung Shop Argentina",
+      "sourcePage": "https://shop.samsung.com/ar/microondas-con-grill-silver-de-interior-ceramico-23l-/p",
+      "sourceTokens": [
+        "Samsung",
+        "MG23F3K3TAS"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://samsungar.vtexassets.com/arquivos/ids/215142/1.png"
+    },
+    {
+      "materialId": "080752c2-8faa-4012-acdc-5a84ced52f24",
+      "expectedDescription": "Duchador de mano piazza negro",
+      "model": "Piazza D0303NE set mango ducha negro",
+      "sourceName": "Piazza",
+      "sourcePage": "https://www.piazzagriferia.com/producto/d0303ne/",
+      "sourceTokens": [
+        "D0303NE",
+        "Negro"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.piazzagriferia.com/wp-content/uploads/2025/08/D0303NE.jpg"
+    },
+    {
+      "materialId": "c829678b-e9fe-42c4-8540-dc84fc102e65",
+      "expectedDescription": "Duchador mano Piazza lujo - NEGRO",
+      "model": "Piazza D0105NE duchador de mano negro",
+      "sourceName": "Piazza",
+      "sourcePage": "https://www.piazzagriferia.com/producto/d0105ne/",
+      "sourceTokens": [
+        "D0105NE",
+        "Negro"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.piazzagriferia.com/wp-content/uploads/2025/08/D0105NE.jpg"
+    },
+    {
+      "materialId": "177f46fb-cebb-47a0-a7d2-5e3f18f43012",
+      "expectedDescription": "Bacha Piazza A426 · Gris",
+      "model": "Piazza A426GR bacha slim rectangular gris",
+      "sourceName": "Piazza",
+      "sourcePage": "https://www.piazzagriferia.com/producto/a426gr/",
+      "sourceTokens": [
+        "A426",
+        "Gris"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.piazzagriferia.com/wp-content/uploads/2025/05/24910-_.jpg"
+    },
+    {
+      "materialId": "16092c63-17bd-43f3-9a7f-1f67efdc47ab",
+      "expectedDescription": "Bacha Piazza A426 · Beige",
+      "model": "Piazza A426BE bacha slim rectangular beige",
+      "sourceName": "Piazza",
+      "sourcePage": "https://www.piazzagriferia.com/producto/a426be/",
+      "sourceTokens": [
+        "A426",
+        "Beige"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.piazzagriferia.com/wp-content/uploads/2025/05/24911-1.jpg"
+    },
+    {
+      "materialId": "d74930ff-6bee-44ff-af15-259549f93e63",
+      "expectedDescription": "Bacha Piazza A426 · Blanco",
+      "model": "Piazza A426 bacha slim rectangular blanca",
+      "sourceName": "Abelson",
+      "sourcePage": "https://abelson.com.ar/12763-friendly-url-autogeneration-failed.html",
+      "sourceTokens": [
+        "A426",
+        "Piazza"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://abelson.com.ar/6540-thickbox_default/friendly-url-autogeneration-failed.jpg"
+    },
+    {
+      "materialId": "c88ce208-4c04-4cb1-aa1e-6aca06f8337f",
+      "expectedDescription": "Bacha Piazza A426 Blanco",
+      "model": "Piazza A426 bacha slim rectangular blanca",
+      "sourceName": "Abelson",
+      "sourcePage": "https://abelson.com.ar/12763-friendly-url-autogeneration-failed.html",
+      "sourceTokens": [
+        "A426",
+        "Piazza"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://abelson.com.ar/6540-thickbox_default/friendly-url-autogeneration-failed.jpg"
+    },
+    {
+      "materialId": "6de25738-462e-4766-918e-93b6c795566d",
+      "expectedDescription": "PLOTTER SIMRAD G09 XSE",
+      "model": "Simrad GO9 XSE 000-14444-001",
+      "sourceName": "Blue Bottle Marine",
+      "sourcePage": "https://www.bluebottlemarine.com/products/simrad-go9-xse-display-only.html",
+      "sourceTokens": [
+        "GO9",
+        "000-14444"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-jx69vd/images/stencil/1280x1280/products/22061/60579/2018-09-10_14-10-59__56463.1627439811.380.500__86920.1635942580.jpg?c=2"
+    },
+    {
+      "materialId": "9245d633-fee3-4f15-badc-a91f4adaf4aa",
+      "expectedDescription": "SOLENOIDE MALACATE 24 V MAXWELL",
+      "model": "Maxwell SP5105 reversing solenoid 24V",
+      "sourceName": "Marine Parts Source",
+      "sourcePage": "https://marinepartssource.com/reversing-solenoid-24-volt-maxwell-sp5105",
+      "sourceTokens": [
+        "SP5105",
+        "24"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://marinepartssource.com/media/catalog/product/m/a/maxsp5105-lg.jpg"
+    },
+    {
+      "materialId": "1a33e474-5040-44cd-8b52-0abac2f7ec83",
+      "expectedDescription": "Solenoide zm 403 12v",
+      "model": "ZM 403 solenoide auxiliar 12V 200A",
+      "sourceName": "Distribuidora GMV",
+      "sourcePage": "https://shop.distribuidoragmv.com.ar/solenoides-automaticos/21148-zm-403-solenoide-para-arranque-auxiliar-bosch-m-benz-1633-super-torque-12v.html",
+      "sourceTokens": [
+        "403",
+        "ZM"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://shop.distribuidoragmv.com.ar/108726-thickbox_default/zm-403-solenoide-para-arranque-auxiliar-bosch-m-benz-1633-super-torque-12v.jpg"
+    },
+    {
+      "materialId": "b0076cd8-0c30-49f3-bdb6-eccbef197c13",
+      "expectedDescription": "SOPAPA CLICK PIAZZA NEGRA SC4348E",
+      "model": "Piazza SC434NE sopapa click negro",
+      "sourceName": "Piazza",
+      "sourcePage": "https://www.piazzagriferia.com/producto/sc434ne/",
+      "sourceTokens": [
+        "SC434",
+        "Negro"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.piazzagriferia.com/wp-content/uploads/2025/08/SC434NE.jpg"
+    },
+    {
+      "materialId": "efd691c6-8d1c-437b-aca2-d273b7e0ab03",
+      "expectedDescription": "Botón malacate Footswitch · Footswitch Quick italy con tapa inox",
+      "model": "Quick 915/CX footswitch tapa inox AISI 316",
+      "sourceName": "Aquafax",
+      "sourcePage": "https://www.aquafax.co.uk/products/quick-915-foot-switch-for-anchor-lowering-lifting-150a-stainless-q-fp915-cx",
+      "sourceTokens": [
+        "915/CX",
+        "Quick"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://d1blekj7w4kc3j.cloudfront.net/images/presets/product_page_full/catalogue/products/Q-FP915.CX.jpg"
+    },
+    {
+      "materialId": "dbb3e9a4-0fee-443d-9643-722212d95a53",
+      "expectedDescription": "cable gws 10, 30m (garmin)",
+      "model": "Garmin NMEA 2000 backbone/GWS 10 mast cable 30m 010-11171-01",
+      "sourceName": "Hudson Marine Electronics",
+      "sourcePage": "https://hudsonmarine.co.uk/products/garmin-nmea2000-backbone-cable-30m-replacement-mast-cable-for-gws-10-wind-transducer-010-11171-01",
+      "sourceTokens": [
+        "010-11171-01",
+        "GWS"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://hudsonmarine.co.uk/cdn/shop/files/legacy-d8daa7c1.jpg?v=1781902556"
+    },
+    {
+      "materialId": "03799ebb-10c9-450d-95e1-bf34ac973c9f",
+      "expectedDescription": "TV  43\" · Samsung T5300",
+      "model": "Samsung 43 T5300 FHD Smart TV / UN43T5300APXPA",
+      "sourceName": "Samsung Latinoamérica",
+      "sourcePage": "https://www.samsung.com/latin/tvs/full-hd-tv/t5300-43-inch-full-hd-smart-tv-un43t5300apxpa/",
+      "sourceTokens": [
+        "Samsung",
+        "T5300",
+        "43"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/latin-fhd-t5300-un43t5300apxpa-frontblack-thumb-229166471"
+    },
+    {
+      "materialId": "2a4d059a-0d89-4a11-b819-2a026f2589b1",
+      "expectedDescription": "VALVULA DE DESVIO \"Y\" MATROMARINE ITALIANA",
+      "model": "Matromarine Y-valve 6000200025",
+      "sourceName": "BigShip",
+      "sourcePage": "https://www.bigship.com/catalogue/vie-a-bord/wc-accessoires/accessoires-de-wc/matromarine-vanne-y-3-voies-cadenassable",
+      "sourceTokens": [
+        "Matromarine",
+        "6000200025"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://bigship-media.riashop.app/images/1500x1200/93061.jpg"
+    },
+    {
+      "materialId": "00a2d750-1c57-485c-9018-bb5fe180ee05",
+      "expectedDescription": "CODO QUICK CONNECT 15mm",
+      "model": "Whale WX1503B equal elbow 15mm Quick Connect",
+      "sourceName": "Boatersland Marine",
+      "sourcePage": "https://www.boatersland.com/whale-wx1503b-equal-elbow-15mm.html",
+      "sourceTokens": [
+        "WX1503B",
+        "Whale"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://www.boatersland.com/images/img/whale-wx1503b-equal-elbow-15mm.jpg"
+    },
+    {
+      "materialId": "ca73afec-3c5d-4507-ae50-feb188081410",
+      "expectedDescription": "Bomba agua JABSCO automática 3GPM + prefiltro",
+      "model": "Jabsco Par-Max 3 12V 3GPM 40PSI with strainer 31395-4012-3A",
+      "sourceName": "ProPride Marine",
+      "sourcePage": "https://propridemarine.com/jabsco-par-max-3-water-pressure-pump-12v-3-gpm-40-psi-p-n-31395-4012-3a/",
+      "sourceTokens": [
+        "31395-4012",
+        "Jabsco",
+        "3"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-dz6pzclfyw/images/stencil/1280x1280/products/160046/1553349/86614XL__67059__30763.1672856784.jpg?c=1"
+    },
+    {
+      "materialId": "9fa4d195-0da9-4d28-8463-32a2195d587d",
+      "expectedDescription": "TV  43\" · Samsung Full HD F600",
+      "model": "Samsung 43 F6000F Full HD Smart TV / UN43F6000FGXZD",
+      "sourceName": "Samsung Brasil",
+      "sourcePage": "https://www.samsung.com/br/tvs/full-hd-tv/f6000-43-inch-un43f6000fgxzd/",
+      "sourceTokens": [
+        "Samsung",
+        "F600",
+        "43"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://images.samsung.com/is/image/samsung/p6pim/br/un43f6000fgxzd/gallery/br-fhd-f6000-un43f6000fgxzd-545960225?$1164_776_PNG$"
+    },
+    {
+      "materialId": "ee4907f6-c15e-476c-bacf-a4981ba991ef",
+      "expectedDescription": "Rejilla D60 Obturable Negra - Calefactor Autoterm",
+      "model": "Autoterm deflector closable Ø60mm black EU/4099",
+      "sourceName": "Autoterm Schweiz",
+      "sourcePage": "https://autoterm.ch/deflector-closable-o-60mm-incl-flange.html?language=en",
+      "sourceTokens": [
+        "Autoterm",
+        "closable",
+        "60"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://autoterm.ch/images/product_images/original_images/EU_4099-601.jpg"
+    },
+    {
+      "materialId": "d98179e7-c15c-4c02-bb97-187c72a2f428",
+      "expectedDescription": "Rejilla D60 Orientable Negra - Calefactor Autoterm",
+      "model": "Autoterm grille Ø60mm 30° black EU/P4943",
+      "sourceName": "Autoterm Schweiz",
+      "sourcePage": "https://autoterm.ch/grille-o-60-mm-30.html?language=en",
+      "sourceTokens": [
+        "Autoterm",
+        "60",
+        "30"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://autoterm.ch/images/product_images/original_images/DE007A1.jpg"
+    },
+    {
+      "materialId": "b2830c16-2f31-4bb0-9b7e-60368c734e8b",
+      "expectedDescription": "Rejilla D90 Obturable Negra - Calefactor Autoterm",
+      "model": "Autoterm deflector closable Ø90mm black EU/P4108",
+      "sourceName": "Autoterm Schweiz",
+      "sourcePage": "https://autoterm.ch/deflector-closable-o-90mm-incl-flange.html?language=en",
+      "sourceTokens": [
+        "Autoterm",
+        "closable",
+        "90"
+      ],
+      "imageProof": "embedded",
+      "imageUrl": "https://autoterm.ch/images/product_images/original_images/EU_P4108-90.jpg"
+    },
+    {
+      "materialId": "10899c6e-f1cb-49dd-a9e5-d91f5e653f65",
+      "expectedDescription": "Microondas 23L · BGH",
+      "model": "BGH Quick Chef B223DS20I 23L",
+      "sourceName": "Tiribelli Hogar",
+      "sourcePage": "https://tiribellihogar.com.ar/microondas-bgh-silver-digital-23-lt-011069",
+      "sourceTokens": [
+        "BGH",
+        "B223DS20",
+        "23"
+      ],
+      "imageUrl": "https://tiribellihogar.com.ar/media/catalog/product/cache/6517c62f5899ad6aa0ba23ceb3eeff97/0/1/011069_011069_1_2025-08-08_12_00_08.png"
+    },
+    {
+      "materialId": "2176cf72-d0c3-413f-ae8f-8785be0dab6a",
+      "expectedDescription": "Heladera BGH 312L",
+      "model": "BGH BRC330I2A 312L Dark Inox",
+      "sourceName": "Tiribelli Hogar",
+      "sourcePage": "https://tiribellihogar.com.ar/heladera-bgh-dark-inox-c-dispenser-inverter-012100",
+      "sourceTokens": [
+        "BGH",
+        "BRC330",
+        "312"
+      ],
+      "imageUrl": "https://tiribellihogar.com.ar/media/catalog/product/cache/6517c62f5899ad6aa0ba23ceb3eeff97/1/7/179.png"
+    },
+    {
+      "materialId": "b0246751-234f-4dac-aa3d-044236491ab7",
+      "expectedDescription": "Tapa tanque combustible 2\" cromada c/venteo · Perko",
+      "model": "Perko 0577G00CHR 2\" chrome vented deck fill",
+      "sourceName": "Palmer Power",
+      "sourcePage": "https://palmerpower.com/perko-0577g00chr-fig-0577-2-hose-straight-neck-vented-deck-fill-gas-chrome-cap/",
+      "sourceTokens": [
+        "Perko",
+        "0577",
+        "2"
+      ],
+      "imageUrl": "https://cdn11.bigcommerce.com/s-qf0s306jdf/products/369893/images/91416/221372_pko_gas-vent_ppm-tif__06245.1682676123.386.513.jpg?c=1"
+    },
+    {
+      "materialId": "31191a32-d031-4164-a593-2c5852bbd9fa",
+      "expectedDescription": "ANCLA 10KG GALVANIZADA DELTA",
+      "model": "Lewmar Delta galvanized 10kg 0057410",
+      "sourceName": "Marine Store",
+      "sourcePage": "https://marinestore.co.uk/lewmar-delta-anchor-galvanized-10kg-57410-j160224.html",
+      "sourceTokens": [
+        "Delta",
+        "10",
+        "Galvanized"
+      ],
+      "imageUrl": "https://marinestore.co.uk/mm5/graphics/00000002/9/afl0057406-lewmar-delta-anchor-galvanized-800.jpg"
+    },
+    {
+      "materialId": "0f979873-722c-4068-bd1a-1d9d346cb3bb",
+      "expectedDescription": "ANCLA 20KG DELTA GALVANIZADA",
+      "model": "Lewmar Delta galvanized 20kg 0057420",
+      "sourceName": "Marine Store",
+      "sourcePage": "https://marinestore.co.uk/lewmar-delta-anchor-galvanized-20kg-57420-j160224.html",
+      "sourceTokens": [
+        "Delta",
+        "20",
+        "Galvanized"
+      ],
+      "imageUrl": "https://marinestore.co.uk/mm5/graphics/00000002/9/afl0057406-lewmar-delta-anchor-galvanized-800.jpg"
+    },
+    {
+      "materialId": "c044b9ef-6003-4d75-b4f6-a7e52de54a00",
+      "expectedDescription": "Ancla DELTA 40kg INOX",
+      "model": "Lewmar Delta stainless 40kg 0057340",
+      "sourceName": "Jimmy Green Marine",
+      "sourcePage": "https://jimmygreen.com/product/lewmar-delta-anchor-stainless-steel/",
+      "sourceTokens": [
+        "Delta",
+        "Stainless",
+        "40"
+      ],
+      "imageUrl": "https://jimmygreen.com/app/uploads/2016/03/8628-Lewmar-Delta-Anchor-stainless-steel.jpg"
     }
   ]
 }

@@ -1,0 +1,15 @@
+﻿{
+  "search": "Rule",
+  "count": 1,
+  "rows": [
+    {
+      "id": "183a1a53-1ca8-4ded-be4e-ee964a2a8dcb",
+      "codigo": null,
+      "descripcion": "Caja drenaje ducha 800GPH ┬À Rule",
+      "proveedor": "Trimer",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

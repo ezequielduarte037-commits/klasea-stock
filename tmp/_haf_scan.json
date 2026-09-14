@@ -1,0 +1,8 @@
+[
+  {
+    "urls": [
+      "https://www.hafele.com/us/en/product/magnetic-catch-246-65-709/0000010a00013a6700020a10/"
+    ],
+    "snip": "{\"role\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Grep\",\"input\":{\"path\":\"c:\\\\klasea-stock\\\\scripts\\\\catalog-image-curated.sources.json\",\"pattern\":\"Rule Model 43|135 SL|30573|GO9|P31"
+  }
+]

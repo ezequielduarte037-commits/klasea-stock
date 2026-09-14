@@ -109,10 +109,12 @@ async function verifySource(entry) {
     const decodedHtml = decodeHtml(html);
     const expectedUrl = new URL(expectedImageUrl);
     const relativeImageUrl = `${expectedUrl.pathname}${expectedUrl.search}`;
+    const relativeImageUrlNoSlash = relativeImageUrl.replace(/^\//, "");
     if (
       !decodedHtml.includes(entry.imageUrl) &&
       !decodedHtml.includes(expectedImageUrl) &&
-      !decodedHtml.includes(relativeImageUrl)
+      !decodedHtml.includes(relativeImageUrl) &&
+      !decodedHtml.includes(relativeImageUrlNoSlash)
     ) {
       throw new Error("La ficha ya no publica la imagen exacta configurada; requiere revisión manual.");
     }

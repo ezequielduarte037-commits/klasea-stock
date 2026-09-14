@@ -1,3 +1,14 @@
+-- OBSOLETO desde el 2026-09-14. Los triggers y la funcion que crea este
+-- archivo fueron borrados por 20260914160000_compras_avisos_solo_por_edge_function.sql:
+-- mandaban un segundo mail, peor, por cada evento que ya notificaba la edge
+-- function notificar-email-compras.
+--
+-- La API key de Resend que estaba escrita aca en texto plano fue reemplazada por
+-- un placeholder. OJO: sigue estando en el historial de git, asi que esto NO la
+-- invalida; lo unico que revoca el acceso es rotarla en el panel de Resend.
+--
+-- Se conserva como referencia por si hubiera que reponer el trigger.
+
 -- Habilita pg_net para llamadas HTTP desde la DB
 create extension if not exists pg_net with schema extensions;
 
@@ -8,7 +19,7 @@ language plpgsql
 security definer
 as $$
 declare
-  resend_api_key text := 're_hpNFbcC1_9vzuT1vx7doc5TbHeQYeTZyV';
+  resend_api_key text := 'REEMPLAZAR_POR_LA_API_KEY_DE_RESEND';
   compras_email  text := 'compras@allyachts.com.ar';
   app_url        text := 'https://klasea-stock.vercel.app';
   subject        text;

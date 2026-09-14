@@ -1,0 +1,15 @@
+﻿{
+  "search": "Electrovalvula",
+  "count": 1,
+  "rows": [
+    {
+      "id": "4b8d73c5-45fc-435f-a1ed-01b56f8d08b4",
+      "codigo": null,
+      "descripcion": "Electrovalvula 12v holding tank Matromarine",
+      "proveedor": "Flojumar",
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

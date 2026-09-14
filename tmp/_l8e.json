@@ -1,0 +1,24 @@
+﻿{
+  "search": "Piazza",
+  "count": 2,
+  "rows": [
+    {
+      "id": "59d6da32-feb7-4cba-9068-9fe376c9f300",
+      "codigo": null,
+      "descripcion": "Bacha Piazza A426 ┬À Negro",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    },
+    {
+      "id": "f7f5da58-aa3b-4a14-8385-35326f591438",
+      "codigo": null,
+      "descripcion": "Duchador de mano NEGRO + Codo pared ┬À Duchador Mano Piazza Lujo D0105ne NEGRO + Soporte Toma Flex 1.5m NEGRO",
+      "proveedor": null,
+      "imagen_url": null,
+      "activo": true,
+      "specificity": 0
+    }
+  ]
+}

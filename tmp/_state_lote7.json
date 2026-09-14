@@ -1,0 +1,78 @@
+{
+  "cwd": "C:\\klasea-stock",
+  "entries": 187,
+  "lote7": [
+    "garmin-30m.jpg",
+    "hafele-24665709.webp",
+    "matromarine-y.jpg",
+    "quick-915cx-neo.jpg",
+    "quick-915cx.jpg",
+    "samsung-t5300.png",
+    "sc434ne.jpg"
+  ],
+  "reports": [
+    "baron-apply-lote2.json",
+    "baron-pilot-lote2.json",
+    "catalog-image-apply-lote1.json",
+    "catalog-image-apply-lote2.json",
+    "catalog-image-apply-lote3.json",
+    "catalog-image-apply-lote4.json",
+    "catalog-image-apply-lote5.json",
+    "catalog-image-apply-lote6.json",
+    "catalog-image-dryrun-lote1.json",
+    "catalog-image-dryrun-lote2.json",
+    "catalog-image-dryrun-lote3.json",
+    "catalog-image-dryrun-lote4.json",
+    "catalog-image-dryrun-lote5.json",
+    "catalog-image-dryrun-lote5b.json",
+    "catalog-image-dryrun-lote6.json",
+    "lote2-review",
+    "lote3-preview",
+    "lote4-preview",
+    "lote5-preview",
+    "lote6-preview",
+    "lote7-preview"
+  ],
+  "last8": [
+    {
+      "id": "c829678b-e9fe-42c4-8540-dc84fc102e65",
+      "d": "Duchador mano Piazza lujo - NEGRO",
+      "status": null
+    },
+    {
+      "id": "177f46fb-cebb-47a0-a7d2-5e3f18f43012",
+      "d": "Bacha Piazza A426 · Gris",
+      "status": null
+    },
+    {
+      "id": "16092c63-17bd-43f3-9a7f-1f67efdc47ab",
+      "d": "Bacha Piazza A426 · Beige",
+      "status": null
+    },
+    {
+      "id": "d74930ff-6bee-44ff-af15-259549f93e63",
+      "d": "Bacha Piazza A426 · Blanco",
+      "status": null
+    },
+    {
+      "id": "c88ce208-4c04-4cb1-aa1e-6aca06f8337f",
+      "d": "Bacha Piazza A426 Blanco",
+      "status": null
+    },
+    {
+      "id": "6de25738-462e-4766-918e-93b6c795566d",
+      "d": "PLOTTER SIMRAD G09 XSE",
+      "status": null
+    },
+    {
+      "id": "9245d633-fee3-4f15-badc-a91f4adaf4aa",
+      "d": "SOLENOIDE MALACATE 24 V MAXWELL",
+      "status": null
+    },
+    {
+      "id": "1a33e474-5040-44cd-8b52-0abac2f7ec83",
+      "d": "Solenoide zm 403 12v",
+      "status": null
+    }
+  ]
+}
