@@ -2407,6 +2407,254 @@
       "category": "fontaneria",
       "imagePath": "tmp/genericos-piloto11/empalme-espiga-plastico.png",
       "note": "Representativa empalme espiga plástico"
+    },
+    {
+      "materialId": "8a6934ad-78f5-4b03-94f9-4797bd1cacad",
+      "expectedDescription": "FUSIBLE (CARAMELO) GRANDE",
+      "label": "Fusible caramelo grande",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/fusible-maxi.png",
+      "note": "Representativa fusible MAXI"
+    },
+    {
+      "materialId": "008f2f3a-5004-4d37-8645-af914c5df086",
+      "expectedDescription": "FUSIBLE (CARAMELO) GRANDE · 150A",
+      "label": "Fusible caramelo grande",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/fusible-maxi.png",
+      "note": "Representativa fusible MAXI"
+    },
+    {
+      "materialId": "6e92c78d-4258-4245-bdea-1828b97176d6",
+      "expectedDescription": "FUSIBLE (CARAMELO) GRANDE · 125A",
+      "label": "Fusible caramelo grande",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/fusible-maxi.png",
+      "note": "Representativa fusible MAXI"
+    },
+    {
+      "materialId": "a8cc370d-e83d-43e5-8c1c-ff163acf29a6",
+      "expectedDescription": "FUSIBLE (CARAMELO) GRANDE · 50A",
+      "label": "Fusible caramelo grande",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/fusible-maxi.png",
+      "note": "Representativa fusible MAXI"
+    },
+    {
+      "materialId": "24d7670f-7916-4982-9163-e56ad6442e5e",
+      "expectedDescription": "FUSIBLE (CARAMELO) GRANDE · 100A",
+      "label": "Fusible caramelo grande",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/fusible-maxi.png",
+      "note": "Representativa fusible MAXI"
+    },
+    {
+      "materialId": "376063e8-4687-4839-9c93-0da7244ed476",
+      "expectedDescription": "FUSIBLE (CARAMELO) GRANDE · 40A",
+      "label": "Fusible caramelo grande",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/fusible-maxi.png",
+      "note": "Representativa fusible MAXI"
+    },
+    {
+      "materialId": "ddfda65f-43b1-431d-be43-15c14de62ba1",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "5ad641a2-fc40-4a9b-8832-f3b5d5db3522",
+      "expectedDescription": "Borne Nautico",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "cb5401c3-274c-475b-9371-39ae8a779971",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "ec31829a-9112-4f63-92f2-0c1879eebeba",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "ae225c04-e8ac-462b-9500-1396f7f327c3",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "2b5133b1-f6a0-4ec4-b46e-9366774a3550",
+      "expectedDescription": "BORNERA · T2 100A",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "ece8583e-722f-4ce3-b115-7efdf3d47fbe",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "28f948d1-6474-428b-877e-df564539199f",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "6da0c781-2689-42e6-985e-6344ae0d1117",
+      "expectedDescription": "BORNERA",
+      "label": "Bornera eléctrica",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa bornera/busbar"
+    },
+    {
+      "materialId": "fa9e38c0-6eeb-4219-a018-67a9a5a2c5d1",
+      "expectedDescription": "BASE PORTA FUSIBLE NH-00 160",
+      "label": "Porta fusible",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/bornera.png",
+      "note": "Representativa base porta fusible"
+    },
+    {
+      "materialId": "11088a90-8940-4d3f-a7be-1e875ad9191c",
+      "expectedDescription": "LLAVE REMOTA (SOLENOIDE) 12v 500amp P/BATERIAS",
+      "label": "Llave / switch batería",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/battery-switch.png",
+      "note": "Representativa battery switch ON-OFF"
+    },
+    {
+      "materialId": "2b5e3a1e-65dc-47b3-bd0a-5c21c3d8542a",
+      "expectedDescription": "LLAVE REMOTA (SOLENOIDE) 24v 500amp P/BATERIAS",
+      "label": "Llave / switch batería",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/battery-switch.png",
+      "note": "Representativa battery switch ON-OFF"
+    },
+    {
+      "materialId": "b10aea73-d0f8-4d65-b5aa-863dfd1ff0ca",
+      "expectedDescription": "BATTERY SWITCH (GENERADOR)",
+      "label": "Llave / switch batería",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/battery-switch.png",
+      "note": "Representativa battery switch ON-OFF"
+    },
+    {
+      "materialId": "80c14f0c-c7a8-4c83-8886-5605384f4be7",
+      "expectedDescription": "LLAVE CORTE A DISTANCIA BATERIA ON-OFF",
+      "label": "Llave / switch batería",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/battery-switch.png",
+      "note": "Representativa battery switch ON-OFF"
+    },
+    {
+      "materialId": "09780a31-1f34-4dd1-8f8d-d452e8980a86",
+      "expectedDescription": "CAJA PORTA BATERIA 431X257X256",
+      "label": "Caja porta batería",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto12/caja-bateria.png",
+      "note": "Representativa caja porta batería"
+    },
+    {
+      "materialId": "638043c1-6f67-4c0f-8819-4edf57c1d0a2",
+      "expectedDescription": "Bomba p/duchador agua de rio",
+      "label": "Bomba agua presión",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-agua.png",
+      "note": "Representativa bomba agua 12V"
+    },
+    {
+      "materialId": "2592e3b6-5c7d-4d06-8337-351bdbb5ff6c",
+      "expectedDescription": "Bomba dual-max 12v",
+      "label": "Bomba agua presión",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-agua.png",
+      "note": "Representativa bomba agua 12V"
+    },
+    {
+      "materialId": "450d88c8-1bb0-40f2-b6fd-32da035f02e8",
+      "expectedDescription": "BOMBA DE AGUA AUTOMATICA 5.2GPH 12V",
+      "label": "Bomba agua presión",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-agua.png",
+      "note": "Representativa bomba agua 12V"
+    },
+    {
+      "materialId": "c12ba438-4164-45ef-bdbd-f60507f4125e",
+      "expectedDescription": "Bomba de agua automatica dualmax 7.5 GPM",
+      "label": "Bomba agua presión",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-agua.png",
+      "note": "Representativa bomba agua 12V"
+    },
+    {
+      "materialId": "39807315-9043-44a2-bc0e-5c896bc90086",
+      "expectedDescription": "Bomba de Aire acondicionado 1000gph",
+      "label": "Bomba aire acondicionado",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-ac.png",
+      "note": "Representativa bomba AC"
+    },
+    {
+      "materialId": "c78ef8fb-f67f-423b-b667-3fa426fa4c6e",
+      "expectedDescription": "Bomba aire acondicionado 220v 500gph",
+      "label": "Bomba aire acondicionado",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-ac.png",
+      "note": "Representativa bomba AC"
+    },
+    {
+      "materialId": "1e759b6b-a2b8-4222-a36b-aa69e9c89fca",
+      "expectedDescription": "ELECTRIC FUEL PUMP 12V (BOMBA ELECTRICA DE COMBUSTIBLE)",
+      "label": "Bomba combustible 12V",
+      "category": "bomba",
+      "imagePath": "tmp/genericos-piloto12/bomba-combustible.png",
+      "note": "Representativa bomba combustible eléctrica"
+    },
+    {
+      "materialId": "3f3795eb-a6cc-4b55-a6f9-0807f4fda186",
+      "expectedDescription": "ANCLA 30KG GALVANIZADA",
+      "label": "Ancla galvanizada",
+      "category": "ancla",
+      "imagePath": "tmp/genericos-piloto12/ancla-bruce.jpg",
+      "note": "Foto náutica real Bruce/Trefoil representativa"
+    },
+    {
+      "materialId": "64e9c3e8-d738-4f49-b82b-e235a9e6bfe5",
+      "expectedDescription": "Canilla válvula esférica lavarropas",
+      "label": "Válvula / canilla esférica",
+      "category": "valvula",
+      "imagePath": "tmp/genericos-piloto12/valvula-esferica-bronce.jpg",
+      "note": "Foto náutica real válvula esférica bronce"
+    },
+    {
+      "materialId": "b58a14b9-7d38-482f-b8aa-4628b77b2e99",
+      "expectedDescription": "Valvula 1/2 Codo salida flex.",
+      "label": "Válvula / canilla esférica",
+      "category": "valvula",
+      "imagePath": "tmp/genericos-piloto12/valvula-esferica-bronce.jpg",
+      "note": "Foto náutica real válvula esférica bronce"
     }
   ]
 }
