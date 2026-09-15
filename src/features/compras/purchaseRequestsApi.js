@@ -286,6 +286,7 @@ export async function createPurchaseRequest({
     status: "nuevo",
     project_id: form.project_id || null,
     destino: form.destino || null,
+    proveedor: form.proveedor?.trim?.() || null,
     needed_at: form.needed_at || null,
     source: form.source || null,
     source_ref: form.source_ref || null,
@@ -388,24 +389,33 @@ export async function fetchPurchaseRequestsResumen({ limit = 400 } = {}) {
   return data || [];
 }
 
+// Devuelve null cuando la solicitud no aparece.
+//
+// Con `.single()`, un id que no existe -o que RLS no deja ver- no volvía como
+// "no está": volvía como el error crudo de PostgREST, "Cannot coerce the result
+// to a single JSON object", que era lo que quedaba impreso en pantalla cuando
+// alguien abría el link de un aviso de un pedido ya borrado. `.maybeSingle()`
+// distingue las dos cosas: sin fila es null, y un error de verdad sigue siendo
+// un error.
 export async function fetchPurchaseRequestDetail(requestId) {
   let { data, error } = await supabase
     .from("purchase_requests")
     .select(DETAIL_SELECT)
     .eq("id", requestId)
-    .single();
+    .maybeSingle();
 
   if (error && isMissingCommentAttachments(error)) {
     const legacy = await supabase
       .from("purchase_requests")
       .select(LEGACY_DETAIL_SELECT)
       .eq("id", requestId)
-      .single();
+      .maybeSingle();
     data = legacy.data;
     error = legacy.error;
   }
 
   if (error) throw error;
+  if (!data) return null;
   return {
     ...data,
     comments: [...(data.comments || [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),

@@ -1433,6 +1433,9 @@ export async function guardarNormalizacionPorLinea({
     proveedor_id: row.proveedor_id || null,
     precio: numericValue(row.precio, 0) > 0 ? numericValue(row.precio, 0) : null,
     moneda: String(row.moneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
+    denominacion_proveedor: String(row.denominacion_proveedor || "").trim() || null,
+    codigo_proveedor: String(row.codigo_proveedor || "").trim() || null,
+    componentes_pedido: Array.isArray(row.componentes_pedido) ? row.componentes_pedido : [],
   })).filter((row) => row.proveedor_id);
 
   const { data, error } = await supabase.rpc("panol_normalizar_material_detallado_por_linea", {

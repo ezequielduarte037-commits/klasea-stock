@@ -106,6 +106,12 @@ function materialSearchFields(material = {}) {
     source.alias,
     source.notas,
     source.proveedor,
+    (source.proveedores_lista || []).map((entry) => [
+      entry?.proveedor?.nombre,
+      entry?.denominacion_proveedor,
+      entry?.codigo_proveedor,
+      (entry?.componentes_pedido || []).map((part) => `${part?.descripcion || ""} ${part?.codigo || ""}`),
+    ]),
     source.variantes,
     source.variantes_precios,
     materialBarcodeText(source),
@@ -870,9 +876,18 @@ function buildOrdenTexto({ obra, lineaNombre, rows, groupBy = "proveedor" }) {
   for (const [label, items] of grupos) {
     lines.push(label.toUpperCase());
     items.forEach((item) => {
-      const codigo = item.codigo ? ` (${item.codigo})` : "";
+      const parts = Array.isArray(item.supplierComponents) ? item.supplierComponents : [];
+      if (parts.length) {
+        parts.forEach((part) => {
+          const codigo = part.codigo ? ` (${part.codigo})` : "";
+          lines.push(`- ${qtyText((toNum(item.cantidad) || 1) * (toNum(part.cantidad) || 1), part.unidad || item.unidad)} - ${part.descripcion || item.supplierDescription || item.descripcion}${codigo}`);
+        });
+        return;
+      }
+      const codigoPedido = item.supplierCode || item.codigo;
+      const codigo = codigoPedido ? ` (${codigoPedido})` : "";
       const obs = item.obs ? ` - ${item.obs}` : "";
-      lines.push(`- ${qtyText(item.cantidad, item.unidad)} - ${item.descripcion}${codigo}${obs}`);
+      lines.push(`- ${qtyText(item.cantidad, item.unidad)} - ${item.supplierDescription || item.descripcion}${codigo}${obs}`);
     });
     lines.push("");
   }

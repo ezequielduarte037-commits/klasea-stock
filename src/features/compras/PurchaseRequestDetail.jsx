@@ -61,6 +61,7 @@ import {
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
+import { supplierPurchaseLines } from "@/features/materiales/proveedorPedido";
 import logoK from "@/assets/logos/logo-k.png";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -529,6 +530,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Distinto de `error`: la solicitud no está, y eso no es una falla que haya
+  // que reportar como tal. Pasa con los links de avisos viejos.
+  const [noExiste, setNoExiste] = useState(false);
   const [message, setMessage] = useState("");
   const [commentFiles, setCommentFiles] = useState([]);
   const [openChatImage, setOpenChatImage] = useState(null);
@@ -550,6 +554,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [editDescription, setEditDescription] = useState("");
   const [editQuantity, setEditQuantity] = useState("");
   const [editUnit, setEditUnit] = useState("");
+  const [editSupplierDescription, setEditSupplierDescription] = useState("");
+  const [editSupplierCode, setEditSupplierCode] = useState("");
   /**
    * El bloque de costos arranca abierto cuando el pedido ya se compró y todavía
    * no tiene importe cargado.
@@ -645,6 +651,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         fetchEnviosDePedido(requestId).catch(() => []),
         fetchRequestFollowerWhatsappPreference(requestId).catch(() => null),
       ]);
+      // Un link de un aviso puede apuntar a un pedido que ya borraron, o a uno
+      // que RLS no deja ver a quien abrió el mail. Los dos llegan igual -sin
+      // fila- y hay que contarlo, no tirarle el error de la base por la cara.
+      if (!data) {
+        setRequest(null);
+        setNoExiste(true);
+        return;
+      }
+      setNoExiste(false);
+
       const requestData = waPreference
         ? {
             ...data,
@@ -956,10 +972,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     if (!items.length) {
       lines.push("- Sin items cargados.");
     } else {
-      items.forEach((item, index) => {
-        const qty = item.quantity ? [item.quantity, item.unit].filter(Boolean).join(" ").trim() : "";
-        const suffix = qty ? ` - ${qty}` : "";
-        lines.push(`${index + 1}. ${item.description || "Item sin descripcion"}${suffix}`);
+      let lineNumber = 0;
+      items.forEach((item) => {
+        supplierPurchaseLines(item).forEach((line) => {
+          lineNumber += 1;
+          const qty = line.quantity ? [line.quantity, line.unit].filter(Boolean).join(" ").trim() : "";
+          const suffix = qty ? ` - ${qty}` : "";
+          const code = line.code ? ` (${line.code})` : "";
+          lines.push(`${lineNumber}. ${line.description}${code}${suffix}`);
+        });
         if (item.destination) lines.push(`   Destino: ${item.destination}`);
         if (item.notes) lines.push(`   Nota: ${item.notes}`);
         if (isHttpUrl(item.link_url)) lines.push(`   Link: ${item.link_url}`);
@@ -1136,6 +1157,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setEditDescription(item.description || "");
     setEditQuantity(item.quantity != null ? String(item.quantity) : "");
     setEditUnit(item.unit || "");
+    setEditSupplierDescription(item.supplier_description || "");
+    setEditSupplierCode(item.supplier_code || "");
   }
 
   async function handleSaveItem(e) {
@@ -1151,6 +1174,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         unit: editUnit.trim() || null,
         link_url: editLinkUrl.trim() || null,
         notes: editNotes.trim() || null,
+        supplier_description: editSupplierDescription.trim() || null,
+        supplier_code: editSupplierCode.trim() || null,
       };
       if (editImageFile) {
         const { imageUrl, imagePath } = await uploadItemImage(editImageFile, request.id);
@@ -1198,6 +1223,43 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <Skeleton width="60%" height={11} />
             <Skeleton width="100%" height={86} radius={9} />
           </aside>
+        </div>
+      </div>
+    );
+  }
+
+  if (noExiste) {
+    return (
+      <div style={{
+        height: "100%", background: C.bg, color: C.text, fontFamily: C.sans,
+        display: "grid", placeItems: "center", padding: 24,
+      }}>
+        <div style={{ display: "grid", gap: 11, justifyItems: "center", textAlign: "center", maxWidth: 340 }}>
+          <div style={{
+            width: 46, height: 46, display: "grid", placeItems: "center",
+            borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim,
+          }}>
+            <FileText size={20} />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 850 }}>No encontramos esta solicitud</div>
+          <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: C.muted }}>
+            Puede que la hayan borrado después de que te llegó el aviso, o que no
+            tengas permiso para verla. Si creés que deberías verla, pedile a Compras
+            que te agregue en copia.
+          </p>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "8px 14px", borderRadius: 8,
+              border: `1px solid ${C.border}`, background: "var(--panel)",
+              color: C.text, fontFamily: C.sans, fontSize: 12.5, fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            <ArrowLeft size={14} /> Volver a Compras
+          </button>
         </div>
       </div>
     );
@@ -2073,6 +2135,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       <div style={{ minWidth: 0 }}>
                         <div style={{ color: C.text, fontSize: isMobile ? 14 : 14, fontWeight: 750, lineHeight: 1.35, overflowWrap: "anywhere" }}>{item.description}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 5 }}>
+                          {(item.supplier_description || item.supplier_code || item.supplier_components?.length) && (
+                            <span title="Así se copia e imprime para el proveedor" style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>
+                              Para proveedor: {item.supplier_description || `${item.supplier_components.length} renglones desglosados`}{item.supplier_code ? ` · ${item.supplier_code}` : ""}
+                            </span>
+                          )}
                           {(item.quantity || item.unit) && (
                             <span style={{
                               color: C.muted,
@@ -2177,6 +2244,22 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             <datalist id="item-units">
                               {["unidad", "kg", "metro", "pies", "m²", "litro", "lata", "rollo", "par", "juego", "caja", "tubo", "bolsa"].map(u => <option key={u} value={u} />)}
                             </datalist>
+                          </div>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 180px", gap: 8, padding: 9, border: `1px solid ${C.border}`, borderRadius: 8, background: C.bg }}>
+                          <div>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                              Nombre para el proveedor
+                            </div>
+                            <input value={editSupplierDescription} onChange={e => setEditSupplierDescription(e.target.value)} placeholder="Opcional; se usa al copiar e imprimir"
+                              style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.text, fontSize: 13 }} />
+                          </div>
+                          <div>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                              Código proveedor
+                            </div>
+                            <input value={editSupplierCode} onChange={e => setEditSupplierCode(e.target.value)} placeholder="Opcional"
+                              style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.text, fontSize: 13, fontFamily: C.mono }} />
                           </div>
                         </div>
                         <div>

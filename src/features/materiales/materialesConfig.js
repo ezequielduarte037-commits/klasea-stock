@@ -66,7 +66,19 @@ export async function setMaterialAreas(materialId, categoriaIds) {
 // y `proveedoresDeMaterial` junta las dos cosas.
 // Tolerante: {} si la tabla aún no existe.
 export async function fetchProveedoresMaterialMap() {
-  const { ok, rows } = await pagedSafe("panol_material_proveedores", "material_id, proveedor_id, precio, moneda", "material_id");
+  let result;
+  try {
+    result = await pagedSafe(
+      "panol_material_proveedores",
+      "material_id, proveedor_id, precio, moneda, denominacion_proveedor, codigo_proveedor, componentes_pedido",
+      "material_id",
+    );
+  } catch (error) {
+    // Permite desplegar la interfaz antes que la migración sin romper el catálogo.
+    if (!isMissingColumn(error)) throw error;
+    result = await pagedSafe("panol_material_proveedores", "material_id, proveedor_id, precio, moneda", "material_id");
+  }
+  const { ok, rows } = result;
   const proveedorIds = [...new Set(rows.map((row) => row.proveedor_id).filter(Boolean))];
   const proveedorById = new Map();
   if (proveedorIds.length) {
@@ -89,6 +101,9 @@ export async function fetchProveedoresMaterialMap() {
       proveedor_id: r.proveedor_id,
       precio: r.precio,
       moneda: r.moneda,
+      denominacion_proveedor: r.denominacion_proveedor || "",
+      codigo_proveedor: r.codigo_proveedor || "",
+      componentes_pedido: Array.isArray(r.componentes_pedido) ? r.componentes_pedido : [],
       proveedor,
       tipo: proveedor?.tipo || null,
       rubros: proveedor?.rubros || null,
@@ -106,7 +121,15 @@ export async function setProveedoresMaterial(materialId, lista) {
   const seen = new Set();
   const rows = (lista || [])
     .filter((p) => p.proveedor_id && !seen.has(p.proveedor_id) && seen.add(p.proveedor_id))
-    .map((p) => ({ material_id: materialId, proveedor_id: p.proveedor_id, precio: p.precio === "" || p.precio == null ? null : Number(p.precio), moneda: p.moneda || null }));
+    .map((p) => ({
+      material_id: materialId,
+      proveedor_id: p.proveedor_id,
+      precio: p.precio === "" || p.precio == null ? null : Number(p.precio),
+      moneda: p.moneda || null,
+      denominacion_proveedor: String(p.denominacion_proveedor || "").trim() || null,
+      codigo_proveedor: String(p.codigo_proveedor || "").trim() || null,
+      componentes_pedido: Array.isArray(p.componentes_pedido) ? p.componentes_pedido : [],
+    }));
   if (rows.length) {
     const { error } = await supabase.from("panol_material_proveedores").insert(rows);
     if (error) throw error;

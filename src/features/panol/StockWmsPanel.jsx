@@ -30,7 +30,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
 import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
-import { fmtDate, rowCountsAsStock, rowDelta, rowIsAnulado, rowIsEgreso, rowIsLocationChange, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsLocationChange, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import {
   crearEnvio,
@@ -394,7 +394,7 @@ function productKey(row, fObra) {
 }
 
 function rowIsAsignacionStock(row) {
-  return rowSource(row) === "transferencia_ingreso";
+  return rowSource(row) === "transferencia_ingreso" && !rowHasRecordedEgreso(row);
 }
 
 function rowIsAsignacionMirrorOut(row) {
@@ -403,7 +403,7 @@ function rowIsAsignacionMirrorOut(row) {
 }
 
 function rowInHistory(row) {
-  return rowIsAsignacionStock(row) || (rowIsEgreso(row) && !rowIsAsignacionMirrorOut(row));
+  return rowIsAsignacionStock(row) || (rowHasRecordedEgreso(row) && !rowIsAsignacionMirrorOut(row));
 }
 
 function rowEgresoKind(row) {
@@ -710,7 +710,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
       vAgg.transitQty += transit;
       optionAgg.transitQty += transit;
     }
-    if (rowIsEgreso(row)) group.hasEgreso = true;
+    if (rowHasRecordedEgreso(row)) group.hasEgreso = true;
     location.rows.push(row);
     group.total += delta;
     group.valueUsd += delta * rowUnitPriceUsd(row);
@@ -1601,6 +1601,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const isAssignment = rowIsAsignacionStock(row);
   const isTransit = rowIsTransit(row);
   const egresoMeta = rowEgresoMeta(row);
+  const displayedDelta = isOut && rowHasRecordedEgreso(row) ? -rowEgresoQuantity(row) : delta;
   const label = isLocation ? "Ubicación" : isAssignment ? egresoMeta.label : isTransit ? "Tránsito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
   const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.violet : isOut ? egresoMeta.color : C.green;
   const descripcion = row.descripcion || "(sin descripcion)";
@@ -1619,8 +1620,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
           <span style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.3, overflowWrap: "anywhere" }}>{descripcion}</span>
           {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
         </div>
-        <span style={{ flexShrink: 0, color: delta < 0 ? C.red : delta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>
-          {delta > 0 ? "+" : ""}{fmtQty(delta)} {row.unidad || ""}
+        <span style={{ flexShrink: 0, color: displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>
+          {displayedDelta > 0 ? "+" : ""}{fmtQty(displayedDelta)} {row.unidad || ""}
         </span>
       </div>
       <div style={{ color: C.text, fontSize: 11, lineHeight: 1.4, overflowWrap: "anywhere" }}>{ruta}</div>

@@ -208,7 +208,13 @@ function pesoParaCompras(material) {
   const peso = Number(material?.peso_kg);
   if (!Number.isFinite(peso) || peso <= 0) return "";
   const kg = peso.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
-  return `Peso aprox. ${kg} kg (se cotiza por kg)`;
+  // Para lo que se compra por metro, peso_kg son kilos POR METRO: así lo dejó la
+  // migración de las tuercas de limera. Decir "peso aprox. 99 kg" de una pieza de
+  // 65 mm manda al proveedor a cotizar quince veces el material que lleva.
+  const porMetro = String(material?.unidad_medida || "").trim().toLowerCase() === "metro";
+  return porMetro
+    ? `Peso aprox. ${kg} kg por metro (se cotiza por kg)`
+    : `Peso aprox. ${kg} kg (se cotiza por kg)`;
 }
 
 // Los materiales de catálogo que compone un renglón, en orden. Un lote tiene

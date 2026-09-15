@@ -11,7 +11,7 @@ import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
 import NormalizacionIngresosPanel from "@/features/panol/NormalizacionIngresosPanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
-import { fmtDate, rowDelta, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
 
@@ -369,7 +369,7 @@ function movDestino(row) {
 }
 
 function rowIsAsignacionStock(row) {
-  return rowSource(row) === "transferencia_ingreso";
+  return rowSource(row) === "transferencia_ingreso" && !rowHasRecordedEgreso(row);
 }
 
 function rowIsAsignacionMirrorOut(row) {
@@ -414,7 +414,7 @@ function rowMovementKind(row) {
     if (label.includes("liber")) return "liberacion";
     return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
   }
-  if (row.estado === "egresado" || src.startsWith("egreso")) return "egreso";
+  if (rowHasRecordedEgreso(row)) return "egreso";
   return "ingreso";
 }
 
@@ -533,7 +533,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
     })
     // Ocultar el espejo negativo de las asignaciones: la acción se ve como asignación azul.
     .filter((m) => !rowIsAsignacionMirrorOut(m.row))
-    .filter((m) => m.delta !== 0 || m.row.estado === "egresado" || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
+    .filter((m) => m.delta !== 0 || rowHasRecordedEgreso(m.row) || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
     return ledger
     .filter((m) => {
       if (!incluirAnulados && m.anulado) return false;

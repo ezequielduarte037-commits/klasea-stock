@@ -459,10 +459,16 @@ export function proveedoresDeMaterial(material) {
         }
         if (!previo.proveedorId && fila.proveedorId) previo.proveedorId = fila.proveedorId;
         if (!previo.proveedor && fila.proveedor) previo.proveedor = fila.proveedor;
+        if (!previo.denominacionProveedor && fila.denominacionProveedor) previo.denominacionProveedor = fila.denominacionProveedor;
+        if (!previo.codigoProveedor && fila.codigoProveedor) previo.codigoProveedor = fila.codigoProveedor;
+        if ((!previo.componentesPedido || !previo.componentesPedido.length) && fila.componentesPedido?.length) previo.componentesPedido = fila.componentesPedido;
         final = previo;
       } else {
         fila.proveedorId = fila.proveedorId || previo.proveedorId;
         fila.proveedor = fila.proveedor || previo.proveedor;
+        fila.denominacionProveedor = fila.denominacionProveedor || previo.denominacionProveedor || null;
+        fila.codigoProveedor = fila.codigoProveedor || previo.codigoProveedor || null;
+        fila.componentesPedido = fila.componentesPedido?.length ? fila.componentesPedido : (previo.componentesPedido || []);
       }
     }
     porClave.set(llave, final);
@@ -498,6 +504,9 @@ export function proveedoresDeMaterial(material) {
       fecha: null,
       fuente: null,
       sinCotizar: !tiene,
+      denominacionProveedor: String(alterno.denominacion_proveedor || "").trim() || null,
+      codigoProveedor: String(alterno.codigo_proveedor || "").trim() || null,
+      componentesPedido: Array.isArray(alterno.componentes_pedido) ? alterno.componentes_pedido : [],
     });
   }
 
@@ -3284,6 +3293,9 @@ export async function registrarOfertaMaterial(
         proveedor_id: item.proveedor_id,
         precio: item.precio,
         moneda: item.moneda,
+        denominacion_proveedor: item.denominacion_proveedor,
+        codigo_proveedor: item.codigo_proveedor,
+        componentes_pedido: item.componentes_pedido,
       });
   }
   if (material.proveedor_id && material.proveedor_id !== proveedor.id) {
@@ -3397,6 +3409,9 @@ export async function asociarProveedorMaterial(
         proveedor_id: item.proveedor_id,
         precio: item.precio,
         moneda: item.moneda,
+        denominacion_proveedor: item.denominacion_proveedor,
+        codigo_proveedor: item.codigo_proveedor,
+        componentes_pedido: item.componentes_pedido,
       });
   }
   alternatives.set(proveedor.id, {

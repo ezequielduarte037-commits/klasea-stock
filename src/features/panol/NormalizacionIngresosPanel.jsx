@@ -142,6 +142,9 @@ function providerDraftsFor(material, providers) {
       nombre: provider?.nombre || (isCurrent && material?.proveedor) || "Proveedor asociado",
       precio: row.precio ?? (isCurrent ? material?.precio_unitario : "") ?? "",
       moneda: row.moneda || (isCurrent ? material?.moneda : "") || "ARS",
+      denominacion_proveedor: row.denominacion_proveedor || "",
+      codigo_proveedor: row.codigo_proveedor || "",
+      componentes_pedido: Array.isArray(row.componentes_pedido) ? row.componentes_pedido : [],
     });
   }
   const current = byId.get(material?.proveedor_id) || byName.get(norm(material?.proveedor));
@@ -151,6 +154,9 @@ function providerDraftsFor(material, providers) {
       nombre: current.nombre,
       precio: material?.precio_unitario ?? "",
       moneda: material?.moneda || "ARS",
+      denominacion_proveedor: "",
+      codigo_proveedor: "",
+      componentes_pedido: [],
     });
   }
   return drafts;

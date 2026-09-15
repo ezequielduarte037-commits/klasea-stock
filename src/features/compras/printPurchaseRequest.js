@@ -2,6 +2,7 @@ import {
   normalizePurchaseRequestAttachments,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
+import { supplierPurchaseLines } from "@/features/materiales/proveedorPedido";
 
 function esc(str) {
   return String(str ?? "")
@@ -37,7 +38,8 @@ export function printPurchaseRequest(request, logoUrl) {
   // Si no (el destino vive a nivel pedido, ya figura en la cabecera) la omitimos
   // para no dejar una columna de "-".
   const hasItemDest = items.some((it) => String(it.destination || "").trim());
-  const itemsHtml = items.length
+  const printableItems = items.flatMap((item) => supplierPurchaseLines(item).map((line) => ({ ...item, ...line })));
+  const itemsHtml = printableItems.length
     ? `<div class="items">
         <div class="items-title">Items solicitados</div>
         <table>
@@ -49,10 +51,10 @@ export function printPurchaseRequest(request, logoUrl) {
             </tr>
           </thead>
           <tbody>
-            ${items.map((it) => `
+            ${printableItems.map((it) => `
               <tr>
                 <td>
-                  <div class="item-desc">${esc(it.description || "Item sin detalle")}</div>
+                  <div class="item-desc">${esc(it.description || "Item sin detalle")}${it.code ? ` <span class="item-code">${esc(it.code)}</span>` : ""}</div>
                   ${it.notes ? `<div class="item-notes">${esc(it.notes)}</div>` : ""}
                   ${it.link_url ? `<div class="item-link"><a href="${esc(it.link_url)}">${esc(it.link_url)}</a></div>` : ""}
                 </td>
@@ -108,6 +110,7 @@ export function printPurchaseRequest(request, logoUrl) {
   th:nth-child(2),td:nth-child(2){width:110px}
   th:nth-child(3),td:nth-child(3){width:150px}
   .item-desc{font-weight:700;color:#222}
+  .item-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px;color:#555;border:1px solid #ddd;border-radius:4px;padding:1px 4px;margin-left:4px}
   .item-notes{color:#666;font-style:italic;margin-top:3px}
   .item-link{font-size:11px;margin-top:3px;word-break:break-all}
   .item-qty{white-space:nowrap;color:#111;font-weight:700}

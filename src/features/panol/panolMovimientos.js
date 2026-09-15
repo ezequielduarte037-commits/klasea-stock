@@ -42,6 +42,20 @@ export function rowIsEgreso(row = {}) {
     || source === "conteo_fisico_reversion";
 }
 
+/**
+ * Indica que la fila documenta una salida física, aunque su `source` conserve
+ * el origen del stock. Los retiros totales y el historial de retiros parciales
+ * se guardan así: pasan a `egresado` y completan los campos de egreso, pero no
+ * crean un delta negativo separado porque el stock ya se descontó al retirar o
+ * reducir la fila original.
+ *
+ * Mantener este concepto separado de `rowIsEgreso` evita descontar dos veces.
+ */
+export function rowHasRecordedEgreso(row = {}) {
+  if (rowIsEgreso(row)) return true;
+  return String(row.estado || "").trim().toLowerCase() === "egresado";
+}
+
 export function rowIsLocationChange(row = {}) {
   return rowSource(row) === "ajuste_ubicacion";
 }

@@ -93,6 +93,7 @@ import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorMeta, PROVEEDOR_TIPOS } from "./proveedorMeta";
 import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
+import { supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
@@ -1507,6 +1508,69 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
   );
 }
 
+function supplierEntryForMaterial(material, proveedorId) {
+  return (material?.proveedores_lista || []).find((entry) => entry?.proveedor_id === proveedorId) || {};
+}
+
+function supplierComponentsText(components) {
+  return (Array.isArray(components) ? components : []).map((row) =>
+    [row?.cantidad || 1, row?.codigo || "", row?.descripcion || ""].join(" | ")
+  ).join("\n");
+}
+
+function parseSupplierComponents(text) {
+  return String(text || "").split(/\r?\n/).map((line) => {
+    const [qty, code, ...description] = line.split("|").map((part) => part.trim());
+    return {
+      cantidad: Number(String(qty).replace(",", ".")) || 1,
+      codigo: code || "",
+      descripcion: description.join(" | ").trim(),
+      unidad: "unidad",
+    };
+  }).filter((row) => row.codigo || row.descripcion);
+}
+
+function SupplierOrderFields({ entry, onChange }) {
+  const hasBreakdown = Array.isArray(entry?.componentes_pedido) && entry.componentes_pedido.length > 0;
+  const showBreakdown = Boolean(entry?._showBreakdown || hasBreakdown);
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "grid", gap: 6, padding: "7px 8px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.bg }}>
+      <div className="material-editor-pair" style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(130px, .38fr) auto", gap: 6, alignItems: "center" }}>
+        <input
+          value={entry?.denominacion_proveedor || ""}
+          onChange={(e) => onChange({ denominacion_proveedor: e.target.value })}
+          placeholder="Nombre para pedir a este proveedor"
+          title="Es el nombre que verá el proveedor; el nombre interno del catálogo no cambia."
+          style={{ ...INP, width: "100%" }}
+        />
+        <input
+          value={entry?.codigo_proveedor || ""}
+          onChange={(e) => onChange({ codigo_proveedor: e.target.value })}
+          placeholder="Código proveedor"
+          style={{ ...INP, width: "100%", fontFamily: C.mono }}
+        />
+        <button type="button" onClick={() => onChange({ _showBreakdown: !showBreakdown })} style={{ ...BTN, padding: "6px 9px", color: showBreakdown ? C.blue : C.t2, whiteSpace: "nowrap" }}>
+          {showBreakdown ? "Ocultar desglose" : "+ Desglose"}
+        </button>
+      </div>
+      {showBreakdown && (
+        <div>
+          <textarea
+            value={supplierComponentsText(entry?.componentes_pedido)}
+            onChange={(e) => onChange({ componentes_pedido: parseSupplierComponents(e.target.value), _showBreakdown: true })}
+            rows={Math.max(2, Math.min(5, (entry?.componentes_pedido?.length || 1) + 1))}
+            placeholder={'1 | C 68 1/4 X 1/2 | UNION 1/4 VIROLA X 1/2 GAS MACHO\n1 | C 60 1/4 | VIROLA 1/4'}
+            style={{ ...INP, width: "100%", resize: "vertical", fontFamily: C.mono, fontSize: 11 }}
+          />
+          <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 4 }}>
+            Una línea por componente: cantidad | código | descripción. Al copiar la orden se pedirán separados.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false, stockInfo = null, inDrawer = false }) {
   const [editing, setEditing] = useState(initialOpen);
   const [hovered, setHovered] = useState(false);
@@ -1514,6 +1578,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
   const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).filter((p) => !p.proveedor_id || p.proveedor_id !== material.proveedor_id).map((p) => ({ ...p })));
+  const [primarySupplier, setPrimarySupplier] = useState(() => ({ ...supplierEntryForMaterial(material, material.proveedor_id) }));
   const variantes = materialVariants(material);
   const variantesPrecios = material?.variantes_precios || {};
   const [saving, setSaving] = useState(false);
@@ -1526,6 +1591,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
     setCantidades(toBomMap(material));
     setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
     setProvExtra((material.proveedores_lista || []).filter((p) => !p.proveedor_id || p.proveedor_id !== material.proveedor_id).map((p) => ({ ...p })));
+    setPrimarySupplier({ ...supplierEntryForMaterial(material, material.proveedor_id) });
   }, [material]);
 
   async function save() {
@@ -1536,7 +1602,10 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
       const prepared = prepareMaterialDraftForSave({ ...draft, categoria_id: primary }, proveedores, variantes, variantesPrecios);
       await guardarMaterial(prepared, cantidades, { revisado: draft.revisado });
       await setSectoresMaterial(material.id, sectores);
-      await setProveedoresMaterial(material.id, provExtra);
+      const supplierRows = draft.proveedor_id
+        ? [{ ...primarySupplier, proveedor_id: draft.proveedor_id, precio: draft.precio_unitario, moneda: draft.moneda }, ...provExtra]
+        : provExtra;
+      await setProveedoresMaterial(material.id, supplierRows);
       onChanged?.(); setEditing(false);
     } finally { setSaving(false); }
   }
@@ -1707,7 +1776,8 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                   <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
                   {/* Sacar el primero asciende al siguiente: la ficha nunca
                       queda sin proveedor mientras la lista tenga alguno. */}
-                  <button type="button" onClick={() => { const [siguiente, ...resto] = provExtra; setDraft((d) => ({ ...d, proveedor_id: siguiente?.proveedor_id || null, proveedor: siguiente ? (proveedores.find((pr) => pr.id === siguiente.proveedor_id)?.nombre || null) : null, precio_unitario: siguiente ? (siguiente.precio ?? "") : d.precio_unitario, moneda: siguiente ? (siguiente.moneda || d.moneda) : d.moneda })); setProvExtra(resto); }} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                  <button type="button" onClick={() => { const [siguiente, ...resto] = provExtra; setDraft((d) => ({ ...d, proveedor_id: siguiente?.proveedor_id || null, proveedor: siguiente ? (proveedores.find((pr) => pr.id === siguiente.proveedor_id)?.nombre || null) : null, precio_unitario: siguiente ? (siguiente.precio ?? "") : d.precio_unitario, moneda: siguiente ? (siguiente.moneda || d.moneda) : d.moneda })); setPrimarySupplier(siguiente ? { ...siguiente } : {}); setProvExtra(resto); }} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                  <SupplierOrderFields entry={primarySupplier} onChange={(patch) => setPrimarySupplier((prev) => ({ ...prev, ...patch }))} />
                 </div>
               ) : null}
               {provExtra.map((p, i) => (
@@ -1716,6 +1786,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                   <input type="number" step="any" placeholder="Precio" value={p.precio ?? ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, precio: e.target.value } : x)))} style={{ ...INP, fontFamily: C.mono }} />
                   <select value={p.moneda || ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, moneda: e.target.value || null } : x)))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
                   <button type="button" onClick={() => setProvExtra((prev) => prev.filter((_, j) => j !== i))} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                  <SupplierOrderFields entry={p} onChange={(patch) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)))} />
                 </div>
               ))}
               {/* Si la ficha todavía no tiene ninguno, el que se elija va ahí;
@@ -1727,13 +1798,13 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                 </select>
               ) : (
                 <>
-                  <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))} />
+                  <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => { setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre })); setPrimarySupplier({ proveedor_id: id, precio: "", moneda: draft.moneda || "", denominacion_proveedor: "", codigo_proveedor: "", componentes_pedido: [] }); }} />
                   <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="O escribir libre…" style={{ ...INP, width: "100%" }} />
                 </>
               )}
             </div>
             <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 5, lineHeight: 1.45 }}>
-              El precio del primero es el que queda en la ficha del material. Todos se guardan igual y se comparan en Costo del barco.
+              “Nombre para pedir” y “Código proveedor” son opcionales. Se usan al copiar o imprimir el pedido; el nombre interno del catálogo no cambia.
             </span>
           </div>
           <div className="material-editor-fields" style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
@@ -1805,12 +1876,20 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
   const orderRows = useMemo(() => {
     const matRows = (items ?? []).map((m) => {
       const precio = priceInfo(m);
+      const proveedor = precio.proveedor || m.proveedor || "Sin proveedor";
+      const supplierTerms = supplierTermsForMaterial(m, { proveedor });
       return {
+        materialId: m.id,
+        material: m,
         descripcion: m.descripcion,
         codigo: m.codigo,
         cantidad: materialQty(m, linea) || 1,
         unidad: m.unidad_medida || "unidad",
-        proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
+        proveedor,
+        proveedorId: supplierTerms?.supplierId || m.proveedor_id || null,
+        supplierDescription: supplierTerms?.description || "",
+        supplierCode: supplierTerms?.code || "",
+        supplierComponents: supplierTerms?.components || [],
         rubro: rubroDeLista(categorias, m.categoria_id),
         tipo: materialBucket(m, [], linea).label,
         obs: m.notas || "",
@@ -1842,9 +1921,20 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
         title: `Pedido ${obra?.codigo || `K${linea}`} · ${g.label}`,
         description: `${g.items.length} ítems${obra ? ` del barco ${obra.codigo}` : ` de la línea K${linea}`} (${groupBy}: ${g.label}).`,
         priority: "media", source: "materiales", project_id: obra?.id || null, es_adicional: pedidoTipo === "adicional", tipo_pedido: pedidoTipo,
+        proveedor: groupBy === "proveedor" && g.label !== "Sin proveedor" ? g.label : null,
       } });
       for (const row of g.items) {
-        await addRequestItem(req.id, { description: row.descripcion, quantity: toNum(row.cantidad) || 1, unit: row.unidad || null });
+        const supplierSnapshot = row.material
+          ? supplierSnapshotForMaterial(row.material, { proveedorId: row.proveedorId, proveedor: row.proveedor })
+          : {};
+        await addRequestItem(req.id, {
+          description: row.descripcion,
+          quantity: toNum(row.cantidad) || 1,
+          unit: row.unidad || null,
+          material_id: row.materialId || null,
+          catalog_source: row.materialId ? "panol" : null,
+          ...supplierSnapshot,
+        });
       }
       setHechos((h) => [...h, g.label]);
     } catch (e) {
@@ -4439,31 +4529,40 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }, { items: 0, sinPrecio: 0, revisar: 0, productosPendientes: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, pedidos: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
-    return base.map((r) => ({
-      id: r.id,
-      snapshotId: r.snapshotId,
-      materialId: r.materialId,
-      requisitoMaterialId: r.requisitoMaterialId || r.materialId,
-      productoMaterialId: r.productoMaterialId || null,
-      producto: r.producto || null,
-      productoEstandar: !!r.productoEstandar,
-      esRequisito: !!r.esRequisito,
-      especificaciones: normalizeProductSpecs(r.especificaciones),
-      source: r.source,
-      bucketKey: r.bucket.key,
-      descripcion: r.producto?.descripcion || r.descripcion,
-      requisitoDescripcion: r.descripcion,
-      codigo: r.producto?.codigo || r.codigo,
-      cantidad: r.cantidad,
-      baseCantidad: r.baseCantidad,
-      condicionantes: r.condicionantes ?? [],
-      unidad: r.unidad,
-      proveedor: r.producto?.proveedor || r.proveedor,
-      rubro: r.rubro,
-      tipo: r.bucket.label,
-      precio: r.precio,
-      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.descripcion}` : "", productSpecsNote(r.especificaciones), r.obs].filter(Boolean).join(" · "),
-    }));
+    return base.map((r) => {
+      const material = r.producto || r.material || null;
+      const proveedor = r.producto?.proveedor || r.proveedor;
+      const supplierTerms = supplierTermsForMaterial(material, { proveedor });
+      return {
+        id: r.id,
+        snapshotId: r.snapshotId,
+        materialId: r.materialId,
+        requisitoMaterialId: r.requisitoMaterialId || r.materialId,
+        productoMaterialId: r.productoMaterialId || null,
+        producto: r.producto || null,
+        material,
+        productoEstandar: !!r.productoEstandar,
+        esRequisito: !!r.esRequisito,
+        especificaciones: normalizeProductSpecs(r.especificaciones),
+        source: r.source,
+        bucketKey: r.bucket.key,
+        descripcion: r.producto?.descripcion || r.descripcion,
+        requisitoDescripcion: r.descripcion,
+        codigo: r.producto?.codigo || r.codigo,
+        cantidad: r.cantidad,
+        baseCantidad: r.baseCantidad,
+        condicionantes: r.condicionantes ?? [],
+        unidad: r.unidad,
+        proveedor,
+        supplierDescription: supplierTerms?.description || "",
+        supplierCode: supplierTerms?.code || "",
+        supplierComponents: supplierTerms?.components || [],
+        rubro: r.rubro,
+        tipo: r.bucket.label,
+        precio: r.precio,
+        obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.descripcion}` : "", productSpecsNote(r.especificaciones), r.obs].filter(Boolean).join(" · "),
+      };
+    });
   }, [visibleRows, selected]);
   const productosPendientesOrden = useMemo(
     () => orderRows.filter((row) => row.esRequisito && !row.productoMaterialId),
@@ -4629,6 +4728,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
       const touched = [];
       for (const row of orderRows) {
+        const supplierSnapshot = row.material
+          ? supplierSnapshotForMaterial(row.material, { proveedor: row.proveedor })
+          : {};
         const created = await addRequestItem(req.id, {
           description: row.descripcion,
           quantity: toNum(row.cantidad) || 1,
@@ -4644,6 +4746,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               : "",
             row.obs,
           ].filter(Boolean).join(" · ") || null,
+          ...supplierSnapshot,
         });
         const snapId = snapshotIdForOrderRow(row, saved);
         if (snapId) {

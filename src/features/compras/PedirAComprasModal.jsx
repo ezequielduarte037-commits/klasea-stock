@@ -216,6 +216,11 @@ function normalizeDraft(it, fallbackDest = "") {
     catalogSource: it.catalogSource || it.catalog_source || "",
     category: it.category || "",
     isExtra: Boolean(it.isExtra || it.category === "extra"),
+    supplier_id: it.supplier_id || null,
+    supplier_name: it.supplier_name || "",
+    supplier_description: it.supplier_description || "",
+    supplier_code: it.supplier_code || "",
+    supplier_components: Array.isArray(it.supplier_components) ? it.supplier_components : [],
   };
 }
 
@@ -465,6 +470,11 @@ export default function PedirAComprasModal({
             image_url: it.image_url || null,
             material_id: it.material_id || null,
             catalog_source: it.catalogSource || null,
+            supplier_id: it.supplier_id || null,
+            supplier_name: it.supplier_name || null,
+            supplier_description: it.supplier_description || null,
+            supplier_code: it.supplier_code || null,
+            supplier_components: it.supplier_components || [],
           });
           return { draft: it, requestItem };
         }),
