@@ -15,3 +15,13 @@ entrypoint = "./functions/alerta-30min/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/alerta-30min/*.html" ]
+
+# Los mails a compras salen desde la base: el trigger compras_email_encolar
+# llama a esta función SIN token (pg_net no tiene de dónde sacar uno sin guardar
+# una key en la base). Tiene que quedar siempre con verify_jwt = false, si no el
+# gateway contesta 401 y compras se queda sin avisos sin que nadie se entere.
+# No es un agujero: con { emailId } la función no acepta contenido, solo lee la
+# fila de la base; y las llamadas desde la pantalla validan el JWT adentro.
+[functions.notificar-email-compras]
+enabled = true
+verify_jwt = false

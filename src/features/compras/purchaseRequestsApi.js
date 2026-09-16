@@ -1111,6 +1111,12 @@ export async function uploadPurchaseLogInvoice(file, userId) {
   return { url: urlData.publicUrl, path };
 }
 
+// Mail a compras desde la pantalla. Solo hace falta para dos tipos:
+// "nuevo_aviso" y "pedido_recibido". Pedido nuevo, mensaje, cambio de estado y
+// cambio de prioridad salen solos desde la base (trigger compras_email_encolar,
+// migración 20260916100000), así que llamar con esos tipos no manda nada: la
+// función los ignora para no duplicar. Las llamadas que quedan con esos tipos
+// son inofensivas y sirven de red mientras la migración no esté aplicada.
 export async function notifyComprasEmail(payload) {
   const { error } = await supabase.functions.invoke("notificar-email-compras", {
     body: payload,

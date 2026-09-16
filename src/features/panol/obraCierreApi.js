@@ -177,6 +177,11 @@ export async function fetchCierreItems(cierreId) {
     .from("panol_obra_cierre_items")
     .select("*")
     .eq("cierre_id", cierreId)
+    // El cierre revisa únicamente saldo que sigue físicamente en pañol
+    // asignado a la obra. Todo lo que ya egresó se considera entregado y no
+    // forma parte de los sobrantes.
+    .eq("tipo_origen", "reservado")
+    .or("cantidad_reservada.gt.0,cantidad_recibida.gt.0,cantidad_aclaracion.gt.0")
     .order("descripcion").order("id"));
   if (error) {
     if (isMissingRelation(error)) return [];
