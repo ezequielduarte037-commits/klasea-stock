@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   ChevronRight,
@@ -24,13 +25,16 @@ import {
   conciliarCierreObra,
   fetchCierreItems,
   fetchCierreObra,
+  fetchCierreRequisitosSinProducto,
   fetchCierreResoluciones,
   fetchCierresObra,
   fetchOperadoresCierre,
+  fetchProductosCompatiblesCierre,
   fmtCierreDate,
   fmtCierreQty,
   puedeConciliarExcepciones,
   puedeOperarCierre,
+  identificarProductoCierre,
   refrescarCierreItems,
   resolverCierreItem,
   sincronizarCierresTerminadas,
@@ -203,6 +207,37 @@ function MaterialDetail({ item, resoluciones, sedeDefault, canOperate, busy, onR
   </aside>;
 }
 
+function RequisitosSinProducto({ rows, links, selections, onSelect, onIdentify, busyId, canOperate, compact }) {
+  if (!rows.length) return null;
+  return <section aria-label="Productos pendientes de identificar" style={{ margin: "12px 16px 4px", border: `1px solid ${C.amberB}`, borderRadius: 12, background: C.amberL, overflow: "hidden" }}>
+    <div style={{ padding: "13px 14px", display: "flex", alignItems: "flex-start", gap: 10, borderBottom: `1px solid ${C.amberB}` }}>
+      <AlertTriangle size={18} color={C.amber} style={{ marginTop: 1, flexShrink: 0 }} />
+      <div>
+        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 800 }}>Productos por identificar · {rows.length}</div>
+        <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 3 }}>Son requisitos de la matriz, no sobrantes físicos. Elegí qué producto quedó en pañol para incorporarlo correctamente a la revisión.</div>
+      </div>
+    </div>
+    <div style={{ display: "grid" }}>
+      {rows.map((row) => {
+        const options = links.filter((link) => link.requisito_material_id === row.requisito_material_id);
+        const value = selections[row.requisito_material_id] || "";
+        const busy = busyId === row.requisito_material_id;
+        return <div key={row.requisito_material_id} style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: compact ? "minmax(0, 1fr)" : "minmax(180px, 1fr) minmax(220px, 1.25fr) auto", gap: 10, alignItems: "center", borderBottom: `1px solid ${C.amberB}` }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 750, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+            <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>{fmtCierreQty(row.cantidad)} {row.unidad || "u"} sin identificar{row.codigo ? ` · ${row.codigo}` : ""}</div>
+          </div>
+          {options.length ? <select aria-label={`Producto físico para ${row.descripcion}`} value={value} disabled={!canOperate || busy} onChange={(event) => onSelect(row.requisito_material_id, event.target.value)} style={{ ...inputStyle, minHeight: 38, padding: "5px 9px", fontSize: 12 }}>
+            <option value="">Elegir producto físico…</option>
+            {options.map(({ producto }) => <option key={producto.id} value={producto.id}>{producto.descripcion}{producto.codigo ? ` · ${producto.codigo}` : ""}{producto.proveedor ? ` · ${producto.proveedor}` : ""}</option>)}
+          </select> : <div style={{ color: C.red, fontSize: 12, lineHeight: 1.4 }}>Este requisito no tiene productos compatibles configurados.</div>}
+          <button type="button" disabled={!canOperate || busy || !value} onClick={() => onIdentify(row, value)} style={{ ...ghostBtn, minHeight: 38, background: value ? C.blue : C.panelSolid, borderColor: value ? C.blue : C.border, color: value ? "#fff" : C.dim, justifyContent: "center" }}>{busy ? "Identificando…" : "Usar producto"}</button>
+        </div>;
+      })}
+    </div>
+  </section>;
+}
+
 function DetalleCierre({ cierreId, profile, signOut }) {
   const nav = useNavigate();
   const toast = useToast();
@@ -213,10 +248,14 @@ function DetalleCierre({ cierreId, profile, signOut }) {
   const sedeDefault = canonicalPanolSede(profile?.sede);
   const [cierre, setCierre] = useState(null);
   const [items, setItems] = useState([]);
+  const [requisitos, setRequisitos] = useState([]);
+  const [productosCompatibles, setProductosCompatibles] = useState([]);
+  const [productoSeleccionado, setProductoSeleccionado] = useState({});
   const [resoluciones, setResoluciones] = useState([]);
   const [operadores, setOperadores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyItem, setBusyItem] = useState("");
+  const [busyRequirement, setBusyRequirement] = useState("");
   const [busyAction, setBusyAction] = useState(false);
   const [q, setQ] = useState("");
   const [itemFilter, setItemFilter] = useState("pendientes");
@@ -271,14 +310,18 @@ function DetalleCierre({ cierreId, profile, signOut }) {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const [head, lineas, hist, ops] = await Promise.all([
+      const [head, lineas, requisitosPendientes, hist, ops] = await Promise.all([
         fetchCierreObra(cierreId),
         fetchCierreItems(cierreId),
+        fetchCierreRequisitosSinProducto(cierreId),
         fetchCierreResoluciones(cierreId),
         fetchOperadoresCierre().catch(() => []),
       ]);
+      const links = await fetchProductosCompatiblesCierre(requisitosPendientes.map((row) => row.requisito_material_id));
       setCierre(head);
       setItems(lineas);
+      setRequisitos(requisitosPendientes);
+      setProductosCompatibles(links);
       setResoluciones(hist);
       setOperadores(ops);
     } catch (error) {
@@ -345,8 +388,33 @@ function DetalleCierre({ cierreId, profile, signOut }) {
     }
   }
 
+  async function onIdentifyRequirement(row, productoMaterialId) {
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
+    setBusyRequirement(row.requisito_material_id);
+    try {
+      await identificarProductoCierre(cierreId, row.requisito_material_id, productoMaterialId);
+      setProductoSeleccionado((prev) => {
+        const next = { ...prev };
+        delete next[row.requisito_material_id];
+        return next;
+      });
+      toast.success("Producto identificado. Ya aparece como sobrante físico.");
+      await cargar();
+    } catch (error) {
+      toast.error(error.message || "No se pudo identificar el producto.");
+    } finally {
+      operationInFlight.current = false;
+      setBusyRequirement("");
+    }
+  }
+
   async function onConciliar() {
     if (operationInFlight.current || loading) return;
+    if (requisitos.length) {
+      toast.error(`Hay ${requisitos.length} requisito(s) de matriz sin producto físico identificado.`);
+      return;
+    }
     const hayExcepcion = items.some((i) => i.estado === "excepcion" || qty(i.cantidad_aclaracion) > EPS);
     if (hayExcepcion && !canException) {
       toast.error("Hay diferencias documentadas. La revisión debe finalizarla técnica, administración o compras.");
@@ -389,7 +457,8 @@ function DetalleCierre({ cierreId, profile, signOut }) {
   const conciliada = cierre?.estado === "conciliada";
   const selectedItem = items.find((item) => item.id === selectedItemId) || null;
   const completed = Math.max(0, items.length - summary.pendientes);
-  const progress = items.length ? Math.round((completed / items.length) * 100) : 100;
+  const reviewTotal = items.length + requisitos.length;
+  const progress = reviewTotal ? Math.round((completed / reviewTotal) * 100) : 100;
 
   return (
     <div className="sob-screen" style={{ display: "flex", height: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
@@ -421,9 +490,9 @@ function DetalleCierre({ cierreId, profile, signOut }) {
               catch (error) { toast.error(error.message || "No se pudo actualizar."); }
               finally { operationInFlight.current = false; setBusyAction(false); }
             }} disabled={!canOperate || loading || !!busyItem || busyAction} style={{ ...ghostBtn, color: C.dim }}><RefreshCw size={15} />{!isMobile && "Actualizar"}</button>
-            <button type="button" title={summary.pendientes ? `Todavía quedan ${summary.pendientes} materiales por revisar` : "Cerrar la revisión de materiales"} onClick={onConciliar}
-              disabled={!canOperate || loading || !!busyItem || busyAction || summary.pendientes > 0}
-              style={{ ...ghostBtn, background: summary.pendientes ? C.panel : C.green, borderColor: summary.pendientes ? C.border : C.green, color: summary.pendientes ? C.dim : "#fff" }}>
+            <button type="button" title={requisitos.length ? `Hay ${requisitos.length} producto(s) por identificar` : summary.pendientes ? `Todavía quedan ${summary.pendientes} materiales por revisar` : "Cerrar la revisión de materiales"} onClick={onConciliar}
+              disabled={!canOperate || loading || !!busyItem || !!busyRequirement || busyAction || summary.pendientes > 0 || requisitos.length > 0}
+              style={{ ...ghostBtn, background: summary.pendientes || requisitos.length ? C.panel : C.green, borderColor: summary.pendientes || requisitos.length ? C.border : C.green, color: summary.pendientes || requisitos.length ? C.dim : "#fff" }}>
               <CheckCircle2 size={16} /> Finalizar revisión
             </button>
           </div>}
@@ -431,8 +500,8 @@ function DetalleCierre({ cierreId, profile, signOut }) {
 
         <section style={{ padding: isMobile ? "10px 14px" : "11px 20px", borderBottom: `1px solid ${C.border}`, background: C.panel, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 300px" }}>
-            <div style={{ flex: 1, maxWidth: 330, height: 6, borderRadius: 999, background: C.border, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: progress === 100 ? C.green : C.blue, transition: "width 180ms ease" }} /></div>
-            <div style={{ whiteSpace: "nowrap", fontSize: 13 }}><strong>{completed} de {items.length}</strong> revisados{summary.pendientes > 0 ? ` · faltan ${summary.pendientes}` : " · listo para cerrar"}</div>
+            <div style={{ flex: 1, maxWidth: 330, height: 6, borderRadius: 999, background: C.border, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: requisitos.length ? C.amber : progress === 100 ? C.green : C.blue, transition: "width 180ms ease" }} /></div>
+            <div style={{ whiteSpace: "nowrap", fontSize: 13 }}><strong>{completed} de {items.length}</strong> revisados{requisitos.length ? ` · ${requisitos.length} por identificar` : summary.pendientes > 0 ? ` · faltan ${summary.pendientes}` : " · listo para cerrar"}</div>
           </div>
           {!conciliada && (
             <label style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, color: C.dim }}><User size={14} /> Responsable
@@ -466,8 +535,11 @@ function DetalleCierre({ cierreId, profile, signOut }) {
                 {[["pendientes", `Pendientes ${summary.pendientes}`], ["todos", `Todos ${items.length}`]].map(([value, label]) => <button key={value} type="button" aria-pressed={itemFilter === value} onClick={() => setItemFilter(value)} style={{ border: "none", borderRadius: 6, minHeight: 36, padding: "0 10px", background: itemFilter === value ? C.blueL : "transparent", color: itemFilter === value ? C.blue : C.dim, fontFamily: C.sans, fontWeight: 650, cursor: "pointer", whiteSpace: "nowrap" }}>{label}</button>)}
               </div>}
             </div>
+            {!loading && !conciliada && <RequisitosSinProducto rows={requisitos} links={productosCompatibles} selections={productoSeleccionado}
+              onSelect={(requisitoId, productoId) => setProductoSeleccionado((prev) => ({ ...prev, [requisitoId]: productoId }))}
+              onIdentify={onIdentifyRequirement} busyId={busyRequirement} canOperate={canOperate && !busyAction && !busyItem && !busyRequirement} compact={isMobile} />}
             {loading && <div style={{ color: C.dim, padding: 24 }}>Cargando materiales…</div>}
-            {!loading && visibles.length === 0 && <div style={{ padding: 36, textAlign: "center", color: C.dim }}>{items.length === 0 ? "Esta obra no tiene materiales para revisar." : itemFilter === "pendientes" ? "No quedan materiales pendientes." : "No hay resultados para esa búsqueda."}</div>}
+            {!loading && visibles.length === 0 && <div style={{ padding: 36, textAlign: "center", color: C.dim }}>{requisitos.length ? "Identificá los productos de arriba para continuar con los sobrantes." : items.length === 0 ? "Esta obra no tiene productos para revisar." : itemFilter === "pendientes" ? "No quedan productos pendientes." : "No hay resultados para esa búsqueda."}</div>}
             <div>
               {visibles.map((item) => {
                 const status = itemStatus(item); const pending = qty(item.cantidad_pendiente); const selected = selectedItemId === item.id;

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 import { ToastProvider } from "@/components/ui/Toast";
@@ -29,8 +29,9 @@ import PresentationPrivacyShield from "@/components/PresentationPrivacyShield";
 import ScanEgresoScreen from "@/features/inventario/ScanEgresoScreen";
 import ScanPedidoScreen from "@/features/inventario/ScanPedidoScreen";
 import ColectorHomeScreen from "@/features/inventario/ColectorHomeScreen";
-
-import logoK from "@/assets/logos/logo-k.png";
+// El login también va en el bundle inicial: es lo primero que abre el colector.
+import LoginScreen from "@/features/login/LoginScreen";
+import IntroMarca from "@/features/login/IntroMarca";
 
 // Un deploy le cambia el hash a cada chunk. Una pestaña que quedó abierta desde
 // antes tiene el index viejo en memoria, pide un archivo que ya no existe, y el
@@ -188,11 +189,6 @@ const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScr
 const PantallaEgresoScreen = pantalla(() => import("@/features/panol/PantallaEgresoScreen"));
 const SobrantesObraScreen = pantalla(() => import("@/features/panol/SobrantesObraScreen"));
 
-// Internos:  usuario  → usuario@klasea.local
-// Clientes:  usuario  → usuario@klasea.client
-function toLocalEmail(u)  { return `${String(u||"").trim().toLowerCase()}@klasea.local`;  }
-function toClientEmail(u) { return `${String(u||"").trim().toLowerCase()}@klasea.client`; }
-
 const STARTUP_TIMEOUT_MS = 12_000;
 
 function withStartupTimeout(request, label) {
@@ -237,14 +233,6 @@ function loginConVuelta(location) {
   const destino = `${location.pathname}${location.search}${location.hash}`;
   if (destino === "/" || destino.startsWith("/login")) return "/login";
   return `/login?next=${encodeURIComponent(destino)}`;
-}
-
-// Sólo rutas internas. Un next con esquema propio o que arranque con "//" sería
-// un redirect abierto: bastaría mandar un mail con ese link para que la pantalla
-// de login de Klase A deposite al usuario en otro sitio.
-function destinoSeguro(next) {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
 }
 
 function RequireAuth({ session, children }) {
@@ -328,339 +316,121 @@ function RouteLoader({ label = "Cargando módulo..." }) {
   );
 }
 
-// ─── LOGIN ─────────────────────────────────────────────────────────────────
-// Campo único: usuario (sin @, sin distinción visible)
-// El sistema prueba @klasea.local primero, luego @klasea.client
-// y redirige automáticamente según el rol que devuelva el perfil.
-// ──────────────────────────────────────────────────────────────────────────
-function LoginScreen({ onLoggedIn }) {
-  const nav = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [usuario,  setUsuario]  = useState("");
-  const [password, setPassword] = useState("");
-  const [err,      setErr]      = useState("");
-  const [busy,     setBusy]     = useState(false);
-
-  async function handleLogin(e) {
-    e.preventDefault();
-    setErr("");
-    setBusy(true);
-
-    const u = usuario.trim();
-    if (!u || !password) { setErr("Completá los dos campos."); setBusy(false); return; }
-
-    try {
-      // Si ya tiene @ → es email directo (clientes con email real o nuevos con @klasea.client)
-      // Si no tiene @ → probar como personal interno, luego como cliente por username
-      const esEmail = u.includes("@");
-      const intentos = esEmail
-        ? [u.toLowerCase()]
-        : [toLocalEmail(u.toLowerCase()), toClientEmail(u.toLowerCase())];
-
-      let data = null;
-      let ultimoError = null;
-      for (const email of intentos) {
-        const res = await supabase.auth.signInWithPassword({ email, password });
-        if (!res.error && res.data?.session) { data = res.data; break; }
-        if (res.error) ultimoError = res.error;
-      }
-
-      if (!data?.session) {
-        // Un usuario dado de baja queda baneado en auth. Con el mensaje
-        // genérico se quedaría probando contraseñas que nunca van a entrar.
-        const motivo = String(ultimoError?.message || "").toLowerCase();
-        setErr(motivo.includes("banned") || motivo.includes("disabled")
-          ? "Tu usuario está dado de baja. Hablá con el administrador."
-          : "Usuario o contraseña incorrectos.");
-        return;
-      }
-
-      await onLoggedIn?.(data.session);
-      // Vuelve a donde quería ir, si venía de un link. RequireRole se encarga
-      // de rebotarlo igual si ese destino no le corresponde por rol.
-      nav(destinoSeguro(searchParams.get("next")) || "/", { replace: true });
-    } catch {
-      setErr("Error inesperado. Intentá de nuevo.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={{
-      position:"fixed", inset:0,
-      background:C.bg,
-      display:"flex", alignItems:"center", justifyContent:"center",
-      fontFamily:"'Outfit', system-ui, sans-serif",
-      color:C.text, overflow:"hidden", padding:20,
-    }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&display=swap');
-
-        @keyframes rise {
-          from { opacity:0; transform:translateY(20px) scale(0.98); }
-          to   { opacity:1; transform:translateY(0)   scale(1);     }
-        }
-
-        .ln-field {
-          width:100%; box-sizing:border-box;
-          background:var(--panel);
-          border:1px solid var(--border);
-          border-radius:10px;
-          padding:11px 14px;
-          color:var(--text);
-          font-size:14px;
-          font-family:'Outfit',system-ui;
-          outline:none;
-          transition:border-color .18s, background .18s;
-        }
-        .ln-field::placeholder { color:var(--dim); }
-        .ln-field:focus {
-          border-color:var(--focus);
-          background:var(--panel-2);
-        }
-
-        .ln-btn {
-          width:100%; padding:14px;
-          background:linear-gradient(135deg, var(--inverse-bg), var(--inverse-bg)); color:var(--inverse-text);
-          border:none; border-radius:12px;
-          font-size:14px; font-weight:800;
-          letter-spacing:0.12em; text-transform:uppercase;
-          cursor:pointer;
-          font-family:'Outfit',system-ui;
-          transition:all .2s cubic-bezier(.22,1,.36,1);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .ln-btn:hover:not(:disabled) { opacity:0.95; transform:translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
-        .ln-btn:active               { transform:translateY(0); }
-        .ln-btn:disabled             { opacity:.45; cursor:not-allowed; }
-
-        .login-logo {
-          width: 48px; height: 48px;
-          object-fit: contain; display: block;
-          margin: 0 auto 16px;
-        }
-        html[data-theme="light"] .login-logo {
-          filter: invert(1);
-        }
-      `}</style>
-
-      {/* Glow de fondo */}
-      <div style={{
-        position:"absolute", top:"-15%", left:"50%", transform:"translateX(-50%)",
-        width:"600px", height:"400px", borderRadius:"50%",
-        background:"radial-gradient(ellipse, var(--login-glow) 0%, transparent 70%)",
-        pointerEvents:"none",
-      }} />
-
-      {/* Líneas de cuadrícula muy sutiles */}
-      <div style={{
-        position:"absolute", inset:0, pointerEvents:"none",
-        backgroundImage:[
-          "linear-gradient(var(--grid-line) 1px, transparent 1px)",
-          "linear-gradient(90deg, var(--grid-line) 1px, transparent 1px)",
-        ].join(","),
-        backgroundSize:"80px 80px",
-      }} />
-
-      {/* Card */}
-      <div style={{
-        width:"min(400px,100%)",
-        borderRadius:24,
-        background:C.bg1,
-        border:`1px solid ${C.b1}`,
-        backdropFilter:"blur(24px)",
-        boxShadow:"0 30px 80px var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,0.05)",
-        padding:"48px 40px 42px",
-        animation:"rise .4s cubic-bezier(.22,1,.36,1) both",
-        position:"relative", zIndex:1,
-      }}>
-
-        {/* Logo + nombre */}
-        <div style={{ textAlign:"center", marginBottom:42 }}>
-          <img src={logoK} alt="Klase A" className="login-logo" />
-          <div style={{
-            fontWeight:900, fontSize:16,
-            letterSpacing:"0.13em", color:C.text,
-          }}>
-            KLASE A
-          </div>
-          <div style={{
-            marginTop:6, fontSize:10,
-            letterSpacing:"0.12em", color:C.dim,
-            textTransform:"uppercase",
-          }}>
-            Astillero · Acceso al sistema
-          </div>
-        </div>
-
-        <form onSubmit={handleLogin}>
-
-          {/* Usuario */}
-          <div style={{ marginBottom:13 }}>
-            <label style={{
-              display:"block", marginBottom:7,
-              fontSize:10, letterSpacing:"0.12em",
-              color:C.dim, textTransform:"uppercase", fontWeight:700,
-            }}>
-              Usuario
-            </label>
-            <input
-              className="ln-field"
-              autoFocus
-              autoComplete="username"
-              spellCheck={false}
-              value={usuario}
-              onChange={e => { setUsuario(e.target.value); setErr(""); }}
-              placeholder="usuario  ó  email@gmail.com"
-            />
-          </div>
-
-          {/* Contraseña */}
-          <div style={{ marginBottom:26 }}>
-            <label style={{
-              display:"block", marginBottom:7,
-              fontSize:10, letterSpacing:"0.12em",
-              color:C.dim, textTransform:"uppercase", fontWeight:700,
-            }}>
-              Contraseña
-            </label>
-            <input
-              className="ln-field"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setErr(""); }}
-              placeholder="••••••••"
-            />
-          </div>
-
-          {/* Error */}
-          {err && (
-            <div style={{
-              marginBottom:16, padding:"10px 14px",
-              borderRadius:9,
-              background:"var(--red-soft)",
-              border:"1px solid var(--red-border)",
-              color:C.red, fontSize:13, textAlign:"center",
-              letterSpacing:"0.01em",
-            }}>
-              {err}
-            </div>
-          )}
-
-          <button className="ln-btn" type="submit" disabled={busy}>
-            {busy ? "Ingresando…" : "Ingresar"}
-          </button>
-
-        </form>
-
-        <div style={{
-          marginTop:22, paddingTop:18,
-          borderTop:`1px solid ${C.border}`,
-          textAlign:"center",
-          fontSize:11, color:C.dim,
-          letterSpacing:"0.02em",
-        }}>
-          ¿Olvidaste tu contraseña? Contactá al administrador.
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{
-        position:"absolute", bottom:16,
-        fontSize:11, color:C.dim,
-        letterSpacing:"0.08em",
-      }}>
-        © 2026 Astillero Klase A
-      </div>
-    </div>
-  );
-}
-
 // ─── APP ───────────────────────────────────────────────────────────────────
 export default function App() {
   const [session,        setSession]        = useState(null);
   const [profile,        setProfile]        = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [startupError,   setStartupError]   = useState("");
+  // La intro "Klase A · Marcando tendencia" que corre al iniciar sesión. Vive
+  // acá y no en el login porque tiene que seguir en pantalla mientras navega.
+  // En desarrollo se puede ver sin volver a loguearse: /login?intro
+  const [bienvenida, setBienvenida] = useState(() => (
+    import.meta.env.DEV && new URLSearchParams(window.location.search).has("intro")
+      ? { destino: null, origen: null }
+      : null
+  ));
   const profileLoadIdRef = useRef(0);
+  const profileEnCaminoRef = useRef(null);
 
-  async function loadProfile(s) {
+  // Al iniciar sesión el perfil se pedía dos veces casi a la vez: una desde el
+  // login y otra desde onAuthStateChange(SIGNED_IN). La segunda invalidaba a la
+  // primera por profileLoadIdRef, el login navegaba con el perfil todavía en
+  // null, "/" lo rebotaba a /login con el formulario en blanco y había que
+  // poner la cuenta dos veces. Ahora, si ya hay una carga en camino para el
+  // mismo usuario, se devuelve esa misma promesa en vez de lanzar otra.
+  function loadProfile(s) {
+    const userId = s?.user?.id || null;
+    const enCamino = profileEnCaminoRef.current;
+    if (userId && enCamino?.userId === userId) return enCamino.promise;
+
     const loadId = ++profileLoadIdRef.current;
-    setStartupError("");
+    const promise = fetchProfile().finally(() => {
+      if (profileEnCaminoRef.current?.promise === promise) profileEnCaminoRef.current = null;
+    });
+    profileEnCaminoRef.current = userId ? { userId, promise } : null;
+    return promise;
 
-    if (!s?.user?.id) {
-      setProfile(null);
-      setIsInitializing(false);
-      return;
-    }
+    // Devuelve el perfil que quedó cargado, o null si no hay uno habilitado.
+    async function fetchProfile() {
+      setStartupError("");
 
-    try {
-      // Buscar en profiles (personal interno). El timeout evita que una caída
-      // de Postgres deje toda la aplicación congelada en "Cargando…".
-      let { data: pData, error: pErr } = await withStartupTimeout(
-        supabase
-          .from("profiles")
-          .select("id,username,role,is_admin,is_demo,sede,must_change_password,activo")
-          .eq("id", s.user.id)
-          .maybeSingle(),
-        "Carga del perfil",
-      );
-      if (pErr && ["must_change_password", "is_demo", "activo"].some((field) => String(pErr.message || "").includes(field))) {
-        const retry = await withStartupTimeout(supabase
-          .from("profiles")
-          .select("id,username,role,is_admin,sede")
-          .eq("id", s.user.id)
-          .maybeSingle(), "Carga del perfil");
-        pData = retry.data;
-        pErr = retry.error;
-      }
-      if (pErr) throw pErr;
-
-      // Dado de baja: el corte real lo hace el ban en auth (no le dan tokens
-      // nuevos), pero una sesión ya abierta sigue viva hasta que expira. Acá se
-      // la cierra; si vuelve a intentar entrar, el login le explica por qué.
-      if (pData && pData.activo === false) {
-        await supabase.auth.signOut();
-        if (loadId === profileLoadIdRef.current) setProfile(null);
-        return;
-      }
-
-      if (pData) {
-        const normalizedProfile = pData.is_demo
-          ? { ...pData, access_role: pData.role, is_admin: false, must_change_password: false }
-          : pData;
-        if (loadId === profileLoadIdRef.current) setProfile(normalizedProfile);
-        return;
-      }
-
-      // Buscar en clientes (propietarios de barcos)
-      const { data: cData, error: cErr } = await withStartupTimeout(supabase
-        .from("clientes")
-        .select("id,username,nombre_completo,modelo_barco")
-        .eq("id", s.user.id)
-        .maybeSingle(), "Carga del perfil de cliente");
-      if (cErr) throw cErr;
-
-      if (loadId !== profileLoadIdRef.current) return;
-      if (cData) {
-        setProfile({
-          id:       cData.id,
-          username: cData.username ?? cData.nombre_completo,
-          role:     "cliente",
-          is_admin: false,
-        });
-      } else {
+      if (!s?.user?.id) {
         setProfile(null);
+        setIsInitializing(false);
+        return null;
       }
-    } catch (error) {
-      if (loadId !== profileLoadIdRef.current) return;
-      console.error("No se pudo inicializar el perfil", error);
-      setProfile(null);
-      setStartupError(startupErrorMessage(error));
-    } finally {
-      if (loadId === profileLoadIdRef.current) setIsInitializing(false);
+
+      try {
+        // Buscar en profiles (personal interno). El timeout evita que una caída
+        // de Postgres deje toda la aplicación congelada en "Cargando…".
+        let { data: pData, error: pErr } = await withStartupTimeout(
+          supabase
+            .from("profiles")
+            .select("id,username,role,is_admin,is_demo,sede,must_change_password,activo")
+            .eq("id", s.user.id)
+            .maybeSingle(),
+          "Carga del perfil",
+        );
+        if (pErr && ["must_change_password", "is_demo", "activo"].some((field) => String(pErr.message || "").includes(field))) {
+          const retry = await withStartupTimeout(supabase
+            .from("profiles")
+            .select("id,username,role,is_admin,sede")
+            .eq("id", s.user.id)
+            .maybeSingle(), "Carga del perfil");
+          pData = retry.data;
+          pErr = retry.error;
+        }
+        if (pErr) throw pErr;
+
+        // Dado de baja: el corte real lo hace el ban en auth (no le dan tokens
+        // nuevos), pero una sesión ya abierta sigue viva hasta que expira. Acá se
+        // la cierra; si vuelve a intentar entrar, el login le explica por qué.
+        if (pData && pData.activo === false) {
+          await supabase.auth.signOut();
+          if (loadId === profileLoadIdRef.current) setProfile(null);
+          return null;
+        }
+
+        if (pData) {
+          const normalizedProfile = pData.is_demo
+            ? { ...pData, access_role: pData.role, is_admin: false, must_change_password: false }
+            : pData;
+          if (loadId !== profileLoadIdRef.current) return null;
+          setProfile(normalizedProfile);
+          return normalizedProfile;
+        }
+
+        // Buscar en clientes (propietarios de barcos)
+        const { data: cData, error: cErr } = await withStartupTimeout(supabase
+          .from("clientes")
+          .select("id,username,nombre_completo,modelo_barco")
+          .eq("id", s.user.id)
+          .maybeSingle(), "Carga del perfil de cliente");
+        if (cErr) throw cErr;
+
+        if (loadId !== profileLoadIdRef.current) return null;
+        if (cData) {
+          const clientProfile = {
+            id:       cData.id,
+            username: cData.username ?? cData.nombre_completo,
+            role:     "cliente",
+            is_admin: false,
+          };
+          setProfile(clientProfile);
+          return clientProfile;
+        }
+        setProfile(null);
+        return null;
+      } catch (error) {
+        if (loadId !== profileLoadIdRef.current) return null;
+        console.error("No se pudo inicializar el perfil", error);
+        setProfile(null);
+        setStartupError(startupErrorMessage(error));
+        return null;
+      } finally {
+        if (loadId === profileLoadIdRef.current) setIsInitializing(false);
+      }
     }
   }
 
@@ -802,7 +572,7 @@ export default function App() {
       <PantallaCaida>
       <Suspense fallback={<RouteLoader />}>
       <Routes>
-        <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
+        <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} onBienvenida={setBienvenida} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
         <Route path="/"      element={homeElement} />
 
@@ -884,6 +654,15 @@ export default function App() {
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />}
       {!modoColector && session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
+      {/* Fuera del Suspense: si la pantalla de destino todavía está bajando su
+          chunk, el fallback no tiene que esconder la intro que la tapa. */}
+      {bienvenida && (
+        <IntroMarca
+          destino={bienvenida.destino}
+          origen={bienvenida.origen}
+          onFin={() => setBienvenida(null)}
+        />
+      )}
           </ConfirmProvider>
         </ToastProvider>
       </TourProvider>

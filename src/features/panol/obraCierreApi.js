@@ -187,7 +187,81 @@ export async function fetchCierreItems(cierreId) {
     if (isMissingRelation(error)) return [];
     throw error;
   }
+  const rows = data || [];
+  const materialIds = [...new Set(rows.map((row) => row.material_id).filter(Boolean))];
+  if (!materialIds.length) return rows;
+
+  // Un requisito de matriz describe una necesidad; no es una existencia fisica
+  // que pueda liberarse como sobrante. El SQL nuevo ya los separa, y este filtro
+  // evita mostrarlos como producto incluso mientras se actualiza el esquema.
+  const { data: materials, error: materialsError } = await supabase
+    .from("panol_materiales")
+    .select("id,es_requisito")
+    .in("id", materialIds);
+  if (materialsError) {
+    if (isMissingRelation(materialsError)) return rows;
+    throw materialsError;
+  }
+  const requirementIds = new Set((materials || []).filter((row) => row.es_requisito).map((row) => row.id));
+  return rows.filter((row) => !row.material_id || !requirementIds.has(row.material_id));
+}
+
+export async function fetchCierreRequisitosSinProducto(cierreId) {
+  if (!cierreId) return [];
+  const { data, error } = await supabase.rpc("panol_cierre_requisitos_sin_producto", {
+    p_cierre_id: cierreId,
+  });
+  if (error) {
+    if (isMissingRelation(error)) {
+      throw new Error("Falta aplicar la migración que separa requisitos de matriz y productos sobrantes.");
+    }
+    throw error;
+  }
   return data || [];
+}
+
+export async function fetchProductosCompatiblesCierre(requisitoIds = []) {
+  const ids = [...new Set((requisitoIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const { data: links, error: linksError } = await supabase
+    .from("panol_requisito_productos")
+    .select("requisito_material_id,producto_material_id,variante_legacy")
+    .in("requisito_material_id", ids)
+    .eq("activo", true);
+  if (linksError) {
+    if (isMissingRelation(linksError)) return [];
+    throw linksError;
+  }
+
+  const productIds = [...new Set((links || []).map((row) => row.producto_material_id).filter(Boolean))];
+  if (!productIds.length) return [];
+  const { data: products, error: productsError } = await supabase
+    .from("panol_materiales")
+    .select("id,descripcion,codigo,unidad_medida,proveedor,activo,es_requisito")
+    .in("id", productIds);
+  if (productsError) throw productsError;
+
+  const byId = new Map((products || [])
+    .filter((row) => row.activo !== false && !row.es_requisito)
+    .map((row) => [row.id, row]));
+  return (links || []).flatMap((link) => {
+    const product = byId.get(link.producto_material_id);
+    return product ? [{ ...link, producto: product }] : [];
+  });
+}
+
+export async function identificarProductoCierre(cierreId, requisitoMaterialId, productoMaterialId) {
+  if (!cierreId || !requisitoMaterialId || !productoMaterialId) {
+    throw new Error("Elegí el producto físico antes de continuar.");
+  }
+  const { data, error } = await supabase.rpc("panol_cierre_identificar_producto", {
+    p_cierre_id: cierreId,
+    p_requisito_material_id: requisitoMaterialId,
+    p_producto_material_id: productoMaterialId,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function fetchCierreResoluciones(cierreId) {
