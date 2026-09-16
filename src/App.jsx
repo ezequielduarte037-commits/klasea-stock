@@ -177,6 +177,7 @@ const SemaforoScreen = pantalla(() => import("@/features/semaforo/SemaforoScreen
 const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScreen"));
 const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScreen"));
 const PantallaEgresoScreen = pantalla(() => import("@/features/panol/PantallaEgresoScreen"));
+const SobrantesObraScreen = pantalla(() => import("@/features/panol/SobrantesObraScreen"));
 
 // Internos:  usuario  → usuario@klasea.local
 // Clientes:  usuario  → usuario@klasea.client
@@ -858,6 +859,8 @@ export default function App() {
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/sobrantes-obra/:cierreId" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/sobrantes-obra" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/consumibles-caja" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><EgresoConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />

@@ -17,6 +17,8 @@ const ROUTE_LABELS = {
   "/calendario": "Logística",
   "/rrhh": "Recursos humanos",
   "/stock-panol": "Stock de pañol",
+  "/stock-panol?tab=sobrantes": "Sobrantes de obra",
+  "/sobrantes-obra": "Sobrantes de obra",
   "/solicitudes-panol": "Solicitudes de pañol",
   "/configuracion": "Configuración",
 };

@@ -2954,7 +2954,16 @@ export default function ObrasScreen({ profile, signOut }) {
 
   async function cambiarEstadoObra(obraId, estado) {
     const upd = { estado }; if (estado === "terminada") upd.fecha_fin_real = today();
-    await supabase.from("produccion_obras").update(upd).eq("id", obraId); cargar();
+    await supabase.from("produccion_obras").update(upd).eq("id", obraId);
+    if (estado === "terminada") {
+      try {
+        const { asegurarCierreObra } = await import("@/features/panol/obraCierreApi");
+        await asegurarCierreObra(obraId);
+      } catch (error) {
+        console.warn("cierre de materiales:", error);
+      }
+    }
+    cargar();
   }
 
   async function guardarDesmoldeEstimado() {
@@ -4205,6 +4214,14 @@ export default function ObrasScreen({ profile, signOut }) {
                     const upd = { estado };
                     if (estado === "terminada") upd.fecha_fin_real = today();
                     await supabase.from("produccion_obras").update(upd).eq("id", obraId);
+                    if (estado === "terminada") {
+                      try {
+                        const { asegurarCierreObra } = await import("@/features/panol/obraCierreApi");
+                        await asegurarCierreObra(obraId);
+                      } catch (error) {
+                        console.warn("cierre de materiales:", error);
+                      }
+                    }
                   }
                   cargar();
                 }}

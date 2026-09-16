@@ -328,6 +328,32 @@ export const HERRAMIENTAS = [
   },
 
   {
+    id: "sobrantes_obra",
+    label: "Sobrantes de obra",
+    roles: GESTION_PANOL,
+    sujeto: ["sobrante", "sobrantes", "cierre", "conciliar", "conciliacion"],
+    ruta: "/stock-panol?tab=sobrantes",
+    rutaLabel: "Abrir Sobrantes de obra",
+    async correr() {
+      const { data, error, count } = await supabase
+        .from("panol_obra_cierres")
+        .select("id, estado, items_pendientes, obra:produccion_obras(codigo, linea_nombre)", { count: "exact" })
+        .in("estado", ["pendiente", "en_revision"])
+        .order("fecha_terminacion", { ascending: false })
+        .limit(TOPE_MUESTRA);
+      if (error) throw error;
+      return { filas: data || [], total: count ?? (data || []).length };
+    },
+    resumir({ filas, total }) {
+      if (!total) return "No hay obras con materiales pendientes de conciliar.";
+      return [
+        `Hay ${total} obra${total === 1 ? "" : "s"} con revisión de materiales pendiente.`,
+        ...filas.map((r) => `· ${r.obra?.codigo || "obra"} · ${r.items_pendientes || 0} materiales`),
+      ].join("\n");
+    },
+  },
+
+  {
     id: "obras",
     label: "Obras en producción",
     roles: ["admin", "oficina", "tecnica"],

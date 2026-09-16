@@ -1,5 +1,5 @@
 import {
-  BookOpenText, Boxes, Building2, CalendarDays, ClipboardList, Cog, FileText, LayoutGrid,
+  BookOpenText, Boxes, Building2, CalendarDays, ClipboardCheck, ClipboardList, Cog, FileText, LayoutGrid,
   LifeBuoy, PackageSearch, Scale, ScanLine, Ship, ShoppingCart, Tags, Truck, UsersRound, Wallet, Wrench,
 } from "lucide-react";
 import { normalize, scoreFields, tokenize } from "./searchText";
@@ -80,6 +80,12 @@ export const NAV_SECTIONS = [
     id: "panol-egresos", label: "Egresar materiales", modulo: "Pañol", path: "/egresos-panol", Icon: PackageSearch,
     hint: "Entregar material a una persona o a una obra.",
     keywords: "egreso egresar salida entregar entrega retiro sacar dar descontar",
+    roles: PANOL,
+  },
+  {
+    id: "panol-sobrantes", label: "Sobrantes de obra", modulo: "Pañol", path: "/stock-panol?tab=sobrantes", Icon: ClipboardCheck,
+    hint: "Materiales de obras terminadas pendientes de conciliar.",
+    keywords: "sobrante sobrantes cierre conciliar terminada obra devolver devolucion pañol materiales stock",
     roles: PANOL,
   },
   {

@@ -1,5 +1,5 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, BarChart3, ChevronDown, ChevronRight, DollarSign, Inbox, List, Map as MapIcon, Plus, RefreshCw, Search, ShipWheel, SlidersHorizontal, Warehouse, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -12,6 +12,8 @@ import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
 import NormalizacionIngresosPanel from "@/features/panol/NormalizacionIngresosPanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
+import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
+import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
 
@@ -359,6 +361,7 @@ const TABS = [
   { key: "maestro", label: "Inventario" },
   { key: "obra", label: "Por obra" },
   { key: "movimientos", label: "Movimientos" },
+  { key: "sobrantes", label: "Sobrantes de obra" },
 ];
 
 // ─── Panel de movimientos (historial general: ingresos y egresos) ──────────────
@@ -957,6 +960,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   // del stock maestro y del historial general.
   const [consumibleIds, setConsumibleIds] = useState(() => new Set());
   const [obras, setObras] = useState([]);
+  const [cierresByObra, setCierresByObra] = useState(() => new Map());
   const [transitRows, setTransitRows] = useState([]);
   const [replenishmentCatalog, setReplenishmentCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -971,6 +975,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       // Obras, tránsito y reposición arrancan a la vez pero se hidratan después,
       // sin mantener bloqueada toda la pantalla.
       const obrasPromise = fetchObrasEgreso().catch(() => []);
+      const cierresPromise = fetchCierresAbiertosPorObra().catch(() => new Map());
       const transitPromise = fetchPanolInTransitInventory().catch(() => []);
       const replenishmentPromise = fetchPanolReplenishmentCatalog().catch(() => []);
       const [stockRows, consumibles] = await Promise.all([
@@ -981,8 +986,9 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       setConsumibleIds(consumibles);
       setLoading(false);
 
-      const obraRows = await obrasPromise;
+      const [obraRows, cierresMap] = await Promise.all([obrasPromise, cierresPromise]);
       setObras(obraRows);
+      setCierresByObra(cierresMap);
       setObrasLoading(false);
 
       const [transitInventory, replenishmentRows] = await Promise.all([
@@ -1229,6 +1235,15 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 }}
               >
                 {t.label}
+                {t.key === "sobrantes" && cierresByObra.size > 0 && (
+                  <span style={{
+                    minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999,
+                    background: C.amberL, border: `1px solid ${C.amberB}`, color: C.amber,
+                    fontSize: 10, fontWeight: 950, display: "inline-grid", placeItems: "center", fontFamily: C.mono,
+                  }}>
+                    {cierresByObra.size}
+                  </span>
+                )}
               </button>
             ))}
             <div style={{ marginLeft: "auto", alignSelf: "center", display: "flex", alignItems: "center", gap: 8, paddingLeft: 12 }}>
@@ -1401,6 +1416,14 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                               <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: C.text }}>{selObra.codigo}</span>
                               <span style={{ fontSize: 9.5, fontWeight: 850, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 6px", textTransform: "uppercase" }}>{selObra.estado}</span>
+                              {selObra.estado === "terminada" && cierresByObra.get(selObra.id) && (
+                                <Link
+                                  to={`/sobrantes-obra/${cierresByObra.get(selObra.id).id}`}
+                                  style={{ color: C.amber, fontSize: 11, fontWeight: 900, textDecoration: "none" }}
+                                >
+                                  Cierre de materiales
+                                </Link>
+                              )}
                             </div>
                             <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Línea {lineaLabel(selLinea || lineaKeyFromObra(selObra))}</div>
                           </div>
@@ -1479,6 +1502,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   <MovimientosPanel rows={rowsSinConsumibles} obras={obras} isMobile={isMobile} consumiblesOcultos={consumiblesOcultos} />
                 )}
               </div>
+            )}
+
+            {tab === "sobrantes" && (
+              <ListaSobrantesObraPanel profile={profile} signOut={signOut} embedded />
             )}
           </div>
           {showNuevaObraExterna && (

@@ -134,6 +134,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M8 8v6" {...p}/>
       <path d="M4.5 6.2l6-3" {...p}/>
     </>,
+    "/stock-panol?tab=sobrantes": <>
+      <path d="M3 3h10v10H3z" {...p}/>
+      <path d="M6 3v10M3 7h10" {...p}/>
+      <path d="M11 11.5l1.2 1.2 2.3-2.4" {...p}/>
+    </>,
     "/inicio-panol": <>
       <path d="M2 7.5L8 2l6 5.5V14H2z" {...p}/>
       <path d="M5.5 14v-4h5v4M5 7h6" {...p}/>

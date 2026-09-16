@@ -54,7 +54,13 @@ export function ObraWorkspaceStyles() {
     .obra-drawer { animation: obra-drawer-in 160ms ease-out; }
     @keyframes obra-drawer-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
     @media (prefers-reduced-motion: reduce) { .obra-workspace *, .obra-drawer { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-    @media (max-width: 899px), (pointer: coarse) { .obra-workspace button, .obra-workspace select, .obra-workspace input:not([type=checkbox]):not([type=file]) { min-height: 44px !important; } .obra-workspace input[type=checkbox] { width: 22px; height: 22px; } }
+    .obra-table-narrow .obra-selection { min-width: 44px !important; min-height: 44px !important; }
+    @media (max-width: 899px), (pointer: coarse) {
+      .obra-workspace button, .obra-workspace select, .obra-workspace input:not([type=checkbox]):not([type=file]) { min-height: 44px !important; }
+      .obra-workspace input[type=checkbox] { width: 22px; height: 22px; }
+      .obra-workspace .obra-pagination button, .obra-drawer button { min-width: 44px; }
+      .obra-workspace .obra-filtro-solo { opacity: 1; }
+    }
   `}</style>;
 }
 
@@ -159,7 +165,7 @@ function SelectionBox({ rows, selected, onToggle, label }) {
   const ref = useRef(null);
   const count = rows.filter((row) => selected.has(row.id)).length;
   useEffect(() => { if (ref.current) ref.current.indeterminate = count > 0 && count < rows.length; }, [count, rows.length]);
-  return <label style={{ minWidth: 32, minHeight: 32, display: "inline-grid", placeItems: "center", cursor: "pointer" }} title={label}>
+  return <label className="obra-selection" style={{ minWidth: 32, minHeight: 32, display: "inline-grid", placeItems: "center", cursor: "pointer" }} title={label}>
     <input ref={ref} type="checkbox" aria-label={label} checked={rows.length > 0 && count === rows.length} disabled={!rows.length} onChange={onToggle} style={{ accentColor: C.blue, margin: 0 }} />
   </label>;
 }
@@ -167,6 +173,7 @@ function SelectionBox({ rows, selected, onToggle, label }) {
 export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {} }) {
   const { isMobile } = useResponsive();
   const containerRef = useRef(null);
+  const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const [width, setWidth] = useState(1200);
   const [listHeight, setListHeight] = useState(600);
@@ -180,7 +187,8 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       setWidth(rect.width);
-      setListHeight(Math.max(360, window.innerHeight - rect.top - 22));
+      const gridTop = gridRef.current?.getBoundingClientRect().top ?? rect.top;
+      setListHeight(Math.max(360, window.innerHeight - gridTop - 22));
     };
     const observer = new ResizeObserver(measure);
     if (containerRef.current) { observer.observe(containerRef.current); observer.observe(containerRef.current.parentElement); }
@@ -188,7 +196,8 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
     measure();
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
   }, []);
-  const narrow = isMobile || width < 760;
+  const narrow = isMobile || width < 860;
+  const phone = width < 520;
   const compact = width < 1100;
   const pagination = useMemo(() => paginateObraGroups(groups, pageState.key === filterKey ? pageState.page : 1), [groups, pageState, filterKey]);
   const pageRows = useMemo(() => pagination.groups.flatMap((group) => group.rows), [pagination.groups]);
@@ -221,7 +230,7 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
       elements[Math.max(0, Math.min(elements.length - 1, next))]?.focus();
     }
   }
-  const columns = narrow ? "34px minmax(120px,1fr) 80px 94px 30px" : compact ? "34px minmax(180px,1fr) 86px 78px 78px 100px 32px" : "34px minmax(190px,1fr) 125px 86px 78px 78px 94px 100px 32px";
+  const columns = phone ? "44px minmax(0,1fr) 98px 44px" : narrow ? "44px minmax(0,1fr) 80px 98px 44px" : compact ? "34px minmax(180px,1fr) 86px 78px 78px 100px 32px" : "34px minmax(190px,1fr) 125px 86px 78px 78px 94px 100px 32px";
   const cell = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", padding: "0 8px" };
   const index = <nav aria-label="Filtrar la obra por rubro o proveedor" className="obra-scroll" style={{ padding: "8px 6px", overflowY: "auto", minHeight: 0, maxHeight: narrow ? 280 : undefined, borderRight: narrow ? "none" : `1px solid ${C.border}`, background: C.panel }}>
     <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: "100%", marginBottom: 8, fontWeight: 650, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>
@@ -230,10 +239,10 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
       <span title={name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name || "Todos los ítems"}</span><span style={{ ...numberStyle, fontSize: 11, color: indexValue === name ? C.blue : C.muted }}>{count.toLocaleString("es-AR")}</span>
     </button>)}
   </nav>;
-  return <div ref={containerRef} data-testid="obra-lista" style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.panelSolid }}>
+  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.panelSolid }}>
     {narrow && <button type="button" onClick={() => setIndexOpen(!indexOpen)} aria-expanded={indexOpen} style={{ ...button, margin: 8 }}><ListFilter size={14} />{indexValue || (indexMode === "rubro" ? "Rubros" : "Proveedores")}<ChevronDown size={14} /></button>}
     {narrow && indexOpen && index}
-    <div style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "184px minmax(0,1fr)", height: listHeight, minHeight: 360 }}>
+    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "184px minmax(0,1fr)", height: listHeight, minHeight: 360 }}>
       {!narrow && index}
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         <div ref={scrollRef} className="obra-scroll" style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
@@ -242,7 +251,7 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
               <div role="columnheader"><SelectionBox rows={pageRows} selected={selected} onToggle={() => selectRows(pageRows)} label={`Seleccionar página (${pageRows.length} ítems)`} /></div>
               <div role="columnheader" style={cell}>Material</div>
               {!narrow && !compact && <div role="columnheader" style={cell}>Proveedor</div>}
-              <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Necesario</div>
+              {!phone && <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Necesario</div>}
               {!narrow && <><div role="columnheader" style={{ ...cell, textAlign: "right" }}>Recibido</div><div role="columnheader" style={{ ...cell, textAlign: "right" }}>Entregado</div></>}
               {!narrow && !compact && <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Precio unit.</div>}
               <div role="columnheader" style={{ ...cell, padding: 0 }}>
@@ -262,18 +271,19 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
                 return <div key={row.id} role="row" tabIndex={0} className="obra-data-row" data-row-id={row.id} aria-selected={active} onKeyDown={(event) => onRowKey(event, row)} onDoubleClick={(event) => { if (!event.target.closest("button,input,a,select")) onOpen(row, event.currentTarget); }} style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 56 : 42, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
                   <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Seleccionar ${row.descripcion}`} /></div>
                   <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 8, padding: "4px 6px" }}>
-                    <MaterialThumb material={view.imageMaterial} size={narrow ? 32 : 28} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
+                    <MaterialThumb material={view.imageMaterial} size={narrow ? 44 : 28} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
                     <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
                       <span style={{ display: "block", fontSize: 12, fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+                      {phone && <span style={{ display: "block", fontSize: 11, color: C.muted, fontFamily: C.mono }}>Necesario: {view.needed}</span>}
                       {(view.origin || view.issue || (compact && row.proveedor)) && <span style={{ display: "block", color: view.issue ? C.red : C.muted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[view.origin, view.issue || (compact ? row.proveedor : "")].filter(Boolean).join(" · ")}</span>}
                     </button>
                   </div>
                   {!narrow && !compact && <div role="cell" title={row.proveedor} style={{ ...cell, color: C.muted, whiteSpace: "nowrap" }}>{row.proveedor || "Sin proveedor"}</div>}
-                  <div role="cell" style={{ ...cell, ...numberStyle }} title={view.quantityTitle}>{view.needed}</div>
+                  {!phone && <div role="cell" style={{ ...cell, ...numberStyle }} title={view.quantityTitle}>{view.needed}</div>}
                   {!narrow && <><div role="cell" style={{ ...cell, ...numberStyle, color: C.muted }}>{view.received}</div><div role="cell" style={{ ...cell, ...numberStyle, color: C.muted }}>{view.delivered}</div></>}
                   {!narrow && !compact && <div role="cell" title={row.precio?.text} style={{ ...cell, ...numberStyle, fontSize: 11, color: row.precio?.amount ? C.muted : C.violet }}>{row.precio?.amount ? row.precio.text : "Sin precio"}</div>}
                   <div role="cell" style={{ ...cell, padding: "0 4px" }}><ObraStatusBadge status={view.status} /></div>
-                  <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: 28, background: "transparent" }}><MoreHorizontal size={15} /></button></div>
+                  <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 44 : 28, minHeight: narrow ? 44 : 32, background: "transparent" }}><MoreHorizontal size={15} /></button></div>
                 </div>;
               })}
             </Fragment>)}
@@ -282,7 +292,7 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "space-between", alignItems: "center", padding: "7px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>
           <span aria-live="polite" data-testid="obra-page-range" style={{ ...muted, fontVariantNumeric: "tabular-nums" }}>{pagination.start.toLocaleString("es-AR")}–{pagination.end.toLocaleString("es-AR")} de {pagination.total.toLocaleString("es-AR")} · {OBRA_PAGE_SIZE} por página</span>
-          <nav aria-label="Páginas de materiales" style={{ display: "flex", gap: 3, alignItems: "center" }}>
+          <nav className="obra-pagination" aria-label="Páginas de materiales" style={{ display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center", maxWidth: "100%" }}>
             <button type="button" aria-label="Página anterior" disabled={pagination.page === 1} onClick={() => changePage(pagination.page - 1)} style={button}><ChevronLeft size={14} /></button>
             {obraPageNumbers(pagination.page, pagination.pageCount).map((page, index, pages) => <Fragment key={page}>{index > 0 && page - pages[index - 1] > 1 && <span style={muted}>…</span>}<button type="button" aria-label={`Página ${page}`} aria-current={page === pagination.page ? "page" : undefined} onClick={() => changePage(page)} style={{ ...button, background: page === pagination.page ? C.blueL : "transparent", color: page === pagination.page ? C.blue : C.muted }}>{page}</button></Fragment>)}
             <button type="button" aria-label="Página siguiente" disabled={pagination.page === pagination.pageCount} onClick={() => changePage(pagination.page + 1)} style={button}><ChevronRight size={14} /></button>
@@ -314,13 +324,13 @@ export function ObraItemDrawer({ row, view, obraLabel, tab, onTab, onClose, onPr
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, isMobile, suspendEscape]);
   return createPortal(<aside ref={panelRef} role="dialog" aria-modal={isMobile || undefined} aria-labelledby="obra-detail-title" className="obra-workspace obra-drawer" style={{ ...obraThemeScope, position: "fixed", top: isMobile ? 0 : 56, right: 0, bottom: 0, width: isMobile ? "100%" : editing ? "min(820px, 82vw)" : "min(600px, 58vw)", boxSizing: "border-box", zIndex: 4000, background: C.panelSolid, borderLeft: `1px solid ${C.border}`, boxShadow: "-12px 0 40px color-mix(in srgb, var(--text) 8%, transparent)", display: "flex", flexDirection: "column", color: C.text, fontFamily: C.sans }}>
-    <div style={{ padding: "10px 18px 0", borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ padding: "10px 18px 0", flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><span style={{ ...muted, fontSize: 10, letterSpacing: 1 }}>DETALLE DEL ÍTEM</span><div style={{ display: "flex", gap: 5 }}><button type="button" disabled={!onPrevious} onClick={onPrevious} aria-label="Ítem anterior" style={button}><ChevronLeft size={14} /></button><button type="button" disabled={!onNext} onClick={onNext} aria-label="Ítem siguiente" style={button}><ChevronRight size={14} /></button><button ref={closeRef} type="button" onClick={onClose} aria-label="Cerrar detalle" style={button}><X size={16} /></button></div></div>
-      <h2 id="obra-detail-title" style={{ margin: "0 0 8px", fontSize: 19, lineHeight: 1.3, fontWeight: 650 }}>{row.descripcion}</h2>
+      <h2 id="obra-detail-title" style={{ margin: "0 0 8px", fontSize: 19, lineHeight: 1.3, fontWeight: 650, overflowWrap: "anywhere" }}>{row.descripcion}</h2>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><ObraStatusBadge status={view.status} /><span style={muted}>{obraLabel}</span></div>
       <div role="tablist" aria-label="Detalle del material" style={{ display: "flex", gap: 20 }}>{[["resumen", "Resumen"], ["compras", "Compras"], ["mas", "Más"]].map(([key, label], index, tabs) => <button id={`obra-tab-${key}`} aria-controls={`obra-tabpanel-${key}`} key={key} type="button" role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onClick={() => onTab(key)} onKeyDown={(event) => { if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length][0]; onTab(next); document.getElementById(`obra-tab-${next}`)?.focus(); }} style={{ ...button, border: "none", borderBottom: `2px solid ${tab === key ? C.blue : "transparent"}`, borderRadius: 0, padding: "10px 0", background: "transparent", color: tab === key ? C.blue : C.muted }}>{label}</button>)}</div>
     </div>
     <div key={`${row.id}:${tab}`} role="tabpanel" id={`obra-tabpanel-${tab}`} aria-labelledby={`obra-tab-${tab}`} className="obra-scroll obra-detail-content" style={{ flex: 1, overflowY: "auto", minWidth: 0, minHeight: 0, padding: editing ? 20 : 18 }}>{renderContent(row, tab)}</div>
-    <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>{footer}<div style={{ ...muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>Esc · Cerrar</div></div>
+    <div style={{ padding: "12px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))", flexShrink: 0, borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>{footer}<div style={{ ...muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>Esc · Cerrar</div></div>
   </aside>, document.body);
 }

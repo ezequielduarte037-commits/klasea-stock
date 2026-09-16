@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   Archive,
@@ -59,6 +60,7 @@ import {
   verificarMaterial,
   vincularMovimientosAMaterial,
 } from "@/features/panol/panolApi";
+import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
 const CATALOG_SEARCH_LIMIT = 12;
@@ -683,6 +685,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
         label: rowObraLabel(row),
         sede: rowSede(row),
         obraId: rowObraId(row),
+        obraEstado: row.obra?.estado || "",
         available: 0,
         transitQty: 0,
         valueUsd: 0,
@@ -691,6 +694,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
       });
     }
     const location = group.locationMap.get(locKey);
+    if (!location.obraEstado && row.obra?.estado) location.obraEstado = row.obra.estado;
     location.available += delta;
     location.valueUsd += delta * rowUnitPriceUsd(row);
     // Desglose por opción dentro de este depósito/obra. `opcion_asignada`
@@ -888,21 +892,43 @@ function KindChip({ tipo = "estandar" }) {
 function groupAsignaciones(group) {
   return (group?.locations || [])
     .filter((loc) => loc.obraId && loc.available > 0.0001)
-    .map((loc) => ({ obraId: loc.obraId, label: loc.label, sede: loc.sede || "", available: loc.available, key: loc.key }));
+    .map((loc) => ({ obraId: loc.obraId, label: loc.label, sede: loc.sede || "", available: loc.available, key: loc.key, obraEstado: loc.obraEstado || "" }));
 }
 
 // Chip que muestra a qué obra(s) está asignado el stock (reemplaza al confuso "Estándar").
 function AsignadoChip({ asignaciones = [], compact = false }) {
   if (!asignaciones.length) return null;
-  if (compact) return null;
+  const terminada = asignaciones.some((asig) => asig.obraEstado === "terminada");
+  if (compact && !terminada) return null;
+  if (compact && terminada) {
+    return (
+      <span style={{
+        color: C.amber,
+        border: `1px solid ${C.amberB}`,
+        background: C.amberL,
+        borderRadius: 999,
+        padding: "3px 8px",
+        fontSize: 10,
+        fontWeight: 950,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        whiteSpace: "nowrap",
+      }}>
+        Obra terminada
+      </span>
+    );
+  }
   const label = asignaciones.length === 1
-    ? `Asignado · ${asignaciones[0].label}`
-    : `Asignado · ${asignaciones.length} obras`;
+    ? `${terminada ? "Obra terminada" : "Asignado"} · ${asignaciones[0].label}`
+    : `${terminada ? "Incluye obra terminada" : "Asignado"} · ${asignaciones.length} obras`;
+  const color = terminada ? C.amber : C.blue;
+  const border = terminada ? C.amberB : C.blueB;
+  const background = terminada ? C.amberL : C.blueL;
   return (
     <span style={{
-      color: C.blue,
-      border: `1px solid ${C.blueB}`,
-      background: C.blueL,
+      color,
+      border: `1px solid ${border}`,
+      background,
       borderRadius: 999,
       padding: "3px 9px",
       fontSize: 10,
@@ -910,7 +936,7 @@ function AsignadoChip({ asignaciones = [], compact = false }) {
       textTransform: "uppercase",
       letterSpacing: 0.5,
       whiteSpace: "nowrap",
-      maxWidth: 180,
+      maxWidth: 220,
       overflow: "hidden",
       textOverflow: "ellipsis",
     }}>
@@ -1554,13 +1580,14 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
   );
 });
 
-function LocationButton({ location, active, onClick }) {
+function LocationButton({ location, active, onClick, cierre }) {
+  const terminada = location.obraEstado === "terminada";
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
-        border: `1px solid ${active ? C.blueB : location.available < 0 ? C.redB : C.border}`,
+        border: `1px solid ${active ? C.blueB : location.available < 0 ? C.redB : terminada ? C.amberB : C.border}`,
         background: active ? C.blueL : location.available < 0 ? C.redL : C.panelSolid,
         color: C.text,
         borderRadius: 10,
@@ -1575,7 +1602,22 @@ function LocationButton({ location, active, onClick }) {
     >
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location.label}</span>
-        <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{location.sede || "Sin sede"}</span>
+        <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{location.sede || "Sin sede"}{terminada ? " · obra terminada" : ""}</span>
+        {terminada && (
+          <span style={{ display: "block", marginTop: 4 }}>
+            {cierre?.id ? (
+              <Link
+                to={`/sobrantes-obra/${cierre.id}`}
+                onClick={(event) => event.stopPropagation()}
+                style={{ color: C.amber, fontSize: 11, fontWeight: 900, textDecoration: "none" }}
+              >
+                Ir al cierre de materiales
+              </Link>
+            ) : (
+              <span style={{ color: C.amber, fontSize: 11, fontWeight: 800 }}>Reservado a obra terminada · no es stock libre</span>
+            )}
+          </span>
+        )}
         {location.porVariante?.length > 0 && (
           <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
             {location.porVariante.map((pv) => (
@@ -2966,7 +3008,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
   );
 }
 
-function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog }) {
+function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog, cierresByObra }) {
   const initialLocationKey = group
     ? (group.locations.find((loc) => loc.available > 0) || group.locations[0] || defaultLocation(sedeLocked || "Pampa")).key
     : "";
@@ -3318,7 +3360,13 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Saldos por deposito / obra</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 7 }}>
             {group.locations.map((loc) => (
-              <LocationButton key={loc.key} location={loc} active={selectedLocation?.key === loc.key} onClick={() => setSelectedLocationKey(loc.key)} />
+              <LocationButton
+                key={loc.key}
+                location={loc}
+                active={selectedLocation?.key === loc.key}
+                onClick={() => setSelectedLocationKey(loc.key)}
+                cierre={cierresByObra?.get?.(loc.obraId) || null}
+              />
             ))}
           </div>
         </div>}
@@ -4093,6 +4141,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [transitRows, setTransitRows] = useState(() => Array.isArray(sharedTransitRows) ? sharedTransitRows : []);
   const [replenishmentCatalog, setReplenishmentCatalog] = useState(() => Array.isArray(sharedReplenishmentCatalog) ? sharedReplenishmentCatalog : []);
   const [obras, setObras] = useState(() => Array.isArray(sharedObras) ? sharedObras : []);
+  const [cierresByObra, setCierresByObra] = useState(() => new Map());
   const [loading, setLoading] = useState(() => sharedLoading || !Array.isArray(sharedRows));
   const [q, setQ] = useState(initialQuery || "");
   const [focusedMaterialId, setFocusedMaterialId] = useState(initialMaterialId || "");
@@ -4310,7 +4359,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     try {
       const sede = sedeLocked || (fSede !== "todas" ? fSede : null);
       const useSharedSnapshot = !force && Array.isArray(sharedRows) && Array.isArray(sharedObras);
-      const [stockRows, obraRows, catalog, pendingRows, replenishRows] = await Promise.all([
+      const [stockRows, obraRows, catalog, pendingRows, replenishRows, cierresMap] = await Promise.all([
         useSharedSnapshot ? Promise.resolve(sharedRows) : fetchMaterialesEgreso({ sede, estados: LEDGER_STATES }),
         useSharedSnapshot ? Promise.resolve(sharedObras) : fetchObrasEgreso().catch(() => []),
         // El maestro sólo muestra el código principal. Los códigos alternativos
@@ -4318,12 +4367,14 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         showCatalogInventory ? fetchPanolCatalogFull({ includeAdditionalBarcodes: false }).catch(() => []) : Promise.resolve([]),
         Array.isArray(sharedTransitRows) ? Promise.resolve(sharedTransitRows) : Promise.resolve([]),
         Array.isArray(sharedReplenishmentCatalog) ? Promise.resolve(sharedReplenishmentCatalog) : Promise.resolve([]),
+        fetchCierresAbiertosPorObra().catch(() => new Map()),
       ]);
       setRows(stockRows);
       setObras(obraRows);
       setCatalogRows(catalog);
       setTransitRows(pendingRows);
       setReplenishmentCatalog(replenishRows);
+      setCierresByObra(cierresMap);
       hasLoadedRef.current = true;
     } catch (error) {
       toast.error(error.message || "No se pudo cargar el stock.");
@@ -5264,6 +5315,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             cart={cart}
             setCart={setCart}
             onOpenCatalog={onOpenCatalog}
+            cierresByObra={cierresByObra}
           />
         )}
       </div>

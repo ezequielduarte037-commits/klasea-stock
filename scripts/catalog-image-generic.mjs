@@ -163,15 +163,18 @@ async function run() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const { data: materials, error } = await supabase
-    .from("panol_materiales")
-    .select("id,codigo,descripcion,proveedor,imagen_url,activo")
-    .in(
-      "id",
-      entries.map((entry) => entry.materialId),
-    );
-  if (error) throw error;
-  const materialById = new Map((materials ?? []).map((material) => [material.id, material]));
+  const materialById = new Map();
+  const materialIds = entries.map((entry) => entry.materialId);
+  const BATCH = 80;
+  for (let i = 0; i < materialIds.length; i += BATCH) {
+    const chunk = materialIds.slice(i, i + BATCH);
+    const { data: materials, error } = await supabase
+      .from("panol_materiales")
+      .select("id,codigo,descripcion,proveedor,imagen_url,activo")
+      .in("id", chunk);
+    if (error) throw error;
+    for (const material of materials ?? []) materialById.set(material.id, material);
+  }
 
   const report = [];
   for (const entry of entries) {

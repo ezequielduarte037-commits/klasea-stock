@@ -152,6 +152,7 @@ export default function PanolOperativoHome({ profile, signOut }) {
   const [sinUbicacion, setSinUbicacion] = useState(0);
   const [movimientosHoy, setMovimientosHoy] = useState(0);
   const [drafts, setDrafts] = useState(() => leerIngresosPendientes());
+  const [sobrantesPendientes, setSobrantesPendientes] = useState(0);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -165,7 +166,7 @@ export default function PanolOperativoHome({ profile, signOut }) {
         .order("updated_at", { ascending: false })
         .limit(30);
 
-      const [enviosResult, requestsResult, locationResult, movementResult] = await Promise.allSettled([
+      const [enviosResult, requestsResult, locationResult, movementResult, sobrantesResult] = await Promise.allSettled([
         fetchEnvios({ sede: sede || null }),
         profile?.id ? requestQuery : Promise.resolve({ data: [], error: null }),
         supabase
@@ -177,6 +178,7 @@ export default function PanolOperativoHome({ profile, signOut }) {
           .from("panol_obra_materiales_snapshot")
           .select("id", { count: "exact", head: true })
           .gte("updated_at", start.toISOString()),
+        supabase.rpc("panol_cierre_contar_pendientes"),
       ]);
 
       if (enviosResult.status === "fulfilled") setEnvios(enviosResult.value || []);
@@ -187,6 +189,9 @@ export default function PanolOperativoHome({ profile, signOut }) {
       }
       if (locationResult.status === "fulfilled" && !locationResult.value?.error) setSinUbicacion(locationResult.value.count || 0);
       if (movementResult.status === "fulfilled" && !movementResult.value?.error) setMovimientosHoy(movementResult.value.count || 0);
+      if (sobrantesResult.status === "fulfilled" && !sobrantesResult.value?.error) {
+        setSobrantesPendientes(Number(sobrantesResult.value.data) || 0);
+      }
       setDrafts(leerIngresosPendientes());
     } catch (error) {
       toast.error(error?.message || "No se pudo cargar el inicio de pañol.");
@@ -277,6 +282,7 @@ export default function PanolOperativoHome({ profile, signOut }) {
               <ActionLink to="/recepcion-panol?tab=scanner" icon={FileScan} label="Escanear remito" detail="USB · lectura IA · revisión antes del stock" color={C.violet} />
               <ActionLink to="/recepcion-panol?tab=ingresar" icon={PackagePlus} label="Ingreso directo" detail={drafts.length ? `${drafts.length} borradores para retomar` : "Carga manual, ajuste o remito ya digital"} color={C.blue} />
               <ActionLink to="/egresos-panol" icon={ScanLine} label="Egresar" detail="Buscar, escanear o abrir carrito" color={C.red} />
+              <ActionLink to="/stock-panol?tab=sobrantes" icon={ClipboardList} label="Sobrantes de obra" detail={sobrantesPendientes ? `${sobrantesPendientes} obra${sobrantesPendientes === 1 ? "" : "s"} por conciliar` : "Revisar materiales de obras terminadas"} color={C.amber} />
               <ActionLink to="/recepcion-panol?tab=consumibles" icon={Scale} label="Consumibles" detail="Ingreso, egreso y registro por peso" color={C.violet} />
               <ActionLink to="/inicio-panol/tarjetas" icon={Nfc} label="Asignar tarjeta NFC" detail="Vincular una tarjeta a un empleado de RRHH" color={C.violet} />
             </div>
@@ -286,6 +292,7 @@ export default function PanolOperativoHome({ profile, signOut }) {
                 <WorkRow icon={Inbox} color={C.violet} value={summary.openItems} label="Ítems por recibir" detail={`${summary.activos.length} pedidos abiertos${summary.problemas ? ` · ${summary.problemas} con novedad` : ""}`} to="/recepcion-panol?tab=recepcion" />
                 <WorkRow icon={ClipboardList} color={C.blue} value={drafts.length} label="Ingresos en borrador" detail={drafts.length ? "Podés retomarlos sin volver a cargar los productos" : "No hay ingresos pendientes"} to="/recepcion-panol?tab=ingresar" />
                 <WorkRow icon={ShoppingCart} color={requestUrgent ? C.red : C.violet} value={requests.length} label="Pedidos a compras abiertos" detail={requestUrgent ? `${requestUrgent} urgentes requieren seguimiento` : "Solicitudes realizadas por tu cuenta"} to="/compras" />
+                <WorkRow icon={ClipboardList} color={sobrantesPendientes ? C.amber : C.green} value={sobrantesPendientes} label="Sobrantes de obra" detail={sobrantesPendientes ? "Obras terminadas con materiales por conciliar" : "No hay revisiones pendientes"} to="/stock-panol?tab=sobrantes" />
                 <WorkRow icon={MapPin} color={sinUbicacion ? C.violet : C.green} value={sinUbicacion} label="Productos sin ubicación" detail="Revisalos desde el mapa o el stock maestro" to="/stock-panol?tab=mapa" />
               </Section>
 

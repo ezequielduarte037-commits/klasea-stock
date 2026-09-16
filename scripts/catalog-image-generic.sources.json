@@ -1171,26 +1171,26 @@
     {
       "materialId": "6fec5c85-30b4-4b68-940c-55ef4c1db1a6",
       "expectedDescription": "Toma pasacasco 2\" bronce",
-      "label": "Toma pasacasco bronce · Guidi/Osculati",
+      "label": "Toma pasacasco bronce · liso",
       "category": "pasacasco",
-      "imagePath": "tmp/genericos-piloto7/toma-pasacasco-bronce.jpg",
-      "note": "Foto náutica real toma/scoop strainer bronce"
+      "imagePath": "tmp/genericos-piloto7/pasacasco-bronce.jpg",
+      "note": "Corregido: pasacasco liso (antes tenía foto de cuchara ranurada)"
     },
     {
       "materialId": "4b5668ec-7f50-4c9d-9893-6e729e249c9a",
       "expectedDescription": "Toma pasacasco 3/4\" bronce",
-      "label": "Toma pasacasco bronce · Guidi/Osculati",
+      "label": "Toma pasacasco bronce · liso",
       "category": "pasacasco",
-      "imagePath": "tmp/genericos-piloto7/toma-pasacasco-bronce.jpg",
-      "note": "Foto náutica real toma/scoop strainer bronce"
+      "imagePath": "tmp/genericos-piloto7/pasacasco-bronce.jpg",
+      "note": "Corregido: pasacasco liso (antes tenía foto de cuchara ranurada)"
     },
     {
       "materialId": "ea15a6a2-1a99-44c3-9b1e-873c08f9b4b0",
       "expectedDescription": "Toma pasacasco 1 1/2\" bronce",
-      "label": "Toma pasacasco bronce · Guidi/Osculati",
+      "label": "Toma pasacasco bronce · liso",
       "category": "pasacasco",
-      "imagePath": "tmp/genericos-piloto7/toma-pasacasco-bronce.jpg",
-      "note": "Foto náutica real toma/scoop strainer bronce"
+      "imagePath": "tmp/genericos-piloto7/pasacasco-bronce.jpg",
+      "note": "Corregido: pasacasco liso (antes tenía foto de cuchara ranurada)"
     },
     {
       "materialId": "56588f03-cdcc-4a42-9792-63b94bc4cd88",
@@ -1243,18 +1243,18 @@
     {
       "materialId": "d8c5b7f3-be45-473e-801d-56d5f739106d",
       "expectedDescription": "Toma pasacasco 1 1/4\" bronce",
-      "label": "Toma pasacasco bronce · Guidi/Osculati",
+      "label": "Toma pasacasco bronce · liso",
       "category": "pasacasco",
-      "imagePath": "tmp/genericos-piloto7/toma-pasacasco-bronce.jpg",
-      "note": "Foto náutica real toma/scoop strainer bronce"
+      "imagePath": "tmp/genericos-piloto7/pasacasco-bronce.jpg",
+      "note": "Corregido: pasacasco liso (antes tenía foto de cuchara ranurada)"
     },
     {
       "materialId": "0d3ba5ed-e6e9-41f5-938a-77a20437cad0",
       "expectedDescription": "Toma pasacasco 1\" bronce",
-      "label": "Toma pasacasco bronce · Guidi/Osculati",
+      "label": "Toma pasacasco bronce · liso",
       "category": "pasacasco",
-      "imagePath": "tmp/genericos-piloto7/toma-pasacasco-bronce.jpg",
-      "note": "Foto náutica real toma/scoop strainer bronce"
+      "imagePath": "tmp/genericos-piloto7/pasacasco-bronce.jpg",
+      "note": "Corregido: pasacasco liso (antes tenía foto de cuchara ranurada)"
     },
     {
       "materialId": "8b49cf46-7284-4bb5-a8d8-3116aaac60a9",
@@ -2655,6 +2655,1630 @@
       "category": "valvula",
       "imagePath": "tmp/genericos-piloto12/valvula-esferica-bronce.jpg",
       "note": "Foto náutica real válvula esférica bronce"
+    },
+    {
+      "materialId": "2fb6d815-c0d7-486e-b9e6-1e9ec4e6d7be",
+      "expectedDescription": "Porta Defensa",
+      "label": "Porta defensa inox",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto13/porta-defensa.jpg",
+      "note": "Foto náutica real Osculati canasto porta defensa"
+    },
+    {
+      "materialId": "3cbfd673-99fd-4c31-8130-db845bf220ed",
+      "expectedDescription": "Filtro combustible 190RK (grupo)",
+      "label": "Filtro combustible Racor",
+      "category": "filtro",
+      "imagePath": "tmp/genericos-piloto13/filtro-combustible-racor.jpg",
+      "note": "Foto náutica real Racor fuel/water separator representativa"
+    },
+    {
+      "materialId": "9b606bd2-afda-4bb6-b141-a0d07e58c787",
+      "expectedDescription": "Filtro combustible 160RK (grupo)",
+      "label": "Filtro combustible Racor",
+      "category": "filtro",
+      "imagePath": "tmp/genericos-piloto13/filtro-combustible-racor.jpg",
+      "note": "Foto náutica real Racor fuel/water separator representativa"
+    },
+    {
+      "materialId": "dba62c69-9486-4bc6-8d0e-68392b87cb1a",
+      "expectedDescription": "Filtro combustible 160RK (grupo) · Rama",
+      "label": "Filtro combustible Racor",
+      "category": "filtro",
+      "imagePath": "tmp/genericos-piloto13/filtro-combustible-racor.jpg",
+      "note": "Foto náutica real Racor fuel/water separator representativa"
+    },
+    {
+      "materialId": "fcb43259-98e8-4656-b74f-467745ea214f",
+      "expectedDescription": "FUSIBLE NH",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "f3d4b0f1-7ae7-4d21-902a-7e08a5c06cf9",
+      "expectedDescription": "FUSIBLE NH · 315A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "0d91ef6d-d125-4309-8e8e-56ccee5a96e0",
+      "expectedDescription": "FUSIBLE NH · 160A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "0960eff1-63cb-445b-a5bc-7aa9837a853b",
+      "expectedDescription": "FUSIBLE NH · 63A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "a6c84cde-5197-4be8-ba56-fa2d3736f261",
+      "expectedDescription": "FUSIBLE NH · 50A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "eebe336e-4db8-4978-b9ae-d860db03b3bc",
+      "expectedDescription": "FUSIBLE NH · 125A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "1a722ae5-5236-42b3-b8e4-4f7814412e4a",
+      "expectedDescription": "FUSIBLE NH · 80A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "a4a76896-a036-486e-bfaf-ca284f058fa6",
+      "expectedDescription": "FUSIBLE NH · 500A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "255c09e9-c0c3-475c-aaf9-b29bf6e11975",
+      "expectedDescription": "FUSIBLE NH · 355A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "f9204a66-e0d4-4459-bf3b-940a432e0a65",
+      "expectedDescription": "FUSIBLE NH · 100A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "a3cb775e-7905-456f-b926-6b189a223f3a",
+      "expectedDescription": "FUSIBLE NH · 250A",
+      "label": "Fusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/fusible-nh.png",
+      "note": "Representativa fusible NH cerámico"
+    },
+    {
+      "materialId": "8bc96502-bf91-4327-8b12-8b5d72c8b932",
+      "expectedDescription": "BASE PORTAFUSIBLE NH",
+      "label": "Base portafusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/base-nh.png",
+      "note": "Representativa base portafusible NH"
+    },
+    {
+      "materialId": "df46b797-affd-4d94-9b4a-11d706eea0e7",
+      "expectedDescription": "BASE PORTAFUSIBLE NH · 160A",
+      "label": "Base portafusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/base-nh.png",
+      "note": "Representativa base portafusible NH"
+    },
+    {
+      "materialId": "29d757b9-39d5-44fa-a24b-0f5c32e7c9fc",
+      "expectedDescription": "BASE PORTAFUSIBLE NH · 630A",
+      "label": "Base portafusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/base-nh.png",
+      "note": "Representativa base portafusible NH"
+    },
+    {
+      "materialId": "41b93045-e123-4ea4-a7c7-0e6e0cb4a00a",
+      "expectedDescription": "BASE PORTAFUSIBLE NH 400",
+      "label": "Base portafusible NH",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto13/base-nh.png",
+      "note": "Representativa base portafusible NH"
+    },
+    {
+      "materialId": "74336240-aa7c-4d5c-8be4-4820f872de33",
+      "expectedDescription": "Bacha inox cocina hausar",
+      "label": "Bacha inox cocina Hausar",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto13/bacha-inox.jpg",
+      "note": "Foto web real Hausar HM-6045 Deinhaus"
+    },
+    {
+      "materialId": "817f1fca-85ba-45d7-8724-7626a1d080b6",
+      "expectedDescription": "Bacha inox cocina hausar · Cromada",
+      "label": "Bacha inox cocina Hausar",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto13/bacha-inox.jpg",
+      "note": "Foto web real Hausar HM-6045 Deinhaus"
+    },
+    {
+      "materialId": "74393798-cec8-4600-a4d9-24fc5ba99daa",
+      "expectedDescription": "Sopapa lavatorio cromada Delta",
+      "label": "Sopapa lavatorio cromada",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto13/sopapa-lavatorio.jpg",
+      "note": "Foto web real desagüe cromado (FV Soft Touch, representativa Delta)"
+    },
+    {
+      "materialId": "aea0c1ce-5d96-4c67-9aa9-5d55f3e88a80",
+      "expectedDescription": "Sopapa bañera c/codo Delta 1½\"",
+      "label": "Sopapa bañera c/codo",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto13/sopapa-banera-codo.jpg",
+      "note": "Foto web real sopapa a codo bañera cromada"
+    },
+    {
+      "materialId": "2b7dde23-b46b-4218-8569-72fd10c1b4d6",
+      "expectedDescription": "TERMICA",
+      "label": "Térmica DIN",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/termica-din.png",
+      "note": "Representativa térmica/breaker DIN"
+    },
+    {
+      "materialId": "8c477959-ca14-4865-baab-0bd7b9daaad4",
+      "expectedDescription": "TERMICA · C16A",
+      "label": "Térmica DIN",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/termica-din.png",
+      "note": "Representativa térmica/breaker DIN"
+    },
+    {
+      "materialId": "0f079fe2-ed27-46f4-b934-d0aef0113ac0",
+      "expectedDescription": "TERMICA · C10A",
+      "label": "Térmica DIN",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/termica-din.png",
+      "note": "Representativa térmica/breaker DIN"
+    },
+    {
+      "materialId": "87462413-b825-4e4b-afc7-b6b9a14a9ecd",
+      "expectedDescription": "TERMICA · C20A",
+      "label": "Térmica DIN",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/termica-din.png",
+      "note": "Representativa térmica/breaker DIN"
+    },
+    {
+      "materialId": "a78fcd06-56b3-42af-90b2-500b272cb867",
+      "expectedDescription": "TERMICA · C63A",
+      "label": "Térmica DIN",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/termica-din.png",
+      "note": "Representativa térmica/breaker DIN"
+    },
+    {
+      "materialId": "8da88891-2b01-4c38-9a12-fe10c7a76c33",
+      "expectedDescription": "PORTAFUSIBLE MEGA",
+      "label": "Portafusible MEGA",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/porta-mega.png",
+      "note": "Representativa base fusible alta corriente"
+    },
+    {
+      "materialId": "6864fa83-e55a-4e23-aae9-aaa77d0f8430",
+      "expectedDescription": "BLOWER INLINE 3\" 12V",
+      "label": "Blower inline 3\"",
+      "category": "ventilacion",
+      "imagePath": "tmp/genericos-piloto14/blower-inline.jpg",
+      "note": "Foto náutica real blower inline 3\""
+    },
+    {
+      "materialId": "6aac8fc1-ece0-4f07-98c1-f955c868c440",
+      "expectedDescription": "Brazo y escobilla de limpiaparabrisa · 28´´",
+      "label": "Brazo limpiaparabrisas",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/limpiaparabrisas.jpg",
+      "note": "Foto náutica real Osculati brazo pantógrafo"
+    },
+    {
+      "materialId": "497b4711-5611-4882-9995-3d80b2ae5979",
+      "expectedDescription": "Brazo y escobilla de limpiaparabrisa",
+      "label": "Brazo limpiaparabrisas",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/limpiaparabrisas.jpg",
+      "note": "Foto náutica real Osculati brazo pantógrafo"
+    },
+    {
+      "materialId": "7492348e-cc75-45de-819a-e2b9526fbdc6",
+      "expectedDescription": "Brazo y escobilla de limpiaparabrisa · 26´´",
+      "label": "Brazo limpiaparabrisas",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/limpiaparabrisas.jpg",
+      "note": "Foto náutica real Osculati brazo pantógrafo"
+    },
+    {
+      "materialId": "ffa23caf-1ec4-4050-a2ce-d3b9af612687",
+      "expectedDescription": "Brazo y escobilla de limpiaparabrisa · 22´´",
+      "label": "Brazo limpiaparabrisas",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/limpiaparabrisas.jpg",
+      "note": "Foto náutica real Osculati brazo pantógrafo"
+    },
+    {
+      "materialId": "aa102d04-d0fe-4f81-b8fb-318a12df4912",
+      "expectedDescription": "TAPA DE INSPECCIÓN RECTANGULAR · 60X35",
+      "label": "Tapa inspección rectangular",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/tapa-inspeccion.jpg",
+      "note": "Foto náutica real Osculati tapa inspección"
+    },
+    {
+      "materialId": "857b9c16-c755-49fe-aae7-19a26ec10366",
+      "expectedDescription": "TAPA DE INSPECCIÓN RECTANGULAR · 37X27",
+      "label": "Tapa inspección rectangular",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/tapa-inspeccion.jpg",
+      "note": "Foto náutica real Osculati tapa inspección"
+    },
+    {
+      "materialId": "6f530281-04f0-4eaf-929f-1c86caa70ede",
+      "expectedDescription": "TAPA DE INSPECCIÓN RECTANGULAR · 44X31",
+      "label": "Tapa inspección rectangular",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/tapa-inspeccion.jpg",
+      "note": "Foto náutica real Osculati tapa inspección"
+    },
+    {
+      "materialId": "290da6a7-04a3-45fd-b92f-c977bd8fbc4c",
+      "expectedDescription": "TAPA DE INSPECCIÓN RECTANGULAR",
+      "label": "Tapa inspección rectangular",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/tapa-inspeccion.jpg",
+      "note": "Foto náutica real Osculati tapa inspección"
+    },
+    {
+      "materialId": "8b055c56-5cf0-4598-8238-4523cf938763",
+      "expectedDescription": "CAJA DE PASO",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "37d928cf-0994-4a2a-840e-0b5737188edb",
+      "expectedDescription": "CAJA DE PASO · 210X210X110",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "a4b7e24b-fcac-406c-b105-c0c961b74610",
+      "expectedDescription": "CAJA DE PASO · 210X310X110",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "30b4eee3-2a54-45bb-afde-79b833edae1c",
+      "expectedDescription": "CAJA DE PASO · 230X300X136",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "12ef0db9-5c28-495c-b508-12f12d92d2a7",
+      "expectedDescription": "CAJA DE PASO · 162X265X100",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "2d17f416-dbf3-45dc-8da3-9bb12d01aef4",
+      "expectedDescription": "CAJA DE PASO · 210X210X157",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "975cf73d-f210-4db7-8d1c-0f0a1c9fb4fd",
+      "expectedDescription": "CAJA DE PASO · 285X300X109",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "67ddf9b7-d4eb-44eb-8d07-4b9c06f91519",
+      "expectedDescription": "CAJA DE PASO · 165X210X80",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "e395ee35-1bca-4171-8717-94f127059e02",
+      "expectedDescription": "CAJA DE PASO · 165X165X110",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "49856b82-22d1-4f55-9b2e-17bbe18eb9cc",
+      "expectedDescription": "CAJA DE PASO · 115X115X80",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "d8a7b8a3-d07d-49b2-9bc8-ae533d8ef5c9",
+      "expectedDescription": "CAJA DE PASO · 90X90X75",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "a5be92d7-258e-419b-b05e-e44cac99ef72",
+      "expectedDescription": "CAJA DE PASO · 161X161X67",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "c8ac5d59-6bb3-42c4-a1a5-8d89efbdeb0c",
+      "expectedDescription": "CAJA DE PASO · 161X161X110",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "ff632b40-7d0f-40ab-ae01-6222c772cb68",
+      "expectedDescription": "CAJA DE PASO · 115X165X65",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "f3b3aea9-2d27-4651-97cf-ea7dfda451c7",
+      "expectedDescription": "CAJA DE PASO · 115X175X65",
+      "label": "Caja de paso",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto14/caja-paso.png",
+      "note": "Representativa caja de paso estanca"
+    },
+    {
+      "materialId": "98def276-146e-405c-b5b0-2e6db713d9b1",
+      "expectedDescription": "Grillete omega 8mm",
+      "label": "Grillete inox",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/grillete.png",
+      "note": "Representativa grillete omega inox"
+    },
+    {
+      "materialId": "c30fcfdc-acbc-4cc0-9d37-f37a2bed9998",
+      "expectedDescription": "Grillete inoxidable largo - D08mm (5/16\") G20052",
+      "label": "Grillete inox",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto14/grillete.png",
+      "note": "Representativa grillete omega inox"
+    },
+    {
+      "materialId": "46dcd31e-2d2c-4fef-b822-2095856b39ba",
+      "expectedDescription": "Bacha cocina acero Inox. Negra Hausar 60 x 45 BP-C",
+      "label": "Bacha Hausar negra",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto14/bacha-hausar-negra.jpg",
+      "note": "Foto web real Hausar negra Deinhaus"
+    },
+    {
+      "materialId": "9ff30e3b-89ed-4925-82f9-1ad2e00b0fb2",
+      "expectedDescription": "Bacha inox cocina hausar · Negra",
+      "label": "Bacha Hausar negra",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto14/bacha-hausar-negra.jpg",
+      "note": "Foto web real Hausar negra Deinhaus"
+    },
+    {
+      "materialId": "977151e3-bd41-4236-b683-43721dd89e92",
+      "expectedDescription": "Bacha cocina acero Inox. Negra Hausar 68cm x 45cm",
+      "label": "Bacha Hausar negra",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto14/bacha-hausar-negra.jpg",
+      "note": "Foto web real Hausar negra Deinhaus"
+    },
+    {
+      "materialId": "03a89f73-3577-409a-a9e0-f5f88dfc6e92",
+      "expectedDescription": "Tapón bronce 1\"",
+      "label": "Tapón bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto15/tapon-bronce.png",
+      "note": "Representativa tapón hex bronce"
+    },
+    {
+      "materialId": "82664e94-0b42-4d5d-934d-240492f83be2",
+      "expectedDescription": "Tapón bronce 1/4\"",
+      "label": "Tapón bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto15/tapon-bronce.png",
+      "note": "Representativa tapón hex bronce"
+    },
+    {
+      "materialId": "13f6d5cf-b6b3-4e4c-a609-faf42bd055d8",
+      "expectedDescription": "Tapón 1\"",
+      "label": "Tapón bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto15/tapon-bronce.png",
+      "note": "Representativa tapón hex bronce"
+    },
+    {
+      "materialId": "1a2bb73e-7c7c-4e50-b651-2efa6034d0de",
+      "expectedDescription": "Tapa bronce 1/2\"",
+      "label": "Tapón bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto15/tapon-bronce.png",
+      "note": "Representativa tapón hex bronce"
+    },
+    {
+      "materialId": "649da7f4-d76f-40d6-9bfc-3b4fdd682b1d",
+      "expectedDescription": "TAPA BRONCE 1\"",
+      "label": "Tapón bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto15/tapon-bronce.png",
+      "note": "Representativa tapón hex bronce"
+    },
+    {
+      "materialId": "67304fb1-ba7d-4c51-ac04-e20c8cda9a10",
+      "expectedDescription": "Guía telescóp. push 25cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "421123ec-70b5-47b8-98db-30accafa2dd1",
+      "expectedDescription": "Guía telescóp. push 35cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "b995a2fe-9a56-409f-9443-8f4f27cca5cc",
+      "expectedDescription": "Guía telescóp. push 45cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "dfefaa71-f05c-452d-9557-45656d5bc105",
+      "expectedDescription": "Guía telescóp. cierre suave 35cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "9a21a8fd-ca89-4196-aec6-c4a34c0c5591",
+      "expectedDescription": "Guía telescóp. cierre suave 15cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "f2c1666d-9943-4504-a702-be3a6f4f8695",
+      "expectedDescription": "Guía telescóp. cierre suave 45cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "93f88e36-ba6a-4544-87d8-e67c85a660b4",
+      "expectedDescription": "Guía telescóp. cierre suave 25cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "2918b5bb-fcc1-4752-be02-06edafa3a0db",
+      "expectedDescription": "Corredera ocultas Bronzen LARGO 500mm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "6fcc20ce-ec46-40c5-a56d-920d1a87a9ad",
+      "expectedDescription": "Guia telescop. 35cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "2a5398ed-f9be-4c3d-a029-353c8f09ac7f",
+      "expectedDescription": "Guía telescóp. cierre suave 20cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "0ef5a46b-1a0f-4378-a9d3-fcb608e0af4d",
+      "expectedDescription": "Guía telescóp. cierre suave 40cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto15/guia-telescopica.png",
+      "note": "Representativa guía/corredera telescópica"
+    },
+    {
+      "materialId": "130a0fb4-a086-434c-b625-def7251e112a",
+      "expectedDescription": "WAGO 3",
+      "label": "Conector WAGO",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto15/wago.png",
+      "note": "Representativa WAGO 3 vías"
+    },
+    {
+      "materialId": "ba718a75-5fd3-4af0-9f43-e5902b54323d",
+      "expectedDescription": "NEON FLEXIBLE 5M 12V",
+      "label": "Neón flexible LED",
+      "category": "luces",
+      "imagePath": "tmp/genericos-piloto15/neon-flex.png",
+      "note": "Representativa neón flexible 12V"
+    },
+    {
+      "materialId": "d2082f3b-9303-49d2-b800-17c8450f6fe3",
+      "expectedDescription": "Termica malacate 130A",
+      "label": "Térmica malacate",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto15/termica-alta.png",
+      "note": "Representativa térmica alta corriente"
+    },
+    {
+      "materialId": "23e08655-1520-4423-b3bc-bde27b97a454",
+      "expectedDescription": "Termica malacate 80A",
+      "label": "Térmica malacate",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto15/termica-alta.png",
+      "note": "Representativa térmica alta corriente"
+    },
+    {
+      "materialId": "6e05ae0c-0703-4675-8e0a-f964d6d4a943",
+      "expectedDescription": "Pileta Inox E37",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "05a8d027-2f39-4612-8deb-ecdb78dd4a6c",
+      "expectedDescription": "Pileta Inox E37 · Jonhson",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "f233076c-69fb-486f-b8ca-8b66566a6dd1",
+      "expectedDescription": "Pileta Inox 27x37x18",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "2a8caee3-5ae8-4d88-9d18-a5e072432ff3",
+      "expectedDescription": "Pileta inox Acero Q40",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "7a97d5e7-37b1-4f2d-b9f4-2457802df60a",
+      "expectedDescription": "Pileta Inox 103T 52x32x13",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "123a0b88-7719-411a-bf7c-534f6d0cd9f4",
+      "expectedDescription": "Pileta Inox 103T 52x32x13 · Mi Pileta",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "7f0b7aa0-b909-4012-bdcd-6b30e87561b3",
+      "expectedDescription": "Pileta Inox 27x37x18 · Mi pileta",
+      "label": "Pileta inox",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto15/pileta-inox.png",
+      "note": "Foto web real Mi Pileta representativa"
+    },
+    {
+      "materialId": "6e106b24-a9fb-4a8f-ada6-cd6dd90babfe",
+      "expectedDescription": "Anodo de Pata",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "1afc7751-2536-4554-b6be-450ddc7a149f",
+      "expectedDescription": "ANODO EJE 2 1/4 MAGNESIO",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "98a329ca-2e8e-464f-8221-a0f591c162a3",
+      "expectedDescription": "Anodo eje 2 1/2",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "036aaadc-3c02-45c5-b5c7-0f158490ece1",
+      "expectedDescription": "ANODO EJE 2 3/4 MAGNESIO",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "57afcf61-77e6-4a62-9acb-3471c395d8df",
+      "expectedDescription": "Ánodo eje 2 3/4\"",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "4f8852d0-9ef5-4966-8606-37d4987f30ff",
+      "expectedDescription": "ANODO EJE 2 3/4 ZINC",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "6b1a93a1-79bc-442c-a02d-3598dcf8fe26",
+      "expectedDescription": "ANODO EJE 2 3/4 ALUMINIO",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "38fcf2e4-f56f-49b6-aa47-b07caf752023",
+      "expectedDescription": "Anodo eje 2 1/2 · Aluminio",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "d67d0363-caf4-4551-b0f0-d8d8f7041f91",
+      "expectedDescription": "Anodo eje 2 1/2 · Magnesio",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "ab26f59b-ef28-4718-a043-4cd7253f73eb",
+      "expectedDescription": "Anodo eje 2 1/2 · Zinc",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "1f97ee1c-1237-4663-95bc-d574e2d3ad38",
+      "expectedDescription": "Ánodo eje 2 1/4\"",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "79b9a0c2-e309-49bc-b925-068052a20160",
+      "expectedDescription": "Anodo eje 3\"",
+      "label": "Ánodo de eje",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/anodo-eje.jpg",
+      "note": "Foto náutica real Martyr CMX shaft anode"
+    },
+    {
+      "materialId": "eae38b09-a436-4c51-bbc3-069b24a646ec",
+      "expectedDescription": "Ojo de buey · 200x161",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "49c38343-7db4-47c7-bd6c-8b2261441085",
+      "expectedDescription": "Ojo de buey PL-ROUND-S-ST · 200x162mm",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "09ceee3b-8b3d-424e-9b10-334e3c12bc25",
+      "expectedDescription": "Ojo de buey · 300x260",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "1af2cfca-7d1e-455f-8a53-d89a839cf1b1",
+      "expectedDescription": "Ojo de buey PL-EYE-M-S · 200x460mm",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "5e1fb767-a9fe-4095-984b-caeee4d75220",
+      "expectedDescription": "Ojo de buey PL-ROUND-M-ST · 250x213",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "47c55eea-0d10-4dc8-89f9-7d83afeec465",
+      "expectedDescription": "Ojo de buey PL-ROUND-B-ST · 300x262",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "03425e5e-5e18-41a4-8db1-04ff40a260c1",
+      "expectedDescription": "Ojo de buey",
+      "label": "Ojo de buey",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto16/ojo-buey.jpg",
+      "note": "Foto náutica real Osculati ojo de buey oval"
+    },
+    {
+      "materialId": "c8d55363-60f5-41d1-b5ed-028bd1adc874",
+      "expectedDescription": "Sensor nivel agua/comb. 145",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "9910020d-2eea-4bf1-bde3-2677078143d8",
+      "expectedDescription": "SENSOR NIVEL AGUA/COMB. 28\"",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "77ef9107-f058-4861-add9-ba86a5645549",
+      "expectedDescription": "Sensor nivel de agua 28\"",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "af27cedf-00d3-41da-ad6a-950372ed7aff",
+      "expectedDescription": "Sensor nivel agua/comb.  32´¨",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "032970f8-fa59-4d12-a510-8cf1743c0edc",
+      "expectedDescription": "SENSOR NIVEL AGUA/COMB. 8\"",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "f8e4c99d-bb13-469a-8d68-d3fd24f72235",
+      "expectedDescription": "Sensor nivel agua/comb.  47´¨",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "e9511bc9-e49f-4894-951f-6cc9384b2642",
+      "expectedDescription": "Sensor nivel agua/comb.  14¨",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "28e4e311-f232-4f89-8df6-168b139d48bf",
+      "expectedDescription": "Sensor nivel agua/comb.  44´¨",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "2be6bce8-eac2-4184-a2ef-aa05da1bf379",
+      "expectedDescription": "Sensor nivel agua/comb.  22´¨",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto16/sensor-nivel.jpg",
+      "note": "Foto náutica real Osculati sensor/indicador nivel mecánico"
+    },
+    {
+      "materialId": "e3bfda35-5d6d-48e6-ad3c-503503928e88",
+      "expectedDescription": "Guías telescópicas 50 cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto16/guia-telescopica.webp",
+      "note": "Foto web real corredera telescópica cierre suave"
+    },
+    {
+      "materialId": "93b4f500-5290-4ac3-8a26-1f17539f7621",
+      "expectedDescription": "Guías telescópicas 45 cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto16/guia-telescopica.webp",
+      "note": "Foto web real corredera telescópica cierre suave"
+    },
+    {
+      "materialId": "d3205ff5-5787-425c-89e7-08cf53f980bf",
+      "expectedDescription": "Guías telescópicas 35 cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto16/guia-telescopica.webp",
+      "note": "Foto web real corredera telescópica cierre suave"
+    },
+    {
+      "materialId": "10d5b3ec-7401-4603-8923-c840d77db766",
+      "expectedDescription": "Guías telescópicas 30 cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto16/guia-telescopica.webp",
+      "note": "Foto web real corredera telescópica cierre suave"
+    },
+    {
+      "materialId": "d6accaa2-40dc-4411-b9f0-007054c17efa",
+      "expectedDescription": "Guías telescópicas 25 cm",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto16/guia-telescopica.webp",
+      "note": "Foto web real corredera telescópica cierre suave"
+    },
+    {
+      "materialId": "31db72a9-c992-4889-8db7-f6123036e2e4",
+      "expectedDescription": "GUIA OCULTA EXT C/SMUSO 30KG 450MM",
+      "label": "Guía telescópica",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto16/guia-telescopica.webp",
+      "note": "Foto web real corredera telescópica cierre suave"
+    },
+    {
+      "materialId": "9543ed85-a0cc-4185-bd06-f98e82fc2072",
+      "expectedDescription": "TEE 1´´",
+      "label": "Te bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto16/te-bronce.jpg",
+      "note": "Foto web real tee bronce"
+    },
+    {
+      "materialId": "89c4b011-6ae1-44c2-a4aa-d8384a6816b2",
+      "expectedDescription": "Te bronce 1¼\"",
+      "label": "Te bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto16/te-bronce.jpg",
+      "note": "Foto web real tee bronce"
+    },
+    {
+      "materialId": "8ddd32df-6465-4b8f-bc90-5fd3d381ab3e",
+      "expectedDescription": "TEE 1 A 3/4",
+      "label": "Te bronce",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto16/te-bronce.jpg",
+      "note": "Foto web real tee bronce"
+    },
+    {
+      "materialId": "841a3628-5af0-4a6b-bf78-5dc24091a90a",
+      "expectedDescription": "T con espiga rosca central de 1\" plastico",
+      "label": "Te plástico",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto16/te-plastico.jpg",
+      "note": "Foto web real T espiga/rosca plástica"
+    },
+    {
+      "materialId": "af6594e5-6511-4545-9ec4-f512170dde2c",
+      "expectedDescription": "T plástica espiga 1 1/2\"",
+      "label": "Te plástico",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto16/te-plastico.jpg",
+      "note": "Foto web real T espiga/rosca plástica"
+    },
+    {
+      "materialId": "c37d1eed-af4c-4ee0-bf20-33c9dd8f487d",
+      "expectedDescription": "T plástica espiga 1/2\"",
+      "label": "Te plástico",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto16/te-plastico.jpg",
+      "note": "Foto web real T espiga/rosca plástica"
+    },
+    {
+      "materialId": "b8999df5-5ea3-4a61-bd57-c9c73c63056a",
+      "expectedDescription": "Bacha de apoyar SELAH redonda blanco",
+      "label": "Bacha de apoyar",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto16/bacha-apoyo.webp",
+      "note": "Foto web real Selah circular blanca"
+    },
+    {
+      "materialId": "757a20b4-87e2-4e0f-bf8d-dfd547c2a736",
+      "expectedDescription": "Bacha nahuel new blanca redonda",
+      "label": "Bacha de apoyar",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto16/bacha-apoyo.webp",
+      "note": "Foto web real Selah circular blanca"
+    },
+    {
+      "materialId": "96779084-6b44-4c55-9c6c-7386974837bb",
+      "expectedDescription": "ANODO TIMON 3 3/4 ALUMINIO",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "5dc3097a-c8ec-487d-af5d-946a991679e3",
+      "expectedDescription": "ANODO TIMON 2 3/4 MAGNESIO",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "96fbcfa4-43df-4ea8-8749-dfe5dc9a2f80",
+      "expectedDescription": "ANODO TIMON 5´ ZINC",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "5e84f51a-e9f1-440b-b81d-e765f2f2e828",
+      "expectedDescription": "ANODO TIMON 2 3/4 ZINC",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "eca13a8f-ee79-4612-9116-43d21da5ab30",
+      "expectedDescription": "ANODO TIMON 3 3/4 MAGNESIO",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "12f606c7-0922-41a4-bc7a-c7f4e6d08d0d",
+      "expectedDescription": "ANODO DE FLAP MAGNESIO",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "3bedd34e-ee72-40ef-9571-9e68a80ad891",
+      "expectedDescription": "ANODO DE FLAP ZINC",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "ad1f31fd-2f7c-4d31-912e-94489918074c",
+      "expectedDescription": "ANODO DE FLAP ALUMINIO",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "29687db1-d64d-4f74-bd3c-fb8a51af0a57",
+      "expectedDescription": "Ánodo timón",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "e476e8a2-6556-491e-aef2-c306266d642c",
+      "expectedDescription": "Ánodo de flaps",
+      "label": "Ánodo timón/flap",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto17/anodo-timon.jpg",
+      "note": "Foto web real Martyr ánodo circular timón/flap"
+    },
+    {
+      "materialId": "1a2de584-5b07-48c3-b6e6-15e5a6d65844",
+      "expectedDescription": "Silenciador Vernalift 5\"",
+      "label": "Silenciador Vernalift",
+      "category": "motor",
+      "imagePath": "tmp/genericos-piloto17/vernalift.jpg",
+      "note": "Foto web real Centek Vernalift"
+    },
+    {
+      "materialId": "cc62079b-7883-418e-b881-af7c8871a715",
+      "expectedDescription": "SILENCIADOR (S/T), 2\" (8X8), VERNALIFT",
+      "label": "Silenciador Vernalift",
+      "category": "motor",
+      "imagePath": "tmp/genericos-piloto17/vernalift.jpg",
+      "note": "Foto web real Centek Vernalift"
+    },
+    {
+      "materialId": "553320db-1284-4a14-ae5d-d01a79ac7619",
+      "expectedDescription": "Cuchara bronce ranurada toma 1\"",
+      "label": "Cuchara bronce toma",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cuchara-bronce.jpg",
+      "note": "Foto web real Osculati/Guidi cuchara ranurada"
+    },
+    {
+      "materialId": "7460410d-5b01-4344-a13d-fa481593a57a",
+      "expectedDescription": "Cuchara ranurada para toma 2\" bronce",
+      "label": "Cuchara bronce toma",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cuchara-bronce.jpg",
+      "note": "Foto web real Osculati/Guidi cuchara ranurada"
+    },
+    {
+      "materialId": "c5cbff54-de44-47f9-998c-d2a780a00d00",
+      "expectedDescription": "Cuchara bronce ranurada toma 1/2\"",
+      "label": "Cuchara bronce toma",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cuchara-bronce.jpg",
+      "note": "Foto web real Osculati/Guidi cuchara ranurada"
+    },
+    {
+      "materialId": "c9c72bc3-0ddf-4cba-a046-922a1a4bfb9c",
+      "expectedDescription": "Cuchara bronce Nro 104",
+      "label": "Cuchara bronce toma",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cuchara-bronce.jpg",
+      "note": "Foto web real Osculati/Guidi cuchara ranurada"
+    },
+    {
+      "materialId": "a4c95298-adc1-4648-a51a-1a2ad698a406",
+      "expectedDescription": "DETECTOR NAFTA GASES SAFE T ALERT",
+      "label": "Detector gases Safe-T-Alert",
+      "category": "seguridad",
+      "imagePath": "tmp/genericos-piloto17/detector-safe-t-alert.jpg",
+      "note": "Foto web real Safe-T-Alert MGD-1"
+    },
+    {
+      "materialId": "3e12c4af-a78f-4bff-a46c-89bb622157dc",
+      "expectedDescription": "SEPARADOR DE AGUA Y GASES GEN-SEP, 1.5\"",
+      "label": "Separador Gen-Sep",
+      "category": "motor",
+      "imagePath": "tmp/genericos-piloto17/gensep.jpg",
+      "note": "Foto web real Centek Gen-Sep"
+    },
+    {
+      "materialId": "d8fd6b1a-254a-4a42-be56-44efdeed7011",
+      "expectedDescription": "Separador de gases 3¨ 1020301",
+      "label": "Separador Gen-Sep",
+      "category": "motor",
+      "imagePath": "tmp/genericos-piloto17/gensep.jpg",
+      "note": "Foto web real Centek Gen-Sep"
+    },
+    {
+      "materialId": "83c43781-5008-4e3b-b451-d9f3a5d004ae",
+      "expectedDescription": "Cupla Inoxidable 1/4\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "24433b54-8346-4612-b4dd-d745748f2833",
+      "expectedDescription": "Cupla Inoxidable 1¼\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "8d14e4c9-52d3-434f-b91a-ae8a5eeaff0f",
+      "expectedDescription": "Cupla Inoxidable 1/2\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "3d0da734-c4f8-47eb-af4f-34fa63f4690a",
+      "expectedDescription": "Cupla Inoxidable 1\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "7fa2f38d-bf43-4108-8213-7a961dac9df5",
+      "expectedDescription": "Cupla Inoxidable 2\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "4d48101b-51dd-471c-b036-f5545a434b5e",
+      "expectedDescription": "Cupla Inoxidable 3/4\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "fcafe434-ee1b-4987-a3bc-59ec80a2a3d8",
+      "expectedDescription": "Cupla Inoxidable 1 1/4\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "fd0533dd-4834-4184-b7a5-55037071f6ef",
+      "expectedDescription": "Cupla Inoxidable 1 1/2\"",
+      "label": "Cupla inox HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto17/cupla-inox.jpg",
+      "note": "Foto web real manguito/cupla inox 316 HH"
+    },
+    {
+      "materialId": "d786e85d-e73b-4a9c-807e-66b4cb8df5d4",
+      "expectedDescription": "Monocomando ducha FV Libby",
+      "label": "Monocomando ducha FV Libby",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto17/fv-libby.jpg",
+      "note": "Foto web real FV Libby monocomando ducha"
+    },
+    {
+      "materialId": "f471bbec-ebf0-4ed7-9f04-6655d67de662",
+      "expectedDescription": "Bacha de apoyar cuadrada ferrum 37x37",
+      "label": "Bacha Ferrum cuadrada",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto17/bacha-ferrum-cuad.jpg",
+      "note": "Foto web real bacha apoyar cuadrada blanca"
+    },
+    {
+      "materialId": "962ec250-7247-4c34-9b42-450d196c5a9e",
+      "expectedDescription": "Flexible mallado para agua 1/2\" X 40cm",
+      "label": "Flexible mallado agua",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto18/flexible-mallado.jpg",
+      "note": "Foto web real flexible mallado inox para agua"
+    },
+    {
+      "materialId": "dc64d35f-128d-494c-bdf2-401c722a338f",
+      "expectedDescription": "Flexible mallado para agua 1/2\" X 50cm",
+      "label": "Flexible mallado agua",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto18/flexible-mallado.jpg",
+      "note": "Foto web real flexible mallado inox para agua"
+    },
+    {
+      "materialId": "335658f9-b72a-41cf-ab2c-bceb8dfb7fe3",
+      "expectedDescription": "Ánodo escudo",
+      "label": "Ánodo escudo",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto18/anodo-escudo.jpg",
+      "note": "Foto web real ánodo tipo pez/escudo con solapas"
+    },
+    {
+      "materialId": "5f93a451-b1d3-4fb3-96a1-aa753972af91",
+      "expectedDescription": "Ánodo escudo · 30x15",
+      "label": "Ánodo escudo",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto18/anodo-escudo.jpg",
+      "note": "Foto web real ánodo tipo pez/escudo con solapas"
+    },
+    {
+      "materialId": "227c7279-0565-480c-8080-0a56ec271f86",
+      "expectedDescription": "ANODO DE SACRIFICIO ZINC",
+      "label": "Ánodo de sacrificio",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto18/anodo-sacrificio.jpg",
+      "note": "Foto web real ánodo sacrificial circular Martyr"
+    },
+    {
+      "materialId": "d6b84b79-e0eb-41d5-8901-ddfdb8a35413",
+      "expectedDescription": "ANODO DE SACRIFICIO MAGNESIO",
+      "label": "Ánodo de sacrificio",
+      "category": "cubierta",
+      "imagePath": "tmp/genericos-piloto18/anodo-sacrificio.jpg",
+      "note": "Foto web real ánodo sacrificial circular Martyr"
+    },
+    {
+      "materialId": "0bb5ca9c-bd58-49c3-93e6-87b787d421d3",
+      "expectedDescription": "CUPLA DE BRONCE 1/2\"",
+      "label": "Cupla bronce HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto18/cupla-bronce.jpg",
+      "note": "Foto web real manguito/cupla bronce HH"
+    },
+    {
+      "materialId": "14105975-65ff-428b-a012-6c011cd619bd",
+      "expectedDescription": "MINIESFERICAS 1/4 GAS HH",
+      "label": "Válvula miniesférica",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto18/valvula-esferica-mini.jpg",
+      "note": "Foto web real válvula esférica bronce (representativa mini)"
+    },
+    {
+      "materialId": "bea406cb-64e4-4287-b4b1-a22f7eed4bea",
+      "expectedDescription": "Sensor combustible 30\"",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto19/sensor-nivel.jpg",
+      "note": "Foto web real Osculati aforador mecánico flotador"
+    },
+    {
+      "materialId": "4750f9af-b285-499c-8187-0d00d3ced6ca",
+      "expectedDescription": "Sensor combustible 26\"",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto19/sensor-nivel.jpg",
+      "note": "Foto web real Osculati aforador mecánico flotador"
+    },
+    {
+      "materialId": "e642376a-416a-4c0c-9c89-3fa3d260a3c6",
+      "expectedDescription": "Sensor agua 8\"",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto19/sensor-nivel.jpg",
+      "note": "Foto web real Osculati aforador mecánico flotador"
+    },
+    {
+      "materialId": "737e57e3-9656-4111-bdf3-191d4362c7c5",
+      "expectedDescription": "Sensor agua 115cm",
+      "label": "Sensor nivel tanque",
+      "category": "tanque",
+      "imagePath": "tmp/genericos-piloto19/sensor-nivel.jpg",
+      "note": "Foto web real Osculati aforador mecánico flotador"
+    },
+    {
+      "materialId": "bc75fe2c-7d50-427d-95fb-ac21f7664b42",
+      "expectedDescription": "BACHA DE VIDRIO REDONDA",
+      "label": "Bacha vidrio redonda",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto19/bacha-vidrio-redonda.jpg",
+      "note": "Foto web real bacha apoyo vidrio templado redonda"
+    },
+    {
+      "materialId": "513fe591-d29c-4fba-9eb6-1a2c5957afe1",
+      "expectedDescription": "BACHA DE VIDRIO OVALADA",
+      "label": "Bacha vidrio ovalada",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto19/bacha-vidrio-oval.webp",
+      "note": "Foto web real bacha apoyo vidrio ovalada"
+    },
+    {
+      "materialId": "18b3ca8f-54b2-4ec1-84c7-e9e232370754",
+      "expectedDescription": "Cupla 1\"a1/2\" HH",
+      "label": "Cupla reductora HH",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto19/cupla-reductora-hh.jpg",
+      "note": "Foto web real manguito reducido HH inox 316"
+    },
+    {
+      "materialId": "8fed2ac1-0092-46b2-bbe8-130962c289ac",
+      "expectedDescription": "TAPA HEMBRA 1/2 FUNDIDO",
+      "label": "Tapa hembra",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto19/tapa-hembra.jpg",
+      "note": "Foto web real tapa/cap hex hembra 316"
+    },
+    {
+      "materialId": "7f16c0f7-fcce-4a9f-8b6b-bc90601ff771",
+      "expectedDescription": "Canilla de cocina - COLOR NEGRO",
+      "label": "Canilla cocina negra",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto20/canilla-cocina-negra.jpg",
+      "note": "Foto web real monocomando cocina negra mate"
+    },
+    {
+      "materialId": "1edded56-eac9-404f-8159-c77c9a033869",
+      "expectedDescription": "Grifería Monocomando Para Ducha Sin Transferencia Negro Mate",
+      "label": "Monocomando ducha negro mate",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto20/monocomando-ducha-negro.jpg",
+      "note": "Foto web real grifería ducha negra mate (Epuyen)"
+    },
+    {
+      "materialId": "2948f714-e5ff-4fb4-980b-5c845062ed36",
+      "expectedDescription": "Desagues lineales ducha",
+      "label": "Desagüe lineal ducha",
+      "category": "sanitario",
+      "imagePath": "tmp/genericos-piloto22/desague-lineal.jpg",
+      "note": "Foto web real Fluenza desagües lineales (rejillas inox)"
+    },
+    {
+      "materialId": "7129a649-e725-4e7c-9aed-c736567ca6ae",
+      "expectedDescription": "INSTRUM. NIVEL COMB NEGR/CROM",
+      "label": "Instrumento nivel combustible",
+      "category": "instrumento",
+      "imagePath": "tmp/genericos-piloto22/reloj-fuel.jpg",
+      "note": "Foto web Teleflex reloj nivel combustible bisel cromado"
+    },
+    {
+      "materialId": "be7c23c6-35d7-4bf5-a53c-20ffcba011ae",
+      "expectedDescription": "Reloj nivel combustible",
+      "label": "Reloj nivel combustible",
+      "category": "instrumento",
+      "imagePath": "tmp/genericos-piloto22/reloj-fuel-negro.jpg",
+      "note": "Foto web Wema reloj nivel combustible cara negra"
+    },
+    {
+      "materialId": "f721e6e7-493d-44f6-9298-f05b99279da2",
+      "expectedDescription": "Reloj nivel agua",
+      "label": "Reloj nivel agua",
+      "category": "instrumento",
+      "imagePath": "tmp/genericos-piloto22/reloj-water.jpg",
+      "note": "Foto web Wema reloj nivel agua cara negra"
+    },
+    {
+      "materialId": "f0f467a1-77e1-4d4f-86e1-f77c56a7edd9",
+      "expectedDescription": "INSTRUM. NIVEL AGUA NEGR/CROM",
+      "label": "Reloj nivel agua",
+      "category": "instrumento",
+      "imagePath": "tmp/genericos-piloto22/reloj-water.jpg",
+      "note": "Foto web Wema reloj nivel agua cara negra"
+    },
+    {
+      "materialId": "751a63ff-bceb-4099-b931-d5acc482cac1",
+      "expectedDescription": "Frezado 3/16 X 3/4",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "9a9d6481-1c9e-4657-be6d-813732a9193a",
+      "expectedDescription": "Frezado 8 X 1 1/2",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "fbf791e6-3ae0-418c-a08e-c8b726b4a0af",
+      "expectedDescription": "Frezado 4 X 1 1/2",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "bffe7f48-2855-43d2-bdf1-0bbb320a8798",
+      "expectedDescription": "Frezado 4 X 3/4",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "e4d322e7-c385-4419-abad-7d2a16377cca",
+      "expectedDescription": "Frezado 4 X 1",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "d8a79b2a-8fae-4ffd-b23d-5379ae3c61cb",
+      "expectedDescription": "Frezado 10 X 1",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "2a2215a0-7fab-4076-94ec-2e25b68c7819",
+      "expectedDescription": "Frezado 6 X 1/2",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "afc0f0fa-1b9d-4e56-bf82-f76f353eb61e",
+      "expectedDescription": "Frezado 14 X 1",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "50e545fd-3349-4a0e-bc59-75dbb2ff381f",
+      "expectedDescription": "Frezado 8 X 3/4",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "39ad84e1-a5fd-43e5-86a6-98e5d0dda5ec",
+      "expectedDescription": "Frezado 12 X 1 1/2",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "ab32d2fa-e101-48d9-b0bf-0db349abffdc",
+      "expectedDescription": "Frezado 6 X 3/4",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "10aac20f-882e-4d0e-8f8b-eb12ed4abbf2",
+      "expectedDescription": "Frezado 4 X 1/2",
+      "label": "Tornillo frezado inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto22/frezado-inox.jpg",
+      "note": "Foto web tornillo cabeza avellanada plana inox (DIN 965)"
+    },
+    {
+      "materialId": "b2b544a7-aca0-4e77-95ff-e041bc014b6c",
+      "expectedDescription": "Tapon rosca M de 1/2\" plastico",
+      "label": "Tapón plástico 1/2\"",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto22/tapon-plastico.jpg",
+      "note": "Foto web tapón macho plástico hexagonal 1/2\""
+    },
+    {
+      "materialId": "0dccf717-6511-4fc1-858e-fb4baf7c1557",
+      "expectedDescription": "Flexible 1\" hembra giratoria x1680mm",
+      "label": "Flexible hidráulico hembra giratoria",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto22/flexible-hidraulico.jpg",
+      "note": "Foto web manguera hidráulica con terminal hembra giratoria"
+    },
+    {
+      "materialId": "307b064d-c9bd-4678-818b-a9c85a27384d",
+      "expectedDescription": "Flexible 1/2\" hembra giratoria (pata)",
+      "label": "Flexible hidráulico hembra giratoria",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto22/flexible-hidraulico.jpg",
+      "note": "Foto web manguera hidráulica con terminal hembra giratoria"
+    },
+    {
+      "materialId": "f73c52ff-c485-4e92-a1ad-4eda604aec8c",
+      "expectedDescription": "Flexible 10mm hembra giratoria (pata)",
+      "label": "Flexible hidráulico hembra giratoria",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto22/flexible-hidraulico.jpg",
+      "note": "Foto web manguera hidráulica con terminal hembra giratoria"
+    },
+    {
+      "materialId": "d2b76171-156b-46e7-ac12-038a8987cff1",
+      "expectedDescription": "Flexible 10mm x1800mm hembra (pata)",
+      "label": "Flexible hidráulico hembra giratoria",
+      "category": "fontaneria",
+      "imagePath": "tmp/genericos-piloto22/flexible-hidraulico.jpg",
+      "note": "Foto web manguera hidráulica con terminal hembra giratoria"
+    },
+    {
+      "materialId": "a91520e0-0373-4f45-85e6-6fdf6d82c580",
+      "expectedDescription": "Varilla roscada 3/4\" inox",
+      "label": "Varilla roscada inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto23/varilla-roscada.jpg",
+      "note": "Foto web Würth varilla roscada inox"
+    },
+    {
+      "materialId": "316d9b57-8ada-4f87-a04a-78c978c5a118",
+      "expectedDescription": "Varilla roscada 3/8\" inox",
+      "label": "Varilla roscada inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto23/varilla-roscada.jpg",
+      "note": "Foto web Würth varilla roscada inox"
+    },
+    {
+      "materialId": "03fa1c35-3486-4dcc-b3d6-d4c4d9b1ca05",
+      "expectedDescription": "terminal tana 8mm",
+      "label": "Terminal cobre tubular tana",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto23/terminal-cobre-tana.jpg",
+      "note": "Foto web terminal cobre tubular estañado (tipo T)"
+    },
+    {
+      "materialId": "dfd60da8-dd93-4948-885c-41caa4166bd3",
+      "expectedDescription": "terminal tala 25mm",
+      "label": "Terminal cobre tubular tala",
+      "category": "electrico",
+      "imagePath": "tmp/genericos-piloto23/terminal-cobre-tala.jpg",
+      "note": "Foto web terminal cobre tubular estañado (tipo T)"
+    },
+    {
+      "materialId": "6b8cc2b5-df13-40ab-bdbd-d9b6025e7eb6",
+      "expectedDescription": "Tirafondo 1/4 X 2 1/2",
+      "label": "Tirafondo hex inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto23/tirafondo-inox.png",
+      "note": "Foto web tirafondo cabeza hexagonal inox (DIN 571)"
+    },
+    {
+      "materialId": "9432712b-4725-4599-89d6-0da868af6022",
+      "expectedDescription": "Tirafondo 1/4 X 2",
+      "label": "Tirafondo hex inox",
+      "category": "fijacion",
+      "imagePath": "tmp/genericos-piloto23/tirafondo-inox.png",
+      "note": "Foto web tirafondo cabeza hexagonal inox (DIN 571)"
+    },
+    {
+      "materialId": "9571f29a-e1df-4d5b-88dd-fa66a4171a7d",
+      "expectedDescription": "Tope para puerta",
+      "label": "Tope para puerta cromado",
+      "category": "herraje",
+      "imagePath": "tmp/genericos-piloto23/tope-puerta-cromado.jpg",
+      "note": "Foto web Osculati tope de puerta latón cromado con goma"
     }
   ]
 }

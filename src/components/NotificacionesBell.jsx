@@ -7,15 +7,15 @@ import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
 
 const TYPE_UI = {
-  recepcion: { label: "Recepcion", color: C.blue, icon: PackageOpen },
-  produccion: { label: "Produccion", color: C.amber, icon: AlertTriangle },
+  recepcion: { label: "Recepción", color: C.blue, icon: PackageOpen },
+  produccion: { label: "Producción", color: C.cyan, icon: AlertTriangle },
   compras: { label: "Compras", color: C.green, icon: ShoppingCart },
   logistica: { label: "Logística", color: C.blue, icon: Truck },
 };
 
 const GRAVITY_COLOR = {
   critical: C.red,
-  warning: C.amber,
+  warning: C.cyan,
   success: C.green,
   info: C.blue,
 };
@@ -26,8 +26,9 @@ function fmtFecha(ts) {
 }
 
 function counterByType(lista) {
-  const out = { todos: lista.length, recepcion: 0, produccion: 0, compras: 0, logistica: 0 };
-  for (const item of lista) out[item.tipo] = (out[item.tipo] || 0) + 1;
+  const sinLeer = lista.filter((item) => !item.leida);
+  const out = { todos: sinLeer.length, recepcion: 0, produccion: 0, compras: 0, logistica: 0 };
+  for (const item of sinLeer) out[item.tipo] = (out[item.tipo] || 0) + 1;
   return out;
 }
 
@@ -116,9 +117,11 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
   if (!profile || role === "cliente") return null;
 
   const counts = counterByType(lista);
+  // Qué solapas mostrar: existe algo de ese tipo, esté leído o no.
+  const hayDelTipo = lista.reduce((acc, item) => ({ ...acc, [item.tipo]: true }), {});
 
   function openNotification(item) {
-    markLeido(item.id);
+    markLeido(item);
     setOpen(false);
     if (item.ruta) navigate(item.ruta);
   }
@@ -279,10 +282,10 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             <div>
               <div style={S.title}>Notificaciones</div>
               <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-                {loading ? "Actualizando..." : unreadCount ? `${unreadCount} sin leer` : "Estas al dia"}
+                {loading ? "Actualizando..." : unreadCount ? `${unreadCount} sin leer` : "Estás al día"}
               </div>
             </div>
-            <button type="button" onClick={markTodoLeido} disabled={!lista.length} style={{ ...S.markBtn, opacity: lista.length ? 1 : 0.45, cursor: lista.length ? "pointer" : "default" }}>
+            <button type="button" onClick={markTodoLeido} disabled={!unreadCount} style={{ ...S.markBtn, opacity: unreadCount ? 1 : 0.45, cursor: unreadCount ? "pointer" : "default" }}>
               <CheckCheck size={14} />
               Leido
             </button>
@@ -290,12 +293,12 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
 
           <div style={S.tabs}>
             <button type="button" onClick={() => setFilter("todos")} style={S.tab(filter === "todos", C.blue)}>
-              Todas ({counts.todos})
+              Todas{counts.todos ? ` (${counts.todos})` : ""}
             </button>
             {Object.entries(TYPE_UI).map(([key, cfg]) => (
-              counts[key] > 0 && (
+              hayDelTipo[key] && (
                 <button key={key} type="button" onClick={() => setFilter(key)} style={S.tab(filter === key, cfg.color)}>
-                  {cfg.label} ({counts[key]})
+                  {cfg.label}{counts[key] ? ` (${counts[key]})` : ""}
                 </button>
               )
             ))}
@@ -320,21 +323,23 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                       {item.detalle}
                     </span>
                     <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7 }}>
-                      <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>{fmtFecha(item.fecha)}</span>
+                      <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>
+                        {fmtFecha(item.fecha)}{item.actor ? ` · ${item.actor}` : ""}
+                      </span>
                       {isAdmin && item.tipo === "produccion" && (
                         <span
                           role="button"
                           tabIndex={0}
                           onClick={async (event) => {
                             event.stopPropagation();
-                            markLeido(item.id);
+                            markLeido(item);
                             await resolverAlerta?.(item.meta?.alerta?.id, profile?.username ?? "usuario");
                           }}
                           onKeyDown={async (event) => {
                             if (event.key !== "Enter" && event.key !== " ") return;
                             event.preventDefault();
                             event.stopPropagation();
-                            markLeido(item.id);
+                            markLeido(item);
                             await resolverAlerta?.(item.meta?.alerta?.id, profile?.username ?? "usuario");
                           }}
                           style={{ color: C.green, border: `1px solid ${C.greenB}`, borderRadius: 7, padding: "3px 7px", fontSize: 10.5, fontWeight: 900 }}
@@ -349,8 +354,8 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             }) : (
               <div style={{ padding: "34px 20px", textAlign: "center", color: C.dim }}>
                 <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 10 }} />
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Estas al dia</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>No hay notificaciones para este filtro.</div>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Estás al día</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>No hay novedades para este filtro.</div>
               </div>
             )}
           </div>
