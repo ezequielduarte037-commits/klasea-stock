@@ -8,6 +8,15 @@ import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import { C } from "@/theme";
 import { canonicalPanolSede } from "@/features/panol/panolApi";
+import {
+  arrancaEnModoColector,
+  esAndroidLegacyAngosto,
+  esDispositivoTactil,
+  esRutaDeColector,
+  marcarComoColector,
+  prefierePanelCompleto,
+  tieneMarcaDeColector,
+} from "@/lib/modoColector";
 import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
 import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
@@ -204,47 +213,10 @@ function startupErrorMessage(error) {
 }
 
 // Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
-// superpone con los controles y rompe el layout, así que ahí no va.
-const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
+// superpone con los controles y rompe el layout, así que ahí no va. Cuándo se
+// arranca en ese modo, y cómo se sale en una computadora, está en
+// src/lib/modoColector.js.
 const ROLES_COLECTOR = new Set(["admin", "oficina", "tecnica", "panol"]);
-const COLECTOR_DEVICE_KEY = "klasea.modo-colector";
-
-// El PDA de pañol usa un Android/Chrome viejo. No alcanza con mirar el rol:
-// durante pruebas y reemplazos también se entra con cuentas de técnica o admin.
-// Si ese aparato intenta abrir el home completo, descarga un chunk grande y
-// queda eternamente en el fallback de Suspense. Guardamos una marca local para
-// que, una vez reconocido, siempre arranque por el shell liviano del colector.
-function esAndroidLegacyAngosto() {
-  if (typeof window === "undefined") return false;
-  try {
-    const ua = String(window.navigator?.userAgent || "");
-    const chrome = ua.match(/(?:Chrome|CriOS)\/(\d+)/i);
-    const version = Number(chrome?.[1] || 0);
-    return /Android/i.test(ua)
-      && window.matchMedia("(max-width: 768px)").matches
-      && version > 0
-      && version <= 90;
-  } catch {
-    return false;
-  }
-}
-
-function tieneMarcaDeColector() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(COLECTOR_DEVICE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function marcarComoColector() {
-  try { window.localStorage.setItem(COLECTOR_DEVICE_KEY, "1"); } catch { /* storage bloqueado */ }
-}
-
-function esRutaDeColector() {
-  return typeof window !== "undefined" && RUTAS_COLECTOR.has(window.location.pathname);
-}
 
 // La campanita ya no se monta acá. Vivía flotando abajo a la derecha y tapaba
 // lo que hubiera debajo: en Tornería caía justo sobre el lápiz de editar del
@@ -747,17 +719,16 @@ export default function App() {
 
   // Se calcula antes de los retornos de inicialización para mantener estable el
   // orden de hooks entre el primer render y los siguientes.
-  const pantallaAngosta = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
-  const modoColector = esRutaDeColector()
-    || esAndroidLegacyAngosto()
-    || (pantallaAngosta && (tieneMarcaDeColector() || profile?.role === "panol"));
+  const modoColector = arrancaEnModoColector(profile?.role);
   const puedeUsarColector = !!profile && (profile.is_admin || ROLES_COLECTOR.has(profile.role));
 
   // La ruta explícita y el Android del aparato dejan una marca sólo en ese
   // dispositivo. Así, después de un refresh en `/`, no vuelve a intentar abrir
   // el dashboard completo. No afecta a los celulares modernos del resto.
   useEffect(() => {
-    if (puedeUsarColector && (esRutaDeColector() || esAndroidLegacyAngosto())) marcarComoColector();
+    // Sólo en un dispositivo táctil: una PC que pasó una vez por /scan no tiene
+    // que quedar marcada como colector.
+    if (puedeUsarColector && (esAndroidLegacyAngosto() || (esRutaDeColector() && esDispositivoTactil()))) marcarComoColector();
   }, [puedeUsarColector]);
 
   if (isInitializing) {
@@ -891,7 +862,7 @@ export default function App() {
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
         {/* Arranque del colector: elegir entre egresar maderas o pedir a compras */}
-        <Route path="/colector" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ColectorHomeScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/colector" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}>{prefierePanelCompleto() ? <Navigate to="/" replace /> : <ColectorHomeScreen {...A} />}</RequireRole></RequireAuth>} />
         {/* Aviso a compras desde el colector: se escanea lo que hay que reponer */}
         <Route path="/scan-pedido" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />

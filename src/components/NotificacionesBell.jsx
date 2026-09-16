@@ -1,24 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Bell, CheckCheck, CheckCircle2, PackageOpen, ShoppingCart, Truck } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  ChevronRight,
+  CheckCheck,
+  CheckCircle2,
+  Info,
+  PackageOpen,
+  ShoppingCart,
+  Truck,
+  X,
+} from "lucide-react";
 import useNotificaciones from "@/hooks/useNotificaciones";
 import { hasAdminAccess } from "@/lib/permissions";
+import {
+  PRIORIDAD_LABEL,
+  debeMostrarToast,
+  operationalRole,
+  requiereAccionDirecta,
+} from "@/lib/notificacionesAudience";
 import { C } from "@/theme";
 
 const TYPE_UI = {
-  recepcion: { label: "Recepción", color: C.blue, icon: PackageOpen },
-  produccion: { label: "Producción", color: C.cyan, icon: AlertTriangle },
-  compras: { label: "Compras", color: C.green, icon: ShoppingCart },
-  logistica: { label: "Logística", color: C.blue, icon: Truck },
+  recepcion: { label: "Recepción", color: C.blue, soft: C.blueL, border: C.blueB, icon: PackageOpen },
+  produccion: { label: "Producción", color: C.cyan, soft: C.cyanL, border: C.cyanB, icon: AlertTriangle },
+  compras: { label: "Compras", color: C.green, soft: C.greenL, border: C.greenB, icon: ShoppingCart },
+  logistica: { label: "Logística", color: C.blue, soft: C.blueL, border: C.blueB, icon: Truck },
 };
 
-const GRAVITY_COLOR = {
-  critical: C.red,
-  warning: C.cyan,
-  success: C.green,
-  info: C.blue,
+const GRAVITY_UI = {
+  critical: { color: C.red, soft: C.redL, border: C.redB, label: PRIORIDAD_LABEL.critical },
+  warning: { color: C.amber, soft: C.amberL, border: C.amberB, label: PRIORIDAD_LABEL.warning },
+  success: { color: C.green, soft: C.greenL, border: C.greenB, label: PRIORIDAD_LABEL.success },
+  info: { color: C.blue, soft: C.blueL, border: C.blueB, label: PRIORIDAD_LABEL.info },
 };
+
+const TOAST_MS = 7000;
+const MAX_TOASTS = 2;
 
 function fmtFecha(ts) {
   if (!ts) return "";
@@ -32,47 +52,87 @@ function counterByType(lista) {
   return out;
 }
 
+function sectionOf(item) {
+  if (item.leida) return "anteriores";
+  if (item.gravedad === "critical" || requiereAccionDirecta(item) || item.requiereAccion) return "accion";
+  return "novedades";
+}
+
+function actionLabel(item) {
+  if (!item) return "Ver avisos";
+  if (item.tipo === "compras") return "Abrir pedido";
+  if (item.tipo === "logistica") return "Ver movimiento";
+  if (item.tipo === "recepcion") return "Ver recepción";
+  if (item.tipo === "produccion") return "Ver alerta";
+  return "Abrir";
+}
+
 /**
- * La campanita vive DENTRO del menú lateral, no flotando sobre la pantalla.
- *
- * Antes era un botón fijo abajo a la derecha, y ahí tapaba lo que hubiera
- * debajo. En Tornería caía justo encima del lápiz de editar del último renglón
- * y no se podía tocar. Ya se había parcheado escondiéndola en Tornería en
- * celular, lo que dejaba el mismo problema intacto en la computadora y encima
- * dejaba sin avisos a quien entra desde el teléfono.
- *
- * Un botón que flota sobre el contenido siempre va a tapar algo: el contenido
- * cambia y el botón no se entera. Por eso ahora se monta donde ya hay lugar
- * reservado para los controles de la sesión, al lado de salir y cambiar la
- * contraseña.
- *
- * El panel sale por portal porque el <aside> del menú tiene overflow: hidden y
- * lo recortaría. Se ubica midiendo el botón, y se abre para arriba o para abajo
- * según de qué lado de la pantalla esté, sin salirse nunca del borde.
+ * Campanita dentro del sidebar. El panel sale por portal (el aside tiene overflow).
  */
 export default function NotificacionesBell({ profile, size = 28, iconSize = 15, estiloBoton = null }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("todos");
   const [pos, setPos] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [bellPulse, setBellPulse] = useState(false);
+  const [badgePulse, setBadgePulse] = useState(false);
+  const [panelEnter, setPanelEnter] = useState(false);
   const ref = useRef(null);
   const panelRef = useRef(null);
+  const prevUnreadRef = useRef(0);
+  const toastSeenRef = useRef(new Set());
   const navigate = useNavigate();
   const isAdmin = hasAdminAccess(profile);
-  const { lista, unreadCount, loading, markLeido, markTodoLeido, resolverAlerta } = useNotificaciones(profile);
-  const visible = useMemo(
-    () => (filter === "todos" ? lista : lista.filter((item) => item.tipo === filter)).slice(0, 30),
+  const {
+    lista,
+    unreadCount,
+    loading,
+    ready,
+    freshEvents,
+    consumeFreshEvents,
+    markLeido,
+    markTodoLeido,
+    resolverAlerta,
+  } = useNotificaciones(profile);
+
+  const filtered = useMemo(
+    () => (filter === "todos" ? lista : lista.filter((item) => item.tipo === filter)),
     [filter, lista],
   );
 
-  // El panel se ubica midiendo el botón. Se abre hacia arriba si el botón está
-  // en la mitad de abajo de la pantalla -que es donde queda en el menú- y hacia
-  // abajo si está arriba, como en el celular al lado del botón de menú.
+  const sections = useMemo(() => {
+    const accion = [];
+    const novedades = [];
+    const anteriores = [];
+    for (const item of filtered) {
+      const sec = sectionOf(item);
+      if (sec === "accion") accion.push(item);
+      else if (sec === "novedades") novedades.push(item);
+      else anteriores.push(item);
+    }
+    const showSections = accion.length + novedades.length > 0 && anteriores.length > 0
+      || (accion.length > 0 && novedades.length > 0);
+    return { accion, novedades, anteriores, showSections };
+  }, [filtered]);
+
+  const visibleGroups = useMemo(() => {
+    if (!sections.showSections) {
+      return [{ key: "todas", label: null, items: filtered.slice(0, 30) }];
+    }
+    const groups = [];
+    if (sections.accion.length) groups.push({ key: "accion", label: "Requieren acción", items: sections.accion.slice(0, 20) });
+    if (sections.novedades.length) groups.push({ key: "novedades", label: "Novedades", items: sections.novedades.slice(0, 15) });
+    if (sections.anteriores.length) groups.push({ key: "anteriores", label: "Anteriores", items: sections.anteriores.slice(0, 12) });
+    return groups;
+  }, [filtered, sections]);
+
   const ubicar = useCallback(() => {
     const boton = ref.current;
     if (!boton) return;
     const r = boton.getBoundingClientRect();
     const margen = 12;
-    const ancho = Math.min(390, window.innerWidth - margen * 2);
+    const ancho = Math.min(400, window.innerWidth - margen * 2);
     const left = Math.max(margen, Math.min(r.left, window.innerWidth - ancho - margen));
     const arriba = r.top > window.innerHeight / 2;
     const libre = arriba ? r.top - margen * 2 : window.innerHeight - r.bottom - margen * 2;
@@ -80,14 +140,11 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       ancho,
       left,
       ...(arriba ? { bottom: window.innerHeight - r.top + 8 } : { top: r.bottom + 8 }),
-      maxHeight: Math.max(220, Math.min(620, libre)),
+      maxHeight: Math.max(240, Math.min(640, libre)),
     });
   }, []);
 
   useEffect(() => {
-    // Cerrar al tocar afuera tiene que mirar los DOS: el botón y el panel, que
-    // ahora son ramas distintas del DOM. Con un solo ref, hacer clic adentro del
-    // panel lo cerraba.
     function handleClick(event) {
       const fueraDelBoton = ref.current && !ref.current.contains(event.target);
       const fueraDelPanel = !panelRef.current || !panelRef.current.contains(event.target);
@@ -98,42 +155,143 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
   }, []);
 
   useEffect(() => {
-    if (!open) return undefined;
+    setToasts([]);
+    toastSeenRef.current = new Set();
+    prevUnreadRef.current = 0;
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!open) {
+      setPanelEnter(false);
+      return undefined;
+    }
     ubicar();
+    const t = window.setTimeout(() => setPanelEnter(true), 10);
     const onEsc = (event) => { if (event.key === "Escape") setOpen(false); };
-    // En captura: si no, un scroll dentro de una lista no lo avisa y el panel
-    // queda colgado lejos del botón.
     window.addEventListener("resize", ubicar);
     window.addEventListener("scroll", ubicar, true);
     window.addEventListener("keydown", onEsc);
     return () => {
+      window.clearTimeout(t);
       window.removeEventListener("resize", ubicar);
       window.removeEventListener("scroll", ubicar, true);
       window.removeEventListener("keydown", onEsc);
     };
   }, [open, ubicar]);
 
-  const role = profile?.is_admin ? "admin" : profile?.role;
+  // Badge pulse sólo cuando sube el contador.
+  useEffect(() => {
+    if (unreadCount > prevUnreadRef.current && unreadCount > 0) {
+      setBadgePulse(true);
+      const t = window.setTimeout(() => setBadgePulse(false), 700);
+      prevUnreadRef.current = unreadCount;
+      return () => window.clearTimeout(t);
+    }
+    prevUnreadRef.current = unreadCount;
+    return undefined;
+  }, [unreadCount]);
+
+  // Toasts: sólo eventos frescos post-bootstrap.
+  useEffect(() => {
+    if (!ready || !freshEvents?.length) return;
+
+    const candidates = freshEvents.filter((n) => {
+      if (!debeMostrarToast(n)) return false;
+      const stamp = `${n.clave}@${n.fecha || ""}`;
+      if (toastSeenRef.current.has(stamp)) return false;
+      return true;
+    });
+    consumeFreshEvents();
+    if (!candidates.length) return;
+
+    if (candidates.some((n) => n.gravedad === "critical" || n.gravedad === "warning")) {
+      setBellPulse(true);
+      window.setTimeout(() => setBellPulse(false), 800);
+    }
+
+    setToasts((prev) => {
+      let keep = prev.filter((t) => t.kind !== "summary").slice(-MAX_TOASTS);
+      if (candidates.length && keep.length >= MAX_TOASTS) keep = keep.slice(1);
+      const room = Math.max(0, MAX_TOASTS - keep.length);
+      const needsSummary = candidates.length > room;
+      const itemRoom = needsSummary ? Math.max(0, room - 1) : room;
+      const take = candidates.slice(0, itemRoom);
+      const rest = candidates.length - take.length;
+      for (const item of candidates) {
+        toastSeenRef.current.add(`${item.clave}@${item.fecha || ""}`);
+      }
+
+      const next = [
+        ...keep,
+        ...take.map((item) => ({
+          kind: "item",
+          id: item.id,
+          clave: item.clave,
+          titulo: item.titulo,
+          detalle: item.detalle,
+          gravedad: item.gravedad,
+          tipo: item.tipo,
+          ruta: item.ruta,
+          expires: Date.now() + TOAST_MS,
+          raw: item,
+        })),
+      ];
+
+      if (rest > 0) {
+        next.push({
+          kind: "summary",
+          id: `summary-${Date.now()}`,
+          titulo: `${rest} aviso${rest === 1 ? "" : "s"} más`,
+          detalle: "Abrí la campana para verlos",
+          gravedad: "info",
+          expires: Date.now() + TOAST_MS,
+        });
+      }
+      return next.slice(0, MAX_TOASTS);
+    });
+  }, [consumeFreshEvents, freshEvents, ready]);
+
+  useEffect(() => {
+    if (!toasts.length) return undefined;
+    const tick = window.setInterval(() => {
+      const now = Date.now();
+      setToasts((prev) => prev.filter((t) => (t.expires || 0) > now));
+    }, 500);
+    return () => window.clearInterval(tick);
+  }, [toasts.length]);
+
+  const role = operationalRole(profile);
   if (!profile || role === "cliente") return null;
 
   const counts = counterByType(lista);
-  // Qué solapas mostrar: existe algo de ese tipo, esté leído o no.
   const hayDelTipo = lista.reduce((acc, item) => ({ ...acc, [item.tipo]: true }), {});
 
   function openNotification(item) {
     markLeido(item);
     setOpen(false);
+    dismissToast(item.clave);
     if (item.ruta) navigate(item.ruta);
   }
 
+  function dismissToast(claveOrId) {
+    setToasts((prev) => prev.filter((t) => t.clave !== claveOrId && t.id !== claveOrId));
+  }
+
+  function openToast(toast) {
+    if (toast.kind === "summary") {
+      setOpen(true);
+      dismissToast(toast.id);
+      return;
+    }
+    if (toast.raw) openNotification(toast.raw);
+    else dismissToast(toast.id);
+  }
+
+  const reducedMotion = typeof window !== "undefined"
+    && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
   const S = {
-    wrapper: {
-      position: "relative",
-      display: "inline-flex",
-      flexShrink: 0,
-    },
-    // Mismo cuerpo que los otros botones del pie del menú -salir, contraseña,
-    // WhatsApp- para que se lea como uno más y no como algo pegado encima.
+    wrapper: { position: "relative", display: "inline-flex", flexShrink: 0 },
     bell: {
       position: "relative",
       width: size,
@@ -148,8 +306,8 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       color: unreadCount > 0 ? C.blue : C.dim,
       transition: "color .2s, border-color .2s, background .2s",
       padding: 0,
-      // Para que en el celular se vea igual que el botón de menú que tiene al lado.
       ...(estiloBoton || {}),
+      ...(bellPulse && !reducedMotion ? { animation: "notifBellNudge .7s ease-out" } : {}),
     },
     badge: {
       position: "absolute",
@@ -169,199 +327,406 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       border: `2px solid ${C.bg}`,
       fontFamily: C.mono,
       pointerEvents: "none",
+      ...(badgePulse && !reducedMotion ? { animation: "notifBadgePop .65s ease-out" } : {}),
     },
     panel: {
       position: "fixed",
       zIndex: 9000,
       left: pos?.left ?? 0,
       ...(pos && "bottom" in pos ? { bottom: pos.bottom } : { top: pos?.top ?? 0 }),
-      width: pos?.ancho ?? 390,
-      maxHeight: pos?.maxHeight ?? 620,
+      width: pos?.ancho ?? 400,
+      maxHeight: pos?.maxHeight ?? 640,
       overflow: "hidden",
       background: C.panelSolid,
       backdropFilter: "var(--glass-filter)",
       WebkitBackdropFilter: "var(--glass-filter)",
       border: `1px solid ${C.border}`,
-      borderRadius: 16,
-      boxShadow: "0 20px 60px var(--shadow-strong)",
+      borderRadius: 14,
+      boxShadow: "0 18px 48px var(--shadow-strong)",
       color: C.text,
       display: "flex",
       flexDirection: "column",
-    },
-    header: {
-      padding: "14px 15px 12px",
-      borderBottom: `1px solid ${C.border}`,
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: 12,
-    },
-    title: {
-      color: C.text,
-      fontFamily: C.sans,
-      fontWeight: 950,
-      fontSize: 14,
-      letterSpacing: 0.2,
-    },
-    tabs: {
-      padding: "9px 10px",
-      borderBottom: `1px solid ${C.border}`,
-      display: "flex",
-      gap: 6,
-      overflowX: "auto",
-    },
-    tab: (active, color) => ({
-      border: `1px solid ${active ? `${color}55` : C.border}`,
-      background: active ? `${color}14` : "transparent",
-      color: active ? color : C.dim,
-      borderRadius: 999,
-      padding: "6px 9px",
-      cursor: "pointer",
-      fontSize: 11,
-      fontWeight: 900,
-      fontFamily: C.sans,
-      whiteSpace: "nowrap",
-    }),
-    item: (unread, color) => ({
-      width: "100%",
-      border: "none",
-      borderBottom: `1px solid ${C.border}`,
-      background: unread ? `${color}0f` : "transparent",
-      color: C.text,
-      cursor: "pointer",
-      display: "grid",
-      gridTemplateColumns: "32px minmax(0, 1fr)",
-      gap: 10,
-      textAlign: "left",
-      padding: "11px 14px",
-      fontFamily: C.sans,
-    }),
-    iconBox: (color) => ({
-      width: 30,
-      height: 30,
-      borderRadius: 9,
-      display: "grid",
-      placeItems: "center",
-      color,
-      background: `${color}15`,
-      border: `1px solid ${color}35`,
-    }),
-    markBtn: {
-      border: `1px solid ${C.border}`,
-      background: C.panel,
-      color: C.dim,
-      borderRadius: 8,
-      padding: "7px 9px",
-      cursor: "pointer",
-      fontSize: 11,
-      fontWeight: 850,
-      fontFamily: C.sans,
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
+      opacity: panelEnter ? 1 : 0,
+      transform: panelEnter ? "translateY(0)" : "translateY(6px)",
+      transition: reducedMotion ? "none" : "opacity .18s ease, transform .18s ease",
     },
   };
 
   return (
     <div style={S.wrapper} ref={ref}>
+      <style>{`
+        @keyframes notifBellNudge {
+          0% { transform: rotate(0); }
+          25% { transform: rotate(-12deg); }
+          55% { transform: rotate(10deg); }
+          100% { transform: rotate(0); }
+        }
+        @keyframes notifBadgePop {
+          0% { transform: scale(.6); opacity: .4; }
+          40% { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes notifToastIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .notif-toast, .notif-bell-anim { animation: none !important; }
+        }
+        .notif-filter:hover { background: var(--panel-2) !important; }
+        .notif-row:hover { background: var(--panel-2) !important; }
+        .notif-filter:focus-visible, .notif-row:focus-visible, .notif-toast-action:focus-visible, .notif-toast-close:focus-visible {
+          outline: 2px solid var(--blue);
+          outline-offset: -2px;
+        }
+      `}</style>
+
       <button
         type="button"
+        className={bellPulse ? "notif-bell-anim" : undefined}
         style={S.bell}
         onClick={() => setOpen((value) => !value)}
         title="Notificaciones"
         aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : "Notificaciones"}
         aria-expanded={open}
+        aria-haspopup="dialog"
       >
         <Bell size={iconSize} />
         {unreadCount > 0 && <span style={S.badge}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
 
       {open && pos && createPortal(
-        <div ref={panelRef} style={S.panel}>
-          <div style={S.header}>
+        <div ref={panelRef} role="dialog" aria-label="Panel de notificaciones" style={S.panel}>
+          <div style={{
+            padding: "12px 14px 10px",
+            borderBottom: `1px solid ${C.border}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexShrink: 0,
+          }}>
             <div>
-              <div style={S.title}>Notificaciones</div>
+              <div style={{ color: C.text, fontFamily: C.sans, fontWeight: 950, fontSize: 14, letterSpacing: 0.2 }}>
+                Notificaciones
+              </div>
               <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-                {loading ? "Actualizando..." : unreadCount ? `${unreadCount} sin leer` : "Estás al día"}
+                {loading ? "Actualizando…" : unreadCount ? `${unreadCount} sin leer` : "Estás al día"}
               </div>
             </div>
-            <button type="button" onClick={markTodoLeido} disabled={!unreadCount} style={{ ...S.markBtn, opacity: unreadCount ? 1 : 0.45, cursor: unreadCount ? "pointer" : "default" }}>
+            <button
+              type="button"
+              onClick={markTodoLeido}
+              disabled={!unreadCount}
+              style={{
+                border: `1px solid ${C.border}`,
+                background: C.panel,
+                color: C.dim,
+                borderRadius: 8,
+                padding: "8px 10px",
+                minHeight: 36,
+                cursor: unreadCount ? "pointer" : "default",
+                opacity: unreadCount ? 1 : 0.45,
+                fontSize: 11,
+                fontWeight: 850,
+                fontFamily: C.sans,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
               <CheckCheck size={14} />
-              Leido
+              Leídas
             </button>
           </div>
 
-          <div style={S.tabs}>
-            <button type="button" onClick={() => setFilter("todos")} style={S.tab(filter === "todos", C.blue)}>
+          <div style={{
+            padding: "8px 10px",
+            borderBottom: `1px solid ${C.border}`,
+            display: "flex",
+            gap: 6,
+            overflowX: "auto",
+            flexShrink: 0,
+          }}>
+            <FilterTab active={filter === "todos"} color={C.blue} soft={C.blueL} border={C.blueB} onClick={() => setFilter("todos")}>
               Todas{counts.todos ? ` (${counts.todos})` : ""}
-            </button>
+            </FilterTab>
             {Object.entries(TYPE_UI).map(([key, cfg]) => (
               hayDelTipo[key] && (
-                <button key={key} type="button" onClick={() => setFilter(key)} style={S.tab(filter === key, cfg.color)}>
+                <FilterTab key={key} active={filter === key} color={cfg.color} soft={cfg.soft} border={cfg.border} onClick={() => setFilter(key)}>
                   {cfg.label}{counts[key] ? ` (${counts[key]})` : ""}
-                </button>
+                </FilterTab>
               )
             ))}
           </div>
 
-          <div style={{ overflowY: "auto" }}>
-            {visible.length ? visible.map((item) => {
-              const cfg = TYPE_UI[item.tipo] || TYPE_UI.produccion;
-              const Icon = cfg.icon;
-              const color = GRAVITY_COLOR[item.gravedad] || cfg.color;
-              return (
-                <button key={item.id} type="button" onClick={() => openNotification(item)} style={S.item(!item.leida, color)}>
-                  <span style={S.iconBox(color)}>
-                    <Icon size={16} />
-                  </span>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                      <span style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>{item.titulo}</span>
-                      {!item.leida && <span style={{ width: 7, height: 7, borderRadius: 999, background: color }} />}
-                    </span>
-                    <span style={{ display: "block", color: C.dim, fontSize: 12, lineHeight: 1.35, marginTop: 4 }}>
-                      {item.detalle}
-                    </span>
-                    <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7 }}>
-                      <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>
-                        {fmtFecha(item.fecha)}{item.actor ? ` · ${item.actor}` : ""}
-                      </span>
-                      {isAdmin && item.tipo === "produccion" && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={async (event) => {
-                            event.stopPropagation();
-                            markLeido(item);
-                            await resolverAlerta?.(item.meta?.alerta?.id, profile?.username ?? "usuario");
-                          }}
-                          onKeyDown={async (event) => {
-                            if (event.key !== "Enter" && event.key !== " ") return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            markLeido(item);
-                            await resolverAlerta?.(item.meta?.alerta?.id, profile?.username ?? "usuario");
-                          }}
-                          style={{ color: C.green, border: `1px solid ${C.greenB}`, borderRadius: 7, padding: "3px 7px", fontSize: 10.5, fontWeight: 900 }}
-                        >
-                          Resolver
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                </button>
-              );
-            }) : (
-              <div style={{ padding: "34px 20px", textAlign: "center", color: C.dim }}>
+          <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
+            {loading && !lista.length ? (
+              <div style={{ padding: "28px 20px", textAlign: "center", color: C.dim, fontSize: 12.5 }}>
+                Cargando avisos…
+              </div>
+            ) : visibleGroups.every((g) => !g.items.length) ? (
+              <div style={{ padding: "36px 20px", textAlign: "center", color: C.dim }}>
                 <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 10 }} />
                 <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Estás al día</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>No hay novedades para este filtro.</div>
+                <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
+                  Sólo aparecen novedades relacionadas con tu trabajo.
+                </div>
               </div>
+            ) : (
+              visibleGroups.map((group) => (
+                <div key={group.key}>
+                  {group.label && (
+                    <div style={{
+                      padding: "8px 14px 4px",
+                      color: C.dim,
+                      fontSize: 10.5,
+                      fontWeight: 850,
+                      letterSpacing: 0.6,
+                      textTransform: "uppercase",
+                      position: "sticky",
+                      top: 0,
+                      background: C.panelSolid,
+                      zIndex: 1,
+                    }}>
+                      {group.label}
+                    </div>
+                  )}
+                  {group.items.map((item) => (
+                    <NotifRow
+                      key={item.id}
+                      item={item}
+                      isAdmin={isAdmin}
+                      onOpen={() => openNotification(item)}
+                      onResolve={async () => {
+                        markLeido(item);
+                        await resolverAlerta?.(item.meta?.alerta?.id, profile?.username ?? "usuario");
+                      }}
+                    />
+                  ))}
+                </div>
+              ))
             )}
           </div>
         </div>,
         document.body,
       )}
+
+      {toasts.length > 0 && createPortal(
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: "max(12px, env(safe-area-inset-top))",
+            right: "max(12px, env(safe-area-inset-right))",
+            zIndex: 9500,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            width: "min(360px, calc(100vw - 24px))",
+            pointerEvents: "none",
+          }}
+        >
+          {toasts.map((toast) => {
+            const g = GRAVITY_UI[toast.gravedad] || GRAVITY_UI.info;
+            const cfg = TYPE_UI[toast.tipo] || TYPE_UI.produccion;
+            const Icon = toast.kind === "summary" ? Info : (cfg.icon || Bell);
+            return (
+              <div
+                key={toast.id}
+                className="notif-toast"
+                style={{
+                  pointerEvents: "auto",
+                  display: "grid",
+                  gridTemplateColumns: "32px minmax(0, 1fr) auto",
+                  gap: 10,
+                  alignItems: "start",
+                  padding: "12px 12px",
+                  borderRadius: 12,
+                  background: C.panelSolid,
+                  border: `1px solid ${g.border}`,
+                  boxShadow: "0 12px 32px var(--shadow-strong)",
+                  animation: reducedMotion ? "none" : "notifToastIn .2s ease-out",
+                }}
+              >
+                <span style={{
+                  width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center",
+                  color: g.color, background: g.soft, border: `1px solid ${g.border}`,
+                }}>
+                  <Icon size={15} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 950, fontSize: 13, color: C.text }}>{toast.titulo}</span>
+                    {(toast.gravedad === "critical" || toast.gravedad === "warning") && (
+                      <span style={{
+                        fontSize: 9.5, fontWeight: 900, color: g.color,
+                        border: `1px solid ${g.border}`, borderRadius: 999, padding: "1px 6px",
+                      }}>
+                        {g.label}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.35, marginTop: 3 }}>
+                    {toast.detalle}
+                  </div>
+                  <button
+                    type="button"
+                    className="notif-toast-action"
+                    onClick={() => openToast(toast)}
+                    style={{
+                      marginTop: 8, minHeight: 32, padding: "0 10px",
+                      border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
+                      borderRadius: 8, fontWeight: 900, fontSize: 11.5, cursor: "pointer", fontFamily: C.sans,
+                    }}
+                  >
+                    {toast.kind === "summary" ? "Ver avisos" : actionLabel(toast.raw)}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="notif-toast-close"
+                  aria-label="Cerrar aviso"
+                  onClick={() => dismissToast(toast.clave || toast.id)}
+                  style={{
+                    width: 32, height: 32, border: "none", background: "transparent",
+                    color: C.dim, cursor: "pointer", borderRadius: 8, display: "grid", placeItems: "center",
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
     </div>
+  );
+}
+
+function FilterTab({ active, color, soft, border, onClick, children }) {
+  return (
+    <button
+      type="button"
+      className="notif-filter"
+      onClick={onClick}
+      style={{
+        border: `1px solid ${active ? border : C.border}`,
+        background: active ? soft : "transparent",
+        color: active ? color : C.dim,
+        borderRadius: 999,
+        padding: "7px 10px",
+        minHeight: 34,
+        cursor: "pointer",
+        fontSize: 11,
+        fontWeight: 900,
+        fontFamily: C.sans,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function NotifRow({ item, isAdmin, onOpen, onResolve }) {
+  const cfg = TYPE_UI[item.tipo] || TYPE_UI.produccion;
+  const Icon = cfg.icon;
+  const g = GRAVITY_UI[item.gravedad] || GRAVITY_UI.info;
+  const unread = !item.leida;
+
+  return (
+    <button
+      type="button"
+      className="notif-row"
+      onClick={onOpen}
+      style={{
+        width: "100%",
+        border: "none",
+        borderBottom: `1px solid ${C.border}`,
+        borderLeft: unread ? `3px solid ${g.color}` : "3px solid transparent",
+        background: unread ? g.soft : "transparent",
+        color: C.text,
+        cursor: "pointer",
+        display: "grid",
+        gridTemplateColumns: "32px minmax(0, 1fr)",
+        gap: 10,
+        textAlign: "left",
+        padding: "12px 14px",
+        minHeight: 64,
+        fontFamily: C.sans,
+      }}
+    >
+      <span style={{
+        width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center",
+        color: g.color, background: g.soft, border: `1px solid ${g.border}`,
+      }}>
+        <Icon size={15} />
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: unread ? 950 : 800 }}>{item.titulo}</span>
+          {["critical", "warning", "success"].includes(item.gravedad) && (
+            <span style={{
+              fontSize: 9.5, fontWeight: 900, color: g.color,
+              border: `1px solid ${g.border}`, borderRadius: 999, padding: "1px 6px",
+            }}>
+              {g.label}
+            </span>
+          )}
+          <span style={{
+            fontSize: 9.5, fontWeight: 800, color: cfg.color,
+            background: cfg.soft, borderRadius: 999, padding: "1px 6px",
+          }}>
+            {cfg.label}
+          </span>
+        </span>
+        <span style={{ display: "block", color: C.dim, fontSize: 12, lineHeight: 1.35, marginTop: 4 }}>
+          {item.detalle}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7 }}>
+          <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>
+            {fmtFecha(item.fecha)}{item.actor ? ` · ${item.actor}` : ""}
+          </span>
+          {isAdmin && item.tipo === "produccion" && unread ? (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={async (event) => {
+                event.stopPropagation();
+                await onResolve?.();
+              }}
+              onKeyDown={async (event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                await onResolve?.();
+              }}
+              style={{
+                color: C.green, border: `1px solid ${C.greenB}`, borderRadius: 7,
+                padding: "6px 8px", minHeight: 32, fontSize: 10.5, fontWeight: 900,
+                display: "inline-flex", alignItems: "center",
+              }}
+            >
+              Resolver
+            </span>
+          ) : (
+            <span style={{
+              color: C.blue,
+              fontSize: 10.5,
+              fontWeight: 900,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              whiteSpace: "nowrap",
+            }}>
+              {actionLabel(item)}
+              <ChevronRight size={13} />
+            </span>
+          )}
+        </span>
+      </span>
+    </button>
   );
 }

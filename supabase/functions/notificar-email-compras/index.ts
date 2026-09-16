@@ -150,6 +150,29 @@ function fecha(valor: unknown) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : texto;
 }
 
+function fechaHora(valor: unknown) {
+  const d = new Date(String(valor ?? ""));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+/**
+ * Reenvío de un aviso que no salió en su momento (datos.atrasado = true). Sin
+ * esta marca, un pedido de hace dos días llega como si fuera de hoy y compras
+ * no tiene forma de saber que ya pasó tiempo.
+ */
+function atraso(datos: Record<string, unknown>, fechaEvento: unknown) {
+  if (datos.atrasado !== true) return { prefijo: "[Compras]", nota: undefined };
+  const cuando = fechaHora(fechaEvento);
+  return {
+    prefijo: "[Compras · atrasado]",
+    nota: `Este aviso es${cuando ? ` del ${escapeHtml(cuando)}` : " de antes"} y no te llegó en su momento por una falla en el envío de mails. Te lo reenviamos ahora.`,
+  };
+}
+
 function linkSolicitud(requestId: string) {
   return `${APP_URL}/compras?open=${encodeURIComponent(requestId)}`;
 }
@@ -167,6 +190,7 @@ function linkAviso(avisoId: string) {
 function plantilla(o: {
   encabezado: string;
   bajada?: string;
+  nota?: string;
   ficha: Array<[string, string | null | undefined]>;
   cuerpo?: string;
   boton?: { texto: string; url: string };
@@ -185,6 +209,7 @@ function plantilla(o: {
 <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700">Klase A · Compras</div>
 <h1 style="margin:6px 0 4px;font-size:20px;line-height:1.3;color:#0f172a">${o.encabezado}</h1>
 ${o.bajada ? `<p style="margin:0;color:#475569;font-size:14px;line-height:1.45">${o.bajada}</p>` : ""}
+${o.nota ? `<p style="margin:12px 0 0;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;color:#1e3a8a;font-size:13px;line-height:1.45">${o.nota}</p>` : ""}
 </td></tr>
 ${filas ? `<tr><td style="padding:14px 24px 4px"><table role="presentation" cellpadding="0" cellspacing="0">${filas}</table></td></tr>` : ""}
 ${o.cuerpo ? `<tr><td style="padding:10px 24px 4px">${o.cuerpo}</td></tr>` : ""}
@@ -313,7 +338,7 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
     if (fila.aviso_id) {
       const { data } = await supabase
         .from("compras_avisos")
-        .select("id,titulo,detalle,material,destino,prioridad,project:produccion_obras!compras_avisos_project_id_fkey(codigo)")
+        .select("id,titulo,detalle,material,destino,prioridad,created_at,project:produccion_obras!compras_avisos_project_id_fkey(codigo)")
         .eq("id", fila.aviso_id)
         .maybeSingle();
       aviso = data ?? null;
@@ -332,9 +357,10 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
     ];
     const url = fila.aviso_id ? linkAviso(fila.aviso_id) : `${APP_URL}/compras?tab=avisos`;
     return {
-      subject: `[Compras] Nuevo aviso${actor ? ` de ${enLinea(actor, 40)}` : ""}: ${enLinea(titulo)}`,
+      subject: `${atraso(datos, aviso?.created_at ?? fila.created_at).prefijo} Nuevo aviso${actor ? ` de ${enLinea(actor, 40)}` : ""}: ${enLinea(titulo)}`,
       html: plantilla({
         encabezado: "Nuevo aviso a compras",
+        nota: atraso(datos, aviso?.created_at ?? fila.created_at).nota,
         ficha,
         cuerpo: detalle ? citaMensaje(detalle) : undefined,
         boton: { texto: "Ver el aviso", url },
@@ -371,8 +397,8 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
       ...items.map((i) => `- ${i.quantity ?? ""} ${i.unit ?? ""} ${i.description ?? ""}${linkSeguro(i.link_url) ? ` (${linkSeguro(i.link_url)})` : ""}`.trim()),
     ].filter(Boolean).join("\n");
     return {
-      subject: `[Compras] Nueva solicitud${quien ? ` de ${enLinea(quien, 40)}` : ""}: ${enLinea(titulo)}`,
-      html: plantilla({ encabezado: "Nueva solicitud de compra", ficha, cuerpo, boton: { texto: "Ver la solicitud", url } }),
+      subject: `${atraso(datos, pedido.created_at).prefijo} Nueva solicitud${quien ? ` de ${enLinea(quien, 40)}` : ""}: ${enLinea(titulo)}`,
+      html: plantilla({ encabezado: "Nueva solicitud de compra", nota: atraso(datos, pedido.created_at).nota, ficha, cuerpo, boton: { texto: "Ver la solicitud", url } }),
       text: textoPlano({ encabezado: "Nueva solicitud de compra", ficha, extra, url }),
     };
   }
@@ -416,8 +442,8 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
     ].join("");
     const encabezado = actor ? `${escapeHtml(actor)} escribió en una solicitud` : "Nuevo mensaje en una solicitud";
     return {
-      subject: `[Compras] ${actor ? `${enLinea(actor, 40)} escribió en` : "Mensaje en"}: ${enLinea(titulo)}`,
-      html: plantilla({ encabezado, ficha, cuerpo, boton: { texto: "Ver la solicitud y responder", url } }),
+      subject: `${atraso(datos, fechaMensaje ?? fila.created_at).prefijo} ${actor ? `${enLinea(actor, 40)} escribió en` : "Mensaje en"}: ${enLinea(titulo)}`,
+      html: plantilla({ encabezado, nota: atraso(datos, fechaMensaje ?? fila.created_at).nota, ficha, cuerpo, boton: { texto: "Ver la solicitud y responder", url } }),
       text: textoPlano({ encabezado, ficha, extra: cuerpoMensaje, url }),
     };
   }
@@ -449,9 +475,10 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
       ["Prioridad", pedido.priority ? escapeHtml(etiqueta(PRIORIDADES, pedido.priority)) : null],
     ];
     return {
-      subject: `[Compras] ${enLinea(titulo)}: ${antes} → ${nuevo}`,
+      subject: `${atraso(datos, fila.created_at).prefijo} ${enLinea(titulo)}: ${antes} → ${nuevo}`,
       html: plantilla({
         encabezado: "Cambió el estado de una solicitud",
+        nota: atraso(datos, fila.created_at).nota,
         ficha,
         cuerpo: items.length ? tablaRenglones(items, { max: 6 }) : undefined,
         boton: { texto: "Ver la solicitud", url },
@@ -471,8 +498,8 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
       ["Necesario para", pedido.needed_at ? escapeHtml(fecha(pedido.needed_at)) : null],
     ];
     return {
-      subject: `[Compras] Prioridad ${nuevo}: ${enLinea(titulo)}`,
-      html: plantilla({ encabezado: "Cambió la prioridad de una solicitud", ficha, boton: { texto: "Ver la solicitud", url } }),
+      subject: `${atraso(datos, fila.created_at).prefijo} Prioridad ${nuevo}: ${enLinea(titulo)}`,
+      html: plantilla({ encabezado: "Cambió la prioridad de una solicitud", nota: atraso(datos, fila.created_at).nota, ficha, boton: { texto: "Ver la solicitud", url } }),
       text: textoPlano({ encabezado: "Cambió la prioridad de una solicitud", ficha, url }),
     };
   }
@@ -484,8 +511,9 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
     const encabezado = parcial ? `Llegó parte del pedido a ${lugar}` : `El pedido llegó a ${lugar}`;
     const ficha = fichaPedido(pedido);
     return {
-      subject: `[Compras] ${parcial ? "Recepción parcial" : "Recibido"} en ${lugar}: ${enLinea(titulo)}`,
+      subject: `${atraso(datos, fila.created_at).prefijo} ${parcial ? "Recepción parcial" : "Recibido"} en ${lugar}: ${enLinea(titulo)}`,
       html: plantilla({
+        nota: atraso(datos, fila.created_at).nota,
         encabezado,
         ficha,
         cuerpo: mensaje ? citaMensaje(mensaje) : undefined,
@@ -503,19 +531,28 @@ async function armarMail(supabase: SupabaseClient, fila: Fila): Promise<Resultad
 async function mandar(mail: Mail) {
   const key = Deno.env.get("RESEND_API_KEY") ?? "";
   if (!key) throw new Error("Falta el secreto RESEND_API_KEY en Supabase.");
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: Deno.env.get("EMAIL_FROM") || REMITENTE,
-      to: [Deno.env.get("COMPRAS_EMAIL") || DESTINATARIO],
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-    }),
+  const cuerpo = JSON.stringify({
+    from: Deno.env.get("EMAIL_FROM") || REMITENTE,
+    to: [Deno.env.get("COMPRAS_EMAIL") || DESTINATARIO],
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
   });
-  if (!response.ok) {
+  // Resend acepta 2 envíos por segundo. Si varios avisos salen juntos -alguien
+  // carga cinco pedidos seguidos- los que se pasan vuelven con 429: se espera
+  // y se reintenta en vez de marcarlos como error.
+  for (let intento = 1; ; intento++) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+      body: cuerpo,
+    });
+    if (response.ok) return;
     const detalle = await response.text();
+    if (response.status === 429 && intento < 4) {
+      await esperar(1_200 * intento);
+      continue;
+    }
     throw new Error(`Resend rechazó el mail (${response.status}): ${detalle.slice(0, 300)}`);
   }
 }

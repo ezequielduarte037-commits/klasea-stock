@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { C } from "@/theme";
+import { esDispositivoTactil, usarPanelCompleto } from "@/lib/modoColector";
 
 /**
  * ColectorHomeScreen — pantalla de arranque del colector. Ruta: /colector
@@ -67,9 +68,31 @@ export default function ColectorHomeScreen({ profile, signOut }) {
         </button>
       ))}
 
-      <div style={{ textAlign: "center", color: C.dim, fontSize: 11.5, marginTop: 22 }}>
-        Podés cambiar de pantalla en cualquier momento desde los botones de arriba.
-      </div>
+      {/* Antes acá decía "Podés cambiar de pantalla desde los botones de arriba",
+          pero en este modo no hay menú ni botones: quien caía acá desde una
+          computadora quedaba atrapado con dos opciones. En el PDA y en los
+          celulares este menú es lo que corresponde y no se ofrece salida, para
+          que nadie lo pierda con un toque sin querer. */}
+      {!esDispositivoTactil() && (
+        <div style={{ marginTop: 22, paddingTop: 16, borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
+          <div style={{ fontSize: 12.5, color: C.dim, marginBottom: 10, lineHeight: 1.45 }}>
+            Este es el menú del colector de mano. En una computadora tenés el panel completo de pañol.
+          </div>
+          <button
+            type="button"
+            onClick={usarPanelCompleto}
+            style={{
+              background: C.blue, color: "var(--inverse-text)", border: 0, borderRadius: 10,
+              padding: "11px 18px", fontSize: 14, fontWeight: 850, fontFamily: C.sans, cursor: "pointer",
+            }}
+          >
+            Ir al panel completo de pañol
+          </button>
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 8 }}>
+            Esta computadora lo va a recordar.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

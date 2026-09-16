@@ -821,12 +821,38 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedId, setSelectedId] = useState(() => searchParams.get("open") || null);
-  const [selectedAvisoId, setSelectedAvisoId] = useState(() => searchParams.get("aviso") || null);
-  const [activeTab, setActiveTab] = useState(() => {
-    const tab = searchParams.get("tab");
-    return tab === "cc" || tab === "avisos" ? tab : "mine";
-  });
+  // La URL es la fuente de verdad para aperturas y solapas. Así un link de una
+  // notificación también funciona cuando /compras ya estaba montado.
+  const selectedId = searchParams.get("open") || null;
+  const selectedAvisoId = searchParams.get("aviso") || null;
+  const tabPedida = searchParams.get("tab") || "";
+  const activeTab = tabPedida === "cc" || tabPedida === "avisos" ? tabPedida : "mine";
+  const setSelectedId = useCallback((id) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set("open", id);
+    else next.delete("open");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  const setSelectedAvisoId = useCallback((id) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set("aviso", id);
+    else next.delete("aviso");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  const openAviso = useCallback((id) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "avisos");
+    if (id) next.set("aviso", id);
+    else next.delete("aviso");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  const setActiveTab = useCallback((tab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "mine") next.delete("tab");
+    else next.set("tab", tab);
+    if (tab !== "avisos") next.delete("aviso");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [showNew, setShowNew] = useState(true);
   const [attachmentFiles, setAttachmentFiles] = useState([]);
   const [ccUserIds, setCcUserIds] = useState([]);
@@ -845,7 +871,6 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   // abierta cambiaba la dirección y el efecto la pisaba de vuelta con la solapa
   // que estuviera puesta. Los links del buscador global a una solapa concreta
   // no funcionaban por eso.
-  const tabPedida = searchParams.get("tab") || "";
   const managerTab = MANAGER_TABS.includes(tabPedida) ? tabPedida : "pendientes";
   const setManagerTab = useCallback((siguiente) => {
     const next = new URLSearchParams(searchParams);
@@ -965,8 +990,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     newItemLink,
   ]);
 
-  // Sincronizar filtros + tab + pedido abierto a la URL para que sean
-  // compartibles/back-friendly. También permite deep-link tipo ?open=<id>.
+  // Sincronizar filtros a la URL. Solapas y elementos abiertos ya leen y
+  // escriben la URL directamente para que los deep-links sean reactivos.
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     URL_FILTER_KEYS.forEach((k) => {
@@ -976,21 +1001,11 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       if (v && !isDefault) next.set(k, v);
       else next.delete(k);
     });
-    // La solapa del manager ya la escribe `setManagerTab`: si además se
-    // escribiera acá, este efecto le pisaría el valor a cualquier link entrante.
-    if (!manager) {
-      if (activeTab !== "mine") next.set("tab", activeTab);
-      else next.delete("tab");
-    }
-    if (selectedId) next.set("open", selectedId);
-    else next.delete("open");
-    if (((manager && managerTab === "avisos") || (!manager && activeTab === "avisos")) && selectedAvisoId) next.set("aviso", selectedAvisoId);
-    else next.delete("aviso");
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab, selectedId, selectedAvisoId, manager, managerTab]);
+  }, [filters]);
 
   function markRead(requestId, lastAuthorId) {
     if (lastAuthorId) {
@@ -2138,10 +2153,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     loading={loading}
                     error={error || avisosError}
                     onSelectRequest={(id) => setSelectedId(id)}
-                    onSelectAviso={(id) => {
-                      setSelectedAvisoId(id);
-                      setManagerTab("avisos");
-                    }}
+                    onSelectAviso={openAviso}
                     onGoList={(patch = {}) => {
                       setFilters((current) => ({ ...current, ...patch }));
                       setManagerTab("lista");

@@ -2135,7 +2135,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       <div style={{ minWidth: 0 }}>
                         <div style={{ color: C.text, fontSize: isMobile ? 14 : 14, fontWeight: 750, lineHeight: 1.35, overflowWrap: "anywhere" }}>{item.description}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 5 }}>
-                          {(item.supplier_description || item.supplier_code || item.supplier_components?.length) && (
+                          {/* "> 0" y no el largo a secas: supplier_components vale [] por defecto,
+                              y {0 && ...} React lo dibuja como un "0" suelto en cada renglón. */}
+                          {(item.supplier_description || item.supplier_code || item.supplier_components?.length > 0) && (
                             <span title="Así se copia e imprime para el proveedor" style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>
                               Para proveedor: {item.supplier_description || `${item.supplier_components.length} renglones desglosados`}{item.supplier_code ? ` · ${item.supplier_code}` : ""}
                             </span>
