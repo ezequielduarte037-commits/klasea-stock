@@ -217,6 +217,16 @@ html[data-low-performance="true"] [style*="box-shadow"] {
     min-width: 0;
   }
 
+  /* Las piezas de una sola línea no se achican por debajo de su texto. Con el
+     min-width: 0 de arriba, en las filas que se deslizan (filtros, pestañas)
+     los chips se apretaban y la cuenta quedaba afuera del borde, encimada con
+     el chip de al lado. */
+  .ui-chip,
+  .ui-btn,
+  .ui-tab {
+    min-width: auto;
+  }
+
   input,
   select,
   textarea {

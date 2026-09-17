@@ -1035,6 +1035,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
         @media (max-width: 899px) {
           .conp-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
           .conp-filtros::-webkit-scrollbar { display: none; }
+          .conp-filtros > * { flex-shrink: 0; }
         }
       `}</style>
       {/* Encabezado compacto: título + acciones, y una fila de navegación con los

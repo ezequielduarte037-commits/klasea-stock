@@ -437,6 +437,7 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
         @media (max-width: 899px) {
           .norm-root .norm-toolbar { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
           .norm-root .norm-toolbar::-webkit-scrollbar { display:none; }
+          .norm-root .norm-toolbar > * { flex-shrink:0; }
         }
       `}</style>
       <div className="norm-toolbar" style={{ minHeight: isMobile ? 44 : 40, padding: isMobile ? "6px 10px" : "5px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft }}>

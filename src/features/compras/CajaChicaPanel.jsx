@@ -485,7 +485,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       // para seguir cargando movimientos.
       const preferred = nextCierres.find((cierre) => cierre.id === preferredId);
       const abierta = nextCierres.find((cierre) => cierre.estado !== "cerrado");
-      const siguiente = preferred?.estado !== "cerrado"
+      const siguiente = preferred && preferred.estado !== "cerrado"
         ? preferred
         : (abierta || preferred || nextCierres[0]);
       setSelectedCierreId(siguiente?.id || "");

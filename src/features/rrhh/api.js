@@ -248,8 +248,8 @@ async function requireAttendanceManager() {
     .eq("id", authData.user.id)
     .maybeSingle();
   if (profileError) throw profileError;
-  if (!profile?.is_admin && !["admin", "rrhh", "administracion"].includes(profile?.role)) {
-    throw new Error("Solo RRHH o un administrador pueden modificar el presentismo.");
+  if (!profile?.is_admin && !["admin", "rrhh", "administracion", "tecnica"].includes(profile?.role)) {
+    throw new Error("Solo RRHH, Técnica o un administrador pueden modificar el presentismo.");
   }
   return authData.user.id;
 }

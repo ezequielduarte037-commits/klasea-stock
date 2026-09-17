@@ -112,6 +112,7 @@ function ScreenStyles() {
     @media (max-width: 899px) {
       .sob-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
       .sob-filtros::-webkit-scrollbar { display: none; }
+      .sob-filtros > * { flex-shrink: 0; }
     }
     @media (prefers-reduced-motion: reduce) { .sob-detail { animation: none; } .sob-row { transition: none; } }
   `}</style>;

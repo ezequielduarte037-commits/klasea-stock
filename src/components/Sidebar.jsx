@@ -401,15 +401,24 @@ const CSS = `
   .sb-boton:hover { color: var(--text); border-color: var(--border-2); background: var(--panel-2); }
   .sb-boton.is-activo { color: var(--blue); border-color: var(--blue-border); background: var(--blue-soft); }
   .sb-salir:hover { color: var(--red); border-color: var(--red-border); background: var(--red-soft); }
+  /* Fila de herramientas: con el panel abierto hay 244 px útiles. Antes sumaba
+     264 (campanita de 40, tres botones bordeados de 34 y el tema) y el selector
+     de tema quedaba cortado contra el borde. La campanita va con padding 16 para
+     seguir centrada en la columna del riel (16 + 36/2 = 34). */
+  .sb-pie-fila.es-herramientas { gap: 4px; padding-left: 16px; }
+  .sb-herramientas { display: flex; align-items: center; gap: 2px; }
+  .sb-herramientas .sb-boton { width: 32px; height: 32px; border-color: transparent; }
+  .sb-herramientas .sb-boton:hover { border-color: transparent; }
   .sb-tema { display: flex; gap: 2px; margin-left: auto; padding: 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); flex-shrink: 0; }
-  .sb-tema button { width: 28px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--dim); transition: color .16s, background-color .16s; }
+  .sb-tema button { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--dim); transition: color .16s, background-color .16s; }
   .sb-tema button:hover { color: var(--text); background: var(--panel-2); }
   .sb-tema button[aria-checked="true"] { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--border-2); }
 
   /* Celular: cajón siempre abierto y blancos más grandes para el dedo. */
   .sb-aside[data-movil="true"] .sb-item { height: 46px; font-size: 14.5px; }
-  .sb-aside[data-movil="true"] .sb-boton { width: 40px; height: 40px; }
-  .sb-aside[data-movil="true"] .sb-tema button { width: 36px; height: 34px; }
+  .sb-aside[data-movil="true"] .sb-boton,
+  .sb-aside[data-movil="true"] .sb-herramientas .sb-boton { width: 40px; height: 40px; }
+  .sb-aside[data-movil="true"] .sb-tema button { width: 34px; height: 34px; }
 `;
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -918,17 +927,17 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           montada: antes el riel y el panel tenían cada uno la suya y pasar el
           mouse las desmontaba y volvía a montar. */}
       <div className="sb-pie">
-        <div className="sb-pie-fila">
+        <div className="sb-pie-fila es-herramientas">
           {/* En el celular la campanita está en la barra superior. */}
           {!isMobile && (
             <NotificacionesBell
               profile={profile}
-              size={40}
+              size={36}
               iconSize={17}
-              estiloBoton={{ borderRadius: 12, background: "transparent" }}
+              estiloBoton={{ borderRadius: 11, background: "transparent" }}
             />
           )}
-          <div className="sb-solo-abierto" style={{ display: "flex", gap: 6 }}>
+          <div className="sb-herramientas sb-solo-abierto">
             {[
               !isMobile && {
                 key: "pantalla",

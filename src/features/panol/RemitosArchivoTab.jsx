@@ -601,6 +601,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
             mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
           }
           .panol-archivo-filtros::-webkit-scrollbar { display: none; }
+          .panol-archivo-filtros > * { flex-shrink: 0; }
           .panol-archivo-filtros button { min-height: 38px; }
         }
       `}</style>

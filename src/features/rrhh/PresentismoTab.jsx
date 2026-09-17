@@ -465,7 +465,7 @@ function exportStyledXlsx(filename, sheets) {
   downloadBlob(filename, zipStore(files));
 }
 
-export default function PresentismoTab({ empleados, contratistas, config, esAdmin, onChanged }) {
+export default function PresentismoTab({ empleados, contratistas, config, canEdit = false, canArchiveEmployees = false, onChanged }) {
   const hoy = hoyIso();
   const [modo, setModo] = useState("dia");
   const [fecha, setFecha] = useState(hoy);
@@ -643,7 +643,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
   }
 
   async function borrarEmpleado(emp) {
-    if (!esAdmin || !emp?.id) return;
+    if (!canArchiveEmployees || !emp?.id) return;
     const ok = window.confirm(`¿Borrar a ${emp.nombre} del presentismo?\n\nSe marca como inactivo y deja de aparecer, sin borrar el historial.`);
     if (!ok) return;
     const { error: err } = await supabase
@@ -924,7 +924,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
             <button type="button" style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={() => setSeguimientoOpen(true)}>
               <Search size={14} /> Seguimiento por persona
             </button>
-            {esAdmin && (
+            {canEdit && (
               <button type="button" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={() => setAusenciaModal(true)}>
                 <Stethoscope size={14} /> Cargar reposo / vacaciones
               </button>
@@ -958,7 +958,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                     <Th right>Salida</Th>
                     <Th right>Horas</Th>
                     <Th>Obs.</Th>
-                    {esAdmin && <Th>Acciones</Th>}
+                    {canArchiveEmployees && <Th>Acciones</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1014,7 +1014,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                           {r.justificacion ? "Revisar" : "Corregir / justificar"}
                         </button>
                       </Td>
-                      {esAdmin && (
+                      {canArchiveEmployees && (
                         <Td>
                           <button
                             className="presentismo-action"
@@ -1068,7 +1068,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                       >
                         {justificacion ? <CheckCircle2 size={14} /> : "Justificar ausencia"}
                       </button>
-                      {esAdmin && (
+                      {canArchiveEmployees && (
                         <button
                           className="presentismo-action"
                           type="button"
@@ -1092,7 +1092,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       {justModal && (
         <JustificacionModal
           data={justModal}
-          canEditTime={esAdmin}
+          canEditTime={canEdit}
           onClose={() => setJustModal(null)}
           onSave={guardarRevision}
         />

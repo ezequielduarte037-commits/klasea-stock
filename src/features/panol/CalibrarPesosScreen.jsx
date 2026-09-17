@@ -32,6 +32,7 @@ const CSS = `
     .calp-grid { grid-template-columns: 1fr; }
     .calp-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
     .calp-filtros::-webkit-scrollbar { display: none; }
+    .calp-filtros > * { flex-shrink: 0; }
   }
 `;
 

@@ -48,6 +48,20 @@ export function canAccessRrhh(profile) {
   return ["admin", "rrhh", "tecnica", "administracion"].includes(profile.role);
 }
 
+/** Gestión operativa de asistencia: revisar horarios, justificar ausencias y
+ * asignar personas a los frentes de trabajo. Técnica necesita este alcance
+ * para planificar, sin convertirla en administradora de legajos o importaciones. */
+export function canManagePresentismo(profile) {
+  if (!profile) return false;
+  if (profile.is_admin) return true;
+  return ["admin", "rrhh", "administracion", "tecnica"].includes(profile.role);
+}
+
+/** Oficios, sus categorías de retiro y asignaciones de personas a obras. */
+export function canManageOficiosYObras(profile) {
+  return canManagePresentismo(profile);
+}
+
 /**
  * Quién puede VER el legajo de empleados en RRHH (nombre, DNI, sede, grupo,
  * si ficha o no). Editarlo es otra cosa y sigue siendo de RRHH y

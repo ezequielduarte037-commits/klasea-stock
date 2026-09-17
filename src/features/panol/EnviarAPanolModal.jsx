@@ -544,7 +544,7 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
         {shelves.map(([shelfCode, layout]) => {
           const active = shelfCode === code;
           const zone = shelfCode.charAt(0);
-          const color = zone === "A" ? "#7eb3ff" : zone === "B" ? "#a78bfa" : zone === "C" ? "#67e8f9" : zone === "D" ? "#34d399" : zone === "E" ? "#a78bfa" : zone === "F" ? "#a78bfa" : zone === "G" ? "#5eead4" : zone === "H" ? "#fb923c" : zone === "I" ? "#5eead4" : zone === "J" ? "#a5b4fc" : zone === "K" ? "#a78bfa" : zone === "P" ? "#f87171" : "#67e8f9";
+          const color = zone === "A" ? "#7eb3ff" : zone === "B" ? "#a78bfa" : zone === "C" ? "#67e8f9" : zone === "D" ? "#34d399" : zone === "E" ? "#a78bfa" : zone === "F" ? "#a78bfa" : zone === "G" ? "#5eead4" : zone === "H" ? "#f472b6" : zone === "I" ? "#5eead4" : zone === "J" ? "#a5b4fc" : zone === "K" ? "#a78bfa" : zone === "P" ? "#f87171" : "#67e8f9";
           return (
             <g key={shelfCode} onClick={() => onPick?.(shelfCode)} style={{ cursor: onPick ? "pointer" : "default" }}>
               <rect

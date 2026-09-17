@@ -1087,6 +1087,7 @@ export default function SolicitudesPanolScreen({ profile }) {
         .sp-root .sp-filtros::-webkit-scrollbar{display:none}
         @media (max-width: 899px){
           .sp-root .sp-filtros{flex-wrap:nowrap}
+          .sp-root .sp-filtros > *{flex-shrink:0}
         }
       `}</style>
 

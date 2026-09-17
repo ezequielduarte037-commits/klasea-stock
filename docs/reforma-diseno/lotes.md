@@ -112,11 +112,11 @@ Rutas de archivos relativas a `src/features/`. Una carpeta terminada en `/` incl
   - Postventa pliega el menú en el modo mapa (`plegarMenu`) y tiene estilos del mapa (Leaflet) para el tema claro.
   - `BarcoCalendarioPanel` también se usa en Laminación.
 
-## 12 · Precios, costos, catálogo y memorias
+## 12 · Precios, costos y catálogo
 
-- **Rutas:** `/precios`, `/costo-barco`, `/catalogo-maestro`, `/memorias`
-- **Archivos:** `precios/`, `costos/`, `catalogo/`, `memorias/`
-- **Ojo:** Memorias tiene una hoja para imprimir (estilos `SHEET` y `@media print`): no cambies cómo sale en papel.
+- **Rutas:** `/precios`, `/costo-barco`, `/catalogo-maestro`
+- **Archivos:** `precios/`, `costos/`, `catalogo/`
+- **Ojo:** **Memorias salió de este lote**: la está rehaciendo Claude junto con su backend (conexión con obras, listas de compras, compras y pañol). No toques `memorias/` ni `obras/mapa/memoriaFields.jsx` / `obras/mapa/persistence.js`.
 
 ## 13 · RR. HH., configuración y sistema
 

@@ -4864,6 +4864,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
           }
           .stock-wms-chips::-webkit-scrollbar { display: none; }
+          .stock-wms-chips > * { flex-shrink: 0; }
         }
       `}</style>
       <div className="stock-wms-root" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>

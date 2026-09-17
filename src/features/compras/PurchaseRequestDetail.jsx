@@ -395,7 +395,7 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
-    } catch (error) {
+    } catch {
       // Mantiene una salida para adjuntos históricos cuya ruta ya no se puede
       // leer con el SDK, sin bloquear el acceso al documento.
       window.open(attachment.url, "_blank", "noopener,noreferrer");

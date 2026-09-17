@@ -1,5 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -136,6 +137,7 @@ const CSS_RECEPCION = `
       mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
     }
     .rp-filtros::-webkit-scrollbar { display: none; }
+    .rp-filtros > * { flex-shrink: 0; }
   }
 `;
 
@@ -201,7 +203,10 @@ function RecepcionTabs({ tab, onTab, ingresarCount = 0 }) {
         {tab === "ingresar" && ingresarCount > 0 && <span className="rp-tab-cuenta">{ingresarCount}</span>}
         <ChevronDown size={13} style={{ transform: menu ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </button>
-      {menu && (
+      {/* En un portal: esta tira vive dentro de PageHeader, que usa
+          backdrop-filter, y eso hace que un position: fixed se ubique respecto
+          del encabezado (corrido y tapado por la lista) en vez de la pantalla. */}
+      {menu && createPortal(
         <>
           <div onClick={() => setMenu(null)} style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 60 }} />
           <div className="rp-menu" role="menu" style={{ top: menu.top, left: menu.left, width: menu.ancho, maxHeight: menu.alto }}>
@@ -227,7 +232,8 @@ function RecepcionTabs({ tab, onTab, ingresarCount = 0 }) {
               );
             })}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );
@@ -636,7 +642,8 @@ export default function RecepcionPanolScreen({ profile }) {
     const activos = envios.filter(needsReception).length;
     const enviados = envios.filter((e) => e.estado === "enviado").length;
     const parcialesEnvio = envios.filter((e) => e.estado === "parcial").length;
-    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems, enviados, parcialesEnvio };
+    const recibidosEstado = envios.filter((e) => e.estado === "recibido").length;
+    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems, enviados, parcialesEnvio, recibidosEstado };
   }, [envios]);
 
   // El aviso flotante de pendientes ahora vive en NotificacionesBell global.
@@ -675,7 +682,9 @@ export default function RecepcionPanolScreen({ profile }) {
     activos: kpis.activos,
     enviado: kpis.enviados,
     parcial: kpis.parcialesEnvio,
-    recibido: kpis.recibidos,
+    // Igual que el filtro: estado "recibido". kpis.recibidos suma además los
+    // que tienen todo recibido pero otro estado, y no coincidía con la lista.
+    recibido: kpis.recibidosEstado,
     todos: kpis.total,
   };
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
-import { canViewEmpleados } from "@/lib/permissions";
+import { canManageOficiosYObras, canManagePresentismo, canViewEmpleados } from "@/lib/permissions";
 import { C } from "@/theme";
 import { fetchConfig, fetchContratistas, fetchEmpleados, isMissingTable } from "./api";
 import DashboardTab from "./DashboardTab";
@@ -35,6 +35,8 @@ export default function RrhhScreen({ profile }) {
   // Técnica ve el legajo pero no lo toca: EmpleadosTab con esAdmin en false ya
   // esconde alta, baja, edición y selección múltiple.
   const verEmpleados = canViewEmpleados(profile);
+  const puedeEditarPresentismo = canManagePresentismo(profile);
+  const puedeEditarOficiosYObras = canManageOficiosYObras(profile);
 
   const requestedTab = searchParams.get("tab") || "presentismo";
   const [tab, setTab] = useState(() => TABS.some((item) => item.key === requestedTab) ? requestedTab : "presentismo");
@@ -62,11 +64,14 @@ export default function RrhhScreen({ profile }) {
   }, [cargar]);
 
   useEffect(() => {
-    const permitted = esAdmin || BASICAS.includes(requestedTab) || (verEmpleados && requestedTab === "empleados");
+    const permitted = esAdmin
+      || BASICAS.includes(requestedTab)
+      || (verEmpleados && requestedTab === "empleados")
+      || (puedeEditarOficiosYObras && requestedTab === "oficios");
     if (!permitted || !TABS.some((item) => item.key === requestedTab)) return undefined;
     const timer = window.setTimeout(() => setTab(requestedTab), 0);
     return () => window.clearTimeout(timer);
-  }, [esAdmin, requestedTab, verEmpleados]);
+  }, [esAdmin, puedeEditarOficiosYObras, requestedTab, verEmpleados]);
 
   const listo = empleados != null && contratistas != null && config != null;
 
@@ -103,7 +108,7 @@ export default function RrhhScreen({ profile }) {
             <>
               {/* Tabs */}
               <div style={{ display: "flex", gap: 3, marginBottom: 16, padding: 4, width: "fit-content", maxWidth: "100%", overflowX: "auto", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10 }}>
-                {TABS.filter(t => esAdmin || BASICAS.includes(t.key) || (verEmpleados && t.key === "empleados")).map(t => {
+                {TABS.filter(t => esAdmin || BASICAS.includes(t.key) || (verEmpleados && t.key === "empleados") || (puedeEditarOficiosYObras && t.key === "oficios")).map(t => {
                   const on = tab === t.key;
                   const Icon = t.icon;
                   return (
@@ -124,10 +129,10 @@ export default function RrhhScreen({ profile }) {
                 })}
               </div>
 
-              {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} esAdmin={esAdmin} onChanged={cargar} />}
+              {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} canEdit={puedeEditarPresentismo} canArchiveEmployees={esAdmin} onChanged={cargar} />}
               {tab === "extras" && <ExtrasTab empleados={empleados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
               {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
-              {tab === "oficios" && <OficiosObrasTab empleados={empleados} esAdmin={esAdmin} isMobile={isMobile} onChanged={cargar} />}
+              {tab === "oficios" && <OficiosObrasTab empleados={empleados} esAdmin={puedeEditarOficiosYObras} isMobile={isMobile} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}
               {tab === "dashboard" && <DashboardTab empleados={empleados} config={config} onNavigate={setTab} />}
             </>
