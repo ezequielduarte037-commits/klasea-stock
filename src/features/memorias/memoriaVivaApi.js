@@ -3,7 +3,7 @@ import { loadMemoriasFromSupabase } from "@/features/obras/mapa/persistence";
 
 // Datos de Memoria viva. Por ahora lee lo que ya existe (obra_memorias, la
 // matriz y los materiales de la obra); cuando se aplique la migración
-// 20260917120000_memoria_viva.sql, fetchVinculos empieza a traer los vínculos
+// 20260917130000_memoria_viva.sql, fetchVinculos empieza a traer los vínculos
 // confirmados y la pantalla deja de depender sólo de las sugerencias.
 
 export async function fetchObrasActivas() {

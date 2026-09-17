@@ -5,7 +5,7 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { EMPLEADO_SELECT, fetchConfig, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { EMPLEADO_SELECT, fetchAsignacionesVigentes, fetchConfig, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { SeguimientoPersonaModal } from "./PresentismoTab";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
@@ -19,6 +19,18 @@ function searchText(value) {
 
 function digits(value) {
   return String(value ?? "").replace(/\D/g, "");
+}
+
+function fmtFechaBaja(value) {
+  if (!value) return "Sin fecha registrada";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin fecha registrada";
+  return new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function timeOf(value) {
+  const timestamp = new Date(value ?? 0).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 function initials(nombre) {
@@ -50,6 +62,8 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [q, setQ] = useState(initialQuery);
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
+  const [filtroOficio, setFiltroOficio] = useState("todos");
+  const [filtroObra, setFiltroObra] = useState("todas");
   const [vista, setVista] = useState(initialView === "ex" ? "ex" : "activos");
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
@@ -64,6 +78,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [bulkGrupo, setBulkGrupo] = useState("casa");
   const [bulkContratistaId, setBulkContratistaId] = useState("");
   const [bulkSede, setBulkSede] = useState("Pampa");
+  const [asignacionesVigentes, setAsignacionesVigentes] = useState([]);
 
   useEffect(() => {
     setQ(initialQuery || "");
@@ -71,11 +86,48 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     setSelIds(new Set());
   }, [initialQuery, initialView]);
 
+  useEffect(() => {
+    let vigente = true;
+    fetchAsignacionesVigentes()
+      .then((rows) => { if (vigente) setAsignacionesVigentes(rows); })
+      .catch(() => { if (vigente) setAsignacionesVigentes([]); });
+    return () => { vigente = false; };
+  }, [empleados]);
+
+  const obrasPorEmpleado = useMemo(() => {
+    const result = new Map();
+    for (const asignacion of asignacionesVigentes) {
+      if (!asignacion.empleado_id || !asignacion.obra_id) continue;
+      const rows = result.get(asignacion.empleado_id) ?? [];
+      rows.push(asignacion);
+      result.set(asignacion.empleado_id, rows);
+    }
+    return result;
+  }, [asignacionesVigentes]);
+
+  const oficiosDisponibles = useMemo(() => {
+    const unique = new Map();
+    for (const empleado of empleados ?? []) {
+      if (empleado.oficio_id && empleado.oficio?.nombre) unique.set(empleado.oficio_id, empleado.oficio.nombre);
+    }
+    return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
+  }, [empleados]);
+
+  const obrasDisponibles = useMemo(() => {
+    const unique = new Map();
+    for (const asignacion of asignacionesVigentes) {
+      if (asignacion.obra_id && asignacion.obra?.codigo) unique.set(asignacion.obra_id, asignacion.obra);
+    }
+    return [...unique.values()].sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
+  }, [asignacionesVigentes]);
+
   const filtrados = useMemo(() => {
     let rows = empleados ?? [];
     rows = rows.filter(e => vista === "ex" ? e.activo === false : e.activo !== false);
     if (vista === "activos" && !verNoFichan) rows = rows.filter(e => e.ficha !== false);
     if (filtroSede !== "todas") rows = rows.filter(e => e.sede === filtroSede);
+    if (filtroOficio !== "todos") rows = rows.filter(e => e.oficio_id === filtroOficio);
+    if (filtroObra !== "todas") rows = rows.filter(e => (obrasPorEmpleado.get(e.id) ?? []).some(a => a.obra_id === filtroObra));
     if (filtroGrupo === "casa") rows = rows.filter(e => e.grupo === "casa");
     else if (filtroGrupo === "contratistas") rows = rows.filter(e => e.grupo === "contratista");
     else if (filtroGrupo === "sin_asignar") rows = rows.filter(e => e.grupo === "sin_asignar");
@@ -87,11 +139,19 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         searchText(e.nombre).includes(qq)
         || searchText(e.dni).includes(qq)
         || searchText(e.nfc_uid).includes(qq)
+        || searchText(e.oficio?.nombre).includes(qq)
+        || (obrasPorEmpleado.get(e.id) ?? []).some(a => searchText(`${a.obra?.codigo} ${a.obra?.linea_nombre}`).includes(qq))
         || (!!qDni && digits(e.dni).includes(qDni))
       );
     }
-    return [...rows].sort((a, b) => searchText(a.nombre).localeCompare(searchText(b.nombre), "es"));
-  }, [empleados, q, filtroGrupo, filtroSede, vista, verNoFichan]);
+    return [...rows].sort((a, b) => {
+      if (vista === "ex") {
+        const byBaja = timeOf(b.fecha_baja) - timeOf(a.fecha_baja);
+        if (byBaja) return byBaja;
+      }
+      return searchText(a.nombre).localeCompare(searchText(b.nombre), "es");
+    });
+  }, [empleados, q, filtroGrupo, filtroSede, filtroOficio, filtroObra, vista, verNoFichan, obrasPorEmpleado]);
 
   const stats = useMemo(() => {
     const act = (empleados ?? []).filter(e => e.activo !== false);
@@ -279,6 +339,14 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <option value="todas">Todas las sedes</option>
           {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <select style={{ ...INP, minWidth: 160 }} value={filtroOficio} onChange={e => setFiltroOficio(e.target.value)}>
+          <option value="todos">Todos los rubros / oficios</option>
+          {oficiosDisponibles.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}
+        </select>
+        <select style={{ ...INP, minWidth: 150 }} value={filtroObra} onChange={e => setFiltroObra(e.target.value)}>
+          <option value="todas">Todas las obras</option>
+          {obrasDisponibles.map(obra => <option key={obra.id} value={obra.id}>{obra.codigo}{obra.linea_nombre ? ` · ${obra.linea_nombre}` : ""}</option>)}
+        </select>
         <input style={{ ...INP, flex: 1, minWidth: 150 }} placeholder="Buscar nombre o DNI…" value={q} onChange={e => setQ(e.target.value)} />
         {vista === "activos" && (
           <label style={{ fontSize: 12, color: C.t2, display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
@@ -344,6 +412,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
       <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>
         {filtrados.length} {vista === "ex" ? "ex empleado" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
+        {vista === "ex" && " · ordenados por baja más reciente"}
       </div>
 
       <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
@@ -351,13 +420,13 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <thead>
             <tr>
               {esAdmin && <Th><input type="checkbox" checked={filtrados.length > 0 && filtrados.every(e => selIds.has(e.id))} onChange={e => e.target.checked ? selAll() : selNone()} /></Th>}
-              <Th>Nombre</Th><Th>DNI</Th><Th>NFC</Th><Th>Sede</Th><Th>Grupo</Th><Th>Ficha</Th><Th>Estado</Th><Th> </Th>
+              <Th>Nombre</Th><Th>DNI</Th><Th>NFC</Th><Th>Sede</Th><Th>Grupo</Th><Th>Rubro / oficio</Th><Th>Obras</Th><Th>Ficha</Th><Th>Estado</Th>{vista === "ex" && <Th>Fecha de baja</Th>}<Th> </Th>
             </tr>
           </thead>
           <tbody>
             {filtrados.length === 0 && (
               <tr>
-                <td colSpan={esAdmin ? 9 : 8} style={{ padding: "34px 18px", textAlign: "center", color: C.t2 }}>
+                <td colSpan={(esAdmin ? 9 : 8) + 2 + (vista === "ex" ? 1 : 0)} style={{ padding: "34px 18px", textAlign: "center", color: C.t2 }}>
                   <div style={{ display: "grid", placeItems: "center", gap: 7 }}>
                     {vista === "ex" ? <Archive size={22} strokeWidth={1.6} /> : <UsersRound size={22} strokeWidth={1.6} />}
                     <span style={{ fontSize: 12.5 }}>
@@ -385,8 +454,15 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                 <Td><NfcBadge uid={e.nfc_uid} /></Td>
                 <Td color={e.sede ? C.t1 : C.t2}>{e.sede ?? "—"}</Td>
                 <Td><GrupoBadge grupo={e.grupo} contratistaNombre={e.contratista?.nombre} /></Td>
+                <Td color={e.oficio?.nombre ? C.blue : C.t2} style={{ fontSize: 12 }}>{e.oficio?.nombre ?? "Sin asignar"}</Td>
+                <Td color={(obrasPorEmpleado.get(e.id) ?? []).length ? C.t1 : C.t2} style={{ fontSize: 11.5, minWidth: 150 }}>
+                  {(obrasPorEmpleado.get(e.id) ?? []).length
+                    ? (obrasPorEmpleado.get(e.id) ?? []).map(a => a.obra?.codigo).filter(Boolean).join(", ")
+                    : "Sin obra"}
+                </Td>
                 <Td color={e.ficha === false ? C.t2 : C.green} style={{ fontSize: 12 }}>{e.ficha === false ? "no ficha" : "ficha"}</Td>
                 <Td color={e.activo === false ? "#f87171" : C.green} style={{ fontSize: 12 }}>{e.activo === false ? "inactivo" : "activo"}</Td>
+                {vista === "ex" && <Td mono color={e.fecha_baja ? "#fbbf24" : C.t2} style={{ fontSize: 11.5 }}>{fmtFechaBaja(e.fecha_baja)}</Td>}
                 <Td>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
                     <button

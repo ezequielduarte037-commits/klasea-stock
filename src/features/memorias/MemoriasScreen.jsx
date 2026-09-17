@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
   ClipboardCopy,
@@ -434,6 +435,7 @@ function ActionButton({ children, onClick, color = C.blue, disabled = false, pri
 }
 
 export default function MemoriasScreen() {
+  const navigate = useNavigate();
   const { isMobile } = useResponsive(980);
   const toast = useToast();
   const [obras, setObras] = useState([]);
@@ -691,6 +693,7 @@ export default function MemoriasScreen() {
             onCopy={copySummary}
             onPrint={() => window.print()}
             onSave={save}
+            onMemoriaViva={() => navigate(selected?.codigo ? `/memorias/viva?obra=${encodeURIComponent(selected.codigo)}` : "/memorias/viva")}
           />
 
           <div style={{
@@ -805,6 +808,7 @@ function PremiumHeader({
   onCopy,
   onPrint,
   onSave,
+  onMemoriaViva,
 }) {
   return (
     <header className="mem-no-print" style={{
@@ -942,6 +946,7 @@ function PremiumHeader({
 
         {!isMobile && (
           <>
+            <ActionButton onClick={onMemoriaViva} color={C.violet}><Sparkles size={14} /> Memoria viva</ActionButton>
             <ActionButton onClick={onLoad} color={C.muted}><RefreshCw size={14} /></ActionButton>
             <ActionButton onClick={onCopy} color={C.teal} disabled={!selected}><ClipboardCopy size={14} /> Copiar</ActionButton>
             <ActionButton onClick={onPrint} color={C.cyan} disabled={!selected}><Printer size={14} /> PDF</ActionButton>

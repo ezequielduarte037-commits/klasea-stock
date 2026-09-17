@@ -10,6 +10,9 @@ export const EMPLEADO_SELECT =
   `${EMPLEADO_BASE_SELECT}, nfc_uid, foto_url, nfc_asignado_at, nfc_asignado_por`;
 
 const EMPLEADO_OFICIO_SELECT =
+  `${EMPLEADO_SELECT}, oficio_id, oficio:rrhh_oficios(id, nombre), fecha_baja`;
+
+const EMPLEADO_OFICIO_LEGACY_SELECT =
   `${EMPLEADO_SELECT}, oficio_id, oficio:rrhh_oficios(id, nombre)`;
 
 export const SEDES = ["Pampa", "Chubut"];
@@ -43,6 +46,7 @@ function withNfcDefaults(rows) {
     nfc_asignado_por: row.nfc_asignado_por ?? null,
     oficio_id: row.oficio_id ?? null,
     oficio: row.oficio ?? null,
+    fecha_baja: row.fecha_baja ?? null,
   }));
 }
 
@@ -53,6 +57,15 @@ export async function fetchEmpleados() {
     .order("nombre");
   if (!rich.error) return rich.data ?? [];
   if (!isMissingColumn(rich.error)) throw rich.error;
+
+  // La fecha de baja se agregó después de oficio/NFC. Conservamos esos datos
+  // mientras una instalación todavía no haya corrido la nueva migración.
+  const oficioLegacy = await supabase
+    .from("rrhh_empleados")
+    .select(EMPLEADO_OFICIO_LEGACY_SELECT)
+    .order("nombre");
+  if (!oficioLegacy.error) return withNfcDefaults(oficioLegacy.data);
+  if (!isMissingColumn(oficioLegacy.error)) throw oficioLegacy.error;
 
   const withNfc = await supabase
     .from("rrhh_empleados")

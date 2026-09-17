@@ -11,7 +11,7 @@
 //
 // Todo este archivo es lógica pura (sin React ni Supabase) para poder probarlo
 // contra datos reales. Mientras no existan memoria_reglas y memoria_vinculos
-// (ver supabase/migrations/20260917120000_memoria_viva.sql), el vínculo entre un
+// (ver supabase/migrations/20260917130000_memoria_viva.sql), el vínculo entre un
 // campo de la memoria y un material se SUGIERE por palabras clave y por el
 // propio valor cargado ("Dekton Entzo" encuentra la mesada Dekton Entzo).
 
@@ -329,4 +329,11 @@ function etiquetaDe(key) {
 
 export function indiceEtapa(key) {
   return ORDEN_ETAPA[key] ?? -1;
+}
+
+// Tono de una zona según el avance promedio de sus ítems ("neutro" si no tiene
+// nada que seguir). Lo usan el perfil del barco y los chips del celular.
+export function tonoDeZona(info) {
+  if (!info || info.avance == null) return "neutro";
+  return ETAPAS[Math.round(info.avance * (ETAPAS.length - 1))]?.tono || "neutro";
 }
