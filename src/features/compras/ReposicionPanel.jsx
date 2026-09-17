@@ -97,8 +97,8 @@ export default function ReposicionPanel({ isMobile = false }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <TrendingDown size={18} color={C.blue} />
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Qué comprar</div>
-          <div style={{ color: C.dim, fontSize: 12, fontWeight: 700 }}>
+          <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Qué comprar</div>
+          <div style={{ color: C.dim, fontSize: 12, fontWeight: 600 }}>
             Calculado con el consumo real del pañol y el plazo de cada proveedor. No hay nada que cargar.
           </div>
         </div>
@@ -108,13 +108,13 @@ export default function ReposicionPanel({ isMobile = false }) {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Material o proveedor…"
-            style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, minWidth: 0 }}
+            style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600, minWidth: 0 }}
           />
         </div>
         <button
           type="button"
           onClick={() => setSoloUrgentes((v) => !v)}
-          style={{ border: `1px solid ${soloUrgentes ? C.blueB : C.border2}`, background: soloUrgentes ? C.blueL : C.panelSolid, color: soloUrgentes ? C.blue : C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}
+          style={{ border: `1px solid ${soloUrgentes ? C.blueB : C.border2}`, background: soloUrgentes ? C.blueL : C.panelSolid, color: soloUrgentes ? C.blue : C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}
         >
           {soloUrgentes ? "Solo lo que falta" : "Todo lo que se sigue"}
         </button>
@@ -122,7 +122,7 @@ export default function ReposicionPanel({ isMobile = false }) {
           type="button"
           onClick={cargar}
           disabled={cargando}
-          style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 6 }}
+          style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         >
           {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
         </button>
@@ -132,14 +132,14 @@ export default function ReposicionPanel({ isMobile = false }) {
       {datos ? (
         <div style={{ ...tarjeta, padding: "11px 14px", display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <span style={{ color: C.red, fontSize: 19, fontWeight: 950, fontFamily: C.mono }}>{datos.resumen.urgentes}</span>
-            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 750, marginLeft: 7 }}>para pedir ahora</span>
+            <span style={{ color: C.red, fontSize: 19, fontWeight: 750, fontFamily: C.mono }}>{datos.resumen.urgentes}</span>
+            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 650, marginLeft: 7 }}>para pedir ahora</span>
           </div>
           <div>
-            <span style={{ color: C.text, fontSize: 19, fontWeight: 950, fontFamily: C.mono }}>{datos.resumen.analizados}</span>
-            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 750, marginLeft: 7 }}>materiales con consumo seguido</span>
+            <span style={{ color: C.text, fontSize: 19, fontWeight: 750, fontFamily: C.mono }}>{datos.resumen.analizados}</span>
+            <span style={{ color: C.muted, fontSize: 12.5, fontWeight: 650, marginLeft: 7 }}>materiales con consumo seguido</span>
           </div>
-          <div style={{ marginLeft: "auto", color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+          <div style={{ marginLeft: "auto", color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
             Plazo {datos.resumen.plazoGeneral} días · medido sobre {datos.resumen.pedidosMedidos} pedidos recibidos ·
             {" "}{datos.resumen.mesesDeHistoria} meses de consumo
           </div>
@@ -150,7 +150,7 @@ export default function ReposicionPanel({ isMobile = false }) {
       {datos?.resumen.sinProveedor > 0 ? (
         <div style={{ ...tarjeta, borderColor: C.redB, background: C.redL, padding: "11px 14px", display: "flex", gap: 9, alignItems: "flex-start" }}>
           <AlertCircle size={15} color={C.red} style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: 12.5, color: C.muted, fontWeight: 750, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12.5, color: C.muted, fontWeight: 650, lineHeight: 1.5 }}>
             <b style={{ color: C.text }}>{datos.resumen.sinProveedor} de los que hay que pedir no tienen proveedor cargado.</b>{" "}
             Están abajo de todo. Hasta que se les asigne uno, no hay a quién pedírselos sin buscar en remitos viejos.
           </div>
@@ -158,21 +158,21 @@ export default function ReposicionPanel({ isMobile = false }) {
       ) : null}
 
       {error ? (
-        <div style={{ ...tarjeta, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 800 }}>{error}</div>
+        <div style={{ ...tarjeta, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 650 }}>{error}</div>
       ) : null}
 
       {cargando && !datos ? (
-        <div style={{ ...tarjeta, padding: 30, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+        <div style={{ ...tarjeta, padding: 30, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
           <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
           <div>Calculando con el consumo de los últimos meses…</div>
         </div>
       ) : !grupos.length ? (
         <div style={{ ...tarjeta, padding: 30, textAlign: "center" }}>
           <Package size={22} color={C.dim} style={{ marginBottom: 8 }} />
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>
             {soloUrgentes ? "No hay nada por debajo del punto de pedido" : "Sin materiales que coincidan"}
           </div>
-          <div style={{ color: C.dim, fontSize: 12, fontWeight: 700, marginTop: 4 }}>
+          <div style={{ color: C.dim, fontSize: 12, fontWeight: 600, marginTop: 4 }}>
             {soloUrgentes ? "Tocá «Todo lo que se sigue» para ver el resto." : "Probá con otro término."}
           </div>
         </div>
@@ -190,10 +190,10 @@ export default function ReposicionPanel({ isMobile = false }) {
                 {abierto ? <ChevronDown size={16} color={C.dim} /> : <ChevronRight size={16} color={C.dim} />}
                 <Truck size={15} color={sinProveedor ? C.red : C.blue} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>
+                  <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>
                     {grupo.proveedor || "Sin proveedor asignado"}
                   </div>
-                  <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
+                  <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
                     {grupo.urgentes > 0 ? `${grupo.urgentes} para pedir` : "al día"}
                     {" · "}entrega en {grupo.plazoDias} días{grupo.plazoEsPropio ? " (medido con sus pedidos)" : ""}
                   </div>
@@ -201,7 +201,7 @@ export default function ReposicionPanel({ isMobile = false }) {
                 {grupo.urgentes > 0 && !sinProveedor ? (
                   <span
                     onClick={(e) => { e.stopPropagation(); copiarPedido(grupo); }}
-                    style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 850, cursor: "pointer", whiteSpace: "nowrap" }}
+                    style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
                   >
                     Copiar pedido
                   </span>
@@ -225,29 +225,29 @@ export default function ReposicionPanel({ isMobile = false }) {
                         }}
                       >
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ color: C.text, fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.descripcion}
                           </div>
-                          <div style={{ color: C.dim, fontSize: 11, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 11, fontWeight: 600 }}>
                             {item.porMes} {item.unidad}/mes · {item.salidas} salidas
                             {item.esConsumible ? " · consumible" : ""}
                           </div>
                         </div>
                         <div style={{ textAlign: isMobile ? "left" : "right" }}>
-                          <div style={{ color: color.texto, fontSize: 13, fontWeight: 900, fontFamily: C.mono }}>{semanasTexto(item.semanasRestantes)}</div>
-                          <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>de stock</div>
+                          <div style={{ color: color.texto, fontSize: 13, fontWeight: 700, fontFamily: C.mono }}>{semanasTexto(item.semanasRestantes)}</div>
+                          <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 600 }}>de stock</div>
                         </div>
                         <div style={{ textAlign: isMobile ? "left" : "right" }}>
-                          <div style={{ color: C.muted, fontSize: 13, fontWeight: 800, fontFamily: C.mono }}>{item.hay} / {item.puntoDePedido}</div>
-                          <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>hay / punto</div>
+                          <div style={{ color: C.muted, fontSize: 13, fontWeight: 650, fontFamily: C.mono }}>{item.hay} / {item.puntoDePedido}</div>
+                          <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 600 }}>hay / punto</div>
                         </div>
                         <div style={{ textAlign: isMobile ? "left" : "right" }}>
                           {item.urge ? (
-                            <span style={{ display: "inline-block", background: color.fondo, border: `1px solid ${color.borde}`, color: color.texto, borderRadius: 7, padding: "4px 9px", fontSize: 12.5, fontWeight: 900, fontFamily: C.mono }}>
+                            <span style={{ display: "inline-block", background: color.fondo, border: `1px solid ${color.borde}`, color: color.texto, borderRadius: 7, padding: "4px 9px", fontSize: 12.5, fontWeight: 700, fontFamily: C.mono }}>
                               pedir {item.sugerido}
                             </span>
                           ) : (
-                            <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>alcanza</span>
+                            <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>alcanza</span>
                           )}
                         </div>
                       </div>

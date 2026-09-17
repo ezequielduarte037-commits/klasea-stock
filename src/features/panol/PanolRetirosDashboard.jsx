@@ -50,8 +50,8 @@ function Kpi({ icon, label, value, detail, color }) {
         {icon}
       </span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", color, fontFamily: C.mono, fontSize: 17, fontWeight: 950, lineHeight: 1 }}>{value}</span>
-        <span style={{ display: "block", color: C.text, fontSize: 10.5, fontWeight: 900, marginTop: 3 }}>{label}</span>
+        <span style={{ display: "block", color, fontFamily: C.mono, fontSize: 17, fontWeight: 750, lineHeight: 1 }}>{value}</span>
+        <span style={{ display: "block", color: C.text, fontSize: 10.5, fontWeight: 700, marginTop: 3 }}>{label}</span>
         <span style={{ display: "block", color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</span>
       </span>
     </div>
@@ -62,16 +62,16 @@ function Ranking({ title, subtitle, rows, color, value }) {
   const max = Math.max(1, ...rows.map((row) => row.movimientos));
   return (
     <section style={{ minWidth: 0, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: 11 }}>
-      <div style={{ color: C.text, fontSize: 12, fontWeight: 950 }}>{title}</div>
+      <div style={{ color: C.text, fontSize: 12, fontWeight: 750 }}>{title}</div>
       <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2 }}>{subtitle}</div>
       <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
         {rows.length ? rows.map((row, index) => (
           <div key={row.label} style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-              <span title={row.label} style={{ minWidth: 0, color: C.text, fontSize: 11, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span title={row.label} style={{ minWidth: 0, color: C.text, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5, marginRight: 6 }}>{index + 1}</span>{row.label}
               </span>
-              <span style={{ color, fontFamily: C.mono, fontSize: 10.5, fontWeight: 950, whiteSpace: "nowrap" }}>{value(row)}</span>
+              <span style={{ color, fontFamily: C.mono, fontSize: 10.5, fontWeight: 750, whiteSpace: "nowrap" }}>{value(row)}</span>
             </div>
             <div style={{ height: 3, borderRadius: 999, background: C.panel2, marginTop: 4, overflow: "hidden" }}>
               <div style={{ width: `${Math.max(8, (row.movimientos / max) * 100)}%`, height: "100%", borderRadius: 999, background: color }} />
@@ -108,7 +108,7 @@ function ActivityStrip({ rows }) {
     <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "10px 12px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div>
-          <div style={{ color: C.text, fontSize: 12, fontWeight: 950 }}>Actividad de los últimos 14 días</div>
+          <div style={{ color: C.text, fontSize: 12, fontWeight: 750 }}>Actividad de los últimos 14 días</div>
           <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2 }}>Cantidad de líneas retiradas por día</div>
         </div>
         <Activity size={15} style={{ color: C.blue }} />
@@ -116,7 +116,7 @@ function ActivityStrip({ rows }) {
       <div style={{ height: 74, display: "grid", gridTemplateColumns: "repeat(14, minmax(10px, 1fr))", alignItems: "end", gap: 4, marginTop: 8 }}>
         {days.map((day) => (
           <div key={day.key} title={`${day.day}: ${day.count} retiros`} style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 3 }}>
-            <span style={{ color: day.count ? C.text : C.dim, fontFamily: C.mono, fontSize: 8.5, fontWeight: 900 }}>{day.count || ""}</span>
+            <span style={{ color: day.count ? C.text : C.dim, fontFamily: C.mono, fontSize: 8.5, fontWeight: 700 }}>{day.count || ""}</span>
             <span style={{ width: "100%", maxWidth: 20, minHeight: 3, height: `${Math.max(4, (day.count / max) * 42)}px`, borderRadius: "5px 5px 2px 2px", background: day.count ? `linear-gradient(180deg, ${C.blue}, ${C.violet})` : C.panel2, opacity: day.count ? 1 : 0.6 }} />
             <span style={{ color: C.dim, fontSize: 7.5, textTransform: "uppercase" }}>{day.label.slice(0, 2)}</span>
           </div>
@@ -148,7 +148,7 @@ export default function PanolRetirosDashboard({ rows = [], isMobile = false }) {
       <button type="button" onClick={() => setOpen((value) => !value)} style={{ width: "100%", border: "none", borderBottom: open ? `1px solid ${C.border}` : "none", background: C.panelSolid, color: C.text, padding: "10px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontFamily: C.sans, textAlign: "left" }}>
         <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><Activity size={15} /></span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 13, fontWeight: 950 }}>Pulso de retiros</span>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 750 }}>Pulso de retiros</span>
           <span style={{ display: "block", color: C.dim, fontSize: 10, marginTop: 2 }}>Qué sale, quién lo retira y para qué obra · según los filtros activos</span>
         </span>
         {open ? <ChevronUp size={16} style={{ color: C.dim }} /> : <ChevronDown size={16} style={{ color: C.dim }} />}

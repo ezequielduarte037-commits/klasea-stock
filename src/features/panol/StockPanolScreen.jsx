@@ -1,7 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, BarChart3, ChevronDown, ChevronRight, DollarSign, Inbox, List, Map as MapIcon, Plus, RefreshCw, Search, ShipWheel, SlidersHorizontal, Warehouse, X } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
@@ -111,8 +110,8 @@ function calcObraStats(obraRows) {
 function StatMini({ label, value, color }) {
   return (
     <div>
-      <div style={{ fontSize: 10, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.2 }}>{label}</div>
-      <div style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: color || C.text, lineHeight: 1.25, marginTop: 2 }}>{value}</div>
+      <div style={{ fontSize: 10, color: C.dim, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.2 }}>{label}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 750, color: color || C.text, lineHeight: 1.25, marginTop: 2 }}>{value}</div>
     </div>
   );
 }
@@ -127,12 +126,12 @@ function Breadcrumb({ items }) {
             <button
               type="button"
               onClick={item.onClick}
-              style={{ background: "none", border: "none", cursor: "pointer", color: C.blue, fontSize: 13, fontWeight: 700, padding: "2px 0", fontFamily: C.sans }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: C.blue, fontSize: 13, fontWeight: 600, padding: "2px 0", fontFamily: C.sans }}
             >
               {item.label}
             </button>
           ) : (
-            <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{item.label}</span>
+            <span style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{item.label}</span>
           )}
         </span>
       ))}
@@ -180,7 +179,7 @@ function GlobalKpiBar({ rows, consumidoUsd = 0, onSelectScope }) {
             display: "inline-flex", alignItems: "center", gap: 6,
             border: `1px solid ${color}44`, background: `${color}0d`, color,
             borderRadius: 999, padding: "5px 9px", cursor: "pointer",
-            fontSize: 10.5, fontWeight: 900, fontFamily: C.sans,
+            fontSize: 10.5, fontWeight: 700, fontFamily: C.sans,
           }}
         >
           <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
@@ -230,18 +229,18 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
       }}
     >
       {/* Watermark del modelo */}
-      <div aria-hidden style={{ position: "absolute", right: -8, top: -18, fontFamily: C.mono, fontSize: 96, fontWeight: 950, color: accent, opacity: hover ? 0.12 : 0.07, lineHeight: 1, pointerEvents: "none", userSelect: "none", transition: "opacity .2s" }}>
+      <div aria-hidden style={{ position: "absolute", right: -8, top: -18, fontFamily: C.mono, fontSize: 96, fontWeight: 750, color: accent, opacity: hover ? 0.12 : 0.07, lineHeight: 1, pointerEvents: "none", userSelect: "none", transition: "opacity .2s" }}>
         {codigo}
       </div>
       <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}22)` }} />
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 13, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", color: "#fff", fontWeight: 950, fontSize: 17, fontFamily: C.mono, flexShrink: 0, background: hasNeg ? "linear-gradient(135deg, #f87171, #ef4444)" : "linear-gradient(135deg, #60a5fa, #3b82f6)", boxShadow: hasNeg ? "0 4px 12px rgba(239,68,68,0.3)" : "0 4px 12px rgba(59,130,246,0.3)" }}>
+          <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", color: "#fff", fontWeight: 750, fontSize: 17, fontFamily: C.mono, flexShrink: 0, background: hasNeg ? "linear-gradient(135deg, #f87171, #ef4444)" : "linear-gradient(135deg, #60a5fa, #3b82f6)", boxShadow: hasNeg ? "0 4px 12px rgba(239,68,68,0.3)" : "0 4px 12px rgba(59,130,246,0.3)" }}>
             {shortCode}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1.2 }}>{isExternal ? "Barcos externos · solo stock" : "Línea de producción"}</div>
-            <div style={{ fontFamily: C.mono, fontSize: 23, fontWeight: 950, color: C.text, lineHeight: 1.05 }}>{codigo}</div>
+            <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>{isExternal ? "Barcos externos · solo stock" : "Línea de producción"}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 23, fontWeight: 750, color: C.text, lineHeight: 1.05 }}>{codigo}</div>
           </div>
           <div style={{ flex: 1 }} />
           <ChevronRight size={18} style={{ color: hover ? C.blue : C.dim, flexShrink: 0, transition: "color .2s", transform: hover ? "translateX(3px)" : "none" }} />
@@ -254,8 +253,8 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
         {share > 0 ? (
           <div title="Consumido en egresos (solo precios USD) comparado con la línea que más consumió">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-              <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Consumo USD</span>
-              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 950, color: C.green }}>USD {fmtQty(stats.costoUsd)}</span>
+              <span style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Consumo USD</span>
+              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 750, color: C.green }}>USD {fmtQty(stats.costoUsd)}</span>
             </div>
             <div style={{ height: 6, borderRadius: 999, background: "var(--panel-2, rgba(127,127,127,0.14))", overflow: "hidden" }}>
               <div style={{ width: `${share * 100}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #34d399, #10b981)", transition: "width .4s ease" }} />
@@ -263,7 +262,7 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
           </div>
         ) : (
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9 }}>
-            <span style={{ fontSize: 11, color: C.dim, fontWeight: 750 }}>{stats.totalObras ? "Ver obras →" : "Sin obras con stock"}</span>
+            <span style={{ fontSize: 11, color: C.dim, fontWeight: 650 }}>{stats.totalObras ? "Ver obras →" : "Sin obras con stock"}</span>
           </div>
         )}
       </div>
@@ -305,18 +304,18 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
       }}
     >
       {/* Watermark del código */}
-      <div aria-hidden style={{ position: "absolute", right: -4, top: -12, fontFamily: C.mono, fontSize: 64, fontWeight: 950, color: accent, opacity: hover ? 0.1 : 0.06, lineHeight: 1, pointerEvents: "none", userSelect: "none", whiteSpace: "nowrap", transition: "opacity .2s" }}>
+      <div aria-hidden style={{ position: "absolute", right: -4, top: -12, fontFamily: C.mono, fontSize: 64, fontWeight: 750, color: accent, opacity: hover ? 0.1 : 0.06, lineHeight: 1, pointerEvents: "none", userSelect: "none", whiteSpace: "nowrap", transition: "opacity .2s" }}>
         {obra.codigo}
       </div>
       <div style={{ height: 3, background: `linear-gradient(90deg, ${accent}, ${accent}22)`, flexShrink: 0 }} />
       <div style={{ padding: "13px 15px", display: "flex", flexDirection: "column", gap: 11, position: "relative", flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.text, lineHeight: 1.1 }}>{obra.codigo}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 750, color: C.text, lineHeight: 1.1 }}>{obra.codigo}</div>
             <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{obra.linea_nombre || `Linea ${lineaLabel(lineaKeyFromObra(obra))}`}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 10, fontWeight: 650, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
               {obra.estado}
             </span>
             <ChevronRight size={14} style={{ color: hover ? C.blue : C.dim, transition: "color .18s, transform .18s", transform: hover ? "translateX(3px)" : "none" }} />
@@ -346,8 +345,8 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
 
         {canSeePrices && consumido > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: "auto" }}>
-            <span style={{ fontSize: 10.5, color: C.dim, fontWeight: 750 }}>Consumido (egresos USD)</span>
-            <span style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, color: C.green, whiteSpace: "nowrap" }}>USD {fmtQty(consumido)}</span>
+            <span style={{ fontSize: 10.5, color: C.dim, fontWeight: 650 }}>Consumido (egresos USD)</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 750, color: C.green, whiteSpace: "nowrap" }}>USD {fmtQty(consumido)}</span>
           </div>
         )}
       </div>
@@ -459,8 +458,8 @@ function movDetalleDestino(row, kind, obraById) {
 function MovKpi({ label, value, detail, color }) {
   return (
     <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 999, padding: "5px 9px", minWidth: 0, display: "inline-flex", alignItems: "center", gap: 7 }}>
-      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 950, color, lineHeight: 1 }}>{value}</span>
-      <span style={{ fontSize: 10.5, color: C.text, fontWeight: 850 }}>{label}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 750, color, lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: 10.5, color: C.text, fontWeight: 700 }}>{label}</span>
       <span style={{ fontSize: 9.5, color: C.dim }}>{detail}</span>
     </div>
   );
@@ -477,9 +476,9 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
   const usuario = rowMovimientoUsuario(m.row) || "sin registrar";
   return (
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : "108px minmax(0, 1fr) auto", gap: isMobile ? 8 : 12, alignItems: "start", padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
-      <span style={{ width: "fit-content", fontSize: 9.5, fontWeight: 950, color: col, background: C.panel, border: `1px solid ${col}`, borderRadius: 999, padding: "3px 7px", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap" }}>{m.anulado ? "Anulado" : meta.label}</span>
+      <span style={{ width: "fit-content", fontSize: 9.5, fontWeight: 750, color: col, background: C.panel, border: `1px solid ${col}`, borderRadius: 999, padding: "3px 7px", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap" }}>{m.anulado ? "Anulado" : meta.label}</span>
       <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto", gridRow: isMobile ? 2 : "auto" }}>
-        <div style={{ fontSize: 13, fontWeight: 850, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{desc}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{desc}</div>
         <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
           <span>{fmtDate(m.fecha)}</span>
           {m.row.codigo && <span style={{ fontFamily: C.mono }}>{m.row.codigo}</span>}
@@ -491,7 +490,7 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
         </div>
       </div>
       <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, whiteSpace: "nowrap", gridColumn: isMobile ? 2 : "auto", gridRow: isMobile ? 1 : "auto" }}>
-        <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 950, color: col }}>{meta.sign}{fmtQty(m.cant)} {m.row.unidad || ""}</span>
+        <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 750, color: col }}>{meta.sign}{fmtQty(m.cant)} {m.row.unidad || ""}</span>
         {/* Distinto de revertir: revertir deshace un movimiento que no debió
             existir; esto registra que salió bien y volvió fallado. */}
         {esSalida && !m.anulado && onDevolucion && (
@@ -499,7 +498,7 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
             type="button"
             onClick={() => onDevolucion(m.row)}
             title="Salió bien pero el operario lo devolvió fallado"
-            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, minHeight: 30, padding: "5px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}
+            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, minHeight: 30, padding: "5px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}
           >
             {isMobile ? "Devolver" : "Generar devolución"}
           </button>
@@ -598,7 +597,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
     <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "16px 18px 28px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <div>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>Historial operativo</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>Historial operativo</div>
           <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>{movimientos.length} movimientos con los filtros actuales</div>
         </div>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
@@ -607,7 +606,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
             className="stock-workspace-control"
             onClick={() => setShowAdvanced((value) => !value)}
             aria-expanded={showAdvanced}
-            style={{ minHeight: isMobile ? 44 : 34, border: `1px solid ${showAdvanced || advancedFilterCount ? C.blueB : C.border}`, background: showAdvanced || advancedFilterCount ? C.blueL : C.panelSolid, color: showAdvanced || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "6px 9px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}
+            style={{ minHeight: isMobile ? 44 : 34, border: `1px solid ${showAdvanced || advancedFilterCount ? C.blueB : C.border}`, background: showAdvanced || advancedFilterCount ? C.blueL : C.panelSolid, color: showAdvanced || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "6px 9px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}
           >
             <SlidersHorizontal size={13} aria-hidden="true" /> Más filtros
             {advancedFilterCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 4px", borderRadius: 999, display: "grid", placeItems: "center", background: C.blue, color: "#fff", fontFamily: C.mono, fontSize: 9.5 }}>{advancedFilterCount}</span>}
@@ -617,7 +616,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
             className="stock-workspace-control"
             onClick={() => setShowStats((value) => !value)}
             aria-expanded={showStats}
-            style={{ minHeight: isMobile ? 44 : 34, border: `1px solid ${showStats ? C.violetB : C.border}`, background: showStats ? C.violetL : C.panelSolid, color: showStats ? C.violet : C.text, borderRadius: 9, padding: "6px 9px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}
+            style={{ minHeight: isMobile ? 44 : 34, border: `1px solid ${showStats ? C.violetB : C.border}`, background: showStats ? C.violetL : C.panelSolid, color: showStats ? C.violet : C.text, borderRadius: 9, padding: "6px 9px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}
           >
             <BarChart3 size={13} aria-hidden="true" /> Resumen <ChevronDown size={12} aria-hidden="true" style={{ transform: showStats ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
           </button>
@@ -625,7 +624,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
       </div>
       {consumiblesOcultos > 0 && (
         <div style={{ marginBottom: 9, color: C.dim, fontSize: 10.5 }}>
-          Los consumibles siguen en su circuito propio. <a href="/recepcion-panol?tab=consumibles" style={{ color: C.violet, fontWeight: 850, textDecoration: "none" }}>Ver {consumiblesOcultos} movimientos de consumibles</a>
+          Los consumibles siguen en su circuito propio. <a href="/recepcion-panol?tab=consumibles" style={{ color: C.violet, fontWeight: 700, textDecoration: "none" }}>Ver {consumiblesOcultos} movimientos de consumibles</a>
         </div>
       )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
@@ -641,7 +640,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
           <option value="liberacion">A stock (liberar)</option>
         </select>
         {(q || tipo !== "todos" || sedeF !== "todas" || desde || hasta || incluirAnulados) && (
-          <button type="button" onClick={() => { setQ(""); setTipo("todos"); setSedeF("todas"); setDesde(""); setHasta(""); setIncluirAnulados(false); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 750, textDecoration: "underline" }}>Limpiar</button>
+          <button type="button" onClick={() => { setQ(""); setTipo("todos"); setSedeF("todas"); setDesde(""); setHasta(""); setIncluirAnulados(false); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 650, textDecoration: "underline" }}>Limpiar</button>
         )}
       </div>
       {showAdvanced && (
@@ -651,8 +650,8 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
             <option value="Pampa">Pampa</option>
             <option value="Chubut">Chubut</option>
           </select>
-          <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Desde<input className="stock-workspace-control" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={MOV_INP} /></label>
-          <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Hasta<input className="stock-workspace-control" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={MOV_INP} /></label>
+          <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 650 }}>Desde<input className="stock-workspace-control" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={MOV_INP} /></label>
+          <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 650 }}>Hasta<input className="stock-workspace-control" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={MOV_INP} /></label>
           <label style={{ minHeight: isMobile ? 44 : 34, fontSize: 11, color: C.dim, display: "inline-flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={incluirAnulados} onChange={(e) => setIncluirAnulados(e.target.checked)} /> Ver anulados</label>
         </div>
       )}
@@ -676,7 +675,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
               onDevolucion={(row) => setDevolucion({ row, cantidad: String(Math.abs(Number(row.cantidad) || 0) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion", responsable: "sin_definir" })} />
           ))}
           {movimientos.length > renderLimit && (
-            <button type="button" className="stock-workspace-control" onClick={() => setRenderLimit((value) => Math.min(value + 120, movimientos.length))} style={{ minHeight: 38, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.blue, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>
+            <button type="button" className="stock-workspace-control" onClick={() => setRenderLimit((value) => Math.min(value + 120, movimientos.length))} style={{ minHeight: 38, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.blue, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
               Mostrar {Math.min(120, movimientos.length - renderLimit)} más · quedan {movimientos.length - renderLimit}
             </button>
           )}
@@ -687,7 +686,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
         <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.42)", display: "grid", placeItems: "center", padding: 16 }}>
           <div style={{ width: "min(500px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.25)", overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Generar devolución</div>
+              <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Generar devolución</div>
               <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
                 {devolucion.row.descripcion}
                 {devolucion.row.retirado_por ? ` · lo retiró ${devolucion.row.retirado_por}` : ""}
@@ -697,13 +696,13 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
             <div style={{ padding: 16, display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 10 }}>
                 <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
                   <input value={devolucion.cantidad} inputMode="decimal" size={1}
                     onChange={(e) => setDevolucion((p) => ({ ...p, cantidad: e.target.value }))}
                     style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
                 </label>
                 <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
                   <select value={devolucion.motivo}
                     onChange={(e) => setDevolucion((p) => ({ ...p, motivo: e.target.value }))}
                     style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }}>
@@ -713,14 +712,14 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
               </div>
 
               <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
                 <input value={devolucion.detalle} placeholder="Ej: vino con la rosca pasada" size={1}
                   onChange={(e) => setDevolucion((p) => ({ ...p, detalle: e.target.value }))}
                   style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
               </label>
 
               <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {DEVOLUCION_NECESITA.map(([valor, label]) => {
                     const on = devolucion.necesita === valor;
@@ -732,7 +731,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
                           border: `1px solid ${on ? C.blueB : C.border}`,
                           background: on ? C.blueL : C.panel,
                           color: on ? C.blue : C.muted,
-                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                          fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
                         }}>
                         {label}
                       </button>
@@ -745,7 +744,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
                   vuelve al stock. Lo que cambia es que no se le puede reclamar
                   al proveedor, y de eso depende el total del reclamo. */}
               <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {DEVOLUCION_RESPONSABLE.map(([valor, label]) => {
                     const on = devolucion.responsable === valor;
@@ -757,7 +756,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
                           border: `1px solid ${on ? C.blueB : C.border}`,
                           background: on ? C.blueL : C.panel,
                           color: on ? C.blue : C.muted,
-                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                          fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
                         }}>
                         {label}
                       </button>
@@ -775,7 +774,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
 
             <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" onClick={() => setDevolucion(null)}
-                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>
+                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>
                 Cancelar
               </button>
               <button type="button" disabled={devolucionBusy}
@@ -798,7 +797,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
                     setDevolucionBusy(false);
                   }
                 }}
-                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}>
+                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}>
                 {devolucionBusy ? "Registrando…" : "Registrar devolución"}
               </button>
             </div>
@@ -871,7 +870,7 @@ function NuevaObraExternaModal({ onClose, onCreated }) {
             <ShipWheel size={17} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div id="nueva-obra-externa-titulo" style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Nuevo barco externo</div>
+            <div id="nueva-obra-externa-titulo" style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Nuevo barco externo</div>
             <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3, lineHeight: 1.45 }}>Se podrá usar en ingresos, egresos y movimientos de Pañol. No crea matriz ni planificación de producción.</div>
           </div>
           <button type="button" aria-label="Cerrar" onClick={onClose} disabled={busy} style={{ border: "none", background: "transparent", color: C.dim, padding: 4, cursor: busy ? "default" : "pointer", display: "grid", placeItems: "center" }}><X size={17} /></button>
@@ -879,12 +878,12 @@ function NuevaObraExternaModal({ onClose, onCreated }) {
 
         <div style={{ padding: 16, display: "grid", gap: 13 }}>
           <div style={{ display: "grid", gap: 6 }}>
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Tipo de barco</span>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Tipo de barco</span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
               {["HUNTER", "ANTAGO"].map((option) => {
                 const selected = modelo === option;
                 return (
-                  <button key={option} type="button" onClick={() => setModelo(option)} style={{ border: `1px solid ${selected ? C.blueB : C.border}`, background: selected ? C.blueL : C.panel, color: selected ? C.blue : C.muted, borderRadius: 10, padding: "9px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+                  <button key={option} type="button" onClick={() => setModelo(option)} style={{ border: `1px solid ${selected ? C.blueB : C.border}`, background: selected ? C.blueL : C.panel, color: selected ? C.blue : C.muted, borderRadius: 10, padding: "9px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
                     {option === "HUNTER" ? "Hunter" : "Antago"}
                   </button>
                 );
@@ -893,13 +892,13 @@ function NuevaObraExternaModal({ onClose, onCreated }) {
           </div>
 
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Código o identificación *</span>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Código o identificación *</span>
             <input autoFocus required value={codigo} onChange={(event) => setCodigo(event.target.value)} placeholder="Ej.: 01, CLIENTE-5 o HUNTER-01" style={{ ...fieldStyle, fontFamily: C.mono, textTransform: "uppercase" }} />
             <span style={{ color: C.dim, fontSize: 10.5 }}>Se guardará como <b style={{ color: C.text, fontFamily: C.mono }}>{finalCode}</b></span>
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle opcional</span>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle opcional</span>
             <input value={descripcion} onChange={(event) => setDescripcion(event.target.value)} placeholder="Cliente, procedencia o referencia" style={fieldStyle} />
           </label>
 
@@ -907,8 +906,8 @@ function NuevaObraExternaModal({ onClose, onCreated }) {
         </div>
 
         <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button type="button" onClick={onClose} disabled={busy} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 13px", cursor: busy ? "default" : "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>Cancelar</button>
-          <button type="submit" disabled={busy || !cleanCode} style={{ border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: busy || !cleanCode ? "default" : "pointer", opacity: busy || !cleanCode ? 0.55 : 1, fontSize: 12, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button type="button" onClick={onClose} disabled={busy} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 13px", cursor: busy ? "default" : "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>Cancelar</button>
+          <button type="submit" disabled={busy || !cleanCode} style={{ border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: busy || !cleanCode ? "default" : "pointer", opacity: busy || !cleanCode ? 0.55 : 1, fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Plus size={14} /> {busy ? "Creando…" : "Crear barco"}
           </button>
         </div>
@@ -1178,7 +1177,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   );
 
   const body = (
-        <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
           <style>{`
             @keyframes stkNav{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
             .stock-primary-tab:focus-visible,.stock-view-toggle:focus-visible,.stock-workspace-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
@@ -1189,7 +1188,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
           {!embedded && (
           <div style={{
             background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.border}`,
-            padding: isMobile ? "6px 10px 6px 50px" : "6px 14px",
+            padding: isMobile ? "6px 10px" : "6px 14px",
             display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
           }}>
             <div style={{ width: 27, height: 27, borderRadius: 8, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
@@ -1198,8 +1197,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* Título y bajada en la misma línea. La bajada explica de qué va la
                 pantalla: se lee una vez y después sólo ocupa alto útil. */}
             <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 15.5, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>{screenTitle || "Stock de pañol"}</div>
-              <div style={{ fontSize: 9.5, color: C.dim, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 750 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 700, color: C.text, lineHeight: 1.1 }}>{screenTitle || "Stock de pañol"}</div>
+              <div style={{ fontSize: 9.5, color: C.dim, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 650 }}>
                 {screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
               </div>
             </div>
@@ -1226,7 +1225,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 aria-current={tab === t.key ? "page" : undefined}
                 style={{
                   minHeight: isMobile ? 40 : 35, padding: isMobile ? "7px 12px" : "5px 12px", cursor: "pointer", fontSize: 11.5, fontFamily: C.sans,
-                  fontWeight: tab === t.key ? 900 : 650,
+                  fontWeight: tab === t.key ? 700 : 600,
                   color: tab === t.key ? C.text : C.dim,
                   background: "transparent", border: "none",
                   borderBottom: `2px solid ${tab === t.key ? C.blue : "transparent"}`,
@@ -1238,8 +1237,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 {t.key === "sobrantes" && cierresByObra.size > 0 && (
                   <span style={{
                     minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999,
-                    background: C.amberL, border: `1px solid ${C.amberB}`, color: C.amber,
-                    fontSize: 10, fontWeight: 950, display: "inline-grid", placeItems: "center", fontFamily: C.mono,
+                    background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan,
+                    fontSize: 10, fontWeight: 750, display: "inline-grid", placeItems: "center", fontFamily: C.mono,
                   }}>
                     {cierresByObra.size}
                   </span>
@@ -1261,7 +1260,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                         className="stock-view-toggle"
                         onClick={() => handleInventoryView(key)}
                         aria-pressed={active}
-                        style={{ minHeight: isMobile ? 44 : 30, minWidth: isMobile ? 44 : "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                        style={{ minHeight: isMobile ? 44 : 30, minWidth: isMobile ? 44 : "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
                       >
                         {createElement(Icon, { size: 13 })} {!isMobile && label}
                       </button>
@@ -1292,7 +1291,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   <div style={{ padding: "12px 12px 10px", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 9, flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <div>
-                        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>Obras</div>
+                        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750 }}>Obras</div>
                         <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>{obrasResumen.activas} activas · {obrasResumen.conStock} con stock</div>
                       </div>
                       <button
@@ -1300,14 +1299,14 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                         className="stock-workspace-control"
                         aria-pressed={!soloActivas}
                         onClick={() => setSoloActivas((value) => !value)}
-                        style={{ minHeight: isMobile ? 44 : 30, border: `1px solid ${!soloActivas ? C.violetB : C.border}`, background: !soloActivas ? C.violetL : C.panelSolid, color: !soloActivas ? C.violet : C.dim, borderRadius: 999, padding: "4px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                        style={{ minHeight: isMobile ? 44 : 30, border: `1px solid ${!soloActivas ? C.violetB : C.border}`, background: !soloActivas ? C.violetL : C.panelSolid, color: !soloActivas ? C.violet : C.dim, borderRadius: 999, padding: "4px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
                       >
                         {soloActivas ? `Ver inactivas (${obrasResumen.inactivas})` : "Ocultar inactivas"}
                       </button>
                     </div>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                      <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>{obrasResumen.activas} activas</span>
-                      {obrasResumen.conAlertas > 0 && <span style={{ color: C.red, background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>{obrasResumen.conAlertas} a reconciliar</span>}
+                      <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 700 }}>{obrasResumen.activas} activas</span>
+                      {obrasResumen.conAlertas > 0 && <span style={{ color: C.red, background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 700 }}>{obrasResumen.conAlertas} a reconciliar</span>}
                     </div>
                     <div style={{ position: "relative" }}>
                       <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
@@ -1343,7 +1342,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                     ) : obraGroupsVisibles.map(({ linea, obras: lineaObras }) => (
                       <section key={linea} style={{ marginBottom: 10 }}>
                         <div style={{ padding: "4px 8px 5px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.9 }}>Línea {lineaLabel(linea)}</span>
+                          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.9 }}>Línea {lineaLabel(linea)}</span>
                           <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5 }}>{lineaObras.length}</span>
                         </div>
                         <div style={{ display: "grid", gap: 3 }}>
@@ -1367,8 +1366,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                               >
                                 <span style={{ minWidth: 0 }}>
                                   <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: C.mono, fontSize: 12, fontWeight: 950 }}>{obra.codigo}</span>
-                                    <span style={{ flexShrink: 0, color: activa ? C.green : C.dim, border: `1px solid ${activa ? C.greenB : C.border}`, background: activa ? C.greenL : C.panelSolid, borderRadius: 999, padding: "1px 5px", fontSize: 8.5, fontWeight: 900, textTransform: "uppercase" }}>{obra.estado || "sin estado"}</span>
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: C.mono, fontSize: 12, fontWeight: 750 }}>{obra.codigo}</span>
+                                    <span style={{ flexShrink: 0, color: activa ? C.green : C.dim, border: `1px solid ${activa ? C.greenB : C.border}`, background: activa ? C.greenL : C.panelSolid, borderRadius: 999, padding: "1px 5px", fontSize: 8.5, fontWeight: 700, textTransform: "uppercase" }}>{obra.estado || "sin estado"}</span>
                                   </span>
                                   <span title={`Stock ${stats.itemsStock || 0} · Asignado ${stats.itemsStd || 0} · Adicional ${stats.itemsAdd || 0}`} style={{ display: "flex", height: 4, marginTop: 7, overflow: "hidden", borderRadius: 999, background: C.panel2 }}>
                                     {stockPart > 0 && <span style={{ width: `${stockPart}%`, background: C.green }} />}
@@ -1376,7 +1375,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                                     {addPart > 0 && totalItems > 0 && <span style={{ width: `${addPart}%`, background: C.violet }} />}
                                   </span>
                                 </span>
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: hasIssue ? C.red : selected ? C.blue : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: hasIssue ? C.red : selected ? C.blue : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>
                                   {hasIssue && <span title={`${stats.negativos} ítems a reconciliar`} style={{ width: 6, height: 6, borderRadius: 999, background: C.red }} />}
                                   <span title={`${totalItems} productos con saldo`}>{totalItems}</span>
                                   <ChevronRight size={12} />
@@ -1391,7 +1390,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
                   {(isAdmin || role === "panol") && (
                     <div style={{ padding: 9, borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
-                      <button type="button" className="stock-workspace-control" onClick={() => setShowNuevaObraExterna(true)} style={{ width: "100%", minHeight: isMobile ? 44 : 34, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                      <button type="button" className="stock-workspace-control" onClick={() => setShowNuevaObraExterna(true)} style={{ width: "100%", minHeight: isMobile ? 44 : 34, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                         <Plus size={13} /> Nuevo Hunter / Antago
                       </button>
                     </div>
@@ -1408,18 +1407,18 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                       <>
                         <div style={{ minHeight: 58, padding: isMobile ? "8px 12px" : "8px 18px", borderBottom: `1px solid ${C.border}`, background: C.panel, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", flexShrink: 0 }}>
                           {isMobile && (
-                            <button type="button" className="stock-workspace-control" onClick={() => setSelObraId(null)} style={{ minHeight: 44, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+                            <button type="button" className="stock-workspace-control" onClick={() => setSelObraId(null)} style={{ minHeight: 44, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
                               Volver a obras
                             </button>
                           )}
                           <div style={{ minWidth: 150 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: C.text }}>{selObra.codigo}</span>
-                              <span style={{ fontSize: 9.5, fontWeight: 850, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 6px", textTransform: "uppercase" }}>{selObra.estado}</span>
+                              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 750, color: C.text }}>{selObra.codigo}</span>
+                              <span style={{ fontSize: 9.5, fontWeight: 700, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 6px", textTransform: "uppercase" }}>{selObra.estado}</span>
                               {selObra.estado === "terminada" && cierresByObra.get(selObra.id) && (
                                 <Link
                                   to={`/sobrantes-obra/${cierresByObra.get(selObra.id).id}`}
-                                  style={{ color: C.amber, fontSize: 11, fontWeight: 900, textDecoration: "none" }}
+                                  style={{ color: C.cyan, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
                                 >
                                   Cierre de materiales
                                 </Link>
@@ -1442,7 +1441,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                     <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 24 }}>
                       <div style={{ maxWidth: 360, textAlign: "center", display: "grid", justifyItems: "center", gap: 9 }}>
                         <div style={{ width: 48, height: 48, borderRadius: 14, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}><ShipWheel size={22} /></div>
-                        <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Elegí una obra</div>
+                        <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Elegí una obra</div>
                         <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45 }}>Seleccioná un barco de la columna izquierda para consultar su stock sin perder el contexto.</div>
                       </div>
                     </div>
@@ -1480,7 +1479,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                     ].map(([key, label]) => {
                       const active = movimientosView === key;
                       return (
-                        <button key={key} type="button" onClick={() => handleMovimientosView(key)} aria-pressed={active} style={{ minHeight: isMobile ? 36 : 27, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+                        <button key={key} type="button" onClick={() => handleMovimientosView(key)} aria-pressed={active} style={{ minHeight: isMobile ? 36 : 27, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
                           {label}
                         </button>
                       );
@@ -1527,9 +1526,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   if (embedded) return body;
 
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.text, fontFamily: C.sans }}>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.text, fontFamily: C.sans }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden" }}>
         {body}
       </div>
     </div>

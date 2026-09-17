@@ -42,7 +42,7 @@ function PedidoCard({ pedido, onReload, toast }) {
           onClick={() => setOpen((v) => !v)}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {pedido.titulo}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
@@ -60,7 +60,7 @@ function PedidoCard({ pedido, onReload, toast }) {
             {/* Un pedido que armó el sistema tiene que decirlo. Si alguien ve un
                 pedido que no recuerda haber hecho, esto explica de dónde salió. */}
             {pedido.generado_auto && (
-              <Pill color={C.amber} soft={C.amberL} borde={C.amberB}>
+              <Pill color={C.cyan} soft={C.cyanL} borde={C.cyanB}>
                 <Bot size={10} /> automático
               </Pill>
             )}
@@ -92,7 +92,7 @@ function PedidoCard({ pedido, onReload, toast }) {
                 <Package size={13} />
               </span>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 680, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.descripcion}</div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.descripcion}</div>
                 <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
                   {it.codigo && <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>{it.codigo}</span>}
                   {it.origen_compra_etapa_nombre && <Pill color={C.violet} soft={C.violetL} borde={C.violetB}>{it.origen_compra_etapa_nombre}</Pill>}
@@ -146,7 +146,7 @@ export default function PedidosTab({ toast, recargaExterna = 0 }) {
       <div className="ce-surface" style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Kpi icon={ClipboardList} valor={pedidos.length} label="pedidos" color="var(--violet)" soft="var(--violet-soft)" borde="var(--violet-border)" />
-          <Kpi icon={Inbox} valor={abiertos} label="abiertos" color="var(--amber)" soft="var(--amber-soft)" borde="var(--amber-border)" />
+          <Kpi icon={Inbox} valor={abiertos} label="abiertos" color="var(--cyan)" soft="var(--cyan-soft)" borde="var(--cyan-border)" />
           <Kpi icon={Package} valor={itemsPendientes} label="items pendientes" color="var(--blue)" soft="var(--blue-soft)" borde="var(--blue-border)" />
         </div>
 

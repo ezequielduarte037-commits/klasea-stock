@@ -97,7 +97,7 @@ function ProveedorBloque({ grupo, onCreado, toast }) {
           <Truck size={15} />
         </span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{grupo.proveedor}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{grupo.proveedor}</div>
           <div style={{ fontSize: 11, color: C.dim }}>
             {grupo.total} materiales · {grupo.obras.length} {grupo.obras.length === 1 ? "obra" : "obras"}
           </div>
@@ -161,7 +161,7 @@ function ObraProveedor({ grupo, seleccionados, onToggle, onToggleObra }) {
           style={{ width: 15, height: 15, accentColor: "var(--violet)", cursor: "pointer" }}
         />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 900, color: C.text }}>{grupo.obraCodigo || "Obra sin código"}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{grupo.obraCodigo || "Obra sin código"}</div>
           <div style={{ fontSize: 11, color: C.dim }}>
             {marcadosAca}/{grupo.items.length} materiales · {etapas.length} {etapas.length === 1 ? "etapa" : "etapas"}
           </div>
@@ -185,10 +185,10 @@ function ObraProveedor({ grupo, seleccionados, onToggle, onToggleObra }) {
           <thead>
             <tr style={{ color: C.dim, textAlign: "left" }}>
               <th style={{ width: 30, padding: "6px 7px" }} />
-              <th style={{ padding: "6px 7px", fontWeight: 800 }}>Material</th>
-              <th style={{ padding: "6px 7px", fontWeight: 800 }}>Etapa de compra</th>
-              <th style={{ padding: "6px 7px", fontWeight: 800 }}>Fecha</th>
-              <th style={{ padding: "6px 7px", fontWeight: 800, textAlign: "right" }}>Cantidad</th>
+              <th style={{ padding: "6px 7px", fontWeight: 650 }}>Material</th>
+              <th style={{ padding: "6px 7px", fontWeight: 650 }}>Etapa de compra</th>
+              <th style={{ padding: "6px 7px", fontWeight: 650 }}>Fecha</th>
+              <th style={{ padding: "6px 7px", fontWeight: 650, textAlign: "right" }}>Cantidad</th>
             </tr>
           </thead>
           <tbody>
@@ -206,7 +206,7 @@ function ObraProveedor({ grupo, seleccionados, onToggle, onToggleObra }) {
                     />
                   </td>
                   <td style={{ padding: "7px", borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ color: C.text, fontWeight: 750 }}>{item.material_descripcion}</div>
+                    <div style={{ color: C.text, fontWeight: 650 }}>{item.material_descripcion}</div>
                     {item.material_codigo && (
                       <div style={{ marginTop: 2, color: C.dim, fontFamily: C.mono, fontSize: 10.5 }}>{item.material_codigo}</div>
                     )}
@@ -221,7 +221,7 @@ function ObraProveedor({ grupo, seleccionados, onToggle, onToggleObra }) {
                     </Pill>
                   </td>
                   <td style={{ padding: "7px", borderTop: `1px solid ${C.border}` }}>
-                    <span style={{ color: urgente ? C.red : C.dim, fontFamily: C.mono, fontWeight: urgente ? 850 : 600 }}>
+                    <span style={{ color: urgente ? C.red : C.dim, fontFamily: C.mono, fontWeight: urgente ? 700 : 600 }}>
                       {fechaCorta(item.fecha_compra)}
                       {urgente ? ` · ${Math.abs(Number(item.dias_restantes))}d tarde` : ""}
                     </span>
@@ -349,9 +349,9 @@ export default function ProveedoresTab({ toast, onPedidoGenerado }) {
         }}>
           <Truck size={13} color={C.violet} style={{ flexShrink: 0 }} />
           <span>
-            Cada bloque es <b style={{ color: C.muted, fontWeight: 750 }}>un proveedor</b> con todo lo que le falta comprar.
-            Destildá lo que no va y tocá <b style={{ color: C.muted, fontWeight: 750 }}>Generar pedido</b>:
-            sale <b style={{ color: C.muted, fontWeight: 750 }}>un solo pedido</b>, aunque junte materiales de varias obras.
+            Cada bloque es <b style={{ color: C.muted, fontWeight: 650 }}>un proveedor</b> con todo lo que le falta comprar.
+            Destildá lo que no va y tocá <b style={{ color: C.muted, fontWeight: 650 }}>Generar pedido</b>:
+            sale <b style={{ color: C.muted, fontWeight: 650 }}>un solo pedido</b>, aunque junte materiales de varias obras.
             Compras recibe el aviso al instante.
           </span>
         </div>
@@ -366,7 +366,7 @@ export default function ProveedoresTab({ toast, onPedidoGenerado }) {
         >
           <AlertTriangle size={17} color={C.red} style={{ marginTop: 1, flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: 12.5, fontWeight: 900, color: C.red }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>
               {sinMateriales.length} {sinMateriales.length === 1 ? "etapa vencida no tiene" : "etapas vencidas no tienen"} materiales cargados
             </div>
             <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>

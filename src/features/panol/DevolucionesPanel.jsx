@@ -136,7 +136,7 @@ function Chip({ children, color = C.dim, soft = "transparent", borde = C.border,
       display: "inline-flex", alignItems: "center", gap: 4,
       padding: "2px 7px", borderRadius: 6,
       background: soft, border: `1px solid ${borde}`, color,
-      fontSize: 10.5, fontWeight: 850, whiteSpace: "nowrap",
+      fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap",
     }}>
       {Icon && <Icon size={10} style={{ flexShrink: 0 }} />}
       {children}
@@ -173,11 +173,11 @@ function ChipDestino({ fila }) {
 function Tile({ label, valor, detalle, color = C.text, soft = "transparent", borde = C.border, icon: Icon }) {
   return (
     <div style={{ flex: "1 1 170px", minWidth: 0, borderRadius: 12, border: `1px solid ${borde}`, background: soft, padding: "10px 12px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>
         {Icon && <Icon size={11} style={{ flexShrink: 0 }} />}
         {label}
       </div>
-      <div style={{ fontFamily: C.mono, fontSize: 19, fontWeight: 950, color, marginTop: 4, lineHeight: 1.1 }}>{valor}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 19, fontWeight: 750, color, marginTop: 4, lineHeight: 1.1 }}>{valor}</div>
       {detalle && <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.35, marginTop: 3 }}>{detalle}</div>}
     </div>
   );
@@ -192,7 +192,7 @@ function Modal({ titulo, bajada, ancho = 460, onClose, children, pie }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: `min(${ancho}px, 100%)`, maxHeight: "92vh", display: "flex", flexDirection: "column", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", overflow: "hidden" }}>
         <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", gap: 10 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>{titulo}</div>
+            <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>{titulo}</div>
             {bajada && <div style={{ color: C.dim, fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>{bajada}</div>}
           </div>
           <button type="button" onClick={onClose} title="Cerrar"
@@ -213,7 +213,7 @@ const inputSt = {
   background: C.panel, border: `1px solid ${C.border}`, color: C.text,
   borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none",
 };
-const labelSt = { color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 };
+const labelSt = { color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 };
 
 function Opciones({ valor, onChange, opciones }) {
   return (
@@ -227,7 +227,7 @@ function Opciones({ valor, onChange, opciones }) {
               border: `1px solid ${on ? C.blueB : C.border}`,
               background: on ? C.blueL : C.panel,
               color: on ? C.blue : C.muted,
-              fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+              fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
             }}>
             {label}
           </button>
@@ -319,7 +319,7 @@ function Ficha({ fila, onClose, onCambio, toast }) {
         {datos.map(([label, valor]) => (
           <div key={label} style={{ borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, padding: "7px 9px", minWidth: 0 }}>
             <div style={labelSt}>{label}</div>
-            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis" }}>{valor}</div>
+            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 650, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis" }}>{valor}</div>
           </div>
         ))}
       </div>
@@ -330,7 +330,7 @@ function Ficha({ fila, onClose, onCambio, toast }) {
           {hitos.map(([label, cuando, quien]) => (
             <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 11.5 }}>
               <span style={{ width: 6, height: 6, borderRadius: 999, background: C.blue, flexShrink: 0, transform: "translateY(-1px)" }} />
-              <span style={{ color: C.text, fontWeight: 800 }}>{label}</span>
+              <span style={{ color: C.text, fontWeight: 650 }}>{label}</span>
               <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{fmtFecha(cuando)}</span>
               {quien && <span style={{ color: C.dim }}>· {quien}</span>}
             </div>
@@ -352,7 +352,7 @@ function Ficha({ fila, onClose, onCambio, toast }) {
           <button type="button" onClick={enviar} disabled={!texto.trim() || enviando}
             style={{
               flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
-              padding: "9px 12px", borderRadius: 9, fontSize: 12, fontWeight: 900, fontFamily: C.sans,
+              padding: "9px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, fontFamily: C.sans,
               border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
               cursor: texto.trim() ? "pointer" : "not-allowed", opacity: texto.trim() ? 1 : 0.5,
             }}>
@@ -396,7 +396,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
     <article style={{ borderRadius: 11, border: `1px solid ${viejo ? C.redB : C.border}`, background: C.panelSolid, padding: 10, display: "grid", gap: 7 }}>
       <button type="button" onClick={onFicha} title="Ver la ficha completa"
         style={{ border: "none", background: "transparent", padding: 0, textAlign: "left", cursor: "pointer", fontFamily: C.sans, minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 850, lineHeight: 1.3 }}>{fila.descripcion}</div>
+        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>{fila.descripcion}</div>
         <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
           {fmtCantidad(fila.cantidad, fila.unidad)}
           {fila.obra_codigo ? ` · ${fila.obra_codigo}` : ""}
@@ -411,7 +411,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 10.5, fontWeight: viejo ? 900 : 700, color: viejo ? C.red : C.dim }}>
+        <span style={{ fontSize: 10.5, fontWeight: viejo ? 700 : 600, color: viejo ? C.red : C.dim }}>
           {fila.dias_afuera != null ? "Afuera hace" : "Devuelto hace"} {d} {d === 1 ? "día" : "días"}
         </span>
         {quieto && (
@@ -421,7 +421,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
         )}
         {fila.valor_estimado > 0 && (
           <span title={reclamable ? "Se le puede reclamar al proveedor" : "No es reclamable: la rotura es nuestra o falta definirla"}
-            style={{ fontFamily: C.mono, fontSize: 10.5, fontWeight: reclamable ? 900 : 700, color: reclamable ? C.cyan : C.dim, marginLeft: "auto" }}>
+            style={{ fontFamily: C.mono, fontSize: 10.5, fontWeight: reclamable ? 700 : 600, color: reclamable ? C.cyan : C.dim, marginLeft: "auto" }}>
             {fmtMoneda(fila.valor_estimado, fila.moneda)}
           </span>
         )}
@@ -437,7 +437,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
           <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {fila.ultima_nota}
           </div>
-          <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2, fontWeight: 800 }}>
+          <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2, fontWeight: 650 }}>
             {fila.notas_count > 1 ? `${fila.notas_count} anotaciones · ` : ""}última {fmtFecha(fila.ultima_nota_at)}
           </div>
         </button>
@@ -450,7 +450,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
             style={{
               padding: "5px 10px", borderRadius: 8, cursor: ocupado ? "default" : "pointer",
               border: `1px solid ${C.border}`, background: C.panel, color: C.muted,
-              fontSize: 10.5, fontWeight: 800, fontFamily: C.sans, opacity: ocupado ? 0.5 : 1,
+              fontSize: 10.5, fontWeight: 650, fontFamily: C.sans, opacity: ocupado ? 0.5 : 1,
             }}>
             {label}
           </button>
@@ -460,7 +460,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
             marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4,
             padding: "5px 9px", borderRadius: 8, cursor: "pointer",
             border: `1px solid ${col.borde}`, background: col.soft, color: col.color,
-            fontSize: 10.5, fontWeight: 900, fontFamily: C.sans,
+            fontSize: 10.5, fontWeight: 700, fontFamily: C.sans,
           }}>
           <MessageSquarePlus size={11} />
           {fila.notas_count > 0 ? fila.notas_count : "Ficha"}
@@ -579,7 +579,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
     return (
       <div style={{ display: "grid", placeItems: "center", gap: 8, padding: "42px 16px", borderRadius: 14, border: `1px dashed ${C.border}`, background: C.panel, textAlign: "center" }}>
         <RotateCcw size={22} style={{ color: C.green }} />
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>No hay devoluciones abiertas</div>
+        <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>No hay devoluciones abiertas</div>
         <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, maxWidth: 380 }}>
           Cuando un material entregado vuelva fallado, se registra desde el egreso y aparece acá.
         </div>
@@ -638,8 +638,8 @@ export default function DevolucionesPanel({ isMobile = false }) {
               <div style={{ padding: "11px 13px", borderBottom: `1px solid ${C.border}`, background: items.length ? col.soft : "transparent" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <Icon size={14} style={{ color: items.length ? col.color : C.dim, flexShrink: 0 }} />
-                  <span style={{ color: C.text, fontSize: 12.5, fontWeight: 900 }}>{col.titulo}</span>
-                  <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: items.length ? col.color : C.dim }}>
+                  <span style={{ color: C.text, fontSize: 12.5, fontWeight: 700 }}>{col.titulo}</span>
+                  <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: items.length ? col.color : C.dim }}>
                     {items.length}
                   </span>
                 </div>
@@ -675,7 +675,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
           onClose={() => setDecision(null)}
           pie={<>
             <button type="button" onClick={() => setDecision(null)}
-              style={{ padding: "8px 14px", borderRadius: 9, cursor: "pointer", border: `1px solid ${C.border}`, background: C.panel, color: C.muted, fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>
+              style={{ padding: "8px 14px", borderRadius: 9, cursor: "pointer", border: `1px solid ${C.border}`, background: C.panel, color: C.muted, fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}>
               Cancelar
             </button>
             <button type="button"
@@ -688,7 +688,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
                 notas: decision.nota.trim() || null,
               })}
               style={{
-                padding: "8px 14px", borderRadius: 9, fontSize: 12.5, fontWeight: 900, fontFamily: C.sans,
+                padding: "8px 14px", borderRadius: 9, fontSize: 12.5, fontWeight: 700, fontFamily: C.sans,
                 border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
                 cursor: decision.destino.trim() ? "pointer" : "not-allowed",
                 opacity: decision.destino.trim() ? 1 : 0.5,

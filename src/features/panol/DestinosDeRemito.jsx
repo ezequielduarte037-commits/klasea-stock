@@ -41,7 +41,7 @@ export default function DestinosDeRemito({
       display: "grid",
       gap: 7,
     }}>
-      <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase" }}>
+      <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>
         {titulo}
       </div>
 
@@ -64,7 +64,7 @@ export default function DestinosDeRemito({
                   borderRadius: 999,
                   padding: "3px 9px",
                   fontSize: 11,
-                  fontWeight: 900,
+                  fontWeight: 700,
                   maxWidth: "100%",
                 }}
               >
@@ -77,7 +77,7 @@ export default function DestinosDeRemito({
           })}
         </div>
       ) : (
-        <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 750 }}>
+        <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 650 }}>
           Solo en el archivo general de Remitos. Se busca igual por proveedor, número o fecha.
         </div>
       )}
@@ -85,7 +85,7 @@ export default function DestinosDeRemito({
       {mostrarRutaFisica ? (
         <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
           <FolderOpen size={13} color={C.dim} style={{ flexShrink: 0, marginTop: 2 }} />
-          <div style={{ fontSize: 11, color: C.muted, fontWeight: 750, minWidth: 0, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 650, minWidth: 0, lineHeight: 1.5 }}>
             El PDF queda en <b style={{ color: C.text }}>{carpetaParaMostrar(fisica)}</b>
             {destinos.length > 1 ? ", y en el sistema aparece en todos los de arriba." : "."}
           </div>

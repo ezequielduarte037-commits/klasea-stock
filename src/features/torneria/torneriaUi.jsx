@@ -8,7 +8,7 @@ export function Field({ label, hint, children, full = false }) {
       <span style={{
         color: C.dim,
         fontSize: 10,
-        fontWeight: 800,
+        fontWeight: 650,
         letterSpacing: "0.09em",
         textTransform: "uppercase",
       }}>
@@ -58,7 +58,7 @@ export function Modal({ title, subtitle, onClose, children, footer, width = 640 
           borderBottom: `1px solid ${C.border}`,
         }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 16, fontWeight: 850 }}>{title}</div>
+            <div style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>{title}</div>
             {subtitle && (
               <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 3 }}>
                 {subtitle}
@@ -125,7 +125,7 @@ export function StatusBadge({ status, compact = false, label = null }) {
       background: meta.bg,
       color: meta.color,
       fontSize: compact ? 10 : 11,
-      fontWeight: 850,
+      fontWeight: 700,
       whiteSpace: "nowrap",
     }}>
       <span style={{

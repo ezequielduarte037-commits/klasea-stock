@@ -43,14 +43,14 @@ function BarcoCard({ unidad, stats, desmoldeRow, selected, onClick }) {
       }}
     >
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-        <span style={{ fontFamily:T.mono, fontSize:14, fontWeight:700, color:"var(--text)" }}>
+        <span style={{ fontFamily:T.mono, fontSize:14, fontWeight:600, color:"var(--text)" }}>
           {unidad.codigo}
         </span>
         <div style={{ display:"flex", alignItems:"center", gap:7 }}>
           {stats?.rehacer > 0 && (
             <span title={`${stats.rehacer} a rehacer`} style={{
               display:"inline-flex", alignItems:"center", gap:3,
-              color:"var(--red)", fontFamily:T.mono, fontSize:10, fontWeight:700,
+              color:"var(--red)", fontFamily:T.mono, fontSize:10, fontWeight:600,
             }}>
               <RotateCcw size={10} /> {stats.rehacer}
             </span>
@@ -58,7 +58,7 @@ function BarcoCard({ unidad, stats, desmoldeRow, selected, onClick }) {
           {stats?.demoradas.length > 0 && (
             <span title={`${stats.demoradas.length} demorada(s)`} style={{
               display:"inline-flex", alignItems:"center", gap:3,
-              color:"var(--amber)", fontFamily:T.mono, fontSize:10, fontWeight:700,
+              color:"var(--cyan)", fontFamily:T.mono, fontSize:10, fontWeight:600,
             }}>
               <AlertTriangle size={10} /> {stats.demoradas.length}
             </span>
@@ -67,7 +67,7 @@ function BarcoCard({ unidad, stats, desmoldeRow, selected, onClick }) {
             <span style={{
               padding:"2px 6px", borderRadius:6,
               border:`1px solid ${bucket.border}`, background:bucket.bg, color:bucket.color,
-              fontSize:9, fontWeight:700, whiteSpace:"nowrap",
+              fontSize:9, fontWeight:600, whiteSpace:"nowrap",
             }}>
               {desmoldeRow.bucket === "ahora" ? "Pedir" : "Próximo"}
             </span>
@@ -86,7 +86,7 @@ function BarcoCard({ unidad, stats, desmoldeRow, selected, onClick }) {
               {stats.enviadas > 0 && <span style={{ color:"var(--blue)" }}> · {stats.enviadas} enviadas</span>}
             </span>
             <span style={{
-              fontFamily:T.mono, fontSize:12, fontWeight:700,
+              fontFamily:T.mono, fontSize:12, fontWeight:600,
               color:stats.pct === 100 ? "var(--green)" : "var(--muted)",
             }}>
               {stats.pct}%
@@ -171,7 +171,7 @@ export default function FleetBoard({
                   <button className="mrm-icon-btn" style={ICON_BTN} onClick={() => setRenameId(null)} title="Cancelar"><X size={13} /></button>
                 </span>
               ) : (
-                <span style={{ fontSize:13, fontWeight:700, color:"var(--text)", fontFamily:T.mono }}>
+                <span style={{ fontSize:13, fontWeight:600, color:"var(--text)", fontFamily:T.mono }}>
                   {linea.nombre}
                 </span>
               )}
@@ -245,7 +245,7 @@ export default function FleetBoard({
                   style={{
                     padding:"4px 12px", borderRadius:7, cursor:"pointer",
                     border:"1px solid var(--blue-border)", background:"var(--blue-soft)",
-                    color:"var(--blue)", fontFamily:T.sans, fontSize:12, fontWeight:700,
+                    color:"var(--blue)", fontFamily:T.sans, fontSize:12, fontWeight:600,
                   }}
                 >
                   Crear
@@ -291,7 +291,7 @@ export default function FleetBoard({
               display:"inline-flex", alignItems:"center", gap:5,
               padding:"4px 11px", borderRadius:7, cursor:"pointer",
               border:"1px solid var(--border)", background:"var(--panel)",
-              color:"var(--text)", fontFamily:T.sans, fontSize:12, fontWeight:700,
+              color:"var(--text)", fontFamily:T.sans, fontSize:12, fontWeight:600,
             }}
           >
             <Plus size={13} /> Línea

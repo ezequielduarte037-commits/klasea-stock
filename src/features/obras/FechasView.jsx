@@ -140,7 +140,7 @@ function colorPorDias(dias) {
   if (dias === null) return { fg: C.t3, bg: "transparent", label: "" };
   if (dias < 0) return { fg: C.red, bg: "rgba(239,68,68,0.10)", label: "vencido" };
   if (dias < 14) return { fg: C.red, bg: "rgba(239,68,68,0.12)", label: "ya" };
-  if (dias < 30) return { fg: C.amber, bg: "rgba(245,158,11,0.12)", label: "pronto" };
+  if (dias < 30) return { fg: C.cyan, bg: "rgba(34,211,238,0.12)", label: "pronto" };
   return { fg: C.green, bg: "transparent", label: "" };
 }
 
@@ -669,7 +669,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
     padding: "8px 10px",
     textAlign: "left",
     fontSize: 10.5,
-    fontWeight: 850,
+    fontWeight: 700,
     color: C.t2,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -741,7 +741,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       <div style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 14, padding: 12, marginBottom: 10 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ minWidth: 200, flex: 1 }}>
-            <div style={{ fontSize: 19, fontWeight: 900, color: C.t0, letterSpacing: -0.3 }}>Fechas de producción</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: C.t0, letterSpacing: -0.3 }}>Fechas de producción</div>
             <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
               Lo vencido queda marcado hasta que alguien lo actualice o lo resuelva.
             </div>
@@ -791,7 +791,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                   borderRadius: 7,
                   padding: "6px 12px",
                   fontSize: 12,
-                  fontWeight: 850,
+                  fontWeight: 700,
                   cursor: "pointer",
                   fontFamily: C.sans,
                 }}
@@ -804,7 +804,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
 
         {/* ── Agenda próxima: vencidos + próximos 45 días. Click = enfocar la obra ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.b0}`, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto", color: C.t2, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", fontWeight: 850 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto", color: C.t2, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
             Agenda
             <span style={{ color: C.t0, fontFamily: C.mono }}>{agenda.length}</span>
           </div>
@@ -836,9 +836,9 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                       fontFamily: C.sans,
                     }}
                   >
-                    <span style={{ color: a.color, fontWeight: 900, fontFamily: C.mono }}>{a.codigo}</span>
-                    <span style={{ color: C.t1, fontWeight: 750 }}>{a.evento}</span>
-                    <span style={{ color: col.fg, fontWeight: 900 }}>{diasTexto(a.dias)}</span>
+                    <span style={{ color: a.color, fontWeight: 700, fontFamily: C.mono }}>{a.codigo}</span>
+                    <span style={{ color: C.t1, fontWeight: 650 }}>{a.evento}</span>
+                    <span style={{ color: col.fg, fontWeight: 700 }}>{diasTexto(a.dias)}</span>
                   </button>
                 );
               })}
@@ -860,7 +860,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
         <div style={{ border: `1px solid ${C.b1}`, borderRadius: 14, background: C.s0, padding: 14, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 900, color: C.t0 }}>Configuración de tiempos</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.t0 }}>Configuración de tiempos</div>
               <div style={{ fontSize: 12, color: C.t2, marginTop: 4, lineHeight: 1.45 }}>
                 Negativo = antes de la referencia. Positivo = después. Los ítems con alcance por línea sólo aparecen en esa línea.
               </div>
@@ -870,7 +870,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
 
           <div style={{ border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
             <div style={{ padding: "9px 12px", background: C.s1, borderBottom: `1px solid ${C.b0}` }}>
-              <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 850 }}>Botada estimada (regla por línea)</div>
+              <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 700 }}>Botada estimada (regla por línea)</div>
               <div style={{ fontSize: 11.5, color: C.t3, marginTop: 2 }}>
                 Si el barco no tiene botada cargada, se proyecta desde el desmolde con estas semanas. Las líneas SIN valor no proyectan botada (muestran "sin regla") — mejor sin fecha que con una fecha inventada.
               </div>
@@ -886,7 +886,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                 </thead>
                 <tbody>
                   <tr>
-                    <td style={{ ...td, fontFamily: C.sans, fontWeight: 800, color: C.t0 }}>Semanas desmolde {"->"} botada</td>
+                    <td style={{ ...td, fontFamily: C.sans, fontWeight: 650, color: C.t0 }}>Semanas desmolde {"->"} botada</td>
                     {["*", ...tokens].map((modelo) => {
                       const bk = `${BOTADA_EVENT_KEY}|${modelo}`;
                       const val = bk in buffer ? buffer[bk] : getExactOffset(BOTADA_EVENT_KEY, modelo);
@@ -927,7 +927,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
               <tbody>
                 {eventos.map((ev) => (
                   <tr key={ev.key}>
-                    <td style={{ ...td, fontFamily: C.sans, color: C.t0, fontWeight: 750 }}>
+                    <td style={{ ...td, fontFamily: C.sans, color: C.t0, fontWeight: 650 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span>{ev.label}</span>
                         <button type="button" onClick={() => borrarEvento(ev)} title="Quitar este ítem" style={iconDangerBtn}>x</button>
@@ -980,7 +980,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       {/* ── Leyenda unificada ── */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12, fontSize: 11.5, color: C.t2 }}>
         <Legend color={C.red} text="Vencido / <14 días" />
-        <Legend color={C.amber} text="Próximo (<30d)" />
+        <Legend color={C.cyan} text="Próximo (<30d)" />
         <Legend color={C.green} text="Con tiempo" />
         <Legend color={C.blue} text="Pedido" />
         <Legend color={C.violet} text="En curso" />
@@ -1011,7 +1011,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
               borderLeft: `3px solid ${lineColor}`,
             }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: lineColor }} />
-              <span style={{ fontSize: 14.5, fontWeight: 900, color: C.t0 }}>Línea {token}</span>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: C.t0 }}>Línea {token}</span>
               <span style={pill()}>{lista.length} barco{lista.length !== 1 ? "s" : ""}</span>
               <span style={pill()}>{eventosLinea.length} ítem{eventosLinea.length !== 1 ? "s" : ""}</span>
             </div>
@@ -1081,7 +1081,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                       const fechas = withFechas(f);
                       return (
                         <tr key={f.id} className="fv-row">
-                          <td style={{ ...td, fontWeight: 850, color: C.t0, position: "sticky", left: 0, background: C.bg, zIndex: 1 }}>{f.codigo}</td>
+                          <td style={{ ...td, fontWeight: 700, color: C.t0, position: "sticky", left: 0, background: C.bg, zIndex: 1 }}>{f.codigo}</td>
                           <td style={td}>
                             {esGestion ? (
                               <input className="fv-date-input" type="date" value={iso(fechas.est)} onChange={(e) => setFechaObra(f.id, "desmolde_estimado", e.target.value)} style={dateInput} />
@@ -1205,7 +1205,7 @@ function HitoCell({ f, fechas, ev, fechaHito, estado, esGestion, onClick, td }) 
         title={`${ev.label}: hecho${fReal ? ` el ${fmtFecha(fReal)}` : ""}`}
         style={{ ...td, textAlign: "center", background: meta.bg, padding: "5px 8px", cursor: esGestion ? "pointer" : "default" }}
       >
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.green, fontWeight: 850 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.green, fontWeight: 700 }}>
           <Check size={12} strokeWidth={3} />
           {fReal ? fmtFecha(fReal) : "Hecho"}
         </div>
@@ -1224,13 +1224,13 @@ function HitoCell({ f, fechas, ev, fechaHito, estado, esGestion, onClick, td }) 
       title={`${ev.label} · ${fmtFecha(fecha)}${fechas.atrasoDias > 0 ? ` · incluye ajuste manual +${fechas.atrasoDias}d` : ""}${esGestion ? " · click para gestionar" : ""}`}
       style={{ ...td, textAlign: "center", background: bg, padding: "5px 8px", cursor: esGestion ? "pointer" : "default" }}
     >
-      <div style={{ color: fg, fontWeight: dias !== null && dias < 30 ? 900 : 650 }}>{fmtFecha(fecha)}</div>
+      <div style={{ color: fg, fontWeight: dias !== null && dias < 30 ? 700 : 600 }}>{fmtFecha(fecha)}</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 2 }}>
-        <span style={{ fontSize: 9.5, color: fg, opacity: 0.9, fontFamily: C.sans, fontWeight: 800 }}>
+        <span style={{ fontSize: 9.5, color: fg, opacity: 0.9, fontFamily: C.sans, fontWeight: 650 }}>
           {meta ? meta.label : diasTexto(dias)}
         </span>
         {meta && dias !== null && (
-          <span style={{ fontSize: 9.5, color: col.fg, fontFamily: C.sans, fontWeight: 700, opacity: 0.8 }}>{diasTexto(dias)}</span>
+          <span style={{ fontSize: 9.5, color: col.fg, fontFamily: C.sans, fontWeight: 600, opacity: 0.8 }}>{diasTexto(dias)}</span>
         )}
       </div>
     </td>
@@ -1371,7 +1371,7 @@ function TimelineLinea({ lista, eventosLinea, withFechas, fechaHito, getEstado, 
           <div style={{ width: LBL_W, flexShrink: 0, position: "sticky", left: 0, background: C.s1, zIndex: 2, borderRight: `1px solid ${C.b0}` }} />
           <div style={{ position: "relative", height: 26, width }}>
             {meses.map((m) => (
-              <div key={m.label + m.x} style={{ position: "absolute", left: m.x, width: m.w, top: 0, bottom: 0, borderLeft: `1px solid ${C.b0}`, display: "flex", alignItems: "center", paddingLeft: 6, fontSize: 10, fontWeight: 850, color: C.t2, textTransform: "uppercase", letterSpacing: 0.6, overflow: "hidden", whiteSpace: "nowrap" }}>
+              <div key={m.label + m.x} style={{ position: "absolute", left: m.x, width: m.w, top: 0, bottom: 0, borderLeft: `1px solid ${C.b0}`, display: "flex", alignItems: "center", paddingLeft: 6, fontSize: 10, fontWeight: 700, color: C.t2, textTransform: "uppercase", letterSpacing: 0.6, overflow: "hidden", whiteSpace: "nowrap" }}>
                 {m.w > 34 ? m.label : ""}
               </div>
             ))}
@@ -1380,7 +1380,7 @@ function TimelineLinea({ lista, eventosLinea, withFechas, fechaHito, getEstado, 
         {/* Filas por barco */}
         {rows.map(({ f, fechas, hitos }) => (
           <div key={f.id} style={{ display: "flex", borderBottom: `1px solid ${C.b0}` }}>
-            <div style={{ width: LBL_W, flexShrink: 0, position: "sticky", left: 0, background: C.bg, zIndex: 2, borderRight: `1px solid ${C.b0}`, padding: "0 10px", display: "flex", alignItems: "center", fontFamily: C.mono, fontWeight: 850, fontSize: 12.5, color: C.t0, minHeight: 40 }}>
+            <div style={{ width: LBL_W, flexShrink: 0, position: "sticky", left: 0, background: C.bg, zIndex: 2, borderRight: `1px solid ${C.b0}`, padding: "0 10px", display: "flex", alignItems: "center", fontFamily: C.mono, fontWeight: 700, fontSize: 12.5, color: C.t0, minHeight: 40 }}>
               {f.codigo}
             </div>
             <div style={{ position: "relative", width, minHeight: 40 }}>
@@ -1442,9 +1442,9 @@ function ObrasCardsMobile({ lista, eventosLinea, withFechas, fechaHito, getEstad
           <div key={f.id} style={{ border: `1px solid ${C.b1}`, borderRadius: 14, background: C.bg, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", background: C.s0, borderBottom: `1px solid ${C.b0}` }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: f.color }} />
-              <span style={{ fontFamily: C.mono, fontWeight: 900, fontSize: 14, color: C.t0 }}>{f.codigo}</span>
+              <span style={{ fontFamily: C.mono, fontWeight: 700, fontSize: 14, color: C.t0 }}>{f.codigo}</span>
               {fechas.atrasoDias > 0 && (
-                <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.blue, fontWeight: 850 }}>ajuste +{fechas.atrasoDias}d</span>
+                <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.blue, fontWeight: 700 }}>ajuste +{fechas.atrasoDias}d</span>
               )}
             </div>
             <div style={{ padding: 11, display: "grid", gap: 9 }}>
@@ -1500,17 +1500,17 @@ function ObrasCardsMobile({ lista, eventosLinea, withFechas, fechaHito, getEstad
                       disabled={!esGestion}
                       style={{ display: "flex", alignItems: "center", gap: 8, border: "none", background: "transparent", padding: "5px 2px", cursor: esGestion ? "pointer" : "default", textAlign: "left", fontFamily: C.sans, minHeight: 30 }}
                     >
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 750, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 650, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</span>
                       {estado === "hecho" ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontFamily: C.mono, fontSize: 12, fontWeight: 850 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontFamily: C.mono, fontSize: 12, fontWeight: 700 }}>
                           <Check size={12} strokeWidth={3} /> {fReal ? fmtFecha(fReal) : "Hecho"}
                         </span>
                       ) : !fecha ? (
                         <span style={{ color: C.t3, fontSize: 10.5 }}>{motivo === "sin regla" ? "sin regla" : "—"}</span>
                       ) : (
                         <>
-                          <span style={{ fontFamily: C.mono, fontSize: 12, color: meta ? meta.color : col.fg, fontWeight: 800 }}>{fmtFecha(fecha)}</span>
-                          <span style={{ fontSize: 10, fontWeight: 850, color: meta ? meta.color : col.fg, background: meta ? meta.bg : col.bg, border: `1px solid ${meta ? meta.border : "transparent"}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                          <span style={{ fontFamily: C.mono, fontSize: 12, color: meta ? meta.color : col.fg, fontWeight: 650 }}>{fmtFecha(fecha)}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: meta ? meta.color : col.fg, background: meta ? meta.bg : col.bg, border: `1px solid ${meta ? meta.border : "transparent"}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
                             {meta ? meta.label : diasTexto(dias)}
                           </span>
                         </>
@@ -1527,7 +1527,7 @@ function ObrasCardsMobile({ lista, eventosLinea, withFechas, fechaHito, getEstad
   );
 }
 
-const mLbl = { fontSize: 9.5, color: C.t3, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 };
+const mLbl = { fontSize: 9.5, color: C.t3, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 };
 
 /* ── Popover de gestión de un hito ── */
 function HitoMenuPopover({ menu, estado, onSet, onClose }) {
@@ -1540,13 +1540,13 @@ function HitoMenuPopover({ menu, estado, onSet, onClose }) {
       <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 6000 }} />
       <div style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 6001, width: 270, border: `1px solid ${C.b1}`, background: C.panelSolid || C.bg, borderRadius: 13, boxShadow: "0 18px 50px rgba(0,0,0,0.35)", overflow: "hidden", fontFamily: C.sans }}>
         <div style={{ padding: "10px 13px", borderBottom: `1px solid ${C.b0}` }}>
-          <div style={{ fontSize: 13.5, fontWeight: 900, color: C.t0 }}>{menu.evLabel}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: C.t0 }}>{menu.evLabel}</div>
           <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
-            <span style={{ fontFamily: C.mono, fontWeight: 850 }}>{menu.codigo}</span>
+            <span style={{ fontFamily: C.mono, fontWeight: 700 }}>{menu.codigo}</span>
             {menu.fecha ? (
               <>
                 <span>· {fmtFecha(menu.fecha)}</span>
-                <span style={{ color: col.fg, fontWeight: 850 }}>{diasTexto(menu.dias)}</span>
+                <span style={{ color: col.fg, fontWeight: 700 }}>{diasTexto(menu.dias)}</span>
               </>
             ) : (
               <span>· sin fecha proyectada</span>
@@ -1575,7 +1575,7 @@ function HitoMenuPopover({ menu, estado, onSet, onClose }) {
                   background: activo ? bg : "transparent",
                   color: activo ? color : C.t1,
                   borderRadius: 9, padding: "8px 11px", cursor: "pointer",
-                  fontSize: 12.5, fontWeight: activo ? 900 : 700, fontFamily: C.sans, textAlign: "left",
+                  fontSize: 12.5, fontWeight: activo ? 700 : 600, fontFamily: C.sans, textAlign: "left",
                 }}
               >
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: key ? color : C.t3, flexShrink: 0 }} />
@@ -1585,7 +1585,7 @@ function HitoMenuPopover({ menu, estado, onSet, onClose }) {
             );
           })}
           <div style={{ display: "grid", gap: 4, marginTop: 2, paddingTop: 8, borderTop: `1px solid ${C.b0}` }}>
-            <span style={{ fontSize: 9.5, color: C.t3, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Fecha real (al marcar hecho)</span>
+            <span style={{ fontSize: 9.5, color: C.t3, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Fecha real (al marcar hecho)</span>
             <input
               type="date"
               className="fv-date-input"
@@ -1630,7 +1630,7 @@ function EditarFechaModal({ data, onSave, onClose }) {
       <div style={{ width: "min(480px, 100%)", borderRadius: 16, border: `1px solid ${C.b1}`, background: C.panelSolid || C.bg, boxShadow: "0 24px 70px rgba(0,0,0,0.35)", overflow: "hidden", fontFamily: C.sans }} onMouseDown={(e) => e.stopPropagation()}>
         <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15.5, fontWeight: 900, color: C.t0 }}>{label} · {codigo}</div>
+            <div style={{ fontSize: 15.5, fontWeight: 700, color: C.t0 }}>{label} · {codigo}</div>
             <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
               {esReal ? "Hito real: el cambio queda auditado con motivo." : "El cambio queda registrado en el historial."}
             </div>
@@ -1641,7 +1641,7 @@ function EditarFechaModal({ data, onSave, onClose }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <div style={mLbl}>Fecha actual</div>
-              <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 850, color: habiaFecha ? C.t0 : C.t3 }}>{fmtFecha(dActual)}</div>
+              <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: habiaFecha ? C.t0 : C.t3 }}>{fmtFecha(dActual)}</div>
             </div>
             <label style={{ display: "grid", gap: 3 }}>
               <span style={mLbl}>Fecha nueva</span>
@@ -1656,12 +1656,12 @@ function EditarFechaModal({ data, onSave, onClose }) {
           </div>
 
           {deltaDias !== null && deltaDias !== 0 && (
-            <div style={{ fontSize: 12, color: deltaDias > 0 ? C.amber : C.blue, fontWeight: 750 }}>
+            <div style={{ fontSize: 12, color: deltaDias > 0 ? C.cyan : C.blue, fontWeight: 650 }}>
               Impacto: {deltaDias > 0 ? `+${deltaDias}` : deltaDias} días{field.startsWith("desmolde") ? " — corre todos los hitos que dependen del desmolde." : field.startsWith("botada") ? " — corre los hitos que dependen de la botada." : ""}
             </div>
           )}
           {habiaFecha && !nueva && (
-            <div style={{ fontSize: 12, color: C.red, fontWeight: 800 }}>Vas a BORRAR esta fecha.</div>
+            <div style={{ fontSize: 12, color: C.red, fontWeight: 650 }}>Vas a BORRAR esta fecha.</div>
           )}
 
           <label style={{ display: "grid", gap: 4 }}>
@@ -1722,7 +1722,7 @@ const iconDangerBtn = {
   borderRadius: 6,
   lineHeight: "17px",
   fontSize: 12,
-  fontWeight: 900,
+  fontWeight: 700,
 };
 
 function softBtn() {
@@ -1731,7 +1731,7 @@ function softBtn() {
     borderRadius: 9,
     cursor: "pointer",
     fontSize: 12.5,
-    fontWeight: 750,
+    fontWeight: 650,
     fontFamily: C.sans,
     border: `1px solid ${C.b1}`,
     background: C.s1,
@@ -1761,7 +1761,7 @@ function pill() {
   return {
     fontSize: 11,
     color: C.t2,
-    fontWeight: 800,
+    fontWeight: 650,
     background: C.s1,
     border: `1px solid ${C.b0}`,
     borderRadius: 999,
@@ -1793,7 +1793,7 @@ function NuevoEventoModal({ tokens, onClose, onSave }) {
       <div style={{ width: "min(560px, 100%)", borderRadius: 16, border: `1px solid ${C.b1}`, background: C.panelSolid || C.bg, boxShadow: "0 24px 70px rgba(0,0,0,0.35)", overflow: "hidden" }} onMouseDown={(e) => e.stopPropagation()}>
         <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: C.t0 }}>Nuevo ítem de fechas</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.t0 }}>Nuevo ítem de fechas</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Puede ser global o sólo para una línea de producción.</div>
           </div>
           <button type="button" onClick={onClose} style={softBtn()}>Cerrar</button>
@@ -1849,7 +1849,7 @@ const fieldLabel = {
   color: C.t2,
   textTransform: "uppercase",
   letterSpacing: 0.7,
-  fontWeight: 850,
+  fontWeight: 700,
 };
 
 const modalInput = {
@@ -1862,5 +1862,5 @@ const modalInput = {
   fontSize: 13,
   textTransform: "none",
   letterSpacing: 0,
-  fontWeight: 650,
+  fontWeight: 600,
 };

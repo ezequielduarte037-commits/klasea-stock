@@ -14,7 +14,7 @@ const FIELD = {
 };
 
 const STATUS_META = {
-  pendiente: { label: "Pendientes", singular: "Pendiente", color: C.amber, bg: C.amberL, border: C.amberB },
+  pendiente: { label: "Pendientes", singular: "Pendiente", color: C.cyan, bg: C.cyanL, border: C.cyanB },
   estandar: { label: "Estándar", singular: "Estándar", color: C.blue, bg: C.blueL, border: C.blueB },
   puntual: { label: "Puntuales", singular: "Puntual", color: C.violet, bg: C.violetL, border: C.violetB },
 };
@@ -110,7 +110,7 @@ function evidenceInScope(evidence, lineFilter, workFilter) {
 
 function KpiChip({ label, value, meta, active, onClick }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={active} style={{ minHeight: 28, display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${active ? meta.border : C.border}`, background: active ? meta.bg : C.panelSolid, color: active ? meta.color : C.dim, borderRadius: 999, padding: "3px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 10, fontWeight: 900 }}>
+    <button type="button" onClick={onClick} aria-pressed={active} style={{ minHeight: 28, display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${active ? meta.border : C.border}`, background: active ? meta.bg : C.panelSolid, color: active ? meta.color : C.dim, borderRadius: 999, padding: "3px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 10, fontWeight: 700 }}>
       <span style={{ width: 6, height: 6, borderRadius: 999, background: meta.color }} />
       {label} <span style={{ fontFamily: C.mono }}>{value}</span>
     </button>
@@ -367,9 +367,9 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
       <div style={{ minHeight: isMobile ? 44 : 40, padding: isMobile ? "6px 10px" : "5px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flexShrink: 0 }}>
         <div title="Estandarización por línea y obra" style={{ display: "inline-flex", alignItems: "center", gap: 7, paddingRight: 4, color: C.text, whiteSpace: "nowrap" }}>
           <span style={{ width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, flexShrink: 0 }}><Sparkles size={13} /></span>
-          <span style={{ fontSize: 12, fontWeight: 950 }}>Estandarizar</span>
+          <span style={{ fontSize: 12, fontWeight: 750 }}>Estandarizar</span>
         </div>
-        <select aria-label="Línea enfocada" title="Línea enfocada" value={lineFilter} onChange={(event) => changeLine(event.target.value)} style={{ ...FIELD, width: isMobile ? 112 : 118, minHeight: isMobile ? 36 : 30, padding: "4px 7px", fontSize: 10.5, fontWeight: 900 }}>
+        <select aria-label="Línea enfocada" title="Línea enfocada" value={lineFilter} onChange={(event) => changeLine(event.target.value)} style={{ ...FIELD, width: isMobile ? 112 : 118, minHeight: isMobile ? 36 : 30, padding: "4px 7px", fontSize: 10.5, fontWeight: 700 }}>
           {!lineFilter && <option value="">Elegir línea</option>}
           {modelOptions.map((modelo) => <option key={modelo} value={modelo}>Línea K{modelo}</option>)}
         </select>
@@ -397,7 +397,7 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
             ) : filtered.length === 0 ? (
               <div style={{ margin: 6, padding: "32px 18px", border: `1px dashed ${C.border}`, borderRadius: 12, textAlign: "center", color: C.dim }}>
                 <Check size={24} color={status === "pendiente" ? C.green : C.dim} />
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 900, marginTop: 8 }}>{status === "pendiente" ? "Sin pendientes en este enfoque" : "Sin productos en esta vista"}</div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginTop: 8 }}>{status === "pendiente" ? "Sin pendientes en este enfoque" : "Sin productos en esta vista"}</div>
                 <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4 }}>Probá con otra obra, estado o búsqueda.</div>
               </div>
             ) : filtered.map((item) => {
@@ -409,12 +409,12 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                 <button key={item.id} type="button" onClick={() => selectItem(item)} style={{ width: "100%", display: "grid", gridTemplateColumns: "42px minmax(0,1fr) auto", alignItems: "center", gap: 9, border: `1px solid ${selectedRow ? C.blueB : C.border}`, borderLeft: `3px solid ${selectedRow ? C.blue : meta.color}`, background: selectedRow ? C.blueL : C.panelSolid, color: C.text, borderRadius: 10, padding: "8px 9px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
                   <ProductThumb material={item} />
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion || "Sin nombre"}</span>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion || "Sin nombre"}</span>
                     <span style={{ display: "block", color: C.dim, fontSize: 10.25, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.codigo || "sin código"}{item.proveedor ? ` · ${item.proveedor}` : ""}</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, color: C.dim, fontSize: 9.5, flexWrap: "wrap" }}>
-                      <span style={{ color: C.blue, fontWeight: 900 }}>K{lineFilter}</span>
+                      <span style={{ color: C.blue, fontWeight: 700 }}>K{lineFilter}</span>
                       <span>{evidence.ingresos.length} ingreso{evidence.ingresos.length === 1 ? "" : "s"}</span>
-                      {last && <><span style={{ color: C.text, fontFamily: C.mono, fontWeight: 850 }}>{last.obraCodigo || "Stock general"}</span><span>{fmtDate(last.fecha)}</span></>}
+                      {last && <><span style={{ color: C.text, fontFamily: C.mono, fontWeight: 700 }}>{last.obraCodigo || "Stock general"}</span><span>{fmtDate(last.fecha)}</span></>}
                     </span>
                   </span>
                   <ChevronRight size={13} style={{ color: selectedRow ? C.blue : C.dim }} />
@@ -426,59 +426,59 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
           <section style={{ minWidth: 0, minHeight: 0, display: isMobile && !selected ? "none" : "flex", flexDirection: "column", overflow: "hidden" }}>
             {!selected ? (
               <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 24 }}>
-                <div style={{ maxWidth: 380, textAlign: "center", color: C.dim }}><CircleDotDashed size={29} /><div style={{ color: C.text, fontSize: 14, fontWeight: 950, marginTop: 9 }}>Elegí un producto de K{lineFilter || "—"}</div><div style={{ fontSize: 11.5, lineHeight: 1.5, marginTop: 4 }}>Vas a ver cada ingreso con su fecha y barco antes de tomar la decisión.</div></div>
+                <div style={{ maxWidth: 380, textAlign: "center", color: C.dim }}><CircleDotDashed size={29} /><div style={{ color: C.text, fontSize: 14, fontWeight: 750, marginTop: 9 }}>Elegí un producto de K{lineFilter || "—"}</div><div style={{ fontSize: 11.5, lineHeight: 1.5, marginTop: 4 }}>Vas a ver cada ingreso con su fecha y barco antes de tomar la decisión.</div></div>
               </div>
             ) : (
               <>
                 <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 12 : "14px 18px 26px" }}>
-                  {isMobile && <button type="button" onClick={() => setSelectedId(null)} style={{ border: "none", background: "transparent", color: C.blue, padding: "4px 0 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 900 }}>← Volver a la bandeja</button>}
+                  {isMobile && <button type="button" onClick={() => setSelectedId(null)} style={{ border: "none", background: "transparent", color: C.blue, padding: "4px 0 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700 }}>← Volver a la bandeja</button>}
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
                     <ProductThumb material={selected} />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                        <span style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>{selected.descripcion}</span>
-                        <span style={{ color: STATUS_META[selectedStatus].color, background: STATUS_META[selectedStatus].bg, border: `1px solid ${STATUS_META[selectedStatus].border}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>{STATUS_META[selectedStatus].singular} en K{lineFilter}</span>
+                        <span style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>{selected.descripcion}</span>
+                        <span style={{ color: STATUS_META[selectedStatus].color, background: STATUS_META[selectedStatus].bg, border: `1px solid ${STATUS_META[selectedStatus].border}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 700 }}>{STATUS_META[selectedStatus].singular} en K{lineFilter}</span>
                       </div>
                       <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>{originLabel(selected.origen)} · alta de catálogo {fmtDate(selected.created_at)}{selected.proveedor ? ` · ${selected.proveedor}` : ""}</div>
                     </div>
-                    <button type="button" onClick={() => onOpenCatalog?.(selected.id)} title="Abrir ficha completa" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.blue, borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, fontWeight: 900 }}><ExternalLink size={12} /> Ficha</button>
+                    <button type="button" onClick={() => onOpenCatalog?.(selected.id)} title="Abrir ficha completa" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.blue, borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, fontWeight: 700 }}><ExternalLink size={12} /> Ficha</button>
                   </div>
 
                   <div style={{ marginTop: 15, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.5fr) minmax(190px,1fr)", gap: 10 }}>
-                    <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Nombre claro del producto</span><input value={draft.descripcion} onChange={(event) => setDraft((current) => ({ ...current, descripcion: event.target.value }))} style={FIELD} /></label>
-                    <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Alias de búsqueda</span><input value={draft.alias} onChange={(event) => setDraft((current) => ({ ...current, alias: event.target.value }))} placeholder="Cómo lo llama el taller" style={FIELD} /></label>
+                    <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Nombre claro del producto</span><input value={draft.descripcion} onChange={(event) => setDraft((current) => ({ ...current, descripcion: event.target.value }))} style={FIELD} /></label>
+                    <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Alias de búsqueda</span><input value={draft.alias} onChange={(event) => setDraft((current) => ({ ...current, alias: event.target.value }))} placeholder="Cómo lo llama el taller" style={FIELD} /></label>
                   </div>
 
                   <details style={{ marginTop: 10, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
                     <summary style={{ minHeight: 40, padding: "8px 11px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", listStyle: "none", color: C.text }}>
                       <ChevronDown size={13} style={{ color: C.blue, flexShrink: 0 }} />
-                      <span style={{ fontSize: 11.5, fontWeight: 950 }}>Más datos del producto</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 750 }}>Más datos del producto</span>
                       <span style={{ color: C.dim, fontSize: 9.75 }}>Opcional</span>
                       <span style={{ marginLeft: "auto", color: C.dim, fontSize: 9.5, textAlign: "right" }}>{draft.codigo || "sin código"} · {draft.proveedores.length} prov.</span>
                     </summary>
                     <div style={{ borderTop: `1px solid ${C.border}`, padding: 11, display: "grid", gap: 12 }}>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr)) minmax(130px,.7fr)", gap: 9 }}>
-                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>Código interno</span><input value={draft.codigo} onChange={(event) => setDraft((current) => ({ ...current, codigo: event.target.value }))} placeholder="Código o modelo" style={FIELD} /></label>
-                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>Código de barras</span><input value={draft.codigo_barra} onChange={(event) => setDraft((current) => ({ ...current, codigo_barra: event.target.value }))} placeholder="EAN / SKU del proveedor" style={FIELD} /></label>
-                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>Unidad</span><input value={draft.unidad_medida} onChange={(event) => setDraft((current) => ({ ...current, unidad_medida: event.target.value }))} placeholder="unidad, m, kg…" style={FIELD} /></label>
+                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Código interno</span><input value={draft.codigo} onChange={(event) => setDraft((current) => ({ ...current, codigo: event.target.value }))} placeholder="Código o modelo" style={FIELD} /></label>
+                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Código de barras</span><input value={draft.codigo_barra} onChange={(event) => setDraft((current) => ({ ...current, codigo_barra: event.target.value }))} placeholder="EAN / SKU del proveedor" style={FIELD} /></label>
+                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Unidad</span><input value={draft.unidad_medida} onChange={(event) => setDraft((current) => ({ ...current, unidad_medida: event.target.value }))} placeholder="unidad, m, kg…" style={FIELD} /></label>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,.8fr) minmax(0,1.4fr)", gap: 9 }}>
-                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>Rubro / categoría</span><select value={draft.categoria_id} onChange={(event) => setDraft((current) => ({ ...current, categoria_id: event.target.value }))} style={FIELD}><option value="">Sin categoría</option>{catalogOptions.categorias.map((category) => <option key={category.id} value={category.id}>{category.nombre}</option>)}</select></label>
-                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>Observaciones de catálogo</span><input value={draft.notas} onChange={(event) => setDraft((current) => ({ ...current, notas: event.target.value }))} placeholder="Medidas, calidad, equivalencias u otra aclaración" style={FIELD} /></label>
+                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Rubro / categoría</span><select value={draft.categoria_id} onChange={(event) => setDraft((current) => ({ ...current, categoria_id: event.target.value }))} style={FIELD}><option value="">Sin categoría</option>{catalogOptions.categorias.map((category) => <option key={category.id} value={category.id}>{category.nombre}</option>)}</select></label>
+                        <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.25, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Observaciones de catálogo</span><input value={draft.notas} onChange={(event) => setDraft((current) => ({ ...current, notas: event.target.value }))} placeholder="Medidas, calidad, equivalencias u otra aclaración" style={FIELD} /></label>
                       </div>
 
                       <section style={{ borderTop: `1px solid ${C.border}`, paddingTop: 11 }}>
                         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                          <div style={{ minWidth: 190, flex: "1 1 230px" }}><div style={{ color: C.text, fontSize: 11.5, fontWeight: 950 }}>Proveedores y precios</div><div style={{ color: C.dim, fontSize: 9.75, marginTop: 2 }}>Podés asociar varios; el precio es opcional y propio de cada uno.</div></div>
+                          <div style={{ minWidth: 190, flex: "1 1 230px" }}><div style={{ color: C.text, fontSize: 11.5, fontWeight: 750 }}>Proveedores y precios</div><div style={{ color: C.dim, fontSize: 9.75, marginTop: 2 }}>Podés asociar varios; el precio es opcional y propio de cada uno.</div></div>
                           <select aria-label="Proveedor para agregar" value={providerToAdd} onChange={(event) => setProviderToAdd(event.target.value)} style={{ ...FIELD, width: isMobile ? "100%" : 210, minHeight: 32, padding: "5px 8px" }}><option value="">Elegir proveedor…</option>{availableProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.nombre}</option>)}</select>
-                          <button type="button" onClick={addProvider} disabled={!providerToAdd} style={{ minHeight: 32, border: `1px solid ${providerToAdd ? C.blueB : C.border}`, background: providerToAdd ? C.blueL : C.panel2, color: providerToAdd ? C.blue : C.dim, borderRadius: 8, padding: "6px 9px", cursor: providerToAdd ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 5, fontFamily: C.sans, fontSize: 10.5, fontWeight: 900 }}><Plus size={12} /> Agregar</button>
+                          <button type="button" onClick={addProvider} disabled={!providerToAdd} style={{ minHeight: 32, border: `1px solid ${providerToAdd ? C.blueB : C.border}`, background: providerToAdd ? C.blueL : C.panel2, color: providerToAdd ? C.blue : C.dim, borderRadius: 8, padding: "6px 9px", cursor: providerToAdd ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 5, fontFamily: C.sans, fontSize: 10.5, fontWeight: 700 }}><Plus size={12} /> Agregar</button>
                         </div>
-                        {inheritedProviderNeedsMatch && <div style={{ marginTop: 8, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 8, padding: "6px 8px", fontSize: 9.75 }}>El proveedor heredado “{selected.proveedor}” no coincide con uno registrado. Elegilo de la lista si corresponde.</div>}
+                        {inheritedProviderNeedsMatch && <div style={{ marginTop: 8, color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 8, padding: "6px 8px", fontSize: 9.75 }}>El proveedor heredado “{selected.proveedor}” no coincide con uno registrado. Elegilo de la lista si corresponde.</div>}
                         {draft.proveedores.length ? (
                           <div style={{ marginTop: 8, display: "grid", gap: 5 }}>
                             {draft.proveedores.map((provider) => (
                               <div key={provider.proveedor_id} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 76px 30px" : "minmax(150px,1fr) minmax(105px,.45fr) 76px 30px", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 9, padding: 6 }}>
-                                <span title={provider.nombre} style={{ minWidth: 0, color: C.text, fontSize: 10.75, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", gridColumn: isMobile ? "1 / -1" : "auto" }}>{provider.nombre}</span>
+                                <span title={provider.nombre} style={{ minWidth: 0, color: C.text, fontSize: 10.75, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", gridColumn: isMobile ? "1 / -1" : "auto" }}>{provider.nombre}</span>
                                 <input type="number" min="0" step="0.01" value={provider.precio} onChange={(event) => updateProvider(provider.proveedor_id, { precio: event.target.value })} aria-label={`Precio de ${provider.nombre}`} placeholder="Precio" style={{ ...FIELD, minWidth: 0, padding: "5px 7px", fontFamily: C.mono, fontSize: 10.5 }} />
                                 <select value={provider.moneda} onChange={(event) => updateProvider(provider.proveedor_id, { moneda: event.target.value })} aria-label={`Moneda de ${provider.nombre}`} style={{ ...FIELD, minWidth: 0, padding: "5px 6px", fontSize: 10 }}><option value="ARS">ARS</option><option value="USD">USD</option></select>
                                 <button type="button" onClick={() => removeProvider(provider.proveedor_id)} aria-label={`Quitar ${provider.nombre}`} title="Quitar proveedor" style={{ width: 30, height: 30, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 7, padding: 0, cursor: "pointer", display: "grid", placeItems: "center" }}><Trash2 size={12} /></button>
@@ -492,10 +492,10 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
 
                   <section style={{ marginTop: 14, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
                     <div style={{ padding: "9px 11px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <div><div style={{ color: C.text, fontSize: 12, fontWeight: 950 }}>Ingresos de {selectedWork?.codigo || `la línea K${lineFilter}`}</div><div style={{ color: C.dim, fontSize: 10.25, marginTop: 2 }}>Fecha, obra y cantidad que respaldan esta revisión.</div></div>
+                      <div><div style={{ color: C.text, fontSize: 12, fontWeight: 750 }}>Ingresos de {selectedWork?.codigo || `la línea K${lineFilter}`}</div><div style={{ color: C.dim, fontSize: 10.25, marginTop: 2 }}>Fecha, obra y cantidad que respaldan esta revisión.</div></div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ color: C.dim, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 7, padding: "3px 7px", fontSize: 9.5, fontWeight: 900 }}>{focusedEvidence.ingresos.length} mov.</span>
-                        <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 7, padding: "3px 7px", fontFamily: C.mono, fontSize: 10.5, fontWeight: 950 }}>+{fmtQty(focusedEvidence.cantidad)} {selected.unidad_medida || "u"}</span>
+                        <span style={{ color: C.dim, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 7, padding: "3px 7px", fontSize: 9.5, fontWeight: 700 }}>{focusedEvidence.ingresos.length} mov.</span>
+                        <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 7, padding: "3px 7px", fontFamily: C.mono, fontSize: 10.5, fontWeight: 750 }}>+{fmtQty(focusedEvidence.cantidad)} {selected.unidad_medida || "u"}</span>
                       </div>
                     </div>
                     {focusedEvidence.ingresos.length ? (
@@ -503,16 +503,16 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                         {focusedEvidence.ingresos.slice(0, 10).map((entry) => (
                           <div key={entry.row.id || `${entry.fecha}-${entry.obraId}`} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto" : "105px minmax(110px,0.8fr) minmax(120px,1fr) auto", alignItems: "center", gap: 8, padding: "7px 11px", borderBottom: `1px solid ${C.border}`, color: C.dim, fontSize: 10.5 }}>
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><CalendarDays size={11} /> {fmtDate(entry.fecha)}</span>
-                            <span style={{ color: C.text, fontFamily: C.mono, fontWeight: 900 }}>{entry.obraCodigo || "Stock general"}</span>
+                            <span style={{ color: C.text, fontFamily: C.mono, fontWeight: 700 }}>{entry.obraCodigo || "Stock general"}</span>
                             {!isMobile && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textTransform: "capitalize" }}>{originLabel(rowSource(entry.row))}{entry.row.stock_sede ? ` · ${entry.row.stock_sede}` : ""}</span>}
-                            <span style={{ color: C.green, fontFamily: C.mono, fontWeight: 950, textAlign: "right" }}>+{fmtQty(entry.cantidad)}</span>
+                            <span style={{ color: C.green, fontFamily: C.mono, fontWeight: 750, textAlign: "right" }}>+{fmtQty(entry.cantidad)}</span>
                           </div>
                         ))}
                         {focusedEvidence.ingresos.length > 10 && (
                           <details style={{ padding: "7px 11px" }}>
-                            <summary style={{ color: C.blue, fontSize: 10.5, fontWeight: 900, cursor: "pointer" }}>Ver {focusedEvidence.ingresos.length - 10} ingresos anteriores</summary>
+                            <summary style={{ color: C.blue, fontSize: 10.5, fontWeight: 700, cursor: "pointer" }}>Ver {focusedEvidence.ingresos.length - 10} ingresos anteriores</summary>
                             <div style={{ display: "grid", gap: 3, marginTop: 6 }}>
-                              {focusedEvidence.ingresos.slice(10).map((entry) => <div key={entry.row.id || `${entry.fecha}-${entry.obraId}`} style={{ display: "grid", gridTemplateColumns: "95px minmax(0,1fr) auto", gap: 8, padding: "5px 0", color: C.dim, fontSize: 10.25 }}><span>{fmtDate(entry.fecha)}</span><span>{entry.obraCodigo || "Stock general"} · {originLabel(rowSource(entry.row))}</span><span style={{ color: C.green, fontFamily: C.mono, fontWeight: 900 }}>+{fmtQty(entry.cantidad)}</span></div>)}
+                              {focusedEvidence.ingresos.slice(10).map((entry) => <div key={entry.row.id || `${entry.fecha}-${entry.obraId}`} style={{ display: "grid", gridTemplateColumns: "95px minmax(0,1fr) auto", gap: 8, padding: "5px 0", color: C.dim, fontSize: 10.25 }}><span>{fmtDate(entry.fecha)}</span><span>{entry.obraCodigo || "Stock general"} · {originLabel(rowSource(entry.row))}</span><span style={{ color: C.green, fontFamily: C.mono, fontWeight: 700 }}>+{fmtQty(entry.cantidad)}</span></div>)}
                             </div>
                           </details>
                         )}
@@ -528,32 +528,32 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                   )}
 
                   <section style={{ marginTop: 14 }}>
-                    <div><div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>¿Es estándar para la línea K{lineFilter}?</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Esta decisión afecta solamente a K{lineFilter}; las otras líneas quedan intactas.</div></div>
+                    <div><div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>¿Es estándar para la línea K{lineFilter}?</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Esta decisión afecta solamente a K{lineFilter}; las otras líneas quedan intactas.</div></div>
                     <div style={{ marginTop: 9, border: `1px solid ${selectedLineActive ? C.blueB : C.border}`, background: selectedLineActive ? C.blueL : C.panelSolid, borderRadius: 10, padding: 10, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0,1fr) minmax(230px,.75fr)", gap: 10, alignItems: "center" }}>
-                      <button type="button" onClick={toggleFocusedLine} aria-pressed={selectedLineActive} style={{ minHeight: 32, borderRadius: 8, border: `1px solid ${selectedLineActive ? C.blue : C.border}`, background: selectedLineActive ? C.blue : C.panel, color: selectedLineActive ? "#fff" : C.dim, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", fontSize: 11, fontWeight: 900 }}><span style={{ width: 17, height: 17, borderRadius: 5, display: "grid", placeItems: "center", border: `1px solid ${selectedLineActive ? "rgba(255,255,255,.55)" : C.border}` }}>{selectedLineActive && <Check size={11} />}</span> Línea K{lineFilter}</button>
+                      <button type="button" onClick={toggleFocusedLine} aria-pressed={selectedLineActive} style={{ minHeight: 32, borderRadius: 8, border: `1px solid ${selectedLineActive ? C.blue : C.border}`, background: selectedLineActive ? C.blue : C.panel, color: selectedLineActive ? "#fff" : C.dim, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", fontSize: 11, fontWeight: 700 }}><span style={{ width: 17, height: 17, borderRadius: 5, display: "grid", placeItems: "center", border: `1px solid ${selectedLineActive ? "rgba(255,255,255,.55)" : C.border}` }}>{selectedLineActive && <Check size={11} />}</span> Línea K{lineFilter}</button>
                       <span style={{ color: C.dim, fontSize: 10.5 }}>{selectedLineActive ? "Se incorporará a la matriz estándar." : "Activala para incorporarla como estándar."}</span>
-                      {selectedLineActive && <div style={{ display: "grid", gridTemplateColumns: "minmax(100px,1fr) auto", gap: 6, alignItems: "end" }}><label style={{ display: "grid", gap: 4, color: C.dim, fontSize: 9.25, fontWeight: 850 }}>Cantidad/barco<input type="number" min="0.01" step="0.01" value={draft.lineas[lineFilter]} onChange={(event) => setDraft((current) => ({ ...current, cantidadVerificada: false, lineas: { ...current.lineas, [lineFilter]: event.target.value } }))} style={{ ...FIELD, minWidth: 0, padding: "6px 8px", fontFamily: C.mono, fontSize: 11.5 }} /></label><button type="button" onClick={() => setDraft((current) => ({ ...current, cantidadVerificada: !current.cantidadVerificada }))} aria-pressed={draft.cantidadVerificada} title="Indica que esta cantidad fue revisada" style={{ minHeight: 31, border: `1px solid ${draft.cantidadVerificada ? C.greenB : C.border}`, background: draft.cantidadVerificada ? C.greenL : C.panelSolid, color: draft.cantidadVerificada ? C.green : C.dim, borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", fontFamily: C.sans, fontSize: 9.5, fontWeight: 900 }}><span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${draft.cantidadVerificada ? C.green : C.border}`, display: "grid", placeItems: "center" }}>{draft.cantidadVerificada && <Check size={9} />}</span>{draft.cantidadVerificada ? "Verificada" : "Verificar"}</button></div>}
+                      {selectedLineActive && <div style={{ display: "grid", gridTemplateColumns: "minmax(100px,1fr) auto", gap: 6, alignItems: "end" }}><label style={{ display: "grid", gap: 4, color: C.dim, fontSize: 9.25, fontWeight: 700 }}>Cantidad/barco<input type="number" min="0.01" step="0.01" value={draft.lineas[lineFilter]} onChange={(event) => setDraft((current) => ({ ...current, cantidadVerificada: false, lineas: { ...current.lineas, [lineFilter]: event.target.value } }))} style={{ ...FIELD, minWidth: 0, padding: "6px 8px", fontFamily: C.mono, fontSize: 11.5 }} /></label><button type="button" onClick={() => setDraft((current) => ({ ...current, cantidadVerificada: !current.cantidadVerificada }))} aria-pressed={draft.cantidadVerificada} title="Indica que esta cantidad fue revisada" style={{ minHeight: 31, border: `1px solid ${draft.cantidadVerificada ? C.greenB : C.border}`, background: draft.cantidadVerificada ? C.greenL : C.panelSolid, color: draft.cantidadVerificada ? C.green : C.dim, borderRadius: 8, padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", fontFamily: C.sans, fontSize: 9.5, fontWeight: 700 }}><span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${draft.cantidadVerificada ? C.green : C.border}`, display: "grid", placeItems: "center" }}>{draft.cantidadVerificada && <Check size={9} />}</span>{draft.cantidadVerificada ? "Verificada" : "Verificar"}</button></div>}
                     </div>
                     {(selected.modelos_estandar || []).some((row) => String(row.modelo).replace(/^K/i, "") !== lineFilter) && (
                       <div style={{ marginTop: 7, display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", color: C.dim, fontSize: 9.75 }}>
                         También figura como estándar en
-                        {(selected.modelos_estandar || []).filter((row) => String(row.modelo).replace(/^K/i, "") !== lineFilter).map((row) => <span key={row.modelo} style={{ color: C.text, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 6px", fontFamily: C.mono, fontWeight: 900 }}>K{String(row.modelo).replace(/^K/i, "")}</span>)}
+                        {(selected.modelos_estandar || []).filter((row) => String(row.modelo).replace(/^K/i, "") !== lineFilter).map((row) => <span key={row.modelo} style={{ color: C.text, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 6px", fontFamily: C.mono, fontWeight: 700 }}>K{String(row.modelo).replace(/^K/i, "")}</span>)}
                       </div>
                     )}
                   </section>
                 </div>
 
-                <div style={{ padding: isMobile ? 11 : "10px 18px", borderTop: `1px solid ${confirmPuntual ? C.amberB : C.border}`, background: confirmPuntual ? C.amberL : C.topbarSoft, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 7, flexWrap: "wrap", flexShrink: 0 }}>
+                <div style={{ padding: isMobile ? 11 : "10px 18px", borderTop: `1px solid ${confirmPuntual ? C.cyanB : C.border}`, background: confirmPuntual ? C.cyanL : C.topbarSoft, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 7, flexWrap: "wrap", flexShrink: 0 }}>
                   {confirmPuntual ? (
                     <>
-                      <span style={{ color: C.amber, fontSize: 11, fontWeight: 850, marginRight: "auto" }}>Se quitará de K{lineFilter}. Las demás líneas no cambian.</span>
-                      <button type="button" onClick={() => setConfirmPuntual(false)} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>Cancelar</button>
-                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.amberB}`, background: C.amber, color: "#fff", borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>{saving ? "Guardando…" : `Confirmar puntual en K${lineFilter}`}</button>
+                      <span style={{ color: C.cyan, fontSize: 11, fontWeight: 700, marginRight: "auto" }}>Se quitará de K{lineFilter}. Las demás líneas no cambian.</span>
+                      <button type="button" onClick={() => setConfirmPuntual(false)} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>Cancelar</button>
+                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.cyanB}`, background: C.cyan, color: "#fff", borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>{saving ? "Guardando…" : `Confirmar puntual en K${lineFilter}`}</button>
                     </>
                   ) : (
                     <>
-                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>Dejar puntual en K{lineFilter}</button>
-                      <button type="button" onClick={() => guardar("estandar")} disabled={saving || !selectedLineActive} style={{ minHeight: 34, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "7px 12px", cursor: saving || !selectedLineActive ? "default" : "pointer", opacity: saving || !selectedLineActive ? 0.5 : 1, fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}><PackageCheck size={13} /> {saving ? "Guardando…" : `Guardar K${lineFilter} como estándar`}</button>
+                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>Dejar puntual en K{lineFilter}</button>
+                      <button type="button" onClick={() => guardar("estandar")} disabled={saving || !selectedLineActive} style={{ minHeight: 34, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "7px 12px", cursor: saving || !selectedLineActive ? "default" : "pointer", opacity: saving || !selectedLineActive ? 0.5 : 1, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}><PackageCheck size={13} /> {saving ? "Guardando…" : `Guardar K${lineFilter} como estándar`}</button>
                     </>
                   )}
                 </div>

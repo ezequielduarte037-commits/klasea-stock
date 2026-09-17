@@ -276,7 +276,7 @@ export function ChapaSwatch({ tipo, size = "sm", label = false }) {
       }}
     >
       {swatch}
-      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.2, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.2, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {tipo || "Sin chapa"}
       </span>
     </span>
@@ -287,7 +287,7 @@ function MetaTag({ children }) {
   return (
     <span style={{
       fontSize: 10,
-      fontWeight: 700,
+      fontWeight: 600,
       letterSpacing: 0.3,
       color: "var(--muted)",
       background: "var(--panel-2)",
@@ -331,10 +331,10 @@ export function ChapaReferenceCard({ tipo }) {
 
       {/* Ficha */}
       <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 7 }}>
-        <div style={{ fontSize: 9.5, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--dim)", fontWeight: 800 }}>
+        <div style={{ fontSize: 9.5, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--dim)", fontWeight: 650 }}>
           Muestra estilizada · referencia
         </div>
-        <div style={{ fontSize: 15, color: "var(--text)", fontWeight: 800, lineHeight: 1.12, wordBreak: "break-word" }}>
+        <div style={{ fontSize: 15, color: "var(--text)", fontWeight: 650, lineHeight: 1.12, wordBreak: "break-word" }}>
           {tipo || "Sin chapa"}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>

@@ -57,7 +57,7 @@ const label = {
   marginBottom: 6,
   color: C.t2,
   fontSize: 10,
-  fontWeight: 800,
+  fontWeight: 650,
   letterSpacing: 1.1,
   textTransform: "uppercase",
 };
@@ -96,7 +96,7 @@ function proveedorTone(proveedor) {
 
 function Badge({ children, color = C.t1, bg = C.s1, border = C.b0 }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 7, border: `1px solid ${border}`, background: bg, color, fontSize: 10, lineHeight: 1, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 7, border: `1px solid ${border}`, background: bg, color, fontSize: 10, lineHeight: 1, fontWeight: 650, letterSpacing: 0.5, textTransform: "uppercase" }}>
       {children}
     </span>
   );
@@ -109,7 +109,7 @@ function Kpi({ icon, value, label: text, tone = C.blue }) {
         {createElement(icon, { size: 15 })}
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.t0, fontSize: 16, lineHeight: 1, fontWeight: 850 }}>{value}</div>
+        <div style={{ color: C.t0, fontSize: 16, lineHeight: 1, fontWeight: 700 }}>{value}</div>
         <div style={{ color: C.t2, fontSize: 10, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{text}</div>
       </div>
     </div>
@@ -120,9 +120,9 @@ function EmptyState({ onAdd, canAdd }) {
   return (
     <div style={{ padding: "70px 20px", border: `1px dashed ${C.b1}`, borderRadius: 14, textAlign: "center", background: C.s0 }}>
       <Factory size={28} color={C.t2} style={{ marginBottom: 12 }} />
-      <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>No hay procesos con estos filtros</div>
+      <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>No hay procesos con estos filtros</div>
       <div style={{ fontSize: 12, color: C.t2, marginTop: 5 }}>Creá un proceso para una obra o para stock y seguí su recorrido.</div>
-      {canAdd && <button onClick={onAdd} style={{ marginTop: 16, padding: "8px 13px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 750 }}>Crear proceso</button>}
+      {canAdd && <button onClick={onAdd} style={{ marginTop: 16, padding: "8px 13px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 650 }}>Crear proceso</button>}
     </div>
   );
 }
@@ -762,7 +762,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
 
       <div className="muebles-title-row" style={{ display: "flex", justifyContent: "space-between", gap: 20, alignItems: "center", marginBottom: 14 }}>
         <div>
-          <div style={{ display: "flex", gap: 7, alignItems: "center", color: C.t2, fontSize: 10, fontWeight: 850, letterSpacing: 1.3, textTransform: "uppercase" }}>
+          <div style={{ display: "flex", gap: 7, alignItems: "center", color: C.t2, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, textTransform: "uppercase" }}>
             <Factory size={14} /> Operación de muebles
           </div>
           <h1 style={{ margin: "5px 0 0", color: C.t0, fontSize: 25, letterSpacing: -0.7 }}>Seguimiento de fabricación</h1>
@@ -770,10 +770,10 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
         </div>
         {esAdmin && (
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => { setTemplateLineaId(seleccionado?.linea_id || lineas[0]?.id || ""); setShowTemplates(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 11.5, fontWeight: 850, flexShrink: 0 }}>
+            <button type="button" onClick={() => { setTemplateLineaId(seleccionado?.linea_id || lineas[0]?.id || ""); setShowTemplates(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>
               <FilePenLine size={15} /> Plantillas OT y herrajes
             </button>
-            <button data-tour="muebles-nuevo" onClick={abrirNuevoProceso} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 800, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
+            <button data-tour="muebles-nuevo" onClick={abrirNuevoProceso} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 650, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
               <Plus size={15} /> Nuevos muebles
             </button>
           </div>
@@ -794,7 +794,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
             <div style={{ ...label, marginBottom: 5 }}>Mueblero</div>
             <div style={{ display: "flex", gap: 4, padding: 3, borderRadius: 8, background: C.s1, border: `1px solid ${C.b0}` }}>
               {["Todos", ...PROVEEDORES_MUEBLES].map((item) => (
-                <button key={item} onClick={() => setProveedor(item)} style={{ padding: "5px 9px", borderRadius: 6, border: `1px solid ${proveedor === item ? C.b1 : "transparent"}`, background: proveedor === item ? C.s0 : "transparent", color: proveedor === item ? C.t0 : C.t2, cursor: "pointer", fontSize: 10.5, fontWeight: 750 }}>{item}</button>
+                <button key={item} onClick={() => setProveedor(item)} style={{ padding: "5px 9px", borderRadius: 6, border: `1px solid ${proveedor === item ? C.b1 : "transparent"}`, background: proveedor === item ? C.s0 : "transparent", color: proveedor === item ? C.t0 : C.t2, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>{item}</button>
               ))}
             </div>
           </div>
@@ -802,7 +802,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
             <div style={{ ...label, marginBottom: 5 }}>Destino</div>
             <div style={{ display: "flex", gap: 4, padding: 3, borderRadius: 8, background: C.s1, border: `1px solid ${C.b0}` }}>
               {[["Todos", "Todos"], ["obra", "Obras"], ["stock", "Stock"]].map(([value, text]) => (
-                <button key={value} onClick={() => setDestino(value)} style={{ padding: "5px 9px", borderRadius: 6, border: `1px solid ${destino === value ? C.b1 : "transparent"}`, background: destino === value ? C.s0 : "transparent", color: destino === value ? C.t0 : C.t2, cursor: "pointer", fontSize: 10.5, fontWeight: 750 }}>{text}</button>
+                <button key={value} onClick={() => setDestino(value)} style={{ padding: "5px 9px", borderRadius: 6, border: `1px solid ${destino === value ? C.b1 : "transparent"}`, background: destino === value ? C.s0 : "transparent", color: destino === value ? C.t0 : C.t2, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>{text}</button>
               ))}
             </div>
           </div>
@@ -844,13 +844,13 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                             {destinoLote(lote) === "stock" ? "Stock" : `Obra ${nombreObra(lote)}`}
                           </Badge>
                         </div>
-                          <div style={{ color: C.t0, fontSize: 14, lineHeight: 1.2, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreMuebles(lote)}</div>
+                          <div style={{ color: C.t0, fontSize: 14, lineHeight: 1.2, fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreMuebles(lote)}</div>
                           <div style={{ color: C.t2, fontSize: 10.5, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Línea {nombreLinea(lote)} · {itemChapa || "Chapa por definir"}</div>
                         </div>
                       </div>
                       <ChevronRight size={17} color={selected ? tone.color : C.t2} />
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, color: C.t1, fontSize: 11, fontWeight: 700 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, color: C.t1, fontSize: 11, fontWeight: 600 }}>
                       <span>{itemRecepcion ? `Recibido ${itemRecepcion.estado}` : itemMeta.etapa.label}</span>
                       <span>{itemMeta.progreso}%</span>
                     </div>
@@ -884,10 +884,10 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                     {seleccionado.fecha_objetivo && <Badge color={C.blue} bg={C.blueL} border={C.blueB}><CalendarDays size={12} /> Objetivo {fechaCorta(seleccionado.fecha_objetivo)}</Badge>}
                     {esAdmin && (
                       <>
-                        <button type="button" onClick={() => abrirEditarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10.5, fontWeight: 800 }}>
+                        <button type="button" onClick={() => abrirEditarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>
                           <FilePenLine size={13} /> Editar
                         </button>
-                        <button type="button" disabled={eliminandoId === seleccionado.id} onClick={() => eliminarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: eliminandoId === seleccionado.id ? "wait" : "pointer", opacity: eliminandoId === seleccionado.id ? .65 : 1, fontSize: 10.5, fontWeight: 800 }}>
+                        <button type="button" disabled={eliminandoId === seleccionado.id} onClick={() => eliminarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: eliminandoId === seleccionado.id ? "wait" : "pointer", opacity: eliminandoId === seleccionado.id ? .65 : 1, fontSize: 10.5, fontWeight: 650 }}>
                           <Trash2 size={13} /> {eliminandoId === seleccionado.id ? "Eliminando…" : "Eliminar"}
                         </button>
                       </>
@@ -941,12 +941,12 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 7, marginBottom: 8 }}>
-                          <span style={{ width: 21, height: 21, borderRadius: 7, display: "grid", placeItems: "center", border: `1px solid ${done || active ? proveedorTone(seleccionado.proveedor).border : C.b0}`, background: done ? proveedorTone(seleccionado.proveedor).color : C.s0, color: done ? C.bg : active ? proveedorTone(seleccionado.proveedor).color : C.t2, fontSize: 9, fontWeight: 900 }}>
+                          <span style={{ width: 21, height: 21, borderRadius: 7, display: "grid", placeItems: "center", border: `1px solid ${done || active ? proveedorTone(seleccionado.proveedor).border : C.b0}`, background: done ? proveedorTone(seleccionado.proveedor).color : C.s0, color: done ? C.bg : active ? proveedorTone(seleccionado.proveedor).color : C.t2, fontSize: 9, fontWeight: 700 }}>
                             {done ? <Check size={12} strokeWidth={3} /> : index + 1}
                           </span>
-                          {active && <span style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>Actual</span>}
+                          {active && <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Actual</span>}
                         </div>
-                        <div style={{ fontSize: 10.5, lineHeight: 1.25, fontWeight: active ? 850 : 700 }}>{etapa.label}</div>
+                        <div style={{ fontSize: 10.5, lineHeight: 1.25, fontWeight: active ? 700 : 600 }}>{etapa.label}</div>
                       </button>
                     );
                   })}
@@ -954,7 +954,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                 </div>
 
                 <div style={{ marginTop: 11, padding: "10px 11px", borderRadius: 10, border: `1px solid ${proveedorTone(seleccionado.proveedor).border}`, background: proveedorTone(seleccionado.proveedor).bg }}>
-                  <div style={{ color: proveedorTone(seleccionado.proveedor).color, fontSize: 10, fontWeight: 850, letterSpacing: 0.8, textTransform: "uppercase" }}>Etapa actual · {meta.etapa.label}</div>
+                  <div style={{ color: proveedorTone(seleccionado.proveedor).color, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Etapa actual · {meta.etapa.label}</div>
                   <div style={{ color: C.t1, fontSize: 11.5, marginTop: 4 }}>{meta.etapa.short}</div>
                 </div>
 
@@ -971,7 +971,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                   <div style={{ marginTop: 14, padding: 13, borderRadius: 11, border: `1px solid ${selectedRecepcion.estado === "completa" ? C.greenB : C.blueB}`, background: selectedRecepcion.estado === "completa" ? C.greenL : C.blueL }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                       <div>
-                        <div style={{ color: selectedRecepcion.estado === "completa" ? C.green : C.blue, fontSize: 12, fontWeight: 850 }}>
+                        <div style={{ color: selectedRecepcion.estado === "completa" ? C.green : C.blue, fontSize: 12, fontWeight: 700 }}>
                           Recepción {selectedRecepcion.estado}
                         </div>
                         <div style={{ color: C.t2, fontSize: 10, marginTop: 3 }}>
@@ -980,7 +980,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                             : "Los muebles empezaron a llegar. Falta controlar los ítems en el checklist."}
                         </div>
                       </div>
-                      <span style={{ color: selectedRecepcion.estado === "completa" ? C.green : C.blue, fontFamily: C.mono, fontSize: 13, fontWeight: 850 }}>{selectedRecepcion.pct}%</span>
+                      <span style={{ color: selectedRecepcion.estado === "completa" ? C.green : C.blue, fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>{selectedRecepcion.pct}%</span>
                     </div>
                     <div style={{ height: 4, borderRadius: 99, background: C.s2, marginTop: 9, overflow: "hidden" }}>
                       <div style={{ width: `${selectedRecepcion.pct}%`, height: "100%", background: selectedRecepcion.estado === "completa" ? C.green : C.blue }} />
@@ -992,7 +992,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                           { recepcion_estado: selectedRecepcion.estado === "completa" ? "parcial" : "completa" },
                           selectedRecepcion.estado === "completa" ? "Recepción reabierta" : "Recepción completada",
                         )}
-                        style={{ marginTop: 10, padding: "7px 10px", borderRadius: 8, border: `1px solid ${selectedRecepcion.estado === "completa" ? C.b0 : C.greenB}`, background: selectedRecepcion.estado === "completa" ? "transparent" : C.greenL, color: selectedRecepcion.estado === "completa" ? C.t2 : C.green, cursor: "pointer", fontSize: 10, fontWeight: 850 }}
+                        style={{ marginTop: 10, padding: "7px 10px", borderRadius: 8, border: `1px solid ${selectedRecepcion.estado === "completa" ? C.b0 : C.greenB}`, background: selectedRecepcion.estado === "completa" ? "transparent" : C.greenL, color: selectedRecepcion.estado === "completa" ? C.t2 : C.green, cursor: "pointer", fontSize: 10, fontWeight: 700 }}
                       >
                         {selectedRecepcion.estado === "completa" ? "Volver a recepción parcial" : "Marcar recepción completa"}
                       </button>
@@ -1027,7 +1027,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 11 }}>
                       <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, color: enchapadoEnEtapaRecomendada ? C.blue : C.t1, fontSize: 11, fontWeight: 850 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, color: enchapadoEnEtapaRecomendada ? C.blue : C.t1, fontSize: 11, fontWeight: 700 }}>
                           <Layers3 size={15} /> Circuito de OT y herrajes
                         </div>
                         <div style={{ color: C.t2, fontSize: 10, marginTop: 4 }}>
@@ -1043,7 +1043,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                         <div style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                             <div>
-                              <div style={{ color: C.t0, fontSize: 12, fontWeight: 800 }}>1. OT de preparación de Banco</div>
+                              <div style={{ color: C.t0, fontSize: 12, fontWeight: 650 }}>1. OT de preparación de Banco</div>
                               <div style={{ color: C.t2, fontSize: 10, marginTop: 3 }}>
                                 {selectedOt
                                   ? `${selectedOt.estado} · Digitalizar chapas, imprimir para Enchapadora y avisar tablones a Oberti`
@@ -1057,9 +1057,9 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                           {esAdmin && (
                             <div style={{ display: "flex", gap: 7, marginTop: 10, flexWrap: "wrap" }}>
                               {selectedOt ? (
-                                <button onClick={() => setGestionOt(selectedOt)} style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 850 }}>Abrir y gestionar OT</button>
+                                <button onClick={() => setGestionOt(selectedOt)} style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>Abrir y gestionar OT</button>
                               ) : (
-                                <button disabled={creandoOt || !seleccionado.unidad_id} onClick={() => crearOtEnchapado(seleccionado)} style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: seleccionado.unidad_id ? C.blue : C.t3, cursor: seleccionado.unidad_id ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 850 }}>
+                                <button disabled={creandoOt || !seleccionado.unidad_id} onClick={() => crearOtEnchapado(seleccionado)} style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: seleccionado.unidad_id ? C.blue : C.t3, cursor: seleccionado.unidad_id ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 700 }}>
                                   {creandoOt ? "Creando OT..." : "Crear OT de preparación"}
                                 </button>
                               )}
@@ -1070,7 +1070,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                         <div style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                             <div>
-                              <div style={{ color: C.t0, fontSize: 12, fontWeight: 800 }}>2. Kit de herrajes para Oberti</div>
+                              <div style={{ color: C.t0, fontSize: 12, fontWeight: 650 }}>2. Kit de herrajes para Oberti</div>
                               <div style={{ color: C.t2, fontSize: 10, marginTop: 3 }}>
                                 {selectedHerrajes.length
                                   ? selectedCompraHerrajes
@@ -1094,7 +1094,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                           {selectedHerrajes.length > 0 && (
                             <div style={{ display: "flex", gap: 7, marginTop: 10, flexWrap: "wrap" }}>
                               {esAdmin && !(seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido) && (
-                                <button onClick={() => setPedidoHerrajes({ lote: seleccionado, ot: selectedOt, items: selectedHerrajes })} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 850 }}>
+                                <button onClick={() => setPedidoHerrajes({ lote: seleccionado, ot: selectedOt, items: selectedHerrajes })} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
                                   <ShoppingCart size={13} /> Enviar pedido a Compras
                                 </button>
                               )}
@@ -1103,7 +1103,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                                   disabled={!(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) && selectedCompraHerrajes?.status !== "recibido"}
                                   title={selectedCompraHerrajes?.status !== "recibido" ? "Compras debe marcar el pedido como recibido antes del envío a Oberti." : ""}
                                   onClick={() => toggleHerrajesEnviados(seleccionado, selectedOt)}
-                                  style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.b0 : C.greenB}`, background: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? "transparent" : C.greenL, color: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.t2 : selectedCompraHerrajes?.status === "recibido" ? C.green : C.t3, cursor: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) || selectedCompraHerrajes?.status === "recibido" ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 850 }}
+                                  style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.b0 : C.greenB}`, background: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? "transparent" : C.greenL, color: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.t2 : selectedCompraHerrajes?.status === "recibido" ? C.green : C.t3, cursor: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) || selectedCompraHerrajes?.status === "recibido" ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 700 }}
                                 >
                                   {(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado)
                                     ? "Revertir envío"
@@ -1113,7 +1113,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                                 </button>
                               )}
                               {selectedCompraHerrajes && (
-                                <a href={`/compras?open=${selectedCompraHerrajes.id}`} style={{ display: "inline-flex", alignItems: "center", padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, textDecoration: "none", fontSize: 10, fontWeight: 800 }}>
+                                <a href={`/compras?open=${selectedCompraHerrajes.id}`} style={{ display: "inline-flex", alignItems: "center", padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, textDecoration: "none", fontSize: 10, fontWeight: 650 }}>
                                   Abrir pedido en Compras
                                 </a>
                               )}
@@ -1130,14 +1130,14 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                 <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
                   {esAdmin && (
                     <>
-                      <button disabled={!meta.anterior} onClick={() => mover(seleccionado, -1)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: meta.anterior ? C.t1 : C.t3, cursor: meta.anterior ? "pointer" : "default", fontWeight: 750, fontSize: 11 }}><ArrowLeft size={14} /> Volver</button>
-                      <button disabled={!meta.siguiente} onClick={() => mover(seleccionado, 1)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: meta.siguiente ? C.blue : C.t3, cursor: meta.siguiente ? "pointer" : "default", fontWeight: 800, fontSize: 11 }}>
+                      <button disabled={!meta.anterior} onClick={() => mover(seleccionado, -1)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: meta.anterior ? C.t1 : C.t3, cursor: meta.anterior ? "pointer" : "default", fontWeight: 650, fontSize: 11 }}><ArrowLeft size={14} /> Volver</button>
+                      <button disabled={!meta.siguiente} onClick={() => mover(seleccionado, 1)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: meta.siguiente ? C.blue : C.t3, cursor: meta.siguiente ? "pointer" : "default", fontWeight: 650, fontSize: 11 }}>
                         {meta.siguiente ? `Avanzar a ${meta.siguiente.label}` : `Recepción ${selectedRecepcion?.estado || "parcial"}`}
                         {meta.siguiente && <ArrowRight size={14} />}
                       </button>
                     </>
                   )}
-                  {meta.etapa.key === "recibido" && destinoLote(seleccionado) === "obra" && <button onClick={() => onOpenChecklist?.(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 800, fontSize: 11 }}><ClipboardCheck size={14} /> Abrir recepción</button>}
+                  {meta.etapa.key === "recibido" && destinoLote(seleccionado) === "obra" && <button onClick={() => onOpenChecklist?.(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 650, fontSize: 11 }}><ClipboardCheck size={14} /> Abrir recepción</button>}
                 </div>
               </div>
             </section>
@@ -1158,7 +1158,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                 <AlertTriangle size={16} />
               </span>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 850, color: C.t0, fontSize: 14.5 }}>
+                <div style={{ fontWeight: 700, color: C.t0, fontSize: 14.5 }}>
                   Cambiar a {avisoSalto.target.label}
                 </div>
                 <div style={{ color: C.t2, fontSize: 11.5, marginTop: 2 }}>
@@ -1170,7 +1170,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
             <div style={{ padding: "14px 18px", display: "grid", gap: 8 }}>
               {avisoSalto.etapasOmitidas?.length > 0 && (
                 <div style={{ padding: "10px 11px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL }}>
-                  <div style={{ color: C.blue, fontSize: 10, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>Etapas que se omiten</div>
+                  <div style={{ color: C.blue, fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase" }}>Etapas que se omiten</div>
                   <div style={{ color: C.t1, fontSize: 11.5, lineHeight: 1.45, marginTop: 4 }}>{avisoSalto.etapasOmitidas.join(" · ")}</div>
                 </div>
               )}
@@ -1188,13 +1188,13 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, padding: "12px 18px", borderTop: `1px solid ${C.b0}` }}>
               <button
                 onClick={() => setAvisoSalto(null)}
-                style={{ padding: "8px 14px", borderRadius: 9, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontWeight: 750, fontSize: 12 }}
+                style={{ padding: "8px 14px", borderRadius: 9, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontWeight: 650, fontSize: 12 }}
               >
                 Volver
               </button>
               <button
                 onClick={confirmarSalto}
-                style={{ padding: "8px 15px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 850, fontSize: 12 }}
+                style={{ padding: "8px 15px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 700, fontSize: 12 }}
               >
                 Cambiar de etapa igual
               </button>
@@ -1207,7 +1207,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
         <div onMouseDown={(e) => e.target === e.currentTarget && cerrarFormulario()} style={{ position: "fixed", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
           <div style={{ width: "min(760px, 100%)", maxHeight: "90vh", overflowY: "auto", borderRadius: 15, border: `1px solid ${C.b1}`, background: C.bg1, boxShadow: "0 26px 80px rgba(0,0,0,.38)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: `1px solid ${C.b0}` }}>
-              <div><div style={{ fontWeight: 850, color: C.t0 }}>{editandoId ? "Editar proceso de muebles" : "Nuevo proceso de muebles"}</div><div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>{editandoId ? "Corregí la obra, el proveedor y los datos del proceso." : "Definí quién lo fabrica y si nace para una obra o para stock."}</div></div>
+              <div><div style={{ fontWeight: 700, color: C.t0 }}>{editandoId ? "Editar proceso de muebles" : "Nuevo proceso de muebles"}</div><div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>{editandoId ? "Corregí la obra, el proveedor y los datos del proceso." : "Definí quién lo fabrica y si nace para una obra o para stock."}</div></div>
               <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer" }}><X size={15} /></button>
             </div>
             {error && <div role="alert" style={{ margin: "12px 18px 0", padding: "9px 11px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 11.5 }}>{error}</div>}
@@ -1225,8 +1225,8 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
               <div style={{ gridColumn: "1 / -1" }}><label style={label}>Observaciones</label><textarea style={{ ...input, minHeight: 72, resize: "vertical" }} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} placeholder="Dependencias, alcance de los muebles o acuerdos con el proveedor..." /></div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "13px 18px", borderTop: `1px solid ${C.b0}` }}>
-              <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ padding: "8px 12px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 750 }}>Cancelar</button>
-              <button disabled={saving || vinculandoObra} onClick={guardarLote} style={{ padding: "8px 13px", border: `1px solid ${C.blueB}`, borderRadius: 8, background: C.blueL, color: C.blue, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 850 }}>{saving ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear proceso"}</button>
+              <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ padding: "8px 12px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 650 }}>Cancelar</button>
+              <button disabled={saving || vinculandoObra} onClick={guardarLote} style={{ padding: "8px 13px", border: `1px solid ${C.blueB}`, borderRadius: 8, background: C.blueL, color: C.blue, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 700 }}>{saving ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear proceso"}</button>
             </div>
           </div>
         </div>

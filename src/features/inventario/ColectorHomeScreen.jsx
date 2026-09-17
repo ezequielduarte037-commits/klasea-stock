@@ -38,7 +38,7 @@ export default function ColectorHomeScreen({ profile, signOut }) {
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, padding: 14, boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
         <div>
-          <div style={{ fontSize: 19, fontWeight: 950 }}>Pañol</div>
+          <div style={{ fontSize: 19, fontWeight: 750 }}>Pañol</div>
           <div style={{ fontSize: 12, color: C.dim, marginTop: 2 }}>
             {profile?.username ? `Hola, ${profile.username}` : "¿Qué vas a hacer?"}
           </div>
@@ -63,7 +63,7 @@ export default function ColectorHomeScreen({ profile, signOut }) {
           }}
         >
           <div style={{ fontSize: 34, marginBottom: 8, lineHeight: 1 }}>{op.icono}</div>
-          <div style={{ fontSize: 19, fontWeight: 900, color: op.color }}>{op.titulo}</div>
+          <div style={{ fontSize: 19, fontWeight: 700, color: op.color }}>{op.titulo}</div>
           <div style={{ fontSize: 13, color: C.dim, marginTop: 4 }}>{op.detalle}</div>
         </button>
       ))}
@@ -83,7 +83,7 @@ export default function ColectorHomeScreen({ profile, signOut }) {
             onClick={usarPanelCompleto}
             style={{
               background: C.blue, color: "var(--inverse-text)", border: 0, borderRadius: 10,
-              padding: "11px 18px", fontSize: 14, fontWeight: 850, fontFamily: C.sans, cursor: "pointer",
+              padding: "11px 18px", fontSize: 14, fontWeight: 700, fontFamily: C.sans, cursor: "pointer",
             }}
           >
             Ir al panel completo de pañol

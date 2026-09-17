@@ -110,7 +110,7 @@ function Chip({ children, color = C.dim, soft = C.panel2, border = C.border, tit
       style={{
         flexShrink: 0,
         fontSize: 9.5,
-        fontWeight: 900,
+        fontWeight: 700,
         letterSpacing: 0.4,
         textTransform: "uppercase",
         color,
@@ -142,7 +142,7 @@ function MiniBoton({ children, onClick, disabled = false, title = "", color = C.
         cursor: disabled ? "default" : "pointer",
         fontFamily: C.sans,
         fontSize: 11.5,
-        fontWeight: 850,
+        fontWeight: 700,
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
@@ -196,10 +196,10 @@ function EditorRemito({
 
   const campo = {
     width: "100%", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text,
-    borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 700, outline: "none",
+    borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
     boxSizing: "border-box",
   };
-  const etiqueta = { fontSize: 11, fontWeight: 900, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 5 };
+  const etiqueta = { fontSize: 11, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 5 };
 
   const obrasElegidas = useMemo(() => {
     const porId = new Map(obras.map((obra) => [String(obra.id), obra]));
@@ -268,8 +268,8 @@ function EditorRemito({
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <Pencil size={16} color={C.blue} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 950, color: C.text }}>Datos y carpetas del remito</div>
-            <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 14, fontWeight: 750, color: C.text }}>Datos y carpetas del remito</div>
+            <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {remito.archivo_nombre || remito.titulo || "Remito escaneado"}
             </div>
           </div>
@@ -281,7 +281,7 @@ function EditorRemito({
         <div style={{ padding: 15, display: "grid", gap: 12, overflowY: "auto", minHeight: 0 }}>
           <div>
             <div style={etiqueta}>
-              Proveedor <span style={{ textTransform: "none", fontWeight: 700 }}>(es también su carpeta)</span>
+              Proveedor <span style={{ textTransform: "none", fontWeight: 600 }}>(es también su carpeta)</span>
             </div>
             <input
               value={proveedor}
@@ -314,9 +314,9 @@ function EditorRemito({
           {puedeReasignar ? (
             <div>
               <div style={etiqueta}>
-                Guardar en <span style={{ textTransform: "none", fontWeight: 700 }}>(barcos y carpetas, los que hagan falta)</span>
+                Guardar en <span style={{ textTransform: "none", fontWeight: 600 }}>(barcos y carpetas, los que hagan falta)</span>
               </div>
-              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 700, lineHeight: 1.5, marginBottom: 8 }}>
+              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 600, lineHeight: 1.5, marginBottom: 8 }}>
                 El mismo PDF aparece en todo lo que elijas. No reparte cantidades ni modifica stock.
               </div>
               <SelectorDestinosRemito
@@ -331,7 +331,7 @@ function EditorRemito({
                 disabled={guardando}
               />
               {!hayMultiobra && obraIds.length > 1 ? (
-                <div style={{ marginTop: 6, fontSize: 11.5, color: C.cyan, fontWeight: 800 }}>
+                <div style={{ marginTop: 6, fontSize: 11.5, color: C.cyan, fontWeight: 650 }}>
                   Falta la migración multiobra: no se van a poder guardar varios barcos.
                 </div>
               ) : null}
@@ -349,7 +349,7 @@ function EditorRemito({
           {/* El PDF de la PC no se mueve, y decirlo evita que alguien vaya a
               buscarlo a la carpeta nueva del disco y no lo encuentre. */}
           {remito.carpeta_local ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11, fontWeight: 650, minWidth: 0 }}>
               <FolderOpen size={12} style={{ flexShrink: 0 }} />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 El PDF de la PC sigue en {carpetaParaMostrar(remito.carpeta_local)}: esto no lo mueve.
@@ -359,10 +359,10 @@ function EditorRemito({
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 15px", borderTop: `1px solid ${C.border}`, background: C.panel2, flexShrink: 0 }}>
-          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
             Cancelar
           </button>
-          <button type="button" onClick={guardar} disabled={guardando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: guardando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <button type="button" onClick={guardar} disabled={guardando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: guardando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
             {guardando ? <LoaderCircle size={14} className="spin" /> : null} Guardar
           </button>
         </div>
@@ -597,8 +597,8 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <FileText size={18} color={C.blue} />
         <div style={{ flex: 1, minWidth: 180 }}>
-          <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Remitos</div>
-          <div style={{ color: C.dim, fontSize: 12, fontWeight: 700 }}>
+          <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Remitos</div>
+          <div style={{ color: C.dim, fontSize: 12, fontWeight: 600 }}>
             {vista === "obra"
               ? "Ordenados como en la PC del pañol: línea, barco, remito."
               : vista === "proveedor"
@@ -612,10 +612,10 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Proveedor, número, barco, carpeta…"
-            style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, minWidth: 0 }}
+            style={{ flex: 1, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600, minWidth: 0 }}
           />
         </div>
-        <button type="button" onClick={() => cargar()} disabled={cargando} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 7 }}>
+        <button type="button" onClick={() => cargar()} disabled={cargando} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
           {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />} Actualizar
         </button>
       </div>
@@ -642,7 +642,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                 cursor: "pointer",
                 fontFamily: C.sans,
                 fontSize: 12.5,
-                fontWeight: 900,
+                fontWeight: 700,
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 7,
@@ -674,7 +674,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                 cursor: "pointer",
                 fontFamily: C.sans,
                 fontSize: 12,
-                fontWeight: 900,
+                fontWeight: 700,
               }}
             >
               {etiqueta}{cuenta ? ` · ${cuenta}` : ""}
@@ -685,14 +685,14 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
 
       {/* Migas: sin esto, dos niveles adentro no se sabe donde uno esta parado. */}
       {!listado && (lineaAbierta || obraAbierta) ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap", fontSize: 12.5, fontWeight: 850 }}>
-          <button type="button" onClick={() => { setLineaAbierta(null); setObraAbierta(null); }} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0, fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap", fontSize: 12.5, fontWeight: 700 }}>
+          <button type="button" onClick={() => { setLineaAbierta(null); setObraAbierta(null); }} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0, fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
             {vistaActual.raiz}
           </button>
           {lineaAbierta ? (
             <>
               <ChevronRight size={13} color={C.dim} />
-              <button type="button" onClick={() => setObraAbierta(null)} style={{ border: "none", background: "transparent", color: obraAbierta ? C.blue : C.text, cursor: obraAbierta ? "pointer" : "default", padding: 0, fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+              <button type="button" onClick={() => setObraAbierta(null)} style={{ border: "none", background: "transparent", color: obraAbierta ? C.blue : C.text, cursor: obraAbierta ? "pointer" : "default", padding: 0, fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
                 {nombreLinea(lineaAbierta)}
               </button>
             </>
@@ -707,23 +707,23 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       ) : null}
 
       {!hayObra ? (
-        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750 }}>
+        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 650 }}>
           Todavía no se corrió la migración que guarda la obra del remito, así que no se pueden separar por barco.
           Igual se buscan por proveedor, número o fecha.
         </div>
       ) : null}
 
       {hayObra && !hayMultiobra ? (
-        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750 }}>
+        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 650 }}>
           Falta aplicar la migración multiobra. Los remitos existentes siguen visibles, pero todavía no se puede asociar un mismo PDF a varios barcos.
         </div>
       ) : null}
 
       {!hayCarpetas ? (
-        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 750, lineHeight: 1.5 }}>
+        <div style={{ ...tarjeta, borderColor: C.cyanB, background: C.cyanL, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.muted, fontWeight: 650, lineHeight: 1.5 }}>
           Falta aplicar la migración de carpetas: por ahora cada remito puede estar en una sola
           carpeta propia y no se pueden crear nuevas. Por obra y por proveedor funciona igual.
-          <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, marginTop: 5 }}>
+          <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, marginTop: 5 }}>
             Supabase → SQL Editor → pegar{" "}
             <code style={{ fontFamily: C.mono, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 5px" }}>
               20260904120000_panol_remitos_carpetas.sql
@@ -733,21 +733,21 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       ) : null}
 
       {error ? (
-        <div style={{ ...tarjeta, borderColor: C.redB, background: C.redL, padding: "10px 12px", marginBottom: 12, fontSize: 12.5, color: C.red, fontWeight: 800 }}>{error}</div>
+        <div style={{ ...tarjeta, borderColor: C.redB, background: C.redL, padding: "10px 12px", marginBottom: 12, fontSize: 12.5, color: C.red, fontWeight: 650 }}>{error}</div>
       ) : null}
 
       {cargando ? (
-        <div style={{ ...tarjeta, padding: 28, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+        <div style={{ ...tarjeta, padding: 28, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
           <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
           <div>Buscando remitos…</div>
         </div>
       ) : !filtrados.length ? (
         <div style={{ ...tarjeta, padding: 28, textAlign: "center" }}>
           <FileText size={22} color={C.dim} style={{ marginBottom: 8 }} />
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>
             {buscando ? "No hay remitos que coincidan" : filtro !== "todos" ? "Nada en este filtro" : "Todavía no hay remitos"}
           </div>
-          <div style={{ color: C.dim, fontSize: 12, fontWeight: 700, marginTop: 4 }}>
+          <div style={{ color: C.dim, fontSize: 12, fontWeight: 600, marginTop: 4 }}>
             {buscando ? "Probá con el proveedor o el número." : "Los que escanees en el pañol van a aparecer acá, por barco, por proveedor y por carpeta."}
           </div>
         </div>
@@ -773,8 +773,8 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                     ? <FolderOpen size={19} color={C.blue} />
                     : <Layers size={19} color={nodo.linea === SIN_OBRA ? C.dim : C.blue} />}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>{nombreLinea(nodo.linea)}</div>
-                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>{nombreLinea(nodo.linea)}</div>
+                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
                   {nodo.directa
                     ? `${nodo.total} remito${nodo.total === 1 ? "" : "s"}`
                     : `${nodo.obras.length} barco${nodo.obras.length === 1 ? "" : "s"} · ${nodo.total} remito${nodo.total === 1 ? "" : "s"}`}
@@ -797,10 +797,10 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
             >
               {nodo.codigo === SIN_OBRA ? <Package size={19} color={C.dim} /> : <Ship size={19} color={C.blue} />}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>
                   {nodo.codigo === SIN_OBRA ? "Stock general" : nodo.codigo}
                 </div>
-                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
+                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
                   {nodo.remitos.length} remito{nodo.remitos.length === 1 ? "" : "s"}
                 </div>
               </div>
@@ -812,7 +812,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
         /* Nivel 3: los remitos */
         <div style={tarjeta}>
           {!listado && obraActual?.obra ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 13px", borderBottom: `1px solid ${C.border}`, fontSize: 11.5, color: C.dim, fontWeight: 750 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 13px", borderBottom: `1px solid ${C.border}`, fontSize: 11.5, color: C.dim, fontWeight: 650 }}>
               <FolderOpen size={13} /> En la PC del pañol: {carpetaParaMostrar(carpetaDeObra(obraActual.obra))}
             </div>
           ) : null}
@@ -832,7 +832,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                    <span style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {remito.titulo || remito.proveedor || "Sin proveedor"}
                     </span>
                     {remito.solo_archivo ? (
@@ -845,20 +845,20 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                       <Chip color={C.green} soft={C.greenL} border={C.greenB} title="Generó un ingreso de stock">ingresado</Chip>
                     ) : null}
                   </div>
-                  <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {remito.titulo && remito.proveedor ? `${remito.proveedor} · ` : ""}
                     {remito.numero ? `Nº ${remito.numero}` : "sin número"}
                     {listado && remito.obras?.length ? ` · ${remito.obras.map((obra) => obra.codigo).join(", ")}` : ""}
                     {remito.sede ? ` · ${remito.sede}` : ""}
                   </div>
                   {remito.notas ? (
-                    <div style={{ color: C.dim, fontSize: 11, fontWeight: 650, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {remito.notas}
                     </div>
                   ) : null}
                 </div>
-                <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{fmtFecha(remito.fecha || remito.created_at)}</div>
-                <div style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>{money(remito.total, remito.moneda)}</div>
+                <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>{fmtFecha(remito.fecha || remito.created_at)}</div>
+                <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>{money(remito.total, remito.moneda)}</div>
                 {/* Todos los lugares donde esta el remito, no solo los barcos:
                     en la vista por carpeta o por proveedor, ver unicamente la
                     obra dejaria la columna vacia justo en el lugar por el que
@@ -875,7 +875,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                       <Chip color={C.teal} soft={C.tealL} border={C.tealB} title="Carpeta del proveedor">{remito.proveedor}</Chip>
                     ) : null}
                     {!(remito.obras || []).length && !(remito.carpetas || []).length && !remito.proveedor ? (
-                      <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+                      <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
                         {nombreCarpeta(remito.carpeta_local) || "Sin clasificar"}
                       </span>
                     ) : null}

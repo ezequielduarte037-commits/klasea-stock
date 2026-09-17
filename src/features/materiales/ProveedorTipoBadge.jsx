@@ -18,7 +18,7 @@ export default function ProveedorTipoBadge({ meta, showUnclassified = false, com
         borderRadius: 999,
         padding: compact ? "1px 6px" : "3px 8px",
         fontSize: compact ? 9.5 : 10.5,
-        fontWeight: 900,
+        fontWeight: 700,
         lineHeight: 1.2,
         letterSpacing: 0.35,
         textTransform: "uppercase",

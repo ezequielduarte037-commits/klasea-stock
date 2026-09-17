@@ -300,7 +300,7 @@ const CSS = `
 .mems *{box-sizing:border-box}
 .mems button{font-family:inherit;cursor:pointer;color:inherit}
 .mems-view{padding:26px 26px 120px;max-width:1280px;margin:0 auto}
-.mems-hero h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.03em}
+.mems-hero h1{margin:0;font-size:30px;font-weight:600;letter-spacing:-.03em}
 .mems-hero p{margin:8px 0 0;font-size:14px;color:var(--dim);max-width:560px;line-height:1.5}
 .mems-tex{position:absolute;inset:0}
 
@@ -312,14 +312,14 @@ const CSS = `
 .mems-fam:hover .mems-tex{transform:scale(1.06)}
 .mems-veil{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,transparent 55%)}
 .mems-lab{position:absolute;left:20px;bottom:16px;right:20px;color:#fff;display:flex;align-items:baseline;justify-content:space-between;gap:10px;text-shadow:0 1px 10px rgba(0,0,0,.45)}
-.mems-lab b{font-size:21px;font-weight:700;letter-spacing:-.02em}
+.mems-lab b{font-size:21px;font-weight:600;letter-spacing:-.02em}
 .mems-lab span{font-size:12px;opacity:.85}
 .mems-done{position:absolute;top:14px;right:14px;display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.42);color:#fff;border-radius:999px;padding:5px 11px;font-size:11px;font-weight:600;backdrop-filter:blur(6px);z-index:1}
 
 .mems-back{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:transparent;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:18px;min-height:44px}
 .mems-back:active{transform:scale(.97)}
 .mems-famtitle{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-.mems-famtitle h2{margin:0;font-size:26px;font-weight:700;letter-spacing:-.03em}
+.mems-famtitle h2{margin:0;font-size:26px;font-weight:600;letter-spacing:-.03em}
 .mems-famtitle span{font-size:13px;color:var(--dim)}
 
 .mems-rail{display:grid;grid-auto-flow:column;grid-auto-columns:min(300px,72vw);gap:16px;overflow-x:auto;padding:22px 4px 26px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
@@ -345,7 +345,7 @@ const CSS = `
 .mems-grab{width:44px;height:5px;border-radius:99px;background:var(--border-2);margin:0 auto 16px}
 .mems-sheethead{display:flex;gap:14px;align-items:center}
 .mems-mini{width:64px;height:64px;border-radius:14px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;position:relative}
-.mems-sheethead b{font-size:17px;font-weight:700}
+.mems-sheethead b{font-size:17px;font-weight:600}
 .mems-sheethead p{margin:3px 0 0;font-size:12.5px;color:var(--dim)}
 .mems-ambs{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 .mems-amb{min-height:48px;border-radius:14px;border:1px solid var(--border-2);background:transparent;padding:11px 18px;font-size:14px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:9px;transition:all .2s ease}
@@ -355,16 +355,16 @@ const CSS = `
 .mems-tag{font-size:10px;font-weight:600;opacity:.75}
 .mems-sheetfoot{display:flex;justify-content:flex-end;margin-top:20px}
 
-.mems-primary{min-height:48px;border:none;border-radius:14px;background:var(--blue);color:#fff;font-size:14.5px;font-weight:700;padding:12px 26px;display:inline-flex;align-items:center;gap:8px}
+.mems-primary{min-height:48px;border:none;border-radius:14px;background:var(--blue);color:#fff;font-size:14.5px;font-weight:600;padding:12px 26px;display:inline-flex;align-items:center;gap:8px}
 .mems-primary:active{transform:scale(.97)}
 .mems-primary[disabled]{opacity:.45;cursor:default}
 
 .mems-fab{position:fixed;right:24px;bottom:24px;z-index:50;display:inline-flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:999px;background:var(--panel-solid);padding:12px 20px 12px 14px;box-shadow:0 14px 34px -12px var(--shadow);transition:transform .25s cubic-bezier(.22,1,.36,1)}
 .mems-fab:active{transform:scale(.96)}
 .mems-ring{position:relative;width:38px;height:38px;flex-shrink:0}
-.mems-ringn{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.mems-ringn{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
 .mems-fabt{text-align:left}
-.mems-fabt b{display:block;font-size:13.5px;font-weight:700}
+.mems-fabt b{display:block;font-size:13.5px;font-weight:600}
 .mems-fabt span{font-size:11px;color:var(--dim)}
 
 .mems-modalwrap{position:fixed;top:0;left:0;right:0;bottom:0;z-index:70;display:grid;place-items:center;padding:22px;pointer-events:none}
@@ -374,7 +374,7 @@ const CSS = `
 .mems-modal{position:relative;width:min(640px,94vw);max-height:86vh;overflow-y:auto;background:var(--panel-solid);border:1px solid var(--border);border-radius:22px;box-shadow:0 30px 80px -20px var(--shadow);opacity:0;transform:translateY(18px) scale(.98);transition:all .35s cubic-bezier(.22,1,.36,1)}
 .mems-modalwrap.open .mems-modal{opacity:1;transform:none}
 .mems-modal header{padding:22px 26px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.mems-modal h3{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em}
+.mems-modal h3{margin:0;font-size:20px;font-weight:600;letter-spacing:-.02em}
 .mems-sub{margin:5px 0 0;font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
 .mems-iconbtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:transparent;display:grid;place-items:center;color:var(--dim)}
 .mems-prog{margin:18px 26px 0;height:6px;border-radius:99px;background:var(--panel-2);overflow:hidden}
@@ -386,7 +386,7 @@ const CSS = `
 .mems-ambn{flex:1;min-width:0}
 .mems-ambn b{display:block;font-size:14.5px;font-weight:600}
 .mems-ambn span{font-size:12px;color:var(--dim)}
-.mems-pend{font-size:11.5px;color:var(--amber);font-weight:600}
+.mems-pend{font-size:11.5px;color:var(--cyan);font-weight:600}
 .mems-modal footer{position:sticky;bottom:0;background:var(--panel-solid);border-top:1px solid var(--border);padding:16px 26px;display:flex;align-items:center;gap:12px;justify-content:space-between;border-radius:0 0 22px 22px}
 .mems-hint{font-size:12px;color:var(--dim)}
 

@@ -19,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 import { C } from "@/theme";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -84,7 +83,7 @@ function Pastilla({ children, color, soft, borde, title }) {
     <span title={title} style={{
       display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
       border: `1px solid ${borde}`, background: soft, color,
-      borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 900,
+      borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 700,
     }}>
       {children}
     </span>
@@ -97,7 +96,7 @@ function Avatar({ persona, size = 26 }) {
       width: size, height: size, borderRadius: 9, flexShrink: 0,
       background: C.panel2, border: `1px solid ${C.border}`,
       display: "grid", placeItems: "center", boxSizing: "border-box",
-      fontSize: size * 0.4, fontWeight: 900, color: C.muted, letterSpacing: .3,
+      fontSize: size * 0.4, fontWeight: 700, color: C.muted, letterSpacing: .3,
     }}>
       {iniciales(persona)}
     </div>
@@ -123,7 +122,7 @@ function Voto({ ticket, onVotar, ocupado }) {
       }}
     >
       <ThumbsUp size={12} fill={votado ? "currentColor" : "none"} />
-      <span style={{ fontSize: 11.5, fontWeight: 900, fontFamily: C.mono }}>{ticket.votos}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 700, fontFamily: C.mono }}>{ticket.votos}</span>
     </button>
   );
 }
@@ -159,7 +158,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
     background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 11px",
     fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
   };
-  const rotulo = { fontSize: 10, fontWeight: 900, color: C.dim, textTransform: "uppercase", letterSpacing: .9, marginBottom: 5, display: "block" };
+  const rotulo = { fontSize: 10, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: .9, marginBottom: 5, display: "block" };
 
   async function guardar() {
     if (!titulo.trim() || guardando) return;
@@ -198,7 +197,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, background: C.panelSolid }}>
           <LifeBuoy size={16} color={C.blue} />
-          <div style={{ flex: 1, fontSize: 14, fontWeight: 950, color: C.text }}>Pedir algo al sistema</div>
+          <div style={{ flex: 1, fontSize: 14, fontWeight: 750, color: C.text }}>Pedir algo al sistema</div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
             <X size={16} />
           </button>
@@ -217,7 +216,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
                     background: activo ? C.panel2 : C.panel,
                     color: activo ? color : C.muted,
                     borderRadius: 9, padding: "7px 13px", cursor: "pointer",
-                    fontFamily: C.sans, fontSize: 12.5, fontWeight: 900,
+                    fontFamily: C.sans, fontSize: 12.5, fontWeight: 700,
                   }}>{opcion.label}</button>
                 );
               })}
@@ -240,7 +239,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
           </div>
 
           <div>
-            <span style={rotulo}>Contalo bien <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 700 }}>(opcional, pero ayuda)</span></span>
+            <span style={rotulo}>Contalo bien <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>(opcional, pero ayuda)</span></span>
             <textarea
               value={detalle}
               onChange={(evento) => setDetalle(evento.target.value)}
@@ -263,7 +262,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
                     background: activo ? C.blueL : C.panel,
                     color: activo ? C.blue : C.muted,
                     borderRadius: 999, padding: "5px 11px", cursor: "pointer",
-                    fontFamily: C.sans, fontSize: 11.5, fontWeight: 850,
+                    fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
                   }}>{area}</button>
                 );
               })}
@@ -274,7 +273,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
               está escrito en el cartel. Elegir archivo y arrastrar también. */}
           {hayCapturas ? (
           <div>
-            <span style={rotulo}>Capturas <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 700 }}>(opcional)</span></span>
+            <span style={rotulo}>Capturas <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>(opcional)</span></span>
             <label
               onPaste={(evento) => sumarCapturas(imagenesDelEvento(evento))}
               onDragOver={(evento) => evento.preventDefault()}
@@ -282,7 +281,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 border: `1px dashed ${C.border2}`, background: C.panel, borderRadius: 10,
-                padding: "14px 12px", cursor: "pointer", color: C.dim, fontSize: 12, fontWeight: 750, textAlign: "center",
+                padding: "14px 12px", cursor: "pointer", color: C.dim, fontSize: 12, fontWeight: 650, textAlign: "center",
               }}
             >
               <ImagePlus size={15} />
@@ -314,7 +313,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 15px", borderTop: `1px solid ${C.border}` }}>
-          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "9px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "9px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
             Cancelar
           </button>
           <button type="button" onClick={guardar} disabled={!titulo.trim() || guardando} style={{
@@ -322,7 +321,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
             background: titulo.trim() ? C.blue : C.panel,
             color: titulo.trim() ? "var(--inverse-text)" : C.dim,
             borderRadius: 9, padding: "9px 16px", cursor: titulo.trim() && !guardando ? "pointer" : "default",
-            fontFamily: C.sans, fontSize: 12.5, fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 7,
+            fontFamily: C.sans, fontSize: 12.5, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7,
           }}>
             {guardando ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />}
             Crear
@@ -454,10 +453,10 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                 </Pastilla>
               ) : null}
             </div>
-            <h2 style={{ margin: 0, fontSize: isMobile ? 15.5 : 17, fontWeight: 950, color: C.text, lineHeight: 1.3 }}>
+            <h2 style={{ margin: 0, fontSize: isMobile ? 15.5 : 17, fontWeight: 750, color: C.text, lineHeight: 1.3 }}>
               {ticket.titulo}
             </h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7, color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
               <Avatar persona={ticket.autor} size={20} />
               {nombrePersona(ticket.autor)} · {haceCuanto(ticket.created_at)}
               {ticket.asignado ? <> · lo está viendo <b style={{ color: C.muted }}>{nombrePersona(ticket.asignado)}</b></> : null}
@@ -473,7 +472,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
             a buscar el que lo abrió. */}
         {cerrado && ticket.resolucion ? (
           <div style={{ ...seccion, borderColor: estado.borde(), background: estado.soft(), padding: 13 }}>
-            <div style={{ color: estado.color(), fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: .8, marginBottom: 5 }}>
+            <div style={{ color: estado.color(), fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8, marginBottom: 5 }}>
               {ticket.estado === "hecho" ? "Qué se hizo" : "Por qué no se hace"}
             </div>
             <div style={{ color: C.text, fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{ticket.resolucion}</div>
@@ -482,7 +481,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
 
         {ticket.detalle ? (
           <div style={{ ...seccion, padding: 13 }}>
-            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: .8, marginBottom: 6 }}>El pedido</div>
+            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8, marginBottom: 6 }}>El pedido</div>
             <div style={{ color: C.text, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{ticket.detalle}</div>
           </div>
         ) : null}
@@ -496,13 +495,13 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
           onDrop={(evento) => { evento.preventDefault(); sumarCapturas(imagenesDelEvento(evento)); }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: capturas.length ? 9 : 0 }}>
-            <span style={{ flex: 1, color: C.dim, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: .8 }}>
+            <span style={{ flex: 1, color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8 }}>
               Capturas{capturas.length ? ` · ${capturas.length}` : ""}
             </span>
             <label style={{
               display: "inline-flex", alignItems: "center", gap: 6, cursor: subiendo ? "default" : "pointer",
               border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.muted, borderRadius: 8,
-              padding: "5px 10px", fontSize: 11.5, fontWeight: 850,
+              padding: "5px 10px", fontSize: 11.5, fontWeight: 700,
             }}>
               {subiendo ? <LoaderCircle size={12} className="spin" /> : <ImagePlus size={12} />}
               Agregar
@@ -548,7 +547,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
         {/* Panel de gestión */}
         {puedeGestionar ? (
           <div style={{ ...seccion, borderColor: C.border2, padding: 13, display: "grid", gap: 10 }}>
-            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: .8 }}>Seguimiento</div>
+            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8 }}>Seguimiento</div>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {ESTADOS.map((opcion) => {
                 const activo = ticket.estado === opcion.id;
@@ -561,17 +560,17 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                       background: activo ? paleta.soft() : C.panelSolid,
                       color: activo ? paleta.color() : C.muted,
                       borderRadius: 8, padding: "6px 11px", cursor: activo ? "default" : "pointer",
-                      fontFamily: C.sans, fontSize: 11.5, fontWeight: 900,
+                      fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
                     }}>{opcion.label}</button>
                 );
               })}
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 800 }}>Prioridad</span>
+              <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>Prioridad</span>
               <select
                 value={ticket.prioridad}
                 onChange={(evento) => cambiar({ prioridad: evento.target.value })}
-                style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 9px", fontFamily: C.sans, fontSize: 12, fontWeight: 800, outline: "none", cursor: "pointer" }}
+                style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 9px", fontFamily: C.sans, fontSize: 12, fontWeight: 650, outline: "none", cursor: "pointer" }}
               >
                 {PRIORIDADES.map((opcion) => (
                   <option key={opcion.id} value={opcion.id}>{opcion.label}</option>
@@ -583,7 +582,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                   border: `1px solid ${ticket.asignado_a === miId ? C.blueB : C.border2}`,
                   background: ticket.asignado_a === miId ? C.blueL : C.panelSolid,
                   color: ticket.asignado_a === miId ? C.blue : C.muted,
-                  borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 850,
+                  borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
                 }}>
                 {ticket.asignado_a === miId ? "Lo estoy viendo yo" : "Me lo asigno"}
               </button>
@@ -607,7 +606,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
 
         {/* El hilo */}
         <div style={{ ...seccion, overflow: "hidden" }}>
-          <div style={{ padding: "10px 13px", borderBottom: `1px solid ${C.border}`, color: C.dim, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: .8, display: "flex", alignItems: "center", gap: 7 }}>
+          <div style={{ padding: "10px 13px", borderBottom: `1px solid ${C.border}`, color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8, display: "flex", alignItems: "center", gap: 7 }}>
             <MessageSquare size={12} /> Qué pasó con esto
           </div>
           {cargandoHilo ? (
@@ -637,16 +636,16 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {cambio ? (
-                        <div style={{ fontSize: 12, fontWeight: 800, color: C.muted }}>
+                        <div style={{ fontSize: 12, fontWeight: 650, color: C.muted }}>
                           {nombrePersona(fila.autor)} lo pasó a{" "}
                           <b style={{ color: paleta.color() }}>{etiquetaEstado(fila.estado_a)}</b>
-                          <span style={{ color: C.dim, fontWeight: 700 }}> · {haceCuanto(fila.created_at)}</span>
+                          <span style={{ color: C.dim, fontWeight: 600 }}> · {haceCuanto(fila.created_at)}</span>
                         </div>
                       ) : (
                         <>
-                          <div style={{ fontSize: 11.5, fontWeight: 850, color: C.muted }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted }}>
                             {nombrePersona(fila.autor)}
-                            <span style={{ color: C.dim, fontWeight: 700 }}> · {haceCuanto(fila.created_at)}</span>
+                            <span style={{ color: C.dim, fontWeight: 600 }}> · {haceCuanto(fila.created_at)}</span>
                           </div>
                           <div style={{ color: C.text, fontSize: 12.5, lineHeight: 1.55, marginTop: 3, whiteSpace: "pre-wrap" }}>{fila.cuerpo}</div>
                         </>
@@ -662,7 +661,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
         {puedeBorrar ? (
           <button type="button" onClick={() => onBorrar(ticket)} style={{
             justifySelf: "start", border: `1px solid ${C.border}`, background: "transparent", color: C.red,
-            borderRadius: 9, padding: "7px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 850,
+            borderRadius: 9, padding: "7px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 700,
             display: "inline-flex", alignItems: "center", gap: 7,
           }}>
             <Trash2 size={13} /> Borrar el ticket
@@ -705,7 +704,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
 
 /* ── PANTALLA ──────────────────────────────────────────────────────────────── */
 
-export default function TicketsScreen({ profile, signOut }) {
+export default function TicketsScreen({ profile }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const miId = profile?.id || null;
@@ -849,7 +848,7 @@ export default function TicketsScreen({ profile, signOut }) {
               style={{
                 width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`,
                 background: C.panelSolid, color: C.text, borderRadius: 9,
-                padding: "8px 32px 8px 32px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, outline: "none",
+                padding: "8px 32px 8px 32px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600, outline: "none",
               }}
             />
             {busca ? (
@@ -862,7 +861,7 @@ export default function TicketsScreen({ profile, signOut }) {
             border: `1px solid ${soloMios ? C.blueB : C.border2}`,
             background: soloMios ? C.blueL : C.panel,
             color: soloMios ? C.blue : C.muted,
-            borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, whiteSpace: "nowrap",
+            borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
           }}>
             Míos
           </button>
@@ -876,7 +875,7 @@ export default function TicketsScreen({ profile, signOut }) {
                 background: activo ? C.blueL : C.panelSolid,
                 color: activo ? C.blue : C.muted,
                 borderRadius: 8, padding: "5px 10px", cursor: "pointer",
-                fontFamily: C.sans, fontSize: 11.5, fontWeight: 900,
+                fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
               }}>
                 {opcion.label}{opcion.cuenta ? ` · ${opcion.cuenta}` : ""}
               </button>
@@ -888,7 +887,7 @@ export default function TicketsScreen({ profile, signOut }) {
       {/* La lista */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 10 : 16, display: "grid", gap: 9, alignContent: "start", gridAutoRows: "max-content" }}>
         {error ? (
-          <div style={{ ...seccion, borderColor: C.redB, background: C.redL, color: C.red, padding: "11px 13px", fontSize: 12.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ ...seccion, borderColor: C.redB, background: C.redL, color: C.red, padding: "11px 13px", fontSize: 12.5, fontWeight: 650, display: "flex", alignItems: "center", gap: 8 }}>
             <AlertTriangle size={16} /> {error}
           </div>
         ) : null}
@@ -896,7 +895,7 @@ export default function TicketsScreen({ profile, signOut }) {
         {faltaTabla ? (
           <div style={{ ...seccion, padding: 26, textAlign: "center" }}>
             <Lock size={20} color={C.dim} style={{ marginBottom: 8 }} />
-            <div style={{ fontSize: 14, fontWeight: 900 }}>Falta crear las tablas</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Falta crear las tablas</div>
             <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, lineHeight: 1.55, maxWidth: 420, marginInline: "auto" }}>
               La pantalla está lista, pero en la base todavía no existen las tablas de tickets.
               Hay que correr la migración <b style={{ color: C.muted, fontFamily: C.mono, fontSize: 11.5 }}>20260907140000_sistema_tickets.sql</b> en
@@ -904,14 +903,14 @@ export default function TicketsScreen({ profile, signOut }) {
             </div>
           </div>
         ) : cargando ? (
-          <div style={{ ...seccion, padding: 34, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+          <div style={{ ...seccion, padding: 34, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
             <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
             <div>Buscando tickets…</div>
           </div>
         ) : !visibles.length ? (
           <div style={{ ...seccion, padding: 30, textAlign: "center" }}>
             <Inbox size={20} color={C.dim} style={{ marginBottom: 8 }} />
-            <div style={{ fontSize: 13.5, fontWeight: 900 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>
               {tickets.length ? "Nada con ese filtro" : "Todavía no hay tickets"}
             </div>
             <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, lineHeight: 1.5, maxWidth: 380, marginInline: "auto" }}>
@@ -922,7 +921,7 @@ export default function TicketsScreen({ profile, signOut }) {
             {!tickets.length ? (
               <button type="button" onClick={() => setNuevo(true)} style={{
                 marginTop: 13, border: `1px solid ${C.blueB}`, background: C.blue, color: "var(--inverse-text)",
-                borderRadius: 9, padding: "9px 15px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 950,
+                borderRadius: 9, padding: "9px 15px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 750,
                 display: "inline-flex", alignItems: "center", gap: 7,
               }}>
                 <Plus size={14} /> Cargar el primero
@@ -960,13 +959,13 @@ export default function TicketsScreen({ profile, signOut }) {
                   {ticket.pantalla ? <Pastilla color={C.dim} soft={C.panel2} borde={C.border}>{ticket.pantalla}</Pastilla> : null}
                   {ticket.prioridad === "alta" ? <Pastilla color={C.red} soft={C.redL} borde={C.redB}>Alta</Pastilla> : null}
                 </div>
-                <div style={{ fontSize: 13.5, fontWeight: 900, color: C.text, lineHeight: 1.35 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text, lineHeight: 1.35 }}>
                   {ticket.titulo}
                 </div>
-                <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <Avatar persona={ticket.autor} size={17} />
                   {nombrePersona(ticket.autor)} · {haceCuanto(ticket.created_at)}
-                  {ticket.asignado ? <> · <span style={{ color: C.muted, fontWeight: 800 }}>{nombrePersona(ticket.asignado)}</span></> : null}
+                  {ticket.asignado ? <> · <span style={{ color: C.muted, fontWeight: 650 }}>{nombrePersona(ticket.asignado)}</span></> : null}
                 </div>
               </div>
               <ChevronRight size={15} color={C.dim} style={{ flexShrink: 0, marginTop: 4 }} />
@@ -978,7 +977,7 @@ export default function TicketsScreen({ profile, signOut }) {
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
       {nuevo ? (
         <ModalNuevo
           hayCapturas={hayCapturas}
@@ -996,21 +995,20 @@ export default function TicketsScreen({ profile, signOut }) {
         .ticket-card:hover { border-color: var(--border-2); transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow); }
       `}</style>
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0,1fr)", height: "100%" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
 
         <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <header style={{ minHeight: 52, display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "9px 12px 9px 54px" : "9px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbar, flexShrink: 0 }}>
+          <header style={{ minHeight: 52, display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "9px 12px" : "9px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbar, flexShrink: 0 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}>
               <LifeBuoy size={17} />
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Tickets</div>
+              <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Tickets</div>
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Pedidos y mejoras del sistema · con seguimiento</div>
             </div>
             <button type="button" onClick={() => setNuevo(true)} disabled={faltaTabla} style={{
               border: `1px solid ${C.blueB}`, background: C.blue, color: "var(--inverse-text)", borderRadius: 9,
-              padding: "8px 13px", cursor: faltaTabla ? "default" : "pointer", fontSize: 12.5, fontWeight: 950,
+              padding: "8px 13px", cursor: faltaTabla ? "default" : "pointer", fontSize: 12.5, fontWeight: 750,
               display: "inline-flex", alignItems: "center", gap: 7, opacity: faltaTabla ? .5 : 1,
             }}>
               <Plus size={14} /> {isMobile ? "" : "Nuevo ticket"}
@@ -1043,7 +1041,7 @@ export default function TicketsScreen({ profile, signOut }) {
                   <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 30, textAlign: "center" }}>
                     <div>
                       <MessageSquare size={22} color={C.dim} style={{ marginBottom: 9 }} />
-                      <div style={{ fontSize: 13.5, fontWeight: 900, color: C.text }}>Elegí un ticket</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Elegí un ticket</div>
                       <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, maxWidth: 300, lineHeight: 1.5 }}>
                         Acá se ve el pedido completo, quién lo está mirando y todo lo que pasó con él.
                       </div>

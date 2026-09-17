@@ -8,10 +8,10 @@ import { C } from "@/theme";
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import useRealtimeReload from "@/hooks/useRealtimeReload";
 import { hasAdminAccess } from "@/lib/permissions";
+import Cargando from "@/components/ui/Cargando";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 function fmtDate(d) { if (!d) return "—"; return new Date(d + "T00:00:00").toLocaleDateString("es-AR"); }
@@ -37,7 +37,7 @@ const INP = {
   outline: "none", width: "100%", fontFamily: C.sans,
 };
 
-const GANTT_COLORS = ["#3b82f6","#a78bfa","#f59e0b","#10b981","#f43f5e","#0ea5e9","#fb923c","#34d399"];
+const GANTT_COLORS = ["#3b82f6","#a78bfa","#22d3ee","#10b981","#f43f5e","#0ea5e9","#fb923c","#34d399"];
 function obraGanttColor(idx) { return GANTT_COLORS[idx % GANTT_COLORS.length]; }
 
 function extraerCodigo(obra) {
@@ -55,20 +55,20 @@ function urgenciaFinColor(dias) {
   if (dias < 0)  return C.t2;
   if (dias < 14) return C.red;
   if (dias < 30) return "#f97316";
-  if (dias < 60) return C.amber;
+  if (dias < 60) return C.cyan;
   return C.green;
 }
 
 function EstadoChip({ estado }) {
   const meta = C.obra[estado] ?? C.obra.activa;
   return (
-    <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, fontWeight: 700, background: meta.bg, color: meta.dot, border: `1px solid ${meta.border}`, whiteSpace: "nowrap" }}>{meta.label}</span>
+    <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, fontWeight: 600, background: meta.bg, color: meta.dot, border: `1px solid ${meta.border}`, whiteSpace: "nowrap" }}>{meta.label}</span>
   );
 }
 
 function ProgressBar({ value }) {
   const pct = Math.min(100, Math.max(0, value));
-  const barColor = pct >= 100 ? C.green : pct >= 50 ? C.amber : C.red;
+  const barColor = pct >= 100 ? C.green : pct >= 50 ? C.cyan : C.red;
   return (
     <div style={{ height: 4, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
       <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99, transition: "width .4s ease" }} />
@@ -134,7 +134,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
             {meses.map((m, i) => {
               const esHoy = m.getFullYear() === hoy.getFullYear() && m.getMonth() === hoy.getMonth();
               return (
-                <div key={i} style={{ flex: 1, padding: "8px 6px", fontSize: 11, color: esHoy ? C.primary : C.t2, fontWeight: esHoy ? 700 : 400, borderRight: i < NUM_MESES-1 ? `1px solid ${C.b0}` : "none", textAlign: "center" }}>
+                <div key={i} style={{ flex: 1, padding: "8px 6px", fontSize: 11, color: esHoy ? C.primary : C.t2, fontWeight: esHoy ? 600 : 400, borderRight: i < NUM_MESES-1 ? `1px solid ${C.b0}` : "none", textAlign: "center" }}>
                   {m.toLocaleDateString("es-AR", { month: "short" }).replace(".","").toUpperCase()}
                   <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{m.getFullYear()}</div>
                 </div>
@@ -157,12 +157,12 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
               <div style={{ width: 200, minWidth: 200, padding: "8px 14px", borderRight: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", gap: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 11 }}>
                   <EstadoChip estado={o.estado} />
-                  {diasFin !== null && diasFin >= 0 && diasFin <= 60 && <span style={{ fontSize: 10, color: urgenciaFinColor(diasFin), fontWeight: 700 }}>{diasFin}d</span>}
-                  {diasFin !== null && diasFin < 0 && o.estado !== "terminada" && <span style={{ fontSize: 10, color: C.red, fontWeight: 700 }}>vencida</span>}
+                  {diasFin !== null && diasFin >= 0 && diasFin <= 60 && <span style={{ fontSize: 10, color: urgenciaFinColor(diasFin), fontWeight: 600 }}>{diasFin}d</span>}
+                  {diasFin !== null && diasFin < 0 && o.estado !== "terminada" && <span style={{ fontSize: 10, color: C.red, fontWeight: 600 }}>vencida</span>}
                 </div>
               </div>
               <div style={{ flex: 1, position: "relative", height: "100%", minHeight: 44, display: "flex", alignItems: "center" }}>
@@ -170,7 +170,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
                 {hoyPct !== null && hoyPct >= 0 && hoyPct <= 100 && <div style={{ position: "absolute", left: `${hoyPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(59,130,246,0.5)", pointerEvents: "none", zIndex: 2 }} />}
                 {barWidth > 0 && (
                   <div style={{ position: "absolute", left: `${barLeft}%`, width: `${barWidth}%`, height: 20, background: barColor + "33", border: `1px solid ${barColor}88`, borderRadius: 5, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden", zIndex: 1 }}>
-                    <span style={{ fontSize: 10, color: barColor, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: C.sans }}>{o.nombre}</span>
+                    <span style={{ fontSize: 10, color: barColor, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: C.sans }}>{o.nombre}</span>
                   </div>
                 )}
                 {o.fecha_inicio && posicionPct(o.fecha_inicio) >= 0 && posicionPct(o.fecha_inicio) <= 100 && <div title={`Inicio: ${fmtDate(o.fecha_inicio)}`} style={{ position: "absolute", left: `calc(${posicionPct(o.fecha_inicio)}% - 3px)`, width: 6, height: 6, borderRadius: "50%", background: barColor, zIndex: 3, boxShadow: `0 0 5px ${barColor}` }} />}
@@ -207,7 +207,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
 // ══════════════════════════════════════════════════════════════
 // DETALLE OBRA
 // ══════════════════════════════════════════════════════════════
-const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: "1px solid var(--head-border, var(--panel-2))", whiteSpace: "nowrap" };
+const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600, borderBottom: "1px solid var(--head-border, var(--panel-2))", whiteSpace: "nowrap" };
 const TD = { padding: "9px 12px", fontSize: 13, borderBottom: "1px solid var(--hairline-border, var(--panel))", color: C.t1 };
 
 function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEditNec, savingNec, guardarNecesaria, guardarIngresadoManual, limpiarIngresadoManual, filtroMat, setFiltroMat }) {
@@ -227,13 +227,13 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 4 }}>Obra seleccionada</div>
-          <h2 style={{ margin: 0, color: C.t0, fontSize: 18, fontWeight: 700 }}>{obraSel.nombre}</h2>
+          <h2 style={{ margin: 0, color: C.t0, fontSize: 18, fontWeight: 600 }}>{obraSel.nombre}</h2>
           {obraSel.descripcion && <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{obraSel.descripcion}</div>}
           <div style={{ marginTop: 6, display: "flex", gap: 10, fontSize: 11, color: C.t2 }}>
             {obraSel.fecha_inicio && <span>📅 Inicio: <span style={{ color: C.t1 }}>{fmtDate(obraSel.fecha_inicio)}</span></span>}
             {obraSel.fecha_fin && (() => {
               const dias = diasHasta(obraSel.fecha_fin); const col = urgenciaFinColor(dias);
-              return <span>🏁 Fin: <span style={{ color: col, fontWeight: 700 }}>{fmtDate(obraSel.fecha_fin)}</span>{dias !== null && dias >= 0 && <span style={{ color: col }}> ({dias}d)</span>}{dias !== null && dias < 0 && <span style={{ color: C.red }}> ⚠ vencida</span>}</span>;
+              return <span>🏁 Fin: <span style={{ color: col, fontWeight: 600 }}>{fmtDate(obraSel.fecha_fin)}</span>{dias !== null && dias >= 0 && <span style={{ color: col }}> ({dias}d)</span>}{dias !== null && dias < 0 && <span style={{ color: C.red }}> ⚠ vencida</span>}</span>;
             })()}
           </div>
         </div>
@@ -250,7 +250,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
         ].map(({ label, val, color }) => (
           <div key={label} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "10px 14px", borderLeft: `2px solid ${color}` }}>
             <div style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: C.t2, marginBottom: 5 }}>{label}</div>
-            <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{val}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 600, color, lineHeight: 1 }}>{val}</div>
           </div>
         ))}
       </div>
@@ -258,7 +258,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
       {/* Leyenda override */}
       {esGestion && (
         <div style={{ marginBottom: 8, fontSize: 11, color: C.t2, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>✏ editado</span>
+          <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>✏ editado</span>
           <span>= cantidad ingresada ajustada manualmente en esta lista (no modifica movimientos globales)</span>
         </div>
       )}
@@ -271,7 +271,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
           { key: "activos",      label: "Con actividad" },
           { key: "todos",        label: "Todos" },
         ].map(({ key, label }) => (
-          <button key={key} onClick={() => setFiltroMat(key)} style={{ border: `1px solid ${filtroMat === key ? C.primary + "88" : C.b0}`, background: filtroMat === key ? "rgba(59,130,246,0.15)" : "transparent", color: filtroMat === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: filtroMat === key ? 700 : 400 }}>{label}</button>
+          <button key={key} onClick={() => setFiltroMat(key)} style={{ border: `1px solid ${filtroMat === key ? C.primary + "88" : C.b0}`, background: filtroMat === key ? "rgba(59,130,246,0.15)" : "transparent", color: filtroMat === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: filtroMat === key ? 600 : 400 }}>{label}</button>
         ))}
         <span style={{ fontSize: 11, color: C.t2, marginLeft: 4 }}>({filas.length})</span>
       </div>
@@ -302,7 +302,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                 const pct     = r.necesario > 0 ? (r.ingresado / r.necesario) * 100 : 0;
                 const necKey  = obraSel.id + r.matId;
                 const necVal  = editNec[necKey] ?? "";
-                const rowBg   = r.alertaCritica ? "rgba(239,68,68,0.04)" : r.alertaMedia ? "rgba(245,158,11,0.025)" : "transparent";
+                const rowBg   = r.alertaCritica ? "rgba(239,68,68,0.04)" : r.alertaMedia ? "rgba(34,211,238,0.025)" : "transparent";
                 const isEditingIng = editingIngresado === r.matId;
                 const ingEditVal   = editIngresado[r.matId] ?? "";
 
@@ -371,13 +371,13 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                           <>
                             {/* Valor actual */}
                             <div style={{ textAlign: "right" }}>
-                              <span style={{ fontFamily: C.mono, color: r.ingresado > 0 ? C.green : C.t2, fontWeight: r.ingresado > 0 ? 700 : 400 }}>
+                              <span style={{ fontFamily: C.mono, color: r.ingresado > 0 ? C.green : C.t2, fontWeight: r.ingresado > 0 ? 600 : 400 }}>
                                 {r.ingresado > 0 ? r.ingresado : <span style={{ opacity: 0.3 }}>0</span>}
                               </span>
                               {/* Badge "editado" + fecha */}
                               {r.editadoManual && (
                                 <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end", marginTop: 2 }}>
-                                  <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 5px", borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>✏ editado</span>
+                                  <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 5px", borderRadius: 4, fontSize: 10, fontWeight: 600, letterSpacing: 0.5 }}>✏ editado</span>
                                   {r.editadoAt && <span style={{ fontSize: 10, color: C.t2 }}>{fmtDateTime(r.editadoAt)}</span>}
                                 </div>
                               )}
@@ -415,7 +415,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                     {/* Falta ingresar */}
                     <td style={{ ...TD, textAlign: "right" }}>
                       {r.faltaIngresar > 0 ? (
-                        <span style={{ fontFamily: C.mono, fontWeight: 700, color: r.alertaCritica ? C.red : C.amber }}>{r.faltaIngresar}</span>
+                        <span style={{ fontFamily: C.mono, fontWeight: 600, color: r.alertaCritica ? C.red : C.cyan }}>{r.faltaIngresar}</span>
                       ) : r.necesario > 0 ? <span style={{ color: C.green }}>✓</span> : <span style={{ opacity: 0.3 }}>—</span>}
                     </td>
 
@@ -452,7 +452,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
 // ══════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════
-export default function ObrasLaminacionScreen({ profile, signOut }) {
+export default function ObrasLaminacionScreen({ profile }) {
   const { isMobile } = useResponsive();
   const role      = profile?.role ?? "invitado";
   const isAdmin   = hasAdminAccess(profile);
@@ -768,30 +768,21 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
   }), [tablaObra]);
 
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideLeft { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
-        button:not([disabled]):hover { opacity: 0.8; }
         tr:hover td { background: rgba(255,255,255,0.015); }
-        .bg-glow { position:fixed;inset:0;pointer-events:none;z-index:0;
+        .bg-glow { position: absolute;inset:0;pointer-events:none;z-index:0;
           background:radial-gradient(ellipse 70% 38% at 50% -6%,rgba(59,130,246,0.07) 0%,transparent 65%),
-                     radial-gradient(ellipse 40% 28% at 92% 88%,rgba(245,158,11,0.02) 0%,transparent 55%); }
+                     radial-gradient(ellipse 40% 28% at 92% 88%,rgba(34,211,238,0.02) 0%,transparent 55%); }
       `}</style>
       <div className="bg-glow" />
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* TOPBAR */}
-          <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Obras</div>
               <div style={{ width: 1, height: 14, background: C.b1 }} />
@@ -803,7 +794,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                   { label: "Terminadas", n: obras.filter(o => o.estado === "terminada").length, c: C.obra.terminada.dot },
                 ].map(({ label, n, c }) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${c}` }}>
-                    <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: c }}>{n}</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: c }}>{n}</span>
                     <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{label}</span>
                   </div>
                 ))}
@@ -812,7 +803,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
 
             <div style={{ display: "flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, padding: 2 }}>
               {[{ key: "lista", label: "☰ Lista" }, { key: "gantt", label: "📅 Calendario" }].map(({ key, label }) => (
-                <button key={key} onClick={() => setViewMode(key)} style={{ border: viewMode === key ? `1px solid rgba(59,130,246,0.4)` : "1px solid transparent", background: viewMode === key ? "rgba(59,130,246,0.15)" : "transparent", color: viewMode === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: viewMode === key ? 700 : 400, transition: "all .15s" }}>{label}</button>
+                <button key={key} onClick={() => setViewMode(key)} style={{ border: viewMode === key ? `1px solid rgba(59,130,246,0.4)` : "1px solid transparent", background: viewMode === key ? "rgba(59,130,246,0.15)" : "transparent", color: viewMode === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: viewMode === key ? 600 : 400, transition: "all .15s" }}>{label}</button>
               ))}
             </div>
 
@@ -849,12 +840,12 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                         { label: "Descripción", key: "descripcion", placeholder: "K37 — Casco 42" },
                       ].map(({ label, key, placeholder }) => (
                         <div key={key}>
-                          <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>{label}</label>
+                          <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>{label}</label>
                           <input style={INP} placeholder={placeholder} value={formObra[key]} onChange={e => setFormObra(f => ({ ...f, [key]: e.target.value }))} required={key === "nombre"} />
                         </div>
                       ))}
                       <div>
-                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Estado</label>
+                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Estado</label>
                         <select style={{ ...INP, cursor: "pointer" }} value={formObra.estado} onChange={e => setFormObra(f => ({ ...f, estado: e.target.value }))}>
                           <option value="activa">Activa</option>
                           <option value="pausada">Pausada</option>
@@ -862,24 +853,22 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Inicio</label>
+                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Inicio</label>
                         <input type="date" style={INP} value={formObra.fecha_inicio} onChange={e => setFormObra(f => ({ ...f, fecha_inicio: e.target.value }))} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Fin estimado</label>
+                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Fin estimado</label>
                         <input type="date" style={INP} value={formObra.fecha_fin} onChange={e => setFormObra(f => ({ ...f, fecha_fin: e.target.value }))} />
                       </div>
                     </div>
-                    <button type="submit" style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 700 }}>Crear obra</button>
+                    <button type="submit" style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 600 }}>Crear obra</button>
                   </form>
                 </div>
               </div>
             )}
 
             {loading ? (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div style={{ fontSize: 12, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>Cargando…</div>
-              </div>
+              <Cargando llenar />
             ) : (
               <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "300px 1fr" }}>
 
@@ -912,21 +901,21 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ color: C.t0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</div>
+                              <div style={{ color: C.t0, fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</div>
                               {o.descripcion && <div style={{ fontSize: 11, color: C.t2, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.descripcion}</div>}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-end", flexShrink: 0 }}>
                               <EstadoChip estado={o.estado} />
-                              {al.criticas > 0 && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "rgba(239,68,68,0.1)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", fontWeight: 700 }}>⚠ {al.criticas} crítico{al.criticas > 1 ? "s" : ""}</span>}
-                              {sinPlantilla && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", fontWeight: 700 }}>sin plantilla</span>}
+                              {al.criticas > 0 && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "rgba(239,68,68,0.1)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", fontWeight: 600 }}>⚠ {al.criticas} crítico{al.criticas > 1 ? "s" : ""}</span>}
+                              {sinPlantilla && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "rgba(34,211,238,0.1)", color: C.cyan, border: "1px solid rgba(34,211,238,0.25)", fontWeight: 600 }}>sin plantilla</span>}
                             </div>
                           </div>
                           <div style={{ marginTop: 5, fontSize: 11, color: C.t2, display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <span>{planificados} planif.</span>
                             {tieneLista && <span style={{ color: "#34d399" }}>📋 {codigoLista}</span>}
                             {o.fecha_inicio && <span>📅 {fmtDate(o.fecha_inicio)}</span>}
-                            {diasFin !== null && diasFin >= 0 && diasFin <= 30 && <span style={{ color: urgenciaFinColor(diasFin), fontWeight: 700 }}>⏱ {diasFin}d</span>}
-                            {diasFin !== null && diasFin < 0 && o.estado !== "terminada" && <span style={{ color: C.red, fontWeight: 700 }}>⚠ vencida</span>}
+                            {diasFin !== null && diasFin >= 0 && diasFin <= 30 && <span style={{ color: urgenciaFinColor(diasFin), fontWeight: 600 }}>⏱ {diasFin}d</span>}
+                            {diasFin !== null && diasFin < 0 && o.estado !== "terminada" && <span style={{ color: C.red, fontWeight: 600 }}>⚠ vencida</span>}
                           </div>
 
                           {sel && esGestion && (
@@ -955,7 +944,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                       <button
                         type="button"
                         onClick={() => setObraSelId(null)}
-                        style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
+                        style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}
                       >
                         ← Obras
                       </button>

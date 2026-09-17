@@ -32,9 +32,9 @@ const S = {
   label:   { fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontFamily: C.sans, marginBottom: 5, display: "block" },
   input:   { background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t0, padding: "8px 11px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, outline: "none", width: "100%", boxSizing: "border-box" },
   select:  { background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, padding: "6px 9px", borderRadius: 7, fontSize: 12, fontFamily: C.sans, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" },
-  btn:   (color, fill = false) => ({ border: `1px solid ${color}55`, background: fill ? color : `${color}18`, color: fill ? "#fff" : color, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap" }),
-  btnSm: (color, fill = false) => ({ border: `1px solid ${color}44`, background: fill ? color : `${color}15`, color: fill ? "#fff" : color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap" }),
-  th: { textAlign: "left", fontSize: 10, color: C.t2, padding: "9px 12px", textTransform: "uppercase", letterSpacing: 1.3, fontFamily: C.sans, fontWeight: 700 },
+  btn:   (color, fill = false) => ({ border: `1px solid ${color}55`, background: fill ? color : `${color}18`, color: fill ? "#fff" : color, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap" }),
+  btnSm: (color, fill = false) => ({ border: `1px solid ${color}44`, background: fill ? color : `${color}15`, color: fill ? "#fff" : color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap" }),
+  th: { textAlign: "left", fontSize: 10, color: C.t2, padding: "9px 12px", textTransform: "uppercase", letterSpacing: 1.3, fontFamily: C.sans, fontWeight: 600 },
   td: { padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.025)", verticalAlign: "middle", fontSize: 13, fontFamily: C.sans },
 };
 
@@ -214,10 +214,10 @@ function matchMaterialScored(descripcion, materiales) {
 function StockBadge({ stockActual, cantidadNecesaria }) {
   if (stockActual == null) return <span style={{ color: C.t2, fontSize: 12 }}>—</span>;
   const aComprar = Math.max(0, cantidadNecesaria - stockActual);
-  const color = aComprar === 0 ? C.green : aComprar < cantidadNecesaria ? C.amber : C.red;
+  const color = aComprar === 0 ? C.green : aComprar < cantidadNecesaria ? C.cyan : C.red;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
-      <span style={{ fontFamily: C.mono, fontSize: 13, color, fontWeight: 700 }}>{stockActual}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 13, color, fontWeight: 600 }}>{stockActual}</span>
       {aComprar > 0 && <span style={{ fontSize: 11, color, fontFamily: C.mono }}>faltan {aComprar}</span>}
       {aComprar === 0 && <span style={{ fontSize: 11, color: C.green }}> cubierto</span>}
     </div>
@@ -263,11 +263,11 @@ function CandidatoBadge({ candidato, score, onAceptar }) {
   if (!candidato || score < 0.2) return null;
   return (
     <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 11, color: C.amber, fontFamily: C.sans }}>
+      <span style={{ fontSize: 11, color: C.cyan, fontFamily: C.sans }}>
         ¿Es "{candidato.nombre}"?
       </span>
       <button
-        style={{ ...S.btnSm(C.amber), padding: "2px 8px", fontSize: 11 }}
+        style={{ ...S.btnSm(C.cyan), padding: "2px 8px", fontSize: 11 }}
         onClick={e => { e.stopPropagation(); onAceptar(candidato.id); }}
       >
         Sí 
@@ -523,24 +523,24 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       <div style={S.header} onClick={() => setOpen(o => !o)}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 16 }}></span>
-          <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>Generador de Orden de Compra</span>
+          <span style={{ fontWeight: 600, fontSize: 14, color: C.t0, fontFamily: C.sans }}>Generador de Orden de Compra</span>
           {plantillaLabel && (
-            <span style={{ background: `${C.blue}22`, color: C.blue, border: `1px solid ${C.blue}44`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
+            <span style={{ background: `${C.blue}22`, color: C.blue, border: `1px solid ${C.blue}44`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
               {plantillaLabel}
             </span>
           )}
           {selectedKeys.size > 0 && (
-            <span style={{ background: `${C.violet}22`, color: C.violet, border: `1px solid ${C.violet}44`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
+            <span style={{ background: `${C.violet}22`, color: C.violet, border: `1px solid ${C.violet}44`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
               {selectedKeys.size} seleccionados
             </span>
           )}
           {extraItems.length > 0 && (
-            <span style={{ background: `${C.amber}18`, color: C.amber, border: `1px solid ${C.amber}33`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
+            <span style={{ background: `${C.cyan}18`, color: C.cyan, border: `1px solid ${C.cyan}33`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
               {extraItems.length} extras
             </span>
           )}
           {sinMatch > 0 && plantillaId && (
-            <span style={{ background: `${C.red}18`, color: C.red, border: `1px solid ${C.red}33`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
+            <span style={{ background: `${C.red}18`, color: C.red, border: `1px solid ${C.red}33`, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
                {sinMatch} sin vincular
             </span>
           )}
@@ -583,7 +583,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
             <>
               {sinMatch > 0 && (
                 <div style={{ marginBottom: 14, padding: "10px 14px", background: `${C.red}0d`, border: `1px solid ${C.red}33`, borderRadius: 9, fontSize: 13, color: C.t1, fontFamily: C.sans }}>
-                  <span style={{ color: C.red, fontWeight: 700 }}> {sinMatch} ítem{sinMatch !== 1 ? "s" : ""} sin vincular al inventario.</span>
+                  <span style={{ color: C.red, fontWeight: 600 }}> {sinMatch} ítem{sinMatch !== 1 ? "s" : ""} sin vincular al inventario.</span>
                   {" "}Usá el selector debajo de cada uno para vincularlo.
                 </div>
               )}
@@ -652,8 +652,8 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                             </td>
 
                             <td style={{ ...S.td, fontWeight: 600, color: seleccionado ? C.t0 : C.t2, maxWidth: 280 }}>
-                              {yaPedido && <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: C.violet, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 700 }}>PEDIDO </span>}
-                              {enStock && <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: C.cyan, border: `1px solid ${C.cyan}44`, background: `${C.cyan}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 700 }}>STOCK EMAIL</span>}
+                              {yaPedido && <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: C.violet, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 600 }}>PEDIDO </span>}
+                              {enStock && <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: C.cyan, border: `1px solid ${C.cyan}44`, background: `${C.cyan}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 600 }}>STOCK EMAIL</span>}
                               {it.descripcion}
                               {it._matchMode === "auto" && (
                                 <div style={{ fontSize: 11, color: C.green, marginTop: 3, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
@@ -710,7 +710,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                               <button
                                 title={extraKeys.has(it._key) ? "Quitar marca extra" : "Marcar como material extra"}
                                 onClick={() => toggleExtra(it._key)}
-                                style={{ border: extraKeys.has(it._key) ? `1px solid ${C.amber}55` : `1px solid ${C.b0}`, background: extraKeys.has(it._key) ? `${C.amber}22` : "transparent", color: extraKeys.has(it._key) ? C.amber : C.t2, width: 24, height: 24, borderRadius: 5, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "all .15s", fontWeight: 700 }}
+                                style={{ border: extraKeys.has(it._key) ? `1px solid ${C.cyan}55` : `1px solid ${C.b0}`, background: extraKeys.has(it._key) ? `${C.cyan}22` : "transparent", color: extraKeys.has(it._key) ? C.cyan : C.t2, width: 24, height: 24, borderRadius: 5, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "all .15s", fontWeight: 600 }}
                               >
                                 {extraKeys.has(it._key) ? "E" : ""}
                               </button>
@@ -747,7 +747,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                 background: C.panel,
               }}>
                 <div style={{ marginRight: 4 }}>
-                  <div style={{ color: C.t0, fontSize: 12, fontWeight: 800 }}>Copiar por proveedor</div>
+                  <div style={{ color: C.t0, fontSize: 12, fontWeight: 650 }}>Copiar por proveedor</div>
                   <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>Separa materiales de obra y materiales para stock.</div>
                 </div>
                 <div style={{ flex: 1 }} />
@@ -756,7 +756,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   disabled={!pedidosPorProveedor.ads.count}
                   onClick={() => copiarProveedor("ads")}
                   style={{
-                    ...S.btn(C.amber, copiadoProveedor === "ads"),
+                    ...S.btn(C.cyan, copiadoProveedor === "ads"),
                     opacity: pedidosPorProveedor.ads.count ? 1 : 0.45,
                     cursor: pedidosPorProveedor.ads.count ? "pointer" : "default",
                     display: "inline-flex", alignItems: "center", gap: 6,
@@ -785,7 +785,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                 <button style={S.btn(C.green, true)} onClick={copiar}>
                   {copiado ? "Copiado" : <><Copy size={12} style={{marginRight:4}}/>Copiar email</>}
                 </button>
-                <button style={S.btn(C.amber)} onClick={() => setVista(v => v === "tabla" ? "email" : "tabla")}>
+                <button style={S.btn(C.cyan)} onClick={() => setVista(v => v === "tabla" ? "email" : "tabla")}>
                   {vista === "tabla" ? "Vista previa email" : "Volver a editar"}
                 </button>
                 <button style={S.btn(C.t2)} onClick={() => { if (window.confirm("¿Limpiar stock email?")) setStockKeys(new Set()); }}>
@@ -796,10 +796,10 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
           )}
 
           {/* ══ PANEL EXTRAS ══════════════════════════════════════ */}
-          <div style={{ border: `1px solid ${C.amber}33`, borderRadius: 12, background: `${C.amber}06`, padding: "16px 18px", marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.amber, fontFamily: C.sans, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ border: `1px solid ${C.cyan}33`, borderRadius: 12, background: `${C.cyan}06`, padding: "16px 18px", marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.cyan, fontFamily: C.sans, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
               <span></span> Agregar ítems al pedido
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.t2 }}>— Repair, gelcoats, pintura, o cualquier material extra</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.t2 }}>— Repair, gelcoats, pintura, o cualquier material extra</span>
             </div>
 
             {extraItems.length > 0 && (
@@ -808,13 +808,13 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   const mat = materiales.find(m => String(m.id) === String(e.material_id));
                   const yaPedido = pedidosCreados.has(e.uid);
                   return (
-                    <div key={e.uid} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: yaPedido ? `${C.violet}10` : `${C.amber}0d`, border: `1px solid ${yaPedido ? C.violet : C.amber}33`, borderRadius: 8 }}>
-                      {yaPedido && <span style={{ fontSize: 12, color: C.violet, fontWeight: 700 }}> PEDIDO</span>}
+                    <div key={e.uid} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: yaPedido ? `${C.violet}10` : `${C.cyan}0d`, border: `1px solid ${yaPedido ? C.violet : C.cyan}33`, borderRadius: 8 }}>
+                      {yaPedido && <span style={{ fontSize: 12, color: C.violet, fontWeight: 600 }}> PEDIDO</span>}
                       <span style={{ flex: 1, fontSize: 14, color: C.t0, fontFamily: C.sans, fontWeight: 600 }}>{mat?.nombre ?? "—"}</span>
-                      <span style={{ fontFamily: C.mono, fontSize: 14, color: C.amber, fontWeight: 700 }}>{e.cantidad}</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 14, color: C.cyan, fontWeight: 600 }}>{e.cantidad}</span>
                       <span style={{ fontSize: 12, color: C.t2 }}>{mat?.unidad}</span>
                       {!yaPedido && (
-                        <button onClick={() => quitarExtra(e.uid)} style={{ border: `1px solid ${C.red}44`, background: `${C.red}12`, color: C.red, borderRadius: 6, cursor: "pointer", padding: "3px 9px", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}></button>
+                        <button onClick={() => quitarExtra(e.uid)} style={{ border: `1px solid ${C.red}44`, background: `${C.red}12`, color: C.red, borderRadius: 6, cursor: "pointer", padding: "3px 9px", fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}></button>
                       )}
                     </div>
                   );
@@ -851,7 +851,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
               </div>
               <div>
                 <button
-                  style={{ ...S.btn(C.amber, !!extraMat && !!extraCant && num(extraCant) > 0), height: 36, opacity: (!extraMat || !extraCant || num(extraCant) <= 0) ? 0.4 : 1 }}
+                  style={{ ...S.btn(C.cyan, !!extraMat && !!extraCant && num(extraCant) > 0), height: 36, opacity: (!extraMat || !extraCant || num(extraCant) <= 0) ? 0.4 : 1 }}
                   onClick={agregarExtra}
                   disabled={!extraMat || !extraCant || num(extraCant) <= 0}
                 >
@@ -864,7 +864,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
           {/* ── Resumen pedidos creados ── */}
           {pedidosCreados.size > 0 && (
             <div style={{ border: `1px solid ${C.violet}33`, background: `${C.violet}0a`, borderRadius: 10, padding: "12px 16px" }}>
-              <div style={{ fontSize: 11, color: C.violet, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 8, fontFamily: C.sans, fontWeight: 700 }}>
+              <div style={{ fontSize: 11, color: C.violet, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 8, fontFamily: C.sans, fontWeight: 600 }}>
                 Pedidos generados en el sistema ({pedidosCreados.size})
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -919,14 +919,14 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   {itemsAGenerar.dePlantilla.map(it => {
                     const esExtra = extraKeys.has(it._key);
                     return (
-                    <tr key={it._key} style={{ borderTop: `1px solid var(--panel)`, background: esExtra ? `${C.amber}06` : "transparent" }}>
+                    <tr key={it._key} style={{ borderTop: `1px solid var(--panel)`, background: esExtra ? `${C.cyan}06` : "transparent" }}>
                       <td style={{ ...S.td, padding: "9px 14px", fontWeight: 600, color: C.t0 }}>
-                        {esExtra && <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: C.amber, border: `1px solid ${C.amber}44`, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px", marginRight: 6 }}>Extra</span>}
+                        {esExtra && <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, color: C.cyan, border: `1px solid ${C.cyan}44`, background: `${C.cyan}18`, borderRadius: 4, padding: "1px 6px", marginRight: 6 }}>Extra</span>}
                         {it.descripcion}
                         <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{it._mat?.nombre}</div>
                       </td>
-                      <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: C.violet, fontWeight: 700, fontSize: 14 }}>
-                        {it._cantidadNecesaria} <span style={{ fontSize: 11, color: C.t2, fontWeight: 700 }}>{it.unidad}</span>
+                      <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: C.violet, fontWeight: 600, fontSize: 14 }}>
+                        {it._cantidadNecesaria} <span style={{ fontSize: 11, color: C.t2, fontWeight: 600 }}>{it.unidad}</span>
                       </td>
                       <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: it._stockActual > 0 ? C.green : C.red, fontSize: 13 }}>
                         {it._stockActual ?? "—"}
@@ -939,15 +939,15 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                     const mat = e._mat;
                     const st  = mat ? num(stockPorMaterial[mat.id] ?? 0) : null;
                     return (
-                      <tr key={e.uid} style={{ borderTop: `1px solid var(--panel)`, background: `${C.amber}06` }}>
+                      <tr key={e.uid} style={{ borderTop: `1px solid var(--panel)`, background: `${C.cyan}06` }}>
                         <td style={{ ...S.td, padding: "9px 14px", fontWeight: 600, color: C.t0 }}>{mat?.nombre ?? "—"}</td>
-                        <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: C.amber, fontWeight: 700, fontSize: 14 }}>
-                          {e.cantidad} <span style={{ fontSize: 11, color: C.t2, fontWeight: 700 }}>{mat?.unidad}</span>
+                        <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: C.cyan, fontWeight: 600, fontSize: 14 }}>
+                          {e.cantidad} <span style={{ fontSize: 11, color: C.t2, fontWeight: 600 }}>{mat?.unidad}</span>
                         </td>
                         <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: st > 0 ? C.green : C.red, fontSize: 13 }}>
                           {st ?? "—"}
                         </td>
-                        <td style={{ ...S.td, padding: "9px 14px", fontSize: 11, color: C.amber, fontWeight: 700 }}>Extra</td>
+                        <td style={{ ...S.td, padding: "9px 14px", fontSize: 11, color: C.cyan, fontWeight: 600 }}>Extra</td>
                       </tr>
                     );
                   })}
@@ -963,7 +963,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
-                style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", color: C.t1, padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: C.sans }}
+                style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", color: C.t1, padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, fontFamily: C.sans }}
                 onClick={() => setShowConfirm(false)}
               >
                 Cancelar

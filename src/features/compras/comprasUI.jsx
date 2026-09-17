@@ -17,6 +17,52 @@ import { tono } from "./comprasTonos";
  * Sin ámbar. En este sistema el amarillo no se usa.
  */
 
+// Estilos de las piezas con estados (hover, activo) y ajustes de celular. React
+// 19 deduplica un <style> con href + precedence: aunque haya veinte chips en
+// pantalla, se inserta una sola vez en el <head>.
+const CSS_COMPRAS = `
+  .cp-boton, .cp-chip {
+    min-height: 34px; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+    padding: 0 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel); color: var(--muted);
+    font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+    transition: background-color .15s, border-color .15s, color .15s, transform .12s;
+  }
+  .cp-chip { background: transparent; font-weight: 500; }
+  .cp-boton:hover:not(:disabled), .cp-chip:hover { border-color: var(--border-2); color: var(--text); }
+  .cp-boton.is-activo, .cp-chip.is-activo { font-weight: 600; }
+  .cp-boton:active:not(:disabled), .cp-chip:active { transform: scale(.98); }
+  .cp-boton:disabled { opacity: .5; cursor: not-allowed; }
+  .cp-chip-punto { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; opacity: .6; }
+  .cp-chip.is-activo .cp-chip-punto { opacity: 1; }
+  .cp-chip-cuenta { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--dim); }
+
+  .cp-barra {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0;
+    padding: 8px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--topbar-soft);
+  }
+  .cp-barra-filtros { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+
+  @media (max-width: 760px) {
+    .cp-boton, .cp-chip { min-height: 38px; }
+    /* Los filtros en una sola fila que se desliza: apilados ocupaban cuatro
+       renglones antes de llegar a la lista. */
+    .cp-barra-filtros {
+      flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto;
+      margin: 0 -8px; padding: 0 8px;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+    }
+    .cp-barra-filtros::-webkit-scrollbar { display: none; }
+  }
+`;
+
+function EstilosCompras() {
+  return <style href="klasea-compras-ui" precedence="default">{CSS_COMPRAS}</style>;
+}
+
 /**
  * El encabezado de una pantalla.
  *
@@ -30,16 +76,16 @@ export function PageHeader({ eyebrow, title, resumen, acciones = null, Icon = nu
     <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
         {Icon && (
-          <span style={{ width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 9, background: C.panel, border: `1px solid ${C.border}`, color: C.blue }}>
-            <Icon size={17} />
+          <span style={{ width: 40, height: 40, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 12, background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
+            <Icon size={19} />
           </span>
         )}
         <div style={{ minWidth: 0 }}>
           {eyebrow && (
-            <div style={{ color: C.dim, fontSize: 9.5, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 850 }}>{eyebrow}</div>
+            <div style={{ color: C.dim, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>{eyebrow}</div>
           )}
-          <h2 style={{ margin: eyebrow ? "3px 0 0" : 0, fontSize: 19, color: C.text, fontWeight: 900, lineHeight: 1.15 }}>{title}</h2>
-          {resumen && <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>{resumen}</div>}
+          <h2 style={{ margin: eyebrow ? "2px 0 0" : 0, fontSize: 20, color: C.text, fontWeight: 700, letterSpacing: "-0.015em", lineHeight: 1.15 }}>{title}</h2>
+          {resumen && <div style={{ color: C.dim, fontSize: 13, marginTop: 3 }}>{resumen}</div>}
         </div>
       </div>
       {acciones && <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>{acciones}</div>}
@@ -56,24 +102,14 @@ export function BarButton({ children, onClick, tone = "neutro", activo = false, 
       onClick={onClick}
       title={title}
       disabled={disabled}
+      className={`cp-boton${activo ? " is-activo" : ""}`}
       style={{
-        minHeight: 34,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "0 11px",
-        borderRadius: 9,
-        border: `1px solid ${activo ? t.border : C.border}`,
-        background: activo ? t.bg : C.panel,
-        color: activo ? t.color : C.muted,
-        fontFamily: C.sans,
-        fontSize: 12,
-        fontWeight: 800,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
-        whiteSpace: "nowrap",
+        borderColor: activo ? t.border : undefined,
+        background: activo ? t.bg : undefined,
+        color: activo ? t.color : undefined,
       }}
     >
+      <EstilosCompras />
       {children}
     </button>
   );
@@ -92,27 +128,17 @@ export function FilterChip({ label, count, tone = "neutro", activo = false, onCl
       type="button"
       onClick={onClick}
       aria-pressed={activo}
+      className={`cp-chip${activo ? " is-activo" : ""}`}
       style={{
-        minHeight: 34,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        padding: "0 11px",
-        borderRadius: 9,
-        border: `1px solid ${activo ? t.border : C.border}`,
-        background: activo ? t.bg : "transparent",
-        color: activo ? t.color : C.muted,
-        fontFamily: C.sans,
-        fontSize: 12,
-        fontWeight: 850,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
+        borderColor: activo ? t.border : undefined,
+        background: activo ? t.bg : undefined,
+        color: activo ? t.color : undefined,
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: 999, background: t.color, opacity: activo ? 1 : 0.55, flexShrink: 0 }} />
+      <span className="cp-chip-punto" style={{ background: t.color }} />
       {label}
       {count != null && (
-        <span style={{ fontFamily: C.mono, fontSize: 11, color: activo ? t.color : C.dim }}>{count}</span>
+        <span className="cp-chip-cuenta" style={{ color: activo ? t.color : undefined }}>{count}</span>
       )}
     </button>
   );
@@ -128,19 +154,10 @@ export function FilterChip({ label, count, tone = "neutro", activo = false, onCl
  */
 export function Toolbar({ children, buscador = null }) {
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      flexWrap: "wrap",
-      minWidth: 0,
-      border: `1px solid ${C.border}`,
-      background: C.topbarSoft,
-      borderRadius: 11,
-      padding: 9,
-    }}>
+    <div className="cp-barra">
+      <EstilosCompras />
       {buscador}
-      {children}
+      {children && <div className="cp-barra-filtros">{children}</div>}
     </div>
   );
 }
@@ -149,22 +166,22 @@ export function Toolbar({ children, buscador = null }) {
 export function SearchInput({ value, onChange, placeholder = "Buscar…", Icon }) {
   return (
     <div style={{ position: "relative", flex: "1 1 240px", minWidth: 160 }}>
-      {Icon && <Icon size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />}
+      {Icon && <Icon size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />}
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         style={{
           width: "100%",
-          minHeight: 34,
+          minHeight: 36,
           background: C.bg,
           border: `1px solid ${C.border}`,
           color: C.text,
-          borderRadius: 9,
-          padding: Icon ? "0 10px 0 30px" : "0 10px",
+          borderRadius: 10,
+          padding: Icon ? "0 10px 0 32px" : "0 10px",
           outline: "none",
           fontFamily: C.sans,
-          fontSize: 12.5,
+          fontSize: 13.5,
         }}
       />
     </div>
@@ -186,12 +203,12 @@ export function Section({ title, subtitle, count, tone = "neutro", Icon = null, 
           {Icon && <Icon size={14} color={t.color} style={{ flexShrink: 0 }} />}
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>{title}</span>
+              <span style={{ color: C.text, fontSize: 14, fontWeight: 650, letterSpacing: "-0.01em" }}>{title}</span>
               {count != null && (
                 <span style={{ fontFamily: C.mono, fontSize: 11, color: t.color, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 999, padding: "1px 7px" }}>{count}</span>
               )}
             </div>
-            {subtitle && <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{subtitle}</div>}
+            {subtitle && <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>{subtitle}</div>}
           </div>
           {acciones && <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>{acciones}</div>}
         </div>
@@ -248,9 +265,9 @@ export function Empty({ Icon = null, title, hint = null, accion = null, minHeigh
       textAlign: "center",
     }}>
       <div style={{ display: "grid", justifyItems: "center", gap: 8, maxWidth: 380 }}>
-        {Icon && <Icon size={24} color={C.dim} />}
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>{title}</div>
-        {hint && <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.5 }}>{hint}</div>}
+        {Icon && <Icon size={26} color={C.dim} strokeWidth={1.6} />}
+        <div style={{ color: C.text, fontSize: 15, fontWeight: 650 }}>{title}</div>
+        {hint && <div style={{ color: C.dim, fontSize: 13, lineHeight: 1.5 }}>{hint}</div>}
         {accion}
       </div>
     </div>
@@ -288,11 +305,11 @@ export function StatStrip({ items = [] }) {
           borderLeft: index ? `1px solid ${C.border}` : "none",
           minWidth: 0,
         }}>
-          <span style={{ color: C.dim, fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 850, whiteSpace: "nowrap" }}>{item.label}</span>
+          <span style={{ color: C.dim, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, whiteSpace: "nowrap" }}>{item.label}</span>
           <span style={{
             fontFamily: C.mono,
-            fontSize: 15,
-            fontWeight: 900,
+            fontSize: 16,
+            fontWeight: 650,
             color: item.tone ? tono(item.tone).color : C.text,
             whiteSpace: "nowrap",
           }}>{item.value}</span>
@@ -316,9 +333,9 @@ export function Tag({ children, tone = "neutro", solid = false }) {
       background: solid ? t.color : t.bg,
       border: `1px solid ${t.border}`,
       color: solid ? C.bg : t.color,
-      fontSize: 9.5,
-      fontWeight: 900,
-      letterSpacing: 0.2,
+      fontSize: 10.5,
+      fontWeight: 650,
+      letterSpacing: "0.01em",
       whiteSpace: "nowrap",
     }}>
       {children}

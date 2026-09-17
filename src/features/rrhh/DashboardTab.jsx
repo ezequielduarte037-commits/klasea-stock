@@ -21,7 +21,7 @@ const PERIODOS = [
 
 const BTN = {
   border: "1px solid var(--border)", background: "var(--panel-solid)", color: C.t1,
-  borderRadius: 8, padding: "7px 10px", fontFamily: C.sans, fontWeight: 650,
+  borderRadius: 8, padding: "7px 10px", fontFamily: C.sans, fontWeight: 600,
   fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
 };
 
@@ -52,7 +52,7 @@ function PanelHeader({ icon: Icon, title, detail, action }) {
       padding: "13px 15px 10px",
     }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: C.t0, fontWeight: 750 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: C.t0, fontWeight: 650 }}>
           {Icon && <Icon size={15} color={C.blue} strokeWidth={2} />}
           {title}
         </div>
@@ -64,7 +64,7 @@ function PanelHeader({ icon: Icon, title, detail, action }) {
 }
 
 function EstadoRow({ emp, meta, onClick }) {
-  const accent = meta.kind === "late" ? C.amber : meta.kind === "incomplete" ? C.red : C.t2;
+  const accent = meta.kind === "late" ? C.cyan : meta.kind === "incomplete" ? C.red : C.t2;
   const label = meta.kind === "late" ? `Llego ${meta.entrada}` : meta.kind === "incomplete" ? "Fichada incompleta" : "Ausente";
   return (
     <button type="button" onClick={onClick} style={{
@@ -74,11 +74,11 @@ function EstadoRow({ emp, meta, onClick }) {
     }} className="rrhh-dashboard-row">
       <div style={{
         width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center", flexShrink: 0,
-        background: meta.kind === "late" ? C.amberL : meta.kind === "incomplete" ? C.redL : C.s2,
-        color: accent, fontSize: 10, fontWeight: 750,
+        background: meta.kind === "late" ? C.cyanL : meta.kind === "incomplete" ? C.redL : C.s2,
+        color: accent, fontSize: 10, fontWeight: 650,
       }}>{String(emp.nombre ?? "?").slice(0, 2).toUpperCase()}</div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 680, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreCorto(emp.nombre)}</div>
+        <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreCorto(emp.nombre)}</div>
         <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2 }}>{label}</div>
       </div>
       <GrupoBadge grupo={emp.grupo} contratistaNombre={emp.contratista?.nombre} />
@@ -219,7 +219,7 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", background: C.blueL, color: C.blue, border: `1px solid ${C.blueB}` }}><BarChart3 size={16} /></div>
               <div>
-                <h2 style={{ fontSize: 16, color: C.t0, margin: 0, fontWeight: 760 }}>Panorama de asistencia</h2>
+                <h2 style={{ fontSize: 16, color: C.t0, margin: 0, fontWeight: 650 }}>Panorama de asistencia</h2>
                 <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Actualizado con las fichadas importadas hasta hoy</div>
               </div>
             </div>
@@ -229,7 +229,7 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
               <button key={periodo.value} type="button" className="rrhh-period" onClick={() => setDias(periodo.value)} style={{
                 border: `1px solid ${dias === periodo.value ? C.blueB : "transparent"}`, background: dias === periodo.value ? C.blueL : "transparent",
                 color: dias === periodo.value ? C.blue : C.t2, borderRadius: 6, padding: "5px 8px", cursor: "pointer",
-                fontSize: 11, fontWeight: 700, fontFamily: C.sans, transition: "all .16s ease",
+                fontSize: 11, fontWeight: 600, fontFamily: C.sans, transition: "all .16s ease",
               }}>{periodo.label}</button>
             ))}
             <button type="button" title="Actualizar datos" aria-label="Actualizar datos" onClick={() => { setRefrescando(true); cargar({ silent: true }); }} style={{ ...BTN, border: "0", padding: "5px 7px", color: C.t2 }}>
@@ -259,7 +259,7 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
         <KpiCard icon={UserRoundCheck} label="Presentes" value={data.presentes} color={C.green} sub={`${data.casa} casa · ${data.contratistas} contratistas`} />
         <KpiCard icon={UserRoundX} label="Ausentes" value={data.ausentes.length} color={data.ausentes.length ? C.red : C.green} sub={data.ausentes.length ? "requiere seguimiento" : "sin pendientes"} />
         <KpiCard icon={CheckCircle2} label="Justificados" value={data.justificados.length} color={C.blue} sub="vacaciones, reposo u otros" />
-        <KpiCard icon={Clock3} label="Tardanzas" value={data.tardanzasHoy.length} color={data.tardanzasHoy.length ? C.amber : C.green} sub={`despues de ${config.tolerancia_tarde}`} />
+        <KpiCard icon={Clock3} label="Tardanzas" value={data.tardanzasHoy.length} color={data.tardanzasHoy.length ? C.cyan : C.green} sub={`despues de ${config.tolerancia_tarde}`} />
         <KpiCard icon={CalendarDays} label="Horas del periodo" value={minToHM(data.totalMin)} color={C.blue} sub={`promedio ${data.promedioPresentes} presentes/dia`} />
       </div>
 
@@ -292,7 +292,7 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
                     <XAxis type="number" tick={{ fontSize: 10, fill: C.t2 }} tickLine={false} axisLine={false} />
                     <YAxis type="category" dataKey="nombre" width={130} tick={{ fontSize: 11, fill: C.t1 }} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: C.t1 }} formatter={value => [`${value} h`, "Horas"]} />
-                    <Bar dataKey="horas" fill={C.amber} radius={[0, 5, 5, 0]} barSize={15} />
+                    <Bar dataKey="horas" fill={C.cyan} radius={[0, 5, 5, 0]} barSize={15} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -320,8 +320,8 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
             ) : data.rankingTardes.map(({ emp, cantidad }, index) => (
               <div key={emp.id} style={{ borderTop: "1px solid var(--panel)", padding: "10px 15px", display: "flex", alignItems: "center", gap: 9 }}>
                 <span style={{ width: 18, color: C.t2, fontFamily: C.mono, fontSize: 11 }}>{index + 1}.</span>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreCorto(emp.nombre)}</span>
-                <span style={{ padding: "3px 7px", borderRadius: 99, background: C.amberL, color: C.amber, border: `1px solid ${C.amberB}`, fontSize: 10.5, fontWeight: 750 }}>{cantidad} dias</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreCorto(emp.nombre)}</span>
+                <span style={{ padding: "3px 7px", borderRadius: 99, background: C.cyanL, color: C.cyan, border: `1px solid ${C.cyanB}`, fontSize: 10.5, fontWeight: 650 }}>{cantidad} dias</span>
               </div>
             ))}
           </Panel>

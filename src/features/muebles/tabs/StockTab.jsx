@@ -83,7 +83,7 @@ export default function StockTab({ esAdmin, onOpenRecepcion }) {
       `}</style>
       <div className="stock-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, marginBottom: 15 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.t2, fontSize: 10, fontWeight: 850, letterSpacing: 1.3, textTransform: "uppercase" }}><Warehouse size={14} /> Muebles sin obra asignada</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.t2, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, textTransform: "uppercase" }}><Warehouse size={14} /> Muebles sin obra asignada</div>
           <h1 style={{ margin: "5px 0 0", color: C.t0, fontSize: 25, letterSpacing: -0.7 }}>Stock de muebles</h1>
           <div style={{ color: C.t2, fontSize: 12, marginTop: 4 }}>{disponibles} {disponibles === 1 ? "conjunto terminado y listo" : "conjuntos terminados y listos"} para asignar.</div>
         </div>
@@ -94,7 +94,7 @@ export default function StockTab({ esAdmin, onOpenRecepcion }) {
       {loading ? <div style={{ padding: 60, textAlign: "center", color: C.t2 }}>Cargando stock...</div> : filtrados.length === 0 ? (
         <div style={{ padding: "70px 20px", textAlign: "center", borderRadius: 14, border: `1px dashed ${C.b1}`, background: C.s0 }}>
           <Box size={29} color={C.t2} />
-          <div style={{ marginTop: 12, color: C.t0, fontSize: 15, fontWeight: 800 }}>No hay muebles fabricados para stock</div>
+          <div style={{ marginTop: 12, color: C.t0, fontSize: 15, fontWeight: 650 }}>No hay muebles fabricados para stock</div>
           <div style={{ marginTop: 5, color: C.t2, fontSize: 12 }}>Los procesos creados con destino “stock” van a aparecer acá.</div>
         </div>
       ) : (
@@ -109,8 +109,8 @@ export default function StockTab({ esAdmin, onOpenRecepcion }) {
             return (
               <article className="stock-card" key={lote.id} style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.s0, padding: 15, display: "flex", flexDirection: "column", minHeight: 226 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 7, background: tone.bg, color: tone.color, border: `1px solid ${tone.border}`, fontSize: 10, fontWeight: 850, textTransform: "uppercase" }}><Factory size={11} /> {lote.proveedor}</span>
-                  <span style={{ color: listo ? C.green : C.blue, fontSize: 10, fontWeight: 800 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 7, background: tone.bg, color: tone.color, border: `1px solid ${tone.border}`, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}><Factory size={11} /> {lote.proveedor}</span>
+                  <span style={{ color: listo ? C.green : C.blue, fontSize: 10, fontWeight: 650 }}>
                     {listo ? "Disponible" : meta.etapa.key === "recibido" ? "Recepción parcial" : meta.etapa.label}
                   </span>
                 </div>
@@ -124,12 +124,12 @@ export default function StockTab({ esAdmin, onOpenRecepcion }) {
                   </div>
                 </div>
                 <div style={{ marginTop: 15, padding: "10px 0", borderTop: `1px solid ${C.b0}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div><div style={{ color: C.t2, fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>Chapa</div><div style={{ color: C.t1, fontSize: 11, marginTop: 4 }}>{chapa || "Sin definir"}</div></div>
-                  <div><div style={{ color: C.t2, fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>Material</div><div style={{ color: C.t1, fontSize: 11, marginTop: 4 }}>{lote.material_base || "Estándar de línea"}</div></div>
+                  <div><div style={{ color: C.t2, fontSize: 9, fontWeight: 650, textTransform: "uppercase", letterSpacing: 1 }}>Chapa</div><div style={{ color: C.t1, fontSize: 11, marginTop: 4 }}>{chapa || "Sin definir"}</div></div>
+                  <div><div style={{ color: C.t2, fontSize: 9, fontWeight: 650, textTransform: "uppercase", letterSpacing: 1 }}>Material</div><div style={{ color: C.t1, fontSize: 11, marginTop: 4 }}>{lote.material_base || "Estándar de línea"}</div></div>
                 </div>
                 <div style={{ marginTop: "auto" }}>
                   <div style={{ height: 3, borderRadius: 99, background: C.s2, overflow: "hidden", marginBottom: 11 }}><div style={{ height: "100%", width: `${meta.progreso}%`, background: tone.color }} /></div>
-                  {esAdmin && <button disabled={!listo} onClick={() => { setAsignando(lote); setUnidadId(""); }} style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: 7, padding: "8px 10px", borderRadius: 8, border: `1px solid ${listo ? C.greenB : C.b0}`, background: listo ? C.greenL : C.s1, color: listo ? C.green : C.t3, cursor: listo ? "pointer" : "not-allowed", fontSize: 11, fontWeight: 850 }}>Asignar a una obra <ArrowRight size={14} /></button>}
+                  {esAdmin && <button disabled={!listo} onClick={() => { setAsignando(lote); setUnidadId(""); }} style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: 7, padding: "8px 10px", borderRadius: 8, border: `1px solid ${listo ? C.greenB : C.b0}`, background: listo ? C.greenL : C.s1, color: listo ? C.green : C.t3, cursor: listo ? "pointer" : "not-allowed", fontSize: 11, fontWeight: 700 }}>Asignar a una obra <ArrowRight size={14} /></button>}
                 </div>
               </article>
             );
@@ -141,7 +141,7 @@ export default function StockTab({ esAdmin, onOpenRecepcion }) {
         <div style={{ position: "fixed", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
           <div style={{ width: "min(440px,100%)", borderRadius: 14, border: `1px solid ${C.b1}`, background: C.bg1, boxShadow: "0 22px 70px rgba(0,0,0,.4)" }}>
             <div style={{ padding: 16, borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <div><div style={{ color: C.t0, fontWeight: 850 }}>Asignar {nombreMuebles(asignando)}</div><div style={{ color: C.t2, fontSize: 11, marginTop: 4 }}>Solo se muestran obras de la línea {nombreLinea(asignando)}.</div></div>
+              <div><div style={{ color: C.t0, fontWeight: 700 }}>Asignar {nombreMuebles(asignando)}</div><div style={{ color: C.t2, fontSize: 11, marginTop: 4 }}>Solo se muestran obras de la línea {nombreLinea(asignando)}.</div></div>
               <button onClick={() => setAsignando(null)} style={{ width: 29, height: 29, borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer" }}><X size={14} /></button>
             </div>
             <div style={{ padding: 16 }}>
@@ -152,8 +152,8 @@ export default function StockTab({ esAdmin, onOpenRecepcion }) {
               {!compatibles.length && <div style={{ marginTop: 8, color: C.blue, fontSize: 11 }}>No hay obras activas compatibles con esta línea.</div>}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "13px 16px", borderTop: `1px solid ${C.b0}` }}>
-              <button onClick={() => setAsignando(null)} style={{ padding: "8px 11px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: "pointer", fontWeight: 750 }}>Cancelar</button>
-              <button disabled={!unidadId} onClick={asignar} style={{ padding: "8px 12px", border: `1px solid ${C.greenB}`, borderRadius: 8, background: C.greenL, color: unidadId ? C.green : C.t3, cursor: unidadId ? "pointer" : "not-allowed", fontWeight: 850 }}>Confirmar asignación</button>
+              <button onClick={() => setAsignando(null)} style={{ padding: "8px 11px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: "pointer", fontWeight: 650 }}>Cancelar</button>
+              <button disabled={!unidadId} onClick={asignar} style={{ padding: "8px 12px", border: `1px solid ${C.greenB}`, borderRadius: 8, background: C.greenL, color: unidadId ? C.green : C.t3, cursor: unidadId ? "pointer" : "not-allowed", fontWeight: 700 }}>Confirmar asignación</button>
             </div>
           </div>
         </div>

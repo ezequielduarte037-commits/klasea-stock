@@ -380,7 +380,7 @@ export default function GlobalSearch({ profile }) {
           <button
             type="button"
             onClick={() => changeMode("search")}
-            style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${!assistantMode ? C.blueB : "transparent"}`, background: !assistantMode ? C.blueL : "transparent", color: !assistantMode ? C.blue : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
+            style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${!assistantMode ? C.blueB : "transparent"}`, background: !assistantMode ? C.blueL : "transparent", color: !assistantMode ? C.blue : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
           >
             <Search size={14} /> Buscar
           </button>
@@ -388,7 +388,7 @@ export default function GlobalSearch({ profile }) {
             <button
               type="button"
               onClick={() => changeMode("assistant")}
-              style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${assistantMode ? C.violetB : "transparent"}`, background: assistantMode ? C.violetL : "transparent", color: assistantMode ? C.violet : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
+              style={{ minHeight: 32, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: `1px solid ${assistantMode ? C.violetB : "transparent"}`, background: assistantMode ? C.violetL : "transparent", color: assistantMode ? C.violet : C.muted, fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
             >
               <Sparkles size={14} /> Preguntar a la IA <span style={{ fontSize: 8.5, opacity: .78 }}>BETA</span>
             </button>
@@ -422,7 +422,7 @@ export default function GlobalSearch({ profile }) {
           {assistantMode && !assistantMessages.length && (
             <div style={{ padding: "18px 14px 22px" }}>
               <div style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 12, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, marginBottom: 12 }}><Sparkles size={19} /></div>
-              <div style={{ color: C.text, fontSize: 15, fontWeight: 900 }}>Asistente Klase A</div>
+              <div style={{ color: C.text, fontSize: 15, fontWeight: 700 }}>Asistente Klase A</div>
               <div style={{ maxWidth: 530, color: C.dim, fontSize: 12, lineHeight: 1.55, marginTop: 5 }}>Te orienta dentro del sistema y resume registros coincidentes. Es de sólo lectura: no compra, no ingresa ni modifica datos.</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 16 }}>
                 {ASSISTANT_SUGGESTIONS.map((suggestion) => (
@@ -435,11 +435,11 @@ export default function GlobalSearch({ profile }) {
             <div style={{ display: "grid", gap: 10, padding: "4px 8px 8px" }}>
               {assistantMessages.map((message, index) => (
                 <div key={`${message.role}-${index}`} style={{ justifySelf: message.role === "user" ? "end" : "stretch", maxWidth: message.role === "user" ? "86%" : "100%", padding: message.role === "user" ? "9px 11px" : "12px", borderRadius: 11, border: `1px solid ${message.role === "user" ? C.blueB : C.violetB}`, background: message.role === "user" ? C.blueL : C.violetL, color: C.text }}>
-                  {message.role === "assistant" && <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.violet, fontSize: 9.5, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 7 }}><Sparkles size={12} /> Asistente</div>}
+                  {message.role === "assistant" && <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.violet, fontSize: 9.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 7 }}><Sparkles size={12} /> Asistente</div>}
                   <div style={{ whiteSpace: "pre-wrap", fontSize: 12.5, lineHeight: 1.58 }}>{assistantDisplayText(message.content)}</div>
                   {!!message.links?.length && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                      {message.links.map((link) => <button key={`${link.path}-${link.label}`} type="button" onClick={() => goTo(link)} style={{ minHeight: 29, padding: "0 9px", borderRadius: 8, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.violet, fontFamily: C.sans, fontSize: 10.5, fontWeight: 800, cursor: "pointer" }}>{link.label} <ArrowRight size={10} style={{ marginLeft: 4, verticalAlign: -1 }} /></button>)}
+                      {message.links.map((link) => <button key={`${link.path}-${link.label}`} type="button" onClick={() => goTo(link)} style={{ minHeight: 29, padding: "0 9px", borderRadius: 8, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.violet, fontFamily: C.sans, fontSize: 10.5, fontWeight: 650, cursor: "pointer" }}>{link.label} <ArrowRight size={10} style={{ marginLeft: 4, verticalAlign: -1 }} /></button>)}
                     </div>
                   )}
                 </div>
@@ -452,7 +452,7 @@ export default function GlobalSearch({ profile }) {
           )}
           {!assistantMode && <>
           {!hasQuery && (
-            <div style={{ padding: "3px 10px 9px", color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>
+            <div style={{ padding: "3px 10px 9px", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase" }}>
               Accesos rápidos
             </div>
           )}
@@ -463,7 +463,7 @@ export default function GlobalSearch({ profile }) {
             <div style={{ minHeight: 180, display: "grid", placeItems: "center", textAlign: "center", padding: 24 }}>
               <div>
                 <Search size={28} color={C.dim} style={{ marginBottom: 10 }} />
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 850 }}>No encontramos “{query.trim()}”</div>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>No encontramos “{query.trim()}”</div>
                 <div style={{ color: C.dim, fontSize: 12, marginTop: 5 }}>Probá con menos palabras, el nombre de la pantalla, un código, DNI o número de solicitud.</div>
               </div>
             </div>
@@ -474,7 +474,7 @@ export default function GlobalSearch({ profile }) {
             return (
               <section key={group.key} style={{ marginBottom: 8 }}>
                 {groupMeta && hasQuery && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px 5px", color: groupMeta.color, fontSize: 10, fontWeight: 900, letterSpacing: ".1em", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px 5px", color: groupMeta.color, fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase" }}>
                     <groupMeta.Icon size={12} strokeWidth={2} /> {groupMeta.label}
                     <span style={{ color: C.dim, fontFamily: C.mono }}>{group.items.length}</span>
                   </div>
@@ -497,11 +497,11 @@ export default function GlobalSearch({ profile }) {
                         <ResultIcon groupKey={group.key} Icon={item.Icon} />
                         <span style={{ minWidth: 0, flex: 1 }}>
                           <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13.5, fontWeight: 850 }}>{item.title}</span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13.5, fontWeight: 700 }}>{item.title}</span>
                             {/* En una sección el módulo es lo que la ubica ("Pañol › Archivo de
                                 remitos"), así que va al lado del nombre y no perdido a la derecha. */}
-                            {esSeccion && item.meta && <span style={{ flexShrink: 0, borderRadius: 999, padding: "2px 7px", background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 9.5, fontWeight: 850 }}>{item.meta}</span>}
-                            {item.status && <span style={{ flexShrink: 0, borderRadius: 999, padding: "2px 6px", background: C.panel2, border: `1px solid ${C.border}`, color: C.muted, fontSize: 9.5, fontWeight: 850 }}>{STATUS_LABELS[item.status] || item.status}</span>}
+                            {esSeccion && item.meta && <span style={{ flexShrink: 0, borderRadius: 999, padding: "2px 7px", background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 9.5, fontWeight: 700 }}>{item.meta}</span>}
+                            {item.status && <span style={{ flexShrink: 0, borderRadius: 999, padding: "2px 6px", background: C.panel2, border: `1px solid ${C.border}`, color: C.muted, fontSize: 9.5, fontWeight: 700 }}>{STATUS_LABELS[item.status] || item.status}</span>}
                           </span>
                           <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.dim, fontSize: 11.5, marginTop: 3 }}>{item.subtitle}</span>
                         </span>

@@ -6,7 +6,9 @@
 // animations (120-200 ms), entrance/hover only — never per-render.
 // ─────────────────────────────────────────────────────────────────
 
+import { useEffectEvent, useLayoutEffect, useRef } from "react";
 import { C } from "@/theme";
+import { useReducedMotion } from "./useReducedMotion";
 
 // ── Skeletons already live in ./Skeleton.jsx — re-exported here
 //    so consumers can import everything from one place. ───────────
@@ -48,38 +50,19 @@ if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
   transform: translateY(0) scale(.97);
   box-shadow: none;
 }
+/* DrawnCheck: el círculo se cierra y después se dibuja el tilde. */
+.ui-check-circulo {
+  stroke-dasharray: 63;
+  animation: ui-trazo-63 .42s cubic-bezier(.65,0,.35,1) var(--ui-check-delay, 0ms) backwards;
+}
+.ui-check-tilde {
+  stroke-dasharray: 14;
+  animation: ui-trazo-14 .28s cubic-bezier(.65,0,.35,1) calc(var(--ui-check-delay, 0ms) + 260ms) backwards;
+}
+@keyframes ui-trazo-63 { from { stroke-dashoffset: 63; } }
+@keyframes ui-trazo-14 { from { stroke-dashoffset: 14; } }
 `;
   document.head.appendChild(el);
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   hoverable(isHovered, accentColor?) → inline-style object
-
-   Merges into your existing style. Provides a subtle lift + glow
-   on hover, optionally tinted to an accent colour from C.
-
-   Usage:
-     const [hov, setHov] = useState(false);
-     <div
-       onMouseEnter={() => setHov(true)}
-       onMouseLeave={() => setHov(false)}
-       style={{ ...hoverable(hov, C.blue), background: C.panel }}
-     />
-   ═══════════════════════════════════════════════════════════════════ */
-
-export function hoverable(hov, color) {
-  const base = {
-    transition: `transform 160ms ${EASE}, box-shadow 160ms ${EASE}, border-color 160ms`,
-  };
-  if (!hov) return base;
-  return {
-    ...base,
-    transform: "translateY(-2px)",
-    boxShadow: color
-      ? `0 8px 24px var(--shadow), 0 0 0 1px ${color}22`
-      : "0 8px 24px var(--shadow)",
-    ...(color ? { borderColor: `${color}55` } : {}),
-  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -121,7 +104,7 @@ export function FadeIn({ children, delay = 0, duration = 180, style, className }
        title="No hay pedidos"
        subtitle="Cuando crees uno, aparecerá acá."
        action={<button onClick={crear}>Crear pedido</button>}
-       color={C.amber}
+       color={C.cyan}
      />
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -193,5 +176,79 @@ export function EmptyState({
         {action && <div style={{ marginTop: 4 }}>{action}</div>}
       </div>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   <AnimatedNumber value format duration />
+
+   Cuenta desde el valor anterior hasta el nuevo. Reemplaza las copias
+   que había en Home, Obras, Admin, Laminación, Maderas, Semáforo y el
+   panel del cliente: aquellas hacían setState en cada cuadro y React
+   redibujaba el componente 60 veces por segundo mientras contaban. Esta
+   escribe el texto directo en el DOM.
+
+   format recibe el número (sin redondear) y devuelve el texto; por
+   defecto, entero con separador de miles es-AR.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const formatoEntero = (n) => Math.round(n).toLocaleString("es-AR");
+
+export function AnimatedNumber({ value, format = formatoEntero, duration = 800, className, style }) {
+  const ref = useRef(null);
+  const anterior = useRef(0);
+  const reducido = useReducedMotion();
+  const destino = Number(value) || 0;
+  const formatear = useEffectEvent((n) => format(n));
+
+  // Layout y no Effect: el primer valor se escribe antes de pintar, así no
+  // aparece el número final un cuadro y después arranca a contar desde 0.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const desde = anterior.current;
+    anterior.current = destino;
+    if (reducido || desde === destino) {
+      el.textContent = formatear(destino);
+      return undefined;
+    }
+    el.textContent = formatear(desde);
+    let cuadro = 0;
+    const inicio = performance.now();
+    const paso = (ahora) => {
+      const p = Math.min(1, (ahora - inicio) / duration);
+      el.textContent = formatear(desde + (destino - desde) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) cuadro = window.requestAnimationFrame(paso);
+    };
+    cuadro = window.requestAnimationFrame(paso);
+    return () => {
+      window.cancelAnimationFrame(cuadro);
+      el.textContent = formatear(destino);
+    };
+  }, [destino, duration, reducido]);
+
+  return <span ref={ref} className={className} style={style} />;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   <DrawnCheck size color delay />
+
+   Círculo que se cierra y tilde que se dibuja. Para confirmar que algo
+   salió bien (toasts, guardados, firmas).
+   ═══════════════════════════════════════════════════════════════════ */
+
+export function DrawnCheck({ size = 18, color = "currentColor", delay = 0, style }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: "block", flexShrink: 0, "--ui-check-delay": `${delay}ms`, ...style }}
+    >
+      <circle className="ui-check-circulo" cx="12" cy="12" r="10" stroke={color} strokeWidth="2" transform="rotate(-90 12 12)" />
+      <path className="ui-check-tilde" d="M7.5 12.4l3 3 6-6.4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

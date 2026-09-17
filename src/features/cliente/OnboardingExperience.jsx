@@ -149,7 +149,7 @@ const modules = [
     title: "Modos de energia",
     subtitle: "El K52 dispone de tres fuentes de corriente alterna. Cada modo responde a un escenario distinto de operacion y requiere una secuencia de activacion especifica.",
     icon: Zap,
-    color: "#fbbf24",
+    color: "#a78bfa",
     signal: "Puerto · Grupo Electrogeno · Inverter",
     caption: "El cargador de baterias puede operar en modo Puerto o Grupo. Se recomienda activarlo siempre que haya 220V disponible a bordo.",
     visual3D: null, // futuro: "/models/fuentes-energia.glb"
@@ -206,7 +206,7 @@ const modules = [
     title: "Grupo electrogeno",
     subtitle: "El grupo electrogeno es un generador diesel que produce 220V de forma independiente. Se utiliza cuando la embarcacion no esta conectada a puerto y se requiere mayor potencia que la disponible por inverter.",
     icon: Radio,
-    color: "#f59e0b",
+    color: "#8b5cf6",
     signal: "Generador autonomo · 220V independiente",
     caption: "Si el grupo se detiene al poco tiempo de arrancar, es posible leer el codigo de falla contando los destellos de la luz en la tecla de encendido.",
     visual3D: null, // futuro: "/models/grupo-electrogeno.glb"

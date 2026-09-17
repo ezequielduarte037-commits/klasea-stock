@@ -61,7 +61,7 @@ function EmployeeAvatar({ employee, size = 76 }) {
       background: C.greenL,
       color: C.green,
       fontSize: Math.round(size * 0.28),
-      fontWeight: 950,
+      fontWeight: 750,
       boxShadow: `0 12px 28px -18px ${C.green}`,
     }}>
       {photo
@@ -110,7 +110,7 @@ function ProgressSteps({ status, reasignando, destinoDefinido }) {
             }}>
               {done ? <Check size={16} strokeWidth={3} /> : icon}
             </div>
-            <span style={{ color: done ? C.green : current ? C.text : C.dim, fontSize: 12, fontWeight: 850 }}>{label}</span>
+            <span style={{ color: done ? C.green : current ? C.text : C.dim, fontSize: 12, fontWeight: 700 }}>{label}</span>
             {index < steps.length - 1 && (
               <span className="egreso-display-line" style={{ background: active > step ? C.green : C.border }} />
             )}
@@ -344,7 +344,7 @@ export default function PantallaEgresoScreen() {
         .egreso-display-brand img{width:42px;height:42px;border-radius:13px;object-fit:cover;box-shadow:0 10px 24px -14px rgba(0,0,0,.55)}
         .egreso-display-brand strong{display:block;font-size:19px;letter-spacing:-.2px}
         .egreso-display-brand span{display:block;color:var(--dim);font-size:13.5px;margin-top:2px}
-        .egreso-display-live{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--green-border);background:var(--green-soft);color:var(--green);border-radius:999px;padding:8px 12px;font-size:11px;font-weight:900}
+        .egreso-display-live{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--green-border);background:var(--green-soft);color:var(--green);border-radius:999px;padding:8px 12px;font-size:11px;font-weight:700}
         .egreso-display-live i{width:7px;height:7px;background:var(--green);border-radius:999px;box-shadow:0 0 0 4px var(--green-soft)}
         .egreso-display-fullscreen{border:1px solid var(--border);background:var(--panel-solid);color:var(--text);width:38px;height:38px;border-radius:11px;display:grid;place-items:center;cursor:pointer}
         .egreso-display-progress{max-width:1500px;margin:0 auto 22px;display:flex;align-items:center;justify-content:center;gap:0}
@@ -355,37 +355,37 @@ export default function PantallaEgresoScreen() {
         .egreso-display-pulse{position:absolute;right:14px;bottom:14px;width:12px;height:12px;background:var(--green);border:3px solid var(--panel-solid);border-radius:999px}
         .egreso-display-empty h1{font-size:clamp(31px,4.4vw,58px);letter-spacing:-1.6px;line-height:1.02;margin:8px 0 12px}
         .egreso-display-empty p{color:var(--dim);font-size:clamp(15px,1.5vw,20px);margin:0}
-        .egreso-display-hint{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:800;border:1px solid var(--border);background:var(--panel-solid);border-radius:999px;padding:9px 13px}
-        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:950;letter-spacing:1.1px;text-transform:uppercase;color:var(--dim)}
+        .egreso-display-hint{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:650;border:1px solid var(--border);background:var(--panel-solid);border-radius:999px;padding:9px 13px}
+        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:750;letter-spacing:1.1px;text-transform:uppercase;color:var(--dim)}
         .egreso-display-layout{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.65fr);gap:18px;align-items:start}
         .egreso-display-panel{border:1px solid var(--border);background:var(--panel-solid);border-radius:20px;overflow:hidden;box-shadow:0 28px 70px -48px rgba(0,0,0,.7)}
         .egreso-display-panel-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
         .egreso-display-panel-head h1{font-size:clamp(23px,2.4vw,33px);letter-spacing:-.6px;margin:3px 0 0}
-        .egreso-display-count{margin-left:auto;color:var(--dim);font-size:14px;font-weight:850;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:8px 12px;white-space:nowrap}
+        .egreso-display-count{margin-left:auto;color:var(--dim);font-size:14px;font-weight:700;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:8px 12px;white-space:nowrap}
         .egreso-display-items{padding:10px;display:grid;gap:7px;max-height:calc(100vh - 300px);overflow:auto}
         .egreso-display-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:13px;padding:14px;border:1px solid var(--border);background:var(--panel);border-radius:13px}
-        .egreso-display-item-index{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--border);background:var(--panel-solid);color:var(--dim);font-family:${C.mono};font-size:12.5px;font-weight:900}
-        .egreso-display-item-name{font-size:clamp(16px,1.55vw,22px);font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .egreso-display-item-index{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--border);background:var(--panel-solid);color:var(--dim);font-family:${C.mono};font-size:12.5px;font-weight:700}
+        .egreso-display-item-name{font-size:clamp(16px,1.55vw,22px);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         /* Acá es donde se lee la obra de cada renglón: era el texto más chico de
            toda la pantalla y es de los pocos que hay que poder leer de lejos. */
-        .egreso-display-item-detail{color:var(--muted);font-size:clamp(13px,1.15vw,16px);font-weight:750;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .egreso-display-item-detail{color:var(--muted);font-size:clamp(13px,1.15vw,16px);font-weight:650;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .egreso-display-item-qty{text-align:right;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
         .egreso-display-item-qty strong{font-family:${C.mono};font-size:clamp(22px,2.4vw,33px);letter-spacing:-1px}
-        .egreso-display-item-qty span{color:var(--dim);font-size:14px;font-weight:850}
+        .egreso-display-item-qty span{color:var(--dim);font-size:14px;font-weight:700}
         .egreso-display-side{display:grid;gap:12px}
         .egreso-display-status{border:1px solid;min-height:104px;border-radius:18px;padding:18px;display:flex;align-items:center;gap:15px}
         .egreso-display-status-icon{width:62px;height:62px;border:1px solid;border-radius:18px;display:grid;place-items:center;flex-shrink:0}
-        .egreso-display-status-title{font-size:clamp(22px,2.2vw,31px);font-weight:950;letter-spacing:-.6px;line-height:1.08;margin-top:5px}
+        .egreso-display-status-title{font-size:clamp(22px,2.2vw,31px);font-weight:750;letter-spacing:-.6px;line-height:1.08;margin-top:5px}
         .egreso-display-status-copy{color:var(--muted);font-size:15px;line-height:1.45;margin-top:6px}
         .egreso-display-summary{padding:18px;display:grid;gap:16px}
         .egreso-display-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
         .egreso-display-summary-card{border:1px solid var(--border);background:var(--panel);border-radius:13px;padding:13px}
-        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.8px}
+        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
         .egreso-display-summary-card strong{display:block;font-family:${C.mono};font-size:clamp(26px,2.5vw,34px);margin-top:6px}
         .egreso-display-destination{border-top:1px solid var(--border);padding-top:15px}
         /* La obra destino es EL dato de la pantalla: el que mira quiere saber
            para qué barco es lo que está sobre el mostrador. Va grande. */
-        .egreso-display-destination strong{display:block;font-size:clamp(22px,2.2vw,32px);font-weight:950;letter-spacing:-.5px;line-height:1.15;margin-top:7px}
+        .egreso-display-destination strong{display:block;font-size:clamp(22px,2.2vw,32px);font-weight:750;letter-spacing:-.5px;line-height:1.15;margin-top:7px}
         .egreso-display-destination p{color:var(--muted);font-size:14px;line-height:1.45;margin:7px 0 0}
         .egreso-display-processing svg{animation:egreso-tick 1.2s ease-in-out infinite}
         @keyframes egreso-tick{50%{transform:rotate(12deg) scale(1.06)}}
@@ -416,7 +416,7 @@ export default function PantallaEgresoScreen() {
           </div>
         </div>
         <div className="egreso-display-live"><i /> Actualización en vivo</div>
-        <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>
+        <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>
           {clock.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
         </div>
         <button type="button" className="egreso-display-fullscreen" onClick={toggleFullscreen} title="Pantalla completa">

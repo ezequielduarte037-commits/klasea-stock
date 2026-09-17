@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import { validatePasswordPolicy } from "@/features/cuenta/passwordPolicy";
@@ -30,6 +29,7 @@ import {
   Activity
 } from "lucide-react";
 import AdminActivityPanel from "@/features/configuracion/AdminActivityPanel";
+import Cargando from "@/components/ui/Cargando";
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ const Sx = {
   btnPrimary: {
     border:"none", background:"var(--inverse-bg)", color:"var(--inverse-text)",
     padding:"9px 20px", borderRadius:8, cursor:"pointer",
-    fontWeight:700, fontSize:13, fontFamily:"'Outfit',system-ui",
+    fontWeight:600, fontSize:13, fontFamily:"'Outfit',system-ui",
   },
   btnSecondary: {
     border:`1px solid ${C.border}`, background:C.panel,
@@ -309,7 +309,7 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
         <Field label={form.is_demo ? "Contraseña de presentación" : "Contraseña temporal"} hint={form.is_demo ? "Mínimo 10 caracteres. La cuenta de presentación no pedirá cambiarla al ingresar." : "Mínimo 10 caracteres, mayúscula, minúscula y número. Se le pedirá cambiarla al ingresar."}><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(139,92,246,.07)", border:"1px solid rgba(139,92,246,.22)", borderRadius:8, marginBottom:16 }}>
           <div>
-            <div style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>Presentación externa</div>
+            <div style={{ fontSize:13, color:"var(--text)", fontWeight:600 }}>Presentación externa</div>
             <div style={{ fontSize:10, color:"var(--dim)", marginTop:2 }}>Recorre módulos sin precios y sin permiso para modificar datos.</div>
           </div>
           <Toggle on={form.is_demo} onChange={()=>setForm(f=>({...f,is_demo:!f.is_demo,is_admin:false,role:!f.is_demo?"tecnica":f.role}))} />
@@ -415,7 +415,7 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
       <ModalTitle title="Editar permisos" sub={usuario.username} onClose={onClose} />
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(139,92,246,.07)", border:"1px solid rgba(139,92,246,.22)", borderRadius:8, marginBottom:16 }}>
         <div>
-          <div style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>Presentación externa</div>
+          <div style={{ fontSize:13, color:"var(--text)", fontWeight:600 }}>Presentación externa</div>
           <div style={{ fontSize:10, color:"var(--dim)", marginTop:2 }}>Solo lectura e importes ocultos.</div>
         </div>
         <Toggle on={form.is_demo} onChange={()=>setForm(f=>({...f,is_demo:!f.is_demo,is_admin:false,role:!f.is_demo?"tecnica":f.role}))} />
@@ -649,7 +649,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
         <div style={{ margin:"4px 0 16px", padding:"14px 16px", borderRadius:10, background:"rgba(59,130,246,0.04)", border:"1px solid rgba(59,130,246,0.15)" }}>
           {/* Header con botón nueva obra */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <div style={{ fontSize:10, letterSpacing:1.3, color:"#4a7aaa", textTransform:"uppercase", fontWeight: 700 }}>
+            <div style={{ fontSize:10, letterSpacing:1.3, color:"#4a7aaa", textTransform:"uppercase", fontWeight: 600 }}>
               Vinculación a obra <span style={{ color:"#3a5070", fontWeight:400, letterSpacing:0 }}>(opcional)</span>
             </div>
             <button
@@ -670,7 +670,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
           {/* Formulario inline nueva obra */}
           {showNuevaObra && (
             <div style={{ padding:"12px 14px", borderRadius:9, background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.2)", marginBottom:14 }}>
-              <div style={{ fontSize:10, letterSpacing:1.3, color:"#4a7aaa", textTransform:"uppercase", marginBottom:10, fontWeight: 700 }}>Crear nueva obra</div>
+              <div style={{ fontSize:10, letterSpacing:1.3, color:"#4a7aaa", textTransform:"uppercase", marginBottom:10, fontWeight: 600 }}>Crear nueva obra</div>
               {obraErr && (
                 <div style={{ fontSize:12, color:"#c07070", padding:"6px 10px", borderRadius:7, background:"rgba(180,60,60,0.1)", border:"1px solid rgba(180,60,60,0.2)", marginBottom:10 }}>{obraErr}</div>
               )}
@@ -916,7 +916,7 @@ async function cargarPerfiles() {
 }
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
-export default function ConfiguracionScreen({ profile, signOut }) {
+export default function ConfiguracionScreen({ profile }) {
   const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin || profile?.role === "admin";
   const canViewAdminActivity = String(profile?.username || "").trim().toLowerCase() === "ezequiel.adm";
@@ -1007,8 +1007,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
   if (!isAdmin) {
     return (
-      <div style={{ background:C.bg, position:"fixed", inset:0, overflow:"hidden", display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ background:C.bg, position:"absolute", inset:0, overflow:"hidden", display:"grid", gridTemplateColumns: "minmax(0, 1fr)" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", color:"var(--dim)", fontSize:13, letterSpacing:1 }}>
           Solo administradores pueden acceder.
         </div>
@@ -1017,30 +1016,21 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ background:C.bg, position:"fixed", inset:0, overflow:"hidden", color:C.muted, fontFamily:C.sans }}>
+    <div className="cfg-root" style={{ background:C.bg, position:"absolute", inset:0, overflow:"hidden", color:C.muted, fontFamily:C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *,*::before,*::after{box-sizing:border-box;}
-        ::-webkit-scrollbar{width:3px;height:3px;}
-        ::-webkit-scrollbar-track{background:transparent;}
-        ::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:99px;}
-        button:focus-visible{outline:1px solid var(--border-2);outline-offset:2px;}
-        input:focus,select:focus,textarea:focus{outline:none;border-color:rgba(59,130,246,0.35)!important;}
-        select option{background:var(--panel-solid);color:var(--muted);}
         @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-        button:not([disabled]):hover{opacity:0.8;}
-        .bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+        .cfg-root button:not([disabled]):hover{opacity:0.8;}
+        .bg-glow{position: absolute;inset:0;pointer-events:none;z-index:0;
           background:radial-gradient(ellipse 70% 38% at 50% -6%,rgba(59,130,246,0.07) 0%,transparent 65%),
-                     radial-gradient(ellipse 40% 28% at 92% 88%,rgba(245,158,11,0.02) 0%,transparent 55%);}
+                     radial-gradient(ellipse 40% 28% at 92% 88%,rgba(34,211,238,0.02) 0%,transparent 55%);}
         .hrow:hover{background:rgba(255,255,255,0.025)!important;}
         .hcard:hover{border-color:var(--border)!important;}
       `}</style>
       <div className="bg-glow" />
-      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display:"grid", gridTemplateColumns: "minmax(0, 1fr)", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
         <Toast toast={toast} />
-        <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
+        <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
           {/* ── TOPBAR ── */}
           <div style={{
             height:50, flexShrink:0, display:"flex", alignItems:"stretch",
@@ -1048,7 +1038,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
             background:C.topbar,
             backdropFilter:"blur(32px) saturate(130%)",
             WebkitBackdropFilter:"blur(32px) saturate(130%)",
-            padding: isMobile ? "0 12px 0 52px" : "0 24px",
+            padding: isMobile ? "0 12px" : "0 24px",
             overflowX:"auto",
           }}>
             {TABS.map(t=>(
@@ -1071,10 +1061,10 @@ export default function ConfiguracionScreen({ profile, signOut }) {
               {[
                 { n:stats.personal, l:"personal", c:"#3b82f6" },
                 { n:stats.clientes, l:"clientes", c:"#10b981" },
-                { n:stats.modelos,  l:"modelos",  c:"#f59e0b" },
+                { n:stats.modelos,  l:"modelos",  c:"#22d3ee" },
               ].map(({n,l,c})=>(
                 <div key={l} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:7, background:"var(--panel)", border:"1px solid var(--panel-2)", borderLeft:`2px solid ${c}` }}>
-                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:15, fontWeight:700, color:c, lineHeight:1 }}>{n}</span>
+                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:15, fontWeight:600, color:c, lineHeight:1 }}>{n}</span>
                   <span style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.1, textTransform:"uppercase" }}>{l}</span>
                 </div>
               ))}
@@ -1084,7 +1074,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
           {/* ── CONTENIDO ── */}
           <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
             {loading ? (
-              <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:"var(--dim)", fontSize:13 }}>Cargando…</div>
+              <Cargando llenar />
             ) : (
               <>
                 {/* ══════ TAB: PERSONAL ══════ */}
@@ -1165,14 +1155,14 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                             </div>
                             <div>
                               {c.obras ? (
-                                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#93c5fd", fontWeight:700 }}>{c.obras.codigo}</span>
+                                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#93c5fd", fontWeight:600 }}>{c.obras.codigo}</span>
                               ) : (
                                 <span style={{ fontSize:11, color:"#3a3a52" }}>Sin obra</span>
                               )}
                             </div>
                             <div>
                               {c.modelo_barco && (
-                                <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.2)", color:"#f59e0b" }}>{c.modelo_barco}</span>
+                                <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:"rgba(34,211,238,0.08)", border:"1px solid rgba(34,211,238,0.2)", color:"#22d3ee" }}>{c.modelo_barco}</span>
                               )}
                             </div>
                             <div style={{ fontSize:13, color:"var(--dim)" }}>{c.nombre_barco || "—"}</div>
@@ -1209,7 +1199,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                             <div key={m.id} className="hcard" style={{ border:"1px solid var(--panel-2)", borderRadius:12, background:"rgba(255,255,255,0.02)", padding:"18px 20px", transition:"border-color .15s" }}>
                               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
                                 <div>
-                                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:22, fontWeight:700, color:"var(--text)", letterSpacing:-0.5 }}>{m.modelo_barco}</div>
+                                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:22, fontWeight:600, color:"var(--text)", letterSpacing:-0.5 }}>{m.modelo_barco}</div>
                                   <div style={{ fontSize:10, color:"var(--dim)", marginTop:3 }}>{clientesConModelo} cliente{clientesConModelo!==1?"s":""} asignados</div>
                                 </div>
                                 <div style={{ display:"flex", gap:6, alignItems:"center" }}>
@@ -1253,7 +1243,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     ) : Object.entries(configGrupos).map(([grupo,items])=>(
                       <div key={grupo} style={{ marginBottom:10, border:"1px solid var(--panel-2)", borderRadius:10, background:"rgba(255,255,255,0.02)", overflow:"hidden" }}>
                         <div style={{ padding:"10px 18px", borderBottom:"1px solid var(--panel)", background:"rgba(255,255,255,0.015)" }}>
-                          <span style={{ fontSize:10, letterSpacing:3, color:"var(--dim)", textTransform:"uppercase", fontWeight: 700 }}>{grupo}</span>
+                          <span style={{ fontSize:10, letterSpacing:3, color:"var(--dim)", textTransform:"uppercase", fontWeight: 600 }}>{grupo}</span>
                         </div>
                         <table style={{ width:"100%", borderCollapse:"collapse" }}>
                           <tbody>

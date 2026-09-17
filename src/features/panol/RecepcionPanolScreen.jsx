@@ -18,7 +18,6 @@ import {
   Warehouse,
   X,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -170,7 +169,7 @@ function iconBox(color, IconComponent) {
 function SelectFilter({ label, value, onChange, options }) {
   return (
     <label style={{ display: "grid", gap: 4, minWidth: 128 }}>
-      <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -182,7 +181,7 @@ function SelectFilter({ label, value, onChange, options }) {
           borderRadius: 9,
           cursor: "pointer",
           fontSize: 13,
-          fontWeight: 750,
+          fontWeight: 650,
           fontFamily: C.sans,
           outline: "none",
         }}
@@ -234,10 +233,10 @@ function KpiCard({ icon: Icon, label, value, color, detail }) {
     }}>
       {iconBox(color, Icon)}
       <div style={{ minWidth: 0 }}>
-        <div style={{ color, fontFamily: C.mono, fontSize: 21, lineHeight: 1, fontWeight: 850 }}>
+        <div style={{ color, fontFamily: C.mono, fontSize: 21, lineHeight: 1, fontWeight: 700 }}>
           {value}
         </div>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 800, marginTop: 4 }}>
+        <div style={{ color: C.text, fontSize: 12, fontWeight: 650, marginTop: 4 }}>
           {label}
         </div>
         {detail && <div style={{ color: C.dim, fontSize: 11, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{detail}</div>}
@@ -259,7 +258,7 @@ function TabButton({ active, onClick, children }) {
         padding: "7px 11px",
         cursor: "pointer",
         fontSize: 12,
-        fontWeight: 850,
+        fontWeight: 700,
         fontFamily: C.sans,
         boxShadow: active ? `inset 0 0 0 1px ${C.border}` : "none",
         whiteSpace: "nowrap",
@@ -313,7 +312,7 @@ function StatusPill({ estado }) {
       borderRadius: 999,
       padding: "4px 9px",
       fontSize: 10,
-      fontWeight: 850,
+      fontWeight: 700,
       textTransform: "uppercase",
       letterSpacing: 0.5,
       whiteSpace: "nowrap",
@@ -330,7 +329,7 @@ function PriorityPill({ prioridad }) {
     <span style={{
       color: meta.color,
       fontSize: 11,
-      fontWeight: 800,
+      fontWeight: 650,
       textTransform: "uppercase",
       letterSpacing: 0.5,
       whiteSpace: "nowrap",
@@ -381,7 +380,7 @@ function DesktopRow({ envio, onOpen }) {
             flexShrink: 0,
           }} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {envio.titulo}
             </div>
             <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -392,8 +391,8 @@ function DesktopRow({ envio, onOpen }) {
       </div>
 
       <div style={{ display: "grid", gap: 4 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.8 }}>Sede</span>
-        <span style={{ color: C.text, fontSize: 12, fontWeight: 800 }}>{envio.sede}</span>
+        <span style={{ color: C.dim, fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.8 }}>Sede</span>
+        <span style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>{envio.sede}</span>
       </div>
 
       <StatusPill estado={envio.estado} />
@@ -401,10 +400,10 @@ function DesktopRow({ envio, onOpen }) {
       <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
         <ProgressSegments resumen={resumen} />
         <div style={{ display: "flex", gap: 8, color: C.dim, fontSize: 11, minWidth: 0 }}>
-          <span style={{ color: C.green, fontWeight: 800 }}>{resumen.recibidos}/{resumen.total}</span>
+          <span style={{ color: C.green, fontWeight: 650 }}>{resumen.recibidos}/{resumen.total}</span>
           <span>recibidos</span>
           {pendienteTexto && <span>{pendienteTexto}</span>}
-          {problemas > 0 && <span style={{ color: C.red, fontWeight: 850 }}>{problemas} problema{problemas === 1 ? "" : "s"}</span>}
+          {problemas > 0 && <span style={{ color: C.red, fontWeight: 700 }}>{problemas} problema{problemas === 1 ? "" : "s"}</span>}
         </div>
       </div>
 
@@ -441,7 +440,7 @@ function MobileCard({ envio, onOpen }) {
     >
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 850, color: C.text, lineHeight: 1.2 }}>{envio.titulo}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>{envio.titulo}</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
             {envio.obra?.codigo ? `Obra ${envio.obra.codigo} · ` : ""}{envio.sede} · {fmtFecha(envio.created_at)}
           </div>
@@ -452,14 +451,14 @@ function MobileCard({ envio, onOpen }) {
       <div style={{ display: "flex", justifyContent: "space-between", color: C.dim, fontSize: 12 }}>
         <span><strong style={{ color: C.green }}>{resumen.recibidos}/{resumen.total}</strong> recibidos</span>
         {problemas > 0
-          ? <span style={{ color: C.red, fontWeight: 850 }}>{problemas} problemas</span>
-          : accion > 0 ? <span style={{ color: C.violet, fontWeight: 850 }}>{accion} por revisar</span> : <PriorityPill prioridad={envio.prioridad} />}
+          ? <span style={{ color: C.red, fontWeight: 700 }}>{problemas} problemas</span>
+          : accion > 0 ? <span style={{ color: C.violet, fontWeight: 700 }}>{accion} por revisar</span> : <PriorityPill prioridad={envio.prioridad} />}
       </div>
     </button>
   );
 }
 
-export default function RecepcionPanolScreen({ profile, signOut }) {
+export default function RecepcionPanolScreen({ profile }) {
   const nav = useNavigate();
   const { isMobile } = useResponsive();
   const toast = useToast();
@@ -577,10 +576,9 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   // El aviso flotante de pendientes ahora vive en NotificacionesBell global.
 
   const shell = (children) => (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.text, fontFamily: C.sans }}>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden" }}>
-        <Sidebar profile={profile} signOut={signOut} />
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>{children}</div>
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.text, fontFamily: C.sans }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>{children}</div>
       </div>
     </div>
   );
@@ -613,7 +611,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
         background: C.topbar,
         ...GLASS,
         borderBottom: `1px solid ${C.border}`,
-        padding: isMobile ? "12px 12px 12px 54px" : "16px 18px",
+        padding: isMobile ? "12px 14px" : "16px 18px",
         display: "grid",
         gap: 14,
         flexShrink: 0,
@@ -622,8 +620,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 0 }}>
             {iconBox(C.blue, Warehouse)}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 19, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Recepción de materiales</div>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 750 }}>
+              <div style={{ fontSize: 19, fontWeight: 700, color: C.text, lineHeight: 1.1 }}>Recepción de materiales</div>
+              <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 650 }}>
                 {sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
               </div>
             </div>
@@ -641,7 +639,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                 if (event.target.value === "ingresar") refreshPendientes();
                 setTab(event.target.value);
               }}
-              style={{ border: "none", background: tab === "recepcion" || tab === "scanner" ? "transparent" : C.panelSolid, color: tab === "recepcion" || tab === "scanner" ? C.dim : C.text, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, outline: "none" }}
+              style={{ border: "none", background: tab === "recepcion" || tab === "scanner" ? "transparent" : C.panelSolid, color: tab === "recepcion" || tab === "scanner" ? C.dim : C.text, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans, outline: "none" }}
             >
               <option value="">Más operaciones</option>
               <option value="remitos">Remitos</option>
@@ -663,7 +661,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
               minHeight: 36,
               cursor: "pointer",
               fontSize: 12,
-              fontWeight: 900,
+              fontWeight: 700,
               fontFamily: C.sans,
               display: "inline-flex",
               alignItems: "center",
@@ -781,9 +779,9 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             <AlertTriangle size={16} style={{ color: C.violet, flexShrink: 0 }} />
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.muted }}>
               Hay <strong style={{ color: C.text }}>{kpis.activos}</strong> pedido{kpis.activos === 1 ? "" : "s"} pendiente{kpis.activos === 1 ? "" : "s"} de recepción para revisar
-              {kpis.problemas > 0 && <span style={{ color: C.red, fontWeight: 850 }}> · {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}</span>}.
+              {kpis.problemas > 0 && <span style={{ color: C.red, fontWeight: 700 }}> · {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}</span>}.
             </span>
-            {fEstado !== "activos" && <span style={{ color: C.violet, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.7 }}>Ver pendientes</span>}
+            {fEstado !== "activos" && <span style={{ color: C.violet, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Ver pendientes</span>}
           </button>
         )}
       </div>
@@ -799,7 +797,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             background: C.bg,
             color: C.dim,
             fontSize: 10,
-            fontWeight: 850,
+            fontWeight: 700,
             letterSpacing: 1.1,
             textTransform: "uppercase",
             flexShrink: 0,
@@ -816,7 +814,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
 
         <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "12px 18px 18px" }}>
           {loading ? (
-            <div style={{ padding: 44, textAlign: "center", color: C.dim, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 800 }}>
+            <div style={{ padding: 44, textAlign: "center", color: C.dim, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>
               Cargando pedidos...
             </div>
           ) : filtrados.length === 0 ? (
@@ -831,7 +829,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
               background: C.panel,
             }}>
               <CheckCircle2 size={34} style={{ color: C.green, marginBottom: 10 }} />
-              <div style={{ fontSize: 16, fontWeight: 850, color: C.text }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>
                 {fEstado === "activos" ? "Todo al día en recepción" : "No hay pedidos para este filtro"}
               </div>
               <div style={{ fontSize: 13, marginTop: 6 }}>
@@ -882,7 +880,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             <div style={{ borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, ...GLASS, flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "8px 12px" : "8px 18px", overflowX: "auto" }}>
                 {pendientes.length > 0 && (
-                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
                     Borradores ({pendientes.length}):
                   </span>
                 )}
@@ -900,11 +898,11 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                           setModalPrefill(esAviso ? { origen: "manual", ...comun } : { origen: "remito", modo: "remito", ...comun });
                           setIngresoKey((k) => k + 1);
                         }}
-                        style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", padding: 0 }}>
+                        style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap", padding: 0 }}>
                         {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
                       </button>
                       {esAviso && (
-                        <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>aviso</span>
+                        <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>aviso</span>
                       )}
                       <button type="button" title="Mandar a la papelera (se puede recuperar)"
                         onClick={() => {
@@ -924,7 +922,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                 {papelera.length > 0 && (
                   <button type="button" onClick={() => setPapeleraAbierta((v) => !v)}
                     title={papeleraAbierta ? "Ocultar la papelera" : "Borradores que mandaste a la papelera"}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", border: `1px solid ${papeleraAbierta ? C.border2 : "transparent"}`, background: papeleraAbierta ? C.panelSolid : "transparent", borderRadius: 999, color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0, marginLeft: pendientes.length ? 4 : 0 }}>
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", border: `1px solid ${papeleraAbierta ? C.border2 : "transparent"}`, background: papeleraAbierta ? C.panelSolid : "transparent", borderRadius: 999, color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0, marginLeft: pendientes.length ? 4 : 0 }}>
                     <Trash2 size={12} />
                     Papelera ({papelera.length})
                   </button>
@@ -945,7 +943,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                           refreshPendientes();
                           toast.success("Borrador recuperado.");
                         }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", border: `1px dashed ${C.border2}`, background: "transparent", borderRadius: 999, color: C.dim, cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", border: `1px dashed ${C.border2}`, background: "transparent", borderRadius: 999, color: C.dim, cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0 }}>
                         <RotateCcw size={12} />
                         {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
                       </button>
@@ -960,7 +958,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
                       setPapeleraAbierta(false);
                       toast.success("Papelera vacía.");
                     }}
-                    style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, textDecoration: "underline", whiteSpace: "nowrap", flexShrink: 0, padding: "4px 2px" }}>
+                    style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, textDecoration: "underline", whiteSpace: "nowrap", flexShrink: 0, padding: "4px 2px" }}>
                     Vaciar
                   </button>
                   <span style={{ color: C.dim, fontSize: 11, whiteSpace: "nowrap", flexShrink: 0, opacity: 0.75 }}>

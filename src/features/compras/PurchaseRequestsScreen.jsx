@@ -57,7 +57,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { CardSkeleton, RowSkeleton, Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
@@ -180,7 +179,7 @@ const labelStyle = {
   fontSize: 10,
   letterSpacing: 1.2,
   textTransform: "uppercase",
-  fontWeight: 750,
+  fontWeight: 650,
   marginBottom: 6,
 };
 
@@ -208,7 +207,7 @@ function Chip({ children, color = C.blue, size = "sm" }) {
       borderRadius: 6,
       padding: size === "xs" ? "2px 5px" : "3px 7px",
       fontSize: size === "xs" ? 8 : 9,
-      fontWeight: 800,
+      fontWeight: 650,
       letterSpacing: 0.9,
       textTransform: "uppercase",
       whiteSpace: "nowrap",
@@ -246,7 +245,7 @@ function SectionTitle({ icon, title, count }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
       <Icon size={15} color={C.blue} />
-      <h3 style={{ margin: 0, fontSize: 14, color: C.text, fontWeight: 750 }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: 14, color: C.text, fontWeight: 650 }}>{title}</h3>
       {count !== undefined && (
         <span style={{
           color: C.dim,
@@ -294,7 +293,7 @@ function RequestCard({ request, onClick, isUnread }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <StatusDot status={request.status} />
           <span style={{
-            fontSize: 14, fontWeight: 750, color: C.text,
+            fontSize: 14, fontWeight: 650, color: C.text,
             flex: "1 1 auto", minWidth: 0, display: "block",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
@@ -326,7 +325,7 @@ function RequestCard({ request, onClick, isUnread }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
           <span style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase",
+            fontSize: 10, fontWeight: 650, letterSpacing: 0.8, textTransform: "uppercase",
             color, background: `${color}14`, border: `1px solid ${color}28`,
             borderRadius: 5, padding: "1px 5px",
           }}>
@@ -390,7 +389,7 @@ function RequestRow({ request, onClick, isUnread }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, minWidth: 0 }}>
           <span style={{
-            fontSize: 14, fontWeight: 700, color: C.text,
+            fontSize: 14, fontWeight: 600, color: C.text,
             flex: "1 1 auto", minWidth: 0, display: "block",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
@@ -398,11 +397,11 @@ function RequestRow({ request, onClick, isUnread }) {
           </span>
           {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
           {srcColor && (
-            <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
+            <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
               {SOURCE_LABELS[request.source] || request.source}
             </span>
           )}
-          <span style={{ marginLeft: "auto", flexShrink: 0, color: priorityColors[request.priority], fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>
+          <span style={{ marginLeft: "auto", flexShrink: 0, color: priorityColors[request.priority], fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>
             {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
           </span>
         </div>
@@ -415,7 +414,7 @@ function RequestRow({ request, onClick, isUnread }) {
       </div>
 
       <span style={{
-        fontSize: 10, fontWeight: 800, letterSpacing: 0.7, textTransform: "uppercase",
+        fontSize: 10, fontWeight: 650, letterSpacing: 0.7, textTransform: "uppercase",
         color, background: `${color}14`, border: `1px solid ${color}28`,
         borderRadius: 5, padding: "2px 7px",
       }}>
@@ -454,7 +453,7 @@ function StatChip({ label, count, color, active, onClick }) {
         padding: "3px 8px",
         cursor: "pointer",
         fontSize: 11,
-        fontWeight: active ? 750 : 600,
+        fontWeight: active ? 650 : 600,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
         transition: "all .12s",
@@ -678,13 +677,13 @@ function ComprasCompanion({ requests, onOpenNew }) {
         background: `${estado.color}20`,
         color: estado.color,
         fontSize: 10,
-        fontWeight: 900,
+        fontWeight: 700,
         fontFamily: C.mono,
         lineHeight: 1,
       }}>{estado.face}</span>
       <span style={{ display: "grid", gap: 1, textAlign: "left" }}>
-        <span style={{ color: estado.color, fontSize: 9, letterSpacing: 0.8, fontWeight: 900, textTransform: "uppercase" }}>Comprín</span>
-        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>{estado.label}</span>
+        <span style={{ color: estado.color, fontSize: 9, letterSpacing: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Comprín</span>
+        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 600 }}>{estado.label}</span>
       </span>
     </button>
   );
@@ -714,7 +713,7 @@ function ComprasCompanionV2({ requests, onOpenNew }) {
         <span className="compras-bot-face"><span className="compras-bot-eye" /><span className="compras-bot-eye" /><span className="compras-bot-mouth" /></span>
       </span>
       <span className="compras-companion-copy">
-        <span style={{ color, fontSize: 9, letterSpacing: 0.8, fontWeight: 900, textTransform: "uppercase" }}>Comprín</span>
+        <span style={{ color, fontSize: 9, letterSpacing: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Comprín</span>
         <strong>{label}</strong>
         <small>{nuevos} nuevos · {revision} revisión · {cotizando} cotizando</small>
         <small>{comprados} por recibir{urgentes ? ` · ${urgentes} urgentes` : ""}</small>
@@ -810,7 +809,7 @@ function formatDraftTime(value) {
   return date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function PurchaseRequestsScreen({ profile, signOut }) {
+export default function PurchaseRequestsScreen({ profile }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1378,9 +1377,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   if (selectedId) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: C.bg }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%" }}>
-          <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ position: "absolute", inset: 0, background: C.bg }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
           <PurchaseRequestDetail
             requestId={selectedId}
             profile={profile}
@@ -1397,15 +1395,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
+    <div className="compras-root" style={{ position: "absolute", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--text); }
-        input:focus, select:focus, textarea:focus {
-          border-color: rgba(96,165,250,0.42) !important;
-          box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
-        }
         @keyframes pr-card-in {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -1435,8 +1426,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         .compras-companion:active { transform: translateY(0); }
         .compras-companion-v2 { display: inline-flex; align-items: center; gap: 8px; border-width: 1px; border-style: solid; border-radius: 10px; padding: 4px 9px 4px 5px; cursor: pointer; color: var(--text); white-space: nowrap; }
         .compras-companion-copy { display: grid; gap: 1px; text-align: left; }
-        .compras-companion-copy strong { color: var(--text); font-size: 10.5px; font-weight: 800; }
-        .compras-companion-copy small { color: var(--dim); font-size: 9.5px; font-weight: 650; }
+        .compras-companion-copy strong { color: var(--text); font-size: 10.5px; font-weight: 650; }
+        .compras-companion-copy small { color: var(--dim); font-size: 9.5px; font-weight: 600; }
         .compras-bot { position: relative; width: 29px; height: 31px; display: grid; place-items: end center; flex: 0 0 auto; }
         .compras-bot-antenna { position: absolute; top: 0; left: 13px; width: 3px; height: 7px; background: var(--bot-color); border-radius: 3px; }
         .compras-bot-antenna::before { content: ""; position: absolute; top: -3px; left: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--bot-color); box-shadow: 0 0 7px var(--bot-color); }
@@ -1447,7 +1438,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         .compras-bot-mouth { position: absolute; left: 10px; bottom: 4px; width: 7px; height: 3px; border-bottom: 2px solid var(--bot-color); border-radius: 50%; }
         .compras-bot-alerta .compras-bot-mouth, .compras-bot-triste .compras-bot-mouth { transform: rotate(180deg); bottom: 3px; }
         .compras-bot-alerta .compras-bot-eye { height: 3px; border-radius: 0; transform: rotate(35deg); }
-        input[type="date"]::-webkit-calendar-picker-indicator { opacity: .75; }
+        .compras-root input[type="date"]::-webkit-calendar-picker-indicator { opacity: .75; }
         
         /* Ajustes para ReactQuill */
         .ql-toolbar.ql-snow {
@@ -1500,6 +1491,38 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           background: #000 !important;
           border-color: var(--border-2) !important;
         }
+        .purchase-tabs { display: flex; align-items: center; gap: 2px; margin-left: 8px; min-width: 0; }
+        .purchase-tab {
+          min-height: 32px; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+          padding: 0 11px; border: 1px solid transparent; border-radius: 9px;
+          background: transparent; color: var(--dim);
+          font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap;
+          transition: color .15s, background-color .15s, border-color .15s;
+        }
+        .purchase-tab:hover { color: var(--text); background: var(--panel); }
+        .purchase-tab.is-activa { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-border); font-weight: 600; }
+        .purchase-tab-cuenta { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--cyan); }
+        .purchase-tab.is-activa .purchase-tab-cuenta { color: var(--blue); }
+        .purchase-menu {
+          position: fixed; z-index: 61; overflow-y: auto; padding: 6px;
+          border: 1px solid var(--border-2); border-radius: 14px;
+          background: var(--panel-solid); box-shadow: var(--elev-2);
+          animation: purchase-menu-in .16s cubic-bezier(.22,1,.36,1);
+        }
+        .purchase-menu-grupo + .purchase-menu-grupo { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+        .purchase-menu-grupo-titulo { padding: 7px 10px 4px; color: var(--dim); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+        .purchase-menu-item {
+          width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 10px;
+          border: 0; border-radius: 10px; background: transparent; color: var(--text);
+          font: inherit; text-align: left; transition: background-color .12s;
+        }
+        .purchase-menu-item:hover { background: var(--panel-2); }
+        .purchase-menu-item svg { flex-shrink: 0; color: var(--dim); }
+        .purchase-menu-item.is-activa { background: var(--blue-soft); color: var(--blue); }
+        .purchase-menu-item.is-activa svg { color: var(--blue); }
+        .purchase-menu-titulo { display: block; font-size: 13px; font-weight: 600; }
+        .purchase-menu-ayuda { display: block; margin-top: 1px; color: var(--dim); font-size: 11.5px; line-height: 1.35; }
+        @keyframes purchase-menu-in { from { opacity: 0; transform: translateY(-4px); } }
         @media (max-width: 900px) {
           .purchase-topbar {
             height: auto !important;
@@ -1511,9 +1534,13 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           .purchase-tabs {
             order: 3;
             width: 100%;
+            margin-left: 0;
             overflow-x: auto;
-            padding-bottom: 2px;
+            scrollbar-width: none;
           }
+          .purchase-tabs::-webkit-scrollbar { display: none; }
+          .purchase-tab { min-height: 38px; }
+          .purchase-menu-item { padding: 11px 10px; }
           .purchase-card:hover {
             transform: none !important;
           }
@@ -1526,8 +1553,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         }
       `}</style>
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden" }}>
 
         <main style={{ minWidth: 0, minHeight: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
 
@@ -1542,19 +1568,19 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: isMobile ? "10px 12px 8px 62px" : "0 16px",
+              padding: isMobile ? "10px 12px 8px" : "0 16px",
             }}>
               <div style={{
                 width: 30, height: 30,
                 display: "grid", placeItems: "center",
-                borderRadius: 7,
+                borderRadius: 9,
                 color: C.cyan,
                 background: "color-mix(in srgb, var(--cyan) 12%, transparent)",
                 border: "1px solid color-mix(in srgb, var(--cyan) 25%, transparent)",
               }}>
                 <ShoppingCart size={16} />
               </div>
-              <h1 style={{ margin: 0, fontSize: 14, color: C.text, fontWeight: 800 }}>
+              <h1 style={{ margin: 0, fontSize: 15, color: C.text, fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
                 {manager ? "Gestión de Compras" : "Pedidos a Compras"}
               </h1>
 
@@ -1576,7 +1602,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   background: showNew ? "rgba(96,165,250,0.1)" : C.panel2,
                   color: showNew ? C.blue : C.text,
                   borderRadius: 7, padding: "7px 11px", cursor: "pointer",
-                  fontSize: 12, fontWeight: 750,
+                  fontSize: 12, fontWeight: 650,
                   transition: "all .13s",
                 }}>
                   {showNew ? <X size={13} /> : <Plus size={13} />}
@@ -1653,7 +1679,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         padding: "6px 9px",
                         cursor: "pointer",
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 600,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1697,7 +1723,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       padding: "8px 9px",
                       marginTop: -8,
                     }}>
-                      <span style={{ color: C.green, fontSize: 12, fontWeight: 800 }}>
+                      <span style={{ color: C.green, fontSize: 12, fontWeight: 650 }}>
                         Borrador guardado{formatDraftTime(draftSavedAt) ? ` - ${formatDraftTime(draftSavedAt)}` : ""}
                       </span>
                       <span style={{ color: C.dim, fontSize: 11, flex: "1 1 140px" }}>
@@ -1715,7 +1741,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           padding: "5px 10px",
                           cursor: "pointer",
                           fontSize: 11,
-                          fontWeight: 800,
+                          fontWeight: 650,
                         }}
                       >
                         Guardar borrador
@@ -1731,7 +1757,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           padding: "5px 8px",
                           cursor: "pointer",
                           fontSize: 11,
-                          fontWeight: 750,
+                          fontWeight: 650,
                         }}
                       >
                         Descartar
@@ -1744,7 +1770,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10,
                       padding: "9px 10px", marginTop: -6, display: "grid", gap: 7,
                     }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: C.dim, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 650, color: C.dim, textTransform: "uppercase", letterSpacing: 0.6 }}>
                         Borradores guardados · {savedDrafts.length}/{SAVED_DRAFTS_MAX}
                         <span style={{ color: C.muted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> — se borran solos al mes</span>
                       </div>
@@ -1754,16 +1780,16 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 9px",
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.title}</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.title}</div>
                             <div style={{ fontSize: 10.5, color: C.dim }}>{formatDraftTime(d.savedAt)}</div>
                           </div>
                           <button type="button" onClick={() => retomarBorrador(d.id)} style={{
                             border: `1px solid ${C.blue}`, background: "transparent", color: C.blue,
-                            borderRadius: 6, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 800,
+                            borderRadius: 6, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 650,
                           }}>Retomar</button>
                           <button type="button" onClick={() => eliminarBorrador(d.id)} title="Borrar este borrador" style={{
                             border: `1px solid ${C.border}`, background: "transparent", color: C.dim,
-                            borderRadius: 6, padding: "5px 9px", cursor: "pointer", fontSize: 12, fontWeight: 800,
+                            borderRadius: 6, padding: "5px 9px", cursor: "pointer", fontSize: 12, fontWeight: 650,
                           }}>✕</button>
                         </div>
                       ))}
@@ -1876,7 +1902,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           borderTop: `1px solid ${C.cyan}33`,
                           padding: "7px 9px",
                           fontSize: 12,
-                          fontWeight: 750,
+                          fontWeight: 650,
                         }}>
                           {itemDraftWarning}
                         </div>
@@ -1930,7 +1956,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     }}>
                       <Paperclip size={16} />
                       <span style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ display: "block", color: attachmentFiles.length ? C.blue : C.text, fontSize: 13, fontWeight: 800 }}>
+                        <span style={{ display: "block", color: attachmentFiles.length ? C.blue : C.text, fontSize: 13, fontWeight: 650 }}>
                           {attachmentFiles.length ? "Agregar más archivos" : "Seleccionar archivos"}
                         </span>
                         <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>
@@ -1964,7 +1990,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                             <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: 7, background: C.blueL, color: C.blue }}>
                               <Paperclip size={13} />
                             </span>
-                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.text, fontSize: 12, fontWeight: 750 }}>{file.name}</span>
+                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.text, fontSize: 12, fontWeight: 650 }}>{file.name}</span>
                             <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5 }}>{fmtFileSize(file.size)}</span>
                             <button
                               type="button"
@@ -2054,7 +2080,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       color: saving ? C.dim : C.bg,
                       padding: isMobile ? "14px 12px" : "11px 12px",
                       cursor: saving ? "default" : "pointer",
-                      fontWeight: 800,
+                      fontWeight: 650,
                       fontSize: 13,
                       fontFamily: C.sans,
                       transition: "all .13s",
@@ -2130,7 +2156,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         padding: "7px 11px",
                         cursor: "pointer",
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 600,
                         transition: "all .13s",
                       }}
                     >
@@ -2245,14 +2271,14 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         display: "flex", alignItems: "center", gap: 12,
                         padding: "0 0 8px", fontSize: 12,
                       }}>
-                        <span style={{ color: C.muted, fontWeight: 700 }}>Todas las solicitudes</span>
+                        <span style={{ color: C.muted, fontWeight: 600 }}>Todas las solicitudes</span>
                         <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{visibleList.length}</span>
                         <span style={{ flex: 1 }} />
                         <span style={{ color: C.dim, fontSize: 11 }}>
-                          {unreadIds.size > 0 && <><span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer · </>}
-                          <span style={{ color: C.cyan, fontWeight: 700, fontFamily: C.mono }}>
+                          {unreadIds.size > 0 && <><span style={{ color: C.violet, fontWeight: 600, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer · </>}
+                          <span style={{ color: C.cyan, fontWeight: 600, fontFamily: C.mono }}>
                             {requests.filter((r) => r.status === "nuevo" || r.status === "en_revision" || r.status === "cotizando").length}
-                          </span> pendientes · <span style={{ color: C.red, fontWeight: 700, fontFamily: C.mono }}>
+                          </span> pendientes · <span style={{ color: C.red, fontWeight: 600, fontFamily: C.mono }}>
                             {requests.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length}
                           </span> urgentes
                         </span>
@@ -2266,7 +2292,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         />
                         {unreadIds.size > 0 && (
                           <div style={{ fontSize: 11, color: C.dim, marginTop: -6, marginBottom: 6 }}>
-                            <span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer
+                            <span style={{ color: C.violet, fontWeight: 600, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer
                           </div>
                         )}
                       </>
@@ -2310,7 +2336,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           }}>
                             <ShoppingCart size={20} />
                           </div>
-                          <div style={{ color: C.muted, fontWeight: 700, fontSize: 14 }}>
+                          <div style={{ color: C.muted, fontWeight: 600, fontSize: 14 }}>
                             No hay solicitudes para mostrar
                           </div>
                           {!manager ? (
@@ -2334,7 +2360,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                                 border: `1px solid ${C.border2}`,
                                 color: C.blue,
                                 fontSize: 12,
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 borderRadius: 7,
                                 padding: "6px 12px",
                                 cursor: "pointer",
@@ -2356,7 +2382,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                             {g.label && (
                               <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 8px" }}>
                                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColors[g.value] || C.dim, boxShadow: `0 0 6px ${statusColors[g.value] || C.dim}66` }} />
-                                <span style={{ fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800, color: C.muted }}>{g.label}</span>
+                                <span style={{ fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, color: C.muted }}>{g.label}</span>
                                 <span style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{g.items.length}</span>
                                 <span style={{ flex: 1, height: 1, background: C.border, marginLeft: 4 }} />
                               </div>
@@ -2506,7 +2532,7 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
         <span style={{ minWidth: 0 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
             {sinLeer && <span style={{ width: 6, height: 6, flexShrink: 0, borderRadius: 99, background: C.violet, boxShadow: `0 0 7px ${C.violet}` }} />}
-            <span style={{ fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titulo}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titulo}</span>
             <span style={{ display: "inline-flex", gap: 5, flexShrink: 0 }}>{chips}</span>
           </span>
           <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 3, color: C.dim, fontSize: 11 }}>
@@ -2603,7 +2629,7 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
 
       {error && (
         <Panel tone="critico" padding={10}>
-          <span style={{ color: C.red, fontSize: 12, fontWeight: 750 }}>{error}</span>
+          <span style={{ color: C.red, fontSize: 12, fontWeight: 650 }}>{error}</span>
         </Panel>
       )}
 
@@ -2637,7 +2663,7 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
 
       {foco !== "avisos" && (
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginTop: -4 }}>
-          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, letterSpacing: 0.4, textTransform: "uppercase" }}>Agrupar por</span>
+          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>Agrupar por</span>
           {/* Falta "por proveedor", que sería lo más útil para salir a comprar:
               `purchase_requests.proveedor` está vacío en las 390 filas de la
               tabla, así que agrupar por ahí devuelve un solo montón llamado
@@ -2896,7 +2922,7 @@ function AvisosPanel({
       </div>
 
       {error && (
-        <div style={{ border: `1px solid ${C.red}44`, background: `${C.red}10`, color: C.red, borderRadius: 10, padding: 12, fontSize: 13, fontWeight: 650 }}>
+        <div style={{ border: `1px solid ${C.red}44`, background: `${C.red}10`, color: C.red, borderRadius: 10, padding: 12, fontSize: 13, fontWeight: 600 }}>
           {error}
         </div>
       )}
@@ -3024,7 +3050,7 @@ function AvisoListItem({ aviso, active, onClick }) {
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 14, fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {aviso.titulo}
           </div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -3070,7 +3096,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
             padding: "10px 12px",
             textAlign: "left",
             fontSize: 13,
-            fontWeight: 800,
+            fontWeight: 650,
             cursor: "pointer",
             fontFamily: C.sans,
           }}
@@ -3081,7 +3107,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
       <div style={{ padding: 14, borderBottom: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.text, fontSize: 18, fontWeight: 850, lineHeight: 1.2 }}>{aviso.titulo}</div>
+            <div style={{ color: C.text, fontSize: 18, fontWeight: 700, lineHeight: 1.2 }}>{aviso.titulo}</div>
             <div style={{ color: C.dim, fontSize: 12, marginTop: 5 }}>
               {aviso.project?.codigo || aviso.destino || "Sin destino"} · {aviso.creator?.username || aviso.source_ref || "Sin creador"} · {fmtDate(aviso.created_at)}
             </div>
@@ -3108,7 +3134,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
               display: "inline-flex", alignItems: "center", gap: 7, justifySelf: "start",
               border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan,
               borderRadius: 9, padding: "9px 13px",
-              fontSize: 12.5, fontWeight: 900, textDecoration: "none", fontFamily: C.sans,
+              fontSize: 12.5, fontWeight: 700, textDecoration: "none", fontFamily: C.sans,
             }}
           >
             <RotateCcw size={14} />
@@ -3127,7 +3153,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
                 padding: "6px 9px",
                 cursor: savingStatus || aviso.estado === s.value ? "default" : "pointer",
                 fontSize: 12,
-                fontWeight: 750,
+                fontWeight: 650,
               }}>
                 {s.label}
               </button>
@@ -3150,7 +3176,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
       <div style={{ padding: 14, display: "grid", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <MessageSquare size={14} color={C.blue} />
-          <span style={{ color: C.text, fontSize: 13, fontWeight: 800 }}>Seguimiento</span>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 650 }}>Seguimiento</span>
           <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{aviso.comentarios?.length || 0}</span>
         </div>
         <div style={{ display: "grid", gap: 8 }}>
@@ -3159,7 +3185,7 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
           ) : aviso.comentarios.map((c) => (
             <div key={c.id} style={{ border: `1px solid ${C.border}`, borderRadius: 9, padding: 10, background: C.panel2 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
-                <span style={{ color: C.text, fontWeight: 800, fontSize: 12 }}>{c.author?.username || "Usuario"}</span>
+                <span style={{ color: C.text, fontWeight: 650, fontSize: 12 }}>{c.author?.username || "Usuario"}</span>
                 <span style={{ color: C.dim, fontSize: 11 }}>{fmtDate(c.created_at)}</span>
               </div>
               <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.4, whiteSpace: "pre-wrap" }}>{c.body}</div>
@@ -3191,7 +3217,7 @@ function smallActionButton(color, solid = false) {
     padding: "7px 11px",
     cursor: "pointer",
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 650,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
   };
@@ -3234,10 +3260,10 @@ function StatCard({ label, value, color, icon, subtitle, trend }) {
           </div>
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: C.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ color: C.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {label}
           </div>
-          <div style={{ color: C.text, fontSize: 24, fontWeight: 800, fontFamily: C.mono, marginTop: 2, lineHeight: 1 }}>
+          <div style={{ color: C.text, fontSize: 24, fontWeight: 650, fontFamily: C.mono, marginTop: 2, lineHeight: 1 }}>
             {value}
           </div>
         </div>
@@ -3445,7 +3471,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    fontWeight: 750,
+    fontWeight: 650,
   };
   const maxStatusCount = Math.max(...dashboard.statusFunnelData.map((d) => d.count), 1);
   const hasMonthlySpend = dashboard.monthlyTrend.some((d) => d.total > 0);
@@ -3501,13 +3527,13 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.title}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, color: C.dim, fontSize: 11 }}>
             <span>{requestMeta(item)}</span>
             <span style={{ color: C.border2 }}>/</span>
-            <span style={{ color: tone, fontWeight: 700 }}>{priorityLabel}</span>
+            <span style={{ color: tone, fontWeight: 600 }}>{priorityLabel}</span>
             <span style={{ color: C.border2 }}>/</span>
             <span>{statusLabel}</span>
           </div>
@@ -3515,7 +3541,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         <span style={{
           color: tone,
           fontSize: 11,
-          fontWeight: 800,
+          fontWeight: 650,
           fontFamily: C.mono,
           whiteSpace: "nowrap",
         }}>
@@ -3550,7 +3576,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
       <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={panelTitleStyle}>Gestion de compras</div>
-          <h2 style={{ margin: "4px 0 0", color: C.text, fontSize: 20, fontWeight: 850, letterSpacing: 0 }}>
+          <h2 style={{ margin: "4px 0 0", color: C.text, fontSize: 20, fontWeight: 700, letterSpacing: 0 }}>
             Tablero operativo
           </h2>
         </div>
@@ -3613,7 +3639,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             const porcentaje = maxStatusCount ? Math.max(entry.count / maxStatusCount, 0) * 100 : 0;
             return (
               <div key={entry.status} style={{ display: "grid", gridTemplateColumns: "104px minmax(0, 1fr) 52px", alignItems: "center", gap: 10 }}>
-                <span style={{ color: C.muted, fontSize: 12, fontWeight: 750, whiteSpace: "nowrap" }}>{entry.label}</span>
+                <span style={{ color: C.muted, fontSize: 12, fontWeight: 650, whiteSpace: "nowrap" }}>{entry.label}</span>
                 <span style={{ height: 18, borderRadius: 6, background: C.panel2, overflow: "hidden" }}>
                   <span style={{
                     display: "block",
@@ -3625,7 +3651,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
                     transition: "width .3s ease",
                   }} />
                 </span>
-                <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 900, color: entry.count ? C.text : C.dim, textAlign: "right" }}>
+                <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: entry.count ? C.text : C.dim, textAlign: "right" }}>
                   {entry.count}
                 </span>
               </div>
@@ -3640,7 +3666,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             <div style={panelTitleStyle}>Tendencia mensual</div>
             <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Gasto real registrado en los ultimos 6 meses</div>
           </div>
-          <div style={{ color: hasMonthlySpend ? C.green : C.dim, fontSize: 18, fontWeight: 850, fontFamily: C.mono }}>
+          <div style={{ color: hasMonthlySpend ? C.green : C.dim, fontSize: 18, fontWeight: 700, fontFamily: C.mono }}>
             {formatMoney(dashboard.monthlyTrend.reduce((sum, d) => sum + d.total, 0))}
           </div>
         </div>
@@ -3655,7 +3681,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             <YAxis stroke={C.border} tick={chartAxisTick} tickFormatter={formatCompactMoney} width={58} />
             <Tooltip
               contentStyle={chartTooltipStyle}
-              labelStyle={{ color: C.text, fontWeight: 700 }}
+              labelStyle={{ color: C.text, fontWeight: 600 }}
               formatter={(value) => [formatMoney(value), "Gastado"]}
             />
             <Area type="monotone" dataKey="total" stroke={C.blue} fill={C.blue} fillOpacity={0.14} strokeWidth={2} dot={{ r: 3, fill: C.blue }} activeDot={{ r: 5 }} />
@@ -3687,7 +3713,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
                       <span style={{ width: 8, height: 8, borderRadius: 99, background: entry.color, flexShrink: 0 }} />
                       {entry.name}
                     </span>
-                    <span style={{ color: C.text, fontFamily: C.mono, fontWeight: 800 }}>{entry.value}</span>
+                    <span style={{ color: C.text, fontFamily: C.mono, fontWeight: 650 }}>{entry.value}</span>
                   </div>
                 ))}
                 <div style={{ color: C.dim, fontSize: 11, borderTop: `1px solid ${C.border}`, paddingTop: 7 }}>
@@ -3733,7 +3759,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         <div style={panelStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <Clock size={14} color={C.red} />
-            <span style={{ color: C.red, fontSize: 13, fontWeight: 800 }}>
+            <span style={{ color: C.red, fontSize: 13, fontWeight: 650 }}>
               Vencidos ({dashboard.overdueItems.length})
             </span>
           </div>
@@ -3753,7 +3779,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         <div style={panelStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <Package size={14} color={C.cyan} />
-            <span style={{ color: C.cyan, fontSize: 13, fontWeight: 800 }}>
+            <span style={{ color: C.cyan, fontSize: 13, fontWeight: 650 }}>
               Urgentes pendientes ({dashboard.urgentPending.length})
             </span>
           </div>
@@ -3809,7 +3835,7 @@ function tabStyle(active) {
     padding: "7px 11px",
     cursor: "pointer",
     fontSize: 13,
-    fontWeight: 750,
+    fontWeight: 650,
     transition: "all .12s",
   };
 }
@@ -3865,20 +3891,47 @@ const TAB_LABELS = Object.fromEntries([
 ]);
 
 function ComprasTabs({ tab, onTab, atencion = 0, avisosNuevos = 0 }) {
-  const [abierto, setAbierto] = useState(false);
+  // null cerrado; abierto guarda dónde dibujarlo.
+  const [menu, setMenu] = useState(null);
+  const botonMas = useRef(null);
   const enMenu = TABS_MENU.some((g) => g.items.some((t) => t.key === tab));
 
   useEffect(() => {
-    if (!abierto) return undefined;
-    const cerrar = (event) => { if (event.key === "Escape") setAbierto(false); };
-    window.addEventListener("keydown", cerrar);
-    return () => window.removeEventListener("keydown", cerrar);
-  }, [abierto]);
+    if (!menu) return undefined;
+    const cerrar = () => setMenu(null);
+    const alTeclear = (event) => { if (event.key === "Escape") cerrar(); };
+    window.addEventListener("keydown", alTeclear);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      window.removeEventListener("keydown", alTeclear);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [menu]);
+
+  // El menú se ubica con position: fixed a partir del botón. Antes era un
+  // absolute adentro de la tira de pestañas, que en el celular scrollea de
+  // costado: se abría recortado e invisible y esas solapas quedaban
+  // inaccesibles desde el teléfono.
+  const alternarMenu = () => {
+    if (menu) {
+      setMenu(null);
+      return;
+    }
+    const r = botonMas.current?.getBoundingClientRect();
+    if (!r) return;
+    const ancho = Math.min(280, window.innerWidth - 16);
+    setMenu({
+      top: r.bottom + 6,
+      left: Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8)),
+      ancho,
+      alto: Math.min(window.innerHeight * 0.7, Math.max(220, window.innerHeight - r.bottom - 18)),
+    });
+  };
 
   const badgeDe = (tipo) => (tipo === "atencion" ? atencion : tipo === "avisos" ? avisosNuevos : 0);
 
   return (
-    <div className="purchase-tabs" style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 8, minWidth: 0 }}>
+    <div className="purchase-tabs">
       {TABS_DIARIO.map((t) => {
         const activo = tab === t.key;
         const cuenta = badgeDe(t.badge);
@@ -3886,115 +3939,62 @@ function ComprasTabs({ tab, onTab, atencion = 0, avisosNuevos = 0 }) {
           <button
             key={t.key}
             type="button"
+            className={`purchase-tab${activo ? " is-activa" : ""}`}
+            aria-current={activo ? "page" : undefined}
             onClick={() => onTab(t.key)}
-            style={{
-              minHeight: 30,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "0 10px",
-              borderRadius: 8,
-              border: `1px solid ${activo ? C.blueB : "transparent"}`,
-              background: activo ? C.blueL : "transparent",
-              color: activo ? C.blue : C.dim,
-              fontFamily: C.sans,
-              fontSize: 12,
-              fontWeight: activo ? 850 : 700,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
           >
-            <t.Icon size={12} /> {t.label}
-            {cuenta > 0 && (
-              <span style={{ fontFamily: C.mono, fontSize: 10, color: activo ? C.blue : C.cyan }}>{cuenta}</span>
-            )}
+            <t.Icon size={14} /> {t.label}
+            {cuenta > 0 && <span className="purchase-tab-cuenta">{cuenta}</span>}
           </button>
         );
       })}
 
-      <div style={{ position: "relative" }}>
-        <button
-          type="button"
-          onClick={() => setAbierto((v) => !v)}
-          style={{
-            minHeight: 30,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "0 10px",
-            borderRadius: 8,
-            border: `1px solid ${enMenu ? C.blueB : "transparent"}`,
-            background: enMenu ? C.blueL : "transparent",
-            color: enMenu ? C.blue : C.dim,
-            fontFamily: C.sans,
-            fontSize: 12,
-            fontWeight: enMenu ? 850 : 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {enMenu ? TAB_LABELS[tab] : "Más"}
-          <ChevronDown size={12} style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-        </button>
+      <button
+        ref={botonMas}
+        type="button"
+        className={`purchase-tab${enMenu ? " is-activa" : ""}`}
+        aria-haspopup="menu"
+        aria-expanded={Boolean(menu)}
+        onClick={alternarMenu}
+      >
+        {enMenu ? TAB_LABELS[tab] : "Más"}
+        <ChevronDown size={13} style={{ transform: menu ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
 
-        {abierto && (
-          <>
-            <div onClick={() => setAbierto(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
-            <div style={{
-              position: "absolute",
-              top: "calc(100% + 7px)",
-              left: 0,
-              zIndex: 61,
-              width: 265,
-              maxHeight: "70vh",
-              overflowY: "auto",
-              background: C.panelSolid,
-              border: `1px solid ${C.b1}`,
-              borderRadius: 12,
-              padding: 6,
-              boxShadow: "0 20px 46px -22px rgba(0,0,0,.6)",
-            }}>
-              {TABS_MENU.map((grupo) => (
-                <div key={grupo.grupo} style={{ marginBottom: 4 }}>
-                  <div style={{ padding: "7px 9px 4px", color: C.dim, fontSize: 9, fontWeight: 900, letterSpacing: 1.1, textTransform: "uppercase" }}>
-                    {grupo.grupo}
-                  </div>
-                  {grupo.items.map((t) => {
-                    const activo = tab === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => { onTab(t.key); setAbierto(false); }}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 9,
-                          padding: "8px 9px",
-                          borderRadius: 9,
-                          border: "none",
-                          background: activo ? C.blueL : "transparent",
-                          color: activo ? C.blue : C.text,
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontFamily: C.sans,
-                        }}
-                      >
-                        <t.Icon size={13} style={{ flexShrink: 0, opacity: activo ? 1 : 0.65 }} />
-                        <span style={{ minWidth: 0 }}>
-                          <span style={{ display: "block", fontSize: 12.5, fontWeight: 850 }}>{t.label}</span>
-                          <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 1 }}>{t.hint}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      {menu && (
+        <>
+          <div onClick={() => setMenu(null)} style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 60 }} />
+          <div
+            className="purchase-menu"
+            role="menu"
+            style={{ top: menu.top, left: menu.left, width: menu.ancho, maxHeight: menu.alto }}
+          >
+            {TABS_MENU.map((grupo) => (
+              <div key={grupo.grupo} className="purchase-menu-grupo">
+                <div className="purchase-menu-grupo-titulo">{grupo.grupo}</div>
+                {grupo.items.map((t) => {
+                  const activo = tab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="menuitem"
+                      className={`purchase-menu-item${activo ? " is-activa" : ""}`}
+                      onClick={() => { onTab(t.key); setMenu(null); }}
+                    >
+                      <t.Icon size={15} />
+                      <span style={{ minWidth: 0 }}>
+                        <span className="purchase-menu-titulo">{t.label}</span>
+                        <span className="purchase-menu-ayuda">{t.hint}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

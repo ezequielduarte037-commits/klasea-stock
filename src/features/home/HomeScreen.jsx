@@ -1,48 +1,49 @@
-import { C } from "@/theme";
 /**
- * HomeScreen.jsx  v5  ─ "Full Animation Edition"
+ * HomeScreen — el inicio del personal interno.
  *
- * Widgets:
- *  ① Canvas particles en el fondo
- *  ② Logo con glow pulsante y efecto de aparición blur→focus
- *  ③ Typewriter en el saludo
- *  ④ KPI rings animados (stroke-dasharray CSS)
- *  ⑤ Activity feed live (últimos eventos en Supabase)
- *  ⑥ Ticker horizontal con datos en vivo
- *  ⑦ Cards con ripple on-click + preview SVG + hover elevation
- *  ⑧ Scan-line que baja lento
- *  ⑨ Stagger de entrada escalonado por sección
+ * Arriba, una franja con el oleaje de la marca, la fecha, el saludo y los
+ * números que importan (obras y stock crítico), que llevan a su pantalla.
+ * Abajo, los módulos que le tocan a cada rol.
+ *
+ * Antes era la "Full Animation Edition": partículas en canvas, logo con un
+ * brillo animado con filter, reloj con segundos (redibujaba toda la pantalla
+ * cada segundo), una línea de escaneo, un ticker que se encimaba en el celular
+ * y tarjetas con inclinación 3D, ondas y esquinas animadas. Siete animaciones
+ * que no paraban nunca en una pantalla que queda abierta todo el día. Ahora el
+ * único movimiento continuo es el agua, y se frena sola cuando nadie usa la PC.
  */
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Anchor, Armchair, ArrowLeftRight, BarChart3, BookOpen, ClipboardList, Gem, Layers,
+  LayoutList, NotebookText, PackageCheck, Route, Settings, Ship, ShoppingCart, TreePine, Truck, Wrench,
+} from "lucide-react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
-import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
-import logoKlasea from "@/assets/logos/logo-klasea.png";
-import logoK      from "@/assets/logos/logo-k.png";
+import { fechaLarga, primerNombre, saludoSegunHora } from "@/lib/saludo";
+import { useAhora } from "@/hooks/useAhora";
+import { BuscarPortada, Indicador, Portada, PortadaHero, SeccionPortada, TarjetaModulo } from "@/components/ui/Portada";
 
-// ─── PALETA ────────────────────────────────────────────────────
 // ─── MÓDULOS ───────────────────────────────────────────────────
 const MODULOS = [
-  { href:"/torneria",         label:"Tornería",          desc:"Materiales de Mecánica, talleres y regresos parciales", color:"#38bdf8", roles:["mecanica","tecnica","oficina","admin","compras"] },
-  { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",         color:"#818cf8", roles:["panol","oficina","admin"] },
-  { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales de laminación",           color:"#818cf8", roles:["panol","oficina","admin","laminacion"] },
-  { href:"/obras",            label:"Obras",             desc:"Mapa de producción y estado de barcos",       color:"#60a5fa", roles:["oficina","admin"] },
-  { href:"/memorias",         label:"Memorias",          desc:"Memorias descriptivas activas por barco",      color:"#a78bfa", roles:["oficina","admin"] },
-  { href:"/marmoleria",       label:"Marmolería",        desc:"Seguimiento de piezas y líneas de mármol",    color:"#60a5fa", roles:["oficina","admin"] },
-  { href:"/muebles",          label:"Muebles",           desc:"Fabricación, enchapado, herrajes y recepción", color:"#60a5fa", roles:["oficina","admin","muebles","compras"] },
-  { href:"/obras-laminacion", label:"Por Obra",          desc:"Laminación desglosada por obra",              color:"#34d399", roles:["oficina","admin"] },
-  { href:"/admin",            label:"Inventario",        desc:"KPIs de stock y alertas de materiales de madera",  color:"#fbbf24", roles:["oficina","admin"] },
-  { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             color:"#fbbf24", roles:["oficina","admin"] },
-  { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",             color:"#fbbf24", roles:["oficina","admin"] },
-  { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          color:"#f59e0b", roles:["panol","oficina","admin","compras"] },
-  { href:"/cadete",           label:"Hoja de ruta",      desc:"Rutas del cadete: paradas, retiros y su caja chica",     color:"#f59e0b", roles:["oficina","admin","compras"] },
-  { href:"/calendario",       label:"Logística",         desc:"Solicitudes, coordinación y agenda de transportes",      color:"#38bdf8", roles:["admin","tecnica","administracion","compras"] },
-  { href:"/recepcion-panol",  label:"Recepción y egresos",   desc:"Envíos a pañol: recepción, faltantes, egresos y seguimiento por sede", color:"#38bdf8", roles:["panol","oficina","admin","compras"] },
-  { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",               color:"#67e8f9", roles:["oficina","admin"] },
-  { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",             color:"#f87171", roles:["admin"] },
-  { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",           color:"#94a3b8", roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
+  { href:"/torneria",         label:"Tornería",          desc:"Materiales de Mecánica, talleres y regresos parciales", tono:"azul",    Icono:Wrench,         roles:["mecanica","tecnica","oficina","admin","compras"] },
+  { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",                    tono:"teal",    Icono:TreePine,       roles:["panol","oficina","admin"] },
+  { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales de laminación",        tono:"verde",   Icono:Layers,         roles:["panol","oficina","admin","laminacion"] },
+  { href:"/obras",            label:"Obras",             desc:"Mapa de producción y estado de barcos",                  tono:"azul",    Icono:Ship,           roles:["oficina","admin"] },
+  { href:"/memorias",         label:"Memorias",          desc:"Memorias descriptivas activas por barco",                tono:"azul",    Icono:NotebookText,   roles:["oficina","admin"] },
+  { href:"/marmoleria",       label:"Marmolería",        desc:"Seguimiento de piezas y líneas de mármol",               tono:"azul",    Icono:Gem,            roles:["oficina","admin"] },
+  { href:"/muebles",          label:"Muebles",           desc:"Fabricación, enchapado, herrajes y recepción",           tono:"azul",    Icono:Armchair,       roles:["oficina","admin","muebles","compras"] },
+  { href:"/obras-laminacion", label:"Por Obra",          desc:"Laminación desglosada por obra",                         tono:"verde",   Icono:LayoutList,     roles:["oficina","admin"] },
+  { href:"/admin",            label:"Inventario",        desc:"KPIs de stock y alertas de materiales de madera",        tono:"teal",    Icono:BarChart3,      roles:["oficina","admin"] },
+  { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             tono:"teal",    Icono:ArrowLeftRight, roles:["oficina","admin"] },
+  { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",              tono:"teal",    Icono:ClipboardList,  roles:["oficina","admin"] },
+  { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          tono:"violeta", Icono:ShoppingCart,   roles:["panol","oficina","admin","compras"] },
+  { href:"/cadete",           label:"Hoja de ruta",      desc:"Rutas del cadete: paradas, retiros y su caja chica",     tono:"violeta", Icono:Route,          roles:["oficina","admin","compras"] },
+  { href:"/calendario",       label:"Logística",         desc:"Solicitudes, coordinación y agenda de transportes",      tono:"violeta", Icono:Truck,          roles:["admin","tecnica","administracion","compras"] },
+  { href:"/recepcion-panol",  label:"Recepción y egresos", desc:"Envíos a pañol: recepción, faltantes, egresos y seguimiento por sede", tono:"cian",    Icono:PackageCheck, roles:["panol","oficina","admin","compras"] },
+  { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",                          tono:"cian",    Icono:Anchor,         roles:["oficina","admin"] },
+  { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",                        tono:"rojo",    Icono:Settings,       roles:["admin"] },
+  { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",                      tono:"neutro",  Icono:BookOpen,       roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
 ];
 
 const MODULE_ROLE_OVERRIDES = {
@@ -68,15 +69,9 @@ MODULOS.forEach((modulo) => {
   if (modulo.href === "/compras") modulo.label = "Pedidos a Compras";
 });
 
-// ─── CARD CON IFRAME PREVIEW REAL ────────────────────────────
-// Escala la pantalla real al vuelo usando transform: scale().
-// El iframe comparte el localStorage de Supabase (mismo origen),
-// así que el usuario ya está autenticado y ve la pantalla real.
-// ─── CARD ──────────────────────────────────────────────────────
-// ─── CARD ──────────────────────────────────────────────────────
 // ─── ILUSTRACIONES POR MÓDULO ─────────────────────────────────
-// Cada una es un SVG abstracto que representa visualmente el módulo.
-// Viven en el fondo de la card, semi-transparentes.
+// Cada una es un SVG abstracto que representa visualmente el módulo. Se
+// dibujan con currentColor: la tarjeta les pone el color de su área.
 const CARD_ART = {
 
   "/panol": (c) => (
@@ -369,209 +364,6 @@ const CARD_ART = {
   ),
 };
 
-// ─── CARD ──────────────────────────────────────────────────────
-function Card({ mod, delay, onClick }) {
-  const [hov,      setHov]      = useState(false);
-  const [ripples,  setRipples]  = useState([]);
-  const [tilt,     setTilt]     = useState({ x:0, y:0 });
-  const [shimmer,  setShimmer]  = useState(false);
-  const cardRef   = useRef(null);
-  const shimmerRef = useRef(null);
-  const Art = CARD_ART[mod.href];
-
-  const onMouseMove = e => {
-    const el = cardRef.current; if(!el) return;
-    const r  = el.getBoundingClientRect();
-    const dx = (e.clientX - (r.left + r.width/2))  / (r.width/2);
-    const dy = (e.clientY - (r.top  + r.height/2)) / (r.height/2);
-    setTilt({ x: dy * -7, y: dx * 7 });
-  };
-
-  const onMouseEnter = e => {
-    setHov(true); onMouseMove(e);
-    clearTimeout(shimmerRef.current);
-    shimmerRef.current = setTimeout(() => setShimmer(true), 40);
-  };
-  const onMouseLeave = () => { setHov(false); setTilt({x:0,y:0}); setShimmer(false); };
-
-  const handleClick = e => {
-    const rect = cardRef.current.getBoundingClientRect();
-    const id = Date.now();
-    setRipples(r => [...r, { id, x: e.clientX-rect.left, y: e.clientY-rect.top }]);
-    setTimeout(() => setRipples(r => r.filter(rr => rr.id !== id)), 700);
-    onClick();
-  };
-
-  useEffect(() => () => clearTimeout(shimmerRef.current), []);
-
-  const transform = hov
-    ? `perspective(900px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateY(-5px) scale(1.018)`
-    : "perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0) scale(1)";
-
-  const BL = 14;
-
-  return (
-    <button
-      ref={cardRef}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      onMouseMove={hov ? onMouseMove : undefined}
-      onClick={handleClick}
-      style={{
-        display:"flex", flexDirection:"column", justifyContent:"flex-end",
-        padding:"18px 18px 16px",
-        background: hov
-          ? `linear-gradient(145deg,var(--panel-solid) 0%,color-mix(in srgb, ${mod.color} 8%, var(--panel-solid-2)) 100%)`
-          : "linear-gradient(145deg,color-mix(in srgb, var(--panel-solid) 94%, transparent) 0%,color-mix(in srgb, var(--panel-solid-2) 86%, transparent) 100%)",
-        border:`1px solid ${hov ? mod.color+"65" : "var(--panel-2)"}`,
-        borderRadius:18, cursor:"pointer", textAlign:"left",
-        fontFamily:"'Outfit',system-ui,sans-serif",
-        transition:"transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.22s, border-color 0.22s, background 0.2s",
-        transform,
-        boxShadow: hov
-          ? `0 24px 54px rgba(15,23,42,0.20), 0 0 0 1px ${mod.color}25, inset 0 0 70px ${mod.color}08`
-          : "0 12px 30px rgba(15,23,42,0.10)",
-        animation:`cardIn 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}ms both`,
-        position:"relative", overflow:"hidden", height:"100%",
-        willChange:"transform",
-      }}
-    >
-      {/* ── Ilustración SVG de fondo ── */}
-      <div style={{
-        position:"absolute", inset:0, pointerEvents:"none",
-        transition:"opacity 0.3s",
-        opacity: hov ? 0.9 : 0.46,
-      }}>
-        {Art && Art(mod.color)}
-      </div>
-
-      {/* ── Gradiente de legibilidad sobre el arte ── */}
-      <div style={{
-        position:"absolute", inset:0, pointerEvents:"none",
-        background:`linear-gradient(to top, ${hov?"var(--home-fade-strong)":"var(--home-fade)"} 0%, var(--home-fade-faint) 55%, transparent 100%)`,
-        transition:"background 0.25s",
-      }}/>
-
-      {/* ── Glow ambiental top-right ── */}
-      <div style={{
-        position:"absolute", top:-40, right:-40, width:130, height:130,
-        borderRadius:"50%",
-        background:`${mod.color}${hov?"1a":"0e"}`,
-        filter:"blur(35px)", pointerEvents:"none",
-        transition:"background 0.3s, transform 0.4s",
-        transform: hov ? "scale(1.3)" : "scale(1)",
-      }}/>
-
-      {/* ── Ripples ── */}
-      {ripples.map(rip => (
-        <div key={rip.id} style={{
-          position:"absolute", left:rip.x-70, top:rip.y-70,
-          width:140, height:140, borderRadius:"50%", pointerEvents:"none",
-          background:`radial-gradient(circle, ${mod.color}30 0%, transparent 70%)`,
-          animation:"bigRipple 0.7s cubic-bezier(0.22,1,0.36,1) forwards", zIndex:12,
-        }}/>
-      ))}
-
-      {/* ── Shimmer sweep ── */}
-      {shimmer && (
-        <div style={{
-          position:"absolute", top:0, left:"-100%", width:"60%", height:"100%",
-          background:`linear-gradient(105deg, transparent 25%, ${mod.color}15 50%, transparent 75%)`,
-          animation:"cardShimmer 0.7s cubic-bezier(0.22,1,0.36,1) forwards",
-          pointerEvents:"none", zIndex:8,
-        }}/>
-      )}
-
-      {/* ── Corner brackets ── */}
-      {hov && (
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:9,overflow:"visible"}}>
-          {[
-            `M ${BL},4 L 4,4 L 4,${BL}`,
-            `M ${100 - BL},4 L 96,4 L 96,${BL}`,
-            `M 4,${100 - BL} L 4,96 L ${BL},96`,
-            `M ${100 - BL},96 L 96,96 L 96,${100 - BL}`,
-          ].map((d,i)=>(
-            <path key={i} d={d} fill="none" stroke={mod.color} strokeWidth="1.8" strokeLinecap="round" vectorEffect="non-scaling-stroke"
-              style={{
-                filter:`drop-shadow(0 0 5px ${mod.color})`,
-                strokeDasharray:BL*2+4, strokeDashoffset:BL*2+4,
-                animation:`bracketDraw 0.22s ease ${i*0.04}s forwards`,
-              }}/>
-          ))}
-        </svg>
-      )}
-
-      {/* ── Contenido textual (sobre el arte) ── */}
-      <div style={{ position:"relative", zIndex:10 }}>
-
-        {/* Dot + label */}
-        <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:7 }}>
-          <div style={{ position:"relative", flexShrink:0 }}>
-            {hov && (
-              <div style={{
-                position:"absolute", inset:-5, borderRadius:"50%",
-                border:`1px solid ${mod.color}55`,
-                animation:"ringExpand 1.2s ease-out infinite",
-              }}/>
-            )}
-            <div style={{
-              width:9, height:9, borderRadius:"50%", background:mod.color,
-              boxShadow: hov
-                ? `0 0 0 2px var(--panel-solid), 0 0 18px ${mod.color}, 0 0 36px ${mod.color}55`
-                : `0 0 9px ${mod.color}80`,
-              transition:"box-shadow 0.25s",
-            }}/>
-          </div>
-
-          <span style={{
-            fontSize:14, fontWeight:700, letterSpacing:"0.2px",
-            ...(hov ? {
-              background:`linear-gradient(90deg,var(--text) 0%,var(--text) 35%,${mod.color} 52%,var(--text) 68%,var(--text) 100%)`,
-              backgroundSize:"200% auto",
-              WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
-              animation:"labelShimmer 1.2s linear 0.08s 1 forwards",
-            } : { color:"var(--text)" }),
-          }}>
-            {mod.label}
-          </span>
-        </div>
-
-        {/* Descripción */}
-        <div style={{
-          fontSize:12, lineHeight:1.6,
-          color: hov ? "var(--muted)" : "var(--dim)",
-          transition:"color 0.2s",
-          paddingRight:28,
-        }}>
-          {mod.desc}
-        </div>
-      </div>
-
-      {/* ── Flecha ── */}
-      <div style={{
-        position:"absolute", bottom:16, right:14, zIndex:10,
-        fontSize:15, fontWeight:700,
-        color: hov ? mod.color : "var(--panel-2)",
-        transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
-        transform: hov ? "translate(0,0) scale(1.2)" : "translate(3px,3px) scale(1)",
-        filter: hov ? `drop-shadow(0 0 8px ${mod.color})` : "none",
-      }}>→</div>
-
-      {/* ── Línea inferior que crece desde el centro ── */}
-      <div style={{
-        position:"absolute", bottom:0,
-        left: hov ? 0 : "50%",
-        right: hov ? 0 : "50%",
-        height:2, borderRadius:2,
-        background:`linear-gradient(90deg,transparent 0%,${mod.color} 50%,transparent 100%)`,
-        opacity: hov ? 1 : 0,
-        transition:"left 0.38s cubic-bezier(0.22,1,0.36,1), right 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.2s",
-        boxShadow:`0 0 12px ${mod.color}90`,
-      }}/>
-    </button>
-  );
-}
-
 // ─── DATOS EN VIVO ─────────────────────────────────────────────
 function useLiveData() {
   const [data, setData] = useState({ activas:0, pausadas:0, terminadas:0, criticos:0, loaded:false });
@@ -602,144 +394,16 @@ function useLiveData() {
   return data;
 }
 
-function useClock() {
-  const [t, setT] = useState(new Date());
-  useEffect(()=>{ const id=setInterval(()=>setT(new Date()),1000); return()=>clearInterval(id); },[]);
-  return t;
-}
-
-function Typewriter({ text, delay = 0, speed = 38 }) {
-  const [shown, setShown] = useState("");
-  const [started, setStarted] = useState(false);
-  useEffect(()=>{ const t0=setTimeout(()=>setStarted(true),delay); return()=>clearTimeout(t0); },[delay]);
-  useEffect(()=>{
-    if(!started||shown.length>=text.length) return;
-    const id=setTimeout(()=>setShown(text.slice(0,shown.length+1)),speed);
-    return()=>clearTimeout(id);
-  },[started,shown,text,speed]);
-  return (
-    <span>
-      {shown}
-      {shown.length<text.length&&started&&(
-        <span style={{animation:"cursorBlink .7s step-end infinite",borderRight:"1.5px solid currentColor",marginLeft:1}}/>
-      )}
-    </span>
-  );
-}
-
-function AnimNum({ to, color }) {
-  const [v, setV] = useState(0);
-  const prev = useRef(0);
-  useEffect(()=>{
-    if(!to) return;
-    const from=prev.current, start=performance.now();
-    const tick=now=>{ const p=Math.min((now-start)/1100,1), e=1-Math.pow(1-p,3);
-      setV(Math.round(from+(to-from)*e)); if(p<1) requestAnimationFrame(tick); else prev.current=to; };
-    requestAnimationFrame(tick);
-  },[to]);
-  return <span style={{color}}>{v}</span>;
-}
-
-function Ring({ value, total, color, size=52, label, delay=0 }) {
-  const pct = total>0 ? Math.min(value/total,1) : 0;
-  const r = (size-6)/2;
-  const circ = 2*Math.PI*r;
-  const [animated, setAnimated] = useState(false);
-  useEffect(()=>{ const t=setTimeout(()=>setAnimated(true),delay+200); return()=>clearTimeout(t); },[delay]);
-  return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-      animation:`fadeSlideUp 0.5s ease ${delay}ms both` }}>
-      <div style={{ position:"relative", width:size, height:size }}>
-        <svg width={size} height={size} style={{transform:"rotate(-90deg)",display:"block"}}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--panel)" strokeWidth="3.5"/>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3.5"
-            strokeLinecap="round" strokeDasharray={circ}
-            strokeDashoffset={animated?circ*(1-pct):circ}
-            style={{transition:"stroke-dashoffset 1.4s cubic-bezier(0.22,1,0.36,1)",filter:`drop-shadow(0 0 4px ${color}88)`}}/>
-        </svg>
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-          justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", fontSize:13, fontWeight:700, color }}>
-          <AnimNum to={value} color={color}/>
-        </div>
-      </div>
-      <span style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.3, textTransform:"uppercase",
-        fontFamily:"'JetBrains Mono',monospace" }}>{label}</span>
-    </div>
-  );
-}
-
-function Particles() {
-  const ref = useRef(null);
-  useEffect(()=>{
-    const canvas=ref.current; if(!canvas) return;
-    const ctx=canvas.getContext("2d");
-    let W,H,raf;
-    const resize=()=>{ W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
-    resize(); window.addEventListener("resize",resize);
-    // El canvas 2D NO entiende variables CSS: ctx.fillStyle="var(--x)" se ignora y
-    // cae a negro → puntos invisibles. Resolvemos el token al color real del tema.
-    const dotColor = getComputedStyle(canvas).getPropertyValue("--border-2").trim() || "rgba(255,255,255,0.18)";
-    const N=55;
-    const pts=Array.from({length:N},()=>({
-      x:Math.random()*W, y:Math.random()*H,
-      vx:(Math.random()-.5)*.2, vy:(Math.random()-.5)*.2, r:Math.random()*1.1+.3,
-    }));
-    const draw=()=>{
-      ctx.clearRect(0,0,W,H);
-      for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
-        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
-        if(d<140){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
-          ctx.strokeStyle=`rgba(255,255,255,${.022*(1-d/140)})`; ctx.lineWidth=.5; ctx.stroke(); }
-      }
-      ctx.fillStyle=dotColor;
-      pts.forEach(p=>{
-        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
-        p.x+=p.vx; p.y+=p.vy;
-        if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1;
-      });
-      raf=requestAnimationFrame(draw);
-    };
-    draw();
-    return()=>{ cancelAnimationFrame(raf); window.removeEventListener("resize",resize); };
-  },[]);
-  return <canvas ref={ref} style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",opacity:.55}}/>;
-}
-
-function Ticker({ items }) {
-  return (
-    <div style={{ flexShrink:0, height:26, borderTop:`1px solid var(--panel-2)`,
-      overflow:"hidden", display:"flex", alignItems:"center",
-      background:"var(--topbar-soft)", backdropFilter:"blur(8px)" }}>
-      <div style={{ padding:"0 12px", borderRight:`1px solid var(--panel-2)`, height:"100%",
-        display:"flex", alignItems:"center", flexShrink:0 }}>
-        <span style={{ fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:"var(--dim)", letterSpacing:1.3 }}>LIVE</span>
-      </div>
-      <div style={{ overflow:"hidden", flex:1 }}>
-        <div style={{ display:"flex", whiteSpace:"nowrap", animation:"tickerScroll 32s linear infinite" }}>
-          {[...items,...items].map((it,i)=>(
-            <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:7,
-              fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:"var(--muted)", paddingRight:40 }}>
-              <span style={{ color:it.color, fontSize:5 }}>◆</span>
-              <span style={{ color:"var(--dim)" }}>{it.label.toUpperCase()}</span>
-              <span style={{ color:it.color, fontWeight:700 }}>{it.value}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function HomeScreen({ profile, signOut }) {
+export default function HomeScreen({ profile }) {
   const navigate = useNavigate();
-  const { isMobile } = useResponsive();
-  const live  = useLiveData();
-  const clock = useClock();
+  const live = useLiveData();
+  // El saludo cambia con la hora del día; alcanza con revisarlo cada 10 minutos
+  // (antes un reloj con segundos redibujaba toda la pantalla cada segundo).
+  const ahora = useAhora();
 
   const role      = profile?.role ?? "invitado";
   const esDemo    = profile?.is_demo === true;
   const isAdmin   = hasAdminAccess(profile);
-  const username  = profile?.username ?? "—";
   const esTecnica = role==="tecnica" || role==="oficina" || esDemo;
   const esAdmin   = isAdmin || role==="admin";
   const esPanol   = role==="panol";
@@ -752,231 +416,51 @@ export default function HomeScreen({ profile, signOut }) {
     if(esCompras) return m.roles.includes("compras");
     return m.roles.includes(role);
   });
+  const puedeIr = (href) => modulos.some((m) => m.href === href);
 
-  const hora     = clock.getHours();
-  const greeting = `${hora<12?"Buenos días":hora<19?"Buenas tardes":"Buenas noches"}, ${username}`;
-  const hh = String(clock.getHours()).padStart(2,"0");
-  const mm = String(clock.getMinutes()).padStart(2,"0");
-  const ss = String(clock.getSeconds()).padStart(2,"0");
-  const fecha = clock.toLocaleDateString("es-AR",{weekday:"long",day:"2-digit",month:"long"});
+  const saludo = saludoSegunHora(ahora);
+  const nombre = primerNombre(profile?.username);
+  const fecha = fechaLarga(ahora);
 
-  const total = live.activas + live.pausadas + live.terminadas;
-
-  const tickerItems = [
-    {label:"Obras activas",  value:live.activas,    color:C.blue  },
-    {label:"Pausadas",       value:live.pausadas,   color:C.amber },
-    {label:"Terminadas",     value:live.terminadas, color:C.green },
-    {label:"Stock crítico",  value:live.criticos,   color:C.red   },
-    {label:"Sistema",        value:"OK",            color:C.green },
-    {label:"Módulos",        value:modulos.length,  color:C.indigo},
+  const cargando = !live.loaded;
+  const indicadores = [
+    { clave: "activas", label: "Obras activas", valor: live.activas, tono: "azul", href: "/obras" },
+    { clave: "pausadas", label: "Pausadas", valor: live.pausadas, tono: "violeta", href: "/obras" },
+    { clave: "terminadas", label: "Terminadas", valor: live.terminadas, tono: "verde", href: "/obras" },
+    { clave: "criticos", label: "Stock crítico", valor: live.criticos, tono: "rojo", href: "/admin", destacar: live.criticos > 0 },
   ];
 
   return (
-    <>
-      <style>{`
-        @keyframes cardIn       { from{opacity:0;transform:translateY(20px) scale(0.96)} to{opacity:1;transform:none} }
-        @keyframes bigRipple    { from{transform:scale(0);opacity:1} to{transform:scale(4);opacity:0} }
-        @keyframes cardShimmer  { from{left:-100%} to{left:200%} }
-        @keyframes bracketDraw  { to{stroke-dashoffset:0} }
-        @keyframes ringExpand   { 0%{transform:scale(1);opacity:0.7} 100%{transform:scale(2.4);opacity:0} }
-        @keyframes labelShimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        @keyframes fadeSlideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
-        @keyframes headerIn     { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:none} }
-        @keyframes logoReveal   { from{opacity:0;transform:scale(0.86);filter:blur(10px)} to{opacity:1;transform:none;filter:blur(0)} }
-        @keyframes lineExpand   { from{transform:scaleX(0);opacity:0} to{transform:scaleX(1);opacity:1} }
-        @keyframes cursorBlink  { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes pulseOnline  { 0%,100%{box-shadow:0 0 0 0 #10b98155} 60%{box-shadow:0 0 0 7px #10b98100} }
-        @keyframes dotBeat      { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.9);opacity:.45} }
-        @keyframes scanDown     { 0%{top:-1px;opacity:0} 4%{opacity:.28} 96%{opacity:.28} 100%{top:100%;opacity:0} }
-        @keyframes rippleAnim   { from{transform:scale(0);opacity:1} to{transform:scale(3.5);opacity:0} }
-        @keyframes tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        @keyframes glowPulse    { 0%,100%{filter:brightness(1.05) drop-shadow(0 0 28px rgba(59,130,246,0.28))} 50%{filter:brightness(1.12) drop-shadow(0 0 44px rgba(59,130,246,0.48))} }
-        @keyframes shimmer      { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        @keyframes tooltipIn    { from{opacity:0;transform:scale(0.93) translateY(4px)} to{opacity:1;transform:scale(1) translateY(0)} }
-
-        .hs-scroll::-webkit-scrollbar{width:3px}
-        .hs-scroll::-webkit-scrollbar-track{background:transparent}
-        .hs-scroll::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:2px}
-
-        /* Foco de teclado visible (accesibilidad), respeta el tema */
-        button:focus-visible, a:focus-visible { outline: 2px solid ${C.blue}; outline-offset: 2px; border-radius: 8px; }
-      `}</style>
-
-      <div style={{ display:"flex", width:"100vw", height:"100vh",
-        background:C.bg, fontFamily:C.sans, overflow:"hidden" }}>
-        <div style={{ flexShrink:0, width: isMobile ? 0 : undefined, overflow:"visible" }}>
-          <Sidebar profile={profile} signOut={signOut}/>
-        </div>
-
-        <div style={{ flex:1, display:"flex", flexDirection:"column",
-          overflow:"hidden", position:"relative" }}>
-
-          {/* ── FONDO ── */}
-          <Particles/>
-          <div style={{ position:"absolute", inset:0, pointerEvents:"none",
-            background:[
-              "radial-gradient(ellipse at 65% 0%, rgba(59,130,246,0.07) 0%, transparent 48%)",
-              "radial-gradient(ellipse at 8% 90%, rgba(16,185,129,0.05) 0%, transparent 42%)",
-            ].join(",") }}/>
-          <div style={{ position:"absolute", inset:0, pointerEvents:"none",
-            backgroundImage:["linear-gradient(rgba(255,255,255,0.017) 1px,transparent 1px)",
-              "linear-gradient(90deg,rgba(255,255,255,0.017) 1px,transparent 1px)"].join(","),
-            backgroundSize:"72px 72px" }}/>
-
-          {/* Scan line */}
-          <div style={{ position:"absolute", left:0, right:0, height:1, zIndex:10,
-            pointerEvents:"none", animation:"scanDown 16s linear infinite 1.5s",
-            background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.11),transparent)" }}/>
-
-          {/* ── TOPBAR ── */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-            padding: isMobile ? "0 12px 0 62px" : "0 28px", height:46, flexShrink:0,
-            borderBottom:`1px solid ${C.b0}`,
-            background:"var(--topbar)", backdropFilter:"blur(20px)",
-            position:"relative", zIndex:2,
-            animation:"headerIn 0.45s cubic-bezier(0.22,1,0.36,1) both" }}>
-
-            {/* online */}
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ width:7, height:7, borderRadius:"50%", background:C.green,
-                animation:"pulseOnline 2.4s ease-out infinite" }}/>
-              <span style={{ fontSize:10, color:C.t2, letterSpacing:1.3,
-                textTransform:"uppercase", fontFamily:C.mono }}>Online</span>
-            </div>
-
-            {/* métricas (ocultas en mobile: se ven en los rings de abajo) */}
-            {!isMobile && live.loaded && (
-              <div style={{ display:"flex", alignItems:"center", gap:20 }}>
-                {[
-                  {v:live.activas,    c:C.blue,  l:"Activas"   },
-                  {v:live.pausadas,   c:C.amber, l:"Pausadas"  },
-                  {v:live.terminadas, c:C.green, l:"Terminadas"},
-                  ...(live.criticos>0?[{v:live.criticos,c:C.red,l:"Críticos"}]:[]),
-                ].map(k=>(
-                  <div key={k.l} style={{ display:"flex", alignItems:"center", gap:5 }}>
-                    <div style={{ width:4, height:4, borderRadius:"50%", background:k.c,
-                      boxShadow:`0 0 7px ${k.c}`, animation:"dotBeat 2.6s ease-in-out infinite" }}/>
-                    <span style={{ fontFamily:C.mono, fontSize:14, fontWeight:700, color:k.c }}>
-                      <AnimNum to={k.v} color={k.c}/>
-                    </span>
-                    <span style={{ fontSize:10, color:C.t2, letterSpacing:1.1,
-                      textTransform:"uppercase" }}>{k.l}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* reloj */}
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:1 }}>
-              <div style={{ display:"flex", alignItems:"baseline", gap:2 }}>
-                <span style={{ fontFamily:C.mono, fontSize:19, fontWeight:700,
-                  color:C.t0, letterSpacing:1.3 }}>
-                  {hh}<span style={{ opacity:.28, animation:"cursorBlink 1s step-end infinite" }}>:</span>{mm}
-                </span>
-                <span style={{ fontFamily:C.mono, fontSize:11, color:C.t2, marginLeft:2 }}>{ss}</span>
-              </div>
-              <span style={{ fontSize:10, color:C.t2, fontFamily:C.mono, letterSpacing:1.1 }}>
-                {fecha.toUpperCase()}
-              </span>
-            </div>
-          </div>
-
-          {/* ── HERO ── */}
-          <div style={{ padding: isMobile ? "16px 14px 14px" : "20px 28px 16px", flexShrink:0,
-            borderBottom:`1px solid ${C.b0}`, position:"relative", zIndex:1 }}>
-
-            {/* saludo typewriter */}
-            <div style={{ fontSize:11, color:C.t2, letterSpacing:3, textTransform:"uppercase",
-              marginBottom:10, fontFamily:C.mono,
-              animation:"fadeSlideUp 0.4s ease 0.05s both" }}>
-              <Typewriter text={greeting} delay={300} speed={32}/>
-            </div>
-
-            <div style={{ display:"flex",
-              flexDirection: isMobile ? "column" : "row",
-              alignItems: isMobile ? "stretch" : "flex-end",
-              justifyContent:"space-between", gap: isMobile ? 18 : 20 }}>
-
-              {/* LOGO */}
-              <div style={{ animation:"logoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.12s both" }}>
-                <img src={logoKlasea} loading="lazy" alt="Klase A"
-                  style={{ height: isMobile ? 54 : 58, objectFit:"contain", display:"block",
-                    animation:"glowPulse 4s ease-in-out 1.2s infinite" }}
-                  onError={e=>{
-                    e.currentTarget.src=logoK;
-                    e.currentTarget.style.height="64px";
-                  }}
-                />
-
-                {/* línea bajo logo */}
-                <div style={{ height:1, width: isMobile ? "100%" : 300, maxWidth:300, marginTop:11,
-                  background:`linear-gradient(90deg,${C.blue}95,${C.cyan}45,transparent)`,
-                  transformOrigin:"left",
-                  animation:"lineExpand 0.85s cubic-bezier(0.22,1,0.36,1) 0.55s both",
-                  boxShadow:`0 0 12px ${C.blue}45` }}/>
-
-                {/* subtítulo */}
-                <div style={{ fontSize:11, color:C.t2, marginTop:9, letterSpacing:1.3,
-                  textTransform:"uppercase", fontFamily:C.mono,
-                  display:"flex", alignItems:"center", gap:10, flexWrap:"wrap",
-                  animation:"fadeSlideUp 0.4s ease 0.6s both" }}>
-                  <span>Astillero · Sistema de Producción</span>
-                  <span style={{ padding:"1px 8px", borderRadius:4,
-                    background:"var(--panel)", border:`1px solid ${C.b0}`,
-                    fontSize:10, letterSpacing:1.1, color:C.t2 }}>{role}</span>
-                  <span style={{ padding:"1px 8px", borderRadius:4,
-                    background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.2)",
-                    fontSize:10, letterSpacing:1.1, color:C.green }}>{modulos.length} módulos</span>
-                </div>
-              </div>
-
-              {/* KPI RINGS */}
-              {live.loaded && total > 0 && (
-                <div style={{ display:"flex", gap: isMobile ? 14 : 24, flexShrink:0, paddingBottom:2, flexWrap:"wrap", justifyContent: isMobile ? "space-around" : "flex-start" }}>
-                  <Ring value={live.activas}    total={total} color={C.blue}  label="Activas"   delay={700}/>
-                  <Ring value={live.pausadas}   total={total} color={C.amber} label="Pausadas"  delay={820}/>
-                  <Ring value={live.terminadas} total={total} color={C.green} label="Terminadas"delay={940}/>
-                  {live.criticos>0&&(
-                    <Ring value={live.criticos} total={total} color={C.red} label="Críticos" delay={1060}/>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── CARDS ── */}
-          <div style={{ flex:1, display:"flex", flexDirection:"column",
-            padding: isMobile ? "14px 14px 18px" : "16px 28px 20px", position:"relative", zIndex:1,
-            overflow:"auto" }}>
-
-            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexShrink:0,
-              animation:"fadeSlideUp 0.4s ease 0.26s both" }}>
-              <span style={{ fontSize:10, color:C.t2, letterSpacing:3,
-                textTransform:"uppercase", fontFamily:C.mono }}>Acceso rápido</span>
-              <div style={{ flex:1, height:1,
-                background:`linear-gradient(90deg,${C.b0},transparent)` }}/>
-              {!isMobile && <span style={{ fontSize:10, color:"var(--panel-3)",
-                fontFamily:C.mono, letterSpacing:1.3 }}>KLASE A · ASTILLERO · v9.0</span>}
-            </div>
-
-            <div style={{
-              display:"grid",
-              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit,minmax(180px,1fr))",
-              gridAutoRows: isMobile ? "minmax(104px, auto)" : "minmax(150px, 1fr)",
-              alignContent:"start",
-              gap:12,
-            }}>
-              {modulos.map((mod,i) => (
-                <Card key={mod.href} mod={mod} delay={i*42}
-                  onClick={()=>navigate(mod.href)}/>
-              ))}
-            </div>
-          </div>
-
-          {/* ── TICKER ── */}
-          {live.loaded && <Ticker items={tickerItems}/>}
-        </div>
-      </div>
-    </>
+    <Portada>
+      <PortadaHero
+        eyebrow={fecha}
+        titulo={nombre ? `${saludo},` : saludo}
+        acento={nombre}
+        bajada="Esto es lo que está pasando hoy en el astillero."
+        acciones={<BuscarPortada />}
+        indicadores={indicadores.map(({ clave, href, ...resto }) => (
+          <Indicador
+            key={clave}
+            cargando={cargando}
+            {...resto}
+            onClick={puedeIr(href) ? () => navigate(href) : undefined}
+          />
+        ))}
+      />
+      <SeccionPortada titulo="Tus módulos" cantidad={modulos.length}>
+        {modulos.map((mod, i) => (
+          <TarjetaModulo
+            key={mod.href}
+            titulo={mod.label}
+            descripcion={mod.desc}
+            Icono={mod.Icono}
+            tono={mod.tono}
+            arte={CARD_ART[mod.href]}
+            indice={i}
+            onClick={() => navigate(mod.href)}
+          />
+        ))}
+      </SeccionPortada>
+    </Portada>
   );
 }

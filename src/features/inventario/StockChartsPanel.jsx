@@ -23,7 +23,7 @@ import {
 // ── Paleta idéntica al AdminDashboard ────────────────────────────
 const STATUS_COLORS = {
   OK:       "#10b981",
-  ATENCION: "#f59e0b",
+  ATENCION: "#22d3ee",
   CRITICO:  "#ef4444",
   PEDIDO:   "#93c5fd",
 };
@@ -49,7 +49,7 @@ function CustomTooltip({ active, payload, label }) {
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.color ?? p.fill }} />
           <span style={{ color: C.t2 }}>{p.name}:</span>
-          <span style={{ fontFamily: C.mono, color: p.color ?? p.fill, fontWeight: 700 }}>{p.value}</span>
+          <span style={{ fontFamily: C.mono, color: p.color ?? p.fill, fontWeight: 600 }}>{p.value}</span>
         </div>
       ))}
     </div>
@@ -60,7 +60,7 @@ function CustomTooltip({ active, payload, label }) {
 function DonutLabel({ cx, cy, total }) {
   return (
     <>
-      <text x={cx} y={cy - 8} textAnchor="middle" fill={C.t0} style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700 }}>
+      <text x={cx} y={cy - 8} textAnchor="middle" fill={C.t0} style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 600 }}>
         {total}
       </text>
       <text x={cx} y={cy + 10} textAnchor="middle" fill={C.t2} style={{ fontFamily: C.sans, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase" }}>
@@ -83,7 +83,7 @@ function ChartCard({ title, subtitle, children }) {
       gap: 12,
     }}>
       <div>
-        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>
+        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600 }}>
           {title}
         </div>
         {subtitle && (
@@ -104,7 +104,7 @@ function Legend({ items }) {
           <div style={{ width: 7, height: 7, borderRadius: 2, background: color }} />
           <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1 }}>{label}</span>
           {value != null && (
-            <span style={{ fontFamily: C.mono, fontSize: 11, color, fontWeight: 700 }}>{value}</span>
+            <span style={{ fontFamily: C.mono, fontSize: 11, color, fontWeight: 600 }}>{value}</span>
           )}
         </div>
       ))}
@@ -225,7 +225,7 @@ export default function StockChartsPanel({ rows = [] }) {
                     key={i}
                     fill={
                       entry.avg < 2  ? C.red   :
-                      entry.avg < 4  ? C.amber :
+                      entry.avg < 4  ? C.cyan :
                       C.green
                     }
                     fillOpacity={0.85}
@@ -241,7 +241,7 @@ export default function StockChartsPanel({ rows = [] }) {
         )}
         <Legend items={[
           { label: "< 2 sem", color: C.red    },
-          { label: "2–4 sem", color: C.amber  },
+          { label: "2–4 sem", color: C.cyan  },
           { label: "> 4 sem", color: C.green  },
         ]} />
       </ChartCard>
@@ -274,7 +274,7 @@ export default function StockChartsPanel({ rows = [] }) {
                 {topPedidos.map((entry, i) => (
                   <Cell
                     key={i}
-                    fill={STATUS_COLORS[entry.st] ?? C.amber}
+                    fill={STATUS_COLORS[entry.st] ?? C.cyan}
                     fillOpacity={0.85}
                   />
                 ))}

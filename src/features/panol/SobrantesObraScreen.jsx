@@ -13,7 +13,6 @@ import {
   Ship,
   User,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -61,7 +60,7 @@ function Chip({ meta, children }) {
       background: meta.bg || `color-mix(in srgb, ${meta.color} 10%, transparent)`,
       color: meta.color,
       fontSize: 10.5,
-      fontWeight: 900,
+      fontWeight: 700,
       letterSpacing: 0.3,
       textTransform: "uppercase",
       whiteSpace: "nowrap",
@@ -143,7 +142,7 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
     if (await onSubmit(form)) { setAmount(""); setNote(""); setAction(""); }
   }} style={{ display: "grid", gap: 16 }}>
     <div>
-      <div style={{ fontSize: 14, fontWeight: 750, marginBottom: 4 }}>Este material nunca se egresó</div>
+      <div style={{ fontSize: 14, fontWeight: 650, marginBottom: 4 }}>Este material nunca se egresó</div>
       <div style={{ color: C.dim, fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>Sigue en pañol pero reservado para una obra que ya terminó. Elegí qué hacer con ese saldo.</div>
       <div role="group" aria-label="Elegir una acción" style={{ display: "grid", gap: 7 }}>{choices.map(optionButton)}</div>
     </div>
@@ -151,7 +150,7 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
       <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.55 }}>{selected.hint}</div>
       <label style={labelStyle}>Cantidad · {item.unidad || "unidades"}
         <div style={{ display: "flex", gap: 8 }}>
-          <input aria-describedby="sob-quantity-help" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canOperate || busy} placeholder="0" style={{ ...inputStyle, fontSize: 22, fontFamily: C.mono, fontWeight: 650, borderColor: error ? C.red : C.border }} />
+          <input aria-describedby="sob-quantity-help" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canOperate || busy} placeholder="0" style={{ ...inputStyle, fontSize: 22, fontFamily: C.mono, fontWeight: 600, borderColor: error ? C.red : C.border }} />
           <button type="button" disabled={!canOperate || busy} onClick={() => setAmount(String(max))} style={{ ...ghostBtn, flexShrink: 0 }}>Todo</button>
         </div>
       </label>
@@ -180,7 +179,7 @@ function MaterialDetail({ item, resoluciones, sedeDefault, canOperate, busy, onR
   ].filter(([, value], index) => index === 0 || qty(value) > EPS);
   return <aside className="sob-detail" aria-label="Detalle del material" style={{ height: "100%", overflowY: "auto", background: C.panelSolid }}>
     <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-      <span style={{ color: C.dim, fontSize: 12, fontWeight: 650 }}>SOBRANTE SIN EGRESAR</span>
+      <span style={{ color: C.dim, fontSize: 12, fontWeight: 600 }}>SOBRANTE SIN EGRESAR</span>
       <button type="button" disabled={busy} aria-label="Cerrar detalle" onClick={onClose} style={{ ...ghostBtn, padding: 0, width: 44, justifyContent: "center", border: "none" }}><X size={19} /></button>
     </div>
     <div style={{ padding: 20, display: "grid", gap: 20 }}>
@@ -209,11 +208,11 @@ function MaterialDetail({ item, resoluciones, sedeDefault, canOperate, busy, onR
 
 function RequisitosSinProducto({ rows, links, selections, onSelect, onIdentify, busyId, canOperate, compact }) {
   if (!rows.length) return null;
-  return <section aria-label="Productos pendientes de identificar" style={{ margin: "12px 16px 4px", border: `1px solid ${C.amberB}`, borderRadius: 12, background: C.amberL, overflow: "hidden" }}>
-    <div style={{ padding: "13px 14px", display: "flex", alignItems: "flex-start", gap: 10, borderBottom: `1px solid ${C.amberB}` }}>
-      <AlertTriangle size={18} color={C.amber} style={{ marginTop: 1, flexShrink: 0 }} />
+  return <section aria-label="Productos pendientes de identificar" style={{ margin: "12px 16px 4px", border: `1px solid ${C.cyanB}`, borderRadius: 12, background: C.cyanL, overflow: "hidden" }}>
+    <div style={{ padding: "13px 14px", display: "flex", alignItems: "flex-start", gap: 10, borderBottom: `1px solid ${C.cyanB}` }}>
+      <AlertTriangle size={18} color={C.cyan} style={{ marginTop: 1, flexShrink: 0 }} />
       <div>
-        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 800 }}>Productos por identificar · {rows.length}</div>
+        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 650 }}>Productos por identificar · {rows.length}</div>
         <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 3 }}>Son requisitos de la matriz, no sobrantes físicos. Elegí qué producto quedó en pañol para incorporarlo correctamente a la revisión.</div>
       </div>
     </div>
@@ -222,9 +221,9 @@ function RequisitosSinProducto({ rows, links, selections, onSelect, onIdentify, 
         const options = links.filter((link) => link.requisito_material_id === row.requisito_material_id);
         const value = selections[row.requisito_material_id] || "";
         const busy = busyId === row.requisito_material_id;
-        return <div key={row.requisito_material_id} style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: compact ? "minmax(0, 1fr)" : "minmax(180px, 1fr) minmax(220px, 1.25fr) auto", gap: 10, alignItems: "center", borderBottom: `1px solid ${C.amberB}` }}>
+        return <div key={row.requisito_material_id} style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: compact ? "minmax(0, 1fr)" : "minmax(180px, 1fr) minmax(220px, 1.25fr) auto", gap: 10, alignItems: "center", borderBottom: `1px solid ${C.cyanB}` }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 750, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+            <div style={{ fontWeight: 650, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
             <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>{fmtCierreQty(row.cantidad)} {row.unidad || "u"} sin identificar{row.codigo ? ` · ${row.codigo}` : ""}</div>
           </div>
           {options.length ? <select aria-label={`Producto físico para ${row.descripcion}`} value={value} disabled={!canOperate || busy} onChange={(event) => onSelect(row.requisito_material_id, event.target.value)} style={{ ...inputStyle, minHeight: 38, padding: "5px 9px", fontSize: 12 }}>
@@ -238,7 +237,7 @@ function RequisitosSinProducto({ rows, links, selections, onSelect, onIdentify, 
   </section>;
 }
 
-function DetalleCierre({ cierreId, profile, signOut }) {
+function DetalleCierre({ cierreId, profile }) {
   const nav = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
@@ -443,10 +442,9 @@ function DetalleCierre({ cierreId, profile, signOut }) {
 
   if (!cierre && !loading) {
     return (
-      <div style={{ display: "flex", minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "flex", minHeight: "100%", background: C.bg, color: C.text, fontFamily: C.sans }}>
         <main style={{ flex: 1, padding: 24 }}>
-          <div style={{ color: C.text, fontWeight: 900, fontSize: 18 }}>No se encontró la revisión</div>
+          <div style={{ color: C.text, fontWeight: 700, fontSize: 18 }}>No se encontró la revisión</div>
           <Link to="/stock-panol?tab=sobrantes" style={{ color: C.blue, marginTop: 10, display: "inline-block" }}>Volver a sobrantes</Link>
         </main>
       </div>
@@ -461,9 +459,8 @@ function DetalleCierre({ cierreId, profile, signOut }) {
   const progress = reviewTotal ? Math.round((completed / reviewTotal) * 100) : 100;
 
   return (
-    <div className="sob-screen" style={{ display: "flex", height: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
+    <div className="sob-screen" style={{ display: "flex", height: "100%", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <ScreenStyles />
-      <Sidebar profile={profile} signOut={signOut} />
       <main style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <header style={{
           padding: isMobile ? "10px 14px" : "12px 20px",
@@ -475,7 +472,7 @@ function DetalleCierre({ cierreId, profile, signOut }) {
             <button type="button" aria-label="Volver a sobrantes de obra" onClick={() => nav("/stock-panol?tab=sobrantes")} style={{ ...ghostBtn, width: 40, minHeight: 40, padding: 0, justifyContent: "center" }}><ArrowLeft size={18} /></button>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 21, fontWeight: 800 }}>Sobrantes · {cierre?.codigo || "Obra"}</h1>
+                <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 21, fontWeight: 650 }}>Sobrantes · {cierre?.codigo || "Obra"}</h1>
                 {cierre?.modelo && <span style={{ color: C.dim, fontSize: 13 }}>{cierre.modelo}</span>}
                 <Chip meta={estadoMeta} />
               </div>
@@ -500,7 +497,7 @@ function DetalleCierre({ cierreId, profile, signOut }) {
 
         <section style={{ padding: isMobile ? "10px 14px" : "11px 20px", borderBottom: `1px solid ${C.border}`, background: C.panel, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 300px" }}>
-            <div style={{ flex: 1, maxWidth: 330, height: 6, borderRadius: 999, background: C.border, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: requisitos.length ? C.amber : progress === 100 ? C.green : C.blue, transition: "width 180ms ease" }} /></div>
+            <div style={{ flex: 1, maxWidth: 330, height: 6, borderRadius: 999, background: C.border, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: requisitos.length ? C.cyan : progress === 100 ? C.green : C.blue, transition: "width 180ms ease" }} /></div>
             <div style={{ whiteSpace: "nowrap", fontSize: 13 }}><strong>{completed} de {items.length}</strong> revisados{requisitos.length ? ` · ${requisitos.length} por identificar` : summary.pendientes > 0 ? ` · faltan ${summary.pendientes}` : " · listo para cerrar"}</div>
           </div>
           {!conciliada && (
@@ -532,7 +529,7 @@ function DetalleCierre({ cierreId, profile, signOut }) {
             <div style={{ position: "sticky", top: 0, zIndex: 2, padding: "12px 16px", background: C.bg, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, alignItems: "center" }}>
               <div style={{ position: "relative", flex: 1 }}><Search size={15} style={{ position: "absolute", left: 12, top: 14, color: C.dim }} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material…" aria-label="Buscar material" style={{ ...inputStyle, paddingLeft: 35 }} /></div>
               {!conciliada && <div role="group" aria-label="Filtrar materiales" style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 9, padding: 3, background: C.panelSolid }}>
-                {[["pendientes", `Pendientes ${summary.pendientes}`], ["todos", `Todos ${items.length}`]].map(([value, label]) => <button key={value} type="button" aria-pressed={itemFilter === value} onClick={() => setItemFilter(value)} style={{ border: "none", borderRadius: 6, minHeight: 36, padding: "0 10px", background: itemFilter === value ? C.blueL : "transparent", color: itemFilter === value ? C.blue : C.dim, fontFamily: C.sans, fontWeight: 650, cursor: "pointer", whiteSpace: "nowrap" }}>{label}</button>)}
+                {[["pendientes", `Pendientes ${summary.pendientes}`], ["todos", `Todos ${items.length}`]].map(([value, label]) => <button key={value} type="button" aria-pressed={itemFilter === value} onClick={() => setItemFilter(value)} style={{ border: "none", borderRadius: 6, minHeight: 36, padding: "0 10px", background: itemFilter === value ? C.blueL : "transparent", color: itemFilter === value ? C.blue : C.dim, fontFamily: C.sans, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>{label}</button>)}
               </div>}
             </div>
             {!loading && !conciliada && <RequisitosSinProducto rows={requisitos} links={productosCompatibles} selections={productoSeleccionado}
@@ -544,8 +541,8 @@ function DetalleCierre({ cierreId, profile, signOut }) {
               {visibles.map((item) => {
                 const status = itemStatus(item); const pending = qty(item.cantidad_pendiente); const selected = selectedItemId === item.id;
                 return <button className="sob-row" key={item.id} type="button" onClick={() => setSelectedItemId(item.id)} style={{ width: "100%", border: "none", borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${selected ? C.blue : "transparent"}`, background: selected ? C.blueL : C.panelSolid, color: C.text, padding: "13px 16px", textAlign: "left", fontFamily: C.sans, cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 16, alignItems: "center" }}>
-                  <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</span><span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 4 }}>{[item.codigo, item.unidad, "Nunca egresado"].filter(Boolean).join(" · ")}</span></span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ textAlign: "right" }}><span style={{ display: "block", color: status.color, fontSize: 12, fontWeight: 700 }}>{status.label}</span>{pending > EPS && <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 3 }}>{fmtCierreQty(pending)} {item.unidad || "u"} por liberar</span>}</span><ChevronRight size={17} color={C.dim} /></span>
+                  <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</span><span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 4 }}>{[item.codigo, item.unidad, "Nunca egresado"].filter(Boolean).join(" · ")}</span></span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ textAlign: "right" }}><span style={{ display: "block", color: status.color, fontSize: 12, fontWeight: 600 }}>{status.label}</span>{pending > EPS && <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 3 }}>{fmtCierreQty(pending)} {item.unidad || "u"} por liberar</span>}</span><ChevronRight size={17} color={C.dim} /></span>
                 </button>;
               })}
             </div>
@@ -554,7 +551,7 @@ function DetalleCierre({ cierreId, profile, signOut }) {
           {selectedItem ? <MaterialDetail key={selectedItem.id} item={selectedItem} resoluciones={resoluciones} sedeDefault={sedeDefault}
             canOperate={canOperate && !conciliada && !loading && !busyItem && !busyAction} busy={busyItem === selectedItem.id}
             onResolve={(form) => onResolve(selectedItem, form)} onClose={() => setSelectedItemId("")} closed={conciliada} />
-          : !isMobile && <aside style={{ display: "grid", placeItems: "center", padding: 36, background: C.panelSolid, color: C.dim, textAlign: "center" }}><div><Package size={30} strokeWidth={1.5} /><div style={{ marginTop: 12, color: C.text, fontWeight: 700 }}>Elegí un sobrante</div><div style={{ marginTop: 6, maxWidth: 270, fontSize: 13, lineHeight: 1.5 }}>Podés liberarlo al stock general o documentar una diferencia de inventario.</div></div></aside>}
+          : !isMobile && <aside style={{ display: "grid", placeItems: "center", padding: 36, background: C.panelSolid, color: C.dim, textAlign: "center" }}><div><Package size={30} strokeWidth={1.5} /><div style={{ marginTop: 12, color: C.text, fontWeight: 600 }}>Elegí un sobrante</div><div style={{ marginTop: 6, maxWidth: 270, fontSize: 13, lineHeight: 1.5 }}>Podés liberarlo al stock general o documentar una diferencia de inventario.</div></div></aside>}
         </div>
       </main>
     </div>
@@ -572,12 +569,12 @@ const ghostBtn = {
   color: C.text,
   borderRadius: 10,
   cursor: "pointer",
-  fontWeight: 800,
+  fontWeight: 650,
   fontFamily: "'Outfit', system-ui, sans-serif",
   fontSize: 13,
 };
 
-export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) {
+export function ListaSobrantesObraPanel({ embedded = false }) {
   const toast = useToast();
   const { isMobile } = useResponsive();
   const [rows, setRows] = useState([]);
@@ -622,7 +619,7 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
               {!embedded && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <ClipboardCheck size={18} color={C.blue} />
-                  <h1 style={{ margin: 0, fontSize: isMobile ? 20 : 24, fontWeight: 950 }}>Sobrantes de obra</h1>
+                  <h1 style={{ margin: 0, fontSize: isMobile ? 20 : 24, fontWeight: 750 }}>Sobrantes de obra</h1>
                 </div>
               )}
               <div style={{ color: C.dim, fontSize: 12.5, marginTop: embedded ? 0 : 4, maxWidth: 640, lineHeight: 1.45 }}>
@@ -669,7 +666,7 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
                     border: `1px solid ${filtro === id ? C.blueB : C.border}`,
                     background: filtro === id ? C.blueL : C.panelSolid,
                     color: filtro === id ? C.blue : C.text,
-                    fontWeight: 800,
+                    fontWeight: 650,
                     cursor: "pointer",
                     fontFamily: C.sans,
                     fontSize: 12.5,
@@ -687,7 +684,7 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
           {!loading && visibles.length === 0 && (
             <div style={{ border: `1px dashed ${C.border}`, borderRadius: 14, padding: 36, textAlign: "center" }}>
               <Package size={28} color={C.dim} />
-              <div style={{ fontWeight: 800, marginTop: 10 }}>No hay obras {filtro === "abiertos" ? "por revisar" : "en este filtro"}</div>
+              <div style={{ fontWeight: 650, marginTop: 10 }}>No hay obras {filtro === "abiertos" ? "por revisar" : "en este filtro"}</div>
               <div style={{ color: C.dim, fontSize: 13, marginTop: 6 }}>Las obras aparecen acá cuando producción las marca como terminadas.</div>
             </div>
           )}
@@ -718,8 +715,8 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <Ship size={16} color={C.blue} />
-                      <span style={{ fontWeight: 800, fontSize: 15 }}>{row.codigo}</span>
-                      {row.modelo && <span style={{ color: C.dim, fontWeight: 650 }}>{row.modelo}</span>}
+                      <span style={{ fontWeight: 650, fontSize: 15 }}>{row.codigo}</span>
+                      {row.modelo && <span style={{ color: C.dim, fontWeight: 600 }}>{row.modelo}</span>}
                       <Chip meta={meta} />
                       {row.obra_estado && row.obra_estado !== "terminada" && (
                         <Chip meta={{ color: C.violet, bg: C.violetL, border: C.violetB }}>Reabierta</Chip>
@@ -730,10 +727,10 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
                       {row.ciclo > 1 ? ` · ciclo ${row.ciclo}` : ""}
                     </span>
                   </span>
-                  {!isMobile && <span><span style={{ display: "block", color: C.dim, fontSize: 11 }}>Responsable</span><span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 650, marginTop: 4 }}>{row.responsable_nombre || "Sin asignar"}</span></span>}
+                  {!isMobile && <span><span style={{ display: "block", color: C.dim, fontSize: 11 }}>Responsable</span><span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 600, marginTop: 4 }}>{row.responsable_nombre || "Sin asignar"}</span></span>}
                   {!isMobile && <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-                    <span><span style={{ display: "block", color: pendingCount ? C.blue : C.green, fontSize: 13, fontWeight: 750 }}>{pendingCount ? `${pendingCount} materiales pendientes` : "Revisión completa"}</span><span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 4 }}>{reviewedCount} de {totalCount} revisados</span></span>
-                    <span style={{ color: C.blue, display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700, fontSize: 12.5 }}>{row.estado === "conciliada" ? "Ver" : "Continuar"}<ChevronRight size={16} /></span>
+                    <span><span style={{ display: "block", color: pendingCount ? C.blue : C.green, fontSize: 13, fontWeight: 650 }}>{pendingCount ? `${pendingCount} materiales pendientes` : "Revisión completa"}</span><span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 4 }}>{reviewedCount} de {totalCount} revisados</span></span>
+                    <span style={{ color: C.blue, display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, fontSize: 12.5 }}>{row.estado === "conciliada" ? "Ver" : "Continuar"}<ChevronRight size={16} /></span>
                   </span>}
                 </Link>
               );
@@ -752,8 +749,7 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans }}>
-      <Sidebar profile={profile} signOut={signOut} />
+    <div style={{ display: "flex", minHeight: "100%", background: C.bg, color: C.text, fontFamily: C.sans }}>
       <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {panel}
       </main>
@@ -761,8 +757,8 @@ export function ListaSobrantesObraPanel({ profile, signOut, embedded = false }) 
   );
 }
 
-export default function SobrantesObraScreen({ profile, signOut }) {
+export default function SobrantesObraScreen({ profile }) {
   const { cierreId } = useParams();
-  if (cierreId) return <DetalleCierre cierreId={cierreId} profile={profile} signOut={signOut} />;
+  if (cierreId) return <DetalleCierre cierreId={cierreId} profile={profile} />;
   return <Navigate to="/stock-panol?tab=sobrantes" replace />;
 }

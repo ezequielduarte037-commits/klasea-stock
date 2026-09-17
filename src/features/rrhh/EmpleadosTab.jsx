@@ -29,7 +29,7 @@ function initials(nombre) {
 function EmpleadoAvatar({ emp, size = 30 }) {
   const foto = String(emp?.foto_url ?? "").trim();
   return (
-    <div style={{ width: size, height: size, borderRadius: size >= 44 ? 16 : 10, overflow: "hidden", border: `1px solid ${C.b0}`, background: "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(16,185,129,0.14))", color: C.blue, display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 950, fontSize: size >= 44 ? 18 : 11 }}>
+    <div style={{ width: size, height: size, borderRadius: size >= 44 ? 16 : 10, overflow: "hidden", border: `1px solid ${C.b0}`, background: "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(16,185,129,0.14))", color: C.blue, display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 750, fontSize: size >= 44 ? 18 : 11 }}>
       {foto ? <img src={foto} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(emp?.nombre)}
     </div>
   );
@@ -38,7 +38,7 @@ function EmpleadoAvatar({ emp, size = 30 }) {
 function NfcBadge({ uid }) {
   const clean = normalizeNfcUid(uid);
   return clean ? (
-    <span title={`Tarjeta ${clean}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 850, fontFamily: C.mono }}>
+    <span title={`Tarjeta ${clean}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700, fontFamily: C.mono }}>
       NFC {clean.slice(-6)}
     </span>
   ) : (
@@ -216,7 +216,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <KpiCard label="Activos" value={stats.total} />
         <KpiCard label="Casa" value={stats.casa} color="#60a5fa" />
-        <KpiCard label="Contratistas" value={stats.contr} color="#fbbf24" sub={`${(contratistas ?? []).length} jefes`} />
+        <KpiCard label="Contratistas" value={stats.contr} color="#67e8f9" sub={`${(contratistas ?? []).length} jefes`} />
         <KpiCard label="Sin asignar" value={stats.sin} color={stats.sin ? "#f87171" : C.green} sub={stats.sin ? "clasificar acá abajo" : "todo clasificado"} />
         <KpiCard label="No fichan" value={stats.noFichan} sub="ignorados en informes" />
         <KpiCard label="NFC" value={stats.conNfc} color={C.green} sub="tarjetas asignadas" />
@@ -252,7 +252,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                 <span style={{
                   minWidth: 22, padding: "2px 6px", borderRadius: 999, textAlign: "center",
                   background: active ? C.blueL : "var(--panel-2)", color: active ? C.blue : C.t2,
-                  fontFamily: C.mono, fontSize: 10.5, fontWeight: 800,
+                  fontFamily: C.mono, fontSize: 10.5, fontWeight: 650,
                 }}>
                   {item.count}
                 </span>
@@ -301,7 +301,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
           boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
         }}>
-          <span style={{ fontFamily: C.mono, fontSize: 13, color: "#60a5fa", fontWeight: 700, minWidth: 70 }}>
+          <span style={{ fontFamily: C.mono, fontSize: 13, color: "#60a5fa", fontWeight: 600, minWidth: 70 }}>
             {selIds.size} selec.
           </span>
           <button type="button" onClick={selAll} style={{ ...BTN, padding: "4px 10px" }}>Todos del filtro</button>
@@ -374,7 +374,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                   <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 190 }}>
                     <EmpleadoAvatar emp={e} />
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ color: C.t0, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ color: C.t0, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {e.nombre}{e.notas && <span title={e.notas} style={{ marginLeft: 6, fontSize: 11, color: C.t2 }}>nota</span>}
                       </div>
                       {e.foto_url && <div style={{ color: C.t2, fontSize: 10.5, marginTop: 1 }}>foto cargada</div>}
@@ -509,9 +509,9 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
     : nfcBridge.status === "connecting"
       ? "Buscando ACR122U"
       : "Puente ACR122U no detectado";
-  const bridgeColor = bridgeOk ? C.green : nfcBridge.status === "connecting" ? C.blue : C.amber;
-  const bridgeBg = bridgeOk ? C.greenL : nfcBridge.status === "connecting" ? C.blueL : C.amberL;
-  const bridgeBorder = bridgeOk ? C.greenB : nfcBridge.status === "connecting" ? C.blueB : C.amberB;
+  const bridgeColor = bridgeOk ? C.green : nfcBridge.status === "connecting" ? C.blue : C.cyan;
+  const bridgeBg = bridgeOk ? C.greenL : nfcBridge.status === "connecting" ? C.blueL : C.cyanL;
+  const bridgeBorder = bridgeOk ? C.greenB : nfcBridge.status === "connecting" ? C.blueB : C.cyanB;
 
   useKeyboardWedge({
     enabled: true,
@@ -585,7 +585,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
   return (
     <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 24, width: "min(440px,94vw)", maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.t0, marginBottom: 14 }}>{emp ? "Editar empleado" : "Nuevo empleado"}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: C.t0, marginBottom: 14 }}>{emp ? "Editar empleado" : "Nuevo empleado"}</div>
 
         <label style={LBL}>Nombre *</label>
         <input style={{ ...INP, width: "100%", marginBottom: 10 }} value={form.nombre} onChange={e => set("nombre", e.target.value)} autoFocus />
@@ -598,14 +598,14 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
           <div style={{
             display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 11px", margin: "-2px 0 10px",
             borderRadius: 10,
-            border: `1px solid ${reactivacionDetectada ? C.amberB : "rgba(248,113,113,0.35)"}`,
-            background: reactivacionDetectada ? C.amberL : "rgba(248,113,113,0.08)",
+            border: `1px solid ${reactivacionDetectada ? C.cyanB : "rgba(248,113,113,0.35)"}`,
+            background: reactivacionDetectada ? C.cyanL : "rgba(248,113,113,0.08)",
           }}>
             {reactivacionDetectada
-              ? <RotateCcw size={16} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+              ? <RotateCcw size={16} color={C.cyan} style={{ flexShrink: 0, marginTop: 1 }} />
               : <UsersRound size={16} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />}
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: reactivacionDetectada ? C.amber : "#f87171", fontSize: 12, fontWeight: 850 }}>
+              <div style={{ color: reactivacionDetectada ? C.cyan : "#f87171", fontSize: 12, fontWeight: 700 }}>
                 {reactivacionDetectada ? "Este DNI está en Ex empleados" : "Este DNI ya está activo"}
               </div>
               <div style={{ color: C.t1, fontSize: 11.5, lineHeight: 1.4, marginTop: 2 }}>
@@ -636,7 +636,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
                 onClick={() => fotoInputRef.current?.click()}
                 disabled={!emp || subiendoFoto}
                 title={emp ? "Elegir una foto JPG, PNG o WebP" : "Guardá el empleado antes de cargar la foto"}
-                style={{ border: `1px solid ${C.b1}`, background: emp ? C.panelSolid : "transparent", color: emp ? C.t0 : C.t2, borderRadius: 8, minHeight: 34, padding: "0 11px", cursor: emp && !subiendoFoto ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", opacity: subiendoFoto ? 0.65 : 1 }}
+                style={{ border: `1px solid ${C.b1}`, background: emp ? C.panelSolid : "transparent", color: emp ? C.t0 : C.t2, borderRadius: 8, minHeight: 34, padding: "0 11px", cursor: emp && !subiendoFoto ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 650, whiteSpace: "nowrap", opacity: subiendoFoto ? 0.65 : 1 }}
               >
                 <ImageUp size={14} /> {subiendoFoto ? "Cargando..." : "Cargar imagen"}
               </button>
@@ -645,7 +645,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
                 onClick={() => setCamaraAbierta(true)}
                 disabled={!emp || subiendoFoto}
                 title={emp ? "Sacar la foto con la cámara de la PC" : "Guardá el empleado primero y después sacale la foto"}
-                style={{ border: `1px solid ${C.b1}`, background: emp ? C.s0 : "transparent", color: emp ? C.blue : C.t2, borderRadius: 8, minHeight: 34, padding: "0 11px", cursor: emp && !subiendoFoto ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", opacity: subiendoFoto ? 0.65 : 1 }}
+                style={{ border: `1px solid ${C.b1}`, background: emp ? C.s0 : "transparent", color: emp ? C.blue : C.t2, borderRadius: 8, minHeight: 34, padding: "0 11px", cursor: emp && !subiendoFoto ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 650, whiteSpace: "nowrap", opacity: subiendoFoto ? 0.65 : 1 }}
               >
                 <Camera size={14} /> Sacar
               </button>
@@ -680,7 +680,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
         <div style={{ border: `1px solid ${form.nfc_uid ? C.greenB : C.b0}`, background: form.nfc_uid ? C.greenL : C.s0, borderRadius: 12, padding: 10, marginBottom: 10 }}>
           <label style={LBL}>Tarjeta NFC/RFID</label>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: `1px solid ${bridgeBorder}`, background: bridgeBg, borderRadius: 10, padding: "7px 8px", marginBottom: 8 }}>
-            <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.5 }}>{bridgeLabel}</span>
+            <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.5 }}>{bridgeLabel}</span>
             {nfcBridge.reader && <span style={{ color: C.t2, fontSize: 10.5 }}>{nfcBridge.reader}</span>}
             {nfcBridge.lastUid && <span style={{ color: C.t2, fontSize: 10.5, fontFamily: C.mono }}>Ultima {normalizeNfcUid(nfcBridge.lastUid).slice(-8)}</span>}
             {!bridgeOk && (
@@ -778,7 +778,7 @@ function ContratistasModal({ contratistas, onClose, onChanged }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 24, width: "min(520px,94vw)", maxHeight: "85vh", overflowY: "auto" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.t0, marginBottom: 14 }}>Contratistas (jefes)</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: C.t0, marginBottom: 14 }}>Contratistas (jefes)</div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 120px auto", gap: 6, marginBottom: 14 }}>
           <input style={INP} placeholder="Nombre *" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />

@@ -277,7 +277,7 @@ function PasoEntrada({ materiales, stockPorMaterial, onPreview }) {
                           />
                           {diff !== null && !isNaN(diff) && diff !== 0 && (
                             <span style={{
-                              fontSize: 12, fontFamily: C.mono, fontWeight: 700, whiteSpace: "nowrap",
+                              fontSize: 12, fontFamily: C.mono, fontWeight: 600, whiteSpace: "nowrap",
                               color: diff > 0 ? C.green : C.red,
                             }}>
                               {diff > 0 ? `+${diff}` : diff}
@@ -295,7 +295,7 @@ function PasoEntrada({ materiales, stockPorMaterial, onPreview }) {
             <button onClick={confirmarTabla} style={{
               border: `1px solid rgba(59,130,246,0.35)`, background: "rgba(59,130,246,0.15)",
               color: "#60a5fa", padding: "8px 20px", borderRadius: 8, cursor: "pointer",
-              fontWeight: 700, fontSize: 13, fontFamily: C.sans,
+              fontWeight: 600, fontSize: 13, fontFamily: C.sans,
             }}>
               Ver diferencias →
             </button>
@@ -325,7 +325,7 @@ function PasoEntrada({ materiales, stockPorMaterial, onPreview }) {
             <button onClick={confirmarTexto} style={{
               border: `1px solid rgba(59,130,246,0.35)`, background: "rgba(59,130,246,0.15)",
               color: "#60a5fa", padding: "8px 20px", borderRadius: 8, cursor: "pointer",
-              fontWeight: 700, fontSize: 13, fontFamily: C.sans,
+              fontWeight: 600, fontSize: 13, fontFamily: C.sans,
             }}>
               Ver diferencias →
             </button>
@@ -398,16 +398,16 @@ function PasoPreview({ lineas, stockPorMaterial, observaciones, setObservaciones
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1, background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, padding: "10px 14px" }}>
           <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.green, textTransform: "uppercase", marginBottom: 4 }}>Sobrante (ajuste +)</div>
-          <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.green }}>{positivos}</div>
+          <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 600, color: C.green }}>{positivos}</div>
         </div>
         <div style={{ flex: 1, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px" }}>
           <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.red, textTransform: "uppercase", marginBottom: 4 }}>Faltante (ajuste −)</div>
-          <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.red }}>{negativos}</div>
+          <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 600, color: C.red }}>{negativos}</div>
         </div>
         {sinCambio > 0 && (
           <div style={{ flex: 1, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "10px 14px" }}>
             <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>Sin cambio</div>
-            <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.t2 }}>{sinCambio}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 600, color: C.t2 }}>{sinCambio}</div>
           </div>
         )}
       </div>
@@ -437,7 +437,7 @@ function PasoPreview({ lineas, stockPorMaterial, observaciones, setObservaciones
                 <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 13, color: C.t0 }}>
                   {realQty}
                 </td>
-                <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: diff > 0 ? C.green : C.red }}>
+                <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: diff > 0 ? C.green : C.red }}>
                   {diff > 0 ? `+${diff}` : diff}
                 </td>
                 <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, fontSize: 11, color: C.t2 }}>
@@ -472,7 +472,7 @@ function PasoPreview({ lineas, stockPorMaterial, observaciones, setObservaciones
           ← Volver
         </button>
         <button onClick={onConfirmar} disabled={saving}
-          style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "8px 22px", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13, fontFamily: C.sans, opacity: saving ? 0.5 : 1 }}>
+          style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "8px 22px", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, fontFamily: C.sans, opacity: saving ? 0.5 : 1 }}>
           {saving ? "Aplicando…" : `Aplicar ${diffs.length} ajuste${diffs.length !== 1 ? "s" : ""}`}
         </button>
       </div>
@@ -552,7 +552,7 @@ export default function AjusteInventarioModal({ sede, materiales, stockPorMateri
             <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>
               Paso {paso} de 2 — {paso === 1 ? "Cargar conteo" : "Confirmar ajustes"}
             </div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: C.t0 }}>Ajuste de inventario</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: C.t0 }}>Ajuste de inventario</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
               Registra diferencias entre el stock del sistema y el conteo físico del astillero
             </div>

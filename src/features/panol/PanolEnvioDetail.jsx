@@ -183,7 +183,7 @@ function StatusChip({ estado, compact = false }) {
       borderRadius: 999,
       padding: compact ? "3px 8px" : "5px 10px",
       fontSize: compact ? 10 : 11,
-      fontWeight: 850,
+      fontWeight: 700,
       letterSpacing: 0.45,
       textTransform: "uppercase",
       whiteSpace: "nowrap",
@@ -207,7 +207,7 @@ function EnvioStatusChip({ estado }) {
       borderRadius: 999,
       padding: "5px 11px",
       fontSize: 11,
-      fontWeight: 850,
+      fontWeight: 700,
       letterSpacing: 0.5,
       textTransform: "uppercase",
       whiteSpace: "nowrap",
@@ -282,8 +282,8 @@ function HeaderStat({ icon: IconComponent, label, value, color }) {
         {icon}
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ color, fontFamily: C.mono, fontWeight: 850, fontSize: 17, lineHeight: 1 }}>{value}</div>
-        <div style={{ color: C.dim, fontSize: 10, fontWeight: 800, letterSpacing: 0.9, textTransform: "uppercase", marginTop: 3 }}>{label}</div>
+        <div style={{ color, fontFamily: C.mono, fontWeight: 700, fontSize: 17, lineHeight: 1 }}>{value}</div>
+        <div style={{ color: C.dim, fontSize: 10, fontWeight: 650, letterSpacing: 0.9, textTransform: "uppercase", marginTop: 3 }}>{label}</div>
       </div>
     </div>
   );
@@ -302,7 +302,7 @@ function FilterButton({ active, children, onClick }) {
         borderRadius: 8,
         cursor: "pointer",
         fontSize: 12,
-        fontWeight: active ? 850 : 650,
+        fontWeight: active ? 700 : 600,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
       }}
@@ -327,7 +327,7 @@ function ActionButton({ estado, children, onClick, disabled }) {
         cursor: disabled ? "default" : "pointer",
         padding: "6px 10px",
         fontSize: 12,
-        fontWeight: 850,
+        fontWeight: 700,
         fontFamily: C.sans,
         opacity: disabled ? 0.55 : 1,
         whiteSpace: "nowrap",
@@ -358,10 +358,10 @@ function RemitoIaPanel({ resultado, onToggle, onCantidad, onConfirmar, onCerrar,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderBottom: `1px solid ${C.violetB}`, flexWrap: "wrap" }}>
         <Bot size={16} style={{ color: C.violet, flexShrink: 0 }} />
-        <span style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>
+        <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>
           La IA leyó {total} línea{total === 1 ? "" : "s"} del remito
         </span>
-        <span style={{ color: C.muted, fontSize: 12, fontWeight: 750 }}>
+        <span style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>
           · {propuestas.length} cruzan con este aviso
           {sinMatch.length > 0 && ` · ${sinMatch.length} sin coincidencia`}
         </span>
@@ -396,13 +396,13 @@ function RemitoIaPanel({ resultado, onToggle, onCantidad, onConfirmar, onCerrar,
             }}>
               <input type="checkbox" checked={p.marcar} onChange={() => onToggle(p.item.id)} style={{ accentColor: C.violet }} />
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {p.item.descripcion}
                 </div>
                 {/* Que leyo la IA, para poder desconfiar de una coincidencia floja. */}
                 <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   remito: {p.linea.descripcion}
-                  {p.score < 88 && <span style={{ color: C.violet, fontWeight: 850 }}> · parecido flojo, revisá</span>}
+                  {p.score < 88 && <span style={{ color: C.violet, fontWeight: 700 }}> · parecido flojo, revisá</span>}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 5, justifySelf: isMobile ? "start" : "end", gridColumn: isMobile ? "2" : undefined }}>
@@ -435,7 +435,7 @@ function RemitoIaPanel({ resultado, onToggle, onCantidad, onConfirmar, onCerrar,
       {propuestas.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderTop: `1px solid ${C.violetB}`, flexWrap: "wrap" }}>
           <button type="button" onClick={onConfirmar} disabled={guardando || !elegidas.length}
-            style={{ border: "none", background: elegidas.length ? C.violet : C.panelSolid, color: elegidas.length ? "#fff" : C.dim, borderRadius: 9, padding: "8px 14px", cursor: elegidas.length && !guardando ? "pointer" : "default", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+            style={{ border: "none", background: elegidas.length ? C.violet : C.panelSolid, color: elegidas.length ? "#fff" : C.dim, borderRadius: 9, padding: "8px 14px", cursor: elegidas.length && !guardando ? "pointer" : "default", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
             {guardando ? "Marcando…" : `Recibir ${elegidas.length} ítem${elegidas.length === 1 ? "" : "s"}`}
           </button>
           {parciales > 0 && (
@@ -478,7 +478,7 @@ function ScanReceiptPanel({
             <ScanLine size={16} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Recepcion por escaneo</div>
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Recepcion por escaneo</div>
             <div style={{ color: C.dim, fontSize: 11 }}>
               {readyCount ? `${readyCount} item${readyCount === 1 ? "" : "s"} con codigo de barras · lector PC/USB listo` : "Sin items vinculados a codigo de barras"}
             </div>
@@ -527,7 +527,7 @@ function ScanReceiptPanel({
               padding: "9px 12px",
               cursor: busy || !String(value || "").trim() ? "default" : "pointer",
               fontSize: 12,
-              fontWeight: 900,
+              fontWeight: 700,
               fontFamily: C.sans,
               whiteSpace: "nowrap",
             }}
@@ -539,7 +539,7 @@ function ScanReceiptPanel({
             onClick={onOpenCamera}
             disabled={busy}
             title="Escanear con camara"
-            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 9, padding: "9px 11px", cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 9, padding: "9px 11px", cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
           >
             <ScanLine size={15} /> {!isMobile && "Camara"}
           </button>
@@ -547,7 +547,7 @@ function ScanReceiptPanel({
       </div>
 
       {result && (
-        <div style={{ border: `1px solid ${border}`, background: bg, color, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontWeight: 800 }}>
+        <div style={{ border: `1px solid ${border}`, background: bg, color, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontWeight: 650 }}>
           {result.msg}
         </div>
       )}
@@ -558,8 +558,8 @@ function ScanReceiptPanel({
 function SideLabel({ label, value }) {
   return (
     <div style={{ display: "grid", gap: 3 }}>
-      <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1.1, textTransform: "uppercase" }}>{label}</span>
-      <span style={{ color: C.text, fontSize: 13, fontWeight: 750, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{value || "-"}</span>
+      <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1.1, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ color: C.text, fontSize: 13, fontWeight: 650, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{value || "-"}</span>
     </div>
   );
 }
@@ -1197,7 +1197,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
       <div style={{
         background: C.topbar,
         borderBottom: `1px solid ${C.border}`,
-        padding: isMobile ? "10px 12px 10px 52px" : "12px 18px",
+        padding: isMobile ? "10px 12px" : "12px 18px",
         display: "grid",
         gap: 12,
         flexShrink: 0,
@@ -1217,7 +1217,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
               cursor: "pointer",
               padding: "7px 10px",
               fontSize: 13,
-              fontWeight: 750,
+              fontWeight: 650,
               fontFamily: C.sans,
               flexShrink: 0,
             }}
@@ -1227,7 +1227,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           </button>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {envio?.titulo ?? "Pedido"}
             </div>
             {envio && (
@@ -1248,7 +1248,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
               onClick={ingresarTodoAPanol}
               disabled={saving}
               title="Marca todo lo pendiente como recibido y lo deja como stock del pañol"
-              style={{ border: "none", background: saving ? C.panelSolid : C.green, color: saving ? C.dim : "#04231a", borderRadius: 9, cursor: saving ? "default" : "pointer", padding: "8px 13px", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
+              style={{ border: "none", background: saving ? C.panelSolid : C.green, color: saving ? C.dim : "#04231a", borderRadius: 9, cursor: saving ? "default" : "pointer", padding: "8px 13px", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
             >
               <PackageCheck size={15} />
               {saving ? "Ingresando…" : `Ingresar todo a pañol (${resumen.pendientes})`}
@@ -1260,7 +1260,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
               type="button"
               onClick={imprimirEnvio}
               title="Imprimir remito del pedido"
-              style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 850, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+              style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}
             >
               <Printer size={14} />
               {!isMobile && "Imprimir"}
@@ -1274,7 +1274,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                   type="button"
                   onClick={() => cambiarEstadoEnvio("enviado")}
                   title="Vuelve el pedido a la lista de pañol, con sus ítems como estaban"
-                  style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+                  style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
                 >
                   Reactivar
                 </button>
@@ -1284,14 +1284,14 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                   <button
                     type="button"
                     onClick={() => cambiarEstadoEnvio("cerrado")}
-                    style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+                    style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
                   >
                     Cerrar
                   </button>
                   <button
                     type="button"
                     onClick={() => cambiarEstadoEnvio("cancelado")}
-                    style={{ border: `1px solid ${C.redB}`, background: "var(--red-soft)", color: C.red, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+                    style={{ border: `1px solid ${C.redB}`, background: "var(--red-soft)", color: C.red, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
                   >
                     Cancelar
                   </button>
@@ -1301,7 +1301,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                 type="button"
                 onClick={borrarEnvio}
                 title="Borrar definitivamente"
-                style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 850, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}
+                style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}
               >
                 <Trash2 size={13} />
                 {!isMobile && "Borrar"}
@@ -1317,7 +1317,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
             <HeaderStat icon={Clock3} label="Pendientes" value={resumen.pendientes} color={C.violet} />
             <HeaderStat icon={AlertTriangle} label="Problemas" value={resumen.problemas} color={C.red} />
             <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "10px 12px", display: "grid", alignContent: "center", gap: 7 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.9 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.9 }}>
                 <span>Avance</span>
                 <span style={{ color: C.text, fontFamily: C.mono }}>{resumen.pctRecibido}%</span>
               </div>
@@ -1338,7 +1338,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           flexWrap: "wrap",
           flexShrink: 0,
         }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 850, color: C.blue, marginRight: 4 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: C.blue, marginRight: 4 }}>
             <ClipboardCheck size={15} />
             {sel.size} seleccionado{sel.size === 1 ? "" : "s"}
           </span>
@@ -1428,7 +1428,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                       padding: "7px 10px",
                       cursor: filteredItems.length ? "pointer" : "default",
                       fontSize: 12,
-                      fontWeight: 750,
+                      fontWeight: 650,
                       whiteSpace: "nowrap",
                     }}>
                       <input
@@ -1474,7 +1474,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                         if (showAdvanced) setItemEstado("todos");
                         setShowAdvanced((current) => !current);
                       }}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${showAdvanced ? C.violetB : C.border}`, background: showAdvanced ? C.violetL : C.panelSolid, color: showAdvanced ? C.violet : C.dim, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${showAdvanced ? C.violetB : C.border}`, background: showAdvanced ? C.violetL : C.panelSolid, color: showAdvanced ? C.violet : C.dim, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
                     >
                       <Settings2 size={14} /> {showAdvanced ? "Ocultar opciones" : "Parcial / escaneo"}
                     </button>
@@ -1490,7 +1490,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                         disabled={remitoEscaneando || remitoLeyendo}
                         title="Origen del escaneo"
                         aria-label="Origen del escaneo del remito"
-                        style={{ border: "none", borderRight: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.muted, padding: "7px 8px", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, outline: "none" }}
+                        style={{ border: "none", borderRight: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.muted, padding: "7px 8px", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, outline: "none" }}
                       >
                         <option value="glass">Vidrio</option>
                         <option value="feeder">Alimentador</option>
@@ -1499,7 +1499,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                         type="button"
                         onClick={escanearRemitoDeRecepcion}
                         disabled={remitoEscaneando || remitoLeyendo}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "transparent", color: remitoEscaneando ? C.dim : C.violet, padding: "7px 10px", cursor: remitoEscaneando || remitoLeyendo ? "default" : "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "transparent", color: remitoEscaneando ? C.dim : C.violet, padding: "7px 10px", cursor: remitoEscaneando || remitoLeyendo ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
                       >
                         {remitoEscaneando ? <LoaderCircle size={14} className="spin" /> : <ScanLine size={14} />}
                         {remitoEscaneando ? "Escaneando…" : "Escanear remito"}
@@ -1507,7 +1507,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                     </div>
                   )}
                   {canReceive && !cerrado && (
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panelSolid, color: remitoLeyendo ? C.dim : C.muted, borderRadius: 9, padding: "7px 10px", cursor: remitoLeyendo || remitoEscaneando ? "default" : "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panelSolid, color: remitoLeyendo ? C.dim : C.muted, borderRadius: 9, padding: "7px 10px", cursor: remitoLeyendo || remitoEscaneando ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
                       <Bot size={14} />
                       {remitoLeyendo ? "Leyendo…" : "Subir remito"}
                       <input
@@ -1544,7 +1544,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                   borderBottom: `1px solid ${C.border}`,
                   color: C.dim,
                   fontSize: 10,
-                  fontWeight: 850,
+                  fontWeight: 700,
                   letterSpacing: 1.1,
                   textTransform: "uppercase",
                   background: C.bg,
@@ -1621,7 +1621,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <PackageOpen size={16} style={{ color: C.blue }} />
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Datos del pedido</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Datos del pedido</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <SideLabel label="Sede" value={envio?.sede} />
@@ -1641,7 +1641,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <MessageSquare size={16} style={{ color: C.green }} />
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Mensaje a compras / pañol</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Mensaje a compras / pañol</div>
             </div>
             <textarea
               value={msg}
@@ -1678,7 +1678,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                 padding: "8px 12px",
                 cursor: msg.trim() ? "pointer" : "default",
                 fontSize: 13,
-                fontWeight: 850,
+                fontWeight: 700,
                 fontFamily: C.sans,
               }}
             >
@@ -1690,7 +1690,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <Clock3 size={16} style={{ color: C.violet }} />
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Historial</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Historial</div>
               <span style={{ marginLeft: "auto", color: C.dim, fontSize: 11, fontFamily: C.mono }}>{eventos.length}</span>
             </div>
             {eventos.length === 0 ? (
@@ -1767,7 +1767,7 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
         gap: 7,
         alignItems: "center",
       }}>
-        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
           <MapPin size={11} /> Ubic.
         </span>
         <select value={cod} onChange={(e) => setLocation(e.target.value, "")} disabled={saving} style={{ ...field, cursor: saving ? "default" : "pointer" }}>
@@ -1807,7 +1807,7 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
                 padding: "7px 9px",
                 cursor: saving ? "default" : "pointer",
                 fontSize: 11,
-                fontWeight: 900,
+                fontWeight: 700,
                 fontFamily: C.sans,
                 whiteSpace: "nowrap",
               }}
@@ -1817,7 +1817,7 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
           )}
         </div>
       </div>
-      <div style={{ marginLeft: compact ? 0 : 78, color: changed ? C.green : C.dim, fontSize: 11, fontWeight: changed ? 800 : 500 }}>
+      <div style={{ marginLeft: compact ? 0 : 78, color: changed ? C.green : C.dim, fontSize: 11, fontWeight: changed ? 650 : 500 }}>
         {helper}
       </div>
     </div>
@@ -1841,7 +1841,7 @@ function ObraDeItem({ item, obras, editable, disabled, onChange }) {
           flexShrink: 0, maxWidth: 128, border: `1px solid ${item.obra_codigo ? C.blueB : C.border}`,
           background: item.obra_codigo ? "var(--blue-soft)" : C.panelSolid,
           color: item.obra_codigo ? C.blue : C.dim,
-          borderRadius: 999, padding: "2px 6px", fontSize: 10.5, fontWeight: 900,
+          borderRadius: 999, padding: "2px 6px", fontSize: 10.5, fontWeight: 700,
           fontFamily: C.sans, cursor: disabled ? "default" : "pointer", outline: "none",
         }}
       >
@@ -1852,7 +1852,7 @@ function ObraDeItem({ item, obras, editable, disabled, onChange }) {
   }
   if (!item.obra_codigo) return null;
   return (
-    <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
+    <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
       {item.obra_codigo}
     </span>
   );
@@ -1885,7 +1885,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
 
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-          <span style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.descripcion}
           </span>
           {/* A qué obra va ESTE renglón. El encabezado muestra la del aviso, que
@@ -1906,8 +1906,8 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
         )}
       </div>
 
-      <div style={{ color: C.text, fontSize: 12, fontWeight: 800 }}>
-        {item.cantidad || "-"} <span style={{ color: C.dim, fontWeight: 650 }}>{item.unidad || ""}</span>
+      <div style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>
+        {item.cantidad || "-"} <span style={{ color: C.dim, fontWeight: 600 }}>{item.unidad || ""}</span>
       </div>
 
       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
@@ -1973,7 +1973,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
               padding: "7px 8px",
               borderRadius: 8,
               fontSize: 12,
-              fontWeight: 750,
+              fontWeight: 650,
               fontFamily: C.sans,
               cursor: saving ? "default" : "pointer",
             }}
@@ -2037,7 +2037,7 @@ function MobileItemCard({ item, location, estanterias, selected, flash, canEdit,
       <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
         {canEdit && <input type="checkbox" checked={selected} onChange={onToggle} style={{ accentColor: C.blue, marginTop: 3 }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 850, lineHeight: 1.2 }}>{item.descripcion}</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>{item.descripcion}</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
             {item.cantidad || "-"} {item.unidad || ""}{item.codigo ? ` · ${item.codigo}` : ""}
             {barcode ? ` · CB ${barcode}` : ""}
@@ -2128,7 +2128,7 @@ function PartialQtyHint({ item }) {
       borderRadius: 7,
       padding: "2px 6px",
       fontSize: 10,
-      fontWeight: 850,
+      fontWeight: 700,
       fontFamily: C.mono,
       whiteSpace: "nowrap",
     }}>
@@ -2163,7 +2163,7 @@ function PartialReceiptModal({ items, saving, onClose, onSave }) {
             <PackageOpen size={17} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 900 }}>Recepcion parcial</div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Recepcion parcial</div>
             <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
               Carga cuanto llego de cada item. Este dato es obligatorio para marcar parcial.
             </div>
@@ -2180,10 +2180,10 @@ function PartialReceiptModal({ items, saving, onClose, onSave }) {
             return (
               <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1fr) 120px 150px", gap: 10, alignItems: "center", border: `1px solid ${bad ? C.redB : C.border}`, background: bad ? "var(--red-soft)" : C.panel, borderRadius: 11, padding: 11 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
                   <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{item.codigo || "Sin codigo"}</div>
                 </div>
-                <div style={{ color: C.muted, fontSize: 12, fontWeight: 800 }}>
+                <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>
                   Pedido: <span style={{ color: C.text, fontFamily: C.mono }}>{item.cantidad || "-"}</span> {item.unidad || ""}
                 </div>
                 <input
@@ -2194,7 +2194,7 @@ function PartialReceiptModal({ items, saving, onClose, onSave }) {
                   value={value}
                   onChange={(e) => update(item.id, e.target.value)}
                   placeholder="Llegaron"
-                  style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${bad ? C.red : ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "9px 10px", borderRadius: 9, fontSize: 14, fontFamily: C.mono, fontWeight: 850, outline: "none" }}
+                  style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${bad ? C.red : ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "9px 10px", borderRadius: 9, fontSize: 14, fontFamily: C.mono, fontWeight: 700, outline: "none" }}
                 />
               </div>
             );
@@ -2202,13 +2202,13 @@ function PartialReceiptModal({ items, saving, onClose, onSave }) {
         </div>
 
         <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ color: invalid ? C.red : C.dim, fontSize: 12, fontWeight: 800, marginRight: "auto" }}>
+          <div style={{ color: invalid ? C.red : C.dim, fontSize: 12, fontWeight: 650, marginRight: "auto" }}>
             {invalid ? "Completá una cantidad válida para todos los items." : `${items.length} item${items.length === 1 ? "" : "s"} listo${items.length === 1 ? "" : "s"}.`}
           </div>
-          <button type="button" onClick={onClose} disabled={saving} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "8px 12px", cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 800, fontFamily: C.sans }}>
+          <button type="button" onClick={onClose} disabled={saving} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "8px 12px", cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 650, fontFamily: C.sans }}>
             Cancelar
           </button>
-          <button type="button" onClick={() => onSave(rows)} disabled={saving || invalid} style={{ border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, background: ITEM_ESTADO_META.parcial.bg, color: ITEM_ESTADO_META.parcial.color, borderRadius: 9, padding: "8px 13px", cursor: saving || invalid ? "default" : "pointer", fontSize: 13, fontWeight: 900, fontFamily: C.sans, opacity: saving || invalid ? 0.55 : 1 }}>
+          <button type="button" onClick={() => onSave(rows)} disabled={saving || invalid} style={{ border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, background: ITEM_ESTADO_META.parcial.bg, color: ITEM_ESTADO_META.parcial.color, borderRadius: 9, padding: "8px 13px", cursor: saving || invalid ? "default" : "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans, opacity: saving || invalid ? 0.55 : 1 }}>
             {saving ? "Guardando..." : "Guardar parcial"}
           </button>
         </div>

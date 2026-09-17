@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 
@@ -29,10 +28,10 @@ function AnimNum({ to, color }) {
     };
     requestAnimationFrame(step);
   }, [to]);
-  return <span style={{ color, fontFamily: C.mono, fontWeight: 800 }}>{val}</span>;
+  return <span style={{ color, fontFamily: C.mono, fontWeight: 650 }}>{val}</span>;
 }
 
-export default function SemaforoScreen({ profile, signOut }) {
+export default function SemaforoScreen() {
   const { isMobile } = useResponsive();
   const clock = useClock();
   const [data, setData] = useState(null);
@@ -72,7 +71,7 @@ export default function SemaforoScreen({ profile, signOut }) {
 
   const getColor = (estado) => {
     if (estado === "rojo") return C.red;
-    if (estado === "ambar") return C.amber;
+    if (estado === "ambar") return C.cyan;
     return C.green;
   };
 
@@ -83,24 +82,21 @@ export default function SemaforoScreen({ profile, signOut }) {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: C.bg, fontFamily: C.sans, color: C.text }}>
-      <div style={{ width: isMobile ? 0 : 280, flexShrink: 0, height: "100vh", overflow: "visible" }}>
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
+    <div style={{ display: "flex", height: "100%", overflow: "hidden", background: C.bg, fontFamily: C.sans, color: C.text }}>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", minWidth: 0 }}>
         {/* Topbar */}
         <div style={{
           height: 54, flexShrink: 0,
           background: "rgba(7,8,13,0.94)",
           backdropFilter: "blur(32px) saturate(130%)",
           borderBottom: `1px solid ${C.border}`,
-          padding: isMobile ? "0 12px 0 52px" : "0 22px",
+          padding: isMobile ? "0 12px" : "0 22px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <div>
             <div style={{ fontSize: 10, color: C.dim, letterSpacing: 3, textTransform: "uppercase", fontFamily: C.mono }}>Semáforo de Producción</div>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>Estado de Obras en Tiempo Real</div>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>Estado de Obras en Tiempo Real</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {lastUpdate && (
@@ -134,7 +130,7 @@ export default function SemaforoScreen({ profile, signOut }) {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
                 <KpiCard label="Obras Activas" value={data.kpis.total} color={C.blue} />
                 <KpiCard label="Sin Riesgo" value={data.kpis.verdes} color={C.green} />
-                <KpiCard label="En Riesgo" value={data.kpis.ambar} color={C.amber} />
+                <KpiCard label="En Riesgo" value={data.kpis.ambar} color={C.cyan} />
                 <KpiCard label="Bloqueadas" value={data.kpis.rojas} color={C.red} />
               </div>
 
@@ -180,7 +176,7 @@ function KpiCard({ label, value, color }) {
       flexDirection: "column",
       gap: 8,
     }}>
-      <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: C.mono, fontWeight: 700 }}>
+      <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: C.mono, fontWeight: 600 }}>
         {label}
       </div>
       <div style={{ fontSize: 36, lineHeight: 1 }}>
@@ -208,7 +204,7 @@ function ObraCard({ obra, getColor, getAnimation }) {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color, lineHeight: 1 }}>{obra.obra_codigo}</div>
+          <div style={{ fontSize: 24, fontWeight: 650, color, lineHeight: 1 }}>{obra.obra_codigo}</div>
           <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>{obra.linea_nombre}</div>
         </div>
         <div style={{
@@ -233,7 +229,7 @@ function ObraCard({ obra, getColor, getAnimation }) {
         padding: "16px 20px",
         textAlign: "center",
       }}>
-        <div style={{ fontSize: 42, fontWeight: 800, color, lineHeight: 1, fontFamily: C.mono }}>
+        <div style={{ fontSize: 42, fontWeight: 650, color, lineHeight: 1, fontFamily: C.mono }}>
           {obra.dias_garantizados}
         </div>
         <div style={{ fontSize: 12, color: C.dim, marginTop: 6, letterSpacing: 1, textTransform: "uppercase" }}>
@@ -244,7 +240,7 @@ function ObraCard({ obra, getColor, getAnimation }) {
       {/* Quiebres */}
       {obra.quiebres && obra.quiebres.length > 0 && (
         <div>
-          <div style={{ fontSize: 10, color: C.amber, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono, fontWeight: 700 }}>
+          <div style={{ fontSize: 10, color: C.cyan, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono, fontWeight: 600 }}>
             Materiales críticos
           </div>
           {obra.quiebres.map((q, i) => (
@@ -256,7 +252,7 @@ function ObraCard({ obra, getColor, getAnimation }) {
                 <div key={j} style={{ fontSize: 11, color: C.muted, paddingLeft: 8, lineHeight: 1.4 }}>
                   • {m.descripcion}
                   {m.lead_time_dias && (
-                    <span style={{ color: C.amber, marginLeft: 6 }}>
+                    <span style={{ color: C.cyan, marginLeft: 6 }}>
                       (lead: {Math.round(m.lead_time_dias)}d)
                     </span>
                   )}

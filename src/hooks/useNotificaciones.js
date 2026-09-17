@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import useAlertas from "@/hooks/useAlertas";
 import {
@@ -192,6 +192,8 @@ const SELECT_COMPRAS_SIN_AUTOR = `
 `;
 
 export default function useNotificaciones(profile) {
+  // Canales con nombre propio por instancia: ver el comentario en useAlertas.
+  const instancia = useId().replace(/[^a-zA-Z0-9]/g, "");
   const role = operationalRole(profile);
   const enabled = !!profile && role !== "cliente";
   const yo = userIdOf(profile);
@@ -450,13 +452,13 @@ export default function useNotificaciones(profile) {
     if (verRecepcion) {
       channels.push(
         supabase
-          .channel(`rt-notif-panol-envios-${yo || "anon"}`)
+          .channel(`rt-notif-panol-envios-${yo || "anon"}-${instancia}`)
           .on("postgres_changes", { event: "*", schema: "public", table: "panol_envios" }, () => schedule(cargarRecepcion))
           .subscribe(),
       );
     }
     if (verCompras) {
-      const channel = supabase.channel(`rt-notif-compras-${yo || "anon"}`);
+      const channel = supabase.channel(`rt-notif-compras-${yo || "anon"}-${instancia}`);
       channel.on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests" }, () => schedule(cargarCompras));
       channel.on("postgres_changes", { event: "*", schema: "public", table: "request_followers" }, () => schedule(cargarCompras));
       if (colaCompras || profile?.is_admin || role === "admin") {
@@ -467,7 +469,7 @@ export default function useNotificaciones(profile) {
     if (verLogistica) {
       channels.push(
         supabase
-          .channel(`rt-notif-logistica-${yo || "anon"}`)
+          .channel(`rt-notif-logistica-${yo || "anon"}-${instancia}`)
           .on("postgres_changes", { event: "*", schema: "public", table: "calendario_eventos" }, () => schedule(cargarLogistica))
           .subscribe(),
       );
@@ -484,7 +486,7 @@ export default function useNotificaciones(profile) {
     };
   }, [
     cargarAvisos, cargarCompras, cargarLogistica, cargarRecepcion,
-    colaCompras, loadKey, profile?.is_admin, role, verCompras, verLogistica, verRecepcion, yo,
+    colaCompras, instancia, loadKey, profile?.is_admin, role, verCompras, verLogistica, verRecepcion, yo,
   ]);
 
   const loading = loadingRecepcion || loadingCompras || loadingAvisos || loadingLogistica

@@ -15,7 +15,7 @@ const chipStyle = (on, locked) => ({
   color: on ? "#60a5fa" : C.t2,
 });
 
-const hint = { fontSize: 11, color: C.amber, marginTop: 5 };
+const hint = { fontSize: 11, color: C.cyan, marginTop: 5 };
 
 // ── Áreas extra de un material (además de la principal) ─────────────────────
 export function AreasEditor({ material, categorias }) {
@@ -123,7 +123,7 @@ export function VariantesTab({ opciones, onChanged }) {
           {opciones.map((o) => (
             <div key={o.id} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 14 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.t0 }}>{o.nombre}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>{o.nombre}</div>
                 <button type="button" disabled={busy} onClick={() => run(() => borrarOpcion(o.id))} style={{ ...BTN, color: C.red, padding: "4px 8px" }} title="Borrar dimensión">
                   <Trash2 size={13} />
                 </button>

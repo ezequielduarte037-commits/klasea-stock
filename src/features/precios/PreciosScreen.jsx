@@ -25,7 +25,6 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -163,7 +162,7 @@ const label = {
   marginBottom: 6,
   color: C.t2,
   fontSize: 10,
-  fontWeight: 700,
+  fontWeight: 600,
   letterSpacing: 0.8,
   textTransform: "uppercase",
 };
@@ -173,7 +172,7 @@ function Pill({ kind = "neutral", children }) {
     kind === "ok"
       ? [C.green, C.greenL, C.greenB]
       : kind === "warn"
-        ? [C.amber, C.amberL, C.amberB]
+        ? [C.cyan, C.cyanL, C.cyanB]
         : kind === "danger"
           ? [C.red, C.redL, C.redB]
           : kind === "blue"
@@ -240,7 +239,7 @@ function Metric({ icon, label, value, hint, color = C.blue, onClick }) {
           fontFamily: C.mono,
           fontSize: 21,
           lineHeight: 1,
-          fontWeight: 700,
+          fontWeight: 600,
           fontVariantNumeric: "tabular-nums",
         }}
       >
@@ -442,10 +441,10 @@ function MaterialItem({
         <div style={{ textAlign: "right" }}>
           <div
             style={{
-              color: value != null ? C.t0 : C.amber,
+              color: value != null ? C.t0 : C.cyan,
               fontFamily: value != null ? C.mono : C.sans,
               fontSize: value != null ? 12.5 : 11,
-              fontWeight: value != null ? 700 : 600,
+              fontWeight: value != null ? 600 : 500,
             }}
           >
             {money(value, currency || "ARS")}
@@ -802,10 +801,10 @@ function Detail({ material, provider, providers, categories, onSaved, toast }) {
           </div>
           <div
             style={{
-              color: material.precio_unitario == null ? C.amber : C.green,
+              color: material.precio_unitario == null ? C.cyan : C.green,
               fontFamily: C.mono,
               fontSize: 17,
-              fontWeight: 700,
+              fontWeight: 600,
               marginTop: 5,
               fontVariantNumeric: "tabular-nums",
             }}
@@ -837,7 +836,7 @@ function Detail({ material, provider, providers, categories, onSaved, toast }) {
               color: C.t0,
               fontFamily: C.mono,
               fontSize: 17,
-              fontWeight: 700,
+              fontWeight: 600,
               marginTop: 5,
               fontVariantNumeric: "tabular-nums",
             }}
@@ -885,7 +884,7 @@ function Detail({ material, provider, providers, categories, onSaved, toast }) {
               </div>
               <span
                 style={{
-                  color: item.precio == null ? C.amber : C.t0,
+                  color: item.precio == null ? C.cyan : C.t0,
                   fontFamily: C.mono,
                   fontSize: 11.5,
                   fontWeight: 600,
@@ -1354,10 +1353,10 @@ function ReceiptItemReview({
         {selected && !editing ? (
           <div
             style={{
-              border: `1px solid ${match.kind === "created" || match.kind === "suggestion" ? C.amberB : C.greenB}`,
+              border: `1px solid ${match.kind === "created" || match.kind === "suggestion" ? C.cyanB : C.greenB}`,
               background:
                 match.kind === "created" || match.kind === "suggestion"
-                  ? C.amberL
+                  ? C.cyanL
                   : C.greenL,
               borderRadius: 8,
               padding: "8px 9px",
@@ -1369,10 +1368,10 @@ function ReceiptItemReview({
             {match.kind === "created" ? (
               <PackagePlus
                 size={14}
-                style={{ color: C.amber, flexShrink: 0 }}
+                style={{ color: C.cyan, flexShrink: 0 }}
               />
             ) : match.kind === "suggestion" ? (
-              <CircleAlert size={14} style={{ color: C.amber, flexShrink: 0 }} />
+              <CircleAlert size={14} style={{ color: C.cyan, flexShrink: 0 }} />
             ) : (
               <CircleCheck size={14} style={{ color: C.green, flexShrink: 0 }} />
             )}
@@ -1398,7 +1397,7 @@ function ReceiptItemReview({
                     : "Producto existente del catálogo"}
                 </span>
                 {match.score != null && (
-                  <span style={{ color: match.kind === "suggestion" ? C.amber : C.green, fontFamily: C.mono, fontWeight: 700 }}>
+                  <span style={{ color: match.kind === "suggestion" ? C.cyan : C.green, fontFamily: C.mono, fontWeight: 600 }}>
                     {match.score}% coincidencia
                   </span>
                 )}
@@ -1544,7 +1543,7 @@ function ReceiptItemReview({
                   ...button,
                   width: "100%",
                   justifyContent: "flex-start",
-                  color: C.amber,
+                  color: C.cyan,
                 }}
               >
                 <Link2 size={13} /> Vincular al catalogo
@@ -1606,7 +1605,7 @@ function ReceiptItemReview({
           <>
             <div
               style={{
-                color: item.precio_unitario == null ? C.amber : C.t0,
+                color: item.precio_unitario == null ? C.cyan : C.t0,
                 fontFamily: C.mono,
                 fontSize: 13,
                 fontWeight: 600,
@@ -1657,7 +1656,7 @@ function ReceiptImportContextModal({ file, providers, isMobile, onConfirm, onClo
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.violet, background: C.violet + "18", flexShrink: 0 }}><FileText size={18} /></div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.t0, fontSize: 16, fontWeight: 750 }}>Antes de leer el comprobante</div>
+            <div style={{ color: C.t0, fontSize: 16, fontWeight: 650 }}>Antes de leer el comprobante</div>
             <div style={{ color: C.t2, fontSize: 12, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file?.name}</div>
           </div>
         </div>
@@ -1765,9 +1764,9 @@ function ReceiptReviewWorkspace({
   const summary = [
     ["Lineas", pending.length, C.t0],
     ["Coincidencias", matched, C.green],
-    ["Nuevos", created, created ? C.amber : C.t2],
-    ["Sugerencias", suggestions, suggestions ? C.amber : C.t2],
-    ["A resolver", needsReview, needsReview ? C.amber : C.t2],
+    ["Nuevos", created, created ? C.cyan : C.t2],
+    ["Sugerencias", suggestions, suggestions ? C.cyan : C.t2],
+    ["A resolver", needsReview, needsReview ? C.cyan : C.t2],
     ["Total", money(total, active.moneda), C.violet],
   ];
   return (
@@ -1913,13 +1912,13 @@ function ReceiptReviewWorkspace({
                 <FileText size={19} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.t0, fontSize: 15, fontWeight: 700 }}>
+                <div style={{ color: C.t0, fontSize: 15, fontWeight: 600 }}>
                   {active.proveedor || "Proveedor por definir"}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.t2, fontSize: 11, marginTop: 4, flexWrap: "wrap" }}>
                   {active.numero ? `Comprobante ${active.numero} · ` : ""}
                   {dateLabel(active.fecha)}
-                  <span style={{ border: `1px solid ${(active.moneda || "ARS") === "USD" ? C.blueB : C.greenB}`, background: (active.moneda || "ARS") === "USD" ? C.blueL : C.greenL, color: (active.moneda || "ARS") === "USD" ? C.blue : C.green, borderRadius: 999, padding: "2px 6px", fontFamily: C.mono, fontSize: 10, fontWeight: 800 }}>{active.moneda || "ARS"}</span>
+                  <span style={{ border: `1px solid ${(active.moneda || "ARS") === "USD" ? C.blueB : C.greenB}`, background: (active.moneda || "ARS") === "USD" ? C.blueL : C.greenL, color: (active.moneda || "ARS") === "USD" ? C.blue : C.green, borderRadius: 999, padding: "2px 6px", fontFamily: C.mono, fontSize: 10, fontWeight: 650 }}>{active.moneda || "ARS"}</span>
                 </div>
               </div>
             </div>
@@ -2045,7 +2044,7 @@ function ReceiptReviewWorkspace({
                     color,
                     fontFamily: label === "Total" ? C.mono : C.sans,
                     fontSize: label === "Total" ? 12 : 16,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -2064,9 +2063,9 @@ function ReceiptReviewWorkspace({
               gap: 8,
               alignItems: "center",
               padding: "9px 15px",
-              color: C.amber,
-              background: C.amberL,
-              borderBottom: `1px solid ${C.amberB}`,
+              color: C.cyan,
+              background: C.cyanL,
+              borderBottom: `1px solid ${C.cyanB}`,
               fontSize: 11.5,
               fontWeight: 500,
             }}
@@ -2149,7 +2148,7 @@ function ReceiptReviewWorkspace({
   );
 }
 
-export default function PreciosScreen({ profile, signOut }) {
+export default function PreciosScreen() {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const [catalog, setCatalog] = useState(null);
@@ -2821,7 +2820,7 @@ export default function PreciosScreen({ profile, signOut }) {
   return (
     <div
       style={{
-        position: "fixed",
+        position: "absolute",
         inset: 0,
         display: "flex",
         overflow: "hidden",
@@ -2830,11 +2829,6 @@ export default function PreciosScreen({ profile, signOut }) {
         fontFamily: C.sans,
       }}
     >
-      <div
-        style={{ width: isMobile ? 0 : 280, height: "100vh", flexShrink: 0 }}
-      >
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
       <main
         style={{
           minWidth: 0,
@@ -2963,7 +2957,7 @@ export default function PreciosScreen({ profile, signOut }) {
               label="Sin precio"
               value={stats.missingPrice}
               hint="para cotizar"
-              color={stats.missingPrice ? C.amber : C.green}
+              color={stats.missingPrice ? C.cyan : C.green}
               onClick={() => {
                 setView("proveedores");
                 setFilter("sin-precio");
@@ -3288,7 +3282,7 @@ export default function PreciosScreen({ profile, signOut }) {
                       </button>
                     )}
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
                         {view === "sin-asignar"
                           ? "Materiales sin proveedor"
                           : selectedProvider?.nombre || "Proveedor"}
@@ -3357,7 +3351,7 @@ export default function PreciosScreen({ profile, signOut }) {
                       <span
                         style={{
                           fontSize: 12,
-                          fontWeight: 700,
+                          fontWeight: 600,
                           color: C.blue,
                           fontFamily: C.mono,
                         }}

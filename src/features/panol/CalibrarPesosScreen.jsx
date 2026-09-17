@@ -17,7 +17,7 @@ import { borrarPesoUnitario, fetchConsumiblesPeso, guardarPesoUnitario } from "@
  */
 
 const CARD = { border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, padding: 14 };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 850, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
+const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
 const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" };
 
 const norm = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -117,29 +117,29 @@ export default function CalibrarPesosScreen({ toast }) {
       <div style={{ maxWidth: 1080, margin: "0 auto", display: "grid", gap: 12 }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => nav(-1)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "8px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800 }}>
+          <button type="button" onClick={() => nav(-1)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "8px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 650 }}>
             <ArrowLeft size={15} /> Volver
           </button>
           <div style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.3)", color: C.violet }}>
             <Scale size={20} />
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 16, fontWeight: 950, color: C.text }}>Calibrar peso por pieza</div>
+            <div style={{ fontSize: 16, fontWeight: 750, color: C.text }}>Calibrar peso por pieza</div>
             <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>
               {cargando ? "Cargando…" : `${items.length} consumibles · ${pendientes} sin calibrar`}
             </div>
           </div>
           {/* Estado de la balanza */}
           <button type="button" onClick={() => nav("/balanza")} title="Sniffer del puerto serie, para diagnosticar si la balanza no responde"
-            style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 999, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
+            style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 999, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 650, whiteSpace: "nowrap" }}>
             Diagnóstico
           </button>
           {bal.conectado ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 850, color: C.green, border: `1px solid ${C.greenB}`, background: "rgba(34,197,94,0.08)", borderRadius: 999, padding: "6px 12px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: C.green, border: `1px solid ${C.greenB}`, background: "rgba(34,197,94,0.08)", borderRadius: 999, padding: "6px 12px" }}>
               <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green }} /> Balanza conectada
             </span>
           ) : (
-            <button type="button" onClick={bal.conectar} disabled={!bal.soportado} style={{ border: "none", background: bal.soportado ? C.green : C.panel2, color: bal.soportado ? "#fff" : C.dim, borderRadius: 9, padding: "9px 14px", cursor: bal.soportado ? "pointer" : "default", fontSize: 13, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <button type="button" onClick={bal.conectar} disabled={!bal.soportado} style={{ border: "none", background: bal.soportado ? C.green : C.panel2, color: bal.soportado ? "#fff" : C.dim, borderRadius: 9, padding: "9px 14px", cursor: bal.soportado ? "pointer" : "default", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Plug size={15} /> Conectar balanza
             </button>
           )}
@@ -151,7 +151,7 @@ export default function CalibrarPesosScreen({ toast }) {
           </div>
         )}
         {bal.error && (
-          <div style={{ ...CARD, borderColor: C.violetB, background: "rgba(245,158,11,0.08)", fontSize: 12.5, color: C.violet, fontWeight: 700, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ ...CARD, borderColor: C.violetB, background: "rgba(34,211,238,0.08)", fontSize: 12.5, color: C.violet, fontWeight: 600, display: "flex", gap: 8, alignItems: "flex-start" }}>
             <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} /> {bal.error}
           </div>
         )}
@@ -167,7 +167,7 @@ export default function CalibrarPesosScreen({ toast }) {
               </div>
               {[["sin", "Sin calibrar"], ["con", "Calibrados"], ["todos", "Todos"]].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setFiltro(k)}
-                  style={{ border: `1px solid ${filtro === k ? C.blueB : C.border}`, background: filtro === k ? "rgba(59,130,246,0.10)" : C.panel, color: filtro === k ? C.blue : C.dim, borderRadius: 999, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850 }}>
+                  style={{ border: `1px solid ${filtro === k ? C.blueB : C.border}`, background: filtro === k ? "rgba(59,130,246,0.10)" : C.panel, color: filtro === k ? C.blue : C.dim, borderRadius: 999, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
                   {label}
                 </button>
               ))}
@@ -190,12 +190,12 @@ export default function CalibrarPesosScreen({ toast }) {
                       padding: "9px 12px", display: "flex", alignItems: "center", gap: 10,
                     }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</div>
+                      <div style={{ fontSize: 13, fontWeight: 650, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</div>
                       {m.codigo && <div style={{ fontSize: 10.5, color: C.dim, fontFamily: C.mono, marginTop: 1 }}>{m.codigo}</div>}
                     </div>
                     {cal ? (
                       <>
-                        <span style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: C.green, whiteSpace: "nowrap" }}>
+                        <span style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, color: C.green, whiteSpace: "nowrap" }}>
                           {Number(m.peso_unitario_g).toFixed(2)} g
                         </span>
                         <span title="Recalibrar" onClick={(e) => { e.stopPropagation(); recalibrar(m); }}
@@ -204,7 +204,7 @@ export default function CalibrarPesosScreen({ toast }) {
                         </span>
                       </>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 900, color: C.violet, background: "rgba(245,158,11,0.10)", border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>PENDIENTE</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "rgba(34,211,238,0.10)", border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>PENDIENTE</span>
                     )}
                   </button>
                 );
@@ -221,8 +221,8 @@ export default function CalibrarPesosScreen({ toast }) {
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 10, color: C.dim, fontWeight: 850, letterSpacing: 0.6, textTransform: "uppercase" }}>Calibrando</div>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginTop: 3 }}>{sel.descripcion}</div>
+                  <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase" }}>Calibrando</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginTop: 3 }}>{sel.descripcion}</div>
                 </div>
 
                 <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5, background: C.panel, borderRadius: 9, padding: "9px 11px", border: `1px solid ${C.border}` }}>
@@ -233,29 +233,29 @@ export default function CalibrarPesosScreen({ toast }) {
                 <div>
                   <label style={LBL}>¿Cuántas piezas pusiste?</label>
                   <input type="number" min="1" step="1" value={piezas} onChange={(e) => setPiezas(e.target.value)}
-                    placeholder="Ej: 200" style={{ ...INP, fontFamily: C.mono, fontSize: 16, fontWeight: 900 }} />
+                    placeholder="Ej: 200" style={{ ...INP, fontFamily: C.mono, fontSize: 16, fontWeight: 700 }} />
                 </div>
 
                 <button type="button" onClick={leer} disabled={!bal.conectado || bal.leyendo}
-                  style={{ border: "none", background: bal.conectado ? C.blue : C.panel2, color: bal.conectado ? "#fff" : C.dim, borderRadius: 10, padding: "11px 16px", cursor: bal.conectado ? "pointer" : "default", fontSize: 14, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  style={{ border: "none", background: bal.conectado ? C.blue : C.panel2, color: bal.conectado ? "#fff" : C.dim, borderRadius: 10, padding: "11px 16px", cursor: bal.conectado ? "pointer" : "default", fontSize: 14, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <Scale size={16} /> {bal.leyendo ? "Leyendo…" : "Leer balanza"}
                 </button>
 
                 {gramos != null && (
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 11, padding: 12, background: C.panel, display: "grid", gap: 9 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <span style={{ fontSize: 11.5, color: C.dim, fontWeight: 800 }}>Peso leído</span>
-                      <span style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 900, color: C.text }}>{gramos} g</span>
+                      <span style={{ fontSize: 11.5, color: C.dim, fontWeight: 650 }}>Peso leído</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.text }}>{gramos} g</span>
                     </div>
                     {pesoUnit != null && (
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: `1px solid ${C.border}`, paddingTop: 9 }}>
-                        <span style={{ fontSize: 11.5, color: C.dim, fontWeight: 800 }}>Peso por pieza</span>
-                        <span style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 900, color: C.violet }}>{pesoUnit.toFixed(3)} g</span>
+                        <span style={{ fontSize: 11.5, color: C.dim, fontWeight: 650 }}>Peso por pieza</span>
+                        <span style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.violet }}>{pesoUnit.toFixed(3)} g</span>
                       </div>
                     )}
                     {calidad && (
                       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9, display: "grid", gap: 5 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, fontWeight: 800, color: COLOR_CALIDAD[calidad.nivel] }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, fontWeight: 650, color: COLOR_CALIDAD[calidad.nivel] }}>
                           {calidad.nivel === "pobre" || calidad.nivel === "aceptable" ? <AlertTriangle size={14} /> : <Check size={14} />}
                           Precisión: {calidad.texto} (±{calidad.errorPct.toFixed(1)}%)
                         </div>
@@ -275,7 +275,7 @@ export default function CalibrarPesosScreen({ toast }) {
                 )}
 
                 <button type="button" onClick={guardar} disabled={pesoUnit == null || guardando}
-                  style={{ border: "none", background: pesoUnit != null && !guardando ? C.green : C.panel2, color: pesoUnit != null && !guardando ? "#fff" : C.dim, borderRadius: 10, padding: "11px 16px", cursor: pesoUnit != null && !guardando ? "pointer" : "default", fontSize: 14, fontWeight: 950, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  style={{ border: "none", background: pesoUnit != null && !guardando ? C.green : C.panel2, color: pesoUnit != null && !guardando ? "#fff" : C.dim, borderRadius: 10, padding: "11px 16px", cursor: pesoUnit != null && !guardando ? "pointer" : "default", fontSize: 14, fontWeight: 750, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <Check size={16} /> {guardando ? "Guardando…" : "Guardar y siguiente"} <ChevronRight size={15} />
                 </button>
               </div>

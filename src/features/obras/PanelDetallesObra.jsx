@@ -30,7 +30,7 @@ function ocUrgencia(oc) {
   if (d < 0)   return { color: C.red,   label: `Vencida ${Math.abs(d)}d` };
   if (d === 0) return { color: C.red,   label: "Vence hoy" };
   if (d <= 3)  return { color: C.red,   label: `Vence en ${d}d` };
-  if (d <= 7)  return { color: C.amber, label: `Vence en ${d}d` };
+  if (d <= 7)  return { color: C.cyan, label: `Vence en ${d}d` };
   return null;
 }
 
@@ -150,7 +150,7 @@ export default function PanelDetallesObra({
           <>
             {/* Código + estado */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ fontFamily: C.mono, fontSize: 18, color: C.t0, fontWeight: 700 }}>{obra.codigo}</span>
+              <span style={{ fontFamily: C.mono, fontSize: 18, color: C.t0, fontWeight: 600 }}>{obra.codigo}</span>
               <span style={{
                 fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase",
                 padding: "3px 8px", borderRadius: 99,
@@ -214,7 +214,7 @@ export default function PanelDetallesObra({
                       }}>
                         <Dot color={ec.dot} size={6} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, color: C.t0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontSize: 12, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {etapa.nombre}{etapa.genera_orden_compra ? " ●" : ""}
                           </div>
                           {etapa.dias_estimados && (
@@ -231,7 +231,7 @@ export default function PanelDetallesObra({
 
             {/* ── ÓRDENES DE COMPRA CRÍTICAS ── */}
             {ocCriticas.length > 0 && (
-              <Section title="⚠ OC Críticas" accent={C.amber}>
+              <Section title="⚠ OC Críticas" accent={C.cyan}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {ocCriticas.map(oc => {
                     const u = ocUrgencia(oc);
@@ -239,12 +239,12 @@ export default function PanelDetallesObra({
                     return (
                       <div key={oc.id} style={{
                         padding: "8px 10px", borderRadius: 7,
-                        background: "rgba(245,158,11,0.05)",
-                        border: "1px solid rgba(245,158,11,0.2)",
+                        background: "rgba(34,211,238,0.05)",
+                        border: "1px solid rgba(34,211,238,0.2)",
                       }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                           <Dot color={ocC.dot} size={6} />
-                          <span style={{ fontSize: 12, color: C.t0, flex: 1, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: 12, color: C.t0, flex: 1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {oc.descripcion ?? oc.tipo ?? "OC"}
                           </span>
                         </div>
@@ -324,7 +324,7 @@ export default function PanelDetallesObra({
                 onAsignarPuesto?.(puesto, obra);
               }
             }}
-            style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}
+            style={{ fontSize: 12, padding: "6px 12px", fontWeight: 600 }}
           >
             ⊘ Desasignar
           </Btn>

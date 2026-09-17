@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 import { ToastProvider } from "@/components/ui/Toast";
@@ -32,6 +32,9 @@ import ColectorHomeScreen from "@/features/inventario/ColectorHomeScreen";
 // El login también va en el bundle inicial: es lo primero que abre el colector.
 import LoginScreen from "@/features/login/LoginScreen";
 import IntroMarca from "@/features/login/IntroMarca";
+import TelonSalida from "@/features/login/TelonSalida";
+import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
+import BrandLoader from "@/components/ui/BrandLoader";
 
 // Un deploy le cambia el hash a cada chunk. Una pestaña que quedó abierta desde
 // antes tiene el index viejo en memoria, pide un archivo que ya no existe, y el
@@ -85,14 +88,18 @@ class PantallaCaida extends React.Component {
 
   render() {
     if (!this.state.cayo) return this.props.children;
+    // enContenido: adentro del contenedor general el cartel ocupa sólo el área
+    // de la pantalla y el menú sigue disponible para ir a otra.
+    // Los colores llevan respaldo por si lo que falló fue la hoja de estilos.
     return (
       <div style={{
-        position: "fixed", inset: 0, display: "grid", placeItems: "center",
-        background: "#0b1120", color: "#e2e8f0", fontFamily: "system-ui, sans-serif", padding: 24,
+        position: this.props.enContenido ? "absolute" : "fixed", top: 0, right: 0, bottom: 0, left: 0,
+        display: "grid", placeItems: "center",
+        background: "var(--bg, #08090d)", color: "var(--text, #eef1f6)", fontFamily: "'Outfit', system-ui, sans-serif", padding: 24,
       }}>
         <div style={{ maxWidth: 420, textAlign: "center" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 10 }}>No se pudo cargar la pantalla</div>
-          <p style={{ margin: "0 0 18px", fontSize: 13.5, lineHeight: 1.55, color: "#94a3b8" }}>
+          <div style={{ fontSize: 19, fontWeight: 600, marginBottom: 10 }}>No se pudo cargar la pantalla</div>
+          <p style={{ margin: "0 0 20px", fontSize: 14, lineHeight: 1.55, color: "var(--muted, #c0c6d0)" }}>
             Suele pasar cuando se publicó una versión nueva con la pestaña abierta.
             Recargá y debería entrar bien.
           </p>
@@ -105,8 +112,8 @@ class PantallaCaida extends React.Component {
               recargarSalteandoCache();
             }}
             style={{
-              border: "none", background: "#2563eb", color: "#fff", borderRadius: 9,
-              padding: "10px 20px", fontSize: 14, fontWeight: 800, cursor: "pointer",
+              border: "none", background: "var(--blue, #7eb3ff)", color: "var(--inverse-text, #08090d)", borderRadius: 11,
+              minHeight: 44, padding: "0 24px", fontSize: 14.5, fontWeight: 600, cursor: "pointer",
             }}
           >
             Recargar
@@ -188,6 +195,13 @@ const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScre
 const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScreen"));
 const PantallaEgresoScreen = pantalla(() => import("@/features/panol/PantallaEgresoScreen"));
 const SobrantesObraScreen = pantalla(() => import("@/features/panol/SobrantesObraScreen"));
+
+// El contenedor (menú, campanita y sus modales) va en su propio chunk: el PDA
+// del pañol nunca lo usa y no tiene por qué descargarlo al arrancar. Para el
+// resto se pide apenas se conoce el perfil (ver más abajo), así que cuando
+// llega la primera pantalla interna ya está en caché.
+const importarContenedor = () => import("@/components/AppShell");
+const AppShell = pantalla(importarContenedor);
 
 const STARTUP_TIMEOUT_MS = 12_000;
 
@@ -272,7 +286,9 @@ function RequireSede({ profile, sede, children }) {
   return <Navigate to={propia === "Chubut" ? "/laminacion-chubut" : "/laminacion"} replace />;
 }
 
-function RouteLoader({ label = "Cargando módulo..." }) {
+// pantallaCompleta: fuera del contenedor general (arranque, rutas sueltas como
+// /etiquetas). Adentro ocupa sólo el área de contenido y el menú sigue a la vista.
+function RouteLoader({ label = "Abriendo la pantalla…", pantallaCompleta = true }) {
   const [demorado, setDemorado] = useState(false);
 
   useEffect(() => {
@@ -281,13 +297,11 @@ function RouteLoader({ label = "Cargando módulo..." }) {
   }, []);
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: C.bg, color: C.t1, fontFamily: C.sans }}>
-      <div style={{ width: "calc(100vw - 28px)", maxWidth: 330, display: "grid", gap: 10, justifyItems: "center", textAlign: "center" }}>
-        <div style={{ width: 28, height: 28, borderRadius: 999, border: `3px solid ${C.b1}`, borderTopColor: C.blue, animation: "spin .8s linear infinite" }} />
-        <div style={{ fontSize: 13, fontWeight: 850 }}>{label}</div>
+    <div style={{ minHeight: pantallaCompleta ? "100vh" : "100%", height: pantallaCompleta ? undefined : "100%", display: "grid", placeItems: "center", background: pantallaCompleta ? C.bg : "transparent", fontFamily: C.sans }}>
+      <BrandLoader label={label}>
         {demorado && (
-          <div style={{ display: "grid", gap: 9, width: "100%", marginTop: 5 }}>
-            <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45 }}>
+          <div style={{ display: "grid", gap: 9, width: "calc(100vw - 32px)", maxWidth: 320, marginTop: 4 }}>
+            <div style={{ color: C.dim, fontSize: 12.5, lineHeight: 1.45 }}>
               Esta pantalla está tardando más de lo normal.
             </div>
             {(esAndroidLegacyAngosto() || tieneMarcaDeColector()) && (
@@ -297,7 +311,7 @@ function RouteLoader({ label = "Cargando módulo..." }) {
                   marcarComoColector();
                   window.location.replace("/colector");
                 }}
-                style={{ width: "100%", border: 0, borderRadius: 9, padding: "11px 12px", background: C.blue, color: "#fff", fontSize: 13, fontWeight: 900 }}
+                style={{ width: "100%", border: 0, borderRadius: 10, padding: "12px", background: C.blue, color: "var(--inverse-text)", fontSize: 13.5, fontWeight: 600 }}
               >
                 Abrir modo recolector
               </button>
@@ -305,13 +319,13 @@ function RouteLoader({ label = "Cargando módulo..." }) {
             <button
               type="button"
               onClick={recargarSalteandoCache}
-              style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 12px", background: C.panelSolid, color: C.text, fontSize: 12.5, fontWeight: 800 }}
+              style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px 12px", background: C.panelSolid, color: C.text, fontSize: 13, fontWeight: 600 }}
             >
               Reintentar carga
             </button>
           </div>
         )}
-      </div>
+      </BrandLoader>
     </div>
   );
 }
@@ -482,9 +496,22 @@ export default function App() {
     };
   }, []);
 
+  // Al cerrar sesión baja un telón con la K (TelonSalida): la sesión se cierra
+  // detrás y, ya con el login montado, el telón se desvanece.
+  const [despedida, setDespedida] = useState(null);
   async function signOut() {
-    await endTrackedAdminSession(profile, window.location.pathname);
-    await supabase.auth.signOut();
+    const conTelon = !leerMovimientoReducido();
+    if (conTelon) {
+      setDespedida({ nombre: profile?.username || "", fase: "entra" });
+      await new Promise((listo) => window.setTimeout(listo, 520));
+    }
+    try {
+      await endTrackedAdminSession(profile, window.location.pathname);
+      await supabase.auth.signOut();
+    } finally {
+      // Un respiro para que la ruta ya haya pasado al login antes de destapar.
+      if (conTelon) window.setTimeout(() => setDespedida((d) => (d ? { ...d, fase: "sale" } : d)), 160);
+    }
   }
 
   // Se calcula antes de los retornos de inicialización para mantener estable el
@@ -501,15 +528,16 @@ export default function App() {
     if (puedeUsarColector && (esAndroidLegacyAngosto() || (esRutaDeColector() && esDispositivoTactil()))) marcarComoColector();
   }, [puedeUsarColector]);
 
+  // Precarga del contenedor en paralelo con la primera pantalla interna.
+  const precargarContenedor = !!profile && !modoColector && profile.role !== "cliente";
+  useEffect(() => {
+    if (precargarContenedor) importarContenedor().catch(() => { /* lo reintenta la ruta */ });
+  }, [precargarContenedor]);
+
   if (isInitializing) {
     return (
-      <div style={{
-        background:C.bg, color:C.dim,
-        minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:11, letterSpacing:"0.13em", textTransform:"uppercase",
-        fontFamily:"'Outfit',system-ui",
-      }}>
-        Cargando…
+      <div style={{ background: C.bg, minHeight: "100vh" }}>
+        <BrandLoader fullScreen label="" />
       </div>
     );
   }
@@ -521,13 +549,13 @@ export default function App() {
         fontFamily:"'Outfit',system-ui", padding:24,
       }}>
         <div style={{ width:"min(440px, 100%)", padding:24, borderRadius:16, background:C.panelSolid, border:`1px solid ${C.border}`, boxShadow:`0 22px 70px ${C.shadow}` }}>
-          <div style={{ color:C.red, fontSize:12, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>Conexión demorada</div>
-          <div style={{ color:C.text, fontSize:18, fontWeight:850, marginBottom:8 }}>No pudimos terminar de cargar Klase A</div>
+          <div style={{ color:C.red, fontSize:12, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>Conexión demorada</div>
+          <div style={{ color:C.text, fontSize:18, fontWeight:700, marginBottom:8 }}>No pudimos terminar de cargar Klase A</div>
           <div style={{ color:C.muted, fontSize:13, lineHeight:1.55, marginBottom:18 }}>{startupError}</div>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            style={{ width:"100%", border:0, borderRadius:10, padding:"11px 14px", background:C.blue, color:"var(--inverse-text)", fontWeight:900, cursor:"pointer" }}
+            style={{ width:"100%", border:0, borderRadius:10, padding:"11px 14px", background:C.blue, color:"var(--inverse-text)", fontWeight:700, cursor:"pointer" }}
           >
             Reintentar
           </button>
@@ -574,8 +602,6 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} onBienvenida={setBienvenida} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
-        <Route path="/"      element={homeElement} />
-
         {/* Panel de cliente */}
         <Route path="/mi-panel" element={
           <RequireAuth session={session}>
@@ -585,50 +611,11 @@ export default function App() {
             }
           </RequireAuth>
         } />
-
         {/* Personal */}
         <Route path="/panol"      element={<Navigate to="/madera?tab=Stock" replace />} />
-        <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Pampa"><LaminacionScreen key="Pampa" {...A} sede="Pampa" /></RequireSede></RequireRole></RequireAuth>} />
-        <Route path="/laminacion-chubut" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Chubut"><LaminacionScreen key="Chubut" {...A} sede="Chubut" /></RequireSede></RequireRole></RequireAuth>} />
-        <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles","compras"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/torneria"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","mecanica","compras"]}><TorneriaScreen   {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/inicio-panol/tarjetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><TarjetasNfcScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/cadete"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","cadete"]}><CadeteRutaScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/sobrantes-obra/:cierreId" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/sobrantes-obra" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/consumibles-caja" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><EgresoConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />
-        {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
-        <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><Suspense fallback={<RouteLoader label="Cargando materiales..." />}><MaterialesScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
-        <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/tickets" element={<RequireAuth session={session}><Suspense fallback={<RouteLoader label="Abriendo los tickets..." />}><TicketsScreen {...A} /></Suspense></RequireAuth>} />
-        <Route path="/costo-barco" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><Suspense fallback={<RouteLoader label="Calculando el costo..." />}><CostoBarcoScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
-        <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
-
-        {/* Admin / Oficina */}
-        <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/compras-etapa" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><ComprasEtapasScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","administracion","compras"]}><CalendarioScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/calendario-produccion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><CalendarioProduccionScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
         <Route path="/movimientos"element={<Navigate to="/madera?tab=Movimientos" replace />} />
-        <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/laminacion/plantillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><PlantillasLineaScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><MaderasScreen {...A} /></RequireRole></RequireAuth>} />
-
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
         {/* Arranque del colector: elegir entre egresar maderas o pedir a compras */}
@@ -636,11 +623,61 @@ export default function App() {
         {/* Aviso a compras desde el colector: se escanea lo que hay que reponer */}
         <Route path="/scan-pedido" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
-
         {/* Diagnóstico del puerto serie de la balanza (para descubrir su protocolo) */}
         <Route path="/balanza"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><BalanzaDebugScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/balanza/calibrar" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><CalibrarPesosScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh","tecnica","oficina","administracion"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
+
+        {/* Pantallas internas: todas adentro del contenedor general, que monta
+            el menú una sola vez. Si una pantalla tarda o falla, el cargador y el
+            cartel de error ocupan sólo el área de contenido. */}
+        <Route element={
+          <AppShell profile={profile} signOut={signOut}>
+            <PantallaCaida enContenido>
+              <Suspense fallback={<RouteLoader pantallaCompleta={false} />}>
+                <Outlet />
+              </Suspense>
+            </PantallaCaida>
+          </AppShell>
+        }>
+          <Route path="/"      element={homeElement} />
+          <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Pampa"><LaminacionScreen key="Pampa" {...A} sede="Pampa" /></RequireSede></RequireRole></RequireAuth>} />
+          <Route path="/laminacion-chubut" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Chubut"><LaminacionScreen key="Chubut" {...A} sede="Chubut" /></RequireSede></RequireRole></RequireAuth>} />
+          <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles","compras"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/torneria"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","mecanica","compras"]}><TorneriaScreen   {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/inicio-panol/tarjetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><TarjetasNfcScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/sobrantes-obra/:cierreId" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/sobrantes-obra" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/consumibles-caja" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><EgresoConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
+          <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><Suspense fallback={<RouteLoader label="Abriendo materiales…" pantallaCompleta={false} />}><MaterialesScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
+          <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/tickets" element={<RequireAuth session={session}><Suspense fallback={<RouteLoader label="Abriendo los tickets…" pantallaCompleta={false} />}><TicketsScreen {...A} /></Suspense></RequireAuth>} />
+          <Route path="/costo-barco" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><Suspense fallback={<RouteLoader label="Calculando el costo…" pantallaCompleta={false} />}><CostoBarcoScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
+          <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* Admin / Oficina */}
+          <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/compras-etapa" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><ComprasEtapasScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","administracion","compras"]}><CalendarioScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/calendario-produccion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><CalendarioProduccionScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/laminacion/plantillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><PlantillasLineaScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><MaderasScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh","tecnica","oficina","administracion"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -662,6 +699,9 @@ export default function App() {
           origen={bienvenida.origen}
           onFin={() => setBienvenida(null)}
         />
+      )}
+      {despedida && (
+        <TelonSalida nombre={despedida.nombre} fase={despedida.fase} onSalio={() => setDespedida(null)} />
       )}
           </ConfirmProvider>
         </ToastProvider>

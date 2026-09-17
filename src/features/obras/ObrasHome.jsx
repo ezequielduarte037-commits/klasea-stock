@@ -1,18 +1,25 @@
-import { C } from "@/theme";
 /**
- * ObrasHome.jsx — Landing de Obras
- * Cards estilo HomeScreen para navegar a cada vista de ObrasScreen.
- * onEnterMapa(view) → navega directamente a esa vista.
+ * ObrasHome — la entrada de Obras.
+ *
+ * Cuántas obras hay activas, pausadas y terminadas, y una tarjeta por vista de
+ * ObrasScreen. onEnterMapa(vista, { estado }) abre esa vista; desde un
+ * indicador, con ese estado filtrado.
+ *
+ * Usa las mismas piezas que el Home (components/ui/Portada). Antes tenía reloj
+ * con segundos, un saludo que se tipeaba letra por letra, partículas en canvas,
+ * una línea de escaneo, un ticker "LIVE" y tarjetas con inclinación 3D, todo
+ * animado sin parar; y volvía a consultar a la base números que ObrasScreen ya
+ * tenía cargados.
  */
-import { useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "@/supabaseClient";
-import logoKlasea from "@/assets/logos/logo-klasea.png";
-import logoK      from "@/assets/logos/logo-k.png";
+import { useMemo } from "react";
+import { CalendarClock, ChartGantt, Layers, Map as IconoMapa, Milestone } from "lucide-react";
+import { Indicador, Portada, PortadaHero, SeccionPortada, TarjetaModulo } from "@/components/ui/Portada";
 
 // ─── VISTAS ──────────────────────────────────────────────────────
+// art: dibujo abstracto de cada vista; la tarjeta le pasa el color.
 const VISTAS = [
   {
-    view:"obras", label:"Obras", color:"#60a5fa",
+    view:"obras", label:"Obras", tono:"azul",    Icono:ChartGantt,
     desc:"Gantt, etapas y tareas por barco",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
@@ -34,14 +41,14 @@ const VISTAS = [
     ),
   },
   {
-    view:"mapa", label:"Mapa", color:"#a78bfa",
+    view:"mapa", label:"Mapa", tono:"violeta", Icono:IconoMapa,
     desc:"Plano del galpón con información y memorias descriptivas de los barcos",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
         <rect x="8" y="8" width="224" height="124" rx="4" stroke={c} strokeWidth="1.2" strokeOpacity="0.6"/>
         <rect x="8"  y="8" width="30" height="22" rx="2" fill={c} fillOpacity="0.08" stroke={c} strokeWidth="0.7" strokeOpacity="0.4"/>
         <rect x="44" y="8" width="60" height="22" rx="2" fill={c} fillOpacity="0.05" stroke={c} strokeWidth="0.7" strokeOpacity="0.3"/>
-        <rect x="110"y="8" width="80" height="22" rx="2" fill={c} fillOpacity="0.05" stroke={c} strokeWidth="0.7" strokeOpacity="0.3"/>
+        <rect x="110" y="8" width="80" height="22" rx="2" fill={c} fillOpacity="0.05" stroke={c} strokeWidth="0.7" strokeOpacity="0.3"/>
         {[0,1,2].map(i=>(
           <g key={i}>
             <rect x="12" y={36+i*30} width="22" height="26" rx="2"
@@ -65,7 +72,7 @@ const VISTAS = [
     ),
   },
   {
-    view:"piezas_lam", label:"Piezas Lam.", color:"#34d399",
+    view:"piezas_lam", label:"Piezas de laminación", tono:"verde",   Icono:Layers,
     desc:"Piezas de laminación por obra",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
@@ -93,7 +100,7 @@ const VISTAS = [
     ),
   },
   {
-    view:"timeline", label:"Cronograma", color:"#a78bfa",
+    view:"timeline", label:"Cronograma", tono:"teal",    Icono:Milestone,
     desc:"Etapas de cada obra ubicadas antes y después del desmolde",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.2}}>
@@ -116,7 +123,7 @@ const VISTAS = [
     ),
   },
   {
-    view:"fechas", label:"Fechas", color:"#22d3ee",
+    view:"fechas", label:"Fechas", tono:"cian",    Icono:CalendarClock,
     desc:"Cuándo pedir o hacer cada cosa según el desmolde de cada barco",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
@@ -142,383 +149,50 @@ const VISTAS = [
   },
 ];
 
-// ─── HOOKS ───────────────────────────────────────────────────────
-function useClock() {
-  const [t, setT] = useState(new Date());
-  useEffect(()=>{ const id=setInterval(()=>setT(new Date()),1000); return()=>clearInterval(id); },[]);
-  return t;
-}
+const INDICADORES = [
+  { estado: "activa", label: "Activas", tono: "azul" },
+  { estado: "pausada", label: "Pausadas", tono: "violeta" },
+  { estado: "terminada", label: "Terminadas", tono: "verde" },
+];
 
-function useLiveData(obrasProp) {
-  const [data, setData] = useState({ activas:0,pausadas:0,terminadas:0,loaded:false });
-  const load = useCallback(async () => {
-    try {
-      const [activas, pausadas, terminadas] = await Promise.all([
-        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "activa"),
-        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "pausada"),
-        supabase.from("produccion_obras").select("id", { count: "exact", head: true }).eq("estado", "terminada"),
-      ]);
-      setData({ activas:activas.count??0, pausadas:pausadas.count??0,
-        terminadas:terminadas.count??0, loaded:true });
-    } catch { setData(d=>({...d,loaded:true})); }
-  },[]);
-  useEffect(()=>{
-    if(obrasProp?.length){
-      const firstLoad = setTimeout(()=>setData({ activas:obrasProp.filter(o=>o.estado==="activa").length,
-        pausadas:obrasProp.filter(o=>o.estado==="pausada").length,
-        terminadas:obrasProp.filter(o=>o.estado==="terminada").length, loaded:true }),0);
-      return()=>clearTimeout(firstLoad);
-    }
-    const firstLoad = setTimeout(load,0);
-    const handleVisible=()=>{ if(document.visibilityState==="visible") void load(); };
-    document.addEventListener("visibilitychange",handleVisible);
-    const id=setInterval(()=>{ if(document.visibilityState==="visible") void load(); },5*60*1000);
-    return()=>{ clearTimeout(firstLoad); clearInterval(id); document.removeEventListener("visibilitychange",handleVisible); };
-  },[obrasProp,load]);
-  return data;
-}
+export default function ObrasHome({ obras = [], cargando = false, onEnterMapa }) {
+  const conteo = useMemo(() => {
+    const cuantas = (estado) => obras.filter((obra) => obra.estado === estado).length;
+    return { activa: cuantas("activa"), pausada: cuantas("pausada"), terminada: cuantas("terminada") };
+  }, [obras]);
 
-// ─── ANIMNUM ─────────────────────────────────────────────────────
-function AnimNum({ to, color }) {
-  const [v,setV]=useState(0); const prev=useRef(0);
-  useEffect(()=>{
-    if(!to) return;
-    const from=prev.current,start=performance.now();
-    const tick=now=>{ const p=Math.min((now-start)/1100,1),e=1-Math.pow(1-p,3);
-      setV(Math.round(from+(to-from)*e)); if(p<1) requestAnimationFrame(tick); else prev.current=to; };
-    requestAnimationFrame(tick);
-  },[to]);
-  return <span style={{color}}>{v}</span>;
-}
-
-// ─── TYPEWRITER ──────────────────────────────────────────────────
-function Typewriter({ text, delay=0, speed=36 }) {
-  const [shown,setShown]=useState(""); const [started,setStarted]=useState(false);
-  useEffect(()=>{ const t=setTimeout(()=>setStarted(true),delay); return()=>clearTimeout(t); },[delay]);
-  useEffect(()=>{
-    if(!started||shown.length>=text.length) return;
-    const id=setTimeout(()=>setShown(text.slice(0,shown.length+1)),speed);
-    return()=>clearTimeout(id);
-  },[started,shown,text,speed]);
-  return(
-    <span>{shown}
-      {shown.length<text.length&&started&&(
-        <span style={{animation:"oh-blink .7s step-end infinite",borderRight:"1.5px solid currentColor",marginLeft:1}}/>
-      )}
-    </span>
-  );
-}
-
-// ─── PARTICLES ───────────────────────────────────────────────────
-function Particles() {
-  const ref=useRef(null);
-  useEffect(()=>{
-    const canvas=ref.current; if(!canvas) return;
-    const ctx=canvas.getContext("2d"); let W,H,raf;
-    const resize=()=>{ W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
-    resize(); window.addEventListener("resize",resize);
-    // El canvas 2D NO entiende variables CSS (ctx.fillStyle="var(--x)" se ignora y
-    // cae a negro → puntos invisibles sobre fondo oscuro). Resolvemos el token a un
-    // color concreto respetando el tema actual.
-    const dotColor = getComputedStyle(canvas).getPropertyValue("--border-2").trim() || "rgba(255,255,255,0.18)";
-    const N=45,pts=Array.from({length:N},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,r:Math.random()*1.1+.3}));
-    const draw=()=>{
-      ctx.clearRect(0,0,W,H);
-      for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
-        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
-        if(d<130){ ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);
-          ctx.strokeStyle=`rgba(255,255,255,${.018*(1-d/130)})`;ctx.lineWidth=.5;ctx.stroke(); }
-      }
-      ctx.fillStyle=dotColor;
-      pts.forEach(p=>{ ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
-        p.x+=p.vx;p.y+=p.vy; if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1; });
-      raf=requestAnimationFrame(draw);
-    };
-    draw(); return()=>{ cancelAnimationFrame(raf);window.removeEventListener("resize",resize); };
-  },[]);
-  return <canvas ref={ref} style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",opacity:.45}}/>;
-}
-
-// ─── RING ────────────────────────────────────────────────────────
-// ─── CARD ────────────────────────────────────────────────────────
-function Card({ vista, delay, onClick }) {
-  const [hov,setHov]=useState(false);
-  const [ripples,setRipples]=useState([]);
-  const [tilt,setTilt]=useState({x:0,y:0});
-  const [shimmer,setShimmer]=useState(false);
-  const cardRef=useRef(null); const shimmerRef=useRef(null);
-  const BL=13;
-
-  const onMouseMove=e=>{ const el=cardRef.current; if(!el) return;
-    const r=el.getBoundingClientRect();
-    setTilt({x:(e.clientY-(r.top+r.height/2))/(r.height/2)*-7,y:(e.clientX-(r.left+r.width/2))/(r.width/2)*7}); };
-  const onMouseEnter=e=>{ setHov(true);onMouseMove(e); clearTimeout(shimmerRef.current);
-    shimmerRef.current=setTimeout(()=>setShimmer(true),40); };
-  const onMouseLeave=()=>{ setHov(false);setTilt({x:0,y:0});setShimmer(false); };
-  const handleClick=e=>{ const rect=cardRef.current.getBoundingClientRect(); const id=Date.now();
-    setRipples(r=>[...r,{id,x:e.clientX-rect.left,y:e.clientY-rect.top}]);
-    setTimeout(()=>setRipples(r=>r.filter(rr=>rr.id!==id)),700); onClick(); };
-  useEffect(()=>()=>clearTimeout(shimmerRef.current),[]);
-
-  const transform=hov
-    ?`perspective(900px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateY(-5px) scale(1.02)`
-    :"perspective(900px) rotateX(0) rotateY(0) translateY(0) scale(1)";
-
-  return(
-    <button ref={cardRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
-      onMouseMove={hov?onMouseMove:undefined} onClick={handleClick}
-      style={{
-        display:"flex",flexDirection:"column",justifyContent:"flex-end",
-        padding:"20px 20px 18px",
-        background:hov
-          ? `linear-gradient(145deg,var(--panel-solid) 0%,color-mix(in srgb, ${vista.color} 8%, var(--panel-solid-2)) 100%)`
-          : "linear-gradient(145deg,color-mix(in srgb, var(--panel-solid) 94%, transparent) 0%,color-mix(in srgb, var(--panel-solid-2) 86%, transparent) 100%)",
-        border:`1px solid ${hov?vista.color+"65":"var(--panel-2)"}`,
-        borderRadius:18,cursor:"pointer",textAlign:"left",fontFamily:C.sans,
-        transition:"transform 0.18s cubic-bezier(0.22,1,0.36,1),box-shadow 0.22s,border-color 0.22s,background 0.2s",
-        transform,
-        boxShadow:hov?`0 24px 54px rgba(15,23,42,0.20),0 0 0 1px ${vista.color}25,inset 0 0 70px ${vista.color}08`:"0 12px 30px rgba(15,23,42,0.10)",
-        animation:`oh-cardIn 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}ms both`,
-        position:"relative",overflow:"hidden",minHeight:220,willChange:"transform",
-      }}>
-      {/* Arte SVG */}
-      <div style={{position:"absolute",inset:0,pointerEvents:"none",transition:"opacity 0.3s",opacity:hov?0.9:0.46}}>
-        {vista.art(vista.color)}
-      </div>
-      {/* Gradiente legibilidad */}
-      <div style={{position:"absolute",inset:0,pointerEvents:"none",
-        background:`linear-gradient(to top,${hov?"var(--home-fade-strong)":"var(--home-fade)"} 0%,var(--home-fade-faint) 56%,transparent 100%)`,
-        transition:"background 0.25s"}}/>
-      {/* Glow */}
-      <div style={{position:"absolute",top:-40,right:-40,width:130,height:130,borderRadius:"50%",
-        background:`${vista.color}${hov?"1a":"0e"}`,filter:"blur(35px)",pointerEvents:"none",
-        transition:"background 0.3s,transform 0.4s",transform:hov?"scale(1.3)":"scale(1)"}}/>
-      {/* Ripples */}
-      {ripples.map(rip=>(
-        <div key={rip.id} style={{position:"absolute",left:rip.x-70,top:rip.y-70,width:140,height:140,
-          borderRadius:"50%",pointerEvents:"none",
-          background:`radial-gradient(circle,${vista.color}30 0%,transparent 70%)`,
-          animation:"oh-bigRipple 0.7s cubic-bezier(0.22,1,0.36,1) forwards",zIndex:12}}/>
-      ))}
-      {/* Shimmer */}
-      {shimmer&&<div style={{position:"absolute",top:0,left:"-100%",width:"60%",height:"100%",
-        background:`linear-gradient(105deg,transparent 25%,${vista.color}15 50%,transparent 75%)`,
-        animation:"oh-shimmer 0.7s cubic-bezier(0.22,1,0.36,1) forwards",pointerEvents:"none",zIndex:8}}/>}
-      {/* Corner brackets */}
-      {hov&&(
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:9,overflow:"visible"}}>
-          {[`M ${BL},4 L 4,4 L 4,${BL}`,`M ${100-BL},4 L 96,4 L 96,${BL}`,
-            `M 4,${100-BL} L 4,96 L ${BL},96`,
-            `M ${100-BL},96 L 96,96 L 96,${100-BL}`
-          ].map((d,i)=>(
-            <path key={i} d={d} fill="none" stroke={vista.color} strokeWidth="1.8" strokeLinecap="round" vectorEffect="non-scaling-stroke"
-              style={{filter:`drop-shadow(0 0 5px ${vista.color})`,strokeDasharray:BL*2+4,strokeDashoffset:BL*2+4,
-                animation:`oh-bracketDraw 0.22s ease ${i*0.04}s forwards`}}/>
-          ))}
-        </svg>
-      )}
-      {/* Contenido */}
-      <div style={{position:"relative",zIndex:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:7}}>
-          <div style={{position:"relative",flexShrink:0}}>
-            {hov&&<div style={{position:"absolute",inset:-5,borderRadius:"50%",border:`1px solid ${vista.color}55`,animation:"oh-ringExpand 1.2s ease-out infinite"}}/>}
-            <div style={{width:9,height:9,borderRadius:"50%",background:vista.color,
-              boxShadow:hov?`0 0 0 2px var(--panel-solid),0 0 18px ${vista.color},0 0 36px ${vista.color}55`:`0 0 9px ${vista.color}80`,
-              transition:"box-shadow 0.25s"}}/>
-          </div>
-          <span style={{fontSize:14,fontWeight:700,letterSpacing:"0.2px",
-            ...(hov?{background:`linear-gradient(90deg,#fff 0%,#fff 35%,${vista.color} 52%,#fff 68%,#fff 100%)`,
-              backgroundSize:"200% auto",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-              animation:"oh-labelShimmer 1.2s linear 0.08s 1 forwards"}:{color:"var(--text)"})}}>
-            {vista.label}
-          </span>
-        </div>
-        <div style={{fontSize:12,lineHeight:1.6,color:hov?"var(--muted)":"var(--dim)",transition:"color 0.2s",paddingRight:28}}>
-          {vista.desc}
-        </div>
-      </div>
-      {/* Flecha */}
-      <div style={{position:"absolute",bottom:16,right:14,zIndex:10,fontSize:15,fontWeight:700,
-        color:hov?vista.color:"var(--panel-2)",transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
-        transform:hov?"translate(0,0) scale(1.2)":"translate(3px,3px) scale(1)",
-        filter:hov?`drop-shadow(0 0 8px ${vista.color})`:"none"}}>→</div>
-      {/* Línea inferior */}
-      <div style={{position:"absolute",bottom:0,left:hov?0:"50%",right:hov?0:"50%",height:2,borderRadius:2,
-        background:`linear-gradient(90deg,transparent 0%,${vista.color} 50%,transparent 100%)`,
-        opacity:hov?1:0,
-        transition:"left 0.38s cubic-bezier(0.22,1,0.36,1),right 0.38s cubic-bezier(0.22,1,0.36,1),opacity 0.2s",
-        boxShadow:`0 0 12px ${vista.color}90`}}/>
-    </button>
-  );
-}
-
-// ─── TICKER ──────────────────────────────────────────────────────
-function Ticker({ items }) {
-  return(
-    <div style={{flexShrink:0,height:26,borderTop:`1px solid var(--panel-2)`,
-      overflow:"hidden",display:"flex",alignItems:"center",
-      background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)"}}>
-      <div style={{padding:"0 12px",borderRight:`1px solid var(--panel-2)`,height:"100%",display:"flex",alignItems:"center",flexShrink:0}}>
-        <span style={{fontSize:10,fontFamily:C.mono,color:C.t2,letterSpacing:1.3}}>LIVE</span>
-      </div>
-      <div style={{overflow:"hidden",flex:1}}>
-        <div style={{display:"flex",whiteSpace:"nowrap",animation:"oh-tickerScroll 32s linear infinite"}}>
-          {[...items,...items].map((it,i)=>(
-            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:C.mono,fontSize:10,color:C.t1,paddingRight:40}}>
-              <span style={{color:it.color,fontSize:5}}>◆</span>
-              <span style={{color:C.t2}}>{it.label.toUpperCase()}</span>
-              <span style={{color:it.color,fontWeight:700}}>{it.value}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ═══════════════════════════════════════════════════════════════
-export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
-  const live  = useLiveData(obrasProp);
-  const clock = useClock();
-
-  const username = profile?.username ?? "—";
-  const hora     = clock.getHours();
-  const greeting = `${hora<12?"Buenos días":hora<19?"Buenas tardes":"Buenas noches"}, ${username}`;
-  const hh=String(clock.getHours()).padStart(2,"0");
-  const mm=String(clock.getMinutes()).padStart(2,"0");
-  const ss=String(clock.getSeconds()).padStart(2,"0");
-  const fecha=clock.toLocaleDateString("es-AR",{weekday:"long",day:"2-digit",month:"long"});
-  const total=live.activas+live.pausadas+live.terminadas;
-
-  const tickerItems=[
-    {label:"Activas",    value:live.activas,    color:C.blue },
-    {label:"Pausadas",   value:live.pausadas,   color:C.amber},
-    {label:"Terminadas", value:live.terminadas, color:C.green},
-    {label:"Sistema",    value:"OK",            color:C.green},
-  ];
-
-  return(
-    <>
-      <style>{`
-        @keyframes oh-cardIn       { from{opacity:0;transform:translateY(20px) scale(0.96)} to{opacity:1;transform:none} }
-        @keyframes oh-bigRipple    { from{transform:scale(0);opacity:1} to{transform:scale(4);opacity:0} }
-        @keyframes oh-shimmer      { from{left:-100%} to{left:200%} }
-        @keyframes oh-bracketDraw  { to{stroke-dashoffset:0} }
-        @keyframes oh-ringExpand   { 0%{transform:scale(1);opacity:0.7} 100%{transform:scale(2.4);opacity:0} }
-        @keyframes oh-labelShimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        @keyframes oh-fadeSlideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
-        @keyframes oh-headerIn     { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:none} }
-        @keyframes oh-logoReveal   { from{opacity:0;transform:scale(0.86);filter:blur(10px)} to{opacity:1;transform:none;filter:blur(0)} }
-        @keyframes oh-lineExpand   { from{transform:scaleX(0);opacity:0} to{transform:scaleX(1);opacity:1} }
-        @keyframes oh-blink        { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes oh-pulseOnline  { 0%,100%{box-shadow:0 0 0 0 #10b98155} 60%{box-shadow:0 0 0 7px #10b98100} }
-        @keyframes oh-dotBeat      { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.9);opacity:.45} }
-        @keyframes oh-scanDown     { 0%{top:-1px;opacity:0} 4%{opacity:.25} 96%{opacity:.25} 100%{top:100%;opacity:0} }
-        @keyframes oh-glowPulse    { 0%,100%{filter:brightness(1.05) drop-shadow(0 0 28px rgba(59,130,246,0.28))} 50%{filter:brightness(1.12) drop-shadow(0 0 44px rgba(59,130,246,0.48))} }
-        @keyframes oh-tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-      `}</style>
-
-      <div style={{display:"flex",flexDirection:"column",height:"100%",background:C.bg,fontFamily:C.sans,overflow:"hidden",position:"relative"}}>
-
-        {/* FONDO */}
-        <Particles/>
-        <div style={{position:"absolute",inset:0,pointerEvents:"none",background:[
-          "radial-gradient(ellipse at 65% 0%, rgba(59,130,246,0.07) 0%, transparent 48%)",
-          "radial-gradient(ellipse at 8% 90%, rgba(16,185,129,0.05) 0%, transparent 42%)",
-        ].join(",")}}/>
-        <div style={{position:"absolute",inset:0,pointerEvents:"none",
-          backgroundImage:["linear-gradient(rgba(255,255,255,0.017) 1px,transparent 1px)",
-            "linear-gradient(90deg,rgba(255,255,255,0.017) 1px,transparent 1px)"].join(","),
-          backgroundSize:"72px 72px"}}/>
-        <div style={{position:"absolute",left:0,right:0,height:1,zIndex:10,pointerEvents:"none",
-          animation:"oh-scanDown 16s linear infinite 1.5s",
-          background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.11),transparent)"}}/>
-
-        {/* TOPBAR */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-          padding:"0 28px",height:46,flexShrink:0,
-          borderBottom:`1px solid ${C.b0}`,background:"var(--topbar)",backdropFilter:"blur(20px)",
-          position:"relative",zIndex:2,animation:"oh-headerIn 0.45s cubic-bezier(0.22,1,0.36,1) both"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:7,height:7,borderRadius:"50%",background:C.green,animation:"oh-pulseOnline 2.4s ease-out infinite"}}/>
-            <span style={{fontSize:10,color:C.t2,letterSpacing:1.3,textTransform:"uppercase",fontFamily:C.mono}}>Online</span>
-          </div>
-          {live.loaded&&(
-            <div style={{display:"flex",alignItems:"center",gap:20}}>
-              {[{v:live.activas,c:C.blue,l:"Activas"},{v:live.pausadas,c:C.amber,l:"Pausadas"},{v:live.terminadas,c:C.green,l:"Terminadas"}].map(k=>(
-                <div key={k.l} style={{display:"flex",alignItems:"center",gap:5}}>
-                  <div style={{width:4,height:4,borderRadius:"50%",background:k.c,boxShadow:`0 0 7px ${k.c}`,animation:"oh-dotBeat 2.6s ease-in-out infinite"}}/>
-                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:700,color:k.c}}><AnimNum to={k.v} color={k.c}/></span>
-                  <span style={{fontSize:10,color:C.t2,letterSpacing:1.1,textTransform:"uppercase"}}>{k.l}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:1}}>
-            <div style={{display:"flex",alignItems:"baseline",gap:2}}>
-              <span style={{fontFamily:C.mono,fontSize:19,fontWeight:700,color:C.t0,letterSpacing:1.3}}>
-                {hh}<span style={{opacity:.28,animation:"oh-blink 1s step-end infinite"}}>:</span>{mm}
-              </span>
-              <span style={{fontFamily:C.mono,fontSize:11,color:C.t2,marginLeft:2}}>{ss}</span>
-            </div>
-            <span style={{fontSize:10,color:C.t2,fontFamily:C.mono,letterSpacing:1.1}}>{fecha.toUpperCase()}</span>
-          </div>
-        </div>
-
-        {/* HERO */}
-        <div style={{padding:"18px 28px 16px",flexShrink:0,borderBottom:`1px solid ${C.b0}`,position:"relative",zIndex:1}}>
-          <div style={{fontSize:10,color:C.t2,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,fontFamily:C.mono,animation:"oh-fadeSlideUp 0.4s ease 0.05s both"}}>
-            <Typewriter text={greeting} delay={200} speed={32}/>
-          </div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:16,animation:"oh-logoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.12s both"}}>
-              <img src={logoKlasea} loading="lazy" alt="Klase A"
-                style={{height:42,maxWidth:140,objectFit:"contain",display:"block",animation:"oh-glowPulse 4s ease-in-out 1.2s infinite"}}
-                onError={e=>{e.currentTarget.src=logoK;e.currentTarget.style.height="56px";}}/>
-              <div>
-                <h1 style={{margin:0,fontSize:26,lineHeight:1.05,fontWeight:800,letterSpacing:"0",color:C.t0}}>Obras de produccion</h1>
-                <div style={{fontSize:12,color:C.t2,marginTop:6}}>Mapa operativo, cronograma, fechas y piezas por barco.</div>
-              </div>
-            </div>
-            {live.loaded&&total>0&&(
-              <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                {[
-                  { value: live.activas, label: "Activas", color: C.blue },
-                  { value: live.pausadas, label: "Pausadas", color: C.amber },
-                  { value: live.terminadas, label: "Terminadas", color: C.green },
-                ].map(item=>(
-                  <div key={item.label} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:999,
-                    background:"color-mix(in srgb, var(--panel-solid) 84%, transparent)",border:`1px solid ${C.b0}`,
-                    boxShadow:"0 10px 24px rgba(15,23,42,.08)",backdropFilter:"blur(14px)"}}>
-                    <span style={{width:7,height:7,borderRadius:99,background:item.color,boxShadow:`0 0 12px ${item.color}88`}}/>
-                    <span style={{fontFamily:C.mono,fontSize:14,fontWeight:800,color:item.color}}><AnimNum to={item.value} color={item.color}/></span>
-                    <span style={{fontSize:10,color:C.t2,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* CARDS */}
-        <div style={{flex:1,display:"flex",flexDirection:"column",padding:"16px 28px 20px",position:"relative",zIndex:1,overflow:"auto"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,flexShrink:0,animation:"oh-fadeSlideUp 0.4s ease 0.26s both"}}>
-            <span style={{fontSize:10,color:C.t2,letterSpacing:3,textTransform:"uppercase",fontFamily:C.mono}}>Acceso rápido</span>
-            <div style={{flex:1,height:1,background:`linear-gradient(90deg,${C.b0},transparent)`}}/>
-            <span style={{fontSize:10,color:"var(--panel-3)",fontFamily:C.mono,letterSpacing:1.3}}>KLASE A · ASTILLERO · OBRAS</span>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gridAutoRows:"minmax(230px,300px)",alignContent:"start",gap:12}}>
-            {VISTAS.map((vista,i)=>(
-              <Card key={vista.view} vista={vista} delay={i*50} onClick={()=>onEnterMapa(vista.view)}/>
-            ))}
-          </div>
-        </div>
-
-        {/* TICKER */}
-        {live.loaded&&<Ticker items={tickerItems}/>}
-      </div>
-    </>
+  return (
+    <Portada>
+      <PortadaHero
+        eyebrow="Producción"
+        titulo="Obras de"
+        acento="producción"
+        bajada="Mapa operativo, cronograma, fechas y piezas por barco."
+        indicadores={INDICADORES.map(({ estado, label, tono }) => (
+          <Indicador
+            key={estado}
+            label={label}
+            valor={conteo[estado]}
+            tono={tono}
+            cargando={cargando}
+            onClick={() => onEnterMapa("obras", { estado })}
+          />
+        ))}
+      />
+      <SeccionPortada titulo="Vistas" cantidad={VISTAS.length}>
+        {VISTAS.map((vista, i) => (
+          <TarjetaModulo
+            key={vista.view}
+            titulo={vista.label}
+            descripcion={vista.desc}
+            Icono={vista.Icono}
+            tono={vista.tono}
+            arte={vista.art}
+            indice={i}
+            onClick={() => onEnterMapa(vista.view)}
+          />
+        ))}
+      </SeccionPortada>
+    </Portada>
   );
 }

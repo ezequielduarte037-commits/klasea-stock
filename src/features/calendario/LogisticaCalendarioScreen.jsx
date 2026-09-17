@@ -36,7 +36,6 @@ import {
   Wind,
   X,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
@@ -309,7 +308,7 @@ function sameTripCandidates(rows, draft, excludeId = null) {
 function StatusBadge({ status }) {
   const ui = statusUi(status);
   return (
-    <span className="log-status" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 25, padding: "0 9px", borderRadius: 999, background: ui.soft, border: `1px solid ${ui.border}`, color: ui.color, fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>
+    <span className="log-status" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 25, padding: "0 9px", borderRadius: 999, background: ui.soft, border: `1px solid ${ui.border}`, color: ui.color, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>
       <span className={!["realizado", "cancelado"].includes(status) ? "log-status-dot is-live" : "log-status-dot"} style={{ width: 6, height: 6, borderRadius: 99, background: ui.color }} />
       {ui.label}
     </span>
@@ -320,7 +319,7 @@ function TransportBadge({ row, compact = false }) {
   const type = transportsOf(row)[0]?.tipo;
   const ui = transportUi(type);
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: ui.color, fontSize: compact ? 10.5 : 11.5, fontWeight: 850, minWidth: 0 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: ui.color, fontSize: compact ? 10.5 : 11.5, fontWeight: 700, minWidth: 0 }}>
       <TransportIcon type={type} size={compact ? 12 : 14} />
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{transportSummary(row, !compact)}</span>
     </span>
@@ -335,8 +334,8 @@ function Kpi({ label, value, hint, tone = "blue", icon: Icon }) {
     <div style={{ minWidth: 0, padding: "12px 14px", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 13, display: "grid", gridTemplateColumns: "34px minmax(0,1fr)", gap: 10, alignItems: "center" }}>
       <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", color, background: soft, border: `1px solid ${border}` }}>{createElement(Icon, { size: 17 })}</span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", color: C.text, fontFamily: C.mono, fontSize: 18, lineHeight: 1, fontWeight: 900 }}>{value}</span>
-        <span style={{ display: "block", color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: ".1em", marginTop: 5 }}>{label}</span>
+        <span style={{ display: "block", color: C.text, fontFamily: C.mono, fontSize: 18, lineHeight: 1, fontWeight: 700 }}>{value}</span>
+        <span style={{ display: "block", color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", marginTop: 5 }}>{label}</span>
         {hint && <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hint}</span>}
       </span>
     </div>
@@ -349,7 +348,7 @@ function MiniMetric({ label, value, tone = "blue", icon: Icon }) {
     <span className="log-metric" style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 31, padding: "0 10px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, whiteSpace: "nowrap" }}>
       <span style={{ color, display: "inline-flex" }}>{createElement(Icon, { size: 13 })}</span>
       <b style={{ color: C.text, fontFamily: C.mono, fontSize: 12 }}>{value}</b>
-      <span style={{ fontSize: 9.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: ".07em" }}>{label}</span>
+      <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>{label}</span>
     </span>
   );
 }
@@ -383,7 +382,7 @@ function WeatherStrip({ weather }) {
       {raining && <RainVeil compact probability={today.rain} />}
       {raining ? <CloudRain size={14} /> : <CloudSun size={14} />}
       <b style={{ fontFamily: C.mono, fontSize: 11.5 }}>{Math.round(today.max)}° / {Math.round(today.min)}°</b>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 850 }}><Wind size={12} /> {Math.round(today.wind)} km/h</span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 700 }}><Wind size={12} /> {Math.round(today.wind)} km/h</span>
       <span style={{ color: C.dim, fontSize: 9.5 }}>San Fernando</span>
     </span>
   );
@@ -394,7 +393,7 @@ function LegacyEventCard({ row, compact = false }) {
     <div className="log-enter" style={{ width: "100%", padding: compact ? "9px 11px" : "11px 14px", display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "76px minmax(0,1fr) auto", gap: 12, alignItems: "center", background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.violet}`, borderRadius: 11 }}>
       {!compact && <span style={{ textAlign: "center", paddingRight: 12, borderRight: `1px solid ${C.border}` }}><b style={{ display: "block", color: C.text, fontFamily: C.mono, fontSize: 15 }}>{cleanTime(row.hora) || "—"}</b><small style={{ color: C.dim, fontSize: 9.5 }}>{fmtDate(row.fecha)}</small></span>}
       <span style={{ minWidth: 0 }}><b style={{ display: "block", color: C.text, fontSize: 12.5 }}>{row.titulo}</b><span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 4 }}>{row.obra ? `${row.obra} · ` : ""}{row.notas || "Movimiento registrado en el calendario anterior"}</span></span>
-      <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", whiteSpace: "nowrap" }}>Registro anterior</span>
+      <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap" }}>Registro anterior</span>
     </div>
   );
 }
@@ -407,19 +406,19 @@ function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = fal
     <button type="button" className="log-card log-enter" onClick={() => onOpen(row)} style={{ animationDelay: `${Math.min(index, 8) * 35}ms`, minHeight: compact ? 92 : 104, width: "100%", textAlign: "left", padding: compact ? "13px" : "15px 16px", display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "88px minmax(0,1fr) auto", gap: compact ? 10 : 16, alignItems: "center", background: `radial-gradient(circle at 2% 50%, ${ui.soft}, transparent 30%), ${C.panelSolid}`, border: `1px solid ${C.border}`, borderLeft: `4px solid ${ui.color}`, borderRadius: 15, color: C.text, cursor: "pointer", fontFamily: C.sans }}>
       {!compact && (
         <span style={{ minHeight: 68, display: "grid", placeItems: "center", alignContent: "center", textAlign: "center", padding: "8px 10px", borderRadius: 11, border: `1px solid ${ui.border}`, background: ui.soft }}>
-          <span style={{ display: "block", color: ui.color, fontFamily: C.mono, fontSize: 19, lineHeight: 1, fontWeight: 950 }}>{displayTime(row) || "—"}</span>
-          <span style={{ display: "block", color: C.muted, fontSize: 9.8, marginTop: 6, fontWeight: 800 }}>{fmtDate(displayDate(row))}</span>
+          <span style={{ display: "block", color: ui.color, fontFamily: C.mono, fontSize: 19, lineHeight: 1, fontWeight: 750 }}>{displayTime(row) || "—"}</span>
+          <span style={{ display: "block", color: C.muted, fontSize: 9.8, marginTop: 6, fontWeight: 650 }}>{fmtDate(displayDate(row))}</span>
         </span>
       )}
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 9, display: "grid", placeItems: "center", color: ui.color, background: ui.soft, border: `1px solid ${ui.border}` }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={15} /></span>
-          <span style={{ color: C.text, fontSize: compact ? 14.5 : 15.5, lineHeight: 1.2, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{movementHeadline(row)}</span>
-          {row.prioridad === "urgente" && <span style={{ color: C.red, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase" }}>Urgente</span>}
-          {row.origen_manual && <span style={{ padding: "3px 6px", borderRadius: 6, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 8.8, fontWeight: 950, textTransform: "uppercase" }}>Manual</span>}
+          <span style={{ color: C.text, fontSize: compact ? 14.5 : 15.5, lineHeight: 1.2, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{movementHeadline(row)}</span>
+          {row.prioridad === "urgente" && <span style={{ color: C.red, fontSize: 9.5, fontWeight: 750, textTransform: "uppercase" }}>Urgente</span>}
+          {row.origen_manual && <span style={{ padding: "3px 6px", borderRadius: 6, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 8.8, fontWeight: 750, textTransform: "uppercase" }}>Manual</span>}
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 9, minWidth: 0, flexWrap: "wrap" }}>
-          <span style={{ padding: "4px 8px", borderRadius: 7, color: row.obra ? C.blue : C.dim, background: row.obra ? C.blueL : C.panel2, border: `1px solid ${row.obra ? C.blueB : C.border}`, fontFamily: C.mono, fontSize: 10.2, fontWeight: 950, letterSpacing: ".015em" }}>{workLabel(row)}</span>
+          <span style={{ padding: "4px 8px", borderRadius: 7, color: row.obra ? C.blue : C.dim, background: row.obra ? C.blueL : C.panel2, border: `1px solid ${row.obra ? C.blueB : C.border}`, fontFamily: C.mono, fontSize: 10.2, fontWeight: 750, letterSpacing: ".015em" }}>{workLabel(row)}</span>
           <span style={{ color: C.muted, fontSize: 10.5, display: "inline-flex", alignItems: "center", gap: 4 }}><UserRound size={11} /> {actorName(row.solicitante)}</span>
           <span style={{ color: C.muted, fontSize: 10.5, display: "inline-flex", alignItems: "center", gap: 4 }}><Truck size={11} /> {providerSummary(row)}</span>
           <span style={{ color: C.dim, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}><Route size={11} /> {routeLabel(row)}</span>
@@ -428,7 +427,7 @@ function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = fal
       </span>
       <span style={{ display: "grid", justifyItems: "end", gap: 7 }}>
         <StatusBadge status={row.estado} />
-        {shared ? <span style={{ color: C.green, fontSize: 9.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 4 }}><Merge size={12} /> Viaje unido</span> : mergeHint ? <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 4 }}><Merge size={12} /> Posible unión</span> : separated ? <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 850 }}>Flete separado</span> : null}
+        {shared ? <span style={{ color: C.green, fontSize: 9.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><Merge size={12} /> Viaje unido</span> : mergeHint ? <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><Merge size={12} /> Posible unión</span> : separated ? <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700 }}>Flete separado</span> : null}
         <ChevronRight size={17} color={C.dim} />
       </span>
     </button>
@@ -436,7 +435,7 @@ function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = fal
 }
 
 const FIELD = { width: "100%", minHeight: 39, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.text, padding: "8px 10px", outline: "none", fontFamily: C.sans, fontSize: 13 };
-const LABEL = { display: "block", color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 5 };
+const LABEL = { display: "block", color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 5 };
 
 function ModalShell({ title, subtitle, onClose, children, width = 720 }) {
   return (
@@ -444,7 +443,7 @@ function ModalShell({ title, subtitle, onClose, children, width = 720 }) {
       <div className="log-modal-card" onMouseDown={(event) => event.stopPropagation()} style={{ width, maxWidth: "100%", maxHeight: "94vh", overflow: "hidden", display: "flex", flexDirection: "column", background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 18, boxShadow: "0 24px 80px var(--shadow-strong)" }}>
         <div style={{ padding: "15px 17px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div>
-            <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>{title}</div>
+            <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>{title}</div>
             {subtitle && <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>{subtitle}</div>}
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center", color: C.dim, background: C.panel, border: `1px solid ${C.border}`, cursor: "pointer" }}><X size={16} /></button>
@@ -573,8 +572,8 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
         </section>
 
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-          <button type="button" onClick={() => setMode("traslado")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 900 }}><Route size={15} /> Traslado entre lugares</button>
-          <button type="button" onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 900 }}><MapPin size={15} /> Trabajo en un solo lugar</button>
+          <button type="button" onClick={() => setMode("traslado")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 700 }}><Route size={15} /> Traslado entre lugares</button>
+          <button type="button" onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 700 }}><MapPin size={15} /> Trabajo en un solo lugar</button>
         </section>
 
         <section>
@@ -585,7 +584,7 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
               const active = quantity > 0;
               return (
                 <div key={key} style={{ minHeight: 74, padding: 8, borderRadius: 10, background: active ? item.soft : C.panel, border: `1px solid ${active ? item.border : C.border}`, color: active ? item.color : C.dim, fontFamily: C.sans }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 11.5, fontWeight: active ? 900 : 700 }}><Truck size={15} />{item.label}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 11.5, fontWeight: active ? 700 : 600 }}><Truck size={15} />{item.label}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "24px 1fr 24px", gap: 4, alignItems: "center", marginTop: 9 }}>
                     <button type="button" onClick={() => changeTransport(key, -1)} disabled={!active} style={{ width: 24, height: 24, borderRadius: 7, border: `1px solid ${active ? item.border : C.border}`, background: C.panelSolid, color: active ? item.color : C.dim, cursor: active ? "pointer" : "default" }}>−</button>
                     <b style={{ textAlign: "center", fontFamily: C.mono, fontSize: 13 }}>{quantity}</b>
@@ -612,12 +611,12 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <label style={{ ...LABEL, marginBottom: 0 }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar del trabajo" : "Recorrido"}</label>
-            {form.modalidad === "traslado" && <button type="button" onClick={addStop} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 850 }}><Plus size={13} /> Agregar parada</button>}
+            {form.modalidad === "traslado" && <button type="button" onClick={addStop} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700 }}><Plus size={13} /> Agregar parada</button>}
           </div>
           <div style={{ display: "grid", gap: 8 }}>
             {form.paradas.map((stop, index) => (
               <div key={index} className="log-stop" style={{ display: "grid", gridTemplateColumns: "82px 1fr 1.35fr .85fr 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 11, background: C.panel }}>
-                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : index === form.paradas.length - 1 ? C.blue : C.violet, fontSize: 10, fontWeight: 950, textTransform: "uppercase" }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : index === 0 ? "Origen" : index === form.paradas.length - 1 ? "Destino" : `Parada ${index}`}</span>
+                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : index === form.paradas.length - 1 ? C.blue : C.violet, fontSize: 10, fontWeight: 750, textTransform: "uppercase" }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : index === 0 ? "Origen" : index === form.paradas.length - 1 ? "Destino" : `Parada ${index}`}</span>
                 <input style={{ ...FIELD, minHeight: 35 }} value={stop.lugar} onChange={(event) => updateStop(index, "lugar", event.target.value)} placeholder="Lugar" />
                 <input style={{ ...FIELD, minHeight: 35 }} value={stop.direccion} onChange={(event) => updateStop(index, "direccion", event.target.value)} placeholder="Dirección" />
                 <input style={{ ...FIELD, minHeight: 35 }} value={stop.recibe} onChange={(event) => updateStop(index, "recibe", event.target.value)} placeholder="Quién recibe" />
@@ -647,7 +646,7 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
 
         {suggestions.length > 0 && (
           <section style={{ padding: 12, borderRadius: 12, background: C.violetL, border: `1px solid ${C.violetB}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 12, fontWeight: 950 }}><Merge size={15} /> Viajes que quizá se pueden aprovechar</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 12, fontWeight: 750 }}><Merge size={15} /> Viajes que quizá se pueden aprovechar</div>
             <div style={{ color: C.dim, fontSize: 10.5, marginTop: 4 }}>Podés sugerir la unión. Compras revisará espacio y recorrido antes de aprobarla.</div>
             <div style={{ display: "grid", gap: 6, marginTop: 9 }}>
               {suggestions.map((candidate) => {
@@ -655,7 +654,7 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
                 return (
                   <button key={candidate.id} type="button" onClick={() => set("viajeSugeridoId", selected ? "" : candidate.id)} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", textAlign: "left", padding: "8px 10px", borderRadius: 9, background: selected ? C.panelSolid : "transparent", border: `1px solid ${selected ? C.violet : C.violetB}`, color: C.text, cursor: "pointer" }}>
                     <span style={{ minWidth: 0 }}><b style={{ fontSize: 12 }}>{movementHeadline(candidate)}</b><span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 3 }}>{fmtDate(displayDate(candidate))} · {candidate.obra || "Sin obra"} · {routeLabel(candidate)}</span></span>
-                    <span style={{ color: C.violet, fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>{selected ? "Seleccionado" : "Sugerir unión"}</span>
+                    <span style={{ color: C.violet, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>{selected ? "Seleccionado" : "Sugerir unión"}</span>
                   </button>
                 );
               })}
@@ -669,8 +668,8 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
         </section>
       </div>
       <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button type="button" onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 800 }}>Cancelar</button>
-        <button type="button" disabled={!valid || saving} onClick={save} style={{ padding: "9px 16px", borderRadius: 9, border: `1px solid ${valid ? C.blueB : C.border}`, background: valid ? C.blueL : C.panel, color: valid ? C.blue : C.dim, opacity: saving ? .65 : 1, cursor: valid && !saving ? "pointer" : "default", fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 7 }}><Send size={14} /> {saving ? "Guardando..." : row ? "Guardar cambios" : "Enviar solicitud"}</button>
+        <button type="button" onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 650 }}>Cancelar</button>
+        <button type="button" disabled={!valid || saving} onClick={save} style={{ padding: "9px 16px", borderRadius: 9, border: `1px solid ${valid ? C.blueB : C.border}`, background: valid ? C.blueL : C.panel, color: valid ? C.blue : C.dim, opacity: saving ? .65 : 1, cursor: valid && !saving ? "pointer" : "default", fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7 }}><Send size={14} /> {saving ? "Guardando..." : row ? "Guardar cambios" : "Enviar solicitud"}</button>
       </div>
     </ModalShell>
   );
@@ -802,7 +801,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
             {form.obras.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 7 }}>
                 {form.obras.map((obra) => (
-                  <span key={obra} style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%", padding: "4px 7px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
+                  <span key={obra} style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%", padding: "4px 7px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra}</span>
                     <button type="button" onClick={() => removeObra(obra)} aria-label={`Quitar ${obra}`} style={{ border: 0, background: "transparent", color: C.blue, padding: 0, cursor: "pointer", display: "inline-flex" }}><X size={11} /></button>
                   </span>
@@ -817,13 +816,13 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
         </section>
         <section>
           <label style={LABEL}>Modalidad</label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}><button onClick={() => setMode("traslado")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 900 }}><Route size={14} /> Traslado</button><button onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 900 }}><MapPin size={14} /> Un solo lugar</button></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}><button onClick={() => setMode("traslado")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 700 }}><Route size={14} /> Traslado</button><button onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 700 }}><MapPin size={14} /> Un solo lugar</button></div>
         </section>
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
             <label style={{ ...LABEL, marginBottom: 0 }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : "Recorrido"}</label>
             {form.modalidad === "traslado" && (
-              <button type="button" onClick={addDestination} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 900 }}>
+              <button type="button" onClick={addDestination} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700 }}>
                 <Plus size={13} /> Agregar destino
               </button>
             )}
@@ -831,7 +830,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
           <div style={{ display: "grid", gap: 8 }}>
             {form.paradas.map((stop, index) => (
               <div key={`${stop.tipo}-${index}`} className="log-stop log-manual-stop" style={{ display: "grid", gridTemplateColumns: form.modalidad === "trabajo_en_sitio" ? "112px minmax(0,1fr) minmax(0,1.1fr)" : "92px minmax(0,1fr) minmax(0,1.1fr) 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 11, background: C.panel }}>
-                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : C.blue, fontSize: 10, fontWeight: 950, textTransform: "uppercase", lineHeight: 1.2 }}>{stopLabel(index)}</span>
+                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : C.blue, fontSize: 10, fontWeight: 750, textTransform: "uppercase", lineHeight: 1.2 }}>{stopLabel(index)}</span>
                 <input value={stop.lugar} onChange={(event) => setStop(index, "lugar", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder={form.modalidad === "trabajo_en_sitio" ? "Galpón / lugar" : index === 0 ? "Desde dónde" : "Hacia dónde"} />
                 <input value={stop.direccion} onChange={(event) => setStop(index, "direccion", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder="Dirección / referencia" />
                 {form.modalidad === "traslado" && (
@@ -854,7 +853,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 7 }}>
             <select value={manualFileCategory} onChange={(event) => setManualFileCategory(event.target.value)} style={{ ...FIELD, height: 35 }}>{Object.entries(ARCHIVO_CATEGORIAS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-            <button type="button" onClick={() => manualFilesRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+            <button type="button" onClick={() => manualFilesRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
               <Paperclip size={14} /> {manualFiles.length ? `${manualFiles.length} archivo${manualFiles.length === 1 ? "" : "s"} seleccionado${manualFiles.length === 1 ? "" : "s"}` : "Adjuntar archivos"}
             </button>
             <input ref={manualFilesRef} type="file" multiple onChange={(event) => { setSelectedFiles(event.target.files); event.target.value = ""; }} style={{ display: "none" }} />
@@ -873,7 +872,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
         <div><label style={LABEL}>Detalle de costo / comprobante</label><input value={form.costoDetalle} onChange={(event) => set("costoDetalle", event.target.value)} style={FIELD} placeholder="Factura, referencia, forma de pago..." /></div>
         <div><label style={LABEL}>Observaciones</label><textarea value={form.observaciones} onChange={(event) => set("observaciones", event.target.value)} style={{ ...FIELD, minHeight: 68, resize: "vertical" }} placeholder="Indicaciones, contacto, documentación a retirar..." /></div>
       </div>
-      <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}><button onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 850 }}>Cancelar</button><button disabled={!valid || saving} onClick={save} style={{ padding: "9px 15px", borderRadius: 9, border: `1px solid ${valid ? type.border : C.border}`, background: valid ? type.soft : C.panel, color: valid ? type.color : C.dim, cursor: valid && !saving ? "pointer" : "default", opacity: saving ? .6 : 1, fontWeight: 950 }}><Plus size={14} /> {saving ? "Guardando..." : "Agregar al calendario"}</button></div>
+      <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}><button onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}>Cancelar</button><button disabled={!valid || saving} onClick={save} style={{ padding: "9px 15px", borderRadius: 9, border: `1px solid ${valid ? type.border : C.border}`, background: valid ? type.soft : C.panel, color: valid ? type.color : C.dim, cursor: valid && !saving ? "pointer" : "default", opacity: saving ? .6 : 1, fontWeight: 750 }}><Plus size={14} /> {saving ? "Guardando..." : "Agregar al calendario"}</button></div>
     </ModalShell>
   );
 }
@@ -940,8 +939,8 @@ function CoordinationModal({ row, mode, profile, onClose, onSaved }) {
         <div><label style={LABEL}>Mensaje</label><textarea style={{ ...FIELD, minHeight: 68, resize: "vertical" }} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Disponibilidad, condiciones o aclaraciones..." /></div>
       </div>
       <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 800 }}>Cancelar</button>
-        <button disabled={!valid || saving} onClick={save} style={{ padding: "9px 15px", borderRadius: 9, border: `1px solid ${mode === "confirm" ? C.greenB : C.violetB}`, background: mode === "confirm" ? C.greenL : C.violetL, color: mode === "confirm" ? C.green : C.violet, cursor: valid ? "pointer" : "default", opacity: valid ? 1 : .45, fontWeight: 950 }}>{saving ? "Guardando..." : mode === "confirm" ? "Confirmar" : "Enviar propuesta"}</button>
+        <button onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 650 }}>Cancelar</button>
+        <button disabled={!valid || saving} onClick={save} style={{ padding: "9px 15px", borderRadius: 9, border: `1px solid ${mode === "confirm" ? C.greenB : C.violetB}`, background: mode === "confirm" ? C.greenL : C.violetL, color: mode === "confirm" ? C.green : C.violet, cursor: valid ? "pointer" : "default", opacity: valid ? 1 : .45, fontWeight: 750 }}>{saving ? "Guardando..." : mode === "confirm" ? "Confirmar" : "Enviar propuesta"}</button>
       </div>
     </ModalShell>
   );
@@ -1062,38 +1061,38 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
     <div className="log-detail-backdrop" onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 11000, background: "var(--overlay)", display: "flex", justifyContent: "flex-end", padding: 8 }}>
       <aside onMouseDown={(event) => event.stopPropagation()} className="log-detail log-detail-sheet" style={{ width: 520, maxWidth: "100%", height: "100%", overflowY: "auto", background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 18, boxShadow: "-20px 0 70px var(--shadow-strong)", color: C.text }}>
         <div className="log-detail-header" style={{ position: "sticky", top: 0, zIndex: 2, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: C.topbar, backdropFilter: "blur(18px)", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", gap: 9, alignItems: "center" }}><button onClick={onClose} style={{ width: 31, height: 31, display: "grid", placeItems: "center", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><ArrowRight size={16} /></button><div><div style={{ fontSize: 13.5, fontWeight: 950 }}>Detalle del movimiento</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Registro #{String(row.id).slice(0, 8)}</div></div></div>
+          <div style={{ display: "flex", gap: 9, alignItems: "center" }}><button onClick={onClose} style={{ width: 31, height: 31, display: "grid", placeItems: "center", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><ArrowRight size={16} /></button><div><div style={{ fontSize: 13.5, fontWeight: 750 }}>Detalle del movimiento</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Registro #{String(row.id).slice(0, 8)}</div></div></div>
           <StatusBadge status={row.estado} />
         </div>
 
         <div style={{ padding: 18, display: "grid", gap: 18 }}>
           <section className="log-detail-hero" style={{ padding: 15, margin: "-2px -2px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: `radial-gradient(circle at 100% 0%, ${transportUi(transportsOf(row)[0]?.tipo).soft}, transparent 48%), ${C.panel}` }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 7, color: transportUi(transportsOf(row)[0]?.tipo).color, background: transportUi(transportsOf(row)[0]?.tipo).soft, border: `1px solid ${transportUi(transportsOf(row)[0]?.tipo).border}`, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={11} /> {row.modalidad === "trabajo_en_sitio" ? "Trabajo en sitio" : "Traslado"}</span>
-            {row.origen_manual && <span style={{ display: "inline-flex", marginLeft: 6, padding: "4px 7px", borderRadius: 7, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>Carga manual</span>}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 7, color: transportUi(transportsOf(row)[0]?.tipo).color, background: transportUi(transportsOf(row)[0]?.tipo).soft, border: `1px solid ${transportUi(transportsOf(row)[0]?.tipo).border}`, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={11} /> {row.modalidad === "trabajo_en_sitio" ? "Trabajo en sitio" : "Traslado"}</span>
+            {row.origen_manual && <span style={{ display: "inline-flex", marginLeft: 6, padding: "4px 7px", borderRadius: 7, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}>Carga manual</span>}
             <h2 style={{ margin: "9px 0 0", color: C.text, fontSize: 22, lineHeight: 1.2 }}>{movementHeadline(row)}</h2>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10, color: C.dim, fontSize: 11.5 }}>
-              {row.obra && <span style={{ color: C.blue, fontFamily: C.mono, fontWeight: 900 }}>{row.obra}</span>}
+              {row.obra && <span style={{ color: C.blue, fontFamily: C.mono, fontWeight: 700 }}>{row.obra}</span>}
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><UserRound size={13} /> Pedido por {actorName(row.solicitante)}</span>
-              {row.prioridad === "urgente" && <span style={{ color: C.red, fontWeight: 950 }}>Urgente</span>}
+              {row.prioridad === "urgente" && <span style={{ color: C.red, fontWeight: 750 }}>Urgente</span>}
             </div>
           </section>
 
           {row.estado === "fecha_propuesta" && own && (
             <section style={{ padding: 13, borderRadius: 12, background: C.violetL, border: `1px solid ${C.violetB}` }}>
-              <div style={{ color: C.violet, fontSize: 12.5, fontWeight: 950 }}>Compras propuso {fmtDate(row.fecha_propuesta, true)} a las {cleanTime(row.hora_propuesta)}</div>
+              <div style={{ color: C.violet, fontSize: 12.5, fontWeight: 750 }}>Compras propuso {fmtDate(row.fecha_propuesta, true)} a las {cleanTime(row.hora_propuesta)}</div>
               {row.propuesta_mensaje && <div style={{ color: C.muted, fontSize: 11.5, marginTop: 6 }}>{row.propuesta_mensaje}</div>}
               <div style={{ display: "flex", gap: 7, marginTop: 11 }}>
-                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, true, profile), "Fecha aceptada. Compras debe realizar la confirmación final.")} style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 950 }}><Check size={14} /> Aceptar fecha</button>
-                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, false, profile), "Propuesta rechazada. Compras fue avisado.")} style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: "pointer", fontWeight: 950 }}><X size={14} /> Rechazar</button>
+                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, true, profile), "Fecha aceptada. Compras debe realizar la confirmación final.")} style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><Check size={14} /> Aceptar fecha</button>
+                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, false, profile), "Propuesta rechazada. Compras fue avisado.")} style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: "pointer", fontWeight: 750 }}><X size={14} /> Rechazar</button>
               </div>
             </section>
           )}
 
           {row.estado === "fecha_aceptada" && (
             <section style={{ padding: 13, borderRadius: 12, background: C.cyanL, border: `1px solid ${C.cyanB}` }}>
-              <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 950 }}>Fecha aceptada por Técnica</div>
+              <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 750 }}>Fecha aceptada por Técnica</div>
               <div style={{ color: C.muted, fontSize: 11.5, marginTop: 5 }}>{fmtDate(row.fecha_propuesta, true)} a las {cleanTime(row.hora_propuesta) || "sin hora"}. Falta la confirmación definitiva de Compras.</div>
-              {isManager && <button disabled={saving} onClick={() => action(() => confirmarFechaAceptadaMovimiento(row, profile), "Movimiento confirmado definitivamente.")} style={{ width: "100%", marginTop: 11, padding: 10, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 950 }}><CheckCircle2 size={15} /> Confirmar movimiento</button>}
+              {isManager && <button disabled={saving} onClick={() => action(() => confirmarFechaAceptadaMovimiento(row, profile), "Movimiento confirmado definitivamente.")} style={{ width: "100%", marginTop: 11, padding: 10, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><CheckCircle2 size={15} /> Confirmar movimiento</button>}
             </section>
           )}
 
@@ -1119,7 +1118,7 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
 
           <section style={{ padding: 13, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: attachments.length ? 10 : 0 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 950 }}><Paperclip size={14} /> Documentación <small style={{ color: C.dim, fontFamily: C.mono }}>{attachments.length}</small></span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 750 }}><Paperclip size={14} /> Documentación <small style={{ color: C.dim, fontFamily: C.mono }}>{attachments.length}</small></span>
               <span style={{ color: C.dim, fontSize: 9.5 }}>Fotos, PDF y archivos · hasta 50 MB</span>
             </div>
             {!!attachments.length && <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
@@ -1138,21 +1137,21 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
             </div>}
             <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 7 }}>
               <select value={attachmentCategory} onChange={(event) => setAttachmentCategory(event.target.value)} style={{ ...FIELD, height: 35 }}>{Object.entries(ARCHIVO_CATEGORIAS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-              <button disabled={uploading} onClick={() => fileInputRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${uploading ? C.border : C.blueB}`, background: uploading ? C.panel : C.blueL, color: uploading ? C.dim : C.blue, cursor: uploading ? "default" : "pointer", fontWeight: 900 }}><Upload size={14} /> {uploading ? "Subiendo..." : "Adjuntar archivos"}</button>
+              <button disabled={uploading} onClick={() => fileInputRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${uploading ? C.border : C.blueB}`, background: uploading ? C.panel : C.blueL, color: uploading ? C.dim : C.blue, cursor: uploading ? "default" : "pointer", fontWeight: 700 }}><Upload size={14} /> {uploading ? "Subiendo..." : "Adjuntar archivos"}</button>
               <input ref={fileInputRef} type="file" multiple onChange={uploadAttachments} style={{ display: "none" }} />
             </div>
           </section>
 
           {isManager && row.estado === "solicitado" && (
             <section style={{ display: "grid", gap: 7 }}>
-              <button onClick={() => onCoordinate("confirm")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 950 }}><CheckCircle2 size={15} /> Confirmar fecha solicitada</button>
-              <button onClick={() => onCoordinate("propose")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, cursor: "pointer", fontWeight: 950 }}><Clock3 size={15} /> Proponer otra fecha</button>
+              <button onClick={() => onCoordinate("confirm")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><CheckCircle2 size={15} /> Confirmar fecha solicitada</button>
+              <button onClick={() => onCoordinate("propose")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, cursor: "pointer", fontWeight: 750 }}><Clock3 size={15} /> Proponer otra fecha</button>
             </section>
           )}
 
           {!!sharedRows.length && (
             <section style={{ padding: 13, borderRadius: 12, border: `1px solid ${C.greenB}`, background: C.greenL }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.green, fontSize: 12.5, fontWeight: 950 }}><Merge size={15} /> Transporte compartido confirmado</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.green, fontSize: 12.5, fontWeight: 750 }}><Merge size={15} /> Transporte compartido confirmado</div>
               {row.union_decidido_at && <div style={{ color: C.dim, fontSize: 9.8, marginTop: 4 }}>Decidió {actorName(row.union_decidido_por_perfil)} · {new Date(row.union_decidido_at).toLocaleString("es-AR")}</div>}
               <div style={{ display: "grid", gap: 5, marginTop: 9 }}>{sharedRows.map((item) => <div key={item.id} style={{ padding: "7px 9px", borderRadius: 8, background: C.panel, border: `1px solid ${C.greenB}` }}><b style={{ display: "block", color: C.text, fontSize: 11.5 }}>{movementHeadline(item)}</b><small style={{ display: "block", color: C.dim, marginTop: 2 }}>{item.obra || "Sin obra"} · {routeLabel(item)}</small></div>)}</div>
             </section>
@@ -1160,7 +1159,7 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
 
           {row.union_estado === "rechazada" && row.union_observacion && (
             <section style={{ padding: 12, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel }}>
-              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 950 }}><Truck size={14} /> Transporte separado</div>
+              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 750 }}><Truck size={14} /> Transporte separado</div>
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 4 }}>{row.union_observacion}</div>
               {row.union_decidido_at && <div style={{ color: C.dim, fontSize: 9.5, marginTop: 5 }}>Decidió {actorName(row.union_decidido_por_perfil)} · {new Date(row.union_decidido_at).toLocaleString("es-AR")}</div>}
             </section>
@@ -1171,7 +1170,7 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}><span><b style={{ display: "block", color: C.violet, fontSize: 12.5 }}>Posible viaje compartido</b><small style={{ display: "block", color: C.dim, marginTop: 3 }}>Coinciden fecha y tipo de transporte. Revisá espacio y recorrido.</small></span><Merge size={17} color={C.violet} /></div>
               <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
                 {candidates.map((candidate) => (
-                  <button key={candidate.id} disabled={saving} onClick={() => { setMergeCandidate(candidate); setMergeNote(""); }} style={{ padding: "10px 11px", borderRadius: 9, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.text, cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 10, textAlign: "left" }}><span style={{ minWidth: 0 }}><b style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.8 }}>{movementHeadline(candidate)}</b><small style={{ display: "block", color: C.dim, marginTop: 4 }}>{fmtDate(displayDate(candidate), true)} · {candidate.obra || "Sin obra"} · {routeLabel(candidate)}</small></span><span style={{ color: C.violet, fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>Comparar <ChevronRight size={12} /></span></button>
+                  <button key={candidate.id} disabled={saving} onClick={() => { setMergeCandidate(candidate); setMergeNote(""); }} style={{ padding: "10px 11px", borderRadius: 9, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.text, cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 10, textAlign: "left" }}><span style={{ minWidth: 0 }}><b style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.8 }}>{movementHeadline(candidate)}</b><small style={{ display: "block", color: C.dim, marginTop: 4 }}>{fmtDate(displayDate(candidate), true)} · {candidate.obra || "Sin obra"} · {routeLabel(candidate)}</small></span><span style={{ color: C.violet, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>Comparar <ChevronRight size={12} /></span></button>
                 ))}
               </div>
             </section>
@@ -1181,13 +1180,13 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
             <section className="log-enter" style={{ padding: 14, borderRadius: 13, border: `1px solid ${C.violetB}`, background: C.violetL }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}><span><b style={{ display: "block", color: C.violet, fontSize: 13 }}>Evaluar unión de transportes</b><small style={{ display: "block", color: C.muted, marginTop: 3 }}>Compras confirma si ambas cargas entran y el recorrido es compatible.</small></span><button onClick={() => setMergeCandidate(null)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><X size={13} /></button></div>
               <div style={{ display: "grid", gap: 7, marginTop: 11 }}>
-                {[row, mergeCandidate].map((item, index) => <div key={item.id} style={{ padding: 11, borderRadius: 10, border: `1px solid ${index === 0 ? C.blueB : C.violetB}`, background: C.panelSolid }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><span style={{ color: index === 0 ? C.blue : C.violet, fontSize: 9, fontWeight: 950, textTransform: "uppercase", letterSpacing: ".1em" }}>{index === 0 ? "Movimiento actual" : "Movimiento a combinar"}</span><span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5 }}>{fmtDate(displayDate(item))} · {displayTime(item) || "Sin hora"}</span></div><b style={{ display: "block", color: C.text, fontSize: 12.5, marginTop: 6 }}>{movementHeadline(item)}</b><div style={{ display: "grid", gap: 3, color: C.dim, fontSize: 10.5, marginTop: 6 }}><span><b style={{ color: C.muted }}>Obra:</b> {item.obra || "Sin obra"}</span><span><b style={{ color: C.muted }}>Recorrido:</b> {routeLabel(item)}</span><span><b style={{ color: C.muted }}>Proveedor:</b> {providerSummary(item)}</span></div></div>)}
+                {[row, mergeCandidate].map((item, index) => <div key={item.id} style={{ padding: 11, borderRadius: 10, border: `1px solid ${index === 0 ? C.blueB : C.violetB}`, background: C.panelSolid }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><span style={{ color: index === 0 ? C.blue : C.violet, fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".1em" }}>{index === 0 ? "Movimiento actual" : "Movimiento a combinar"}</span><span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5 }}>{fmtDate(displayDate(item))} · {displayTime(item) || "Sin hora"}</span></div><b style={{ display: "block", color: C.text, fontSize: 12.5, marginTop: 6 }}>{movementHeadline(item)}</b><div style={{ display: "grid", gap: 3, color: C.dim, fontSize: 10.5, marginTop: 6 }}><span><b style={{ color: C.muted }}>Obra:</b> {item.obra || "Sin obra"}</span><span><b style={{ color: C.muted }}>Recorrido:</b> {routeLabel(item)}</span><span><b style={{ color: C.muted }}>Proveedor:</b> {providerSummary(item)}</span></div></div>)}
               </div>
               <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 10.5 }}><AlertTriangle size={13} color={C.violet} /> El sistema detecta la coincidencia; Compras debe validar capacidad física y horarios.</div>
               <textarea value={mergeNote} onChange={(event) => setMergeNote(event.target.value)} placeholder="Observación opcional: no entra por volumen, recorridos incompatibles..." style={{ ...FIELD, minHeight: 62, marginTop: 9, resize: "vertical" }} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 9 }}>
-                <button disabled={saving} onClick={() => decideMerge(false)} style={{ padding: 10, borderRadius: 9, border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 900 }}><Truck size={14} /> Pedir otro flete</button>
-                <button disabled={saving} onClick={() => decideMerge(true)} style={{ padding: 10, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 950 }}><Merge size={14} /> Aceptar unión</button>
+                <button disabled={saving} onClick={() => decideMerge(false)} style={{ padding: 10, borderRadius: 9, border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}><Truck size={14} /> Pedir otro flete</button>
+                <button disabled={saving} onClick={() => decideMerge(true)} style={{ padding: 10, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><Merge size={14} /> Aceptar unión</button>
               </div>
             </section>
           )}
@@ -1197,28 +1196,28 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
               <span style={LABEL}>Costo del movimiento</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 82px", gap: 7 }}><input type="number" min="0" step="0.01" style={FIELD} value={cost} onChange={(event) => setCost(event.target.value)} placeholder="Importe" /><select style={FIELD} value={currency} onChange={(event) => setCurrency(event.target.value)}><option>ARS</option><option>USD</option></select></div>
               <input style={{ ...FIELD, marginTop: 7 }} value={costDetail} onChange={(event) => setCostDetail(event.target.value)} placeholder="Detalle, factura o referencia" />
-              <button disabled={saving} onClick={() => action(() => guardarCostoMovimiento(row, { costo: cost, moneda: currency, detalle: costDetail }, profile), "Costo guardado.")} style={{ width: "100%", marginTop: 7, padding: 8, borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 900 }}><Banknote size={14} /> Guardar costo</button>
+              <button disabled={saving} onClick={() => action(() => guardarCostoMovimiento(row, { costo: cost, moneda: currency, detalle: costDetail }, profile), "Costo guardado.")} style={{ width: "100%", marginTop: 7, padding: 8, borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 700 }}><Banknote size={14} /> Guardar costo</button>
               {row.costo_updated_by && <div style={{ color: C.dim, fontSize: 10, marginTop: 7 }}>Última carga: {actorName(row.costo_por)}</div>}
             </section>
           )}
 
           <section style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-            {own && row.estado === "solicitado" && <button onClick={onEdit} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 850 }}>Editar solicitud</button>}
-            {isManager && row.estado === "confirmado" && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "realizado", profile), "Movimiento marcado como realizado.")} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 850 }}>Marcar realizado</button>}
-            {isManager && !["realizado", "cancelado"].includes(row.estado) && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "cancelado", profile), "Movimiento cancelado.")} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: "transparent", color: C.red, cursor: "pointer", fontWeight: 850 }}>Cancelar movimiento</button>}
+            {own && row.estado === "solicitado" && <button onClick={onEdit} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}>Editar solicitud</button>}
+            {isManager && row.estado === "confirmado" && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "realizado", profile), "Movimiento marcado como realizado.")} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 700 }}>Marcar realizado</button>}
+            {isManager && !["realizado", "cancelado"].includes(row.estado) && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "cancelado", profile), "Movimiento cancelado.")} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: "transparent", color: C.red, cursor: "pointer", fontWeight: 700 }}>Cancelar movimiento</button>}
           </section>
 
           {isManager && (
             <section style={{ paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
               {!deleteConfirm ? (
-                <button disabled={saving} onClick={() => setDeleteConfirm(true)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> Eliminar movimiento</button>
+                <button disabled={saving} onClick={() => setDeleteConfirm(true)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> Eliminar movimiento</button>
               ) : (
                 <div style={{ padding: 12, borderRadius: 11, border: `1px solid ${C.redB}`, background: C.redL }}>
-                  <div style={{ color: C.red, fontSize: 12.5, fontWeight: 950 }}>¿Eliminar definitivamente “{row.carga || row.titulo}”?</div>
+                  <div style={{ color: C.red, fontSize: 12.5, fontWeight: 750 }}>¿Eliminar definitivamente “{row.carga || row.titulo}”?</div>
                   <div style={{ marginTop: 4, color: C.muted, fontSize: 11 }}>Se eliminarán este movimiento y su historial. Esta acción no se puede deshacer.</div>
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 7, marginTop: 11 }}>
-                    <button disabled={saving} onClick={() => setDeleteConfirm(false)} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 850 }}>Conservar</button>
-                    <button disabled={saving} onClick={removeMovement} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.red, color: "white", cursor: saving ? "default" : "pointer", opacity: saving ? .55 : 1, fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> {saving ? "Eliminando..." : "Sí, eliminar"}</button>
+                    <button disabled={saving} onClick={() => setDeleteConfirm(false)} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}>Conservar</button>
+                    <button disabled={saving} onClick={removeMovement} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.red, color: "white", cursor: saving ? "default" : "pointer", opacity: saving ? .55 : 1, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> {saving ? "Eliminando..." : "Sí, eliminar"}</button>
                   </div>
                 </div>
               )}
@@ -1226,8 +1225,8 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
           )}
 
           <section>
-            <button onClick={() => setHistoryOpen((value) => !value)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontWeight: 900 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><History size={14} /> Historial completo</span><span>{historyOpen ? "Ocultar" : `${history.length} cambios`}</span></button>
-            {historyOpen && <div style={{ display: "grid", gap: 8, paddingTop: 5 }}>{history.map((item) => <div key={item.id} style={{ paddingLeft: 12, borderLeft: `2px solid ${statusUi(item.estado_nuevo).border}` }}><div style={{ color: C.text, fontSize: 11.5, fontWeight: 850 }}>{String(item.accion || "Cambio").replaceAll("_", " ")}</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{actorName(item.actor)} · {new Date(item.created_at).toLocaleString("es-AR")}</div></div>)}</div>}
+            <button onClick={() => setHistoryOpen((value) => !value)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontWeight: 700 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><History size={14} /> Historial completo</span><span>{historyOpen ? "Ocultar" : `${history.length} cambios`}</span></button>
+            {historyOpen && <div style={{ display: "grid", gap: 8, paddingTop: 5 }}>{history.map((item) => <div key={item.id} style={{ paddingLeft: 12, borderLeft: `2px solid ${statusUi(item.estado_nuevo).border}` }}><div style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>{String(item.accion || "Cambio").replaceAll("_", " ")}</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{actorName(item.actor)} · {new Date(item.created_at).toLocaleString("es-AR")}</div></div>)}</div>}
           </section>
         </div>
       </aside>
@@ -1267,11 +1266,11 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
       <div className="log-calendar-top" style={{ minHeight: 68, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${C.border}`, background: `linear-gradient(115deg, ${C.panelSolid}, ${C.topbarSoft})` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
           <span className="log-month-icon" style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><CalendarDays size={18} /></span>
-          <span style={{ minWidth: 0 }}><small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".13em" }}>Agenda logística</small><strong style={{ display: "block", color: C.text, fontSize: 17, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{MESES[monthIndex]} <span style={{ color: C.dim, fontFamily: C.mono, fontWeight: 700 }}>{year}</span></strong></span>
+          <span style={{ minWidth: 0 }}><small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".13em" }}>Agenda logística</small><strong style={{ display: "block", color: C.text, fontSize: 17, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{MESES[monthIndex]} <span style={{ color: C.dim, fontFamily: C.mono, fontWeight: 600 }}>{year}</span></strong></span>
           <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{visibleMovements} movimiento{visibleMovements === 1 ? "" : "s"}{visibleMilestones ? ` · ${visibleMilestones} anteriores` : ""}{visibleHolidays ? ` · ${visibleHolidays} feriado${visibleHolidays === 1 ? "" : "s"}` : ""}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button className="log-soft-button" onClick={() => onMonth(parseDate(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 850 }}>Hoy</button>
+          <button className="log-soft-button" onClick={() => onMonth(parseDate(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}>Hoy</button>
           <span style={{ display: "flex", padding: 3, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
             <button className="log-icon-button" aria-label="Mes anterior" onClick={() => onMonth(new Date(year, monthIndex - 1, 1))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronLeft size={15} /></button>
             <button className="log-icon-button" aria-label="Mes siguiente" onClick={() => onMonth(new Date(year, monthIndex + 1, 1))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronRight size={15} /></button>
@@ -1279,7 +1278,7 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
         </div>
       </div>
       <div className="log-calendar" style={{ minWidth: 900 }}>
-        <div className="log-weekdays" style={{ display: "grid", gridTemplateColumns: CALENDAR_COLUMNS, borderBottom: `1px solid ${C.border}`, background: C.panel }}>{DIAS.map((day, index) => <div key={day} style={{ padding: "9px 10px", color: index > 4 ? C.violet : C.dim, background: index > 4 ? C.violetL : "transparent", fontSize: 9, fontWeight: 950, textTransform: "uppercase", letterSpacing: ".14em", textAlign: "center" }}>{day}</div>)}</div>
+        <div className="log-weekdays" style={{ display: "grid", gridTemplateColumns: CALENDAR_COLUMNS, borderBottom: `1px solid ${C.border}`, background: C.panel }}>{DIAS.map((day, index) => <div key={day} style={{ padding: "9px 10px", color: index > 4 ? C.violet : C.dim, background: index > 4 ? C.violetL : "transparent", fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".14em", textAlign: "center" }}>{day}</div>)}</div>
         <div style={{ display: "grid", gridTemplateColumns: CALENDAR_COLUMNS }}>
           {cells.map((date, index) => {
             const events = date ? byDate.get(date) || [] : [];
@@ -1293,8 +1292,8 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
             return (
               <div className={`log-calendar-cell${date === TODAY ? " is-today" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${raining ? " is-raining" : ""}${!date ? " is-empty" : ""}`} key={index} title={holiday || undefined} style={{ minHeight: 132, padding: 8, overflow: "hidden", borderRight: index % 7 !== 6 ? `1px solid ${C.border}` : 0, borderBottom: index < 35 ? `1px solid ${C.border}` : 0, background: !date ? C.panel : date === TODAY ? C.blueL : holiday ? `linear-gradient(145deg, ${C.redL}, transparent 62%)` : weekend ? C.panel : "transparent" }}>
                 {raining && <RainVeil probability={dayWeather.rain} />}
-                {date && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: date === TODAY ? C.blue : holiday ? C.red : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, marginBottom: 7 }}><span className="log-day-number" style={{ width: 24, height: 24, borderRadius: 8, display: "grid", placeItems: "center", background: date === TODAY ? C.blue : holiday ? C.redL : "transparent", border: holiday && date !== TODAY ? `1px solid ${C.redB}` : "1px solid transparent", color: date === TODAY ? "white" : holiday ? C.red : weekend ? C.muted : C.dim }}>{parseDate(date).getDate()}</span>{dayWeather && <span title={`${weatherLabel(dayWeather.code)} · viento ${Math.round(dayWeather.wind)} km/h · lluvia ${dayWeather.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontSize: 8.5 }}>{raining ? <CloudRain size={10} /> : <CloudSun size={10} />}{Math.round(dayWeather.max)}°</span>}</div>}
-                {holiday && <div className="log-holiday-label" title={holiday} style={{ margin: "-2px 0 5px", color: C.red, fontSize: 8.5, fontWeight: 950, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", width: 5, height: 5, marginRight: 4, borderRadius: 99, background: C.red }} />Feriado · {holiday}</div>}
+                {date && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: date === TODAY ? C.blue : holiday ? C.red : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700, marginBottom: 7 }}><span className="log-day-number" style={{ width: 24, height: 24, borderRadius: 8, display: "grid", placeItems: "center", background: date === TODAY ? C.blue : holiday ? C.redL : "transparent", border: holiday && date !== TODAY ? `1px solid ${C.redB}` : "1px solid transparent", color: date === TODAY ? "white" : holiday ? C.red : weekend ? C.muted : C.dim }}>{parseDate(date).getDate()}</span>{dayWeather && <span title={`${weatherLabel(dayWeather.code)} · viento ${Math.round(dayWeather.wind)} km/h · lluvia ${dayWeather.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontSize: 8.5 }}>{raining ? <CloudRain size={10} /> : <CloudSun size={10} />}{Math.round(dayWeather.max)}°</span>}</div>}
+                {holiday && <div className="log-holiday-label" title={holiday} style={{ margin: "-2px 0 5px", color: C.red, fontSize: 8.5, fontWeight: 750, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", width: 5, height: 5, marginRight: 4, borderRadius: 99, background: C.red }} />Feriado · {holiday}</div>}
                 {events.slice(0, eventLimit).map((row) => {
                   const ui = transportUi(transportsOf(row)[0]?.tipo);
                   const state = statusUi(row.estado);
@@ -1303,11 +1302,11 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
                   const title = row.carga || row.titulo || "Movimiento";
                   return (
                     <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ minHeight: 43, width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "start", gap: 7, textAlign: "left", overflow: "hidden", marginBottom: 5, padding: "6px 8px", borderRadius: 9, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `3px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer" }}>
-                      <span style={{ paddingTop: 1, color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 9.5, fontWeight: 950 }}>{displayTime(row) || "—"}</span>
+                      <span style={{ paddingTop: 1, color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 9.5, fontWeight: 750 }}>{displayTime(row) || "—"}</span>
                       <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
-                        <strong style={{ color: C.text, fontSize: 10.7, lineHeight: 1.15, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</strong>
+                        <strong style={{ color: C.text, fontSize: 10.7, lineHeight: 1.15, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</strong>
                         <small style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 9.1, lineHeight: 1.1, overflow: "hidden", whiteSpace: "nowrap" }}>
-                          <b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontWeight: 950 }}>{workLabel(row)}</b>
+                          <b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontWeight: 750 }}>{workLabel(row)}</b>
                           <span style={{ color: C.border2 }}>·</span>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>
                         </small>
@@ -1316,8 +1315,8 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
                     </button>
                   );
                 })}
-                {events.length > eventLimit && <div style={{ color: C.blue, fontSize: 8.8, fontWeight: 850, padding: "1px 4px" }}>+{events.length - eventLimit} movimientos</div>}
-                {marks.slice(0, visibleMarks).map((mark) => <div className="log-legacy-pill" key={mark.id} title={mark.notas || "Registro del calendario anterior"} style={{ marginTop: 4, padding: "4px 6px", borderRadius: 6, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 8.6, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◇ {cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
+                {events.length > eventLimit && <div style={{ color: C.blue, fontSize: 8.8, fontWeight: 700, padding: "1px 4px" }}>+{events.length - eventLimit} movimientos</div>}
+                {marks.slice(0, visibleMarks).map((mark) => <div className="log-legacy-pill" key={mark.id} title={mark.notas || "Registro del calendario anterior"} style={{ marginTop: 4, padding: "4px 6px", borderRadius: 6, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 8.6, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◇ {cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
                 {marks.length > visibleMarks && <div style={{ color: C.dim, fontSize: 8.5, marginTop: 3 }}>+{marks.length - visibleMarks} anteriores</div>}
               </div>
             );
@@ -1349,13 +1348,13 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
         <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
           <span className="log-month-icon" style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}` }}><CalendarRange size={18} /></span>
           <span style={{ minWidth: 0 }}>
-            <small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".13em" }}>Vista operativa semanal</small>
+            <small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".13em" }}>Vista operativa semanal</small>
             <strong style={{ display: "block", color: C.text, fontSize: 15.5, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{fmtDate(weekStart, true)} — {fmtDate(weekEnd, true)}</strong>
           </span>
           <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{total} movimiento{total === 1 ? "" : "s"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button className="log-soft-button" onClick={() => onWeek(startOfWeek(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 850 }}>Esta semana</button>
+          <button className="log-soft-button" onClick={() => onWeek(startOfWeek(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}>Esta semana</button>
           <span style={{ display: "flex", padding: 3, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
             <button className="log-icon-button" aria-label="Semana anterior" onClick={() => onWeek(dateAdd(weekStart, -7))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronLeft size={15} /></button>
             <button className="log-icon-button" aria-label="Semana siguiente" onClick={() => onWeek(dateAdd(weekStart, 7))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronRight size={15} /></button>
@@ -1383,7 +1382,7 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
                   </span>
                   {dayWeather && <span title={`${weatherLabel(dayWeather.code)} · lluvia ${dayWeather.rain ?? 0}% · viento ${Math.round(dayWeather.wind)} km/h`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontFamily: C.mono, fontSize: 9, whiteSpace: "nowrap" }}>{raining ? <CloudRain size={11} /> : <CloudSun size={11} />}{Math.round(dayWeather.max)}°</span>}
                 </header>
-                {holiday && <div title={holiday} style={{ position: "relative", zIndex: 1, marginBottom: 8, padding: "5px 7px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9, fontWeight: 900, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</div>}
+                {holiday && <div title={holiday} style={{ position: "relative", zIndex: 1, marginBottom: 8, padding: "5px 7px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9, fontWeight: 700, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</div>}
                 <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 7 }}>
                   {events.map((row) => {
                     const ui = transportUi(transportsOf(row)[0]?.tipo);
@@ -1392,8 +1391,8 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
                     const canMerge = mergeableIds?.has(row.id);
                     return (
                       <button className="log-week-event" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}`} style={{ width: "100%", minHeight: 82, padding: "9px 10px", display: "grid", gap: 6, textAlign: "left", borderRadius: 11, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `3px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : `linear-gradient(145deg, ${ui.soft}, ${C.panelSolid} 78%)`, color: C.text, cursor: "pointer", fontFamily: C.sans, overflow: "hidden" }}>
-                        <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}><b style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 11.5 }}>{displayTime(row) || "Sin hora"}</b><span style={{ color: state.color, fontSize: 8.5, fontWeight: 950, textTransform: "uppercase", whiteSpace: "nowrap" }}>{state.short}</span></span>
-                        <strong style={{ color: C.text, fontSize: 12.5, lineHeight: 1.25, fontWeight: 950, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{row.carga || row.titulo || "Movimiento"}</strong>
+                        <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}><b style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 11.5 }}>{displayTime(row) || "Sin hora"}</b><span style={{ color: state.color, fontSize: 8.5, fontWeight: 750, textTransform: "uppercase", whiteSpace: "nowrap" }}>{state.short}</span></span>
+                        <strong style={{ color: C.text, fontSize: 12.5, lineHeight: 1.25, fontWeight: 750, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{row.carga || row.titulo || "Movimiento"}</strong>
                         <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, color: C.dim, fontSize: 9.5, whiteSpace: "nowrap" }}><b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono }}>{workLabel(row)}</b><span>·</span><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>{canMerge && <Merge size={10} color={C.violet} style={{ flexShrink: 0 }} />}</span>
                         <span style={{ color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Route size={10} /> {routeLabel(row)}</span>
                       </button>
@@ -1432,7 +1431,7 @@ function CostsView({ rows }) {
       <div className="log-cost-grid" style={{ display: "grid", gridTemplateColumns: "minmax(260px,.7fr) minmax(0,1.3fr)", gap: 12 }}>
         <section style={{ padding: 14, borderRadius: 13, background: C.panelSolid, border: `1px solid ${C.border}` }}><span style={LABEL}>Por proveedor</span><div style={{ display: "grid", gap: 7 }}>{byProvider.length ? byProvider.map(([name, data]) => <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}><span><b style={{ color: C.text, fontSize: 12.5 }}>{name}</b><small style={{ display: "block", color: C.dim, marginTop: 2 }}>{data.count} movimientos</small></span><span style={{ textAlign: "right", fontFamily: C.mono, color: C.muted, fontSize: 11 }}>{data.ars ? fmtMoney(data.ars) : ""}{data.usd ? <small style={{ display: "block", color: C.green }}>{fmtMoney(data.usd, "USD")}</small> : null}</span></div>) : <div style={{ color: C.dim, fontSize: 12, padding: 20, textAlign: "center" }}>Sin costos cargados para este mes.</div>}</div></section>
         <section style={{ borderRadius: 13, background: C.panelSolid, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, color: C.text, fontSize: 12.5, fontWeight: 900 }}>Detalle mensual</div>
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, color: C.text, fontSize: 12.5, fontWeight: 700 }}>Detalle mensual</div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
               <thead>
@@ -1453,10 +1452,10 @@ function CostsView({ rows }) {
                   return (
                     <tr key={row.id}>
                       <td style={{ padding: 11, color: C.dim, fontFamily: C.mono, fontSize: 10.5, borderBottom: `1px solid ${C.border}` }}>{fmtDate(displayDate(row))}</td>
-                      <td style={{ padding: 11, color: C.text, fontSize: 11.5, fontWeight: 800, borderBottom: `1px solid ${C.border}` }}>{row.carga}</td>
+                      <td style={{ padding: 11, color: C.text, fontSize: 11.5, fontWeight: 650, borderBottom: `1px solid ${C.border}` }}>{row.carga}</td>
                       <td style={{ padding: 11, borderBottom: `1px solid ${C.border}`, maxWidth: 220 }}>
                         {obra ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>{obra}</span>
+                          <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>{obra}</span>
                         ) : nota ? (
                           <span title={nota} style={{ display: "block", color: C.muted, fontSize: 11, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nota}</span>
                         ) : (
@@ -1465,7 +1464,7 @@ function CostsView({ rows }) {
                       </td>
                       <td style={{ padding: 11, color: C.muted, fontSize: 11, borderBottom: `1px solid ${C.border}` }}>{providerSummary(row)}</td>
                       <td style={{ padding: 11, color: C.muted, fontSize: 11, borderBottom: `1px solid ${C.border}` }}>{actorName(row.solicitante)}</td>
-                      <td style={{ padding: 11, color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 900, borderBottom: `1px solid ${C.border}` }}>{fmtMoney(row.costo, row.moneda)}</td>
+                      <td style={{ padding: 11, color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 700, borderBottom: `1px solid ${C.border}` }}>{fmtMoney(row.costo, row.moneda)}</td>
                     </tr>
                   );
                 })}
@@ -1516,7 +1515,7 @@ function exportMovementsCsv(items, scopeLabel = "filtrado") {
   URL.revokeObjectURL(url);
 }
 
-export default function LogisticaCalendarioScreen({ profile, signOut }) {
+export default function LogisticaCalendarioScreen({ profile }) {
   const { isMobile } = useResponsive(920);
   const role = profile?.is_admin ? "admin" : profile?.role;
   const isManager = role === "admin" || role === "compras";
@@ -1708,9 +1707,8 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   const availableViews = VISTAS.filter((item) => !item.managerOnly || isManager);
 
   return (
-    <div className="logistics-root" style={{ position: "fixed", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
+    <div className="logistics-root" style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <style>{`
-        *,*::before,*::after{box-sizing:border-box}
         @keyframes logFadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes logSlideIn{from{opacity:.35;transform:translateX(24px) scale(.985)}to{opacity:1;transform:translateX(0) scale(1)}}
         @keyframes logModalIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -1758,15 +1756,14 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
         .log-detail-hero:hover{border-color:var(--border-2)!important;box-shadow:0 12px 30px var(--shadow)}
         .log-day-group{animation:logFadeUp .32s cubic-bezier(.2,.8,.2,1) both}
         .spin{animation:logSpin .8s linear infinite}
-        .log-card:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+        .log-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
         .log-main::-webkit-scrollbar,.log-detail::-webkit-scrollbar{width:8px;height:8px}
         .log-main::-webkit-scrollbar-thumb,.log-detail::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:99px}
         .log-calendar-shell{isolation:isolate}
-        button svg{vertical-align:middle}
+        .logistics-root button svg{vertical-align:middle}
         @media(max-width:920px){
           .log-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
           .log-main{padding:12px!important}
-          .log-header{padding-left:60px!important}
           .log-title-copy{min-width:0!important;flex:1}
           .log-title-copy p{display:none}
           .log-view-tabs{order:3;flex-basis:100%}
@@ -1807,19 +1804,18 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
         }
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
       `}</style>
-      <div style={{ flexShrink: 0, width: isMobile ? 0 : undefined, overflow: "visible" }}><Sidebar profile={profile} signOut={signOut} /></div>
       <main style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header className="log-header" style={{ flexShrink: 0, minHeight: 72, padding: "10px 22px", borderBottom: `1px solid ${C.border}`, background: C.topbar, backdropFilter: "blur(20px)", display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", boxShadow: "0 7px 28px var(--shadow)" }}>
           <div className="log-title-icon" style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", background: `linear-gradient(145deg, ${C.blueL}, ${C.cyanL})`, border: `1px solid ${C.blueB}`, color: C.blue, boxShadow: "inset 0 1px 0 rgba(255,255,255,.12), 0 8px 22px var(--shadow)" }}><Route size={19} /></div>
-          <div className="log-title-copy" style={{ minWidth: 190 }}><h1 style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 950, letterSpacing: "-.01em" }}>Logística y movimientos</h1><p style={{ margin: "3px 0 0", color: C.dim, fontSize: 11.5 }}>Coordinación de transportes, recursos y documentación.</p></div>
-          <nav className="log-view-tabs" style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel, overflowX: "auto" }}>{availableViews.map(({ id, label, icon: Icon }) => <button className={`log-tab${view === id ? " is-active" : ""}`} key={id} onClick={() => setView(id)} style={{ height: 32, padding: "0 11px", borderRadius: 8, border: `1px solid ${view === id ? C.border2 : "transparent"}`, background: view === id ? C.panelSolid : "transparent", color: view === id ? C.text : C.dim, cursor: "pointer", fontWeight: view === id ? 900 : 700, fontSize: 11.5, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>{createElement(Icon, { size: 13 })}{label}</button>)}</nav>
+          <div className="log-title-copy" style={{ minWidth: 190 }}><h1 style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 750, letterSpacing: "-.01em" }}>Logística y movimientos</h1><p style={{ margin: "3px 0 0", color: C.dim, fontSize: 11.5 }}>Coordinación de transportes, recursos y documentación.</p></div>
+          <nav className="log-view-tabs" style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel, overflowX: "auto" }}>{availableViews.map(({ id, label, icon: Icon }) => <button className={`log-tab${view === id ? " is-active" : ""}`} key={id} onClick={() => setView(id)} style={{ height: 32, padding: "0 11px", borderRadius: 8, border: `1px solid ${view === id ? C.border2 : "transparent"}`, background: view === id ? C.panelSolid : "transparent", color: view === id ? C.text : C.dim, cursor: "pointer", fontWeight: view === id ? 700 : 600, fontSize: 11.5, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>{createElement(Icon, { size: 13 })}{label}</button>)}</nav>
           <div style={{ flex: 1 }} />
           <div className="log-header-actions" style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            {(role === "admin" || role === "tecnica") && <button className="log-soft-button log-production-button" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 850, fontSize: 10.5 }}><CalendarDays size={14} /><span>Producción anterior</span></button>}
-            {isManager && <button className="log-soft-button log-manual-button" onClick={() => setManualModal(true)} title="Agregar movimiento manual" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid var(--orange-border)", background: "var(--orange-soft)", color: C.orange, cursor: "pointer", fontWeight: 900, fontSize: 10.5 }}><Bike size={14} /><span>Movimiento manual</span></button>}
-            {isManager && <div style={{ position: "relative" }}><button className="log-soft-button log-export-button" onClick={() => setExportOpen((open) => !open)} title="Exportar informe" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 900, fontSize: 10.5 }}><Download size={14} /><span>Exportar</span></button>{exportOpen && <div className="log-modal-card" style={{ position: "absolute", top: 42, right: 0, zIndex: 20, width: 238, padding: 7, borderRadius: 11, border: `1px solid ${C.border2}`, background: C.panelSolid, boxShadow: "0 18px 50px var(--shadow-strong)", display: "grid", gap: 4 }}><button onClick={() => { exportMovementsCsv(filtered, "filtrado"); setExportOpen(false); }} style={{ padding: "9px 10px", borderRadius: 8, border: 0, background: C.blueL, color: C.blue, cursor: "pointer", textAlign: "left", fontWeight: 900 }}><Download size={13} /> Exportar filtrado ({filtered.length})</button><button onClick={() => { exportMovementsCsv(rows, "completo"); setExportOpen(false); }} style={{ padding: "9px 10px", borderRadius: 8, border: 0, background: "transparent", color: C.muted, cursor: "pointer", textAlign: "left", fontWeight: 850 }}><Download size={13} /> Exportar todo ({rows.length})</button><small style={{ padding: "4px 7px", color: C.dim, lineHeight: 1.35 }}>CSV para Excel con fechas, proveedores, decisiones de unión y costos.</small></div>}</div>}
+            {(role === "admin" || role === "tecnica") && <button className="log-soft-button log-production-button" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700, fontSize: 10.5 }}><CalendarDays size={14} /><span>Producción anterior</span></button>}
+            {isManager && <button className="log-soft-button log-manual-button" onClick={() => setManualModal(true)} title="Agregar movimiento manual" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid var(--orange-border)", background: "var(--orange-soft)", color: C.orange, cursor: "pointer", fontWeight: 700, fontSize: 10.5 }}><Bike size={14} /><span>Movimiento manual</span></button>}
+            {isManager && <div style={{ position: "relative" }}><button className="log-soft-button log-export-button" onClick={() => setExportOpen((open) => !open)} title="Exportar informe" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 700, fontSize: 10.5 }}><Download size={14} /><span>Exportar</span></button>{exportOpen && <div className="log-modal-card" style={{ position: "absolute", top: 42, right: 0, zIndex: 20, width: 238, padding: 7, borderRadius: 11, border: `1px solid ${C.border2}`, background: C.panelSolid, boxShadow: "0 18px 50px var(--shadow-strong)", display: "grid", gap: 4 }}><button onClick={() => { exportMovementsCsv(filtered, "filtrado"); setExportOpen(false); }} style={{ padding: "9px 10px", borderRadius: 8, border: 0, background: C.blueL, color: C.blue, cursor: "pointer", textAlign: "left", fontWeight: 700 }}><Download size={13} /> Exportar filtrado ({filtered.length})</button><button onClick={() => { exportMovementsCsv(rows, "completo"); setExportOpen(false); }} style={{ padding: "9px 10px", borderRadius: 8, border: 0, background: "transparent", color: C.muted, cursor: "pointer", textAlign: "left", fontWeight: 700 }}><Download size={13} /> Exportar todo ({rows.length})</button><small style={{ padding: "4px 7px", color: C.dim, lineHeight: 1.35 }}>CSV para Excel con fechas, proveedores, decisiones de unión y costos.</small></div>}</div>}
             <button className="log-icon-button" onClick={load} title="Actualizar" style={{ width: 36, height: 36, borderRadius: 9, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><RefreshCw className={loading ? "spin" : ""} size={15} /></button>
-            {canRequest && <button className="log-primary-action" onClick={() => setRequestModal({ row: null })} style={{ height: 37, padding: "0 14px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: `linear-gradient(135deg, ${C.blue}, ${C.cyan})`, color: "white", cursor: "pointer", fontWeight: 950, fontSize: 12 }}><Plus size={15} /><span>Solicitar movimiento</span></button>}
+            {canRequest && <button className="log-primary-action" onClick={() => setRequestModal({ row: null })} style={{ height: 37, padding: "0 14px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: `linear-gradient(135deg, ${C.blue}, ${C.cyan})`, color: "white", cursor: "pointer", fontWeight: 750, fontSize: 12 }}><Plus size={15} /><span>Solicitar movimiento</span></button>}
           </div>
         </header>
 
@@ -1839,14 +1835,14 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
                 <div style={{ position: "relative", flex: "1 1 300px" }}><Search size={14} style={{ position: "absolute", left: 12, top: 12, color: query ? C.blue : C.dim, transition: "color .15s ease" }} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar carga, obra, proveedor, recorrido o solicitante..." style={{ ...FIELD, minHeight: 38, paddingLeft: 34, background: C.panel }} /></div>
                 <select value={status} onChange={(event) => setStatus(event.target.value)} style={{ ...FIELD, width: 185 }}><option value="todos">Todos los estados</option>{Object.entries(ESTADOS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
                 <select value={transport} onChange={(event) => setTransport(event.target.value)} style={{ ...FIELD, width: 150 }}><option value="todos">Todo transporte</option>{Object.entries(TRANSPORTES).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-                <button onClick={() => setShowAdvancedFilters((open) => !open)} style={{ minHeight: 39, padding: "0 11px", borderRadius: 9, border: `1px solid ${showAdvancedFilters || advancedFilterCount ? C.violetB : C.border}`, background: showAdvancedFilters || advancedFilterCount ? C.violetL : C.panel, color: showAdvancedFilters || advancedFilterCount ? C.violet : C.dim, cursor: "pointer", fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 6 }}><SlidersHorizontal size={13} /> Más filtros{advancedFilterCount ? ` · ${advancedFilterCount}` : ""}</button>
-                {hasAnyFilters && <button onClick={clearFilters} style={{ minHeight: 39, padding: "0 10px", borderRadius: 9, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 850 }}>Limpiar</button>}
+                <button onClick={() => setShowAdvancedFilters((open) => !open)} style={{ minHeight: 39, padding: "0 11px", borderRadius: 9, border: `1px solid ${showAdvancedFilters || advancedFilterCount ? C.violetB : C.border}`, background: showAdvancedFilters || advancedFilterCount ? C.violetL : C.panel, color: showAdvancedFilters || advancedFilterCount ? C.violet : C.dim, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}><SlidersHorizontal size={13} /> Más filtros{advancedFilterCount ? ` · ${advancedFilterCount}` : ""}</button>
+                {hasAnyFilters && <button onClick={clearFilters} style={{ minHeight: 39, padding: "0 10px", borderRadius: 9, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 700 }}>Limpiar</button>}
                 {showAdvancedFilters && <div className="log-filter-advanced log-enter" style={{ flexBasis: "100%", paddingTop: 9, borderTop: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "repeat(4,minmax(150px,1fr)) auto", gap: 8, alignItems: "end" }}><div><label style={LABEL}>Desde</label><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} style={FIELD} /></div><div><label style={LABEL}>Hasta</label><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} style={FIELD} /></div><div><label style={LABEL}>Obra / sector</label><select value={obraFilter} onChange={(event) => setObraFilter(event.target.value)} style={FIELD}><option value="todos">Todas</option>{filterOptions.obras.map((obra) => <option key={obra} value={obra}>{obra}</option>)}</select></div><div><label style={LABEL}>Proveedor</label><select value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)} style={FIELD}><option value="todos">Todos</option>{filterOptions.providers.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></div><div style={{ minHeight: 39, display: "flex", alignItems: "center", color: C.dim, fontFamily: C.mono, fontSize: 10.5 }}>{filtered.length} resultados</div></div>}
             </section>
 
             {error && <div style={{ padding: 13, borderRadius: 11, background: C.redL, border: `1px solid ${C.redB}`, color: C.red, fontSize: 12 }}><b>No se pudo abrir el nuevo calendario.</b><div style={{ marginTop: 4 }}>{error}</div><div style={{ marginTop: 5, color: C.muted }}>Aplicá la migración 20260803180000_calendario_logistica_operativa.sql en Supabase y reintentá.</div></div>}
 
-            {loading ? <div className="log-view-enter" style={{ padding: 64, textAlign: "center", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 16, background: C.panelSolid }}><span style={{ width: 42, height: 42, display: "grid", placeItems: "center", margin: "0 auto", borderRadius: 13, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><RefreshCw size={19} className="spin" /></span><div style={{ marginTop: 11, color: C.muted, fontSize: 12, fontWeight: 850 }}>Preparando la agenda logística</div><div style={{ marginTop: 3, fontSize: 10.5 }}>Movimientos, clima y documentación.</div></div> : view === "calendario" ? (
+            {loading ? <div className="log-view-enter" style={{ padding: 64, textAlign: "center", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 16, background: C.panelSolid }}><span style={{ width: 42, height: 42, display: "grid", placeItems: "center", margin: "0 auto", borderRadius: 13, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><RefreshCw size={19} className="spin" /></span><div style={{ marginTop: 11, color: C.muted, fontSize: 12, fontWeight: 700 }}>Preparando la agenda logística</div><div style={{ marginTop: 3, fontSize: 10.5 }}>Movimientos, clima y documentación.</div></div> : view === "calendario" ? (
               <div style={{ overflowX: "auto" }}><MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} /></div>
             ) : view === "semana" ? (
               <WeekView weekStart={weekStartDate} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onWeek={setWeekStartDate} />
@@ -1860,8 +1856,8 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
                   const holiday = holidays.get(date);
                   return <section className="log-day-group" key={date} style={{ animationDelay: `${Math.min(groupIndex, 8) * 40}ms` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
-                      <span style={{ minWidth: date === TODAY ? 48 : 0, padding: date === TODAY ? "5px 9px" : 0, borderRadius: 8, border: date === TODAY ? `1px solid ${C.blueB}` : 0, background: date === TODAY ? C.blueL : "transparent", color: date === TODAY ? C.blue : C.text, fontSize: 12, fontWeight: 950, textTransform: "capitalize" }}>{date === TODAY ? "Hoy" : fmtDate(date, true)}</span>
-                      {holiday && <span title={holiday} style={{ maxWidth: 280, padding: "4px 8px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</span>}
+                      <span style={{ minWidth: date === TODAY ? 48 : 0, padding: date === TODAY ? "5px 9px" : 0, borderRadius: 8, border: date === TODAY ? `1px solid ${C.blueB}` : 0, background: date === TODAY ? C.blueL : "transparent", color: date === TODAY ? C.blue : C.text, fontSize: 12, fontWeight: 750, textTransform: "capitalize" }}>{date === TODAY ? "Hoy" : fmtDate(date, true)}</span>
+                      {holiday && <span title={holiday} style={{ maxWidth: 280, padding: "4px 8px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</span>}
                       <span style={{ flex: 1, height: 1, background: C.border }} />
                       <span style={{ height: 23, minWidth: 23, padding: "0 7px", borderRadius: 99, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, display: "grid", placeItems: "center", fontFamily: C.mono, fontSize: 9.5 }}>{dateRows.movements.length + dateRows.legacy.length}</span>
                     </div>
@@ -1871,7 +1867,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
                     </div>
                   </section>;
                 })}
-                {!Object.keys(groups).length && <div style={{ padding: 56, textAlign: "center", color: C.dim, border: `1px dashed ${C.border2}`, borderRadius: 13 }}><Truck size={26} style={{ marginBottom: 9 }} /><div style={{ color: C.text, fontWeight: 900 }}>No hay movimientos próximos</div><div style={{ fontSize: 11.5, marginTop: 4 }}>Probá cambiar los filtros o creá una solicitud.</div></div>}
+                {!Object.keys(groups).length && <div style={{ padding: 56, textAlign: "center", color: C.dim, border: `1px dashed ${C.border2}`, borderRadius: 13 }}><Truck size={26} style={{ marginBottom: 9 }} /><div style={{ color: C.text, fontWeight: 700 }}>No hay movimientos próximos</div><div style={{ fontSize: 11.5, marginTop: 4 }}>Probá cambiar los filtros o creá una solicitud.</div></div>}
               </div>
             )}
           </div>

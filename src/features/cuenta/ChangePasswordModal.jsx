@@ -87,7 +87,7 @@ export default function ChangePasswordModal({
         style={{
           width: "min(460px, 100%)",
           background: C.panelSolid,
-          border: `1px solid ${forced ? C.amber : C.border2}`,
+          border: `1px solid ${forced ? C.cyan : C.border2}`,
           borderRadius: 14,
           boxShadow: "0 30px 80px var(--shadow-strong)",
           padding: "20px 22px 18px",
@@ -101,14 +101,14 @@ export default function ChangePasswordModal({
             borderRadius: 9,
             display: "grid",
             placeItems: "center",
-            background: forced ? "var(--amber-soft)" : C.panel2,
-            color: forced ? C.amber : C.blue,
+            background: forced ? "var(--cyan-soft)" : C.panel2,
+            color: forced ? C.cyan : C.blue,
             flexShrink: 0,
           }}>
             <KeyRound size={17} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>
+            <div style={{ fontSize: 16, fontWeight: 650 }}>
               {forced ? "Cambiá tu contraseña" : "Cambiar contraseña"}
             </div>
             <div style={{ fontSize: 12, color: C.dim, marginTop: 2 }}>
@@ -143,7 +143,7 @@ export default function ChangePasswordModal({
               fontSize: 11,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              fontWeight: 800,
+              fontWeight: 650,
             }}>
               {label}
             </span>
@@ -197,7 +197,7 @@ export default function ChangePasswordModal({
             border: "1px solid var(--red-border)",
             color: C.red,
             fontSize: 13,
-            fontWeight: 700,
+            fontWeight: 600,
           }}>
             {error || issues[0]}
           </div>
@@ -211,7 +211,7 @@ export default function ChangePasswordModal({
             borderRadius: 9,
             padding: "10px 15px",
             fontSize: 13,
-            fontWeight: 800,
+            fontWeight: 650,
             cursor: busy ? "not-allowed" : "pointer",
             opacity: busy ? 0.6 : 1,
           }}>
@@ -225,7 +225,7 @@ export default function ChangePasswordModal({
               borderRadius: 9,
               padding: "10px 12px",
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: 600,
               cursor: "pointer",
               display: "inline-flex",
               alignItems: "center",

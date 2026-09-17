@@ -38,7 +38,7 @@ export default function PiezaModal({ pieza, onClose, onSave }) {
     },
     label: {
       fontSize:10, letterSpacing:1.2, color:"var(--dim)", display:"block",
-      marginBottom:5, textTransform:"uppercase", fontWeight:700, fontFamily:T.mono,
+      marginBottom:5, textTransform:"uppercase", fontWeight:600, fontFamily:T.mono,
     },
     input: {
       background:"var(--panel)", border:"1px solid var(--border)",
@@ -54,10 +54,10 @@ export default function PiezaModal({ pieza, onClose, onSave }) {
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:4 }}>
           <div style={{ minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
-              <span style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.2, textTransform:"uppercase", fontWeight:700, fontFamily:T.mono }}>
+              <span style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.2, textTransform:"uppercase", fontWeight:600, fontFamily:T.mono }}>
                 {pieza.codigo_barco ? `${pieza.codigo_barco} · ` : ""}{pieza.sector}
               </span>
-              <span style={{ fontSize:10, padding:"2px 8px", borderRadius:99, fontWeight:700, textTransform:"uppercase", letterSpacing:0.8,
+              <span style={{ fontSize:10, padding:"2px 8px", borderRadius:99, fontWeight:600, textTransform:"uppercase", letterSpacing:0.8,
                 background:estadoMeta.bg, color:estadoMeta.color, border:`1px solid ${estadoMeta.border}` }}>
                 {pieza.estado}
               </span>
@@ -66,7 +66,7 @@ export default function PiezaModal({ pieza, onClose, onSave }) {
                   border:"1px solid var(--border)", textTransform:"uppercase", letterSpacing:0.8 }}>Opcional</span>
               )}
             </div>
-            <h2 style={{ margin:0, color:"var(--text)", fontFamily:T.sans, fontSize:17, fontWeight:700, lineHeight:1.3 }}>
+            <h2 style={{ margin:0, color:"var(--text)", fontFamily:T.sans, fontSize:17, fontWeight:600, lineHeight:1.3 }}>
               {pieza.pieza}
             </h2>
           </div>
@@ -124,7 +124,7 @@ export default function PiezaModal({ pieza, onClose, onSave }) {
             Cancelar
           </button>
           <button onClick={() => { onSave(pieza.id, form); onClose(); }} style={{
-            flex:1, padding:"10px 16px", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:700,
+            flex:1, padding:"10px 16px", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:600,
             border:"none", background:"var(--inverse-bg)", color:"var(--inverse-text)", fontFamily:T.sans,
             display:"flex", alignItems:"center", justifyContent:"center", gap:7,
           }}>

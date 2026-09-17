@@ -52,8 +52,8 @@ function Metric({ label, value, color, active = false, onClick }) {
         textAlign: "left",
       }}
     >
-      <span style={{ color, fontFamily: C.mono, fontSize: 17, fontWeight: 950 }}>{value}</span>
-      <span style={{ color: active ? color : C.t2, fontSize: 10.5, fontWeight: 850 }}>{label}</span>
+      <span style={{ color, fontFamily: C.mono, fontSize: 17, fontWeight: 750 }}>{value}</span>
+      <span style={{ color: active ? color : C.t2, fontSize: 10.5, fontWeight: 700 }}>{label}</span>
     </Tag>
   );
 }
@@ -87,14 +87,14 @@ function EmployeeRow({ empleado, oficio, obras, active, selected, disabled, onCl
       >
         {selected && <Check size={12} strokeWidth={3} />}
       </button>
-      <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: configured ? C.greenL : C.s1, border: `1px solid ${configured ? C.greenB : C.b0}`, color: configured ? C.green : C.t2, fontSize: 10.5, fontWeight: 950 }}>
+      <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: configured ? C.greenL : C.s1, border: `1px solid ${configured ? C.greenB : C.b0}`, color: configured ? C.green : C.t2, fontSize: 10.5, fontWeight: 750 }}>
         {initials(empleado.nombre)}
       </span>
       <button type="button" onClick={onClick} style={{ minWidth: 0, padding: 0, border: "none", background: "transparent", color: C.t0, cursor: "pointer", textAlign: "left", fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ minWidth: 0, flex: 1 }}>
-          <span style={{ display: "block", color: C.t0, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{empleado.nombre}</span>
+          <span style={{ display: "block", color: C.t0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{empleado.nombre}</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3, minWidth: 0, color: C.t2, fontSize: 10.5 }}>
-            <span style={{ color: oficio ? C.blue : C.amber, fontWeight: 800 }}>{oficio?.nombre || "Sin oficio"}</span>
+            <span style={{ color: oficio ? C.blue : C.cyan, fontWeight: 650 }}>{oficio?.nombre || "Sin oficio"}</span>
             <span>·</span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {obras.length ? obras.map((obra) => obra.obra?.codigo || "Obra").join(", ") : "Sin obra"}
@@ -134,7 +134,7 @@ function WorkToggle({ obra, selected, disabled, onClick }) {
         {selected && <Check size={12} strokeWidth={3} />}
       </span>
       <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: "block", color: selected ? C.blue : C.t0, fontSize: 12, fontWeight: 900 }}>{obra.codigo}</span>
+        <span style={{ display: "block", color: selected ? C.blue : C.t0, fontSize: 12, fontWeight: 700 }}>{obra.codigo}</span>
         <span style={{ display: "block", color: C.t2, fontSize: 9.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {[obra.linea_nombre, finished ? obra.estado : "activa"].filter(Boolean).join(" · ")}
         </span>
@@ -418,12 +418,12 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
   return (
     <div style={{ display: "grid", gap: 12 }}>
       {error && <ErrorBox error={error} onRetry={cargar} />}
-      {notice && <div style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", fontSize: 11.5, fontWeight: 850 }}>{notice}</div>}
+      {notice && <div style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", fontSize: 11.5, fontWeight: 700 }}>{notice}</div>}
 
       <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 13, padding: "11px 12px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}><UsersRound size={17} /></span>
         <span style={{ flex: "1 1 250px", minWidth: 0 }}>
-          <span style={{ display: "block", color: C.t0, fontSize: 14, fontWeight: 950 }}>Organización del equipo</span>
+          <span style={{ display: "block", color: C.t0, fontSize: 14, fontWeight: 750 }}>Organización del equipo</span>
           <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>Una persona tiene un oficio y puede estar asignada a varias obras al mismo tiempo.</span>
         </span>
         <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.b0}`, borderRadius: 9, background: C.panelSolid }}>
@@ -431,7 +431,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
             ["personas", "Personas y obras", <UserRound key="people-icon" size={13} />],
             ["reglas", "Reglas por oficio", <ShieldCheck key="rules-icon" size={13} />],
           ].map(([key, label, icon]) => (
-            <button key={key} type="button" onClick={() => setView(key)} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${view === key ? C.blueB : "transparent"}`, background: view === key ? C.blueL : "transparent", color: view === key ? C.blue : C.t2, borderRadius: 7, padding: "6px 9px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 900, whiteSpace: "nowrap" }}>
+            <button key={key} type="button" onClick={() => setView(key)} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${view === key ? C.blueB : "transparent"}`, background: view === key ? C.blueL : "transparent", color: view === key ? C.blue : C.t2, borderRadius: 7, padding: "6px 9px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
               {icon} {label}
             </button>
           ))}
@@ -443,7 +443,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(120px, 1fr))", gap: 7 }}>
             <Metric label="empleados activos" value={metrics.active} color={C.blue} />
             <Metric label="configurados" value={metrics.configured} color={C.green} />
-            <Metric label="sin oficio" value={metrics.noOffice} color={C.amber} active={pendingOnly} onClick={() => setPendingOnly((value) => !value)} />
+            <Metric label="sin oficio" value={metrics.noOffice} color={C.cyan} active={pendingOnly} onClick={() => setPendingOnly((value) => !value)} />
             <Metric label="sin obra" value={metrics.noWork} color={C.red} active={pendingOnly} onClick={() => setPendingOnly((value) => !value)} />
           </div>
 
@@ -456,16 +456,16 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                   {[["activos", "Activos"], ["todos", "Todos"], ["baja", "Ex empleados"]].map(([key, label]) => (
-                    <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ border: `1px solid ${statusFilter === key ? C.blueB : C.b0}`, background: statusFilter === key ? C.blueL : "transparent", color: statusFilter === key ? C.blue : C.t2, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 850 }}>{label}</button>
+                    <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ border: `1px solid ${statusFilter === key ? C.blueB : C.b0}`, background: statusFilter === key ? C.blueL : "transparent", color: statusFilter === key ? C.blue : C.t2, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 700 }}>{label}</button>
                   ))}
-                  <button type="button" onClick={() => setPendingOnly((value) => !value)} style={{ marginLeft: "auto", border: `1px solid ${pendingOnly ? C.amberB : C.b0}`, background: pendingOnly ? C.amberL : "transparent", color: pendingOnly ? C.amber : C.t2, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 850 }}>Solo pendientes</button>
+                  <button type="button" onClick={() => setPendingOnly((value) => !value)} style={{ marginLeft: "auto", border: `1px solid ${pendingOnly ? C.cyanB : C.b0}`, background: pendingOnly ? C.cyanL : "transparent", color: pendingOnly ? C.cyan : C.t2, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 700 }}>Solo pendientes</button>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ color: C.t3, fontSize: 9.5 }}>{visibleEmployees.length} personas visibles</span>
                   {esAdmin && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {!!selectedEmployeeIds.size && <button type="button" onClick={clearBulkSelection} style={{ border: "none", background: "transparent", color: C.t2, padding: 2, cursor: "pointer", fontFamily: C.sans, fontSize: 9.5, fontWeight: 800 }}>Limpiar</button>}
-                      <button type="button" onClick={toggleVisibleSelection} disabled={!visibleEmployees.length} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${allVisibleSelected ? C.blueB : C.b0}`, background: allVisibleSelected ? C.blueL : "transparent", color: allVisibleSelected ? C.blue : C.t2, borderRadius: 7, padding: "4px 7px", cursor: visibleEmployees.length ? "pointer" : "default", fontFamily: C.sans, fontSize: 9.5, fontWeight: 850 }}>
+                      {!!selectedEmployeeIds.size && <button type="button" onClick={clearBulkSelection} style={{ border: "none", background: "transparent", color: C.t2, padding: 2, cursor: "pointer", fontFamily: C.sans, fontSize: 9.5, fontWeight: 650 }}>Limpiar</button>}
+                      <button type="button" onClick={toggleVisibleSelection} disabled={!visibleEmployees.length} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${allVisibleSelected ? C.blueB : C.b0}`, background: allVisibleSelected ? C.blueL : "transparent", color: allVisibleSelected ? C.blue : C.t2, borderRadius: 7, padding: "4px 7px", cursor: visibleEmployees.length ? "pointer" : "default", fontFamily: C.sans, fontSize: 9.5, fontWeight: 700 }}>
                         <ListChecks size={11} /> {allVisibleSelected ? "Quitar visibles" : "Seleccionar visibles"}
                       </button>
                     </div>
@@ -496,7 +496,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                   <div style={{ padding: "12px 13px", borderBottom: `1px solid ${C.b0}`, background: C.blueL, display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", background: C.blue, color: "white" }}><UsersRound size={18} /></span>
                     <span style={{ minWidth: 0, flex: 1 }}>
-                      <span style={{ display: "block", color: C.blue, fontSize: 14, fontWeight: 950 }}>Edición masiva</span>
+                      <span style={{ display: "block", color: C.blue, fontSize: 14, fontWeight: 750 }}>Edición masiva</span>
                       <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>{selectedEmployeeIds.size} personas seleccionadas</span>
                     </span>
                     <button type="button" onClick={clearBulkSelection} aria-label="Cerrar edición masiva" style={{ width: 30, height: 30, display: "grid", placeItems: "center", border: `1px solid ${C.b0}`, borderRadius: 8, background: C.panelSolid, color: C.t2, cursor: "pointer" }}><X size={14} /></button>
@@ -505,7 +505,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                   <div style={{ padding: 13, display: "grid", gap: 13 }}>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap", maxHeight: 58, overflowY: "auto" }}>
                       {selectedEmployees.map((employee) => (
-                        <span key={employee.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t1, borderRadius: 999, padding: "4px 7px", fontSize: 9.5, fontWeight: 800 }}>
+                        <span key={employee.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t1, borderRadius: 999, padding: "4px 7px", fontSize: 9.5, fontWeight: 650 }}>
                           {employee.nombre}
                           <button type="button" onClick={() => toggleEmployeeSelection(employee.id)} aria-label={`Quitar ${employee.nombre}`} style={{ padding: 0, border: "none", background: "transparent", color: C.t3, cursor: "pointer", lineHeight: 0 }}><X size={10} /></button>
                         </span>
@@ -525,15 +525,15 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                     <div style={{ borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
                       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                         <div>
-                          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 950 }}>Obras para el grupo</div>
+                          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 750 }}>Obras para el grupo</div>
                           <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>Elegí una o varias obras y cómo aplicarlas.</div>
                         </div>
-                        <span style={{ border: `1px solid ${bulkWorks.size ? C.blueB : C.b0}`, background: bulkWorks.size ? C.blueL : C.panelSolid, color: bulkWorks.size ? C.blue : C.t2, borderRadius: 999, padding: "4px 8px", fontSize: 10, fontWeight: 900 }}>{bulkWorks.size} seleccionadas</span>
+                        <span style={{ border: `1px solid ${bulkWorks.size ? C.blueB : C.b0}`, background: bulkWorks.size ? C.blueL : C.panelSolid, color: bulkWorks.size ? C.blue : C.t2, borderRadius: 999, padding: "4px 8px", fontSize: 10, fontWeight: 700 }}>{bulkWorks.size} seleccionadas</span>
                       </div>
 
                       <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.b0}`, borderRadius: 8, background: C.panelSolid, marginTop: 8 }}>
                         {[["agregar", "Sumar a las actuales"], ["reemplazar", "Reemplazar actuales"]].map(([key, label]) => (
-                          <button key={key} type="button" onClick={() => setBulkWorksMode(key)} style={{ border: `1px solid ${bulkWorksMode === key ? C.blueB : "transparent"}`, background: bulkWorksMode === key ? C.blueL : "transparent", color: bulkWorksMode === key ? C.blue : C.t2, borderRadius: 6, padding: "5px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 9.5, fontWeight: 850 }}>{label}</button>
+                          <button key={key} type="button" onClick={() => setBulkWorksMode(key)} style={{ border: `1px solid ${bulkWorksMode === key ? C.blueB : "transparent"}`, background: bulkWorksMode === key ? C.blueL : "transparent", color: bulkWorksMode === key ? C.blue : C.t2, borderRadius: 6, padding: "5px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 9.5, fontWeight: 700 }}>{label}</button>
                         ))}
                       </div>
 
@@ -553,7 +553,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderTop: `1px solid ${C.b0}`, paddingTop: 11, flexWrap: "wrap" }}>
-                      <span style={{ color: bulkWorksMode === "reemplazar" && bulkWorks.size ? C.amber : C.t3, fontSize: 10.5, fontWeight: bulkWorksMode === "reemplazar" && bulkWorks.size ? 850 : 600 }}>
+                      <span style={{ color: bulkWorksMode === "reemplazar" && bulkWorks.size ? C.cyan : C.t3, fontSize: 10.5, fontWeight: bulkWorksMode === "reemplazar" && bulkWorks.size ? 700 : 600 }}>
                         {bulkWorksMode === "reemplazar" && bulkWorks.size ? "Las obras actuales serán reemplazadas." : "Solo se modifican los datos que elijas."}
                       </span>
                       {esAdmin && <button type="button" onClick={saveBulkEmployees} disabled={!bulkHasChanges || !!guardando} style={{ ...BTN_PRIMARY, minHeight: 34, opacity: !bulkHasChanges || guardando ? 0.55 : 1 }}><Save size={13} /> {guardando === "bulk" ? "Aplicando…" : `Aplicar a ${selectedEmployeeIds.size}`}</button>}
@@ -563,12 +563,12 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
               ) : selectedEmployee ? (
                 <>
                   <div style={{ padding: "12px 13px", borderBottom: `1px solid ${C.b0}`, background: C.panelSolid, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontWeight: 950 }}>{initials(selectedEmployee.nombre)}</span>
+                    <span style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontWeight: 750 }}>{initials(selectedEmployee.nombre)}</span>
                     <span style={{ minWidth: 0, flex: 1 }}>
-                      <span style={{ display: "block", color: C.t0, fontSize: 14, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedEmployee.nombre}</span>
+                      <span style={{ display: "block", color: C.t0, fontSize: 14, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedEmployee.nombre}</span>
                       <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>DNI {selectedEmployee.dni || "sin cargar"} · {selectedEmployee.sede || "sin sede"}</span>
                     </span>
-                    {selectedEmployee.activo === false && <span style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 999, padding: "3px 7px", fontSize: 9.5, fontWeight: 900 }}>Baja</span>}
+                    {selectedEmployee.activo === false && <span style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 999, padding: "3px 7px", fontSize: 9.5, fontWeight: 700 }}>Baja</span>}
                   </div>
 
                   <div style={{ padding: 13, display: "grid", gap: 13 }}>
@@ -584,10 +584,10 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                     <div style={{ borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
                       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                         <div>
-                          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 950 }}>Obras asignadas</div>
+                          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 750 }}>Obras asignadas</div>
                           <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>Marcá todas las obras en las que trabaja actualmente.</div>
                         </div>
-                        <span style={{ border: `1px solid ${draftWorks.size ? C.blueB : C.b0}`, background: draftWorks.size ? C.blueL : C.panelSolid, color: draftWorks.size ? C.blue : C.t2, borderRadius: 999, padding: "4px 8px", fontSize: 10, fontWeight: 900 }}>{draftWorks.size} seleccionadas</span>
+                        <span style={{ border: `1px solid ${draftWorks.size ? C.blueB : C.b0}`, background: draftWorks.size ? C.blueL : C.panelSolid, color: draftWorks.size ? C.blue : C.t2, borderRadius: 999, padding: "4px 8px", fontSize: 10, fontWeight: 700 }}>{draftWorks.size} seleccionadas</span>
                       </div>
                       <div style={{ display: "flex", gap: 7, marginTop: 9, alignItems: "center", flexWrap: "wrap" }}>
                         <div style={{ position: "relative", flex: "1 1 200px" }}>
@@ -605,7 +605,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderTop: `1px solid ${C.b0}`, paddingTop: 11 }}>
-                      <span style={{ color: dirty ? C.amber : C.t3, fontSize: 10.5, fontWeight: dirty ? 850 : 600 }}>{dirty ? "Hay cambios sin guardar" : "Ficha operativa actualizada"}</span>
+                      <span style={{ color: dirty ? C.cyan : C.t3, fontSize: 10.5, fontWeight: dirty ? 700 : 600 }}>{dirty ? "Hay cambios sin guardar" : "Ficha operativa actualizada"}</span>
                       {esAdmin && <button type="button" onClick={saveEmployee} disabled={!dirty || !!guardando} style={{ ...BTN_PRIMARY, minHeight: 34, opacity: !dirty || guardando ? 0.55 : 1 }}><Save size={13} /> {guardando === `employee:${selectedEmployee.id}` ? "Guardando…" : "Guardar cambios"}</button>}
                     </div>
                   </div>
@@ -622,7 +622,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
         <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 13, padding: 13, display: "grid", gap: 11 }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={{ color: C.t0, fontSize: 14, fontWeight: 950 }}>Qué puede retirar cada oficio</div>
+              <div style={{ color: C.t0, fontSize: 14, fontWeight: 750 }}>Qué puede retirar cada oficio</div>
               <div style={{ color: C.t2, fontSize: 10.5, marginTop: 3 }}>Marcá categorías completas. Por ahora una diferencia genera una advertencia y no bloquea el retiro.</div>
             </div>
             {esAdmin && (
@@ -643,7 +643,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                   <button type="button" onClick={() => setOpenOffice(isOpen ? "" : office.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 11px", border: "none", background: "transparent", color: C.t0, cursor: "pointer", fontFamily: C.sans, textAlign: "left" }}>
                     <span style={{ width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center", background: selectedCategories.size ? C.blueL : C.s1, border: `1px solid ${selectedCategories.size ? C.blueB : C.b0}`, color: selectedCategories.size ? C.blue : C.t3 }}><Briefcase size={14} /></span>
                     <span style={{ minWidth: 0, flex: 1 }}>
-                      <span style={{ display: "block", color: C.t0, fontSize: 12.5, fontWeight: 900 }}>{office.nombre}</span>
+                      <span style={{ display: "block", color: C.t0, fontSize: 12.5, fontWeight: 700 }}>{office.nombre}</span>
                       <span style={{ display: "block", color: C.t2, fontSize: 9.5, marginTop: 2 }}>{peopleCount} personas · {selectedCategories.size ? `${selectedCategories.size} categorías habilitadas` : "sin regla cargada"}</span>
                     </span>
                     <ChevronRight size={15} style={{ color: isOpen ? C.blue : C.t3, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
@@ -654,7 +654,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
                         {categorias.map((category) => {
                           const selected = selectedCategories.has(category.id);
                           return (
-                            <button key={category.id} type="button" disabled={!esAdmin || guardando === `office:${office.id}`} onClick={() => toggleCategory(office.id, category.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 9px", borderRadius: 999, border: `1px solid ${selected ? C.blueB : C.b0}`, background: selected ? C.blueL : "transparent", color: selected ? C.blue : C.t2, cursor: esAdmin ? "pointer" : "default", fontFamily: C.sans, fontSize: 10.5, fontWeight: selected ? 900 : 700 }}>
+                            <button key={category.id} type="button" disabled={!esAdmin || guardando === `office:${office.id}`} onClick={() => toggleCategory(office.id, category.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 9px", borderRadius: 999, border: `1px solid ${selected ? C.blueB : C.b0}`, background: selected ? C.blueL : "transparent", color: selected ? C.blue : C.t2, cursor: esAdmin ? "pointer" : "default", fontFamily: C.sans, fontSize: 10.5, fontWeight: selected ? 700 : 600 }}>
                               {selected && <Check size={11} />} {category.nombre}
                             </button>
                           );

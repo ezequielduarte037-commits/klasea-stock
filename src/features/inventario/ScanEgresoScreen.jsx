@@ -139,9 +139,9 @@ export default function ScanEgresoScreen({ profile }) {
     fontFamily: "'Outfit', system-ui, sans-serif", padding: 10 };
   const field = { width: "100%", boxSizing: "border-box", background: C.panel, color: C.text,
     border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px 12px", fontSize: 16, outline: "none" };
-  const lbl = { fontSize: 10.5, letterSpacing: 0.8, textTransform: "uppercase", color: C.dim, fontWeight: 700, margin: "0 0 4px" };
+  const lbl = { fontSize: 10.5, letterSpacing: 0.8, textTransform: "uppercase", color: C.dim, fontWeight: 600, margin: "0 0 4px" };
   const qbtn = { width: 44, minWidth: 44, height: 40, border: `1px solid ${C.border}`, background: C.panel,
-    color: C.text, borderRadius: 8, fontSize: 22, fontWeight: 800, cursor: "pointer", lineHeight: 1 };
+    color: C.text, borderRadius: 8, fontSize: 22, fontWeight: 650, cursor: "pointer", lineHeight: 1 };
 
   return (
     <>
@@ -174,7 +174,7 @@ export default function ScanEgresoScreen({ profile }) {
             <input ref={codeRef} defaultValue="" onChange={e => setCode(e.target.value)}
               autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="enter"
               placeholder="Dispará el lector…" style={{ ...field, flex: 1, fontSize: 18 }} />
-            <button type="submit" style={{ ...qbtn, width: 64, fontSize: 14, fontWeight: 700, background: C.blue, color: "#fff", border: "none" }}>OK</button>
+            <button type="submit" style={{ ...qbtn, width: 64, fontSize: 14, fontWeight: 600, background: C.blue, color: "#fff", border: "none" }}>OK</button>
           </div>
           {sugerencias.length > 0 && (
             <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -201,8 +201,8 @@ export default function ScanEgresoScreen({ profile }) {
               <div key={it.id} style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 9px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.nombre}</div>
-                    <div style={{ color: it.qty > it.stock ? C.amber : C.dim, fontSize: 11 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.nombre}</div>
+                    <div style={{ color: it.qty > it.stock ? C.cyan : C.dim, fontSize: 11 }}>
                       {it.codigo ? it.codigo + " · " : ""}stock {it.stock}{it.qty > it.stock ? " ⚠ supera stock" : ""}
                     </div>
                   </div>
@@ -212,7 +212,7 @@ export default function ScanEgresoScreen({ profile }) {
                   <button onClick={() => setQty(it.id, it.qty - 1)} style={qbtn}>−</button>
                   <input type="number" inputMode="numeric" value={it.qty}
                     onChange={e => setQty(it.id, num(e.target.value))}
-                    style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 800, padding: "7px 4px", flex: 1 }} />
+                    style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 650, padding: "7px 4px", flex: 1 }} />
                   <button onClick={() => setQty(it.id, it.qty + 1)} style={qbtn}>+</button>
                   <span style={{ fontSize: 11, color: C.dim, width: 44, textAlign: "right" }}>{it.unidad || ""}</span>
                 </div>
@@ -248,13 +248,13 @@ export default function ScanEgresoScreen({ profile }) {
       <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: 60, padding: 8,
         background: C.panelSolid, borderTop: `1px solid ${C.border}`, display: "flex", gap: 8 }}>
         {cart.length > 0 && (
-          <button onClick={() => setCart([])} style={{ width: 90, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 13, fontWeight: 700 }}>Vaciar</button>
+          <button onClick={() => setCart([])} style={{ width: 90, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 13, fontWeight: 600 }}>Vaciar</button>
         )}
         {/* El botón dice qué falta en vez de rebotar recién al apretarlo: en el
             colector se trabaja parado y con guantes, y un error después del
             toque obliga a volver a buscar el campo. */}
         <button onClick={confirmar} disabled={busy || cart.length === 0 || !obra.trim() || !retira.trim()}
-          style={{ flex: 1, borderRadius: 12, border: "none", fontSize: 17, fontWeight: 800, color: "#fff",
+          style={{ flex: 1, borderRadius: 12, border: "none", fontSize: 17, fontWeight: 650, color: "#fff",
             background: cart.length === 0 || !obra.trim() || !retira.trim() ? "#3a3a3f" : C.green, opacity: busy ? 0.6 : 1 }}>
           {busy ? "Registrando…"
             : cart.length === 0 ? "Escaneá para empezar"

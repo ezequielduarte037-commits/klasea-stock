@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import useRealtimeReload from "@/hooks/useRealtimeReload";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -83,7 +82,7 @@ function empleadoInitials(nombre) {
 function EmpleadoNfcAvatar({ empleado }) {
   const foto = String(empleado?.foto_url ?? "").trim();
   return (
-    <div style={{ width: 46, height: 46, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 950 }}>
+    <div style={{ width: 46, height: 46, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 750 }}>
       {foto ? <img src={foto} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : empleadoInitials(empleado?.nombre)}
     </div>
   );
@@ -155,7 +154,7 @@ function MaderasRetiroNfcBox({ nfc, onClear }) {
   const border = nfc.empleado ? C.greenB : nfc.status === "error" ? C.redB : C.blueB;
   const bg = nfc.empleado ? C.greenL : nfc.status === "error" ? C.redL : C.blueL;
   const accent = nfc.empleado ? C.green : nfc.status === "error" ? C.red : C.blue;
-  const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.amber;
+  const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.cyan;
   const bridgeLabel = bridgeOk ? "Lector NFC conectado" : bridge?.status === "connecting" ? "Conectando lector NFC" : "Lector NFC desconectado";
 
   return (
@@ -164,11 +163,11 @@ function MaderasRetiroNfcBox({ nfc, onClear }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <EmpleadoNfcAvatar empleado={nfc.empleado} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.green, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.8 }}>Persona validada por NFC</div>
-            <div style={{ color: C.text, fontSize: 14, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{nfc.empleado.nombre}</div>
+            <div style={{ color: C.green, fontSize: 9.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.8 }}>Persona validada por NFC</div>
+            <div style={{ color: C.text, fontSize: 14, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{nfc.empleado.nombre}</div>
             <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>DNI {nfc.empleado.dni || "-"}{nfc.empleado.sede ? ` · ${nfc.empleado.sede}` : ""}</div>
           </div>
-          <button type="button" onClick={onClear} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={onClear} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
             Cambiar
           </button>
         </div>
@@ -179,7 +178,7 @@ function MaderasRetiroNfcBox({ nfc, onClear }) {
               <CreditCard size={17} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Tarjeta NFC de quien retira</div>
+              <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>Tarjeta NFC de quien retira</div>
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoya la tarjeta o carga el UID manualmente.</div>
             </div>
           </div>
@@ -196,7 +195,7 @@ function MaderasRetiroNfcBox({ nfc, onClear }) {
               placeholder="UID de tarjeta"
               style={{ background: C.panelSolid, border: `1px solid ${border}`, color: C.text, borderRadius: 9, padding: "8px 9px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }}
             />
-            <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+            <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
               Validar
             </button>
             <button type="button" onClick={onClear} aria-label="Limpiar tarjeta" title="Limpiar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 9, width: 34, minHeight: 34, display: "grid", placeItems: "center", cursor: "pointer" }}>
@@ -208,9 +207,9 @@ function MaderasRetiroNfcBox({ nfc, onClear }) {
 
       <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: bridgeColor, boxShadow: bridgeOk ? `0 0 0 3px ${C.greenL}` : "none", flexShrink: 0 }} />
-        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 900 }}>{bridgeLabel}</span>
+        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 700 }}>{bridgeLabel}</span>
         {!bridgeOk && (
-          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: "none", background: "transparent", color: bridgeColor, padding: "3px 0", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: "none", background: "transparent", color: bridgeColor, padding: "3px 0", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
             Reintentar
           </button>
         )}
@@ -300,7 +299,7 @@ function AnimatedNum({ value, color = "var(--text)", size = 28 }) {
     };
     requestAnimationFrame(tick);
   }, [value]);
-  return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: size, fontWeight: 700, color, lineHeight: 1 }}>{display}</span>;
+  return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: size, fontWeight: 600, color, lineHeight: 1 }}>{display}</span>;
 }
 
 function RingKpi({ label, value, total, color, sub }) {
@@ -339,12 +338,12 @@ function ItemRecepcionRow({
   const puedeRecibirParcial = Boolean(puedeRecibirItem && parcialNum > 0 && parcialNum <= pendienteItem);
   const completo = pendienteItem <= 0;
   const pct = totalItem > 0 ? Math.min(100, Math.round((recibidoItem / totalItem) * 100)) : 0;
-  const acento = !vinculado ? C.amber : completo ? C.green : C.blue;
+  const acento = !vinculado ? C.cyan : completo ? C.green : C.blue;
 
   const chip = (color, texto) => (
     <span style={{
       flexShrink: 0, borderRadius: 999, padding: "2px 7px", fontSize: 9,
-      fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase",
+      fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
       color, background: tint(color, 12), border: `1px solid ${tint(color, 30)}`,
     }}>{texto}</span>
   );
@@ -359,10 +358,10 @@ function ItemRecepcionRow({
         alignItems: "center",
         gap: isMobile ? 9 : 12,
         flexWrap: isMobile ? "wrap" : "nowrap",
-        border: `1px solid ${hover ? tint(acento, 34) : vinculado ? C.border : tint(C.amber, 32)}`,
+        border: `1px solid ${hover ? tint(acento, 34) : vinculado ? C.border : tint(C.cyan, 32)}`,
         borderRadius: 11,
         padding: isMobile ? 11 : "9px 12px 9px 15px",
-        background: !vinculado ? tint(C.amber, 7) : hover ? tint(acento, 5) : C.panel,
+        background: !vinculado ? tint(C.cyan, 7) : hover ? tint(acento, 5) : C.panel,
         transition: "border-color .14s, background .14s",
         overflow: "hidden",
       }}
@@ -374,10 +373,10 @@ function ItemRecepcionRow({
       {/* Nombre + vinculo al catalogo */}
       <div style={{ flex: "1 1 190px", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          <span style={{ color: C.text, fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ color: C.text, fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.descripcion || material?.nombre || "Ítem sin descripción"}
           </span>
-          {!vinculado && chip(C.amber, "Sin vínculo")}
+          {!vinculado && chip(C.cyan, "Sin vínculo")}
           {completo && chip(C.green, "Completo")}
         </div>
         <div style={{ ...S.small, marginTop: 2, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -387,7 +386,7 @@ function ItemRecepcionRow({
 
       {/* Progreso recibido / pedido */}
       <div style={{ flex: isMobile ? "1 1 100%" : "0 0 134px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, fontSize: 10, color: C.dim, fontWeight: 800, marginBottom: 3 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, fontSize: 10, color: C.dim, fontWeight: 650, marginBottom: 3 }}>
           <span style={{ whiteSpace: "nowrap" }}>{fmtQty(recibidoItem)} de {fmtQty(totalItem)} {unidadItem}</span>
           <span style={{ color: pct > 0 ? C.green : C.dim, fontFamily: C.mono }}>{pct}%</span>
         </div>
@@ -398,10 +397,10 @@ function ItemRecepcionRow({
 
       {/* Saldo pendiente */}
       <div style={{ flex: "0 0 auto", textAlign: isMobile ? "left" : "right", minWidth: 60 }}>
-        <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 900, lineHeight: 1, color: completo ? C.green : C.amber }}>
+        <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 700, lineHeight: 1, color: completo ? C.green : C.cyan }}>
           {fmtQty(pendienteItem)}
         </div>
-        <div style={{ fontSize: 9, color: C.dim, fontWeight: 850, letterSpacing: 0.5, textTransform: "uppercase", marginTop: 3 }}>
+        <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginTop: 3 }}>
           Pendiente
         </div>
       </div>
@@ -433,7 +432,7 @@ function ItemRecepcionRow({
         </button>
         <div style={{
           display: "flex", alignItems: "center",
-          border: `1px solid ${puedeRecibirParcial ? tint(C.amber, 34) : C.border}`,
+          border: `1px solid ${puedeRecibirParcial ? tint(C.cyan, 34) : C.border}`,
           borderRadius: 9, overflow: "hidden", background: C.bg,
           opacity: puedeRecibirItem ? 1 : 0.6,
           transition: "border-color .14s",
@@ -450,7 +449,7 @@ function ItemRecepcionRow({
             title="Cantidad para un ingreso parcial"
             style={{
               ...S.input, width: isMobile ? "100%" : 72, height: 30, border: "none", background: "transparent",
-              padding: "6px 8px", fontFamily: C.mono, fontWeight: 850, fontSize: 12, outline: "none",
+              padding: "6px 8px", fontFamily: C.mono, fontWeight: 700, fontSize: 12, outline: "none",
             }}
           />
           <button
@@ -460,9 +459,9 @@ function ItemRecepcionRow({
             title={vinculado ? "Registrar ingreso parcial" : "Primero hay que vincular el ítem al catálogo"}
             style={{
               border: "none",
-              borderLeft: `1px solid ${puedeRecibirParcial ? tint(C.amber, 34) : C.border}`,
-              background: puedeRecibirParcial ? tint(C.amber, 13) : "transparent",
-              color: puedeRecibirParcial ? C.amber : C.dim,
+              borderLeft: `1px solid ${puedeRecibirParcial ? tint(C.cyan, 34) : C.border}`,
+              background: puedeRecibirParcial ? tint(C.cyan, 13) : "transparent",
+              color: puedeRecibirParcial ? C.cyan : C.dim,
               padding: "0 9px", height: 30, cursor: puedeRecibirParcial ? "pointer" : "default",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               transition: "background .14s",
@@ -755,7 +754,7 @@ export default function MaderasScreen({ profile, signOut }) {
       border: "none",
       background: active ? "var(--panel-2)" : "transparent",
       color: active ? "var(--text)" : "var(--muted)",
-      fontWeight: active ? 700 : 500,
+      fontWeight: active ? 600 : 500,
       cursor: "pointer",
       fontSize: 13,
       transition: "all 0.15s",
@@ -804,7 +803,7 @@ export default function MaderasScreen({ profile, signOut }) {
       color: "#fff",
       cursor: "pointer",
       fontSize: 14,
-      fontWeight: 800,
+      fontWeight: 650,
       transition: "all 0.15s",
     },
     btnExport: {
@@ -838,7 +837,7 @@ export default function MaderasScreen({ profile, signOut }) {
       fontSize: 11,
       letterSpacing: 1,
       textTransform: "uppercase",
-      fontWeight: 700,
+      fontWeight: 600,
     },
     td: {
       padding: "10px 12px",
@@ -856,17 +855,17 @@ export default function MaderasScreen({ profile, signOut }) {
       color: "var(--dim)",
       marginBottom: 5,
       display: "block",
-      fontWeight: 700,
+      fontWeight: 600,
     },
     pillStock: (estado) => ({
       display: "inline-block",
       padding: "3px 10px",
       borderRadius: 999,
       fontSize: 11,
-      fontWeight: 700,
-      background: estado === "CRITICO" ? "rgba(239,68,68,0.1)" : estado === "ATENCION" ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)",
-      color: estado === "CRITICO" ? "#ef4444" : estado === "ATENCION" ? "#f59e0b" : "#10b981",
-      border: `1px solid ${estado === "CRITICO" ? "rgba(239,68,68,0.25)" : estado === "ATENCION" ? "rgba(245,158,11,0.25)" : "rgba(16,185,129,0.25)"}`,
+      fontWeight: 600,
+      background: estado === "CRITICO" ? "rgba(239,68,68,0.1)" : estado === "ATENCION" ? "rgba(34,211,238,0.1)" : "rgba(16,185,129,0.1)",
+      color: estado === "CRITICO" ? "#ef4444" : estado === "ATENCION" ? "#22d3ee" : "#10b981",
+      border: `1px solid ${estado === "CRITICO" ? "rgba(239,68,68,0.25)" : estado === "ATENCION" ? "rgba(34,211,238,0.25)" : "rgba(16,185,129,0.25)"}`,
     }),
   };
 
@@ -1065,24 +1064,21 @@ export default function MaderasScreen({ profile, signOut }) {
   }), [movimientos, movFiltrados, pedidosPendientesIngreso]);
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)", fontFamily: "'Outfit', system-ui" }}>
-      <div style={{ width: isMobile ? 0 : 280, flexShrink: 0, height: "100vh", overflow: "visible" }}>
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
+    <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "var(--bg)", fontFamily: "'Outfit', system-ui" }}>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", minWidth: 0 }}>
         {/* Topbar */}
         <div style={{
           height: 54, flexShrink: 0,
           background: "rgba(7,8,13,0.94)",
           backdropFilter: "blur(32px) saturate(130%)",
           borderBottom: "1px solid var(--border)",
-          padding: isMobile ? "0 12px 0 52px" : "0 22px",
+          padding: isMobile ? "0 12px" : "0 22px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <div>
             <div style={{ fontSize: 10, color: "var(--dim)", letterSpacing: 3, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Inventario</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Maderas</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Maderas</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {msg && (
@@ -1120,7 +1116,7 @@ export default function MaderasScreen({ profile, signOut }) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 8, marginBottom: 12 }}>
                 <RingKpi label="Total" value={stockRows.length} total={stockRows.length} color="var(--muted)" sub="materiales" />
                 <RingKpi label="OK" value={stockRows.filter(r=>r.estado==="OK").length} total={stockRows.length} color="#10b981" sub={`${Math.round(stockRows.filter(r=>r.estado==="OK").length/Math.max(1,stockRows.length)*100)}% del stock`} />
-                <RingKpi label="Atención" value={stockRows.filter(r=>r.estado==="ATENCION").length} total={stockRows.length} color="#f59e0b" sub="bajo mínimo" />
+                <RingKpi label="Atención" value={stockRows.filter(r=>r.estado==="ATENCION").length} total={stockRows.length} color="#22d3ee" sub="bajo mínimo" />
                 <RingKpi label="Crítico" value={stockRows.filter(r=>r.estado==="CRITICO").length} total={stockRows.length} color="#ef4444" sub="sin stock" />
               </div>
 
@@ -1173,7 +1169,7 @@ export default function MaderasScreen({ profile, signOut }) {
                         <td style={S.td}>
                           <b style={{
                             fontSize: 16,
-                            color: m.stock <= 0 ? "#ef4444" : m.stock <= num(m.stock_minimo) ? "#ffd60a" : "#30d158",
+                            color: m.stock <= 0 ? "#ef4444" : m.stock <= num(m.stock_minimo) ? "#22d3ee" : "#30d158",
                           }}>
                             {m.stock % 1 === 0 ? m.stock : m.stock.toFixed(2)}
                           </b>
@@ -1208,7 +1204,7 @@ export default function MaderasScreen({ profile, signOut }) {
                   { label: "Ingresos hoy", value: ingresosStats.hoy, sub: "movimientos registrados", color: C.green, icon: Check },
                   { label: "Historial", value: ingresosStats.filtrados, sub: q.trim() ? "en la búsqueda actual" : "ingresos visibles", color: C.blue, icon: FileText },
                   { label: "Total ingresos", value: ingresosStats.total, sub: "desde el inicio", color: C.teal, icon: Package },
-                  { label: "Pendientes", value: ingresosStats.pendientes, sub: "items por recibir", color: C.amber, icon: ShoppingCart },
+                  { label: "Pendientes", value: ingresosStats.pendientes, sub: "items por recibir", color: C.cyan, icon: ShoppingCart },
                 ].map(({ label, value, sub, color, icon: Icon }) => (
                   <div key={label} style={{
                     border: `1px solid ${tint(color, 28)}`,
@@ -1235,7 +1231,7 @@ export default function MaderasScreen({ profile, signOut }) {
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ ...S.label, marginBottom: 3 }}>{label}</div>
-                      <div style={{ fontFamily: C.mono, fontSize: 24, lineHeight: 1, fontWeight: 850, color }}>{value}</div>
+                      <div style={{ fontFamily: C.mono, fontSize: 24, lineHeight: 1, fontWeight: 700, color }}>{value}</div>
                       <div style={{ ...S.small, marginTop: 5 }}>{sub}</div>
                     </div>
                   </div>
@@ -1259,15 +1255,15 @@ export default function MaderasScreen({ profile, signOut }) {
                       borderRadius: 12,
                       display: "grid",
                       placeItems: "center",
-                      color: C.amber,
-                      background: tint(C.amber, 13),
-                      border: `1px solid ${tint(C.amber, 32)}`,
+                      color: C.cyan,
+                      background: tint(C.cyan, 13),
+                      border: `1px solid ${tint(C.cyan, 32)}`,
                       flexShrink: 0,
                     }}>
                       <ShoppingCart size={18} />
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Recepcion de pedidos de maderas</h3>
+                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 700 }}>Recepcion de pedidos de maderas</h3>
                       <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>
                         Pedidos enviados a compras que todavia tienen items para ingresar al stock.
                       </p>
@@ -1304,9 +1300,9 @@ export default function MaderasScreen({ profile, signOut }) {
                     const itemsCompletos = items.filter((item) => pedidoItemCantidadPendiente(item) <= 0).length;
                     return (
                       <article key={pedido.id} style={{
-                        border: `1px solid ${sinVinculo ? tint(C.amber, 34) : C.border}`,
+                        border: `1px solid ${sinVinculo ? tint(C.cyan, 34) : C.border}`,
                         borderRadius: 12,
-                        background: sinVinculo ? tint(C.amber, 7) : C.panel,
+                        background: sinVinculo ? tint(C.cyan, 7) : C.panel,
                         padding: 14,
                         display: "grid",
                         gridTemplateColumns: "1fr",
@@ -1320,12 +1316,12 @@ export default function MaderasScreen({ profile, signOut }) {
                               borderRadius: 999,
                               padding: "3px 9px",
                               fontSize: 10,
-                              fontWeight: 850,
+                              fontWeight: 700,
                               letterSpacing: 1,
                               textTransform: "uppercase",
-                              color: vieneDeCompras ? C.blue : C.amber,
-                              background: tint(vieneDeCompras ? C.blue : C.amber, 12),
-                              border: `1px solid ${tint(vieneDeCompras ? C.blue : C.amber, 30)}`,
+                              color: vieneDeCompras ? C.blue : C.cyan,
+                              background: tint(vieneDeCompras ? C.blue : C.cyan, 12),
+                              border: `1px solid ${tint(vieneDeCompras ? C.blue : C.cyan, 30)}`,
                             }}>
                               {vieneDeCompras ? "Compras" : pedido.estado || "Pedido"}
                             </span>
@@ -1334,10 +1330,10 @@ export default function MaderasScreen({ profile, signOut }) {
                                 borderRadius: 999,
                                 padding: "3px 9px",
                                 fontSize: 10,
-                                fontWeight: 850,
-                                color: C.amber,
-                                background: tint(C.amber, 12),
-                                border: `1px solid ${tint(C.amber, 30)}`,
+                                fontWeight: 700,
+                                color: C.cyan,
+                                background: tint(C.cyan, 12),
+                                border: `1px solid ${tint(C.cyan, 30)}`,
                               }}>
                                 {sinVinculo} sin vincular
                               </span>
@@ -1347,7 +1343,7 @@ export default function MaderasScreen({ profile, signOut }) {
                                 borderRadius: 999,
                                 padding: "3px 9px",
                                 fontSize: 10,
-                                fontWeight: 850,
+                                fontWeight: 700,
                                 color: C.green,
                                 background: tint(C.green, 12),
                                 border: `1px solid ${tint(C.green, 30)}`,
@@ -1384,7 +1380,7 @@ export default function MaderasScreen({ profile, signOut }) {
                             })}
                           </div>
                           {sinVinculo > 0 && (
-                            <p style={{ margin: "9px 0 0", color: C.amber, fontSize: 12, lineHeight: 1.4 }}>
+                            <p style={{ margin: "9px 0 0", color: C.cyan, fontSize: 12, lineHeight: 1.4 }}>
                               Los items sin vinculo se dejan pendientes para no crear stock duplicado.
                             </p>
                           )}
@@ -1418,7 +1414,7 @@ export default function MaderasScreen({ profile, signOut }) {
                       <Package size={18} />
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Registrar ingreso</h3>
+                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 700 }}>Registrar ingreso</h3>
                       <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>
                         Entrada de material al stock de maderas.
                       </p>
@@ -1438,7 +1434,7 @@ export default function MaderasScreen({ profile, signOut }) {
                         </div>
                         <div>
                           <label style={S.label}>Cantidad</label>
-                          <input style={{ ...S.input, fontFamily: C.mono, fontWeight: 800 }} type="number" step="0.01" placeholder="0"
+                          <input style={{ ...S.input, fontFamily: C.mono, fontWeight: 650 }} type="number" step="0.01" placeholder="0"
                             value={formIngreso.cantidad}
                             onChange={e => setFormIngreso(f => ({ ...f, cantidad: e.target.value }))} />
                         </div>
@@ -1502,7 +1498,7 @@ export default function MaderasScreen({ profile, signOut }) {
                   flexWrap: "wrap",
                 }}>
                   <div>
-                    <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Historial de ingresos</h3>
+                    <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 700 }}>Historial de ingresos</h3>
                     <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>Últimos 50 movimientos de entrada</p>
                   </div>
                 </div>
@@ -1541,7 +1537,7 @@ export default function MaderasScreen({ profile, signOut }) {
                   { label: "Egresos hoy", value: egresosStats.hoy, sub: "salidas registradas", color: C.red, icon: Package },
                   { label: "Historial", value: egresosStats.filtrados, sub: q.trim() ? "en la búsqueda actual" : "egresos visibles", color: C.blue, icon: FileText },
                   { label: "Destinos", value: egresosStats.destinos, sub: "con movimientos", color: C.violet, icon: ClipboardList },
-                  { label: "Total egresos", value: egresosStats.total, sub: "desde el inicio", color: C.amber, icon: RotateCcw },
+                  { label: "Total egresos", value: egresosStats.total, sub: "desde el inicio", color: C.cyan, icon: RotateCcw },
                 ].map(({ label, value, sub, color, icon: Icon }) => (
                   <div key={label} style={{
                     border: `1px solid ${tint(color, 28)}`,
@@ -1568,7 +1564,7 @@ export default function MaderasScreen({ profile, signOut }) {
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ ...S.label, marginBottom: 3 }}>{label}</div>
-                      <div style={{ fontFamily: C.mono, fontSize: 24, lineHeight: 1, fontWeight: 850, color }}>{value}</div>
+                      <div style={{ fontFamily: C.mono, fontSize: 24, lineHeight: 1, fontWeight: 700, color }}>{value}</div>
                       <div style={{ ...S.small, marginTop: 5 }}>{sub}</div>
                     </div>
                   </div>
@@ -1599,7 +1595,7 @@ export default function MaderasScreen({ profile, signOut }) {
                       <RotateCcw size={18} />
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Registrar egreso</h3>
+                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 700 }}>Registrar egreso</h3>
                       <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>
                         Salida de material hacia obra, persona o destino operativo.
                       </p>
@@ -1619,7 +1615,7 @@ export default function MaderasScreen({ profile, signOut }) {
                         </div>
                         <div>
                           <label style={S.label}>Cantidad</label>
-                          <input style={{ ...S.input, fontFamily: C.mono, fontWeight: 800 }} type="number" step="0.01" placeholder="0"
+                          <input style={{ ...S.input, fontFamily: C.mono, fontWeight: 650 }} type="number" step="0.01" placeholder="0"
                             value={formEgreso.cantidad}
                             onChange={e => setFormEgreso(f => ({ ...f, cantidad: e.target.value }))} />
                         </div>
@@ -1697,17 +1693,17 @@ export default function MaderasScreen({ profile, signOut }) {
                       {materialEgresoSeleccionado ? (
                         <div style={{ display: "grid", gap: 10 }}>
                           <div>
-                            <div style={{ color: C.text, fontSize: 15, fontWeight: 850, lineHeight: 1.25 }}>{materialEgresoSeleccionado.nombre}</div>
+                            <div style={{ color: C.text, fontSize: 15, fontWeight: 700, lineHeight: 1.25 }}>{materialEgresoSeleccionado.nombre}</div>
                             <div style={{ ...S.small, marginTop: 3 }}>{materialEgresoSeleccionado.categoria || "Sin categoría"}</div>
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                             <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 9 }}>
                               <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.1 }}>Disponible</div>
-                              <div style={{ fontFamily: C.mono, fontWeight: 850, color: egresoStockActual > 0 ? C.green : C.red, marginTop: 3 }}>{egresoStockActual}</div>
+                              <div style={{ fontFamily: C.mono, fontWeight: 700, color: egresoStockActual > 0 ? C.green : C.red, marginTop: 3 }}>{egresoStockActual}</div>
                             </div>
                             <div style={{ border: `1px solid ${egresoDejaNegativo ? tint(C.red, 40) : C.border}`, borderRadius: 10, padding: 9 }}>
                               <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.1 }}>Después</div>
-                              <div style={{ fontFamily: C.mono, fontWeight: 850, color: egresoDejaNegativo ? C.red : C.text, marginTop: 3 }}>{egresoStockFinal}</div>
+                              <div style={{ fontFamily: C.mono, fontWeight: 700, color: egresoDejaNegativo ? C.red : C.text, marginTop: 3 }}>{egresoStockFinal}</div>
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: egresoDejaNegativo ? C.red : C.dim, lineHeight: 1.45 }}>
@@ -1740,7 +1736,7 @@ export default function MaderasScreen({ profile, signOut }) {
                   flexWrap: "wrap",
                 }}>
                   <div>
-                    <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Historial de egresos</h3>
+                    <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 700 }}>Historial de egresos</h3>
                     <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>Últimos 50 movimientos de salida</p>
                   </div>
                 </div>
@@ -1847,7 +1843,7 @@ export default function MaderasScreen({ profile, signOut }) {
                           padding: "2px 8px",
                           borderRadius: 999,
                           fontSize: 11,
-                          fontWeight: 700,
+                          fontWeight: 600,
                           background: movTipo(m) === "ingreso" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
                           color: movTipo(m) === "ingreso" ? "#10b981" : "#ef4444",
                         }}>

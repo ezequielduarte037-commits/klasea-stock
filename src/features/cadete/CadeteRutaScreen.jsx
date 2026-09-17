@@ -15,6 +15,7 @@ import {
 // (fetchParadas queda disponible en la API pero acá usamos fetchRutasConParadas)
 import { ensureCajaChicaCierreAbierto, fetchCajaChicaEntries } from "@/features/compras/cajaChicaApi";
 import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
+import Cargando from "@/components/ui/Cargando";
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
@@ -30,20 +31,20 @@ function fmtFecha(v) {
 }
 
 const PARADA_ESTADO = {
-  pendiente: { label: "Pendiente", color: C.amber, bg: C.amberL, border: C.amberB },
+  pendiente: { label: "Pendiente", color: C.cyan, bg: C.cyanL, border: C.cyanB },
   hecho: { label: "Hecho", color: C.green, bg: C.greenL, border: C.greenB },
   no_pude: { label: "No pude", color: C.red, bg: C.redL, border: C.redB },
 };
 
 const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 850, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
-const BTN_PRIM = { border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: "pointer", fontSize: 13, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 6 };
-const BTN_GHOST = { border: `1px solid ${C.border}`, background: "transparent", color: C.text, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 800 };
+const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
+const BTN_PRIM = { border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 };
+const BTN_GHOST = { border: `1px solid ${C.border}`, background: "transparent", color: C.text, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 650 };
 
 function EstadoBadge({ estado }) {
   const m = PARADA_ESTADO[estado] || PARADA_ESTADO.pendiente;
   return (
-    <span style={{ color: m.color, background: m.bg, border: `1px solid ${m.border}`, borderRadius: 999, padding: "2px 9px", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{m.label}</span>
+    <span style={{ color: m.color, background: m.bg, border: `1px solid ${m.border}`, borderRadius: 999, padding: "2px 9px", fontSize: 10, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{m.label}</span>
   );
 }
 
@@ -91,7 +92,7 @@ function PedidosModal({ onClose, onAdd }) {
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "grid", placeItems: "center", padding: 16 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "min(560px,100%)", maxHeight: "82vh", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontWeight: 950, color: C.text, fontSize: 15 }}>Agregar desde pedidos</div>
+          <div style={{ fontWeight: 750, color: C.text, fontSize: 15 }}>Agregar desde pedidos</div>
           <button type="button" onClick={onClose} style={{ ...BTN_GHOST, padding: "5px 8px" }}><X size={15} /></button>
         </div>
         <div style={{ padding: "10px 15px" }}>
@@ -104,7 +105,7 @@ function PedidosModal({ onClose, onAdd }) {
                 <label key={r.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 11px", borderRadius: 9, background: sel[r.id] ? C.blueL : C.panelSolid, border: `1px solid ${sel[r.id] ? C.blueB : C.border}`, cursor: "pointer" }}>
                   <input type="checkbox" checked={!!sel[r.id]} onChange={() => toggle(r.id)} style={{ marginTop: 2 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 800, color: C.text, fontSize: 13 }}>{r.title}</div>
+                    <div style={{ fontWeight: 650, color: C.text, fontSize: 13 }}>{r.title}</div>
                     <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>
                       {r.proveedor ? r.proveedor : "sin proveedor"}{r.obra_codigo ? ` · Obra ${r.obra_codigo}` : ""} · {r.status}
                     </div>
@@ -127,18 +128,18 @@ function ParadaAdminRow({ parada, idx, total, onMove, onDelete }) {
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 10, background: C.panelSolid, border: `1px solid ${C.border}` }}>
       <div style={{ display: "grid", gap: 2 }}>
         <button type="button" disabled={idx === 0} onClick={() => onMove(idx, -1)} style={{ ...BTN_GHOST, padding: "2px 5px", opacity: idx === 0 ? 0.35 : 1 }}><ChevronUp size={13} /></button>
-        <div style={{ textAlign: "center", fontSize: 11, fontWeight: 950, color: C.dim }}>{idx + 1}</div>
+        <div style={{ textAlign: "center", fontSize: 11, fontWeight: 750, color: C.dim }}>{idx + 1}</div>
         <button type="button" disabled={idx === total - 1} onClick={() => onMove(idx, 1)} style={{ ...BTN_GHOST, padding: "2px 5px", opacity: idx === total - 1 ? 0.35 : 1 }}><ChevronDown size={13} /></button>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 850, color: C.text, fontSize: 13.5 }}>{parada.proveedor || "Sin proveedor"}</span>
+          <span style={{ fontWeight: 700, color: C.text, fontSize: 13.5 }}>{parada.proveedor || "Sin proveedor"}</span>
           <EstadoBadge estado={parada.estado} />
-          {parada.request_id && <span style={{ fontSize: 9.5, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "1px 7px", fontWeight: 850 }}>PEDIDO</span>}
+          {parada.request_id && <span style={{ fontSize: 9.5, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "1px 7px", fontWeight: 700 }}>PEDIDO</span>}
         </div>
         {parada.detalle && <div style={{ fontSize: 12, color: C.t2 || C.dim, marginTop: 3 }}>{parada.detalle}</div>}
         {parada.direccion && <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {parada.direccion}</div>}
-        {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 12, color: C.green, fontWeight: 850, marginTop: 3, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
+        {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 12, color: C.green, fontWeight: 700, marginTop: 3, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
         {parada.estado === "no_pude" && parada.motivo && <div style={{ fontSize: 11.5, color: C.red, marginTop: 3 }}>Motivo: {parada.motivo}</div>}
         {/* Compras arma la ruta y después rinde la caja: acá es donde el remito
             hace falta para cruzar el gasto contra el comprobante. */}
@@ -147,7 +148,7 @@ function ParadaAdminRow({ parada, idx, total, onMove, onDelete }) {
             href={parada.comprobante_url}
             target="_blank"
             rel="noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 4, color: C.blue, fontSize: 11.5, fontWeight: 800, textDecoration: "none" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 4, color: C.blue, fontSize: 11.5, fontWeight: 650, textDecoration: "none" }}
           >
             <Camera size={12} /> Ver remito
           </a>
@@ -208,15 +209,15 @@ function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
   return (
     <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${resuelta ? m.border : C.border}`, overflow: "hidden" }}>
       <div style={{ padding: "12px 13px", display: "flex", gap: 11, alignItems: "flex-start" }}>
-        <div style={{ width: 26, height: 26, borderRadius: 8, background: m.bg, color: m.color, display: "grid", placeItems: "center", fontWeight: 950, fontSize: 13, flexShrink: 0 }}>{idx + 1}</div>
+        <div style={{ width: 26, height: 26, borderRadius: 8, background: m.bg, color: m.color, display: "grid", placeItems: "center", fontWeight: 750, fontSize: 13, flexShrink: 0 }}>{idx + 1}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 900, color: C.text, fontSize: 15 }}>{parada.proveedor || "Sin proveedor"}</span>
+            <span style={{ fontWeight: 700, color: C.text, fontSize: 15 }}>{parada.proveedor || "Sin proveedor"}</span>
             <EstadoBadge estado={parada.estado} />
           </div>
           {parada.detalle && <div style={{ fontSize: 13, color: C.text, marginTop: 4 }}>{parada.detalle}</div>}
           {parada.direccion && <div style={{ fontSize: 12.5, color: C.blue, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> {parada.direccion}</div>}
-          {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 13.5, color: C.green, fontWeight: 900, marginTop: 5, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
+          {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 13.5, color: C.green, fontWeight: 700, marginTop: 5, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
           {parada.estado === "no_pude" && parada.motivo && <div style={{ fontSize: 12.5, color: C.red, marginTop: 5 }}>Motivo: {parada.motivo}</div>}
           {/* El remito se subía y quedaba invisible: nadie podía verlo desde
               ninguna pantalla, así que parecía que no se había guardado. */}
@@ -237,7 +238,7 @@ function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
                 background: C.panel2,
                 color: C.blue,
                 fontSize: 12.5,
-                fontWeight: 850,
+                fontWeight: 700,
                 textDecoration: "none",
               }}
             >
@@ -274,7 +275,7 @@ function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button type="button" onClick={() => fileRef.current?.click()} style={{ ...BTN_GHOST, display: "inline-flex", alignItems: "center", gap: 6, color: C.blue }}><Camera size={15} /> {file ? "Cambiar foto" : "Foto del remito"}</button>
-            {file && <span style={{ fontSize: 12, color: C.green, fontWeight: 800 }}>✓ {file.name.slice(0, 18)}</span>}
+            {file && <span style={{ fontSize: 12, color: C.green, fontWeight: 650 }}>✓ {file.name.slice(0, 18)}</span>}
             <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { setFile(e.target.files?.[0] || null); e.target.value = ""; }} />
           </div>
           <div style={{ fontSize: 11, color: C.dim }}>Se registra como gasto en tu caja chica.</div>
@@ -488,7 +489,7 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
             )}
             <div style={{ width: 34, height: 34, borderRadius: 10, background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, display: "grid", placeItems: "center", flexShrink: 0 }}><Truck size={18} /></div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 950, fontSize: 15 }}>Hoja de ruta</div>
+              <div style={{ fontWeight: 750, fontSize: 15 }}>Hoja de ruta</div>
               <div style={{ fontSize: 11, color: C.dim }}>{isCadete ? `Hola, ${profile.username}` : "Cadete · retiros y caja"}</div>
             </div>
           </div>
@@ -499,7 +500,7 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
           {isCadete && (
             <div style={{ display: "flex", gap: 6, flex: isMobile ? "1 0 100%" : "0 0 auto", order: isMobile ? 3 : 0 }}>
               {[["ruta", "Hoja de ruta"], ["caja", "Caja chica"]].map(([v, l]) => (
-                <button key={v} type="button" onClick={() => setView(v)} style={{ flex: isMobile ? 1 : "0 0 auto", border: `1px solid ${view === v ? C.blueB : C.border}`, background: view === v ? C.blueL : "transparent", color: view === v ? C.blue : C.text, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 850 }}>{l}</button>
+                <button key={v} type="button" onClick={() => setView(v)} style={{ flex: isMobile ? 1 : "0 0 auto", border: `1px solid ${view === v ? C.blueB : C.border}`, background: view === v ? C.blueL : "transparent", color: view === v ? C.blue : C.text, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>{l}</button>
               ))}
             </div>
           )}
@@ -507,7 +508,7 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
       )}
 
       {missingTable && (
-        <div style={{ margin: 14, padding: 14, borderRadius: 10, background: C.amberL, border: `1px solid ${C.amberB}`, color: C.amber, fontSize: 13 }}>
+        <div style={{ margin: 14, padding: 14, borderRadius: 10, background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 13 }}>
           Falta correr el SQL de la hoja de ruta (tablas <b>cadete_rutas</b> / <b>cadete_ruta_paradas</b>) en Supabase.
         </div>
       )}
@@ -538,9 +539,9 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
           {/* Vistazo de la caja del cadete — solo para compras (el cadete la ve completa en su pestaña "Caja chica") */}
           {!isCadete && (
             <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 13 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}><Wallet size={13} /> Caja del cadete</div>
-              <div style={{ fontSize: 22, fontWeight: 950, color: cajaSaldo.ARS < 0 ? C.red : C.green, fontFamily: C.mono }}>{fmtMoney(cajaSaldo.ARS, "ARS")}</div>
-              {Math.abs(cajaSaldo.USD) > 0.001 && <div style={{ fontSize: 14, fontWeight: 900, color: cajaSaldo.USD < 0 ? C.red : C.green, fontFamily: C.mono, marginTop: 2 }}>{fmtMoney(cajaSaldo.USD, "USD")}</div>}
+              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}><Wallet size={13} /> Caja del cadete</div>
+              <div style={{ fontSize: 22, fontWeight: 750, color: cajaSaldo.ARS < 0 ? C.red : C.green, fontFamily: C.mono }}>{fmtMoney(cajaSaldo.ARS, "ARS")}</div>
+              {Math.abs(cajaSaldo.USD) > 0.001 && <div style={{ fontSize: 14, fontWeight: 700, color: cajaSaldo.USD < 0 ? C.red : C.green, fontFamily: C.mono, marginTop: 2 }}>{fmtMoney(cajaSaldo.USD, "USD")}</div>}
               <div style={{ fontSize: 10.5, color: C.dim, marginTop: 4 }}>saldo (ingresos − gastos)</div>
             </div>
           )}
@@ -548,7 +549,7 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
           {/* Nueva ruta */}
           {(isManager || isCadete) && (
             <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 13, display: "grid", gap: 8 }}>
-              <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>{isCadete ? "Armar mi ruta" : "Nueva ruta"}</div>
+              <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>{isCadete ? "Armar mi ruta" : "Nueva ruta"}</div>
               <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} style={INP} />
               <button type="button" onClick={crearRuta} disabled={!targetCadeteId} style={{ ...BTN_PRIM, justifyContent: "center", opacity: targetCadeteId ? 1 : 0.5 }}><Plus size={15} /> Crear ruta</button>
             </div>
@@ -556,8 +557,8 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
 
           {/* Lista de rutas */}
           <div style={{ display: "grid", gap: 7 }}>
-            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Rutas</div>
-            {loading ? <div style={{ color: C.dim, fontSize: 12 }}>Cargando...</div>
+            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Rutas</div>
+            {loading ? <Cargando compacto />
               : rutas.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>Sin rutas todavía.</div>
                 : rutas.map((r) => {
                   const p = rutaProgreso(r);
@@ -565,8 +566,8 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
                   return (
                     <button key={r.id} type="button" onClick={() => setRutaId(r.id)} style={{ textAlign: "left", border: `1px solid ${activa ? C.blueB : C.border}`, background: activa ? C.blueL : C.panelSolid, borderRadius: 10, padding: "10px 11px", cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 850, color: C.text, fontSize: 13, textTransform: "capitalize" }}>{fmtFecha(r.fecha)}</span>
-                        <span style={{ fontSize: 10, fontWeight: 900, color: r.estado === "cerrada" ? C.dim : C.green, textTransform: "uppercase" }}>{r.estado}</span>
+                        <span style={{ fontWeight: 700, color: C.text, fontSize: 13, textTransform: "capitalize" }}>{fmtFecha(r.fecha)}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: r.estado === "cerrada" ? C.dim : C.green, textTransform: "uppercase" }}>{r.estado}</span>
                       </div>
                       <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{p.hechas}/{p.total} hechas{p.noPude ? ` · ${p.noPude} no pude` : ""}</div>
                     </button>
@@ -589,7 +590,7 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
               {/* Header de ruta */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 950, textTransform: "capitalize" }}>{fmtFecha(ruta.fecha)}</div>
+                  <div style={{ fontSize: 18, fontWeight: 750, textTransform: "capitalize" }}>{fmtFecha(ruta.fecha)}</div>
                   {prog && <div style={{ fontSize: 12.5, color: C.dim, marginTop: 2 }}>{prog.total} paradas · {prog.hechas} hechas · {prog.pend} pendientes{prog.noPude ? ` · ${prog.noPude} no pude` : ""}</div>}
                 </div>
                 <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
@@ -626,7 +627,7 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
               {(isManager || isCadete) && ruta.estado !== "cerrada" && (
                 <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 14, display: "grid", gap: 9, marginTop: 4 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Agregar parada</div>
+                    <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Agregar parada</div>
                     {isManager && <button type="button" onClick={() => setShowPedidos(true)} style={{ ...BTN_GHOST, color: C.blue, display: "inline-flex", alignItems: "center", gap: 6 }}><ClipboardList size={14} /> Desde pedidos</button>}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>

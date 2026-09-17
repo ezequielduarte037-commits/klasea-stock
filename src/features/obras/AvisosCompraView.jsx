@@ -7,7 +7,6 @@ import { useMemo, useState } from "react";
 //  Estética: Titanium HMI — oscuro, alto contraste, densidad controlada
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GFONTS = `@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');`;
 
 const D = {
   bg:      "var(--avisos-bg, #07070D)",
@@ -48,8 +47,8 @@ const D = {
   grBg: "var(--avisos-green-bg, rgba(74,155,106,0.06))",
   grBd: "var(--avisos-green-border, rgba(74,155,106,0.16))",
 
-  sans: "'IBM Plex Sans', system-ui, sans-serif",
-  mono: "'IBM Plex Mono', 'Courier New', monospace",
+  sans: "'Outfit', system-ui, sans-serif",
+  mono: "'JetBrains Mono', ui-monospace, monospace",
 };
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
@@ -164,7 +163,7 @@ function HeaderBanda({ banda, count, abierto, onClick }) {
     >
       <span style={{ fontFamily: D.mono, fontSize: 14, color: m.color, lineHeight: 1 }}>{m.icon}</span>
       <span style={{
-        fontFamily: D.mono, fontWeight: 700, fontSize: 12,
+        fontFamily: D.mono, fontWeight: 600, fontSize: 12,
         color: m.color, letterSpacing: "0.12em",
         textTransform: "uppercase",
       }}>
@@ -173,7 +172,7 @@ function HeaderBanda({ banda, count, abierto, onClick }) {
       <span style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         minWidth: 20, height: 18,
-        fontFamily: D.mono, fontWeight: 700, fontSize: 12,
+        fontFamily: D.mono, fontWeight: 600, fontSize: 12,
         color: m.color,
         background: `${m.color}18`,
         border: `1px solid ${m.color}30`,
@@ -333,7 +332,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
                   type="button"
                   onClick={emitirOC}
                   style={{
-                    fontFamily: D.mono, fontWeight: 700, fontSize: 12,
+                    fontFamily: D.mono, fontWeight: 600, fontSize: 12,
                     color: "#000",
                     background: color,
                     border: "none", padding: "5px 12px", borderRadius: 5,
@@ -359,7 +358,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
           background: D.bg,
           borderTop: `1px solid ${bd}`,
           padding: "12px 16px 14px 198px",
-          animation: "fadeIn .15s ease",
+          animation: "av-fadeIn .15s ease",
         }}>
           {items.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -657,22 +656,14 @@ export default function AvisosCompraView({ obras, etapas, lineas, lProcs = [], o
   const totalActivos = avisos.filter(a => a.urgencia.banda !== "resuelto").length;
 
   return (
-    <div style={{
+    <div className="avisos-compra" style={{
       flex: 1, display: "flex", flexDirection: "column",
       overflow: "hidden", background: D.bg,
       color: D.t1, fontFamily: D.sans,
     }}>
       <style>{`
-        ${GFONTS}
-        *, *::before, *::after { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${D.line2}; border-radius: 2px; }
-        input::placeholder { color: ${D.t3}; }
-        input:focus { border-color: ${D.amBd} !important; }
-        button { cursor: pointer; }
-        button:active { transform: scale(0.97); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .avisos-compra button:active { transform: scale(0.97); }
+        @keyframes av-fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
       `}</style>
 
       <BarraSuperior

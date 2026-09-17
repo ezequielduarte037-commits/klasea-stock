@@ -60,7 +60,7 @@ const LABEL = {
   marginBottom: 5,
   color: C.dim,
   fontSize: 10,
-  fontWeight: 900,
+  fontWeight: 700,
   letterSpacing: 0.8,
   textTransform: "uppercase",
 };
@@ -177,7 +177,7 @@ function MiniButton({ children, onClick, disabled = false, tone = "neutral", tit
         justifyContent: "center",
         gap: 7,
         fontSize: 12,
-        fontWeight: 900,
+        fontWeight: 700,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
       }}
@@ -200,7 +200,7 @@ function StatusPill({ children, color = C.blue, bg = C.blueL, border = C.blueB }
         borderRadius: 999,
         padding: "3px 8px",
         fontSize: 10,
-        fontWeight: 950,
+        fontWeight: 750,
         letterSpacing: 0.3,
         textTransform: "uppercase",
         whiteSpace: "nowrap",
@@ -690,7 +690,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 borderRadius: 999,
                 padding: "6px 10px",
                 fontSize: 11,
-                fontWeight: 900,
+                fontWeight: 700,
                 cursor: "pointer",
               }}
             >
@@ -702,7 +702,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {loading ? (
-          <div style={{ padding: 32, color: C.dim, textAlign: "center", fontSize: 12, fontWeight: 850 }}>Cargando consumibles...</div>
+          <div style={{ padding: 32, color: C.dim, textAlign: "center", fontSize: 12, fontWeight: 700 }}>Cargando consumibles...</div>
         ) : visibles.length === 0 ? (
           <div style={{ padding: 32, color: C.dim, textAlign: "center", fontSize: 13 }}>No hay consumibles para estos filtros.</div>
         ) : visibles.map((item) => {
@@ -729,7 +729,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
               }}
             >
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
                 <div style={{ color: C.dim, fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.codigo || "sin código"} · {item.proveedor || "Sin proveedor"}
                 </div>
@@ -742,8 +742,8 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ color: item.stock_total > 0 ? C.green : C.red, fontSize: 17, fontWeight: 950, fontFamily: C.mono }}>{fmtQty(item.stock_total)}</div>
-                <div style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 850 }}>{item.unidad_medida || "unidad"}</div>
+                <div style={{ color: item.stock_total > 0 ? C.green : C.red, fontSize: 17, fontWeight: 750, fontFamily: C.mono }}>{fmtQty(item.stock_total)}</div>
+                <div style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>{item.unidad_medida || "unidad"}</div>
               </div>
             </button>
           );
@@ -756,7 +756,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
     <section style={{ ...CARD, minHeight: 320, display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ color: C.dim, textAlign: "center" }}>
         <Scale size={36} style={{ color: C.blue, marginBottom: 10 }} />
-        <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Elegí un consumible</div>
+        <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Elegí un consumible</div>
         <div style={{ fontSize: 13, marginTop: 6 }}>Después podés egresar, ingresar, pesar o editarlo sin salir de acá.</div>
       </div>
     </section>
@@ -764,7 +764,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
     <section style={{ ...CARD, overflow: "hidden" }}>
       <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid2, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: C.text, fontSize: 16, fontWeight: 950, lineHeight: 1.2 }}>{selected.descripcion}</div>
+          <div style={{ color: C.text, fontSize: 16, fontWeight: 750, lineHeight: 1.2 }}>{selected.descripcion}</div>
           <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>
             {categoriasById.get(selected.categoria_id) || "Sin rubro"} · {selected.proveedor || "Sin proveedor"} · {selected.codigo || "sin código"}
           </div>
@@ -777,8 +777,8 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ color: selected.stock_total > 0 ? C.green : C.red, fontSize: 22, fontWeight: 950, fontFamily: C.mono, lineHeight: 1 }}>{fmtQty(selected.stock_total)}</div>
-          <div style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 900, marginTop: 3 }}>{selected.unidad_medida} en stock</div>
+          <div style={{ color: selected.stock_total > 0 ? C.green : C.red, fontSize: 22, fontWeight: 750, fontFamily: C.mono, lineHeight: 1 }}>{fmtQty(selected.stock_total)}</div>
+          <div style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, marginTop: 3 }}>{selected.unidad_medida} en stock</div>
         </div>
       </div>
 
@@ -788,7 +788,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
         <div style={{ border: `1px solid ${movActual.border}`, background: C.panelSolid, borderRadius: 13, overflow: "hidden" }}>
           <div style={{ padding: "9px 12px", background: movActual.bg, borderBottom: `1px solid ${movActual.border}`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <MovIcon size={15} style={{ color: movActual.color }} />
-            <span style={{ color: movActual.color, fontSize: 11, fontWeight: 950, letterSpacing: 0.8, textTransform: "uppercase" }}>{movActual.titulo}</span>
+            <span style={{ color: movActual.color, fontSize: 11, fontWeight: 750, letterSpacing: 0.8, textTransform: "uppercase" }}>{movActual.titulo}</span>
             <span style={{ color: C.dim, fontSize: 11, marginLeft: "auto" }}>{movActual.desc}</span>
           </div>
 
@@ -824,7 +824,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
               </div>
               {movimiento !== "retiro_peso" && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                  <span style={{ color: C.dim, fontSize: 11, fontWeight: 850, alignSelf: "center" }}>Cantidad rápida:</span>
+                  <span style={{ color: C.dim, fontSize: 11, fontWeight: 700, alignSelf: "center" }}>Cantidad rápida:</span>
                   {QUICK_CANTIDADES.map((qty) => (
                     <button
                       key={qty}
@@ -837,7 +837,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                         borderRadius: 999,
                         padding: "5px 10px",
                         fontSize: 11,
-                        fontWeight: 900,
+                        fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
@@ -847,13 +847,13 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 </div>
               )}
               {pesoLeido != null && (
-                <div style={{ color: C.violet, background: "var(--violet-soft)", border: "1px solid var(--violet-border)", borderRadius: 10, padding: "7px 9px", fontSize: 12, fontWeight: 850, marginTop: 8 }}>
+                <div style={{ color: C.violet, background: "var(--violet-soft)", border: "1px solid var(--violet-border)", borderRadius: 10, padding: "7px 9px", fontSize: 12, fontWeight: 700, marginTop: 8 }}>
                   Peso leído: {fmtWeight(pesoLeido)}
                   {selected.peso_unitario_g ? ` · cantidad estimada ${movCantidad || "0"} ${selected.unidad_medida}` : " · se registra como gramos, sin tocar stock"}
                 </div>
               )}
               {movimiento === "retiro_peso" && (
-                <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 850, marginTop: 8 }}>
+                <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 700, marginTop: 8 }}>
                   Registro temporal: guarda gramos retirados, persona y destino. No descuenta stock ni genera negativo.
                 </div>
               )}
@@ -896,7 +896,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                           borderRadius: 999,
                           padding: "5px 9px",
                           fontSize: 11,
-                          fontWeight: 900,
+                          fontWeight: 700,
                           cursor: "pointer",
                         }}
                       >
@@ -923,7 +923,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 background: !canReceive || saving ? C.panel2 : movActual.color,
                 color: !canReceive || saving ? C.dim : "#fff",
                 fontSize: 14,
-                fontWeight: 950,
+                fontWeight: 750,
                 fontFamily: C.sans,
                 cursor: !canReceive || saving ? "default" : "pointer",
                 display: "flex",
@@ -935,7 +935,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
               <MovIcon size={16} /> {confirmLabel}
             </button>
             {!canReceive && (
-              <div style={{ color: C.violet, fontSize: 12, fontWeight: 800 }}>Tu rol no tiene permisos para crear movimientos de pañol.</div>
+              <div style={{ color: C.violet, fontSize: 12, fontWeight: 650 }}>Tu rol no tiene permisos para crear movimientos de pañol.</div>
             )}
           </div>
         </div>
@@ -950,8 +950,8 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
         >
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(190px, 1fr) minmax(240px, 1.4fr)", gap: 10 }}>
             <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 10 }}>
-              <div style={{ color: C.dim, fontSize: 11, fontWeight: 850 }}>Peso actual</div>
-              <div style={{ color: selected.peso_unitario_g ? C.green : C.violet, fontSize: 22, fontWeight: 950, fontFamily: C.mono, marginTop: 4 }}>{fmtWeight(selected.peso_unitario_g)}</div>
+              <div style={{ color: C.dim, fontSize: 11, fontWeight: 700 }}>Peso actual</div>
+              <div style={{ color: selected.peso_unitario_g ? C.green : C.violet, fontSize: 22, fontWeight: 750, fontFamily: C.mono, marginTop: 4 }}>{fmtWeight(selected.peso_unitario_g)}</div>
               <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
                 <input value={pesoDirecto} onChange={(e) => setPesoDirecto(e.target.value)} placeholder="g/unidad" style={{ ...INPUT, fontFamily: C.mono }} />
                 <MiniButton onClick={guardarPesoDirecto} disabled={saving} tone="green"><Save size={15} /></MiniButton>
@@ -959,7 +959,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
               </div>
             </div>
             <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 10 }}>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 950, marginBottom: 8 }}>Calibrar con muestra</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 750, marginBottom: 8 }}>Calibrar con muestra</div>
               <div style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 8, alignItems: "center" }}>
                 <input value={piezasMuestra} onChange={(e) => setPiezasMuestra(e.target.value)} placeholder="Piezas" style={INPUT} />
                 <div style={{ color: C.dim, fontSize: 12 }}>
@@ -968,7 +968,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 <MiniButton onClick={leerPesoMuestra} disabled={!balanza.soportado || !balanza.conectado} tone="violet"><Scale size={15} /> Leer</MiniButton>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", marginTop: 9, flexWrap: "wrap" }}>
-                <span style={{ color: calidad ? (calidad.nivel === "pobre" ? C.red : calidad.nivel === "aceptable" ? C.violet : C.green) : C.dim, fontSize: 12, fontWeight: 850 }}>
+                <span style={{ color: calidad ? (calidad.nivel === "pobre" ? C.red : calidad.nivel === "aceptable" ? C.violet : C.green) : C.dim, fontSize: 12, fontWeight: 700 }}>
                   {calidad ? `Calidad: ${calidad.texto}` : "Ideal: muestra de 250 g o más."}
                 </span>
                 <MiniButton onClick={guardarPesoMuestra} disabled={saving || gramosMuestra == null || num(piezasMuestra) <= 0} tone="green"><Check size={15} /> Guardar peso</MiniButton>
@@ -1036,7 +1036,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
             <Scale size={19} />
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ color: C.text, fontSize: 17, fontWeight: 950, lineHeight: 1.1 }}>Consumibles</div>
+            <div style={{ color: C.text, fontSize: 17, fontWeight: 750, lineHeight: 1.1 }}>Consumibles</div>
             <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>Elegí un ítem de la lista y registrá el movimiento: egreso, retiro por peso o ingreso.</div>
           </div>
           {balanza.conectado ? (
@@ -1069,7 +1069,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
         </div>
 
         {balanza.error && (
-          <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 750, display: "flex", gap: 8 }}>
+          <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 650, display: "flex", gap: 8 }}>
             <AlertTriangle size={16} /> {balanza.error}
           </div>
         )}
@@ -1078,9 +1078,9 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
       {showCreate && (
         <div style={{ flexShrink: 0, padding: isMobile ? "10px 12px 0" : "12px 18px 0" }}>
           <section style={{ border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 13, padding: 12, display: "grid", gap: 10, maxHeight: 320, overflowY: "auto" }}>
-            <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>Agregar consumible</div>
+            <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>Agregar consumible</div>
             <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Usar un item existente del catalogo</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>Usar un item existente del catalogo</div>
               <div style={{ position: "relative" }}>
                 <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
                 <input
@@ -1115,12 +1115,12 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                       }}
                     >
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: "block", color: C.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
+                        <span style={{ display: "block", color: C.text, fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
                         <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {material.codigo || "sin codigo"} · {material.proveedor || "Sin proveedor"} · {material.unidad || "unidad"}
                         </span>
                       </span>
-                      <span style={{ color: C.green, fontSize: 11, fontWeight: 950 }}>Usar</span>
+                      <span style={{ color: C.green, fontSize: 11, fontWeight: 750 }}>Usar</span>
                     </button>
                   )) : (
                     <div style={{ color: C.dim, fontSize: 12, padding: 8 }}>No encontre coincidencias. Crealo abajo como consumible nuevo.</div>
@@ -1128,7 +1128,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 </div>
               )}
             </div>
-            <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Crear consumible nuevo en catalogo</div>
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>Crear consumible nuevo en catalogo</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 2fr) 170px 160px 130px", gap: 8 }}>
               <input value={createForm.descripcion} onChange={(e) => setCreateForm((p) => ({ ...p, descripcion: e.target.value }))} placeholder="Descripción del consumible" style={INPUT} />
               <select value={createForm.categoria_id} onChange={(e) => setCreateForm((p) => ({ ...p, categoria_id: e.target.value }))} style={INPUT}>
@@ -1172,7 +1172,7 @@ function MovimientosConsumiblesPanel({ rows = [], itemsById = new Map() }) {
     <section style={{ ...CARD, padding: 14, display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Movimientos de consumibles</div>
+          <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Movimientos de consumibles</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Retiros por peso, ingresos y egresos registrados. Los retiros por peso no modifican stock.</div>
         </div>
         <StatusPill color={C.violet} bg={C.violetL} border={C.violetB}>Registro temporal por gramos</StatusPill>
@@ -1229,16 +1229,16 @@ function MovimientoRow({ row, unidad = "unidad", materialName = "", showMaterial
         opacity: muted ? 0.65 : 1,
       }}
     >
-      <span style={{ color: ui.color, fontSize: 10, fontWeight: 950, letterSpacing: 0.5, textTransform: "uppercase", textDecoration: muted ? "line-through" : "none" }}>
+      <span style={{ color: ui.color, fontSize: 10, fontWeight: 750, letterSpacing: 0.5, textTransform: "uppercase", textDecoration: muted ? "line-through" : "none" }}>
         {ui.label}
       </span>
       <div style={{ minWidth: 0, textDecoration: muted ? "line-through" : "none" }}>
         {showMaterial && (
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
             {materialName}
           </div>
         )}
-        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {fmtDate(rowMovementAt(row))} · {sede}
           {destino ? ` · ${destino}` : ""}
           {quien ? ` · Retira: ${quien}` : ""}
@@ -1248,7 +1248,7 @@ function MovimientoRow({ row, unidad = "unidad", materialName = "", showMaterial
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nota}</div>
         )}
       </div>
-      <span style={{ color: ui.color, fontSize: 13, fontWeight: 950, fontFamily: C.mono, whiteSpace: "nowrap" }}>
+      <span style={{ color: ui.color, fontSize: 13, fontWeight: 750, fontFamily: C.mono, whiteSpace: "nowrap" }}>
         {sign}{fmtQty(qty)} {unidadDisplay}
       </span>
     </div>
@@ -1271,7 +1271,7 @@ function SegTab({ active, onClick, children }) {
         alignItems: "center",
         gap: 6,
         fontSize: 12,
-        fontWeight: 900,
+        fontWeight: 700,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
       }}
@@ -1299,8 +1299,8 @@ function StatChip({ label, value, color, active = false, onClick }) {
         fontFamily: C.sans,
       }}
     >
-      <span style={{ color, fontSize: 13, fontWeight: 950, fontFamily: C.mono }}>{value}</span>
-      <span style={{ color: active ? color : C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</span>
+      <span style={{ color, fontSize: 13, fontWeight: 750, fontFamily: C.mono }}>{value}</span>
+      <span style={{ color: active ? color : C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</span>
     </button>
   );
 }
@@ -1323,10 +1323,10 @@ function ActionTile({ op, active, onClick }) {
         fontFamily: C.sans,
       }}
     >
-      <span style={{ display: "flex", alignItems: "center", gap: 7, color: active ? op.color : C.text, fontSize: 12.5, fontWeight: 950 }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 7, color: active ? op.color : C.text, fontSize: 12.5, fontWeight: 750 }}>
         <Icon size={14} /> {op.label}
       </span>
-      <span style={{ color: active ? op.color : C.dim, fontSize: 11, fontWeight: 700 }}>{op.desc}</span>
+      <span style={{ color: active ? op.color : C.dim, fontSize: 11, fontWeight: 600 }}>{op.desc}</span>
     </button>
   );
 }
@@ -1341,7 +1341,7 @@ function Section({ title, icon: Icon, badge = null, badgeColor = C.dim, badgeBg 
         style={{ width: "100%", border: "none", background: "transparent", cursor: "pointer", padding: "11px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: C.sans }}
       >
         {Icon && <Icon size={15} style={{ color: C.blue, flexShrink: 0 }} />}
-        <span style={{ color: C.text, fontSize: 13, fontWeight: 950, flex: 1, textAlign: "left" }}>{title}</span>
+        <span style={{ color: C.text, fontSize: 13, fontWeight: 750, flex: 1, textAlign: "left" }}>{title}</span>
         {badge != null && <StatusPill color={badgeColor} bg={badgeBg} border={badgeBorder}>{badge}</StatusPill>}
         <ChevronDown size={15} style={{ color: C.dim, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
       </button>

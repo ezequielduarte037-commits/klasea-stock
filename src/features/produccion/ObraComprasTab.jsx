@@ -95,7 +95,7 @@ function CopiarModal({ etapas, plantilla, actualId, onCopiar, onClose }) {
     >
       <span style={{ width: 8, height: 30, borderRadius: 3, background: color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</div>
+        <div style={{ fontSize: 13, fontWeight: 650, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</div>
         <div style={{ fontSize: 11, color: C.dim }}>{sub}</div>
       </div>
       {activo ? <Loader2 size={15} className="spin" color={C.dim} /> : <Copy size={15} color={C.dim} />}
@@ -116,7 +116,7 @@ function CopiarModal({ etapas, plantilla, actualId, onCopiar, onClose }) {
         boxShadow: "0 32px 70px -20px var(--shadow-strong)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 12px 13px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ flex: 1, fontSize: 13.5, fontWeight: 850, color: C.text }}>Copiar materiales de…</div>
+          <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: C.text }}>Copiar materiales de…</div>
           <button type="button" onClick={onClose} className="ce-ghost" style={{ width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: 8, border: "none", background: C.panel2, color: C.dim, cursor: "pointer" }}>
             <X size={15} />
           </button>
@@ -185,7 +185,7 @@ function EtapaItem({ etapa, activa, onSelect, onSubir, onBajar, primera, ultima,
         style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "9px 6px 9px 11px" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
-          <span style={{ flex: 1, minWidth: 0, color: activa ? C.text : C.muted, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ flex: 1, minWidth: 0, color: activa ? C.text : C.muted, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {etapa.nombre}
           </span>
           <span style={{ flexShrink: 0, width: 7, height: 7, borderRadius: 999, background: est.color }} title={est.label} />
@@ -454,10 +454,10 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
               onChange={(e) => setNombre(e.target.value)}
               onBlur={guardarNombre}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setNombre(etapa.nombre); setEditandoNombre(false); } }}
-              style={{ ...INPUT, flex: 1, minWidth: 140, fontSize: 15, fontWeight: 900, padding: "5px 9px" }}
+              style={{ ...INPUT, flex: 1, minWidth: 140, fontSize: 15, fontWeight: 700, padding: "5px 9px" }}
             />
           ) : (
-            <h2 style={{ margin: 0, flex: 1, minWidth: 120, fontSize: 15.5, fontWeight: 900, color: C.text, display: "flex", alignItems: "center", gap: 7 }}>
+            <h2 style={{ margin: 0, flex: 1, minWidth: 120, fontSize: 15.5, fontWeight: 700, color: C.text, display: "flex", alignItems: "center", gap: 7 }}>
               {etapa.nombre}
               {puedeEditar && <IconBtn icon={Pencil} title="Renombrar" size={24} onClick={() => { setNombre(etapa.nombre); setEditandoNombre(true); }} />}
             </h2>
@@ -479,7 +479,7 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
                   key={p.id}
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 9,
-                    fontSize: 11, fontWeight: 750,
+                    fontSize: 11, fontWeight: 650,
                     border: `1px solid ${tint(pc, 30)}`, background: tint(pc, 11), color: C.muted,
                   }}
                 >
@@ -523,8 +523,8 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
             onChange={(e) => guardarSentido(e.target.value)}
             style={{
               ...INPUT, width: "auto", padding: "4px 8px", fontSize: 12, borderRadius: 9,
-              cursor: puedeEditar ? "pointer" : "default", fontWeight: 800,
-              color: sentido === "despues" ? C.amber : C.text,
+              cursor: puedeEditar ? "pointer" : "default", fontWeight: 650,
+              color: sentido === "despues" ? C.cyan : C.text,
             }}
           >
             <option value="antes">antes de</option>
@@ -555,7 +555,7 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
               display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px",
               borderRadius: 9, border: `1px solid ${etapa.auto_generar === true ? C.greenB : C.border}`,
               background: etapa.auto_generar === true ? C.greenL : C.panel,
-              color: etapa.auto_generar === true ? C.green : C.dim, fontSize: 11.5, fontWeight: 800,
+              color: etapa.auto_generar === true ? C.green : C.dim, fontSize: 11.5, fontWeight: 650,
               cursor: puedeEditar ? "pointer" : "default",
             }}
           >
@@ -599,7 +599,7 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
               {!etapa.fecha_objetivo && etapa.semanas_antes != null && (
                 <span style={{ fontSize: 11, color: C.dim }}>
                   {Math.abs(Number(etapa.semanas_antes))} {Math.abs(Number(etapa.semanas_antes)) === 1 ? "semana" : "semanas"}{" "}
-                  <b style={{ color: sentido === "despues" ? C.amber : C.muted, fontWeight: 800 }}>
+                  <b style={{ color: sentido === "despues" ? C.cyan : C.muted, fontWeight: 650 }}>
                     {sentido === "despues" ? "después" : "antes"}
                   </b>{" "}
                   {etapa.referencia === "botada" ? "de la botada" : "del desmolde"}
@@ -650,7 +650,7 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
                 <Pencil size={11} style={{ flexShrink: 0 }} />
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {ultimo
-                    ? <>Último cambio: <b style={{ fontWeight: 750, color: C.muted }}>{ultimo.actor_nombre}</b> · {cuando(ultimo.created_at)} — {ultimo.descripcion}</>
+                    ? <>Último cambio: <b style={{ fontWeight: 650, color: C.muted }}>{ultimo.actor_nombre}</b> · {cuando(ultimo.created_at)} — {ultimo.descripcion}</>
                     : "Sin cambios registrados todavía"}
                 </span>
               </span>
@@ -847,7 +847,7 @@ export default function ObraComprasTab({ isMobile, toast, puedeEditar = true, on
                 type="button"
                 onClick={() => setNueva(true)}
                 className="ce-dashed"
-                style={{ border: `1px dashed ${C.border2}`, background: "transparent", color: C.dim, borderRadius: 12, padding: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}
+                style={{ border: `1px dashed ${C.border2}`, background: "transparent", color: C.dim, borderRadius: 12, padding: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}
               >
                 + Nueva etapa
               </button>

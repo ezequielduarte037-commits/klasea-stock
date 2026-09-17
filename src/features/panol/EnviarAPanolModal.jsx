@@ -17,6 +17,7 @@ import { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import { parseUbicacion } from "@/features/panol/ubicacionUtils";
 import { PANOL_REFERENCE_LAYOUT, PANOL_ROOM_H, PANOL_ROOM_W, applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 import { normalizeProductSpecs, productSpecEntries } from "@/features/materiales/especificacionesProducto";
+import Cargando from "@/components/ui/Cargando";
 
 const EMPTY_ARR = [];
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
@@ -116,7 +117,7 @@ function StockActualBadge({ material, stockByMaterial, sede = "", compact = fals
         borderRadius: 999,
         padding: compact ? "3px 7px" : "4px 9px",
         fontSize: compact ? 10.5 : 11.5,
-        fontWeight: 900,
+        fontWeight: 700,
         whiteSpace: "nowrap",
         lineHeight: 1,
       }}
@@ -175,7 +176,7 @@ const lbl = {
   fontSize: 10,
   letterSpacing: 1.2,
   textTransform: "uppercase",
-  fontWeight: 750,
+  fontWeight: 650,
   marginBottom: 6,
   display: "block",
 };
@@ -429,25 +430,25 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
       {lecturaFloja ? (
         <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 9px", borderRadius: 8, background: C.cyanL, border: `1px solid ${C.cyanB}` }}>
           <Eye size={13} color={C.cyan} style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 750, lineHeight: 1.45 }}>
+          <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 650, lineHeight: 1.45 }}>
             <b style={{ color: C.text }}>La IA no leyó bien este renglón.</b>{" "}
             {dudaIa || "Quedó con confianza baja."} Mirá el papel antes de darlo por bueno.
           </div>
         </div>
       ) : null}
       <div style={{ display: "flex", gap: 9, alignItems: "center", minWidth: 0 }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Catalogo</span>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Catalogo</span>
         {selected ? (
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0, color: C.green, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ flex: 1, minWidth: 0, color: C.green, fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               Conectado: {selected.descripcion}
-              {selected.es_consumible ? <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase", color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 5, padding: "1px 5px" }}>consumible</span> : null}
+              {selected.es_consumible ? <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 5, padding: "1px 5px" }}>consumible</span> : null}
               <span style={{ color: C.t2, fontWeight: 500 }}>{selected.codigo ? ` · ${selected.codigo}` : ""}{selected.proveedor ? ` · ${selected.proveedor}` : ""}</span>
             </div>
             <ProveedorTipoBadge meta={selectedMeta} compact />
             <StockActualBadge material={selected} stockByMaterial={stockByMaterial} sede={sede} compact />
             <UbicacionChip ubicacion={selected.ubicacion} obs={selected.ubicacion_obs} />
-            <button type="button" onClick={() => { setQ(""); onClear(); }} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "6px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans }}>
+            <button type="button" onClick={() => { setQ(""); onClear(); }} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "6px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", fontFamily: C.sans }}>
               Cambiar
             </button>
           </div>
@@ -464,18 +465,18 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
                 type="button"
                 onClick={onCreate}
                 disabled={creating || !String(item.descripcion || "").trim()}
-                style={{ border: `1px solid ${C.violetB ?? C.b0}`, background: C.violetL, color: creating ? C.dim : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+                style={{ border: `1px solid ${C.violetB ?? C.b0}`, background: C.violetL, color: creating ? C.dim : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 700, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
               >
                 {creating ? "Creando..." : "Crear nuevo"}
               </button>
             ) : (
-              <span style={{ color: C.violet, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
+              <span style={{ color: C.violet, fontSize: 11, fontWeight: 650, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
             )}
           </>
         )}
       </div>
       {linkedRequirement && (
-        <div style={{ marginLeft: 81, border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 8, padding: "8px 10px", fontSize: 11.5, fontWeight: 800 }}>
+        <div style={{ marginLeft: 81, border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 8, padding: "8px 10px", fontSize: 11.5, fontWeight: 650 }}>
           “{linkedRequirement.descripcion}” es una necesidad genérica. Elegí abajo el producto real que se compró o recibió.
         </div>
       )}
@@ -488,7 +489,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
       )}
       {!selected && results.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginLeft: 81 }}>
-          <div style={{ color: C.violet, fontSize: 11, fontWeight: 850 }}>
+          <div style={{ color: C.violet, fontSize: 11, fontWeight: 700 }}>
             Posibles coincidencias: elegí una para evitar duplicados.
             {results[0]?._score < 88 && (
               <span style={{ color: C.t2, fontWeight: 600 }}>
@@ -532,8 +533,8 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
   return (
     <div style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 12, padding: 10, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Preview pañol</span>
-        <span style={{ color: selectedLayout ? C.blue : C.t2, fontSize: 12, fontWeight: 900, fontFamily: C.mono }}>{selectedLayout ? code : "Sin estanteria"}</span>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Preview pañol</span>
+        <span style={{ color: selectedLayout ? C.blue : C.t2, fontSize: 12, fontWeight: 700, fontFamily: C.mono }}>{selectedLayout ? code : "Sin estanteria"}</span>
       </div>
       <svg viewBox={`0 0 ${PANOL_ROOM_W} ${PANOL_ROOM_H}`} style={{ width: "100%", height: "auto", display: "block", maxHeight: 170 }}>
         <rect x={0} y={0} width={PANOL_ROOM_W} height={PANOL_ROOM_H} rx={18} fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.35)" strokeWidth={18} />
@@ -543,7 +544,7 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
         {shelves.map(([shelfCode, layout]) => {
           const active = shelfCode === code;
           const zone = shelfCode.charAt(0);
-          const color = zone === "A" ? "#3b82f6" : zone === "B" ? "#8b5cf6" : zone === "C" ? "#06b6d4" : zone === "D" ? "#10b981" : zone === "E" ? "#f59e0b" : zone === "F" ? "#ec4899" : zone === "G" ? "#84cc16" : zone === "H" ? "#f97316" : zone === "I" ? "#14b8a6" : zone === "J" ? "#6366f1" : zone === "K" ? "#a855f7" : zone === "P" ? "#ef4444" : "#eab308";
+          const color = zone === "A" ? "#3b82f6" : zone === "B" ? "#8b5cf6" : zone === "C" ? "#06b6d4" : zone === "D" ? "#10b981" : zone === "E" ? "#ec4899" : zone === "F" ? "#ec4899" : zone === "G" ? "#84cc16" : zone === "H" ? "#f97316" : zone === "I" ? "#14b8a6" : zone === "J" ? "#6366f1" : zone === "K" ? "#a855f7" : zone === "P" ? "#ef4444" : "#06b6d4";
           return (
             <g key={shelfCode} onClick={() => onPick?.(shelfCode)} style={{ cursor: onPick ? "pointer" : "default" }}>
               <rect
@@ -557,7 +558,7 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
                 strokeWidth={active ? 13 : 4}
               />
               {(active || layout.w_cm >= 100 || layout.h_cm >= 140) && (
-                <text x={layout.x_cm + layout.w_cm / 2} y={layout.y_cm + layout.h_cm / 2 + 12} textAnchor="middle" fontSize={active ? 46 : 34} fontWeight={950} fill={active ? color : "rgba(71,85,105,0.55)"} fontFamily={C.sans}>
+                <text x={layout.x_cm + layout.w_cm / 2} y={layout.y_cm + layout.h_cm / 2 + 12} textAnchor="middle" fontSize={active ? 46 : 34} fontWeight={750} fill={active ? color : "rgba(71,85,105,0.55)"} fontFamily={C.sans}>
                   {shelfCode}
                 </text>
               )}
@@ -588,7 +589,7 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
     const elegida = (dist || []).find((d) => d.obra_id && num(d.cantidad) > 0)?.obra_id || "";
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obra</span>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obra</span>
         <select
           value={elegida}
           onChange={(e) => onChange({
@@ -607,9 +608,9 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
   if (!dist) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obras</span>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obras</span>
         <button type="button" onClick={() => onChange({ distribucion: [{ obra_id: item.obra_id || "", cantidad: String(total) }] })}
-          style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+          style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
           Repartir entre varias obras
         </button>
         <span style={{ color: C.t2, fontSize: 11 }}>si estas {total} unidades van a obras distintas</span>
@@ -647,14 +648,14 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
   return (
     <div style={{ display: "grid", gap: 6, padding: "0 10px 10px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Reparto por obra</span>
-        <span style={{ color: okColor, fontSize: 11.5, fontWeight: 850 }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Reparto por obra</span>
+        <span style={{ color: okColor, fontSize: 11.5, fontWeight: 700 }}>
           asignado {asignado} / {total}
           {resto > 0 ? ` · resto ${resto} → ${item.obra_id ? "obra por defecto" : "stock general"}` : asignado > total ? " · te pasaste" : " ✓"}
         </span>
         {conObra.length > 1 && (
           <button type="button" onClick={repartirIgual}
-            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 11, fontWeight: 850, fontFamily: C.sans }}>
+            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
             Partes iguales
           </button>
         )}
@@ -670,7 +671,7 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
           <button type="button" onClick={() => removeRow(k)} title="Quitar" style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 15 }}>×</button>
         </div>
       ))}
-      <button type="button" onClick={addRow} style={{ justifySelf: "start", border: `1px solid ${C.b0}`, background: C.bg, color: C.blue, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans }}>+ Agregar obra</button>
+      <button type="button" onClick={addRow} style={{ justifySelf: "start", border: `1px solid ${C.b0}`, background: C.bg, color: C.blue, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans }}>+ Agregar obra</button>
     </div>
   );
 }
@@ -711,7 +712,7 @@ function ItemLocationRow({ item, material = null, estanterias = [], onChange, is
   return (
     <div style={{ display: "grid", gap: 8, padding: "0 10px 10px 10px" }}>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "72px minmax(160px, 0.8fr) minmax(128px, 0.55fr) minmax(220px, 1fr) auto", gap: 9, alignItems: "center" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
           <MapPin size={11} /> Ubic.
         </span>
         <select
@@ -742,13 +743,13 @@ function ItemLocationRow({ item, material = null, estanterias = [], onChange, is
         <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: isMobile ? "flex-start" : "flex-end", minWidth: 0 }}>
           <UbicacionChip ubicacion={effectiveUbicacion} obs={effectiveObs} />
           {hasCatalogDefault && changed && (
-            <button type="button" onClick={() => onChange({ ubicacion: material.ubicacion || "", ubicacion_obs: material.ubicacion_obs || "", ubicacion_touched: false })} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 8px", cursor: "pointer", fontSize: 11, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+            <button type="button" onClick={() => onChange({ ubicacion: material.ubicacion || "", ubicacion_obs: material.ubicacion_obs || "", ubicacion_touched: false })} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 8px", cursor: "pointer", fontSize: 11, fontWeight: 650, fontFamily: C.sans, whiteSpace: "nowrap" }}>
               Usar habitual
             </button>
           )}
         </div>
       </div>
-      <div style={{ marginLeft: isMobile ? 0 : 81, color: changed ? C.green : C.t2, fontSize: 11, fontWeight: changed ? 800 : 500 }}>
+      <div style={{ marginLeft: isMobile ? 0 : 81, color: changed ? C.green : C.t2, fontSize: 11, fontWeight: changed ? 650 : 500 }}>
         {helper}
       </div>
       {showPreview && (
@@ -2025,12 +2026,12 @@ export default function EnviarAPanolModal({
         ? { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: "100%", maxHeight: "100%", overflow: "hidden", display: "grid", gridTemplateRows: filasDelForm, color: C.t0 }
         : { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: filasDelForm, color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: ingresoDesktop ? "18px 22px" : "16px 18px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{isRemito ? "Ingresar materiales" : "Enviar a Pañol"}</div>
+          <div style={{ fontSize: 16, fontWeight: 650 }}>{isRemito ? "Ingresar materiales" : "Enviar a Pañol"}</div>
           {prefill?.origen === "compra" && <span style={{ fontSize: 9, color: C.dim, background: "var(--panel-2)", border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>desde compra</span>}
           {isRemito && (
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginLeft: 4 }}>
-              <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "5px 10px", fontSize: 11.5, fontWeight: 850 }}>{items.length} item{items.length === 1 ? "" : "s"}</span>
-              <span style={{ border: `1px solid ${ubicadosCount === items.length && items.length ? C.greenB : C.b0}`, background: ubicadosCount === items.length && items.length ? C.greenL : C.bg, color: ubicadosCount === items.length && items.length ? C.green : C.t2, borderRadius: 999, padding: "5px 10px", fontSize: 11.5, fontWeight: 850 }}>{ubicadosCount}/{items.length || 0} ubicados</span>
+              <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "5px 10px", fontSize: 11.5, fontWeight: 700 }}>{items.length} item{items.length === 1 ? "" : "s"}</span>
+              <span style={{ border: `1px solid ${ubicadosCount === items.length && items.length ? C.greenB : C.b0}`, background: ubicadosCount === items.length && items.length ? C.greenL : C.bg, color: ubicadosCount === items.length && items.length ? C.green : C.t2, borderRadius: 999, padding: "5px 10px", fontSize: 11.5, fontWeight: 700 }}>{ubicadosCount}/{items.length || 0} ubicados</span>
             </div>
           )}
           <div style={{ flex: 1 }} />
@@ -2040,7 +2041,7 @@ export default function EnviarAPanolModal({
         {borradorPrevio && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", background: "var(--blue-soft)", borderBottom: `1px solid ${C.blueB}`, flexWrap: "wrap" }}>
             <RotateCcw size={15} style={{ color: C.blue, flexShrink: 0 }} />
-            <span style={{ color: C.t1, fontSize: 12.5, fontWeight: 750, minWidth: 0 }}>
+            <span style={{ color: C.t1, fontSize: 12.5, fontWeight: 650, minWidth: 0 }}>
               Quedó algo a medio cargar:{" "}
               <strong style={{ color: C.t0 }}>{borradorPrevio.titulo?.trim() || "sin referencia"}</strong>
               {" · "}{Array.isArray(borradorPrevio.items) ? borradorPrevio.items.length : 0} ítem
@@ -2048,7 +2049,7 @@ export default function EnviarAPanolModal({
             </span>
             <div style={{ flex: 1 }} />
             <button type="button" onClick={retomarBorrador}
-              style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 8, padding: "7px 13px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+              style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 8, padding: "7px 13px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
               Retomar
             </button>
             <button type="button"
@@ -2058,7 +2059,7 @@ export default function EnviarAPanolModal({
                 setBorradorPrevio(null);
                 toast.success("Borrador a la papelera. Está en Pañol → Ingresar si lo necesitás.");
               }}
-              style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: "7px 11px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+              style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: "7px 11px", cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans, whiteSpace: "nowrap" }}>
               Descartar
             </button>
           </div>
@@ -2078,7 +2079,7 @@ export default function EnviarAPanolModal({
                   const active = sede === s;
                   const label = s === "Chubut" ? "Chubut 2120" : s === "Pampa" ? "Pampa 1050" : s;
                   return (
-                    <button key={s} type="button" onClick={() => setSede(s)} style={{ flex: 1, padding: "11px 10px", borderRadius: 9, cursor: "pointer", fontSize: 13.5, fontWeight: 850, fontFamily: C.sans, border: `1.5px solid ${active ? C.primary : C.b0}`, background: active ? "rgba(96,165,250,0.14)" : "transparent", color: active ? C.primary : C.t1 }}>{label}</button>
+                    <button key={s} type="button" onClick={() => setSede(s)} style={{ flex: 1, padding: "11px 10px", borderRadius: 9, cursor: "pointer", fontSize: 13.5, fontWeight: 700, fontFamily: C.sans, border: `1.5px solid ${active ? C.primary : C.b0}`, background: active ? "rgba(96,165,250,0.14)" : "transparent", color: active ? C.primary : C.t1 }}>{label}</button>
                   );
                 })}
               </div>
@@ -2098,7 +2099,7 @@ export default function EnviarAPanolModal({
                   {obrasExtra.map((id) => {
                     const obra = obrasActivas.find((o) => o.id === id);
                     return (
-                      <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.primary, borderRadius: 999, padding: "3px 6px 3px 10px", fontSize: 12, fontWeight: 850 }}>
+                      <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.primary, borderRadius: 999, padding: "3px 6px 3px 10px", fontSize: 12, fontWeight: 700 }}>
                         {obra?.codigo || "obra"}
                         <button type="button" onClick={() => quitarObraExtra(id)} title="Quitar del aviso"
                           style={{ border: "none", background: "transparent", color: C.primary, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "0 2px" }}>×</button>
@@ -2126,9 +2127,9 @@ export default function EnviarAPanolModal({
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <PackageSearch size={16} style={{ color: C.blue }} />
-                <span style={{ color: C.t0, fontSize: ingresoDesktop ? 14.5 : 13, fontWeight: 900 }}>Buscar material y pedidos a recepcionar</span>
+                <span style={{ color: C.t0, fontSize: ingresoDesktop ? 14.5 : 13, fontWeight: 700 }}>Buscar material y pedidos a recepcionar</span>
               </div>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.b0}`, background: C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: ingresoDesktop ? "9px 12px" : "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850 }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.b0}`, background: C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: ingresoDesktop ? "9px 12px" : "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700 }}>
                 <Bot size={14} />
                 {aiReading ? "Leyendo..." : "Leer remito"}
                 <input
@@ -2151,7 +2152,7 @@ export default function EnviarAPanolModal({
                   vuelta al pedo. */}
               <button type="button" onClick={() => setPegarAbierto((v) => !v)} disabled={aiReading}
                 title="Pegar el texto de un mail, un WhatsApp o una lista y que la IA lo lea"
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${pegarAbierto ? C.violetB : C.b0}`, background: pegarAbierto ? "var(--violet-soft, rgba(139,92,246,0.12))" : C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: ingresoDesktop ? "9px 12px" : "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${pegarAbierto ? C.violetB : C.b0}`, background: pegarAbierto ? "var(--violet-soft, rgba(139,92,246,0.12))" : C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: ingresoDesktop ? "9px 12px" : "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700, fontFamily: C.sans }}>
                 <ClipboardPaste size={14} />
                 Pegar texto
               </button>
@@ -2169,12 +2170,12 @@ export default function EnviarAPanolModal({
                 />
                 <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
                   <button type="button" onClick={() => readRemitoWithAI({ text: textoIa })} disabled={aiReading || !textoIa.trim()}
-                    style={{ border: "none", background: aiReading || !textoIa.trim() ? "var(--panel-2)" : C.violet, color: aiReading || !textoIa.trim() ? C.dim : "#fff", borderRadius: 8, padding: "9px 15px", cursor: aiReading || !textoIa.trim() ? "default" : "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+                    style={{ border: "none", background: aiReading || !textoIa.trim() ? "var(--panel-2)" : C.violet, color: aiReading || !textoIa.trim() ? C.dim : "#fff", borderRadius: 8, padding: "9px 15px", cursor: aiReading || !textoIa.trim() ? "default" : "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
                     {aiReading ? "Leyendo…" : "Leer el texto"}
                   </button>
                   {textoIa.trim() && !aiReading && (
                     <button type="button" onClick={() => setTextoIa("")}
-                      style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans, textDecoration: "underline" }}>
+                      style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans, textDecoration: "underline" }}>
                       Limpiar
                     </button>
                   )}
@@ -2191,7 +2192,7 @@ export default function EnviarAPanolModal({
                 Sin este cartel uno carga 20 ítems de un remito real, guarda, y
                 después el egreso falla con "Disponible 0" sin explicación. */}
             {!isRemito && items.length > 0 && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 10px", border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 700 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 10px", border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 600 }}>
                 <PackageSearch size={14} style={{ color: C.cyan, flexShrink: 0, marginTop: 1 }} />
                 <span>
                   Esto crea un <strong>aviso a Pañol</strong>, no ingresa stock: los ítems no se pueden egresar
@@ -2216,7 +2217,7 @@ export default function EnviarAPanolModal({
                     {[['', 'Detectar'], ['ARS', 'ARS'], ['USD', 'USD']].map(([value, label]) => {
                       const active = aiMoneda === value;
                       const isUsd = value === 'USD';
-                      return <button key={value || 'auto'} type="button" onClick={() => setAiMoneda(value)} style={{ border: `1px solid ${active ? (isUsd ? C.blueB : C.greenB) : C.b0}`, background: active ? (isUsd ? C.blueL : value === 'ARS' ? C.greenL : C.panelSolid) : C.panelSolid, color: active ? (isUsd ? C.blue : value === 'ARS' ? C.green : C.t1) : C.t2, borderRadius: 7, minWidth: label === 'Detectar' ? 76 : 52, height: ingresoDesktop ? 40 : 36, padding: "0 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>{label}</button>;
+                      return <button key={value || 'auto'} type="button" onClick={() => setAiMoneda(value)} style={{ border: `1px solid ${active ? (isUsd ? C.blueB : C.greenB) : C.b0}`, background: active ? (isUsd ? C.blueL : value === 'ARS' ? C.greenL : C.panelSolid) : C.panelSolid, color: active ? (isUsd ? C.blue : value === 'ARS' ? C.green : C.t1) : C.t2, borderRadius: 7, minWidth: label === 'Detectar' ? 76 : 52, height: ingresoDesktop ? 40 : 36, padding: "0 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>{label}</button>;
                     })}
                   </div>
                 </div>
@@ -2234,9 +2235,9 @@ export default function EnviarAPanolModal({
               <div style={{ display: "grid", gap: 9, padding: "11px 12px", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Bot size={15} style={{ color: C.violet, flexShrink: 0 }} />
-                  <span style={{ color: C.t0, fontSize: 13, fontWeight: 900 }}>¿De qué proveedor es este remito?</span>
+                  <span style={{ color: C.t0, fontSize: 13, fontWeight: 700 }}>¿De qué proveedor es este remito?</span>
                 </div>
-                <div style={{ color: C.t2, fontSize: 11.5, fontWeight: 700 }}>
+                <div style={{ color: C.t2, fontSize: 11.5, fontWeight: 600 }}>
                   {archivoPendiente.name} · decírselo evita que la IA tenga que leer el PDF dos veces para averiguarlo.
                 </div>
                 <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
@@ -2253,7 +2254,7 @@ export default function EnviarAPanolModal({
                     type="button"
                     disabled={!aiProveedorId}
                     onClick={() => { const f = archivoPendiente; setArchivoPendiente(null); readRemitoWithAI({ file: f }); }}
-                    style={{ border: "none", background: aiProveedorId ? C.violet : "var(--panel-2)", color: aiProveedorId ? "#fff" : C.dim, borderRadius: 8, padding: "9px 16px", cursor: aiProveedorId ? "pointer" : "default", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}
+                    style={{ border: "none", background: aiProveedorId ? C.violet : "var(--panel-2)", color: aiProveedorId ? "#fff" : C.dim, borderRadius: 8, padding: "9px 16px", cursor: aiProveedorId ? "pointer" : "default", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}
                   >
                     Leer el remito
                   </button>
@@ -2265,15 +2266,15 @@ export default function EnviarAPanolModal({
                   <button
                     type="button"
                     onClick={() => { const f = archivoPendiente; setArchivoPendiente(null); readRemitoWithAI({ file: f }); }}
-                    style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, padding: 0, textDecoration: "underline" }}
+                    style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, padding: 0, textDecoration: "underline" }}
                   >
                     No sé cuál es, que lo detecte solo
                   </button>
-                  <span style={{ color: C.t2, fontSize: 11, fontWeight: 700 }}>tarda bastante más y sale el doble</span>
+                  <span style={{ color: C.t2, fontSize: 11, fontWeight: 600 }}>tarda bastante más y sale el doble</span>
                   <button
                     type="button"
                     onClick={() => setArchivoPendiente(null)}
-                    style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, padding: 0 }}
+                    style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, padding: 0 }}
                   >
                     Cancelar
                   </button>
@@ -2283,7 +2284,7 @@ export default function EnviarAPanolModal({
 
             {aiSummary && (
               <div style={{ display: "grid", gap: 7, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.violetB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.violetL, borderRadius: 9 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.t1, fontSize: 12, fontWeight: 750 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.t1, fontSize: 12, fontWeight: 650 }}>
                   <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.violet, flexShrink: 0 }} />
                   <span style={{ minWidth: 0, flex: 1 }}>
                     IA leyó <strong>{aiSummary.detected}</strong> ítems.
@@ -2301,14 +2302,14 @@ export default function EnviarAPanolModal({
                     copiada y pegada contra el papel, o contra otra IA. */}
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   <button type="button" onClick={copiarLectura}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t1, borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t1, borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
                     <ClipboardCopy size={13} /> Copiar los {items.length} renglones
                   </button>
                   <button type="button" onClick={() => setVerLectura((v) => !v)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${verLectura ? C.violetB : C.b0}`, background: C.panelSolid, color: verLectura ? C.violet : C.t2, borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${verLectura ? C.violetB : C.b0}`, background: C.panelSolid, color: verLectura ? C.violet : C.t2, borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
                     <Eye size={13} /> {verLectura ? "Ocultar" : "Ver como texto"}
                   </button>
-                  <span style={{ color: C.t2, fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ color: C.t2, fontSize: 11, fontWeight: 600 }}>
                     ¿El remito tenía más? Copialo y comparalo contra el papel.
                   </span>
                 </div>
@@ -2335,11 +2336,11 @@ export default function EnviarAPanolModal({
                     onChange={(e) => setScanCode(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); processScan(scanCode); } }}
                     placeholder="Escaneá el código — recepciona del pedido; si no hay, ingreso directo"
-                    style={inp({ paddingLeft: 38, height: ingresoDesktop ? 44 : 38, fontSize: ingresoDesktop ? 14 : 13, border: `1.5px solid ${C.greenB}`, background: C.bg, fontWeight: 700 })}
+                    style={inp({ paddingLeft: 38, height: ingresoDesktop ? 44 : 38, fontSize: ingresoDesktop ? 14 : 13, border: `1.5px solid ${C.greenB}`, background: C.bg, fontWeight: 600 })}
                   />
                 </div>
                 <button type="button" onClick={() => setScannerOpen(true)} title="Escanear con la cámara"
-                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: ingresoDesktop ? "0 16px" : "0 12px", height: ingresoDesktop ? 44 : 38, cursor: "pointer", fontSize: 13, fontWeight: 850, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: ingresoDesktop ? "0 16px" : "0 12px", height: ingresoDesktop ? 44 : 38, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", flexShrink: 0 }}>
                   <ScanLine size={16} /> {!isMobile && "Cámara"}
                 </button>
               </div>
@@ -2347,7 +2348,7 @@ export default function EnviarAPanolModal({
 
             <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.b0}`, marginTop: 2 }}>
               {[["materiales", "Materiales"], ["avisos", `Avisos de recepción${avisosAgrupados.length ? ` (${avisosAgrupados.length})` : ""}`]].map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setSearchTab(k)} style={{ border: "none", background: "transparent", color: searchTab === k ? C.blue : C.t2, borderBottom: `2px solid ${searchTab === k ? C.blue : "transparent"}`, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 850, fontFamily: C.sans, marginBottom: -1 }}>{l}</button>
+                <button key={k} type="button" onClick={() => setSearchTab(k)} style={{ border: "none", background: "transparent", color: searchTab === k ? C.blue : C.t2, borderBottom: `2px solid ${searchTab === k ? C.blue : "transparent"}`, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans, marginBottom: -1 }}>{l}</button>
               ))}
             </div>
 
@@ -2364,7 +2365,7 @@ export default function EnviarAPanolModal({
                 </div>
                 <div style={{ display: "grid", gap: 7, maxHeight: catalogListHeight, overflowY: "auto", paddingRight: 2 }}>
                   {catalogLoading ? (
-                    <div style={{ color: C.t2, fontSize: 12, padding: 12, textAlign: "center" }}>Cargando...</div>
+                    <Cargando compacto />
                   ) : catalog.length ? catalog.map((mat) => {
                     const checked = checkedCatalog.has(mat.id);
                     const meta = proveedorMeta(mat.proveedor, proveedores);
@@ -2391,11 +2392,11 @@ export default function EnviarAPanolModal({
                           gap: 10,
                         }}
                       >
-                        <span aria-hidden style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? C.blue : C.b1}`, background: checked ? C.blue : "transparent", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 900, lineHeight: 1 }}>
+                        <span aria-hidden style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? C.blue : C.b1}`, background: checked ? C.blue : "transparent", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
                           {checked ? "✓" : ""}
                         </span>
                         <span style={{ minWidth: 0, flex: 1 }}>
-                          <span style={{ display: "block", fontSize: ingresoDesktop ? 13.3 : 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</span>
+                          <span style={{ display: "block", fontSize: ingresoDesktop ? 13.3 : 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</span>
                           <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: ingresoDesktop ? 11.2 : 10.5, marginTop: 3 }}>
                             <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {mat.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
@@ -2406,13 +2407,13 @@ export default function EnviarAPanolModal({
                             {enAvisos.length > 0 && (
                               <span
                                 title={`Esperando en ${enAvisos.length} ítem${enAvisos.length === 1 ? "" : "s"} de aviso · ${obrasAviso.join(", ")}`}
-                                style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}
+                                style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}
                               >
                                 En aviso{obrasAviso.length === 1 ? ` · ${obrasAviso[0]}` : ` · ${enAvisos.length}`}
                               </span>
                             )}
                             {catalogQ.trim() && mat._score >= 88 && (
-                              <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
+                              <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
                                 Coincidencia
                               </span>
                             )}
@@ -2428,7 +2429,7 @@ export default function EnviarAPanolModal({
                     Se puede recepcionar directo desde acá sin ir a la pestaña de avisos. */}
                 {avisosDelFocoPendientes.length > 0 && (
                   <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, padding: 9, display: "grid", gap: 7 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 11.5, fontWeight: 900 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 11.5, fontWeight: 700 }}>
                       <PackageSearch size={14} style={{ flexShrink: 0 }} />
                       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {(selectedMaterial?.descripcion || catalogById.get(focusMaterialId)?.descripcion || "Este producto")} está en {avisosDelFocoPendientes.length} aviso{avisosDelFocoPendientes.length === 1 ? "" : "s"}
@@ -2437,11 +2438,11 @@ export default function EnviarAPanolModal({
                     {avisosDelFocoPendientes.map((m) => (
                       <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "7px 9px" }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.obra_codigo}{m.es_adicional ? " · adicional" : ""}</div>
+                          <div style={{ fontSize: 12, fontWeight: 650, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.obra_codigo}{m.es_adicional ? " · adicional" : ""}</div>
                           <div style={{ fontSize: 10.5, color: C.t2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.request_title}</div>
                         </div>
                         <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t1, whiteSpace: "nowrap" }}>{m.quantity || "-"} {m.unit || ""}</div>
-                        <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                        <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
                           Recepcionar
                         </button>
                       </div>
@@ -2453,7 +2454,7 @@ export default function EnviarAPanolModal({
                   type="button"
                   onClick={addCheckedCatalogMaterials}
                   disabled={checkedCatalog.size === 0 && !selectedMaterial}
-                  style={{ border: `1px solid ${C.blueB}`, background: (checkedCatalog.size || selectedMaterial) ? "var(--blue-soft)" : C.bg, color: (checkedCatalog.size || selectedMaterial) ? C.blue : C.t2, borderRadius: 8, padding: ingresoDesktop ? "10px 12px" : "8px 10px", cursor: (checkedCatalog.size || selectedMaterial) ? "pointer" : "default", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}
+                  style={{ border: `1px solid ${C.blueB}`, background: (checkedCatalog.size || selectedMaterial) ? "var(--blue-soft)" : C.bg, color: (checkedCatalog.size || selectedMaterial) ? C.blue : C.t2, borderRadius: 8, padding: ingresoDesktop ? "10px 12px" : "8px 10px", cursor: (checkedCatalog.size || selectedMaterial) ? "pointer" : "default", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700, fontFamily: C.sans }}
                 >
                   {checkedCatalog.size ? `Agregar ${checkedCatalog.size} tildado${checkedCatalog.size === 1 ? "" : "s"}` : "Agregar desde catalogo"}
                 </button>
@@ -2486,8 +2487,8 @@ export default function EnviarAPanolModal({
                         <span style={{ color: C.t2, fontSize: 12, width: 12, flexShrink: 0 }}>{abierto ? "▾" : "▸"}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                            <span style={{ fontSize: ingresoDesktop ? 13.4 : 12.6, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.obra_codigo || "Sin obra"}</span>
-                            {tieneFoco && <span style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>Acá está</span>}
+                            <span style={{ fontSize: ingresoDesktop ? 13.4 : 12.6, fontWeight: 700, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.obra_codigo || "Sin obra"}</span>
+                            {tieneFoco && <span style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>Acá está</span>}
                           </div>
                           <div style={{ fontSize: 11.5, color: C.t1, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {av.request_title || "Pedido sin título"}{av.linea_nombre ? ` · ${av.linea_nombre}` : ""}
@@ -2495,8 +2496,8 @@ export default function EnviarAPanolModal({
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                           {completo
-                            ? <span style={{ color: C.green, fontSize: 11.5, fontWeight: 900 }}>✓ completo</span>
-                            : <span style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", color: C.t1, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>
+                            ? <span style={{ color: C.green, fontSize: 11.5, fontWeight: 700 }}>✓ completo</span>
+                            : <span style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", color: C.t1, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>
                                 {pendientes.length} por recibir{agregados ? ` · ${agregados} ✓` : ""}
                               </span>}
                         </div>
@@ -2513,7 +2514,7 @@ export default function EnviarAPanolModal({
                                 <div style={{ minWidth: 0 }}>
                                   {/* El producto del catálogo primero: es lo que el pañolero
                                       tiene en la mano. El texto del pedido queda de referencia. */}
-                                  <div style={{ fontSize: 12.8, fontWeight: 850, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  <div style={{ fontSize: 12.8, fontWeight: 700, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                     {prod?.descripcion || m.description || "Ítem sin descripción"}
                                   </div>
                                   <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, marginTop: 3, fontSize: 10.8, color: C.t2 }}>
@@ -2522,7 +2523,7 @@ export default function EnviarAPanolModal({
                                         {prod.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}
                                       </span>
                                     ) : (
-                                      <span style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>
+                                      <span style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
                                         Sin producto vinculado
                                       </span>
                                     )}
@@ -2532,11 +2533,11 @@ export default function EnviarAPanolModal({
                                         cada línea sin aportar nada. Sin esto no se
                                         puede decidir cuál recibir si llega una sola. */}
                                     {av.obras_codigos?.length > 1 && m.obra_codigo && (
-                                      <span style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.primary, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>
+                                      <span style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.primary, borderRadius: 999, padding: "2px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
                                         {m.obra_codigo}
                                       </span>
                                     )}
-                                    {m.es_adicional && <span style={{ color: C.violet, fontWeight: 850, whiteSpace: "nowrap", flexShrink: 0 }}>adicional</span>}
+                                    {m.es_adicional && <span style={{ color: C.violet, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>adicional</span>}
                                     {m.variante && <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>· {m.variante}</span>}
                                   </div>
                                   {prod && m.description && prod.descripcion !== m.description && (
@@ -2547,12 +2548,12 @@ export default function EnviarAPanolModal({
                                 </div>
                                 <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t1, whiteSpace: "nowrap" }}>{m.quantity || "-"} {m.unit || ""}</div>
                                 {added
-                                  ? <span style={{ color: C.green, fontSize: 13, fontWeight: 900, padding: "0 4px" }}>✓</span>
-                                  : <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>Recibir</button>}
+                                  ? <span style={{ color: C.green, fontSize: 13, fontWeight: 700, padding: "0 4px" }}>✓</span>
+                                  : <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>Recibir</button>}
                               </div>
                             );
                           })}
-                          <button type="button" onClick={() => pendientes.forEach(agregarPedidoItem)} disabled={pendientes.length === 0} style={{ justifySelf: "start", border: `1px solid ${C.greenB}`, background: pendientes.length ? C.greenL : C.bg, color: pendientes.length ? C.green : C.t2, borderRadius: 7, padding: "6px 12px", cursor: pendientes.length ? "pointer" : "default", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>Recibir todos los pendientes ({pendientes.length})</button>
+                          <button type="button" onClick={() => pendientes.forEach(agregarPedidoItem)} disabled={pendientes.length === 0} style={{ justifySelf: "start", border: `1px solid ${C.greenB}`, background: pendientes.length ? C.greenL : C.bg, color: pendientes.length ? C.green : C.t2, borderRadius: 7, padding: "6px 12px", cursor: pendientes.length ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>Recibir todos los pendientes ({pendientes.length})</button>
                         </div>
                       )}
                     </div>
@@ -2576,7 +2577,7 @@ export default function EnviarAPanolModal({
             style={isRemito ? { border: `1px solid ${C.b0}`, background: "rgba(96,165,250,0.035)", borderRadius: 14, padding: ingresoDesktop ? 16 : 10, display: "grid", gap: 10 } : undefined}
           >
             {duplicadosConAvisos.length > 0 && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 10px", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 10px", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
                 <PackageSearch size={14} style={{ color: C.violet, flexShrink: 0, marginTop: 1 }} />
                 <span style={{ minWidth: 0 }}>
                   {duplicadosConAvisos.length === 1 ? "Este producto ya está" : `Estos ${duplicadosConAvisos.length} productos ya están`}{" "}
@@ -2584,7 +2585,7 @@ export default function EnviarAPanolModal({
                   <strong>{duplicadosConAvisos.slice(0, 4).map((it) => it.descripcion).join(" · ")}</strong>
                   {duplicadosConAvisos.length > 4 && ` y ${duplicadosConAvisos.length - 4} más`}.{" "}
                   <button type="button" onClick={() => { setSearchTab("avisos"); }}
-                    style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, textDecoration: "underline", padding: 0 }}>
+                    style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, textDecoration: "underline", padding: 0 }}>
                     Marcalos ahí
                   </button>{" "}
                   en vez de cargarlos de nuevo, o entran dos veces al stock.
@@ -2603,14 +2604,14 @@ export default function EnviarAPanolModal({
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850 }}>{items.length} item{items.length === 1 ? "" : "s"}</span>
-                {isRemito && <span style={{ border: `1px solid ${ubicadosCount === items.length && items.length ? C.greenB : C.b0}`, background: ubicadosCount === items.length && items.length ? C.greenL : C.bg, color: ubicadosCount === items.length && items.length ? C.green : C.t2, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850 }}>{ubicadosCount}/{items.length || 0} ubicados</span>}
+                <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700 }}>{items.length} item{items.length === 1 ? "" : "s"}</span>
+                {isRemito && <span style={{ border: `1px solid ${ubicadosCount === items.length && items.length ? C.greenB : C.b0}`, background: ubicadosCount === items.length && items.length ? C.greenL : C.bg, color: ubicadosCount === items.length && items.length ? C.green : C.t2, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700 }}>{ubicadosCount}/{items.length || 0} ubicados</span>}
               </div>
             </div>
             {items.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                 {!isMobile && (
-                  <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, padding: "0 10px", fontSize: 9.5, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, padding: "0 10px", fontSize: 9.5, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650 }}>
                     <span>Descripción</span><span>Cod. item</span><span>Cant.</span><span>Unidad</span>{isRemito && <span>Obra / stock</span>}{showPrices && <><span>Precio unit.</span><span>Moneda</span></>}<span />
                   </div>
                 )}
@@ -2678,7 +2679,7 @@ export default function EnviarAPanolModal({
                         requerimiento, que sí es de una obra sola. */}
                     <ItemObrasRow item={it} obras={obrasActivas} multiObra={obrasDelAviso.length > 1} onChange={(patch) => updateItem(i, patch)} />
                     {it.proveedor && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 650, minWidth: 0 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Proveedor: {it.proveedor}</span>
                         <ProveedorTipoBadge meta={proveedorMeta(it.proveedor, proveedores)} compact />
                       </div>
@@ -2686,7 +2687,7 @@ export default function EnviarAPanolModal({
                     {itemSpecs.length > 0 && (
                       <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", padding: "0 7px 8px" }}>
                         {itemSpecs.map((specification) => (
-                          <span key={specification.key} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 800 }}>
+                          <span key={specification.key} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 650 }}>
                             {specification.label}: {specification.value}
                           </span>
                         ))}
@@ -2716,14 +2717,14 @@ export default function EnviarAPanolModal({
                 )}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <button type="button" onClick={addItem} disabled={!nDesc.trim()} style={{ background: nDesc.trim() ? C.blue : "var(--panel-2)", color: nDesc.trim() ? "#fff" : C.dim, border: "none", borderRadius: 8, padding: "8px 14px", cursor: nDesc.trim() ? "pointer" : "default", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>+ Agregar ítem</button>
+                <button type="button" onClick={addItem} disabled={!nDesc.trim()} style={{ background: nDesc.trim() ? C.blue : "var(--panel-2)", color: nDesc.trim() ? "#fff" : C.dim, border: "none", borderRadius: 8, padding: "8px 14px", cursor: nDesc.trim() ? "pointer" : "default", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}>+ Agregar ítem</button>
                 <button type="button" onClick={() => setShowBulk((v) => !v)} style={{ background: "transparent", color: C.t2, border: `1px solid ${C.b0}`, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: C.sans }}>{showBulk ? "Cerrar lista" : "Pegar lista"}</button>
                 <span style={{ color: C.t2, fontSize: 11.5 }}>Detecta cantidad, unidad y código final.</span>
               </div>
               {showBulk && (
                 <div style={{ display: "grid", gap: 6 }}>
                   <textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={7} placeholder={"Un ítem por línea. Texto libre o columnas separadas por |:\n\nDescripción | Código | Cant | Unidad | $Precio\nCODO MACHO HEMBRA 2 FUND | C1162FU | 2 | UNI | $39.372,46\nVALVULA ESFERICA 3/4 JULON | VAE3/4J | 2 | UNI | $6.552,45\n\n20 mtrs Antirruido\n1 INODORO Ovalado I14388"} style={inp({ resize: "vertical", fontFamily: C.mono, fontSize: 12 })} />
-                  <button type="button" onClick={addBulk} style={{ justifySelf: "start", background: C.blue, color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
+                  <button type="button" onClick={addBulk} style={{ justifySelf: "start", background: C.blue, color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
                     Analizar y agregar {bulkText.split("\n").map((l) => l.trim()).filter(Boolean).length || ""} ítems
                   </button>
                 </div>
@@ -2747,17 +2748,17 @@ export default function EnviarAPanolModal({
                 if (ok) { toast.success("Guardado en pendientes."); onClose(false); }
                 else toast.error("No se pudo guardar el pendiente.");
               }}
-              style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || (!titulo.trim() && items.length === 0) ? "default" : "pointer", opacity: saving || (!titulo.trim() && items.length === 0) ? 0.5 : 1, fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 800, fontFamily: C.sans }}
+              style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || (!titulo.trim() && items.length === 0) ? "default" : "pointer", opacity: saving || (!titulo.trim() && items.length === 0) ? 0.5 : 1, fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 650, fontFamily: C.sans }}
             >
               Guardar pendiente
             </button>
           )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {faltaParaGuardar && (
-            <span style={{ color: C.t2, fontSize: 11.5, fontWeight: 750, textAlign: "right" }}>{faltaParaGuardar}</span>
+            <span style={{ color: C.t2, fontSize: 11.5, fontWeight: 650, textAlign: "right" }}>{faltaParaGuardar}</span>
           )}
-          <button type="button" onClick={() => closeModal(false)} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700, fontFamily: C.sans }}>Cancelar</button>
-          <button type="submit" disabled={saving || !titulo.trim() || items.length === 0} style={{ border: "none", background: saving || !titulo.trim() || !items.length ? "var(--panel-2)" : C.blue, color: saving || !titulo.trim() || !items.length ? C.dim : "#fff", borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || !titulo.trim() || !items.length ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}>{saving ? "Guardando..." : isRemito ? "Ingresar a stock" : "Enviar a Pañol"}</button>
+          <button type="button" onClick={() => closeModal(false)} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 600, fontFamily: C.sans }}>Cancelar</button>
+          <button type="submit" disabled={saving || !titulo.trim() || items.length === 0} style={{ border: "none", background: saving || !titulo.trim() || !items.length ? "var(--panel-2)" : C.blue, color: saving || !titulo.trim() || !items.length ? C.dim : "#fff", borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || !titulo.trim() || !items.length ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700, fontFamily: C.sans }}>{saving ? "Guardando..." : isRemito ? "Ingresar a stock" : "Enviar a Pañol"}</button>
           </div>
         </div>
       </form>
@@ -2770,7 +2771,7 @@ export default function EnviarAPanolModal({
           onClick={(e) => { if (e.target === e.currentTarget) { setScanChoice(null); setTimeout(() => scanInputRef.current?.focus(), 40); } }}>
           <div style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 440, maxHeight: "80vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto", boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
             <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 14.5, fontWeight: 900, color: C.t0 }}>¿A qué aviso asignás este producto?</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: C.t0 }}>¿A qué aviso asignás este producto?</div>
               <div style={{ fontSize: 12, color: C.t2, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{scanChoice.material.descripcion} · aparece en {new Set(scanChoice.options.map((o) => o.request_id)).size} avisos</div>
             </div>
             <div style={{ overflowY: "auto", padding: 12, display: "grid", gap: 8 }}>
@@ -2787,7 +2788,7 @@ export default function EnviarAPanolModal({
                     setTimeout(() => scanInputRef.current?.focus(), 40);
                   }}
                   style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: "11px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 850, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{op.obra_codigo}{op.linea_nombre ? ` · ${op.linea_nombre}` : ""}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{op.obra_codigo}{op.linea_nombre ? ` · ${op.linea_nombre}` : ""}</div>
                   <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{op.request_title} · {op.quantity || "-"} {op.unit || ""}</div>
                 </button>
               ))}
@@ -2802,11 +2803,11 @@ export default function EnviarAPanolModal({
                   setScanChoice(null);
                   setTimeout(() => scanInputRef.current?.focus(), 40);
                 }}
-                style={{ border: `1px solid ${C.b0}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>
+                style={{ border: `1px solid ${C.b0}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}>
                 Ingreso directo (sin aviso)
               </button>
               <button type="button" onClick={() => { setScanChoice(null); setTimeout(() => scanInputRef.current?.focus(), 40); }}
-                style={{ border: "none", background: "transparent", color: C.dim, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 750, fontFamily: C.sans }}>
+                style={{ border: "none", background: "transparent", color: C.dim, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}>
                 Cancelar
               </button>
             </div>

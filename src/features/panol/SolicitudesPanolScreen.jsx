@@ -5,7 +5,6 @@ import {
   AlertTriangle, Archive, ArrowLeft, CheckCheck, ClipboardList, FileText, Loader2, Package, Plus, Printer,
   Search, Send, Ship, Trash2, X,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -99,7 +98,7 @@ function NuevaSolicitudModal({ obras, sedeDefault = "", onCrear, onClose }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 12px 13px 16px", borderBottom: `1px solid ${C.border}` }}>
           <FileText size={17} color={C.blue} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 900, color: C.text }}>Cargar solicitud del papel</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Cargar solicitud del papel</div>
             <div style={{ fontSize: 11.5, color: C.dim }}>Copiá la cabecera tal cual la escribieron. Los ítems se cargan después.</div>
           </div>
           <IconBtn icon={X} title="Cerrar" onClick={onClose} />
@@ -164,7 +163,7 @@ function NuevaSolicitudModal({ obras, sedeDefault = "", onCrear, onClose }) {
                     onClick={() => toggleTipo(t)}
                     className="sp-chip"
                     style={{
-                      padding: "6px 12px", borderRadius: 9, fontSize: 12, fontWeight: 800, cursor: "pointer",
+                      padding: "6px 12px", borderRadius: 9, fontSize: 12, fontWeight: 650, cursor: "pointer",
                       border: `1px solid ${on ? C.blueB : C.border}`, background: on ? C.blueL : C.panel,
                       color: on ? C.blue : C.dim, fontFamily: C.sans,
                     }}
@@ -247,7 +246,7 @@ function ItemLibreForm({ onAgregar }) {
         aria-label="Unidad"
         style={{ ...INPUT, width: 66, padding: "7px 9px", fontSize: 12 }}
       />
-      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5, fontWeight: 750, whiteSpace: "nowrap" }}>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5, fontWeight: 650, whiteSpace: "nowrap" }}>
         <input
           type="checkbox"
           checked={esConsumible}
@@ -316,15 +315,15 @@ function FilaItem({ row, indice, puedeEditar, onCampo, onEstado, onQuitar }) {
             <Package size={12} />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 750, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 13, fontWeight: 650, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {row.descripcion}
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 1 }}>
               {row.codigo && <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{row.codigo}</span>}
               {!row.material_id && <span style={{ fontSize: 10.5, color: C.dim }}>· fuera de catálogo</span>}
-              {row.es_consumible && <span style={{ fontSize: 10.5, color: C.violet, fontWeight: 800 }}>· consumible</span>}
+              {row.es_consumible && <span style={{ fontSize: 10.5, color: C.violet, fontWeight: 650 }}>· consumible</span>}
               {row.faltante_auto && (
-                <span style={{ fontSize: 10.5, color: C.red, fontWeight: 800 }}>
+                <span style={{ fontSize: 10.5, color: C.red, fontWeight: 650 }}>
                   · stock {num(row.stock_disponible_al_marcar)}
                 </span>
               )}
@@ -392,14 +391,14 @@ function SolicitudCard({ s, activa, onSelect }) {
       <span style={{ width: 4, flexShrink: 0, background: urgente ? "#ef4444" : meta.color }} />
       <span style={{ flex: 1, minWidth: 0, padding: "9px 11px 8px", display: "grid", gap: 4 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 950, fontFamily: C.mono, color: activa ? C.text : C.muted }}>
+          <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 750, fontFamily: C.mono, color: activa ? C.text : C.muted }}>
             N°{s.numero}
           </span>
           {urgente && <AlertTriangle size={12} color={C.red} style={{ flexShrink: 0 }} />}
           <span style={{
             marginLeft: "auto", minWidth: 0, maxWidth: 146, display: "inline-flex", alignItems: "center", gap: 5,
             padding: "2px 7px", borderRadius: 999, border: `1px solid ${tint(meta.color, 28)}`,
-            background: tint(meta.color, 10), color: meta.color, fontSize: 9.5, fontWeight: 900,
+            background: tint(meta.color, 10), color: meta.color, fontSize: 9.5, fontWeight: 700,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             <span style={{ flexShrink: 0, width: 5, height: 5, borderRadius: 999, background: meta.color }} />
@@ -407,7 +406,7 @@ function SolicitudCard({ s, activa, onSelect }) {
           </span>
         </span>
         <span style={{
-          minWidth: 0, fontSize: 13, fontWeight: 900, color: activa ? C.text : C.muted,
+          minWidth: 0, fontSize: 13, fontWeight: 700, color: activa ? C.text : C.muted,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {nombreObra(s)}
@@ -456,7 +455,7 @@ function ResumenSolicitud({ s }) {
         {datos.map(([etiqueta, valor]) => (
           <div key={etiqueta} style={{ minWidth: 0, padding: "7px 9px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel }}>
             <div style={{ ...LBL, marginBottom: 3 }}>{etiqueta}</div>
-            <div style={{ color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={String(valor)}>
+            <div style={{ color: C.text, fontSize: 11.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={String(valor)}>
               {valor}
             </div>
           </div>
@@ -636,7 +635,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
           style={{
             justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 6,
             border: "none", background: "transparent", color: C.blue, padding: "2px 0",
-            fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, cursor: "pointer",
+            fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
           }}
         >
           <ArrowLeft size={15} /> Volver a solicitudes
@@ -646,12 +645,12 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
       <div className="sp-surface">
         <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", flexWrap: "wrap" }}>
           <span style={{
-            flexShrink: 0, padding: "5px 11px", borderRadius: 10, fontFamily: C.mono, fontSize: 15, fontWeight: 900,
+            flexShrink: 0, padding: "5px 11px", borderRadius: 10, fontFamily: C.mono, fontSize: 15, fontWeight: 700,
             background: tint(meta.color, 14), border: `1px solid ${tint(meta.color, 30)}`, color: meta.color,
           }}>
             N° {s.numero}
           </span>
-          <h2 style={{ margin: 0, flex: 1, minWidth: 120, fontSize: 15.5, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <h2 style={{ margin: 0, flex: 1, minWidth: 120, fontSize: 15.5, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {nombreObra(s)}
           </h2>
           {s.prioridad === "urgente" && (
@@ -744,7 +743,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
                     onClick={() => guardarCabecera({ tipo: on ? s.tipo.filter((x) => x !== t) : [...(s.tipo ?? []), t] })}
                     className="sp-chip"
                     style={{
-                      padding: "5px 11px", borderRadius: 9, fontSize: 11.5, fontWeight: 800,
+                      padding: "5px 11px", borderRadius: 9, fontSize: 11.5, fontWeight: 650,
                       cursor: puedeEditarSolicitud ? "pointer" : "default", fontFamily: C.sans,
                       border: `1px solid ${on ? C.blueB : C.border}`, background: on ? C.blueL : C.panel,
                       color: on ? C.blue : C.dim,
@@ -814,7 +813,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
             <div style={{ width: 54, height: 54, borderRadius: 17, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
               <Plus size={24} />
             </div>
-            <div style={{ fontSize: 14.5, fontWeight: 850, color: C.text }}>Todavía no cargaste ítems</div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>Todavía no cargaste ítems</div>
             <div style={{ fontSize: 12.5, color: C.dim, maxWidth: 400, lineHeight: 1.6 }}>
               Buscá en el catálogo lo que pide el papel y marcá varios de una vez, o cargá a mano lo que no esté.
             </div>
@@ -829,7 +828,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
                       key={h || i}
                       style={{
                         textAlign: i === 2 ? "right" : "left", padding: "8px 10px", borderBottom: `1px solid ${C.border}`,
-                        fontSize: 10, fontWeight: 850, letterSpacing: 0.6, textTransform: "uppercase", color: C.dim,
+                        fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: C.dim,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -900,7 +899,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
 /* ═══════════════════════════════════════════════════════════════════════════
    PANTALLA
    ═══════════════════════════════════════════════════════════════════════════ */
-export default function SolicitudesPanolScreen({ profile, signOut }) {
+export default function SolicitudesPanolScreen({ profile }) {
   const { isMobile } = useResponsive();
   const [searchParams, setSearchParams] = useSearchParams();
   const openId = searchParams.get("open");
@@ -1020,7 +1019,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
+    <div style={{ position: "absolute", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
       <style>{`
         .spin{animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -1038,12 +1037,8 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
         .ce-cta:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
         .ce-ghost:hover:not(:disabled){background:var(--panel-2);color:var(--text)}
         .sp-list-scroll{scrollbar-width:thin}
-        button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
       `}</style>
 
-      <div style={{ width: isMobile ? 0 : 280, height: "100vh", flexShrink: 0 }}>
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
 
       <main style={{ position: "relative", minWidth: 0, flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(1000px 300px at 18% -12%, ${tint("#3b82f6", 8)}, transparent 70%)` }} />
@@ -1054,7 +1049,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
               <ClipboardList size={19} />
             </div>
             <div style={{ minWidth: 0, flex: isMobile ? "1 1 calc(100% - 50px)" : "0 1 auto" }}>
-              <h1 style={{ margin: 0, fontSize: 17, fontWeight: 950, color: C.text, letterSpacing: -0.2 }}>Solicitudes de pañol</h1>
+              <h1 style={{ margin: 0, fontSize: 17, fontWeight: 750, color: C.text, letterSpacing: -0.2 }}>Solicitudes de pañol</h1>
               <div style={{
                 fontSize: isMobile ? 11.5 : 12.5, color: C.dim, marginTop: 1,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -1066,8 +1061,8 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
             </div>
 
             <div style={{
-              marginLeft: isMobile ? 48 : "auto",
-              width: isMobile ? "calc(100% - 48px)" : "auto",
+              marginLeft: isMobile ? 0 : "auto",
+              width: isMobile ? "100%" : "auto",
               display: "flex", alignItems: "center", justifyContent: isMobile ? "flex-end" : "initial",
               gap: 7, flexWrap: "wrap",
             }}>
@@ -1128,7 +1123,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
                       className="sp-seg"
                       style={{
                         flex: "0 0 auto", padding: "5px 8px", borderRadius: 8, border: `1px solid ${on ? (e.color ? tint(e.color, 28) : C.border2) : "transparent"}`,
-                        cursor: "pointer", fontSize: 11, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap",
+                        cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
                         background: on ? (e.color ? tint(e.color, 9) : C.panel2) : "transparent",
                         color: on ? (e.color || C.text) : C.dim,
                       }}
@@ -1149,7 +1144,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
               }}
             >
               {!cargando && solicitudes.length > 0 && (
-                <div style={{ padding: "0 3px 1px", fontSize: 10.5, color: C.dim, fontWeight: 750 }}>
+                <div style={{ padding: "0 3px 1px", fontSize: 10.5, color: C.dim, fontWeight: 650 }}>
                   {solicitudes.length} solicitud{solicitudes.length === 1 ? "" : "es"}
                 </div>
               )}

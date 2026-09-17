@@ -70,7 +70,7 @@ const label = {
   marginBottom: 6,
   color: C.t2,
   fontSize: 10,
-  fontWeight: 700,
+  fontWeight: 600,
   letterSpacing: 0.8,
   textTransform: "uppercase",
 };
@@ -351,7 +351,7 @@ export default function PedidoCotizacionModal({
             <ClipboardList size={18} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.t0, fontSize: 16, fontWeight: 750 }}>
+            <div style={{ color: C.t0, fontSize: 16, fontWeight: 650 }}>
               Lista de precios para el proveedor
             </div>
             <div style={{ color: C.t2, fontSize: 12, marginTop: 3 }}>
@@ -413,7 +413,7 @@ export default function PedidoCotizacionModal({
                       gap: 7,
                       color: activo ? C.blue : C.t0,
                       fontSize: 12.5,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       minWidth: 0,
                     }}
                   >

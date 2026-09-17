@@ -58,7 +58,7 @@ function Section({ title, subtitle, children }) {
   return (
     <section style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 14, padding: 16 }}>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 15, color: C.t0, fontWeight: 800 }}>{title}</div>
+        <div style={{ fontSize: 15, color: C.t0, fontWeight: 650 }}>{title}</div>
         {subtitle && <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>{subtitle}</div>}
       </div>
       {children}
@@ -85,7 +85,7 @@ function Chip({ children, color = C.t2 }) {
       borderRadius: 999,
       padding: "3px 8px",
       fontSize: 11,
-      fontWeight: 800,
+      fontWeight: 650,
       whiteSpace: "nowrap",
     }}>
       {children}
@@ -169,7 +169,7 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <KpiCard label="Materiales activos" value={nf.format(total)} />
         <KpiCard label="Con precio" value={`${pctConPrecio}%`} sub={`${nf.format(data.conPrecio.length)} de ${nf.format(total)}`} color={pctConPrecio >= 80 ? C.green : C.blue} />
-        <KpiCard label="Pendientes revision" value={nf.format(data.pendientesRevision.length)} color={data.pendientesRevision.length ? C.amber : C.green} />
+        <KpiCard label="Pendientes revision" value={nf.format(data.pendientesRevision.length)} color={data.pendientesRevision.length ? C.cyan : C.green} />
         <KpiCard label="Sectores cargados" value={nf.format(data.sectoresCargados.size)} sub={`${nf.format(categorias.length)} sectores totales`} />
       </div>
 
@@ -192,7 +192,7 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
                   <Td right mono>{nf.format(row.total)}</Td>
                   <Td right mono color={row.conPrecio ? C.green : C.t2}>{nf.format(row.conPrecio)}</Td>
                   <Td><Progress value={row.pctPrecio} color={row.pctPrecio >= 80 ? C.green : C.blue} /></Td>
-                  <Td right mono color={row.pendientes ? C.amber : C.t2}>{nf.format(row.pendientes)}</Td>
+                  <Td right mono color={row.pendientes ? C.cyan : C.t2}>{nf.format(row.pendientes)}</Td>
                 </tr>
               ))}
               {!data.rowsSectores.length && (
@@ -211,8 +211,8 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 14 }}>
           {data.modelos.map((row) => (
             <div key={row.modelo} style={{ border: `1px solid ${C.b0}`, borderRadius: 12, padding: 14, background: C.bg }}>
-              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, fontWeight: 800, textTransform: "uppercase", marginBottom: 6 }}>Modelo K{row.modelo}</div>
-              <div style={{ fontFamily: C.mono, fontSize: 22, color: C.t0, fontWeight: 800 }}>{nf.format(row.definidos)}</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, fontWeight: 650, textTransform: "uppercase", marginBottom: 6 }}>Modelo K{row.modelo}</div>
+              <div style={{ fontFamily: C.mono, fontSize: 22, color: C.t0, fontWeight: 650 }}>{nf.format(row.definidos)}</div>
               <div style={{ fontSize: 12, color: C.t2, margin: "5px 0 10px" }}>{nf.format(row.conPrecio)} con precio</div>
               <Progress value={row.pctPrecio} color={row.pctPrecio >= 80 ? C.green : C.blue} />
             </div>
@@ -238,7 +238,7 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
                     <Td mono>{obra.codigo || "-"}</Td>
                     <Td color={obra.linea_nombre ? C.t1 : C.t2}>{obra.linea_nombre || "-"}</Td>
                     <Td>
-                      {obra.modeloDetectado ? <Chip color={C.blue}>K{obra.modeloDetectado}</Chip> : <Chip color={C.amber}>modelo sin detectar</Chip>}
+                      {obra.modeloDetectado ? <Chip color={C.blue}>K{obra.modeloDetectado}</Chip> : <Chip color={C.cyan}>modelo sin detectar</Chip>}
                     </Td>
                     <Td color={obra.modeloDetectado ? C.t1 : C.t2}>
                       {obra.modeloDetectado
@@ -262,7 +262,7 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
               {batches.slice(0, 8).map((batch) => (
                 <div key={batch.id ?? `${batch.filename}-${batch.created_at}`} style={{ border: `1px solid ${C.b0}`, borderRadius: 10, padding: 10, background: C.bg }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-                    <div style={{ fontSize: 13, color: C.t0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{batch.filename || "Archivo sin nombre"}</div>
+                    <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{batch.filename || "Archivo sin nombre"}</div>
                     <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono, whiteSpace: "nowrap" }}>{fmtFecha(batch.created_at)}</div>
                   </div>
                   <div style={{ fontSize: 12, color: C.t2, marginTop: 5 }}>

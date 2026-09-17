@@ -65,7 +65,7 @@ body {
   --accent3: rgba(216, 195, 161, 0.05);
   
   --ok: #10B981; --ok2: rgba(16, 185, 129, 0.10);
-  --warn: #F59E0B; --warn2: rgba(245, 158, 11, 0.10);
+  --warn: #22d3ee; --warn2: rgba(34,211,238, 0.10);
   --err: #EF4444; --err2: rgba(239, 68, 68, 0.09);
   --info: #9DAF8D; --info2: rgba(157, 175, 141, 0.10);
   
@@ -694,7 +694,7 @@ function CircularGauge({pct,liters,maxL}){
       <circle cx={CX} cy={CY} r={R+20} fill="none" stroke="var(--panel)" strokeWidth="1"/>
       <path d={arc(CX,CY,R,START,SWEEP)} fill="none" stroke="var(--panel)" strokeWidth="10" strokeLinecap="round"/>
       <path d={arc(CX,CY,R,START,fill)} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round"
-        style={{filter:`drop-shadow(0 0 6px ${pct>55?"rgba(16,185,129,.5)":pct>25?"rgba(245,158,11,.5)":"rgba(239,68,68,.5)"})`,transition:"all .9s cubic-bezier(0.25,1,0.35,1)"}}/>
+        style={{filter:`drop-shadow(0 0 6px ${pct>55?"rgba(16,185,129,.5)":pct>25?"rgba(34,211,238,.5)":"rgba(239,68,68,.5)"})`,transition:"all .9s cubic-bezier(0.25,1,0.35,1)"}}/>
       {ticks.map(i=>{
         const deg=START+(i/10)*SWEEP;
         const inner=polarPt(CX,CY,R-15,deg);
@@ -1017,8 +1017,8 @@ function DualMotorCluster({ mc }){
       {!running&&(
         <div style={{
           marginTop:24,padding:"14px 20px", borderRadius: "6px",
-          background:"rgba(245,158,11,0.05)",
-          border:"1px solid rgba(245,158,11,0.15)",
+          background:"rgba(34,211,238,0.05)",
+          border:"1px solid rgba(34,211,238,0.15)",
           display:"flex",alignItems:"center",gap:12
         }}>
           <AlertTriangle size={14} color="var(--warn)" style={{opacity:.8,flexShrink:0}}/>
@@ -1902,7 +1902,7 @@ function SecPlanificador({mc}){
                   </div>
                   <div style={{paddingTop:3}}>
                     <span style={{fontSize:14,fontWeight:400,lineHeight:1.6,display:"block",color:c.hl?"var(--warn)":on?"var(--t1)":"var(--t2)",transition:"color .18s",textDecoration:on?"line-through":"none",textDecorationColor:"var(--t3)"}}>{c.t}</span>
-                    {c.hl&&!on&&<Cap sm style={{color:"rgba(245,158,11,0.6)",display:"block",marginTop:4}}>CRÍTICO</Cap>}
+                    {c.hl&&!on&&<Cap sm style={{color:"rgba(34,211,238,0.6)",display:"block",marginTop:4}}>CRÍTICO</Cap>}
                   </div>
                 </div>
               );
@@ -2032,7 +2032,7 @@ function SecEnergia({mc}){
               </div>
             ))}
             {ct.note&&(
-              <div style={{marginTop:24,padding:"16px 20px",borderRadius:"6px",borderLeft:"3px solid rgba(245,158,11,.6)",background:"var(--warn2)"}}>
+              <div style={{marginTop:24,padding:"16px 20px",borderRadius:"6px",borderLeft:"3px solid rgba(34,211,238,.6)",background:"var(--warn2)"}}>
                 <p style={{color:"var(--warn)",fontSize:14,fontWeight:500,lineHeight:1.72}}>{ct.note}</p>
               </div>
             )}
@@ -2084,7 +2084,7 @@ function SecPropulsion({mc}){
               const on=!!chk[s.id];
               return(
                 <div key={s.id} className="tl-item" onClick={()=>setChk(p=>({...p,[s.id]:!p[s.id]}))}>
-                  <div className={`tl-mark${on?" done":""}`} style={s.hl&&!on?{borderColor:"rgba(245,158,11,.5)",background:"rgba(245,158,11,.06)"}:{}}>
+                  <div className={`tl-mark${on?" done":""}`} style={s.hl&&!on?{borderColor:"rgba(34,211,238,.5)",background:"rgba(34,211,238,.06)"}:{}}>
                     {on?<Check size={12} color="var(--ok)"/>:<span className="tl-mn">{pad(i+1)}</span>}
                   </div>
                   <div style={{paddingTop:2}}>
@@ -2157,7 +2157,7 @@ function SecSistemas({mc}){
         <div style={{padding:"24px 32px",borderBottom:"1px solid var(--e1)",display:"flex",alignItems:"center",gap:12,background:"rgba(216,195,161,0.05)"}}>
           <Anchor size={18} color="var(--accent)" style={{opacity:.9}}/>
           <Cap style={{color:"rgba(216,195,161,0.9)"}}>Malacate — Procedimiento Completo</Cap>
-          <div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",background:"var(--warn2)",border:"1px solid rgba(245,158,11,.3)"}}>
+          <div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",background:"var(--warn2)",border:"1px solid rgba(34,211,238,.3)"}}>
             <Cap sm style={{color:"var(--warn)"}}>LEER ANTES DE OPERAR</Cap>
           </div>
         </div>

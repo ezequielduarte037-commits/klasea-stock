@@ -57,13 +57,13 @@ async function hidratarMateriales(rows = []) {
 
 export const COMPRA_ETAPA_ESTADOS = [
   { value: "pendiente", label: "Pendiente", color: "#a1a1aa" },
-  { value: "en_compra", label: "En compra", color: "#f59e0b" },
+  { value: "en_compra", label: "En compra", color: "#22d3ee" },
   { value: "parcial", label: "Parcial", color: "#a78bfa" },
   { value: "completa", label: "Completa", color: "#10b981" },
   { value: "cancelada", label: "Cancelada", color: "#ef4444" },
 ];
 
-const COLORES = ["#8b5cf6", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1"];
+const COLORES = ["#8b5cf6", "#3b82f6", "#06b6d4", "#10b981", "#d946ef", "#ef4444", "#ec4899", "#6366f1"];
 export const colorSugerido = (i) => COLORES[i % COLORES.length];
 
 async function actorId() {
@@ -335,7 +335,7 @@ export async function fetchEtapasCompraObra(obraId) {
 export const SEMAFOROS = {
   hecha:      { label: "Comprada",   color: "#10b981", soft: "var(--green-soft)",  borde: "var(--green-border)" },
   a_tiempo:   { label: "A tiempo",   color: "#3b82f6", soft: "var(--blue-soft)",   borde: "var(--blue-border)" },
-  por_vencer: { label: "Toca ahora", color: "#f59e0b", soft: "var(--amber-soft)",  borde: "var(--amber-border)" },
+  por_vencer: { label: "Toca ahora", color: "#22d3ee", soft: "var(--cyan-soft)",  borde: "var(--cyan-border)" },
   atrasada:   { label: "Atrasada",   color: "#ef4444", soft: "var(--red-soft)",    borde: "var(--red-border)" },
   sin_materiales: { label: "Vencida sin materiales", color: "#ef4444", soft: "var(--red-soft)", borde: "var(--red-border)" },
   sin_fecha:  { label: "Sin fecha",  color: "#a1a1aa", soft: "var(--panel-2)",     borde: "transparent" },

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 
@@ -34,7 +33,7 @@ const INP = {
 // ─── ESTADO CONFIG ─────────────────────────────────────────────
 const ESTADO_META = {
   OK:       { color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
-  ATENCION: { color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)"  },
+  ATENCION: { color: C.cyan,   bg: "rgba(34,211,238,0.1)",  border: "rgba(34,211,238,0.25)"  },
   CRITICO:  { color: C.red,     bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)"   },
   PEDIDO:   { color: "#93c5fd", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)"  },
 };
@@ -44,7 +43,7 @@ function EstadoChip({ estado }) {
   return (
     <span style={{
       fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase",
-      padding: "2px 8px", borderRadius: 99, fontWeight: 700,
+      padding: "2px 8px", borderRadius: 99, fontWeight: 600,
       background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`,
       whiteSpace: "nowrap",
     }}>
@@ -117,14 +116,14 @@ function KpiCard({ label, value, total, color, bg, border, icon, pulse = false, 
 
       {/* Top row: label + icon */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600 }}>{label}</span>
         <span style={{ fontSize: 14, opacity: .6 }}>{icon}</span>
       </div>
 
       {/* Middle: number + ring */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontFamily: C.mono, fontSize: 36, fontWeight: 700, color, lineHeight: 1, display: "flex", alignItems: "baseline", gap: 5 }}>
+          <div style={{ fontFamily: C.mono, fontSize: 36, fontWeight: 600, color, lineHeight: 1, display: "flex", alignItems: "baseline", gap: 5 }}>
             <AnimatedNumber value={value} duration={900} />
             {pulse && value > 0 && (
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block", animation: "kpiPulse 1.4s ease infinite", marginBottom: 3 }} />
@@ -151,7 +150,7 @@ function KpiCard({ label, value, total, color, bg, border, icon, pulse = false, 
   );
 }
 
-export default function AdminDashboard({ profile, signOut }) {
+export default function AdminDashboard() {
   const { isMobile } = useResponsive();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
@@ -244,27 +243,19 @@ export default function AdminDashboard({ profile, signOut }) {
     } else { setMsg("⚠️ No soportado en este navegador"); }
   }
 
-  const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap" };
+  const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600, borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap" };
   const TD = { padding: "9px 12px", fontSize: 13, borderBottom: `1px solid var(--panel)`, color: C.t1 };
 
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
         @keyframes kpiPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.3)} }
-        button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
           background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.06) 0%, transparent 65%),
-                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%);
         }
         tr:hover td { background: rgba(255,255,255,0.015); }
         .kpi-card { transition: transform .18s, box-shadow .3s; }
@@ -272,14 +263,13 @@ export default function AdminDashboard({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: C.topbar, ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
             <div style={{ display: "flex", gap: 7, flex: 1 }}>
@@ -290,7 +280,7 @@ export default function AdminDashboard({ profile, signOut }) {
                 { label: "Pedido",   n: stats.pe, ...ESTADO_META.PEDIDO   },
               ].map(({ label, n, color, bg, border }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 7, background: bg, border: `1px solid ${border}`, borderLeft: `2px solid ${color}` }}>
-                  <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color, lineHeight: 1 }}>{n}</span>
+                  <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, color, lineHeight: 1 }}>{n}</span>
                   <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.3, textTransform: "uppercase" }}>{label}</span>
                 </div>
               ))}
@@ -311,7 +301,7 @@ export default function AdminDashboard({ profile, signOut }) {
               value={q} onChange={e => setQ(e.target.value)}
             />
             <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.t2, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
-              <input type="checkbox" checked={soloNoOk} onChange={e => setSoloNoOk(e.target.checked)} style={{ accentColor: C.amber }} />
+              <input type="checkbox" checked={soloNoOk} onChange={e => setSoloNoOk(e.target.checked)} style={{ accentColor: C.cyan }} />
               Solo no OK
             </label>
             <div style={{ flex: 1 }} />
@@ -328,9 +318,9 @@ export default function AdminDashboard({ profile, signOut }) {
             <button
               onClick={copiarListaCompra} disabled={!listaCompra.length}
               style={{
-                border: listaCompra.length ? "1px solid rgba(245,158,11,0.28)" : `1px solid ${C.b0}`,
-                background: listaCompra.length ? "rgba(245,158,11,0.07)" : "transparent",
-                color: listaCompra.length ? "#fbbf24" : C.t2,
+                border: listaCompra.length ? "1px solid rgba(34,211,238,0.28)" : `1px solid ${C.b0}`,
+                background: listaCompra.length ? "rgba(34,211,238,0.07)" : "transparent",
+                color: listaCompra.length ? "#67e8f9" : C.t2,
                 padding: "5px 12px", borderRadius: 7, cursor: listaCompra.length ? "pointer" : "not-allowed",
                 fontFamily: C.sans, fontSize: 12,
               }}
@@ -345,7 +335,7 @@ export default function AdminDashboard({ profile, signOut }) {
             {/* KPIs */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr) 220px", gap: 12, marginBottom: 16 }}>
               <KpiCard label="OK"       value={stats.ok} total={stats.total} color={C.green}   bg="rgba(16,185,129,0.04)"  border="rgba(16,185,129,0.12)" icon="✦" delay={0} />
-              <KpiCard label="Atención" value={stats.at} total={stats.total} color={C.amber}   bg="rgba(245,158,11,0.04)"  border="rgba(245,158,11,0.12)" icon="◈" delay={60} />
+              <KpiCard label="Atención" value={stats.at} total={stats.total} color={C.cyan}   bg="rgba(34,211,238,0.04)"  border="rgba(34,211,238,0.12)" icon="◈" delay={60} />
               <KpiCard label="Crítico"  value={stats.cr} total={stats.total} color={C.red}     bg="rgba(239,68,68,0.04)"   border="rgba(239,68,68,0.12)"  icon="⬡" delay={120} pulse />
               <KpiCard label="Pedido"   value={stats.pe} total={stats.total} color="#93c5fd"   bg="rgba(59,130,246,0.04)"  border="rgba(59,130,246,0.12)" icon="⊕" delay={180} />
 
@@ -357,12 +347,12 @@ export default function AdminDashboard({ profile, signOut }) {
                 animation: "slideUp .35s cubic-bezier(.22,1,.36,1) 240ms both",
                 position: "relative", overflow: "hidden",
               }}>
-                <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>Salud stock</div>
+                <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600 }}>Salud stock</div>
 
                 {/* Big pct */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <div style={{ fontFamily: C.mono, fontSize: 36, fontWeight: 700, lineHeight: 1, color: stats.ok === stats.total && stats.total > 0 ? C.green : C.t0 }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 36, fontWeight: 600, lineHeight: 1, color: stats.ok === stats.total && stats.total > 0 ? C.green : C.t0 }}>
                       <AnimatedNumber value={stats.total > 0 ? Math.round(stats.ok/stats.total*100) : 0} duration={1100} />
                       <span style={{ fontSize: 18, fontWeight: 400, color: C.t2, marginLeft: 2 }}>%</span>
                     </div>
@@ -383,9 +373,9 @@ export default function AdminDashboard({ profile, signOut }) {
                         {dOk > 0 && <circle cx={S/2} cy={S/2} r={r} fill="none" stroke={C.green} strokeWidth={4}
                           strokeDasharray={`${dOk} ${circ}`} strokeDashoffset={0}
                           style={{ transition: "stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1)", filter: `drop-shadow(0 0 3px ${C.green}99)` }} />}
-                        {dAt > 0 && <circle cx={S/2} cy={S/2} r={r} fill="none" stroke={C.amber} strokeWidth={4}
+                        {dAt > 0 && <circle cx={S/2} cy={S/2} r={r} fill="none" stroke={C.cyan} strokeWidth={4}
                           strokeDasharray={`${dAt} ${circ}`} strokeDashoffset={-oAt}
-                          style={{ transition: "stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1) .1s", filter: `drop-shadow(0 0 3px ${C.amber}99)` }} />}
+                          style={{ transition: "stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1) .1s", filter: `drop-shadow(0 0 3px ${C.cyan}99)` }} />}
                         {dCr > 0 && <circle cx={S/2} cy={S/2} r={r} fill="none" stroke={C.red} strokeWidth={4}
                           strokeDasharray={`${dCr} ${circ}`} strokeDashoffset={-oCr}
                           style={{ transition: "stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1) .2s", filter: `drop-shadow(0 0 5px ${C.red}cc)`, animation: stats.cr > 0 ? "kpiPulse 2s ease infinite" : "none" }} />}
@@ -398,7 +388,7 @@ export default function AdminDashboard({ profile, signOut }) {
                 <div style={{ height: 3, borderRadius: 99, overflow: "hidden", display: "flex" }}>
                   {stats.total > 0 && <>
                     <div style={{ height: "100%", width: `${stats.ok/stats.total*100}%`, background: C.green, transition: "width 1.4s cubic-bezier(.22,1,.36,1)", boxShadow: `0 0 6px ${C.green}88` }} />
-                    <div style={{ height: "100%", width: `${stats.at/stats.total*100}%`, background: C.amber, transition: "width 1.4s cubic-bezier(.22,1,.36,1) .1s", boxShadow: `0 0 6px ${C.amber}88` }} />
+                    <div style={{ height: "100%", width: `${stats.at/stats.total*100}%`, background: C.cyan, transition: "width 1.4s cubic-bezier(.22,1,.36,1) .1s", boxShadow: `0 0 6px ${C.cyan}88` }} />
                     <div style={{ height: "100%", width: `${stats.cr/stats.total*100}%`, background: C.red, transition: "width 1.4s cubic-bezier(.22,1,.36,1) .2s", boxShadow: `0 0 6px ${C.red}88` }} />
                   </>}
                 </div>
@@ -407,7 +397,7 @@ export default function AdminDashboard({ profile, signOut }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {[
                     { label: "OK",       n: stats.ok, c: C.green },
-                    { label: "Atención", n: stats.at, c: C.amber },
+                    { label: "Atención", n: stats.at, c: C.cyan },
                     { label: "Crítico",  n: stats.cr, c: C.red   },
                   ].map(({ label, n, c }) => (
                     <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -415,7 +405,7 @@ export default function AdminDashboard({ profile, signOut }) {
                         <div style={{ width: 5, height: 5, borderRadius: "50%", background: c, boxShadow: `0 0 4px ${c}88` }} />
                         <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
                       </div>
-                      <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: n > 0 ? c : C.t2 }}>{n}</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, color: n > 0 ? c : C.t2 }}>{n}</span>
                     </div>
                   ))}
                 </div>
@@ -470,9 +460,9 @@ export default function AdminDashboard({ profile, signOut }) {
                         </td>
                         <td style={TD}>
                           {r.pedido_pendiente ? (
-                            <span style={{ fontSize: 11, color: "#93c5fd", fontWeight: 700 }}>YA PEDIDO</span>
+                            <span style={{ fontSize: 11, color: "#93c5fd", fontWeight: 600 }}>YA PEDIDO</span>
                           ) : num(r.pedido_sugerido) > 0 ? (
-                            <span style={{ fontFamily: C.mono, fontWeight: 700, color: C.amber }}>{num(r.pedido_sugerido).toFixed(2)}</span>
+                            <span style={{ fontFamily: C.mono, fontWeight: 600, color: C.cyan }}>{num(r.pedido_sugerido).toFixed(2)}</span>
                           ) : (
                             <span style={{ opacity: 0.3 }}>—</span>
                           )}
@@ -514,16 +504,16 @@ export default function AdminDashboard({ profile, signOut }) {
             <h2 style={{ margin: "0 0 20px", fontSize: 16, color: C.t0 }}>Alta de Material</h2>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Nombre</label>
+              <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Nombre</label>
               <input style={INP} value={newMat.nombre} onChange={e => setNewMat({ ...newMat, nombre: e.target.value })} placeholder="Ej: Tablón Cedro" autoFocus />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div>
-                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Categoría</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Categoría</label>
                 <input style={INP} value={newMat.categoria} onChange={e => setNewMat({ ...newMat, categoria: e.target.value })} />
               </div>
               <div>
-                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Unidad</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Unidad</label>
                 <select style={{ ...INP, cursor: "pointer" }} value={newMat.unidad_medida} onChange={e => setNewMat({ ...newMat, unidad_medida: e.target.value })}>
                   <option value="u">Unidad (u)</option>
                   <option value="m">Metros (m)</option>
@@ -535,13 +525,13 @@ export default function AdminDashboard({ profile, signOut }) {
               </div>
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Stock mínimo (alerta)</label>
+              <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Stock mínimo (alerta)</label>
               <input type="number" style={INP} value={newMat.stock_minimo} onChange={e => setNewMat({ ...newMat, stock_minimo: e.target.value })} />
             </div>
 
             <button
               onClick={crearMaterial}
-              style={{ width: "100%", padding: "11px", border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", fontWeight: 700, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 14, marginBottom: 8 }}
+              style={{ width: "100%", padding: "11px", border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", fontWeight: 600, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 14, marginBottom: 8 }}
             >Guardar material</button>
             <button
               onClick={() => setShowModal(false)}

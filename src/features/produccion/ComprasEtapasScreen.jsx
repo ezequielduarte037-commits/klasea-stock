@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ClipboardList, LayoutTemplate, Layers, Ship, Truck } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -39,7 +38,7 @@ const SUBTITULOS = {
   pedidos: "Seguimiento de lo ya pedido. Cada pedido avisa a Compras al generarse.",
 };
 
-export default function ComprasEtapasScreen({ profile, signOut }) {
+export default function ComprasEtapasScreen({ profile }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const [tab, setTab] = useState("plantillas");
@@ -49,7 +48,7 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
   const pad = isMobile ? 14 : 24;
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
+    <div style={{ position: "absolute", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
       <style>{`
         .spin{animation:spin 1s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -69,12 +68,8 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
         .ce-chip{transition:background .14s ease,border-color .14s ease,color .14s ease}
         .ce-chip:hover:not(:disabled){border-color:var(--border-2);color:var(--text)}
         .ce-dashed:hover{color:var(--violet);border-color:var(--violet-border)}
-        button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
       `}</style>
 
-      <div style={{ width: isMobile ? 0 : 280, height: "100vh", flexShrink: 0 }}>
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
 
       <main style={{ position: "relative", minWidth: 0, flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* glow ambiental sutil (opacidad baja para no lavar el modo claro) */}
@@ -86,7 +81,7 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
               <Layers size={19} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <h1 style={{ margin: 0, fontSize: 17, fontWeight: 950, color: C.text, letterSpacing: -0.2 }}>Compras por etapa</h1>
+              <h1 style={{ margin: 0, fontSize: 17, fontWeight: 750, color: C.text, letterSpacing: -0.2 }}>Compras por etapa</h1>
               <div style={{ fontSize: 12.5, color: C.dim, marginTop: 1 }}>{SUBTITULOS[tab]}</div>
             </div>
 
@@ -110,7 +105,7 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
                       className="ce-seg"
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9,
-                        border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 800, whiteSpace: "nowrap",
+                        border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 650, whiteSpace: "nowrap",
                         fontFamily: C.sans,
                         background: active ? C.panelSolid : "transparent",
                         color: active ? C.violet : C.dim,
@@ -122,7 +117,7 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
                           secciones sueltas y no se entiende por dónde empezar. */}
                       <span style={{
                         width: 16, height: 16, flexShrink: 0, borderRadius: 5, display: "grid", placeItems: "center",
-                        fontSize: 9.5, fontWeight: 900, fontFamily: C.mono,
+                        fontSize: 9.5, fontWeight: 700, fontFamily: C.mono,
                         background: active ? C.violetL : C.panel,
                         color: active ? C.violet : C.t3,
                         border: `1px solid ${active ? C.violetB : "transparent"}`,

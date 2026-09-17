@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { canViewEmpleados } from "@/lib/permissions";
 import { C } from "@/theme";
@@ -28,7 +27,7 @@ const TABS = [
 // Lo que ve cualquiera que entre a RRHH sin ser de RRHH.
 const BASICAS = ["presentismo", "extras", "dashboard"];
 
-export default function RrhhScreen({ profile, signOut }) {
+export default function RrhhScreen({ profile }) {
   const { isMobile } = useResponsive();
   const [searchParams] = useSearchParams();
   // 'administracion' opera RRHH igual que 'rrhh' (ver y editar legajos, presentismo y extras).
@@ -72,29 +71,23 @@ export default function RrhhScreen({ profile, signOut }) {
   const listo = empleados != null && contratistas != null && config != null;
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
       <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; }
-        select option { background: var(--panel-solid); color: var(--muted); }
         .rrhh-tab:hover { background: var(--panel-2) !important; color: var(--text) !important; }
         .rrhh-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
       `}</style>
 
-      <Sidebar profile={profile} signOut={signOut} />
 
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div style={{ width: "100%", maxWidth: 1760, margin: "0 auto", padding: isMobile ? "14px 12px 50px 12px" : "20px 24px 60px" }}>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14, paddingLeft: isMobile ? 38 : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
               <div style={{ width: 36, height: 36, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, flexShrink: 0 }}>
                 <CalendarCheck2 size={18} strokeWidth={1.8} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: isMobile ? 18 : 21, fontWeight: 750, color: C.t0, lineHeight: 1.1 }}>Recursos humanos</div>
+                <div style={{ fontSize: isMobile ? 18 : 21, fontWeight: 650, color: C.t0, lineHeight: 1.1 }}>Recursos humanos</div>
                 <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>Asistencia y control horario</div>
               </div>
             </div>
@@ -116,7 +109,7 @@ export default function RrhhScreen({ profile, signOut }) {
                   return (
                     <button className="rrhh-tab" key={t.key} onClick={() => setTab(t.key)} style={{
                       display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px", cursor: "pointer", fontSize: 12, fontFamily: C.sans,
-                      fontWeight: on ? 700 : 500, color: on ? C.t0 : C.t2,
+                      fontWeight: on ? 600 : 500, color: on ? C.t0 : C.t2,
                       background: on ? C.panelSolid : "transparent", border: `1px solid ${on ? C.b1 : "transparent"}`,
                       borderRadius: 7, boxShadow: on ? "0 1px 3px rgba(0,0,0,.08)" : "none",
                       transition: "background .16s ease, color .16s ease, border-color .16s ease", whiteSpace: "nowrap",

@@ -142,7 +142,7 @@ export default function CapturaFotoModal({ open, titulo = "Sacar foto", onCaptur
             <Camera size={18} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15.5, fontWeight: 900, color: C.text }}>{titulo}</div>
+            <div style={{ fontSize: 15.5, fontWeight: 700, color: C.text }}>{titulo}</div>
             <div style={{ fontSize: 11.5, color: C.dim, marginTop: 1 }}>Mirá a la cámara de frente, con la cara despejada.</div>
           </div>
           <button type="button" onClick={onClose} disabled={guardando} style={{ background: "transparent", border: "none", color: C.dim, cursor: guardando ? "default" : "pointer", padding: 4 }}>
@@ -151,7 +151,7 @@ export default function CapturaFotoModal({ open, titulo = "Sacar foto", onCaptur
         </div>
 
         {(error || !soportado) && (
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.09)", color: C.red, borderRadius: 11, padding: "10px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.09)", color: C.red, borderRadius: 11, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}>
             <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
             {soportado ? error : "Este navegador no permite usar la cámara. Usá Chrome o Edge de escritorio."}
           </div>
@@ -182,17 +182,17 @@ export default function CapturaFotoModal({ open, titulo = "Sacar foto", onCaptur
           {captura ? (
             <>
               <button type="button" onClick={repetir} disabled={guardando}
-                style={{ flex: 1, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "12px 14px", cursor: guardando ? "default" : "pointer", fontSize: 13.5, fontWeight: 850, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                style={{ flex: 1, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "12px 14px", cursor: guardando ? "default" : "pointer", fontSize: 13.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                 <RefreshCw size={16} /> Repetir
               </button>
               <button type="button" onClick={confirmar} disabled={guardando}
-                style={{ flex: 1.4, border: "none", background: guardando ? C.panel2 : C.green, color: guardando ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", cursor: guardando ? "default" : "pointer", fontSize: 13.5, fontWeight: 950, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                style={{ flex: 1.4, border: "none", background: guardando ? C.panel2 : C.green, color: guardando ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", cursor: guardando ? "default" : "pointer", fontSize: 13.5, fontWeight: 750, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                 <Check size={16} /> {guardando ? "Guardando…" : "Usar esta foto"}
               </button>
             </>
           ) : (
             <button type="button" onClick={sacar} disabled={!listo}
-              style={{ flex: 1, border: "none", background: listo ? C.blue : C.panel2, color: listo ? "#fff" : C.dim, borderRadius: 11, padding: "13px 14px", cursor: listo ? "pointer" : "default", fontSize: 14.5, fontWeight: 950, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              style={{ flex: 1, border: "none", background: listo ? C.blue : C.panel2, color: listo ? "#fff" : C.dim, borderRadius: 11, padding: "13px 14px", cursor: listo ? "pointer" : "default", fontSize: 14.5, fontWeight: 750, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <Camera size={18} /> {listo ? "Sacar foto" : "Abriendo cámara…"}
             </button>
           )}

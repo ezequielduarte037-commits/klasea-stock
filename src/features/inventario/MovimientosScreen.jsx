@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import useRealtimeReload from "@/hooks/useRealtimeReload";
 import { C } from "@/theme";
@@ -39,7 +38,7 @@ function descargarCSV(filas, nombre) {
 // ─── Columnas de la tabla ─────────────────────────────────────────────────────
 const COLS = "180px 1.4fr 80px 110px 160px 110px 1fr";
 
-export default function MovimientosScreen({ profile, signOut }) {
+export default function MovimientosScreen() {
   const { isMobile } = useResponsive();
   const [rows, setRows] = useState([]);
   const [q,   setQ]    = useState("");
@@ -103,35 +102,26 @@ export default function MovimientosScreen({ profile, signOut }) {
   const egresos   = rows.filter(r => num(r.delta) < 0).length;
 
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
           background:
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%);
         }
         .mov-row:hover { background: rgba(255,255,255,0.025) !important; }
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: C.topbar, ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
@@ -151,7 +141,7 @@ export default function MovimientosScreen({ profile, signOut }) {
                 borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`,
                 borderLeft: `2px solid ${s.color}`,
               }}>
-                <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
+                <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, color: s.color, lineHeight: 1 }}>{s.val}</span>
                 <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
@@ -165,7 +155,7 @@ export default function MovimientosScreen({ profile, signOut }) {
                 color: filtrados.length ? C.green : C.t2,
                 padding: "6px 14px", borderRadius: 8,
                 cursor: filtrados.length ? "pointer" : "not-allowed",
-                fontSize: 12, fontFamily: C.sans, fontWeight: 700,
+                fontSize: 12, fontFamily: C.sans, fontWeight: 600,
                 display: "flex", alignItems: "center", gap: 5,
               }}
             >
@@ -233,7 +223,7 @@ export default function MovimientosScreen({ profile, signOut }) {
                   <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{fmt(r.created_at)}</div>
                   <div style={{ color: C.t0, fontWeight: 600, fontSize: 13 }}>{r.material_nombre || "—"}</div>
                   <div style={{
-                    fontFamily: C.mono, fontWeight: 700, fontSize: 14,
+                    fontFamily: C.mono, fontWeight: 600, fontSize: 14,
                     color: d >= 0 ? C.green : C.red,
                   }}>
                     {d >= 0 ? "+" : ""}{d}

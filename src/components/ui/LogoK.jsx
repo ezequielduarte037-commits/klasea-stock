@@ -1,8 +1,9 @@
 import { useId } from "react";
 
-// El monograma de Klase A en vector. logo-k.png trae fondo negro: sobre una
-// card se veía el cuadrado y en claro había que invertirlo con un filtro. Así
-// toma el color del texto en los tres temas y se puede dibujar trazo por trazo.
+// El monograma de Klase A en vector: lo usan el login, el menú y los cargadores.
+// logo-k.png trae fondo negro: sobre una card se veía el cuadrado y en claro
+// había que invertirlo con un filtro. Así toma el color del texto en los tres
+// temas y se puede dibujar trazo por trazo.
 //
 // Geometría calcada del PNG: anillo, palo vertical y un único trazo que baja
 // desde la punta de arriba, da la vuelta por el rulo y sale por la de abajo.
@@ -19,8 +20,10 @@ export default function LogoK({ size = 40, oculto = false, anilloRef, paloRef, c
       height={size}
       className={className}
       style={style}
-      role="img"
-      aria-label={titulo}
+      // Sin título es decorativo (al lado ya dice "Klase A" o es un cargador).
+      role={titulo ? "img" : undefined}
+      aria-label={titulo || undefined}
+      aria-hidden={titulo ? undefined : "true"}
     >
       <defs>
         <clipPath id={clip}>

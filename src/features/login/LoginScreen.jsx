@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Lock, User } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { esAndroidLegacyAngosto, tieneMarcaDeColector } from "@/lib/modoColector";
-import FondoOleaje from "./FondoOleaje";
-import LogoK from "./LogoK";
-import { debeMostrarIntro, movimientoReducido } from "./efectosLogin";
+import FondoOleaje from "@/components/ui/FondoOleaje";
+import LogoK from "@/components/ui/LogoK";
+import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
+import { debeMostrarIntro } from "./efectosLogin";
 
 // ─── LOGIN ─────────────────────────────────────────────────────────────────
 // Campo único: usuario (sin @, sin distinción visible)
@@ -49,7 +50,7 @@ export default function LoginScreen({ onLoggedIn, onBienvenida }) {
   const botonRef = useRef(null);
 
   function sacudir() {
-    if (liviano || movimientoReducido() || typeof formRef.current?.animate !== "function") return;
+    if (liviano || leerMovimientoReducido() || typeof formRef.current?.animate !== "function") return;
     formRef.current.animate(
       [
         { transform: "translateX(0)" },
@@ -241,8 +242,6 @@ export default function LoginScreen({ onLoggedIn, onBienvenida }) {
 }
 
 const CSS_LOGIN = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-
   .kl-login {
     --kl-glow: rgba(59,130,246,0.20);
     --kl-glow-2: rgba(34,211,238,0.07);

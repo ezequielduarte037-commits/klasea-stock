@@ -182,7 +182,7 @@ function ComprobanteList({ comprobantes, selectedId, onSelect }) {
     <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <FileText size={15} color={C.t2} />
-        <div style={{ fontSize: 13, color: C.t0, fontWeight: 700, flex: 1 }}>Comprobantes cargados</div>
+        <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, flex: 1 }}>Comprobantes cargados</div>
       </div>
       <div style={{ position: "relative", marginBottom: 10 }}>
         <Search size={13} style={{ position: "absolute", left: 9, top: 9, color: C.t2 }} />
@@ -204,7 +204,7 @@ function ComprobanteList({ comprobantes, selectedId, onSelect }) {
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                 <strong style={{ fontSize: 13 }}>{c.proveedor || "Sin proveedor"}</strong>
-                <span style={{ fontSize: 10, color: c.estado === "procesado" ? C.green : C.amber, textTransform: "uppercase" }}>{c.estado || "borrador"}</span>
+                <span style={{ fontSize: 10, color: c.estado === "procesado" ? C.green : C.cyan, textTransform: "uppercase" }}>{c.estado || "borrador"}</span>
               </div>
               <div style={{ fontSize: 12, color: C.t2 }}>{c.fecha || "sin fecha"} · Nº {c.numero || "—"}</div>
               <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{c.items?.length ?? 0} ítems · {fmtMoney(c.total, c.moneda)}</div>
@@ -336,7 +336,7 @@ export default function ComprobantesTab({ categorias, materiales, proveedores, c
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 17, color: C.t0, fontWeight: 700 }}>{form.id ? "Editar comprobante" : "Nuevo comprobante"}</div>
+            <div style={{ fontSize: 17, color: C.t0, fontWeight: 600 }}>{form.id ? "Editar comprobante" : "Nuevo comprobante"}</div>
             <div style={{ fontSize: 12, color: C.t2 }}>Remitos, facturas o presupuestos para actualizar precios reales.</div>
           </div>
           <button type="button" onClick={nuevo} style={BTN_PRIMARY}><Plus size={14} /> Nuevo</button>
@@ -395,7 +395,7 @@ export default function ComprobantesTab({ categorias, materiales, proveedores, c
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 13, color: C.t0, fontWeight: 700 }}>
+          <div style={{ fontSize: 13, color: C.t0, fontWeight: 600 }}>
             Ítems del comprobante <span style={{ color: C.t2, fontFamily: C.mono }}>{items.length}</span>
           </div>
           <button type="button" onClick={() => setItems((prev) => [...prev, emptyItem(form.id)])} style={BTN}>

@@ -2,7 +2,6 @@ import { createElement, useEffect, useMemo, useState, useRef, useCallback } from
 import { supabase } from "@/supabaseClient";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { ChapaSwatch, chapaColor } from "@/features/muebles/chapa";
@@ -14,6 +13,7 @@ import { ClipboardCheck, Factory, Layers3 } from "lucide-react";
 import BotonAyuda from "@/features/ayuda/BotonAyuda";
 import ProduccionTab from "./tabs/ProduccionTab";
 import StockTab from "./tabs/StockTab";
+import Cargando from "@/components/ui/Cargando";
 
 // ─── Design tokens ─────────────────────────────────────────────────
 const GLASS = { backdropFilter: "blur(32px) saturate(130%)", WebkitBackdropFilter: "blur(32px) saturate(130%)" };
@@ -288,7 +288,7 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
   if (setupErr) return (
     <div style={{ marginTop: 18 }}>
       <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, padding: 16 }}>
-        <div style={{ fontSize: 12, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: "#f87171", fontWeight: 600, marginBottom: 8 }}>
           {setupErr.tipo === "bucket" ? "⚠ Falta crear el bucket de Storage" : "⚠ Falta crear la tabla en la base de datos"}
         </div>
         <div style={{ fontSize: 12, color: C.t2, marginBottom: 10, lineHeight: 1.6 }}>
@@ -310,11 +310,11 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
   return (
     <div style={{ marginTop: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>
+        <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600 }}>
           Imágenes {images.length > 0 && <span style={{ fontFamily: C.mono, marginLeft: 4 }}>{images.length}</span>}
         </span>
         {esAdmin && (
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: "5px 12px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 7, cursor: uploading ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: "5px 12px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 7, cursor: uploading ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
             <span>↑</span> {uploading ? "Subiendo…" : "Agregar"}
           </button>
         )}
@@ -337,7 +337,7 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
       )}
 
       {loading ? (
-        <div style={{ fontSize: 12, color: C.t2, padding: "10px 0", textAlign: "center" }}>Cargando…</div>
+        <Cargando compacto />
       ) : images.length === 0 ? (
         <div onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} onClick={() => esAdmin && fileRef.current?.click()}
           style={{ border: `2px dashed ${dragging ? C.primary : C.b0}`, borderRadius: 10, padding: "22px 16px", textAlign: "center", cursor: esAdmin ? "pointer" : "default", background: dragging ? "rgba(59,130,246,0.04)" : "transparent", transition: "all .2s" }}>
@@ -348,7 +348,7 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
       ) : (
         <div onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}
           style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
-          {dragging && <div style={{ position: "absolute", inset: 0, zIndex: 5, background: "rgba(59,130,246,0.08)", border: "2px dashed rgba(59,130,246,0.4)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700 }}>Soltá para subir</span></div>}
+          {dragging && <div style={{ position: "absolute", inset: 0, zIndex: 5, background: "rgba(59,130,246,0.08)", border: "2px dashed rgba(59,130,246,0.4)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ color: "#60a5fa", fontSize: 12, fontWeight: 600 }}>Soltá para subir</span></div>}
           {images.map((img, i) => (
             <div key={img.id} onClick={() => setLightbox(i)} className="gal-card"
               style={{ position: "relative", borderRadius: 7, overflow: "hidden", cursor: "pointer", aspectRatio: "4/3", background: C.s0, border: `1px solid ${C.b0}` }}>
@@ -369,7 +369,7 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
 function MuebleModal({ mueble, onClose, onSave, onDelete, esAdmin }) {
   const [edit, setEdit] = useState(false);
   const [form, setForm] = useState({ nombre: mueble.nombre ?? "", sector: mueble.sector ?? "", descripcion: mueble.descripcion ?? "", medidas: mueble.medidas ?? "", material: mueble.material ?? "" });
-  const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, marginTop: 12, textTransform: "uppercase", fontWeight: 700 };
+  const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, marginTop: 12, textTransform: "uppercase", fontWeight: 600 };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "var(--overlay-strong)", ...GLASS, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 24, width: "min(560px,94vw)", maxHeight: "90vh", overflowY: "auto", position: "relative" }} onClick={e => e.stopPropagation()}>
@@ -377,7 +377,7 @@ function MuebleModal({ mueble, onClose, onSave, onDelete, esAdmin }) {
         {!edit ? (
           <>
             <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{form.sector}</div>
-            <h2 style={{ margin: "4px 0 0", color: C.t0, fontSize: 18, fontWeight: 700 }}>{form.nombre}</h2>
+            <h2 style={{ margin: "4px 0 0", color: C.t0, fontSize: 18, fontWeight: 600 }}>{form.nombre}</h2>
             {[["Descripción", form.descripcion], ["Medidas", form.medidas], ["Material", form.material]].map(([k, v]) => v ? (<div key={k}><span style={LBL}>{k}</span><div style={{ color: C.t1, fontSize: 14 }}>{v}</div></div>) : null)}
             {esAdmin && <>
               <button style={{ marginTop: 14, width: "100%", padding: "9px", background: C.s1, color: C.t0, fontWeight: 600, border: `1px solid ${C.b0}`, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 13 }} onClick={() => setEdit(true)}>Editar ficha</button>
@@ -503,17 +503,17 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
     return map;
   }, [filtrados]);
 
-  const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 };
+  const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 };
 
   return (
     <div style={{ padding: isMobile ? "16px 16px 40px" : "28px 28px 40px" }}>
       {/* Header */}
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0, justifyContent: "space-between", alignItems: isMobile ? "stretch" : "flex-start", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{lineaNombre}</div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: C.t0 }}>{lineaNombre}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
             <div style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>{muebles.length} muebles en la plantilla</div>
-            <div style={{ fontSize: 10, color: C.primary, background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 4, padding: "2px 7px", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700 }}>Plantilla base</div>
+            <div style={{ fontSize: 10, color: C.primary, background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 4, padding: "2px 7px", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600 }}>Plantilla base</div>
           </div>
           <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>Los muebles de esta lista se copian automáticamente a cada nueva unidad.</div>
         </div>
@@ -533,7 +533,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
       {/* Copiar plantilla de otra línea */}
       {copiarMode && esAdmin && (
         <div style={{ background: "rgba(59,130,246,0.05)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 18 }}>
-          <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", marginBottom: 10, fontWeight: 700 }}>Importar plantilla de otra línea</div>
+          <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", marginBottom: 10, fontWeight: 600 }}>Importar plantilla de otra línea</div>
           <div style={{ fontSize: 12, color: C.t2, marginBottom: 10 }}>Seleccioná una línea para copiar sus muebles a esta plantilla. Los que ya existan no se duplicarán.</div>
           <div style={{ display: "flex", gap: 8 }}>
             <select style={{ ...INP, flex: 1 }} value={copiarLineaId} onChange={e => setCopiarLineaId(e.target.value)}>
@@ -586,7 +586,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
 
       {/* Lista por sector */}
       {loading ? (
-        <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>Cargando…</div>
+        <Cargando />
       ) : muebles.length === 0 ? (
         <div style={{ color: C.t2, fontSize: 13, padding: "60px 0", textAlign: "center" }}>
           Sin muebles en esta línea.{esAdmin && " Usá '+ Nuevo mueble' para agregar."}
@@ -600,7 +600,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid var(--panel-2)`, marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--border-3)" }} />
-                <span style={{ fontSize: 11, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 700 }}>{sector}</span>
+                <span style={{ fontSize: 11, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
               </div>
               <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{rows.length}</span>
             </div>
@@ -642,7 +642,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
                       textAlign: "right",
                       fontFamily: C.mono,
                       fontSize: 13,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       color: C.t1,
                       fontVariantNumeric: "tabular-nums",
                       flexShrink: 0,
@@ -694,7 +694,7 @@ function ObsInline({ value, rowId, onSave }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────
-export default function MueblesScreen({ profile, signOut }) {
+export default function MueblesScreen({ profile }) {
   const { isMobile } = useResponsive();
   const isAdmin = hasAdminAccess(profile);
   const role    = profile?.role ?? "invitado";
@@ -1245,27 +1245,19 @@ export default function MueblesScreen({ profile, signOut }) {
 
   const lineaNavBtn  = sel => ({ width: "100%", textAlign: "left", padding: "9px 14px", border: "none", borderBottom: `1px solid var(--panel)`, background: sel ? C.s1 : "transparent", color: sel ? C.t0 : C.t2, cursor: "pointer", fontSize: 13, fontWeight: sel ? 600 : 400, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: C.sans });
   const unidadNavBtn = sel => ({ ...lineaNavBtn(sel), paddingLeft: 22, fontSize: 12, borderLeft: sel ? `2px solid ${C.b1}` : "2px solid transparent" });
-  const estadoSt     = est => { const m = ESTADO_META[est] ?? ESTADO_META["No enviado"]; return { background: m.bg || C.s0, color: m.color, border: `1px solid ${m.color === C.t2 ? C.b0 : m.color+"44"}`, padding: "7px 10px", borderRadius: 9, fontSize: 12, fontWeight: 800, cursor: "pointer", outline: "none", fontFamily: C.sans }; };
+  const estadoSt     = est => { const m = ESTADO_META[est] ?? ESTADO_META["No enviado"]; return { background: m.bg || C.s0, color: m.color, border: `1px solid ${m.color === C.t2 ? C.b0 : m.color+"44"}`, padding: "7px 10px", borderRadius: 9, fontSize: 12, fontWeight: 650, cursor: "pointer", outline: "none", fontFamily: C.sans }; };
   const estadoDot    = est => ESTADO_META[est]?.color ?? C.t2;
   const filterTabSt  = act => ({ border: act ? `1px solid ${C.b1}` : "1px solid transparent", background: act ? C.s1 : "transparent", color: act ? C.t0 : C.t2, padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, transition: "all .15s" });
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        button:not([disabled]):hover { opacity: 0.8; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        .bg-glow { position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%); }
+        .bg-glow { position: absolute; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%); }
         .checklist-row:hover { background: var(--panel) !important; }
       `}</style>
       <div className="bg-glow" />
 
       <div style={{ display: "contents" }}>
-        <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{
           display: "grid",
@@ -1275,7 +1267,7 @@ export default function MueblesScreen({ profile, signOut }) {
           height: "100%",
           overflow: "hidden",
         }}>
-          <div data-tour="muebles-tabs" style={{ gridColumn: "1 / -1", padding: isMobile ? "10px 10px 10px 48px" : "10px 16px", borderBottom: `1px solid ${C.b0}`, background: C.bg, zIndex: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div data-tour="muebles-tabs" style={{ gridColumn: "1 / -1", padding: isMobile ? "10px" : "10px 16px", borderBottom: `1px solid ${C.b0}`, background: C.bg, zIndex: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div style={{ display: "flex", gap: 5, padding: 4, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0, width: "fit-content", maxWidth: "calc(100% - 44px)", overflowX: "auto" }}>
               {[
                 ["produccion", "Seguimiento", Factory],
@@ -1294,7 +1286,7 @@ export default function MueblesScreen({ profile, signOut }) {
                     border: `1px solid ${mainView === key ? C.b1 : "transparent"}`,
                     background: mainView === key ? C.s2 : "transparent",
                     color: mainView === key ? C.t0 : C.t2,
-                    fontSize: 11, fontWeight: mainView === key ? 800 : 650, fontFamily: C.sans,
+                    fontSize: 11, fontWeight: mainView === key ? 650 : 600, fontFamily: C.sans,
                   }}
                 >
                   {createElement(TabIcon, { size: 14 })}
@@ -1321,8 +1313,8 @@ export default function MueblesScreen({ profile, signOut }) {
             display: mainView !== "muebles" || (isMobile && !mobileShowNav) ? "none" : "flex",
             flexDirection: "column",
           }}>
-            <div style={{ padding: isMobile ? "14px 12px 10px 52px" : "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
-              <div style={{ color: C.t0, fontSize: 13, fontWeight: 800 }}>Recepción por obra</div>
+            <div style={{ padding: isMobile ? "14px 12px 10px" : "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
+              <div style={{ color: C.t0, fontSize: 13, fontWeight: 650 }}>Recepción por obra</div>
               <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>El checklist se usa cuando los muebles ya llegaron.</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto" }}>
@@ -1374,7 +1366,7 @@ export default function MueblesScreen({ profile, signOut }) {
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "11px 16px 11px 52px", border: "none",
                 borderBottom: `1px solid ${C.b0}`, background: C.bg,
-                color: C.t1, fontSize: 13, fontWeight: 700, fontFamily: C.sans, cursor: "pointer",
+                color: C.t1, fontSize: 13, fontWeight: 600, fontFamily: C.sans, cursor: "pointer",
               }}>
                 ‹ Volver al menú
               </button>
@@ -1423,7 +1415,7 @@ export default function MueblesScreen({ profile, signOut }) {
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{unidadSel?.codigo}</div>
+                    <div style={{ fontSize: 22, fontWeight: 600, color: C.t0 }}>{unidadSel?.codigo}</div>
                     <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>{lineaSel?.nombre} · {checklist.length} ítems</div>
                     <div style={{ marginTop: 10 }}>
                       {enchapadoLoading ? (
@@ -1442,13 +1434,13 @@ export default function MueblesScreen({ profile, signOut }) {
                           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, background: C.s0, border: `1px solid ${tone.base}55` }}>
                             <ChapaSwatch tipo={enchapadoOt.tipo_chapa} size="md" />
                             <div>
-                              <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>Chapa de enchapado</div>
-                              <div style={{ fontSize: 13, color: C.t0, fontWeight: 800, marginTop: 1 }}>{enchapadoOt.tipo_chapa || "Sin especificar"}</div>
+                              <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 650 }}>Chapa de enchapado</div>
+                              <div style={{ fontSize: 13, color: C.t0, fontWeight: 650, marginTop: 1 }}>{enchapadoOt.tipo_chapa || "Sin especificar"}</div>
                             </div>
-                            <span style={{ fontSize: 11, color: estadoMeta.color, background: estadoMeta.bg, border: `1px solid ${estadoMeta.color}44`, padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
+                            <span style={{ fontSize: 11, color: estadoMeta.color, background: estadoMeta.bg, border: `1px solid ${estadoMeta.color}44`, padding: "4px 8px", borderRadius: 7, fontWeight: 650 }}>
                               OT {enchapadoOt.estado || "Pendiente"}
                             </span>
-                            <button onClick={() => setMainView("produccion")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                            <button onClick={() => setMainView("produccion")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>
                               Ver seguimiento
                             </button>
                           </div>
@@ -1459,14 +1451,14 @@ export default function MueblesScreen({ profile, signOut }) {
                           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, background: C.s0, border: `1px solid ${tone.base}55` }}>
                             <ChapaSwatch tipo={manualChapa} size="md" />
                             <div>
-                              <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>Dato manual de muebles</div>
-                              <div style={{ fontSize: 13, color: C.t0, fontWeight: 800, marginTop: 1 }}>{manualChapa}</div>
+                              <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 650 }}>Dato manual de muebles</div>
+                              <div style={{ fontSize: 13, color: C.t0, fontWeight: 650, marginTop: 1 }}>{manualChapa}</div>
                             </div>
-                            <span style={{ fontSize: 11, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
+                            <span style={{ fontSize: 11, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, padding: "4px 8px", borderRadius: 7, fontWeight: 650 }}>
                               Sin OT
                             </span>
                             {esAdmin && (
-                              <button onClick={() => setShowManualChapa(true)} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                              <button onClick={() => setShowManualChapa(true)} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>
                                 Editar
                               </button>
                             )}
@@ -1481,10 +1473,10 @@ export default function MueblesScreen({ profile, signOut }) {
                             placeholder="Ej: Roble Plata Rayado / muebles ya fabricados"
                             style={{ ...INP, width: 280, maxWidth: "min(70vw, 320px)", padding: "6px 9px", fontSize: 12 }}
                           />
-                          <button disabled={manualChapaSaving} onClick={guardarChapaManual} style={{ background: C.green, border: `1px solid ${C.green}`, color: "#04130c", padding: "6px 10px", borderRadius: 7, cursor: manualChapaSaving ? "wait" : "pointer", fontSize: 11, fontWeight: 800, fontFamily: C.sans }}>
+                          <button disabled={manualChapaSaving} onClick={guardarChapaManual} style={{ background: C.green, border: `1px solid ${C.green}`, color: "#04130c", padding: "6px 10px", borderRadius: 7, cursor: manualChapaSaving ? "wait" : "pointer", fontSize: 11, fontWeight: 650, fontFamily: C.sans }}>
                             {manualChapaSaving ? "Guardando..." : "Guardar"}
                           </button>
-                          <button onClick={() => { setShowManualChapa(false); setManualChapaDraft(manualChapa); }} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                          <button onClick={() => { setShowManualChapa(false); setManualChapaDraft(manualChapa); }} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>
                             Cancelar
                           </button>
                         </div>
@@ -1492,7 +1484,7 @@ export default function MueblesScreen({ profile, signOut }) {
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "7px 10px", borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, fontSize: 12 }}>
                           Sin OT de enchapado
                           {esAdmin && (
-                            <button onClick={() => setShowManualChapa(true)} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                            <button onClick={() => setShowManualChapa(true)} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>
                               Cargar manual
                             </button>
                           )}
@@ -1571,7 +1563,7 @@ export default function MueblesScreen({ profile, signOut }) {
                     display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
                     boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
                   }}>
-                    <span style={{ fontFamily: C.mono, fontSize: 13, color: selIds.size > 0 ? "#60a5fa" : C.t2, fontWeight: 700, minWidth: 80 }}>
+                    <span style={{ fontFamily: C.mono, fontSize: 13, color: selIds.size > 0 ? "#60a5fa" : C.t2, fontWeight: 600, minWidth: 80 }}>
                       {selIds.size > 0 ? `${selIds.size} selec.` : "Sin selec."}
                     </span>
                     <button onClick={() => selAll(checklist)} style={{ padding: "4px 10px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Todos</button>
@@ -1583,7 +1575,7 @@ export default function MueblesScreen({ profile, signOut }) {
                       return (
                         <button key={e} disabled={bulkLoading || selIds.size === 0} onClick={() => bulkSetEstado(e)} style={{
                           padding: "5px 12px", borderRadius: 7, cursor: selIds.size === 0 ? "not-allowed" : "pointer",
-                          fontSize: 12, fontWeight: 700, fontFamily: C.sans, transition: "all .12s",
+                          fontSize: 12, fontWeight: 600, fontFamily: C.sans, transition: "all .12s",
                           background: m.bg || C.s0, color: m.color,
                           border: `1px solid ${m.color}44`,
                           opacity: selIds.size === 0 ? 0.4 : 1,
@@ -1601,10 +1593,10 @@ export default function MueblesScreen({ profile, signOut }) {
                   const disponibles = catalogoLinea.filter(m => !yaEnChecklist.has(m.id));
                   const aqq = addItemQ.toLowerCase();
                   const filtrados = aqq ? disponibles.filter(m => m.nombre.toLowerCase().includes(aqq) || (m.sector ?? "").toLowerCase().includes(aqq)) : disponibles;
-                  const LBL2 = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 };
+                  const LBL2 = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 };
                   return (
                     <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 18 }}>
-                      <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", marginBottom: 12, fontWeight: 700 }}>Agregar ítem al barco</div>
+                      <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", marginBottom: 12, fontWeight: 600 }}>Agregar ítem al barco</div>
                       {/* Buscar del catálogo */}
                       {disponibles.length > 0 && (
                         <>
@@ -1629,7 +1621,7 @@ export default function MueblesScreen({ profile, signOut }) {
                                 <span style={{ fontSize: 11, color: C.t2, minWidth: 70, textTransform: "uppercase", letterSpacing: "0.1em" }}>{m.sector || "—"}</span>
                                 <span style={{ fontSize: 14, color: C.t0, flex: 1 }}>{m.nombre}</span>
                                 {m.medidas && <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{m.medidas}</span>}
-                                <span style={{ fontSize: 12, color: "#60a5fa", fontWeight: 700 }}>+ Agregar</span>
+                                <span style={{ fontSize: 12, color: "#60a5fa", fontWeight: 600 }}>+ Agregar</span>
                               </div>
                             ))}
                           </div>
@@ -1637,7 +1629,7 @@ export default function MueblesScreen({ profile, signOut }) {
                         </>
                       )}
                       {/* Crear nuevo mueble ad-hoc */}
-                      <div style={{ fontSize: 11, color: C.t2, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Crear nuevo mueble</div>
+                      <div style={{ fontSize: 11, color: C.t2, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>Crear nuevo mueble</div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 8, marginBottom: 8 }}>
                         <div><label style={LBL2}>Nombre *</label><input style={INP} placeholder="Ej: Camarote doble" value={newItemForm.nombre} onChange={e => setNewItemForm(f => ({...f, nombre: e.target.value}))} autoFocus /></div>
                         <div><label style={LBL2}>Sector</label><input style={INP} placeholder="Ej: Dormitorio" value={newItemForm.sector} onChange={e => setNewItemForm(f => ({...f, sector: e.target.value}))} /></div>
@@ -1664,7 +1656,7 @@ export default function MueblesScreen({ profile, signOut }) {
                       {stats.rehacer > 0 && <span style={{ color: C.red }}>{stats.rehacer} rehacer</span>}
                       <span style={{ color: C.t2 }}>{stats.total - stats.completo - stats.parcial - stats.rehacer} pendientes</span>
                     </div>
-                    <span style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 700, color: pctColor, letterSpacing: "-0.02em" }}>{pct}%</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 600, color: pctColor, letterSpacing: "-0.02em" }}>{pct}%</span>
                   </div>
                   <div style={{ height: 4, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: pctColor, borderRadius: 99, transition: "width .5s ease" }} />
@@ -1679,7 +1671,7 @@ export default function MueblesScreen({ profile, signOut }) {
 
                 {/* List */}
                 {loading ? (
-                  <div style={{ color: C.t2, fontSize: 13, padding: "30px 0", textAlign: "center" }}>Cargando…</div>
+                  <Cargando />
                 ) : Object.keys(porSector).length === 0 ? (
                   <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>{q || filtro !== "todos" ? "Sin ítems con este filtro." : "Sin ítems en el catálogo de la línea."}</div>
                 ) : (
@@ -1708,11 +1700,11 @@ export default function MueblesScreen({ profile, signOut }) {
                                 background: rows.every(r => selIds.has(r.id)) ? "#3b82f6" : "transparent",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                               }}>
-                                {rows.every(r => selIds.has(r.id)) && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+                                {rows.every(r => selIds.has(r.id)) && <span style={{ color: "#fff", fontSize: 10, fontWeight: 600 }}>✓</span>}
                               </div>
                             )}
                             <div style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--border-3)" }} />
-                            <span style={{ fontSize: 11, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 700 }}>{sector}</span>
+                            <span style={{ fontSize: 11, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
                           </div>
                           <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{completados}/{rows.length}</span>
                         </div>
@@ -1746,7 +1738,7 @@ export default function MueblesScreen({ profile, signOut }) {
                                   display: "flex", alignItems: "center", justifyContent: "center",
                                   transition: "all .12s",
                                 }}>
-                                  {isSel && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                                  {isSel && <span style={{ color: "#fff", fontSize: 12, fontWeight: 600, lineHeight: 1 }}>✓</span>}
                                 </div>
                               )}
                               {/* Número de pieza: el mismo que sale impreso.
@@ -1755,7 +1747,7 @@ export default function MueblesScreen({ profile, signOut }) {
                               <span style={{
                                 fontFamily: C.mono,
                                 fontSize: 13,
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 color: r.estado === "Completo" ? C.t2 : C.t1,
                                 textAlign: "right",
                                 fontVariantNumeric: "tabular-nums",
@@ -1813,9 +1805,9 @@ export default function MueblesScreen({ profile, signOut }) {
                                 {r.estado === "Completo" && (r.recibido_por || r.recibido_at) && (
                                   <div style={{ fontSize: 10, color: C.t2, lineHeight: 1.35, display: "grid", gap: 1 }}>
                                     {r.recibido_at && (
-                                      <span>Fecha recepción: <span style={{ color: C.t1, fontWeight: 800 }}>{formatTraceDate(r.recibido_at)}</span></span>
+                                      <span>Fecha recepción: <span style={{ color: C.t1, fontWeight: 650 }}>{formatTraceDate(r.recibido_at)}</span></span>
                                     )}
-                                    <span>Recibido por: <span style={{ color: C.t1, fontWeight: 800 }}>{r.recibido_por || "usuario"}</span></span>
+                                    <span>Recibido por: <span style={{ color: C.t1, fontWeight: 650 }}>{r.recibido_por || "usuario"}</span></span>
                                   </div>
                                 )}
                               </div>

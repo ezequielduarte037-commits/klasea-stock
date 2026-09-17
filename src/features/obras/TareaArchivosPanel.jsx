@@ -118,7 +118,7 @@ export default function TareaArchivosPanel({ tarea, onChanged }) {
           <Paperclip size={13} />
         </span>
         <div style={{ flex: 1, minWidth: 170 }}>
-          <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 850 }}>Planos y archivos de la tarea</div>
+          <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 700 }}>Planos y archivos de la tarea</div>
           <div style={{ marginTop: 2, color: C.t2, fontSize: 9.5 }}>Quedan disponibles para todas las obras de esta línea.</div>
         </div>
         <button
@@ -138,7 +138,7 @@ export default function TareaArchivosPanel({ tarea, onChanged }) {
             cursor: uploading ? "wait" : "pointer",
             fontFamily: C.sans,
             fontSize: 10.5,
-            fontWeight: 850,
+            fontWeight: 700,
           }}
         >
           {uploading ? <Loader2 size={12} className="spin" /> : <Upload size={12} />}
@@ -213,7 +213,7 @@ export default function TareaArchivosPanel({ tarea, onChanged }) {
                 <FileText size={13} />
               </span>
               <div style={{ minWidth: 0 }}>
-                <div style={{ overflow: "hidden", color: C.t0, fontSize: 11, fontWeight: 750, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.nombre_archivo}</div>
+                <div style={{ overflow: "hidden", color: C.t0, fontSize: 11, fontWeight: 650, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.nombre_archivo}</div>
                 <div style={{ marginTop: 2, color: C.t3, fontFamily: C.mono, fontSize: 9 }}>{[extension(file.nombre_archivo), formatBytes(file.tamano_bytes)].filter(Boolean).join(" · ")}</div>
               </div>
               <div style={{ display: "flex", gap: 3 }}>

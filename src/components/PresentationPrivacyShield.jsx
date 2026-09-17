@@ -138,7 +138,7 @@ export default function PresentationPrivacyShield({ active = false }) {
           background: rgba(20, 15, 35, .92);
           color: #c4b5fd;
           box-shadow: 0 8px 30px rgba(0, 0, 0, .28);
-          font: 800 10px/1.1 'Outfit', system-ui, sans-serif;
+          font: 650 10px/1.1 'Outfit', system-ui, sans-serif;
           letter-spacing: .09em;
           white-space: nowrap;
         }

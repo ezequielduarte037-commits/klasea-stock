@@ -205,7 +205,7 @@ export async function borrarPedido(pedidoId) {
 
 export const ITEM_ESTADOS = [
   { value: "pendiente", label: "Pendiente", color: "#a1a1aa" },
-  { value: "pedido", label: "Pedido", color: "#f59e0b" },
+  { value: "pedido", label: "Pedido", color: "#22d3ee" },
   { value: "parcial", label: "Recibido parcial", color: "#a78bfa" },
   { value: "recibido", label: "Recibido", color: "#10b981" },
   { value: "cancelado", label: "Cancelado", color: "#ef4444" },
@@ -213,7 +213,7 @@ export const ITEM_ESTADOS = [
 
 export const PEDIDO_ESTADOS = [
   { value: "pendiente", label: "Pendiente", color: "#a1a1aa" },
-  { value: "en_compra", label: "En compra", color: "#f59e0b" },
+  { value: "en_compra", label: "En compra", color: "#22d3ee" },
   { value: "parcial", label: "Parcial", color: "#a78bfa" },
   { value: "completo", label: "Completo", color: "#10b981" },
   { value: "cancelado", label: "Cancelado", color: "#ef4444" },

@@ -22,7 +22,7 @@ export const PRIORIDADES = ["Baja", "Media", "Alta", "Urgente"];
 export const PRIORIDAD_META = {
   "Baja":    { color: "var(--dim)",   bg: "var(--panel)",      border: "var(--border)",      label: "Baja"    },
   "Media":   { color: "var(--blue)",  bg: "var(--blue-soft)",  border: "var(--blue-border)", label: "Media"   },
-  "Alta":    { color: "var(--amber)", bg: "var(--amber-soft)", border: "var(--amber-border)",label: "Alta"    },
+  "Alta":    { color: "var(--cyan)", bg: "var(--cyan-soft)", border: "var(--cyan-border)",label: "Alta"    },
   "Urgente": { color: "var(--red)",   bg: "var(--red-soft)",   border: "var(--red-border)",  label: "Urgente" },
 };
 
@@ -103,7 +103,7 @@ export function bucketDesmolde(dias, tieneTemplates) {
 
 export const DESMOLDE_BUCKETS = [
   { key:"ahora",       label:"Pedir ahora",           color:"var(--red)",   bg:"var(--red-soft)",   border:"var(--red-border)",   accion:"Solicitar plantillas" },
-  { key:"proximos",    label:"Próximos",              color:"var(--amber)", bg:"var(--amber-soft)", border:"var(--amber-border)", accion:"Preparar pedido"      },
+  { key:"proximos",    label:"Próximos",              color:"var(--cyan)", bg:"var(--cyan-soft)", border:"var(--cyan-border)", accion:"Preparar pedido"      },
   { key:"entiempo",    label:"En tiempo",             color:"var(--blue)",  bg:"var(--blue-soft)",  border:"var(--blue-border)",  accion:"Sin acción"           },
   { key:"solicitadas", label:"Ya solicitadas",        color:"var(--green)", bg:"var(--green-soft)", border:"var(--green-border)", accion:"Hecho"                },
   { key:"vencidos",    label:"Vencidos",              color:"var(--dim)",   bg:"var(--panel)",      border:"var(--border)",       accion:"Revisar"              },
@@ -207,7 +207,7 @@ export const TXT = { ...INP, minHeight:74, resize:"vertical", lineHeight:1.45 };
 
 export const PANEL = { background:"var(--panel-solid)", border:"1px solid var(--border)", borderRadius:10 };
 
-export const EYEBROW = { fontSize:11, color:"var(--dim)", letterSpacing:0.8, textTransform:"uppercase", fontFamily:T.sans, fontWeight:700 };
+export const EYEBROW = { fontSize:11, color:"var(--dim)", letterSpacing:0.8, textTransform:"uppercase", fontFamily:T.sans, fontWeight:600 };
 
 export const ICON_BTN = {
   border:"1px solid transparent", background:"transparent", color:"var(--dim)",
@@ -220,7 +220,7 @@ export const CHIP = (color, soft, border) => ({
   display:"inline-flex", alignItems:"center", gap:6,
   padding:"3px 10px", borderRadius:99,
   background: soft, border:`1px solid ${border}`,
-  color, fontSize:11, fontWeight:700, whiteSpace:"nowrap",
+  color, fontSize:11, fontWeight:600, whiteSpace:"nowrap",
 });
 
 export const estadoSelectStyle = (estado) => {
@@ -229,19 +229,13 @@ export const estadoSelectStyle = (estado) => {
     background: m.bg, color: m.color,
     border: `1px solid ${m.border === "transparent" ? "var(--border)" : m.border}`,
     padding:"5px 8px", borderRadius:8,
-    cursor:"pointer", fontSize:12, fontWeight:700, outline:"none",
+    cursor:"pointer", fontSize:12, fontWeight:600, outline:"none",
     fontFamily:T.sans, maxWidth:132,
   };
 };
 
 // CSS global del módulo (se inyecta una sola vez en el contenedor)
 export const MARM_CSS = `
-  *, *::before, *::after { box-sizing:border-box; }
-  select option { background:var(--panel-solid-2); color:var(--text); }
-  ::-webkit-scrollbar { width:8px; height:8px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:var(--border-2); border-radius:99px; }
-  input:focus, select:focus, textarea:focus { border-color:var(--focus) !important; outline:none; box-shadow:0 0 0 3px var(--blue-soft); }
   @keyframes mrmFade { from{opacity:0} to{opacity:1} }
   @keyframes mrmSlideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:none} }
   .mrm-view { animation:mrmFade .15s ease; }

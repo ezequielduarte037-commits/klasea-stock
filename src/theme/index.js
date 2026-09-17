@@ -77,7 +77,7 @@ const status = {
   prioridad: {
     baja: { color: "var(--dim)", label: "Baja" },
     media: { color: "var(--blue)", label: "Media" },
-    alta: { color: "var(--amber)", label: "Alta" },
+    alta: { color: "var(--violet)", label: "Alta" },
     critica: { color: "var(--red)", label: "Critica" },
   },
   oc: {
@@ -100,9 +100,9 @@ const status = {
       label: "Pedido",
     },
     aprobada: {
-      dot: "var(--amber)",
-      bg: "var(--amber-soft)",
-      border: "var(--amber-border)",
+      dot: "var(--teal)",
+      bg: "var(--teal-soft)",
+      border: "var(--teal-border)",
       label: "Aprobada",
     },
     en_camino: {
@@ -126,6 +126,8 @@ const status = {
   },
 };
 
+// Sin ámbar: el sistema no lo usa (atención y pendiente van en cian, "en
+// camino" en violeta). Ver la semántica completa arriba de theme/palette.css.
 export const C = {
   bg: "var(--bg)",
   bg1: "var(--panel-solid)",
@@ -157,7 +159,6 @@ export const C = {
   t3: "var(--subtle)",
   blue: "var(--blue)",
   primary: "var(--blue)",
-  amber: "var(--amber)",
   green: "var(--green)",
   red: "var(--red)",
   violet: "var(--violet)",
@@ -170,8 +171,6 @@ export const C = {
   blueB: "var(--blue-border)",
   violetL: "var(--violet-soft)",
   violetB: "var(--violet-border)",
-  amberL: "var(--amber-soft)",
-  amberB: "var(--amber-border)",
   greenL: "var(--green-soft)",
   greenB: "var(--green-border)",
   redL: "var(--red-soft)",

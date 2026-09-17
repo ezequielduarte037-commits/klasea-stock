@@ -58,7 +58,7 @@ function FiltroMulti({ icon, label, opciones, seleccion, onChange, ancho = 190 }
         className="mp-chip"
         style={{
           display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 10,
-          fontSize: 12.5, fontWeight: 750, cursor: "pointer", whiteSpace: "nowrap",
+          fontSize: 12.5, fontWeight: 650, cursor: "pointer", whiteSpace: "nowrap",
           border: `1px solid ${activo ? C.violetB : C.border}`,
           background: activo ? C.violetL : C.panel,
           color: activo ? C.violet : C.dim,
@@ -67,7 +67,7 @@ function FiltroMulti({ icon, label, opciones, seleccion, onChange, ancho = 190 }
         <Icon size={14} />
         {label}
         {activo && (
-          <span style={{ minWidth: 17, padding: "0 5px", borderRadius: 999, background: C.violet, color: "#fff", fontSize: 10.5, fontWeight: 850, lineHeight: "17px", textAlign: "center" }}>
+          <span style={{ minWidth: 17, padding: "0 5px", borderRadius: 999, background: C.violet, color: "#fff", fontSize: 10.5, fontWeight: 700, lineHeight: "17px", textAlign: "center" }}>
             {seleccion.length}
           </span>
         )}
@@ -110,7 +110,7 @@ function FiltroMulti({ icon, label, opciones, seleccion, onChange, ancho = 190 }
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8,
                     border: "none", background: on ? C.violetL : "transparent", cursor: "pointer", textAlign: "left",
-                    color: on ? C.text : C.muted, fontSize: 12.5, fontWeight: on ? 750 : 550, marginBottom: 2,
+                    color: on ? C.text : C.muted, fontSize: 12.5, fontWeight: on ? 650 : 550, marginBottom: 2,
                   }}
                 >
                   <span style={{
@@ -130,7 +130,7 @@ function FiltroMulti({ icon, label, opciones, seleccion, onChange, ancho = 190 }
               type="button"
               onClick={() => onChange([])}
               className="mp-opt"
-              style={{ width: "100%", padding: "8px 10px", border: "none", borderTop: `1px solid ${C.border}`, background: "transparent", color: C.red, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+              style={{ width: "100%", padding: "8px 10px", border: "none", borderTop: `1px solid ${C.border}`, background: "transparent", color: C.red, fontSize: 11.5, fontWeight: 650, cursor: "pointer" }}
             >
               Limpiar {label.toLowerCase()}
             </button>
@@ -280,11 +280,11 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
       >
         {/* título */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px 11px 17px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {titulo}
           </div>
           {local && (
-            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 850, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>
+            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>
               Matriz del modelo
             </span>
           )}
@@ -314,7 +314,7 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
             <button
               type="button"
               onClick={() => { setFiltroProv([]); setFiltroRubro([]); }}
-              style={{ border: "none", background: "transparent", color: C.red, fontSize: 11.5, fontWeight: 800, cursor: "pointer", padding: "6px 4px" }}
+              style={{ border: "none", background: "transparent", color: C.red, fontSize: 11.5, fontWeight: 650, cursor: "pointer", padding: "6px 4px" }}
             >
               Limpiar todo
             </button>
@@ -324,7 +324,7 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
               <button
                 type="button"
                 onClick={marcarTodos}
-                style={{ border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 800, cursor: "pointer", padding: "6px 2px", whiteSpace: "nowrap" }}
+                style={{ border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 650, cursor: "pointer", padding: "6px 2px", whiteSpace: "nowrap" }}
               >
                 {todosMarcados ? "Desmarcar visibles" : `Marcar ${seleccionables.length} visibles`}
               </button>
@@ -349,7 +349,7 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
           {!loading && !visibles.length && (
             <div style={{ display: "grid", placeItems: "center", gap: 8, textAlign: "center", padding: "34px 14px", color: C.dim }}>
               <PackageSearch size={38} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-              <div style={{ fontSize: 13, fontWeight: 700 }}>Sin resultados</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Sin resultados</div>
               <div style={{ fontSize: 12 }}>{hayFiltros ? "Probá aflojando los filtros." : "Probá con otra palabra o parte del código."}</div>
             </div>
           )}
@@ -383,19 +383,19 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
                   <Package size={15} />
                 </span>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: C.text, fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</div>
+                  <div style={{ color: C.text, fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</div>
                   <div style={{ display: "flex", gap: 7, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
                     {m.codigo && <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{m.codigo}</span>}
                     {m.proveedor && <span style={{ color: C.dim, fontSize: 11 }}>· {m.proveedor}</span>}
                     <span style={{ color: C.dim, fontSize: 11 }}>· {m.unidad}</span>
                     {rubro && (
-                      <span style={{ fontSize: 10, fontWeight: 800, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "1px 7px" }}>
+                      <span style={{ fontSize: 10, fontWeight: 650, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "1px 7px" }}>
                         {rubro}
                       </span>
                     )}
                   </div>
                 </div>
-                {ya && <span style={{ flexShrink: 0, color: C.green, fontSize: 11, fontWeight: 800 }}>Ya está</span>}
+                {ya && <span style={{ flexShrink: 0, color: C.green, fontSize: 11, fontWeight: 650 }}>Ya está</span>}
               </button>
             );
           })}
@@ -406,7 +406,7 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
           display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
           borderTop: `1px solid ${C.border}`, background: C.panel,
         }}>
-          <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: sel.size ? C.text : C.dim, fontWeight: sel.size ? 800 : 600 }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: sel.size ? C.text : C.dim, fontWeight: sel.size ? 650 : 600 }}>
             {sel.size
               ? `${sel.size} ${sel.size === 1 ? "material seleccionado" : "materiales seleccionados"}`
               : "Tocá los materiales que querés agregar"}
@@ -415,7 +415,7 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
             <button
               type="button"
               onClick={() => setSel(new Map())}
-              style={{ border: "none", background: "transparent", color: C.dim, fontSize: 12, fontWeight: 750, cursor: "pointer", flexShrink: 0 }}
+              style={{ border: "none", background: "transparent", color: C.dim, fontSize: 12, fontWeight: 650, cursor: "pointer", flexShrink: 0 }}
             >
               Limpiar
             </button>
@@ -427,7 +427,7 @@ export default function MaterialPicker({ onClose, onAdd, yaCargados, titulo = "A
             className="mp-cta"
             style={{
               flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, borderRadius: 10, padding: "9px 17px",
-              border: "none", cursor: !sel.size || guardando ? "default" : "pointer", fontSize: 13, fontWeight: 850,
+              border: "none", cursor: !sel.size || guardando ? "default" : "pointer", fontSize: 13, fontWeight: 700,
               background: sel.size ? "linear-gradient(135deg,#8b5cf6 0%,#6366f1 55%,#3b82f6 100%)" : C.panel2,
               color: sel.size ? "#fff" : C.dim,
               boxShadow: sel.size ? `0 8px 20px -8px ${tint("#7c5cf6", 60)}` : "none",

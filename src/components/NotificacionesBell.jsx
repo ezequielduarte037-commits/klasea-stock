@@ -32,7 +32,7 @@ const TYPE_UI = {
 
 const GRAVITY_UI = {
   critical: { color: C.red, soft: C.redL, border: C.redB, label: PRIORIDAD_LABEL.critical },
-  warning: { color: C.amber, soft: C.amberL, border: C.amberB, label: PRIORIDAD_LABEL.warning },
+  warning: { color: C.violet, soft: C.violetL, border: C.violetB, label: PRIORIDAD_LABEL.warning },
   success: { color: C.green, soft: C.greenL, border: C.greenB, label: PRIORIDAD_LABEL.success },
   info: { color: C.blue, soft: C.blueL, border: C.blueB, label: PRIORIDAD_LABEL.info },
 };
@@ -319,7 +319,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       background: C.red,
       color: "#fff",
       fontSize: 9,
-      fontWeight: 950,
+      fontWeight: 750,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -407,7 +407,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             flexShrink: 0,
           }}>
             <div>
-              <div style={{ color: C.text, fontFamily: C.sans, fontWeight: 950, fontSize: 14, letterSpacing: 0.2 }}>
+              <div style={{ color: C.text, fontFamily: C.sans, fontWeight: 750, fontSize: 14, letterSpacing: 0.2 }}>
                 Notificaciones
               </div>
               <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
@@ -428,7 +428,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                 cursor: unreadCount ? "pointer" : "default",
                 opacity: unreadCount ? 1 : 0.45,
                 fontSize: 11,
-                fontWeight: 850,
+                fontWeight: 700,
                 fontFamily: C.sans,
                 display: "inline-flex",
                 alignItems: "center",
@@ -468,7 +468,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             ) : visibleGroups.every((g) => !g.items.length) ? (
               <div style={{ padding: "36px 20px", textAlign: "center", color: C.dim }}>
                 <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 10 }} />
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Estás al día</div>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Estás al día</div>
                 <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
                   Sólo aparecen novedades relacionadas con tu trabajo.
                 </div>
@@ -481,7 +481,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                       padding: "8px 14px 4px",
                       color: C.dim,
                       fontSize: 10.5,
-                      fontWeight: 850,
+                      fontWeight: 700,
                       letterSpacing: 0.6,
                       textTransform: "uppercase",
                       position: "sticky",
@@ -557,10 +557,10 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                 </span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 950, fontSize: 13, color: C.text }}>{toast.titulo}</span>
+                    <span style={{ fontWeight: 750, fontSize: 13, color: C.text }}>{toast.titulo}</span>
                     {(toast.gravedad === "critical" || toast.gravedad === "warning") && (
                       <span style={{
-                        fontSize: 9.5, fontWeight: 900, color: g.color,
+                        fontSize: 9.5, fontWeight: 700, color: g.color,
                         border: `1px solid ${g.border}`, borderRadius: 999, padding: "1px 6px",
                       }}>
                         {g.label}
@@ -577,7 +577,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                     style={{
                       marginTop: 8, minHeight: 32, padding: "0 10px",
                       border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
-                      borderRadius: 8, fontWeight: 900, fontSize: 11.5, cursor: "pointer", fontFamily: C.sans,
+                      borderRadius: 8, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: C.sans,
                     }}
                   >
                     {toast.kind === "summary" ? "Ver avisos" : actionLabel(toast.raw)}
@@ -620,7 +620,7 @@ function FilterTab({ active, color, soft, border, onClick, children }) {
         minHeight: 34,
         cursor: "pointer",
         fontSize: 11,
-        fontWeight: 900,
+        fontWeight: 700,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
       }}
@@ -666,17 +666,17 @@ function NotifRow({ item, isAdmin, onOpen, onResolve }) {
       </span>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ color: C.text, fontSize: 13, fontWeight: unread ? 950 : 800 }}>{item.titulo}</span>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: unread ? 750 : 650 }}>{item.titulo}</span>
           {["critical", "warning", "success"].includes(item.gravedad) && (
             <span style={{
-              fontSize: 9.5, fontWeight: 900, color: g.color,
+              fontSize: 9.5, fontWeight: 700, color: g.color,
               border: `1px solid ${g.border}`, borderRadius: 999, padding: "1px 6px",
             }}>
               {g.label}
             </span>
           )}
           <span style={{
-            fontSize: 9.5, fontWeight: 800, color: cfg.color,
+            fontSize: 9.5, fontWeight: 650, color: cfg.color,
             background: cfg.soft, borderRadius: 999, padding: "1px 6px",
           }}>
             {cfg.label}
@@ -705,7 +705,7 @@ function NotifRow({ item, isAdmin, onOpen, onResolve }) {
               }}
               style={{
                 color: C.green, border: `1px solid ${C.greenB}`, borderRadius: 7,
-                padding: "6px 8px", minHeight: 32, fontSize: 10.5, fontWeight: 900,
+                padding: "6px 8px", minHeight: 32, fontSize: 10.5, fontWeight: 700,
                 display: "inline-flex", alignItems: "center",
               }}
             >
@@ -715,7 +715,7 @@ function NotifRow({ item, isAdmin, onOpen, onResolve }) {
             <span style={{
               color: C.blue,
               fontSize: 10.5,
-              fontWeight: 900,
+              fontWeight: 700,
               display: "inline-flex",
               alignItems: "center",
               gap: 3,

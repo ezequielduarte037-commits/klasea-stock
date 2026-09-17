@@ -378,7 +378,7 @@ export default function ImportarTab({ empleados, onImported }) {
 
       {result && (
         <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, color: C.green, fontWeight: 700, marginBottom: 6 }}>✓ Importación completada</div>
+          <div style={{ fontSize: 14, color: C.green, fontWeight: 600, marginBottom: 6 }}>✓ Importación completada</div>
           <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.8 }}>
             {result.marcaciones} marcaciones procesadas para <strong>{result.sede}</strong> ({result.nuevas} nuevas, {result.actualizadas} ya existían y se actualizaron).
             {result.dni_absorbidos > 0 && <> Se absorbieron <strong>{result.dni_absorbidos}</strong> DNI en empleados existentes.</>}
@@ -392,11 +392,11 @@ export default function ImportarTab({ empleados, onImported }) {
       {/* Preview */}
       {parsed && (
         <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 20, marginBottom: 18 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 600, marginBottom: 12 }}>
             Vista previa — {fileName}
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>
+            <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>
               Galpon del reporte *
             </label>
             <select style={{ ...INP, minWidth: 190 }} value={sede} onChange={e => setSede(e.target.value)}>
@@ -410,7 +410,7 @@ export default function ImportarTab({ empleados, onImported }) {
             <KpiCard label="Marcaciones" value={parsed.totalMarcaciones} />
             <KpiCard label="DNI absorbibles" value={absorbiblesPorNombre.length} color={absorbiblesPorNombre.length ? C.blue : C.green}
               sub={absorbiblesPorNombre.length ? "matchean por nombre" : "sin coincidencias"} />
-            <KpiCard label="Para vincular" value={desconocidosConFichadas.length} color={desconocidosConFichadas.length ? C.amber : C.green}
+            <KpiCard label="Para vincular" value={desconocidosConFichadas.length} color={desconocidosConFichadas.length ? C.cyan : C.green}
               sub={desconocidosConFichadas.length ? "selecciona cuales entran" : "sin nuevos con fichadas"} />
             <KpiCard label="Descartados" value={descartadosSinFichadas.length} color={descartadosSinFichadas.length ? C.red : C.green}
               sub="sin fichadas" />
@@ -418,7 +418,7 @@ export default function ImportarTab({ empleados, onImported }) {
 
           {absorbiblesPorNombre.length > 0 && (
             <div style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.24)", borderRadius: 9, padding: "10px 14px", marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: C.blue, fontWeight: 800, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 11, color: C.blue, fontWeight: 650, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>
                 DNI detectado para empleados existentes
               </div>
               <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.8 }}>
@@ -429,10 +429,10 @@ export default function ImportarTab({ empleados, onImported }) {
           )}
 
           {desconocidosConFichadas.length > 0 && (
-            <div style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.24)", borderRadius: 9, padding: "12px 14px", marginBottom: 14 }}>
+            <div style={{ background: "rgba(34,211,238,0.05)", border: "1px solid rgba(34,211,238,0.24)", borderRadius: 9, padding: "12px 14px", marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: C.amber, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>
+                  <div style={{ fontSize: 11, color: C.cyan, fontWeight: 650, letterSpacing: 1, textTransform: "uppercase" }}>
                     Vinculamos a estas personas?
                   </div>
                   <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
@@ -454,7 +454,7 @@ export default function ImportarTab({ empleados, onImported }) {
                         checked={!!vincularDnis[dni]}
                         onChange={ev => setVincularDnis(prev => ({ ...prev, [dni]: ev.target.checked }))}
                       />
-                      <span style={{ fontSize: 13, color: C.t0, fontWeight: 700 }}>{e.nombre}</span>
+                      <span style={{ fontSize: 13, color: C.t0, fontWeight: 600 }}>{e.nombre}</span>
                       <span style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>{dni}</span>
                       <span style={{ fontSize: 11, color: C.t2 }}>{e.marcaciones.length} fichadas</span>
                     </label>
@@ -466,7 +466,7 @@ export default function ImportarTab({ empleados, onImported }) {
 
           {descartadosSinFichadas.length > 0 && (
             <div style={{ background: "rgba(113,113,122,0.08)", border: `1px solid ${C.b0}`, borderRadius: 9, padding: "10px 14px", marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: C.t2, fontWeight: 800, marginBottom: 5, letterSpacing: 1, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 11, color: C.t2, fontWeight: 650, marginBottom: 5, letterSpacing: 1, textTransform: "uppercase" }}>
                 Descartados automaticamente
               </div>
               <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.7 }}>
@@ -489,7 +489,7 @@ export default function ImportarTab({ empleados, onImported }) {
       )}
 
       {/* Historial */}
-      <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, margin: "20px 0 8px" }}>
+      <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600, margin: "20px 0 8px" }}>
         Importaciones anteriores
       </div>
       {batches == null ? <Cargando /> : batches.length === 0 ? (

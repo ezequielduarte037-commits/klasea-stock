@@ -292,7 +292,7 @@ function chip(color, label) {
       borderRadius: 999,
       padding: "3px 8px",
       fontSize: 10,
-      fontWeight: 850,
+      fontWeight: 700,
       letterSpacing: 0.5,
       textTransform: "uppercase",
       whiteSpace: "nowrap",
@@ -308,14 +308,14 @@ function chip(color, label) {
 function KpiCell({ icon: IconComponent, label, value, detail, color, loading }) {
   return (
     <div style={{ background: C.panelSolid, padding: "10px 12px", display: "grid", gap: 3, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase" }}>
         {IconComponent && <IconComponent size={12} style={{ color, flexShrink: 0 }} />}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       </div>
       {loading ? (
         <Skeleton width={90} height={19} radius={6} />
       ) : (
-        <div style={{ color, fontFamily: C.mono, fontSize: 19, fontWeight: 900, lineHeight: 1.05, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+        <div style={{ color, fontFamily: C.mono, fontSize: 19, fontWeight: 700, lineHeight: 1.05, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
       )}
       {detail && <div style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</div>}
     </div>
@@ -350,7 +350,7 @@ function Progress({ resumen }) {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", color: C.dim, fontSize: 11 }}>
         <span><strong style={{ color: C.green }}>{resumen.recibidos}/{resumen.total}</strong> recibidos</span>
-        {resumen.problemas > 0 && <span style={{ color: C.red, fontWeight: 850 }}>{resumen.problemas} novedades</span>}
+        {resumen.problemas > 0 && <span style={{ color: C.red, fontWeight: 700 }}>{resumen.problemas} novedades</span>}
       </div>
     </div>
   );
@@ -1178,7 +1178,7 @@ export default function PurchaseLogPanel({ profile }) {
           <ClipboardList size={16} />
         </div>
         <div style={{ minWidth: 160, marginRight: "auto" }}>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 900, lineHeight: 1.15 }}>Registro de compras</div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 700, lineHeight: 1.15 }}>Registro de compras</div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Cargas, pedidos a Pañol y gasto por obra.</div>
         </div>
         <ViewTabs value={view} onChange={setView} />
@@ -1314,7 +1314,7 @@ function ViewTabs({ value, onChange }) {
               cursor: "pointer",
               fontFamily: C.sans,
               fontSize: 12,
-              fontWeight: 850,
+              fontWeight: 700,
               whiteSpace: "nowrap",
             }}
           >
@@ -1464,8 +1464,8 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
                     {row.adicionalItems > 0 && <span style={{ color: C.violet }}>{row.adicionalItems} adicionales</span>}
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <span style={{ color: row.ARS || row.USD ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>{totalsLabel(row)}</span>
-                    {cov.sinPrecio > 0 && <span style={{ color: WARN, fontSize: 11, fontWeight: 800 }}>{cov.sinPrecio} sin precio</span>}
+                    <span style={{ color: row.ARS || row.USD ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 700 }}>{totalsLabel(row)}</span>
+                    {cov.sinPrecio > 0 && <span style={{ color: WARN, fontSize: 11, fontWeight: 650 }}>{cov.sinPrecio} sin precio</span>}
                   </div>
                   <CoverageBar priced={cov.priced} total={cov.total} />
                 </button>
@@ -1545,7 +1545,7 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice, onSetManualPrice })
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ color: C.text, fontSize: 18, fontWeight: 950 }}>{row.label}</div>
+          <div style={{ color: C.text, fontSize: 18, fontWeight: 750 }}>{row.label}</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
             {row.pedidos} pedido{row.pedidos === 1 ? "" : "s"} · {lines.length} línea{lines.length === 1 ? "" : "s"} de gasto
           </div>
@@ -1585,7 +1585,7 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice, onSetManualPrice })
                 padding: "5px 11px",
                 cursor: "pointer",
                 fontSize: 11.5,
-                fontWeight: 850,
+                fontWeight: 700,
                 fontFamily: C.sans,
                 whiteSpace: "nowrap",
               }}
@@ -1598,7 +1598,7 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice, onSetManualPrice })
       </div>
 
       <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: OBRA_COLS, gap: 8, padding: "9px 11px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+        <div style={{ display: "grid", gridTemplateColumns: OBRA_COLS, gap: 8, padding: "9px 11px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>
           <span>Item</span><span>Origen</span><span>Cantidad</span><span>Unitario</span><span>Total</span>
         </div>
         <div style={{ maxHeight: 520, overflowY: "auto" }}>
@@ -1620,7 +1620,7 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice, onSetManualPrice })
             >
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
-                  <span style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line.titulo}</span>
+                  <span style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line.titulo}</span>
                   {line.revisar && chip(WARN, "Revisar")}
                 </div>
                 {line.subtitulo && (
@@ -1634,7 +1634,7 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice, onSetManualPrice })
                 unit={line.unit}
                 onSave={line.editable?.source === "log" ? onSetManualPrice : onSetItemPrice}
               />
-              <div style={{ color: line.total ? C.green : line.cuentaCobertura ? WARN : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>
+              <div style={{ color: line.total ? C.green : line.cuentaCobertura ? WARN : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 700 }}>
                 {line.total ? fmtMoney(line.total.value, line.total.currency) : line.cuentaCobertura ? "Sin precio" : "—"}
               </div>
             </div>
@@ -1660,7 +1660,7 @@ function InlinePriceEditor({ item, unit, onSave }) {
 
   if (!canEdit) {
     return (
-      <div style={{ color: unit != null ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 850 }}>
+      <div style={{ color: unit != null ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 700 }}>
         {unit != null ? fmtMoney(unit, item.moneda) : "—"}
       </div>
     );
@@ -1719,7 +1719,7 @@ function InlinePriceEditor({ item, unit, onSave }) {
           color: unit != null ? C.green : C.text,
           fontSize: 12,
           fontFamily: C.mono,
-          fontWeight: unit != null ? 850 : 500,
+          fontWeight: unit != null ? 700 : 500,
           outline: "none",
           padding: "3px 0",
         }}
@@ -1738,7 +1738,7 @@ function InlinePriceEditor({ item, unit, onSave }) {
           borderRadius: 6,
           padding: "4px 6px",
           fontSize: 10,
-          fontWeight: 800,
+          fontWeight: 650,
           fontFamily: C.sans,
           cursor: "pointer",
         }}
@@ -1752,8 +1752,8 @@ function InlinePriceEditor({ item, unit, onSave }) {
 function MiniMetric({ label, value, color }) {
   return (
     <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10 }}>
-      <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>{label}</div>
-      <div style={{ color, fontFamily: C.mono, fontSize: 15, fontWeight: 950, marginTop: 5 }}>{value}</div>
+      <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ color, fontFamily: C.mono, fontSize: 15, fontWeight: 750, marginTop: 5 }}>{value}</div>
     </div>
   );
 }
@@ -1828,7 +1828,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
             <Sparkles size={17} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 950 }}>Cargar precios</div>
+            <div style={{ fontSize: 16, fontWeight: 750 }}>Cargar precios</div>
             <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Alcance: {scopeLabel}. Editá a mano o pegá el presupuesto y se analiza solo.</div>
           </div>
           <button type="button" className="plp-btn" onClick={onClose} style={iconButton(C.dim)}><X size={15} /></button>
@@ -1855,7 +1855,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
                   padding: "8px 12px",
                   cursor: "pointer",
                   fontSize: 12,
-                  fontWeight: 900,
+                  fontWeight: 700,
                   fontFamily: C.sans,
                 }}
               >
@@ -1877,7 +1877,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
                 padding: "8px 12px",
                 cursor: "pointer",
                 fontSize: 12,
-                fontWeight: 900,
+                fontWeight: 700,
                 fontFamily: C.sans,
               }}
             >
@@ -1892,7 +1892,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
         {mode === "manual" ? (
           <div style={{ overflowY: "auto", padding: 16 }}>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, padding: "9px 10px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, padding: "9px 10px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>
                 <span>Item</span><span>Precio unit.</span><span>Moneda</span>
               </div>
               <div style={{ maxHeight: 540, overflowY: "auto" }}>
@@ -1904,14 +1904,14 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
                     <div key={row.id} className="plp-row" style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: row.precioActual === null ? WARN_SOFT : "transparent" }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
-                          <div style={{ color: C.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                          <div style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
                           {row.source === "log" ? chip(C.blue, "Carga") : chip(C.violet, "Pañol")}
                         </div>
                         <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
                           {row.obra || "Sin obra"}{row.codigo ? ` · ${row.codigo}` : ""} · {row.cantidad || "-"} {row.unidad || ""}
                         </div>
                         {row.precioActual !== null && (
-                          <div style={{ color: changed ? C.dim : C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 850, marginTop: 4, textDecoration: changed ? "line-through" : "none" }}>
+                          <div style={{ color: changed ? C.dim : C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 700, marginTop: 4, textDecoration: changed ? "line-through" : "none" }}>
                             Actual: {fmtMoney(row.precioActual, row.monedaActual)}
                           </div>
                         )}
@@ -1968,7 +1968,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
           </div>
 
           <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", minWidth: 0 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(170px,1fr) minmax(210px,1.1fr) 90px 78px", gap: 8, padding: "9px 10px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(170px,1fr) minmax(210px,1.1fr) 90px 78px", gap: 8, padding: "9px 10px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>
               <span>Línea detectada</span><span>Item del pedido</span><span>Precio</span><span>Moneda</span>
             </div>
             <div style={{ maxHeight: 430, overflowY: "auto" }}>
@@ -1977,7 +1977,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
               ) : rows.map((row, index) => (
                 <div key={`${row.raw}-${index}`} className="plp-row" style={{ display: "grid", gridTemplateColumns: "minmax(170px,1fr) minmax(210px,1.1fr) 90px 78px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: row.itemId ? "transparent" : WARN_SOFT }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                    <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
                     <div style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>{row.cantidad || "-"} {row.unidad}{row.codigo ? ` · ${row.codigo}` : ""}</div>
                   </div>
                   <select value={row.itemId} onChange={(e) => updateRow(index, { itemId: e.target.value })} className="plp-field" style={inp({ padding: "7px 8px", background: C.panelSolid, fontSize: 12, borderColor: row.itemId ? C.border : WARN_BORDER })}>
@@ -2001,7 +2001,7 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
         )}
 
         <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ marginRight: "auto", color: activeReady ? C.green : C.dim, fontSize: 12, fontWeight: 850 }}>
+          <div style={{ marginRight: "auto", color: activeReady ? C.green : C.dim, fontSize: 12, fontWeight: 700 }}>
             {activeReady === 0 ? "Nada para aplicar todavía" : `${activeReady} precio${activeReady === 1 ? "" : "s"} listo${activeReady === 1 ? "" : "s"} para aplicar`}
           </div>
           <button type="button" className="plp-btn" onClick={onClose} style={secondaryButton()}>Cancelar</button>
@@ -2135,7 +2135,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
   const labelStyle = {
     color: C.dim,
     fontSize: 10,
-    fontWeight: 900,
+    fontWeight: 700,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   };
@@ -2156,7 +2156,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.3fr) minmax(180px, 0.8fr) minmax(150px, 0.6fr) minmax(200px, 0.9fr)", gap: 10 }}>
         <label style={inputLabel}>
           <span style={labelStyle}>Título / descripción</span>
-          <input value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Ej: Sanitarios 52-23" className="plp-field" style={inp({ background: C.panelSolid, fontWeight: 750 })} />
+          <input value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Ej: Sanitarios 52-23" className="plp-field" style={inp({ background: C.panelSolid, fontWeight: 650 })} />
         </label>
         <label style={inputLabel}>
           <span style={labelStyle}>Proveedor</span>
@@ -2169,7 +2169,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
         <label style={inputLabel}>
           <span style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6 }}>
             Obra / barco
-            {autoObra && <span style={{ color: C.blue, fontSize: 9, fontWeight: 900 }}>· detectada</span>}
+            {autoObra && <span style={{ color: C.blue, fontSize: 9, fontWeight: 700 }}>· detectada</span>}
           </span>
           <select
             value={form.project_id || ""}
@@ -2192,7 +2192,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Items</span>
+              <span style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Items</span>
               {revisarCount > 0 && chip(WARN, `${revisarCount} a revisar`)}
             </div>
             <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Total: {fmtMoney(totals.ARS, "ARS")}{totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}</div>
@@ -2201,7 +2201,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
         </div>
 
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden", minWidth: 0 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, padding: "9px 10px", background: C.panelSolid, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, padding: "9px 10px", background: C.panelSolid, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>
             <span>Descripción</span><span>Código</span><span>Cantidad</span><span>Unidad</span><span>Precio unit.</span><span>Moneda</span><span />
           </div>
           {items.map((item) => {
@@ -2210,8 +2210,8 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
             return (
               <div key={item.localId} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: revisar && !empty ? WARN_SOFT : C.panel }}>
                 <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
-                  <input value={item.descripcion} onChange={(e) => updateItem(item.localId, { descripcion: e.target.value })} placeholder="Descripción del item" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontWeight: 750 })} />
-                  {revisar && !empty && <span style={{ justifySelf: "start", color: WARN, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>Revisar</span>}
+                  <input value={item.descripcion} onChange={(e) => updateItem(item.localId, { descripcion: e.target.value })} placeholder="Descripción del item" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontWeight: 650 })} />
+                  {revisar && !empty && <span style={{ justifySelf: "start", color: WARN, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>Revisar</span>}
                 </div>
                 <input value={item.codigo || ""} onChange={(e) => updateItem(item.localId, { codigo: e.target.value })} placeholder="Código" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
                 <input value={item.cantidad || ""} onChange={(e) => updateItem(item.localId, { cantidad: e.target.value })} placeholder="Cant." inputMode="decimal" className="plp-field" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono })} />
@@ -2230,7 +2230,7 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
 
       <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
         <div>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Pegar presupuesto / remito / factura</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Pegar presupuesto / remito / factura</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una línea por item. También acepta: DESCRIP | CODIGO | CANT | UNIDAD | $PRECIO.</div>
         </div>
         <textarea
@@ -2272,11 +2272,11 @@ function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoic
       <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "minmax(240px, 1fr) auto", gap: 12, alignItems: "center" }}>
         <div style={{ minWidth: 0 }}>
           <div style={labelStyle}>Resumen</div>
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 850, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {itemCount} item{itemCount === 1 ? "" : "s"} · {selectedObra?.codigo || "Sin obra"} · {fmtMoney(totals.ARS, "ARS")}{totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}
           </div>
           {revisarCount > 0 && (
-            <div style={{ color: WARN, fontSize: 11, fontWeight: 800, marginTop: 3 }}>
+            <div style={{ color: WARN, fontSize: 11, fontWeight: 650, marginTop: 3 }}>
               {revisarCount} item{revisarCount === 1 ? "" : "s"} sin cantidad o precio — se guardan igual, marcados para revisar.
             </div>
           )}
@@ -2318,7 +2318,7 @@ function EnvioRow({ envio, active, onClick }) {
     }}>
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{envio.titulo}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{envio.titulo}</div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{envio.obra?.codigo || envio.destino || "Sin obra/destino"} · {envio.sede}</div>
         </div>
         {chip(meta.color, meta.label)}
@@ -2326,7 +2326,7 @@ function EnvioRow({ envio, active, onClick }) {
       <Progress resumen={resumen} />
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, color: C.dim, fontSize: 11 }}>
         <span>{fmtDate(envio.created_at)}</span>
-        <span style={{ color: totals.ARS || totals.USD ? C.green : C.dim, fontFamily: C.mono, fontWeight: 800 }}>{totalsLabel(totals)}</span>
+        <span style={{ color: totals.ARS || totals.USD ? C.green : C.dim, fontFamily: C.mono, fontWeight: 650 }}>{totalsLabel(totals)}</span>
       </div>
     </button>
   );
@@ -2352,7 +2352,7 @@ function EnvioDetail({ envio, onDelete, onComment }) {
       <div style={{ padding: 13, borderBottom: `1px solid ${C.border}`, display: "grid", gap: 9 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 16, fontWeight: 900, lineHeight: 1.2 }}>{envio.titulo}</div>
+            <div style={{ color: C.text, fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{envio.titulo}</div>
             <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
               {envio.obra?.codigo || envio.destino || "Sin obra/destino"} · {envio.sede} · {fmtDateTime(envio.created_at)}
             </div>
@@ -2375,13 +2375,13 @@ function EnvioDetail({ envio, onDelete, onComment }) {
           return (
             <div key={item.id} className="plp-row" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 92px", gap: 9, alignItems: "center", padding: "9px 13px", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
                 <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
                   {item.cantidad || "-"} {item.unidad || ""}{item.codigo ? ` · ${item.codigo}` : ""}{item.nota ? ` · ${item.nota}` : ""}
                 </div>
               </div>
               <StatusMini estado={item.estado} />
-              <div style={{ color: itemMoney ? C.green : C.dim, fontFamily: C.mono, fontSize: 11, fontWeight: 800, textAlign: "right" }}>
+              <div style={{ color: itemMoney ? C.green : C.dim, fontFamily: C.mono, fontSize: 11, fontWeight: 650, textAlign: "right" }}>
                 {itemMoney ? fmtMoney(itemMoney.value, itemMoney.currency) : "-"}
               </div>
             </div>
@@ -2390,7 +2390,7 @@ function EnvioDetail({ envio, onDelete, onComment }) {
       </div>
 
       <div style={{ padding: 13, display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.text, fontSize: 13, fontWeight: 900 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.text, fontSize: 13, fontWeight: 700 }}>
           <MessageSquare size={15} style={{ color: C.blue }} />
           Mensajes y seguimiento
           <span style={{ marginLeft: "auto", color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{envio.eventos?.length || 0}</span>
@@ -2423,7 +2423,7 @@ function EnvioDetail({ envio, onDelete, onComment }) {
 function StatusMini({ estado }) {
   const meta = ITEM_ESTADO_META[estado] ?? ITEM_ESTADO_META.pendiente;
   return (
-    <span style={{ justifySelf: "start", color: meta.color, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+    <span style={{ justifySelf: "start", color: meta.color, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
       {meta.label}
     </span>
   );
@@ -2486,7 +2486,7 @@ function ManualLogList({ entries, loading, scopeLabel, onDelete, onSendToPanol }
               <div key={entry.id} className="plp-card" style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10, display: "grid", gap: 5 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.description}</div>
+                    <div style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.description}</div>
                     <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
                       {entry.provider || "Sin proveedor"} · {fmtDate(entry.purchased_at)} · {usernameOf(entry.creator)}
                       {entry.items?.length ? ` · ${entry.items.length} item${entry.items.length === 1 ? "" : "s"}` : ""}
@@ -2509,13 +2509,13 @@ function ManualLogList({ entries, loading, scopeLabel, onDelete, onSendToPanol }
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <span style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <span style={{ color: hasMoney ? C.green : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 850 }}>
+                    <span style={{ color: hasMoney ? C.green : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>
                       {hasMoney ? totalsLabel(totals) : "Sin monto"}
                     </span>
-                    {totals.sinPrecio > 0 && <span style={{ color: WARN, fontSize: 11, fontWeight: 800 }}>{totals.sinPrecio} sin precio</span>}
+                    {totals.sinPrecio > 0 && <span style={{ color: WARN, fontSize: 11, fontWeight: 650 }}>{totals.sinPrecio} sin precio</span>}
                   </span>
                   {entry.invoice_url && (
-                    <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: C.blue, fontSize: 11, fontWeight: 800 }}>
+                    <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: C.blue, fontSize: 11, fontWeight: 650 }}>
                       Factura
                     </a>
                   )}
@@ -2586,7 +2586,7 @@ function sectionHeaderStyle() {
 }
 
 function sectionTitleStyle() {
-  return { color: C.text, fontSize: 14, fontWeight: 900 };
+  return { color: C.text, fontSize: 14, fontWeight: 700 };
 }
 
 function primaryButton(color) {
@@ -2601,7 +2601,7 @@ function primaryButton(color) {
     padding: "9px 13px",
     cursor: "pointer",
     fontSize: 13,
-    fontWeight: 850,
+    fontWeight: 700,
     fontFamily: C.sans,
   };
 }
@@ -2618,7 +2618,7 @@ function secondaryButton() {
     padding: "9px 13px",
     cursor: "pointer",
     fontSize: 13,
-    fontWeight: 800,
+    fontWeight: 650,
     fontFamily: C.sans,
   };
 }

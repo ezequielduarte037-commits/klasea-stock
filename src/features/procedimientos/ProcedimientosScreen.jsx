@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
 const GLASS = {
@@ -24,7 +24,7 @@ const LABEL = {
 
 const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "mecanica", "electricidad"];
 
-export default function ProcedimientosScreen({ profile, signOut }) {
+export default function ProcedimientosScreen({ profile }) {
   const { isMobile } = useResponsive();
   const role    = profile?.role ?? "invitado";
   const isAdmin = hasAdminAccess(profile);
@@ -158,21 +158,13 @@ export default function ProcedimientosScreen({ profile, signOut }) {
   };
 
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
           background:
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%);
         }
         .doc-card:hover { border-color: rgba(255,255,255,0.14) !important; background: var(--panel) !important; }
         @media print {
@@ -184,15 +176,14 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div className="no-print" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div className="no-print" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: C.topbar, ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
@@ -207,7 +198,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
               borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`,
               borderLeft: `2px solid ${C.primary}`,
             }}>
-              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: C.primary }}>{items.length}</span>
+              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, color: C.primary }}>{items.length}</span>
               <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>Total</span>
             </div>
 
@@ -256,10 +247,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
             )}
 
             {loading ? (
-              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 12,
-                letterSpacing: 1.3, textTransform: "uppercase", fontFamily: C.mono }}>
-                Cargando…
-              </div>
+              <Cargando />
             ) : filtrados.length === 0 ? (
               <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 13 }}>
                 Sin documentos
@@ -291,7 +279,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                         ) : (
                           <div style={{ background: "#fff", width: "calc(100% - 20px)", height: "calc(100% - 16px)",
                             borderRadius: 4, boxShadow: "0 2px 12px rgba(0,0,0,0.6)", padding: 12, overflow: "hidden", position: "relative" }}>
-                            <div style={{ fontSize: 7, fontWeight: 800, color: "#1a1a2e", marginBottom: 5, lineHeight: 1.3 }}>{p.titulo}</div>
+                            <div style={{ fontSize: 7, fontWeight: 650, color: "#1a1a2e", marginBottom: 5, lineHeight: 1.3 }}>{p.titulo}</div>
                             {p.descripcion && <div style={{ fontSize: 5.5, color: "#555", lineHeight: 1.5, marginBottom: 4 }}>{p.descripcion}</div>}
                             {pasoCount > 0 && (
                               <div style={{ fontSize: 5.5, color: "#333", lineHeight: 1.5 }}>
@@ -321,7 +309,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
                           <span style={{
-                            padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                            padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600,
                             letterSpacing: 0.8, textTransform: "uppercase",
                             background: isPdf ? "rgba(239,68,68,0.1)" : "rgba(59,130,246,0.1)",
                             color: isPdf ? C.red : C.primary,
@@ -360,7 +348,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
               <span style={{
-                padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1,
+                padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600, letterSpacing: 1,
                 background: selItem.pdf_url ? "rgba(239,68,68,0.12)" : "rgba(59,130,246,0.12)",
                 color: selItem.pdf_url ? C.red : C.primary,
                 border: selItem.pdf_url ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(59,130,246,0.2)",
@@ -458,7 +446,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
               <div>
-                <div style={{ fontSize: 15, color: C.t0, fontWeight: 700 }}>
+                <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>
                   {editTarget ? "Editar documento" : "Nuevo documento"}
                 </div>
                 <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Procedimiento operativo</div>

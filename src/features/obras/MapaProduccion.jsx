@@ -618,7 +618,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               <circle cx={p.cx} cy={p.cy} r="0" fill="none" stroke="var(--violet)" strokeWidth="1"   style={{animation:"sonarPing 2.8s ease-out 0.9s infinite"}}/>
               <g transform={`translate(${p.cx+p.w*0.28},${p.cy-p.h*0.52})`}>
                 <circle r="8" fill="rgba(167,139,250,0.92)" stroke="rgba(0,0,0,0.5)" strokeWidth="1.5"/>
-                <text textAnchor="middle" dominantBaseline="middle" y="0.5" fill="#000" fontSize="9" fontWeight="800" fontFamily="system-ui" style={{pointerEvents:"none",userSelect:"none"}}>!</text>
+                <text textAnchor="middle" dominantBaseline="middle" y="0.5" fill="#000" fontSize="9" fontWeight="650" fontFamily="system-ui" style={{pointerEvents:"none",userSelect:"none"}}>!</text>
               </g>
             </g>
           )}
@@ -713,7 +713,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                           style={{filter:`drop-shadow(0 0 4px ${obra._lineaColor})`}}/>
                       )}
                       <text x={obra._lineaColor ? 4 : 0} y={1} textAnchor="middle" dominantBaseline="middle"
-                        fill="#fff" fontSize={fs} fontFamily={C.mono} fontWeight="800" letterSpacing="0.8"
+                        fill="#fff" fontSize={fs} fontFamily={C.mono} fontWeight="650" letterSpacing="0.8"
                         style={{userSelect:"none"}}>{codigo}</text>
                       {/* Barra de progreso — debajo de la pill */}
                       <rect x={-bw/2} y={pillH/2+4} width={bw} height={bh} rx="1.5" fill="rgba(0,0,0,0.6)"/>
@@ -734,12 +734,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {/* Botón ELIMINAR — esquina sup. izquierda, contra-rotado */}
             <g transform={`rotate(${-(p.rot||0)},${ix+11},${iy+11})`} style={{cursor:"pointer"}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setConfirmDel(p.id);}}>
               <circle cx={ix+11} cy={iy+11} r="10" fill="rgba(239,68,68,0.93)" stroke="rgba(0,0,0,0.4)" strokeWidth="1"/>
-              <text x={ix+11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="12" fontFamily="system-ui" fontWeight="700" style={{userSelect:"none"}}>×</text>
+              <text x={ix+11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="12" fontFamily="system-ui" fontWeight="600" style={{userSelect:"none"}}>×</text>
             </g>
             {/* Botón ROTAR — esquina sup. derecha, contra-rotado */}
             <g transform={`rotate(${-(p.rot||0)},${ix+p.w-11},${iy+11})`} style={{cursor:"pointer"}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();toggleRot(p.id);}}>
               <circle cx={ix+p.w-11} cy={iy+11} r="10" fill="rgba(96,165,250,0.93)" stroke="rgba(0,0,0,0.4)" strokeWidth="1"/>
-              <text x={ix+p.w-11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#000" fontSize="11" fontFamily="system-ui" fontWeight="700" style={{userSelect:"none"}}>↻</text>
+              <text x={ix+p.w-11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#000" fontSize="11" fontFamily="system-ui" fontWeight="600" style={{userSelect:"none"}}>↻</text>
             </g>
           </>)}
         </g>
@@ -898,16 +898,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           borró y el zoom se mudó a la barra de arriba. */}
       {!isMobile&&!editMode&&(
         <div style={{position:"absolute",bottom:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,right:76,zIndex:10,...GLASS,borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:12,pointerEvents:"auto"}}>
-          <span style={{fontSize:10,color:C.t2,letterSpacing:1.2,fontWeight:700,whiteSpace:"nowrap"}}>HOY</span>
+          <span style={{fontSize:10,color:C.t2,letterSpacing:1.2,fontWeight:600,whiteSpace:"nowrap"}}>HOY</span>
           <input type="range" min={0} max={sim.maxDias} value={diasSim}
             onChange={e=>setDiasSim(Number(e.target.value))}
             style={{flex:1,accentColor:"#38bdf8",cursor:"pointer",height:14}}
             title="Arrastrá para ver cómo va a estar el galpón"/>
-          <span style={{fontFamily:C.mono,fontSize:11,color:diasSim>0?"#38bdf8":C.t1,fontWeight:700,whiteSpace:"nowrap",minWidth:86,textAlign:"right"}}>
+          <span style={{fontFamily:C.mono,fontSize:11,color:diasSim>0?"#38bdf8":C.t1,fontWeight:600,whiteSpace:"nowrap",minWidth:86,textAlign:"right"}}>
             {diasSim>0?`+${diasSim}d · ${fmtD(sim.simDate)}`:"Tiempo real"}
           </span>
           {diasSim>0&&(
-            <button onClick={()=>setDiasSim(0)} className="glass-btn" style={{padding:"3px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700}}>↺ Hoy</button>
+            <button onClick={()=>setDiasSim(0)} className="glass-btn" style={{padding:"3px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600}}>↺ Hoy</button>
           )}
         </div>
       )}
@@ -947,7 +947,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {[{i:"+",f:()=>zoomBtn(1.3),t:"Acercar"},{i:"−",f:()=>zoomBtn(0.77),t:"Alejar"},{i:"⌂",f:resetVp,t:"Encuadrar el galpón"}].map(({i,f,t})=>(
               <button key={i} className="glass-btn" onClick={f} title={t} style={{width:32,height:32,borderRadius:8,fontSize:i==="⌂"?15:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",paddingBottom:i==="+"?2:0}}>{i}</button>
             ))}
-            <div style={{padding:"0 6px 0 2px",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight:700,minWidth:38,textAlign:"right"}}>{Math.round(vp.scale*100)}%</div>
+            <div style={{padding:"0 6px 0 2px",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight:600,minWidth:38,textAlign:"right"}}>{Math.round(vp.scale*100)}%</div>
           </div>
         )}
         <div style={{flex:1}}/>
@@ -956,14 +956,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {LEGEND.map(({key,color,isWire})=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:10,height:10,borderRadius:isWire?2:5,background:isWire?"transparent":color,border:`1.5px solid ${color}`,boxShadow:isWire?"none":`0 0 10px ${color}80`}}/>
-                <span style={{fontSize:11,color:C.t1,fontWeight: 700,letterSpacing:0.5}}>{C.obra[key].label}</span>
+                <span style={{fontSize:11,color:C.t1,fontWeight: 600,letterSpacing:0.5}}>{C.obra[key].label}</span>
               </div>
             ))}
           </div>
           <div style={{display:"flex",gap:8}}>
             {/* Vista Pampa */}
             <button className="glass-btn" onClick={()=>setActiveView(v=>v==="pampa"?"mapa":"pampa")}
-              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:6,
+              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 600,display:"flex",alignItems:"center",gap:6,
                 background:activeView==="pampa"?"rgba(103,232,249,0.14)":"",
                 borderColor:activeView==="pampa"?"rgba(103,232,249,0.5)":""}}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={activeView==="pampa"?"#67e8f9":"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -977,31 +977,31 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {!isMobile&&(
               <button className="glass-btn" onClick={()=>setVista3d(v=>!v)}
                 title={vista3d?"Cambiar al plano técnico 2D (edición de layout)":"Volver a la maqueta 3D"}
-                style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight:700,display:"flex",alignItems:"center",gap:6,
+                style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,
                   background:vista3d?"rgba(56,189,248,0.14)":"",borderColor:vista3d?"rgba(56,189,248,0.5)":""}}>
                 <span style={{color:vista3d?"#38bdf8":""}}>{vista3d?"▦ Plano 2D":"◆ Maqueta 3D"}</span>
               </button>
             )}
-            <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(96,165,250,0.15)":"",borderColor:editMode?"rgba(96,165,250,0.4)":""}}>
+            <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 600,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(96,165,250,0.15)":"",borderColor:editMode?"rgba(96,165,250,0.4)":""}}>
               <span style={{color:editMode?"#60a5fa":""}}>{editMode?"● Editando Layout":"◩ Editar Layout"}</span>
             </button>
-            <button className="glass-btn" onClick={()=>setCmdPaletteOpen(true)} style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:8}}>
+            <button className="glass-btn" onClick={()=>setCmdPaletteOpen(true)} style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 600,display:"flex",alignItems:"center",gap:8}}>
               <span>⌘</span>
               <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"var(--panel)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
                 {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"utility",l:"43'"},{key:"grande",l:"52'"},{key:"crucero",l:"55'"},{key:"xl",l:"64'"},{key:"k85",l:"85'"}].map(({key,l})=>(
-                  <button key={key} onClick={()=>setNewPuestoSize(key)} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:C.mono,fontWeight: 700,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
+                  <button key={key} onClick={()=>setNewPuestoSize(key)} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:C.mono,fontWeight: 600,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
+                <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={normalizarTamanos} title="Pone todos los barcos del mismo tipo al mismo tamaño" style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:"1px solid rgba(99,102,241,0.35)",background:"rgba(99,102,241,0.1)",color:"#a5b4fc"}}>⇲ Igualar tamaños</button>
+                <button onClick={normalizarTamanos} title="Pone todos los barcos del mismo tipo al mismo tamaño" style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600,border:"1px solid rgba(99,102,241,0.35)",background:"rgba(99,102,241,0.1)",color:"#a5b4fc"}}>⇲ Igualar tamaños</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight: 700,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
+                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight: 600,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={handleSaveLayoutClick} style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
+                <button onClick={handleSaveLayoutClick} style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
                   {layoutSaved ? <>✓ Guardado</> : <>💾 Guardar para todos</>}
                 </button>
               </div>
@@ -1034,18 +1034,18 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:hasFicha?10:12}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:10,height:10,borderRadius:5,background:oC.glow,boxShadow:obra?`0 0 12px ${oC.glow}`:"none"}}/>
-                <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:700}}>{obra?obra.codigo:`Puesto ${tooltip.puesto.label}`}</span>
+                <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:600}}>{obra?obra.codigo:`Puesto ${tooltip.puesto.label}`}</span>
                 {obra?.tipo_cabina&&<span style={{fontSize:10,letterSpacing:1,color:"rgba(255,255,255,0.3)",background:"var(--panel-2)",padding:"1px 5px",borderRadius:3}}>{obra.tipo_cabina}</span>}
               </div>
-              <span style={{fontSize:10,letterSpacing:1.1,textTransform:"uppercase",color:oC.glow,fontWeight: 700,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
+              <span style={{fontSize:10,letterSpacing:1.1,textTransform:"uppercase",color:oC.glow,fontWeight: 600,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
             </div>
 
             {/* Propietario / Constructor */}
             {obra?.propietario&&(
-              <div style={{fontSize:12,color:C.t0,marginBottom:8,fontWeight: 700,display:"flex",alignItems:"center",gap:5}}>
+              <div style={{fontSize:12,color:C.t0,marginBottom:8,fontWeight: 600,display:"flex",alignItems:"center",gap:5}}>
                 <span style={{display:"flex",alignItems:"center",color:C.t2,flexShrink:0}}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
                 <span>{obra.propietario}</span>
-                {obra.constructor&&<span style={{color:C.t2,fontWeight: 700,fontSize:11}}>· {obra.constructor}</span>}
+                {obra.constructor&&<span style={{color:C.t2,fontWeight: 600,fontSize:11}}>· {obra.constructor}</span>}
               </div>
             )}
             {obra?.descripcion&&!obra?.propietario&&<div style={{fontSize:13,color:C.t1,marginBottom:10,lineHeight:1.5}}>{obra.descripcion}</div>}
@@ -1070,7 +1070,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {obra?(
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontFamily:C.mono,color:C.t1}}>
-                  <span>Progreso</span><span style={{color:oC.glow,fontWeight:700}}>{obra._pct??0}%</span>
+                  <span>Progreso</span><span style={{color:oC.glow,fontWeight:600}}>{obra._pct??0}%</span>
                 </div>
                 <div style={{width:"100%",height:4,background:"var(--panel-2)",borderRadius:2,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 10px ${oC.glow}`}}/>
@@ -1087,8 +1087,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         const {obra}=dragRef.current,oC=C.obra[obra.estado]??C.obra.vacio;
         const rect=rootRef.current?.getBoundingClientRect();if(!rect)return null;
         return(<div style={{position:"absolute",left:obraDragPos.x-rect.left-80,top:obraDragPos.y-rect.top-30,zIndex:50,pointerEvents:"none",...GLASS,borderColor:oC.glow,borderRadius:12,padding:"12px 20px",boxShadow:`0 16px 32px rgba(0,0,0,0.6),0 0 0 1px ${oC.glow} inset,0 0 20px ${oC.glow}40`}}>
-          <div style={{fontSize:10,color:oC.glow,letterSpacing:1.3,textTransform:"uppercase",marginBottom:4,fontWeight: 700}}>Reubicando</div>
-          <div style={{fontFamily:C.mono,fontSize:16,color:C.t0,fontWeight:800}}>{obra.codigo}</div>
+          <div style={{fontSize:10,color:oC.glow,letterSpacing:1.3,textTransform:"uppercase",marginBottom:4,fontWeight: 600}}>Reubicando</div>
+          <div style={{fontFamily:C.mono,fontSize:16,color:C.t0,fontWeight:650}}>{obra.codigo}</div>
           <div style={{fontSize:12,color:C.t1,marginTop:6}}>{obraDragOver?"↓ Soltar para asignar":"Buscando puesto libre..."}</div>
         </div>);
       })()}
@@ -1096,11 +1096,11 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {/* STATUS BAR — a la derecha del rail: no pisa el plano ni el zoom */}
       <div style={{position:"absolute",bottom:(!isMobile&&!editMode)?72:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,zIndex:5,pointerEvents:"none",userSelect:"none",maxWidth:"62%"}}>
         {focusedPuesto?(
-          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:12,color:"#60a5fa",letterSpacing:1.2,fontWeight: 700,backdropFilter:"blur(8px)"}}>
+          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:12,color:"#60a5fa",letterSpacing:1.2,fontWeight: 600,backdropFilter:"blur(8px)"}}>
             ◎ MODO FOCO — Click en área oscura o <span style={{fontFamily:C.mono,background:"rgba(96,165,250,0.15)",padding:"1px 6px",borderRadius:4}}>Esc</span> para salir
           </div>
         ):editMode?(
-          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.4)",fontSize:12,color:"#60a5fa",letterSpacing:1.1,fontWeight: 700,backdropFilter:"blur(8px)"}}>
+          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.4)",fontSize:12,color:"#60a5fa",letterSpacing:1.1,fontWeight: 600,backdropFilter:"blur(8px)"}}>
             ✏️ MODO EDICIÓN — <span style={{fontFamily:C.mono,background:"rgba(96,165,250,0.15)",padding:"1px 5px",borderRadius:4}}>E</span> para salir
           </div>
         ):(
@@ -1145,7 +1145,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               <div style={{padding:"6px 10px 8px",borderBottom:"1px solid var(--panel-2)",marginBottom:2}}>
                 <div style={{display:"flex",alignItems:"center",gap:7}}>
                   <div style={{width:7,height:7,borderRadius:"50%",background:oC2.glow,boxShadow:`0 0 8px ${oC2.glow}`}}/>
-                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:800,color:"var(--text)",letterSpacing:0.3}}>{o2.codigo}</span>
+                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:650,color:"var(--text)",letterSpacing:0.3}}>{o2.codigo}</span>
                 </div>
                 {o2.propietario&&<div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:2,paddingLeft:14}}>{o2.propietario}</div>}
               </div>

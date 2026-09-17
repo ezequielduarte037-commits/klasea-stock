@@ -260,10 +260,10 @@ export default function ReciboModal({
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Recibo de caja chica</span>
-              <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11, fontWeight: 800 }}>{numero}</span>
+              <span style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Recibo de caja chica</span>
+              <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11, fontWeight: 650 }}>{numero}</span>
             </div>
-            <div style={{ color: initial.estado === "borrador" ? C.blue : C.dim, fontSize: 11.5, marginTop: 2, fontWeight: initial.estado === "borrador" ? 800 : 600 }}>
+            <div style={{ color: initial.estado === "borrador" ? C.blue : C.dim, fontSize: 11.5, marginTop: 2, fontWeight: initial.estado === "borrador" ? 650 : 600 }}>
               {initial.estado === "borrador"
                 ? "Borrador: el gasto ya está en la caja. Se confirma al imprimirlo."
                 : "Sale impreso con todo completo. A mano quedan sólo la firma y la aclaración."}
@@ -315,7 +315,7 @@ export default function ReciboModal({
                 onChange={(e) => patch({ importe: e.target.value })}
                 placeholder="0"
                 inputMode="decimal"
-                style={{ ...inputStyle(), textAlign: "right", fontFamily: C.mono, fontWeight: 850 }}
+                style={{ ...inputStyle(), textAlign: "right", fontFamily: C.mono, fontWeight: 700 }}
               />
             </Field>
             <Field label="Centro de costo">
@@ -331,7 +331,7 @@ export default function ReciboModal({
               rows={4}
               style={{ ...inputStyle(), resize: "vertical", lineHeight: 1.5 }}
             />
-            <span style={{ color: conceptoLineas > 4 ? C.red : C.dim, fontSize: 11, fontWeight: 700 }}>
+            <span style={{ color: conceptoLineas > 4 ? C.red : C.dim, fontSize: 11, fontWeight: 600 }}>
               {conceptoLineas > 4
                 ? `Son ${conceptoLineas} renglones y en el recibo entran 4: juntá alguno.`
                 : "Cada renglón sale como un renglón del recibo (entran 4)."}
@@ -341,16 +341,16 @@ export default function ReciboModal({
           {/* El importe en letras es lo que hace que el papel no se pueda
               retocar después. Se muestra antes de imprimir para poder leerlo. */}
           <div style={{ border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 11, padding: "11px 13px", display: "grid", gap: 4 }}>
-            <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Así sale en el recibo</div>
-            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 800, lineHeight: 1.35 }}>{enLetras}</div>
-            <div style={{ color: importe > 0 ? C.text : C.dim, fontFamily: C.mono, fontSize: 21, fontWeight: 950 }}>
+            <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Así sale en el recibo</div>
+            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 650, lineHeight: 1.35 }}>{enLetras}</div>
+            <div style={{ color: importe > 0 ? C.text : C.dim, fontFamily: C.mono, fontSize: 21, fontWeight: 750 }}>
               Son {fmtMoney(importe, form.moneda)}
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Copias</span>
+              <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Copias</span>
               {[2, 1].map((n) => (
                 <button
                   key={n}
@@ -364,7 +364,7 @@ export default function ReciboModal({
                     padding: "5px 12px",
                     cursor: "pointer",
                     fontSize: 12,
-                    fontWeight: 850,
+                    fontWeight: 700,
                     fontFamily: C.sans,
                   }}
                 >
@@ -384,7 +384,7 @@ export default function ReciboModal({
                   style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--blue)" }}
                 />
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850 }}>
+                  <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 700 }}>
                     Registrar el egreso en caja chica
                   </span>
                   <span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 2, lineHeight: 1.35 }}>
@@ -396,7 +396,7 @@ export default function ReciboModal({
               {registrar && (
                 cajas.length ? (
                   <label style={{ display: "grid", gap: 5 }}>
-                    <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850 }}>Caja</span>
+                    <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Caja</span>
                     <select value={cajaId} onChange={(e) => setCajaId(e.target.value)} style={inputStyle()}>
                       {cajas.map((caja) => (
                         <option key={caja.id} value={caja.id}>{caja.nombre}</option>
@@ -411,7 +411,7 @@ export default function ReciboModal({
               )}
 
               {asentado && (
-                <div style={{ color: C.green, fontSize: 11.5, fontWeight: 800 }}>
+                <div style={{ color: C.green, fontSize: 11.5, fontWeight: 650 }}>
                   Ya quedó asentado en la caja. Imprimir de nuevo no lo duplica.
                 </div>
               )}
@@ -420,7 +420,7 @@ export default function ReciboModal({
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 9, padding: "12px 16px", borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-          <span style={{ color: faltante ? C.red : C.dim, fontSize: 11.5, fontWeight: faltante ? 800 : 600 }}>
+          <span style={{ color: faltante ? C.red : C.dim, fontSize: 11.5, fontWeight: faltante ? 650 : 600 }}>
             {faltante || "Listo para imprimir."}
           </span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -462,7 +462,7 @@ export default function ReciboModal({
 function Field({ label, children }) {
   return (
     <label style={{ display: "grid", gap: 5 }}>
-      <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850 }}>{label}</span>
+      <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>{label}</span>
       {children}
     </label>
   );
@@ -478,7 +478,7 @@ function inputStyle() {
     borderRadius: 8,
     padding: "9px 10px",
     fontSize: 13,
-    fontWeight: 650,
+    fontWeight: 600,
     outline: "none",
     fontFamily: C.sans,
   };
@@ -495,7 +495,7 @@ function primaryBtn(disabled = false) {
     borderRadius: 9,
     padding: "9px 14px",
     fontSize: 13,
-    fontWeight: 850,
+    fontWeight: 700,
     cursor: disabled ? "not-allowed" : "pointer",
     fontFamily: C.sans,
   };
@@ -512,7 +512,7 @@ function ghostBtn(disabled = false) {
     borderRadius: 9,
     padding: "9px 13px",
     fontSize: 13,
-    fontWeight: 800,
+    fontWeight: 650,
     cursor: disabled ? "not-allowed" : "pointer",
     fontFamily: C.sans,
   };

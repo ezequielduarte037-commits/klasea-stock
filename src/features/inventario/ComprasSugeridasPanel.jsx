@@ -73,7 +73,7 @@ const S = {
     padding: "2px 8px",
     borderRadius: 5,
     fontSize: 11,
-    fontWeight: 700,
+    fontWeight: 600,
     background: color + "22",
     color: color,
     border: `1px solid ${color}44`,
@@ -86,7 +86,7 @@ const S = {
     padding: "4px 10px",
     borderRadius: 6,
     cursor: "pointer",
-    fontWeight: 700,
+    fontWeight: 600,
     fontSize: 12,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
@@ -98,7 +98,7 @@ const S = {
     padding: "5px 14px",
     borderRadius: 7,
     cursor: "pointer",
-    fontWeight: active ? 700 : 400,
+    fontWeight: active ? 600 : 400,
     fontSize: 13,
     fontFamily: C.sans,
     transition: "all .15s",
@@ -132,13 +132,13 @@ function urgenciaRotacion(semanasDeStock, buffer, sinHistorial) {
   if (semanasDeStock === 0)           return { label: "Sin stock",  color: C.red };
   if (semanasDeStock < 1)             return { label: "Crítico",    color: C.red };
   if (semanasDeStock < buffer * 0.5)  return { label: "Urgente",    color: C.orange };
-  if (semanasDeStock < buffer)        return { label: "Atención",   color: C.amber };
+  if (semanasDeStock < buffer)        return { label: "Atención",   color: C.cyan };
   return                                     { label: "OK",         color: C.green };
 }
 
 function SemanasBar({ semanas, buffer }) {
   const pct   = Math.min(1, semanas / (buffer * 1.5));
-  const color = semanas < 1 ? C.red : semanas < buffer * 0.5 ? C.orange : semanas < buffer ? C.amber : C.green;
+  const color = semanas < 1 ? C.red : semanas < buffer * 0.5 ? C.orange : semanas < buffer ? C.cyan : C.green;
   return (
     <div style={{ width: 80 }}>
       <div style={S.progressBar}>
@@ -162,7 +162,7 @@ function FilaSugerida({ row, onCrearPedido }) {
   useEffect(() => { setEditCant(String(row.aComprar)); }, [row.aComprar]);
 
   const urgencia = row.aComprar > row.faltaUsarTotal * 0.7 ? "alta" : row.aComprar > 0 ? "media" : "ok";
-  const urgColor = urgencia === "alta" ? C.red : urgencia === "media" ? C.amber : C.green;
+  const urgColor = urgencia === "alta" ? C.red : urgencia === "media" ? C.cyan : C.green;
 
   return (
     <>
@@ -172,7 +172,7 @@ function FilaSugerida({ row, onCrearPedido }) {
           <div style={{ fontWeight: 600, color: C.t0 }}>{row.mat.nombre}</div>
           <div style={{ fontSize: 11, color: C.t2 }}>{row.mat.unidad ?? "unidad"}</div>
         </td>
-        <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 700, color: urgColor, fontSize: 15 }}>
+        <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 600, color: urgColor, fontSize: 15 }}>
           {row.aComprar}
         </td>
         <td style={{ ...S.td, fontFamily: C.mono, color: row.stockActual < 5 ? C.red : C.t1 }}>
@@ -198,11 +198,11 @@ function FilaSugerida({ row, onCrearPedido }) {
                 const pct = d.necesario > 0 ? d.egresado / d.necesario : 0;
                 return (
                   <div key={d.obra} style={{ border: `1px solid ${C.b0}`, borderRadius: 9, padding: "10px 12px", background: "rgba(255,255,255,0.02)" }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: C.t0, marginBottom: 4 }}>{d.obra}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: C.t0, marginBottom: 4 }}>{d.obra}</div>
                     <div style={{ fontSize: 12, color: C.t2 }}>
                       Necesario: <span style={{ color: C.t1, fontFamily: C.mono }}>{d.necesario}</span>
                       {" · "}Egresado: <span style={{ color: C.t1, fontFamily: C.mono }}>{d.egresado}</span>
-                      {" · "}Falta: <span style={{ color: C.amber, fontFamily: C.mono }}>{d.faltaUsar}</span>
+                      {" · "}Falta: <span style={{ color: C.cyan, fontFamily: C.mono }}>{d.faltaUsar}</span>
                     </div>
                     <div style={S.progressBar}>
                       <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${Math.min(100, pct * 100)}%`, background: pct >= 1 ? C.green : C.blue, borderRadius: 99, transition: "width .4s" }} />
@@ -256,7 +256,7 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
           <div style={{ fontWeight: 600, color: C.t0 }}>{row.mat.nombre}</div>
           <div style={{ fontSize: 11, color: C.t2 }}>{row.mat.unidad ?? "unidad"}</div>
         </td>
-        <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 700, color, fontSize: 15 }}>
+        <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 600, color, fontSize: 15 }}>
           {row.sinHistorial ? <span style={{ fontSize: 12, color: C.t2 }}>—</span> : row.aComprar}
         </td>
         <td style={{ ...S.td, fontFamily: C.mono, color: row.stockActual <= 0 ? C.red : row.stockActual < 5 ? C.orange : C.t1 }}>
@@ -291,7 +291,7 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
                 {row.porSemana.slice(0, 12).map(s => (
                   <div key={s.semana} style={{ border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 10px", background: "rgba(255,255,255,0.02)", minWidth: 80 }}>
                     <div style={{ fontSize: 11, color: C.t2, marginBottom: 3 }}>{s.semanaLabel}</div>
-                    <div style={{ fontFamily: C.mono, fontSize: 14, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: s.cantidad > 0 ? 700 : 400 }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 14, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: s.cantidad > 0 ? 600 : 400 }}>
                       {s.cantidad > 0 ? `−${s.cantidad}` : "—"}
                     </div>
                   </div>
@@ -305,7 +305,7 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
               <span><span style={{ color: C.t1 }}>Stock actual:</span> <span style={{ fontFamily: C.mono, color: row.stockActual <= 0 ? C.red : C.t0 }}>{row.stockActual}</span></span>
               <span><span style={{ color: C.t1 }}>Buffer:</span> <span style={{ fontFamily: C.mono, color: C.blue }}>{buffer} sem</span></span>
               <span><span style={{ color: C.t1 }}>Objetivo:</span> <span style={{ fontFamily: C.mono, color: C.t0 }}>{Math.ceil(row.egresoSemanal * buffer)}</span></span>
-              <span><span style={{ color: C.t1 }}>Sugerido comprar:</span> <span style={{ fontFamily: C.mono, color, fontWeight: 700 }}>{row.aComprar}</span></span>
+              <span><span style={{ color: C.t1 }}>Sugerido comprar:</span> <span style={{ fontFamily: C.mono, color, fontWeight: 600 }}>{row.aComprar}</span></span>
             </div>
 
             {/* Crear pedido */}
@@ -459,10 +459,10 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
       {/* ── Header ── */}
       <div style={S.header} onClick={() => setOpen(o => !o)}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: totalUrgentes > 0 ? C.amber : C.green, boxShadow: `0 0 8px ${totalUrgentes > 0 ? C.amber : C.green}` }} />
-          <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>Compras Sugeridas</span>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: totalUrgentes > 0 ? C.cyan : C.green, boxShadow: `0 0 8px ${totalUrgentes > 0 ? C.cyan : C.green}` }} />
+          <span style={{ fontWeight: 600, fontSize: 14, color: C.t0, fontFamily: C.sans }}>Compras Sugeridas</span>
           {totalUrgentes > 0 && (
-            <span style={{ background: C.amber + "22", color: C.amber, border: `1px solid ${C.amber}44`, borderRadius: 999, padding: "1px 8px", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+            <span style={{ background: C.cyan + "22", color: C.cyan, border: `1px solid ${C.cyan}44`, borderRadius: 999, padding: "1px 8px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
               {totalUrgentes} material{totalUrgentes !== 1 ? "es" : ""}
             </span>
           )}
@@ -533,7 +533,7 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
                   <thead>
                     <tr>
                       <th style={S.th}>Material</th>
-                      <th style={{ ...S.th, color: C.amber }}>A comprar</th>
+                      <th style={{ ...S.th, color: C.cyan }}>A comprar</th>
                       <th style={S.th}>Stock actual</th>
                       <th style={S.th}>Consumo / sem</th>
                       <th style={S.th}>Cobertura</th>
@@ -555,7 +555,7 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
                   <thead>
                     <tr>
                       <th style={S.th}>Material</th>
-                      <th style={{ ...S.th, color: C.amber }}>A comprar</th>
+                      <th style={{ ...S.th, color: C.cyan }}>A comprar</th>
                       <th style={S.th}>Stock actual</th>
                       <th style={S.th}>Demanda activa</th>
                       <th style={S.th}>Urgencia</th>

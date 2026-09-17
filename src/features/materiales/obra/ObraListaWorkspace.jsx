@@ -122,7 +122,7 @@ export function ObraColumnFilter({ label, options, selected, onChange, align = "
       color: C.text,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "3px 6px 6px" }}>
-        <span style={{ fontSize: 11, fontWeight: 650, color: C.muted }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>{label}</span>
         <button type="button" onClick={() => onChange(new Set())} disabled={!activo} style={{ ...button, minHeight: 24, padding: "2px 7px", fontSize: 11, border: "none", background: "transparent", color: activo ? C.blue : C.muted }}>Todos</button>
       </div>
       <div className="obra-scroll" style={{ maxHeight: 260, overflowY: "auto" }}>
@@ -148,7 +148,7 @@ export function ObraColumnFilter({ label, options, selected, onChange, align = "
   return <>
     <button ref={botonRef} type="button" onClick={abrir} aria-haspopup="dialog" aria-expanded={open}
       title={activo ? `${label}: ${[...selected].join(", ")}` : `Filtrar por ${label}`}
-      style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "100%", border: "none", background: "transparent", padding: "0 8px", minHeight: 32, color: activo ? C.blue : "inherit", font: "inherit", fontWeight: 650, cursor: "pointer" }}>
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "100%", border: "none", background: "transparent", padding: "0 8px", minHeight: 32, color: activo ? C.blue : "inherit", font: "inherit", fontWeight: 600, cursor: "pointer" }}>
       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       <Filter size={11} style={{ flexShrink: 0, opacity: activo ? 1 : 0.45 }} />
       {activo && <span style={{ ...numberStyle, fontSize: 10, color: C.blue }}>{selected.size}</span>}
@@ -158,7 +158,7 @@ export function ObraColumnFilter({ label, options, selected, onChange, align = "
 }
 
 export function ObraStatusBadge({ status }) {
-  return <span title={status.title || status.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: status.color, background: status.bg, border: `1px solid ${status.border}`, borderRadius: 5, fontSize: 11, fontWeight: 650, lineHeight: 1.2, padding: "3px 6px", whiteSpace: "nowrap" }}>{status.label}</span>;
+  return <span title={status.title || status.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: status.color, background: status.bg, border: `1px solid ${status.border}`, borderRadius: 5, fontSize: 11, fontWeight: 600, lineHeight: 1.2, padding: "3px 6px", whiteSpace: "nowrap" }}>{status.label}</span>;
 }
 
 function SelectionBox({ rows, selected, onToggle, label }) {
@@ -233,7 +233,7 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
   const columns = phone ? "44px minmax(0,1fr) 98px 44px" : narrow ? "44px minmax(0,1fr) 80px 98px 44px" : compact ? "34px minmax(180px,1fr) 86px 78px 78px 100px 32px" : "34px minmax(190px,1fr) 125px 86px 78px 78px 94px 100px 32px";
   const cell = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", padding: "0 8px" };
   const index = <nav aria-label="Filtrar la obra por rubro o proveedor" className="obra-scroll" style={{ padding: "8px 6px", overflowY: "auto", minHeight: 0, maxHeight: narrow ? 280 : undefined, borderRight: narrow ? "none" : `1px solid ${C.border}`, background: C.panel }}>
-    <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: "100%", marginBottom: 8, fontWeight: 650, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>
+    <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: "100%", marginBottom: 8, fontWeight: 600, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>
     {(indexMode === "rubro" ? proveedor : rubro) && <button type="button" onClick={() => indexMode === "rubro" ? onProveedor("") : onRubro("")} style={{ ...button, width: "100%", marginBottom: 6, color: C.blue, fontSize: 10 }} title="Quitar el otro filtro"><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{indexMode === "rubro" ? proveedor : rubro}</span><X size={12} /></button>}
     {[["", indexTotal], ...indexEntries].map(([name, count]) => <button key={name} className="obra-index-item" type="button" aria-pressed={indexValue === name} onClick={() => { onIndexChange(name); setIndexOpen(false); }} style={{ ...button, display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", width: "100%", borderColor: "transparent", background: indexValue === name ? C.blueL : "transparent", color: indexValue === name ? C.blue : C.text, padding: "8px", marginBottom: 2 }}>
       <span title={name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name || "Todos los ítems"}</span><span style={{ ...numberStyle, fontSize: 11, color: indexValue === name ? C.blue : C.muted }}>{count.toLocaleString("es-AR")}</span>
@@ -247,7 +247,7 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         <div ref={scrollRef} className="obra-scroll" style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
           <div key={`${filterKey}:${pagination.page}`} className="obra-page-content" role="table" aria-label="Materiales de la obra" aria-rowcount={pagination.total} style={{ minWidth: narrow ? 0 : 620, fontSize: 12 }}>
-            <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: 38, position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 650 }}>
+            <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: 38, position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 600 }}>
               <div role="columnheader"><SelectionBox rows={pageRows} selected={selected} onToggle={() => selectRows(pageRows)} label={`Seleccionar página (${pageRows.length} ítems)`} /></div>
               <div role="columnheader" style={cell}>Material</div>
               {!narrow && !compact && <div role="columnheader" style={cell}>Proveedor</div>}
@@ -262,7 +262,7 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
               <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 34, background: C.panel, borderBottom: `1px solid ${C.border}` }}>
                 <SelectionBox rows={group.allRows} selected={selected} onToggle={() => selectRows(group.allRows)} label={`Seleccionar grupo ${group.label} (${group.allRows.length} ítems filtrados)`} />
                 <button type="button" aria-expanded={!closedGroups.has(group.label)} onClick={() => toggleGroup(group.label)} style={{ ...button, border: "none", background: "transparent", flex: 1, justifyContent: "flex-start", minWidth: 0 }}>
-                  {closedGroups.has(group.label) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}<strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 650 }}>{group.label}</strong><span style={muted}>· {group.allRows.length}</span>
+                  {closedGroups.has(group.label) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}<strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{group.label}</strong><span style={muted}>· {group.allRows.length}</span>
                 </button>
               </div>
               {!closedGroups.has(group.label) && group.rows.map((row) => {
@@ -326,7 +326,7 @@ export function ObraItemDrawer({ row, view, obraLabel, tab, onTab, onClose, onPr
   return createPortal(<aside ref={panelRef} role="dialog" aria-modal={isMobile || undefined} aria-labelledby="obra-detail-title" className="obra-workspace obra-drawer" style={{ ...obraThemeScope, position: "fixed", top: isMobile ? 0 : 56, right: 0, bottom: 0, width: isMobile ? "100%" : editing ? "min(820px, 82vw)" : "min(600px, 58vw)", boxSizing: "border-box", zIndex: 4000, background: C.panelSolid, borderLeft: `1px solid ${C.border}`, boxShadow: "-12px 0 40px color-mix(in srgb, var(--text) 8%, transparent)", display: "flex", flexDirection: "column", color: C.text, fontFamily: C.sans }}>
     <div style={{ padding: "10px 18px 0", flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><span style={{ ...muted, fontSize: 10, letterSpacing: 1 }}>DETALLE DEL ÍTEM</span><div style={{ display: "flex", gap: 5 }}><button type="button" disabled={!onPrevious} onClick={onPrevious} aria-label="Ítem anterior" style={button}><ChevronLeft size={14} /></button><button type="button" disabled={!onNext} onClick={onNext} aria-label="Ítem siguiente" style={button}><ChevronRight size={14} /></button><button ref={closeRef} type="button" onClick={onClose} aria-label="Cerrar detalle" style={button}><X size={16} /></button></div></div>
-      <h2 id="obra-detail-title" style={{ margin: "0 0 8px", fontSize: 19, lineHeight: 1.3, fontWeight: 650, overflowWrap: "anywhere" }}>{row.descripcion}</h2>
+      <h2 id="obra-detail-title" style={{ margin: "0 0 8px", fontSize: 19, lineHeight: 1.3, fontWeight: 600, overflowWrap: "anywhere" }}>{row.descripcion}</h2>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><ObraStatusBadge status={view.status} /><span style={muted}>{obraLabel}</span></div>
       <div role="tablist" aria-label="Detalle del material" style={{ display: "flex", gap: 20 }}>{[["resumen", "Resumen"], ["compras", "Compras"], ["mas", "Más"]].map(([key, label], index, tabs) => <button id={`obra-tab-${key}`} aria-controls={`obra-tabpanel-${key}`} key={key} type="button" role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onClick={() => onTab(key)} onKeyDown={(event) => { if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length][0]; onTab(next); document.getElementById(`obra-tab-${next}`)?.focus(); }} style={{ ...button, border: "none", borderBottom: `2px solid ${tab === key ? C.blue : "transparent"}`, borderRadius: 0, padding: "10px 0", background: "transparent", color: tab === key ? C.blue : C.muted }}>{label}</button>)}</div>
     </div>

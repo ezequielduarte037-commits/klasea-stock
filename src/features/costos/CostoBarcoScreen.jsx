@@ -17,7 +17,6 @@ import {
   X,
 } from "lucide-react";
 import { C } from "@/theme";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -99,7 +98,7 @@ function Chip({ children, color = C.dim, soft = C.panel2, border = C.border, tit
     <span title={title} style={{
       display: "inline-flex", alignItems: "center", gap: 5,
       border: `1px solid ${border}`, background: soft, color,
-      borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, whiteSpace: "nowrap",
+      borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
     }}>
       {children}
     </span>
@@ -119,7 +118,7 @@ function CampoPrecio({ fila, grupo, cargado, ocupado, onGuardar }) {
 
   if (cargado) {
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 6, color: C.green, fontSize: 12, fontWeight: 850 }}>
+      <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 6, color: C.green, fontSize: 12, fontWeight: 700 }}>
         <Check size={13} /> {fmt(cargado.precio, cargado.moneda)}
       </div>
     );
@@ -153,7 +152,7 @@ function CampoPrecio({ fila, grupo, cargado, ocupado, onGuardar }) {
           background: moneda === "USD" ? C.blueL : C.panel,
           color: moneda === "USD" ? C.blue : C.dim,
           borderRadius: 7, padding: "6px 7px", cursor: "pointer",
-          fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, minWidth: 38,
+          fontFamily: C.mono, fontSize: 10.5, fontWeight: 700, minWidth: 38,
         }}
       >
         {moneda === "USD" ? "US$" : "$"}
@@ -197,7 +196,7 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
           }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span title={fila.material.descripcion} style={{ fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span title={fila.material.descripcion} style={{ fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {fila.material.descripcion}
                 </span>
                 {fila.estado !== "firme" ? (
@@ -205,7 +204,7 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
                 ) : null}
               </div>
               {fila.origen || fila.material.codigo ? (
-                <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 600, marginTop: 2 }}>
                   {[fila.material.codigo, fila.origen].filter(Boolean).join(" · ")}
                 </div>
               ) : null}
@@ -219,7 +218,7 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
               // en el total de arriba: es lo que valdría al aplicar el remito.
               // En negro, al lado de los que sí suman, se leería como plata ya
               // contada.
-              <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: fila.estado === "falta" ? C.dim : fila.estado === "recuperable" ? C.violet : C.text }}>
+              <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, color: fila.estado === "falta" ? C.dim : fila.estado === "recuperable" ? C.violet : C.text }}>
                 {fila.estado === "falta" ? "—" : fmt(fila.costo, fila.moneda)}
               </div>
             ) : null}
@@ -227,7 +226,7 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
               // Sólo para los que suman: el porcentaje se mide contra el costo
               // confirmado del rubro, y un recuperable no está adentro de ese
               // número. Mostrarlo daría un 340% sin sentido.
-              <div style={{ textAlign: "right", color: C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 800 }}>
+              <div style={{ textAlign: "right", color: C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 650 }}>
                 {fila.estado !== "firme" && fila.estado !== "viejo" ? "" : parte > 0.005 ? pct(parte) : ""}
               </div>
             ) : null}
@@ -238,7 +237,7 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
         <button type="button" onClick={onIrAFaltantes} style={{
           width: "100%", border: "none", borderTop: `1px solid ${C.border}`, background: "transparent",
           color: C.red, padding: "9px 14px 9px 26px", textAlign: "left", cursor: "pointer",
-          fontFamily: C.sans, fontSize: 11.5, fontWeight: 900,
+          fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
         }}>
           Cotizar los {rubro.falta + rubro.recuperable} de {rubro.nombre} →
         </button>
@@ -264,9 +263,9 @@ function ModalNuevoProveedor({ nombreInicial = "", onCerrar, onCreado }) {
   const campo = {
     width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`,
     background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 11px",
-    fontFamily: C.sans, fontSize: 13, fontWeight: 700, outline: "none",
+    fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
   };
-  const etiqueta = { fontSize: 10, fontWeight: 900, color: C.dim, textTransform: "uppercase", letterSpacing: .9, marginBottom: 5 };
+  const etiqueta = { fontSize: 10, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: .9, marginBottom: 5 };
 
   async function crear() {
     const limpio = nombre.trim();
@@ -288,7 +287,7 @@ function ModalNuevoProveedor({ nombreInicial = "", onCerrar, onCreado }) {
       <div onClick={(evento) => evento.stopPropagation()} style={{ width: "min(400px, 100%)", background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 18px 50px var(--shadow)", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
           <Building2 size={16} color={C.blue} />
-          <div style={{ flex: 1, fontSize: 14, fontWeight: 950, color: C.text }}>Proveedor nuevo</div>
+          <div style={{ flex: 1, fontSize: 14, fontWeight: 750, color: C.text }}>Proveedor nuevo</div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
             <X size={16} />
           </button>
@@ -307,23 +306,23 @@ function ModalNuevoProveedor({ nombreInicial = "", onCerrar, onCreado }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
-              <div style={etiqueta}>Mail <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional)</span></div>
+              <div style={etiqueta}>Mail <span style={{ textTransform: "none", fontWeight: 600 }}>(opcional)</span></div>
               <input value={email} onChange={(evento) => setEmail(evento.target.value)} placeholder="ventas@…" style={campo} />
             </div>
             <div>
-              <div style={etiqueta}>Teléfono <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional)</span></div>
+              <div style={etiqueta}>Teléfono <span style={{ textTransform: "none", fontWeight: 600 }}>(opcional)</span></div>
               <input value={telefono} onChange={(evento) => setTelefono(evento.target.value)} placeholder="11 …" style={campo} />
             </div>
           </div>
-          <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, lineHeight: 1.5 }}>
+          <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, lineHeight: 1.5 }}>
             El mail y el teléfono son para mandarle el pedido de precios. El resto de la ficha se completa en Materiales.
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 15px", borderTop: `1px solid ${C.border}`, background: C.panel2 }}>
-          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
             Cancelar
           </button>
-          <button type="button" onClick={crear} disabled={guardando || !nombre.trim()} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: guardando || !nombre.trim() ? "default" : "pointer", opacity: nombre.trim() ? 1 : .5, fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <button type="button" onClick={crear} disabled={guardando || !nombre.trim()} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: guardando || !nombre.trim() ? "default" : "pointer", opacity: nombre.trim() ? 1 : .5, fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
             {guardando ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />} Crear
           </button>
         </div>
@@ -351,7 +350,7 @@ function BarraCobertura({ total }) {
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {partes.map((parte) => (
-          <span key={parte.clave} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 11.5, fontWeight: 750 }}>
+          <span key={parte.clave} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 11.5, fontWeight: 650 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: parte.color, flexShrink: 0 }} />
             <b style={{ color: C.text, fontFamily: C.mono }}>{parte.n}</b> {parte.label}
           </span>
@@ -361,7 +360,7 @@ function BarraCobertura({ total }) {
   );
 }
 
-export default function CostoBarcoScreen({ profile, signOut }) {
+export default function CostoBarcoScreen() {
   const { isMobile } = useResponsive();
   const toast = useToast();
 
@@ -778,7 +777,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
   const seccion = { border: `1px solid ${C.border}`, background: C.panel, borderRadius: 13 };
 
   return (
-    <div style={{ position: "fixed", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
       {nuevoProveedor ? (
         <ModalNuevoProveedor
           onCerrar={() => setNuevoProveedor(null)}
@@ -792,20 +791,19 @@ export default function CostoBarcoScreen({ profile, signOut }) {
         .costo-grupo:hover { border-color: var(--border-2); }
         @keyframes costo-barra { from { opacity: 0; transform: translateY(8px); } }
       `}</style>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0,1fr)", height: "100%" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
 
         <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <header style={{ minHeight: 52, display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "9px 12px 9px 54px" : "9px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbar, flexShrink: 0 }}>
+          <header style={{ minHeight: 52, display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "9px 12px" : "9px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbar, flexShrink: 0 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><Calculator size={17} /></div>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Costo del barco</div>
+              <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Costo del barco</div>
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Materiales solamente · no incluye mano de obra ni terceros</div>
             </div>
-            <button type="button" onClick={() => setNuevoProveedor({ destino: null })} title="Dar de alta un proveedor" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12.5, fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <button type="button" onClick={() => setNuevoProveedor({ destino: null })} title="Dar de alta un proveedor" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Plus size={14} /> {isMobile ? "" : "Proveedor"}
             </button>
-            <button type="button" onClick={exportarTodo} disabled={cargando || !resumen.filas.length} title="Bajar a Excel" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12.5, fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <button type="button" onClick={exportarTodo} disabled={cargando || !resumen.filas.length} title="Bajar a Excel" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
               <FileSpreadsheet size={14} /> {isMobile ? "" : "Excel"}
             </button>
             <button type="button" onClick={() => cargar({ force: true })} disabled={cargando} title="Actualizar" style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, cursor: cargando ? "default" : "pointer", opacity: cargando ? .6 : 1 }}>
@@ -821,7 +819,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                 return (
                   <button key={opcion.id} type="button" onClick={() => { setModelo(opcion.id); setSeleccion(new Set()); setRubroAbierto(null); setFiltroRubro(null); }} style={{
                     border: "none", background: activo ? C.blueL : "transparent", color: activo ? C.blue : C.muted,
-                    borderRadius: 8, padding: "7px 18px", cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 900,
+                    borderRadius: 8, padding: "7px 18px", cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 700,
                   }}>{opcion.label}</button>
                 );
               })}
@@ -837,7 +835,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   return (
                     <button key={opcion.id} type="button" onClick={() => setCriterio(opcion.id)} title="Cambia con qué precio se costean los materiales que tienen más de un proveedor" style={{
                       border: "none", background: activo ? C.panel2 : "transparent", color: activo ? C.text : C.dim,
-                      borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 850,
+                      borderRadius: 8, padding: "7px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 700,
                     }}>{opcion.label}</button>
                   );
                 })}
@@ -846,10 +844,10 @@ export default function CostoBarcoScreen({ profile, signOut }) {
             <span style={{ flex: 1 }} />
             <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
               <div style={{ textAlign: "right", lineHeight: 1.25 }}>
-                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 800 }}>
+                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
                   {esManual ? "Dólar a mano" : "Dólar oficial vendedor"}
                 </div>
-                <div style={{ color: esManual ? C.violet : C.dim, fontSize: 10, fontWeight: 700 }}>
+                <div style={{ color: esManual ? C.violet : C.dim, fontSize: 10, fontWeight: 600 }}>
                   {esManual
                     ? "no es el oficial"
                     : cotizacion
@@ -899,20 +897,20 @@ export default function CostoBarcoScreen({ profile, signOut }) {
               scrollear y el número grande quedaba cortado al medio. */}
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 10 : 16, display: "grid", gap: 12, alignContent: "start", gridAutoRows: "max-content" }}>
             {error ? (
-              <div style={{ ...seccion, borderColor: C.redB, background: C.redL, color: C.red, padding: "11px 13px", fontSize: 12.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ ...seccion, borderColor: C.redB, background: C.redL, color: C.red, padding: "11px 13px", fontSize: 12.5, fontWeight: 650, display: "flex", alignItems: "center", gap: 8 }}>
                 <AlertTriangle size={16} /> {error}
               </div>
             ) : null}
 
             {cargando ? (
-              <div style={{ ...seccion, padding: 40, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+              <div style={{ ...seccion, padding: 40, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
                 <LoaderCircle size={22} className="spin" style={{ marginBottom: 8 }} />
                 <div>Juntando materiales, precios y remitos…</div>
               </div>
             ) : !resumen.total.items ? (
               <div style={{ ...seccion, padding: 40, textAlign: "center" }}>
                 <Wallet size={24} color={C.dim} style={{ marginBottom: 8 }} />
-                <div style={{ fontSize: 14, fontWeight: 900 }}>El K{modelo} no tiene cantidades cargadas</div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>El K{modelo} no tiene cantidades cargadas</div>
                 <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5 }}>
                   Las cantidades por modelo se cargan en Materiales. Sin ellas no hay nada que costear.
                 </div>
@@ -934,19 +932,19 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   }}>
                     {/* El total */}
                     <div style={{ minWidth: 0, paddingRight: isMobile ? 0 : 18, borderRight: isMobile ? "none" : `1px solid ${C.border}` }}>
-                      <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" }}>
+                      <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
                         Material del K{modelo} · costo confirmado
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-                        <span style={{ color: C.text, fontFamily: C.mono, fontSize: isMobile ? 28 : 36, fontWeight: 900, lineHeight: 1.05, letterSpacing: -0.5 }}>
+                        <span style={{ color: C.text, fontFamily: C.mono, fontSize: isMobile ? 28 : 36, fontWeight: 700, lineHeight: 1.05, letterSpacing: -0.5 }}>
                           {fmt(unificado != null ? unificado : total.ars)}
                         </span>
                         {unificado != null ? (
-                          <span style={{ color: C.dim, fontSize: 12, fontWeight: 750 }}>
+                          <span style={{ color: C.dim, fontSize: 12, fontWeight: 650 }}>
                             {fmt(total.ars)} + {fmt(total.usd, "USD")}
                           </span>
                         ) : total.usd ? (
-                          <span style={{ color: C.text, fontFamily: C.mono, fontSize: 17, fontWeight: 850 }}>
+                          <span style={{ color: C.text, fontFamily: C.mono, fontSize: 17, fontWeight: 700 }}>
                             + {fmt(total.usd, "USD")}
                           </span>
                         ) : null}
@@ -975,9 +973,9 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                     {/* La confianza */}
                     <div style={{ minWidth: 0, paddingLeft: isMobile ? 0 : 18, display: "grid", gap: 10, alignContent: "start" }}>
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                        <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" }}>Cobertura</span>
+                        <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Cobertura</span>
                         <span style={{
-                          fontFamily: C.mono, fontSize: 20, fontWeight: 900,
+                          fontFamily: C.mono, fontSize: 20, fontWeight: 700,
                           color: resumen.cobertura > .85 ? C.green : resumen.cobertura > .6 ? C.blue : C.red,
                         }}>
                           {pct(resumen.cobertura)}
@@ -991,7 +989,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   <div style={{
                     borderTop: `1px solid ${C.border}`, background: C.panelSolid,
                     padding: isMobile ? "10px 14px" : "11px 18px",
-                    color: C.muted, fontSize: 12, fontWeight: 700, lineHeight: 1.55,
+                    color: C.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.55,
                   }}>
                     {total.falta || total.recuperable ? (
                       <>
@@ -1014,7 +1012,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       <button key={opcion.id} type="button" onClick={() => setTab(opcion.id)} style={{
                         border: `1px solid ${activo ? C.blueB : C.border}`, background: activo ? C.blueL : C.panelSolid,
                         color: activo ? C.blue : C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer",
-                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 900,
+                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 700,
                       }}>
                         {opcion.label}{cuenta ? ` · ${cuenta}` : ""}
                       </button>
@@ -1025,7 +1023,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                 {/* ── COSTO POR RUBRO ───────────────────────────────────── */}
                 {tab === "costo" ? (
                   <section style={{ ...seccion, overflow: "hidden" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 80px" : "minmax(0,2fr) 96px minmax(120px,1fr) minmax(110px,.8fr)", gap: 10, padding: "9px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: .8, textTransform: "uppercase" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 80px" : "minmax(0,2fr) 96px minmax(120px,1fr) minmax(110px,.8fr)", gap: 10, padding: "9px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: .8, textTransform: "uppercase" }}>
                       <div>Rubro</div>
                       {/* "Con precio" y "Materiales" eran dos columnas de 110px
                           para dos números que sólo significan algo juntos. Como
@@ -1061,9 +1059,9 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                             <div style={{ minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <ChevronDown size={13} color={C.dim} style={{ transform: abierto ? "rotate(180deg)" : "rotate(-90deg)", transition: "transform .16s", flexShrink: 0 }} />
-                                <span style={{ fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rubro.nombre}</span>
+                                <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rubro.nombre}</span>
                                 {peso > 0.005 ? (
-                                  <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 800, flexShrink: 0 }}>{pct(peso)}</span>
+                                  <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 650, flexShrink: 0 }}>{pct(peso)}</span>
                                 ) : null}
                               </div>
                               {/* La barra de proporción: convierte una columna de
@@ -1079,7 +1077,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                                     onClick={(evento) => { evento.stopPropagation(); irAFaltantes(rubro.id); }}
                                     onKeyDown={(evento) => { if (evento.key === "Enter") { evento.stopPropagation(); irAFaltantes(rubro.id); } }}
                                     title={`Ver los ${rubro.items - rubro.firme - rubro.viejo} de ${rubro.nombre} que falta cotizar`}
-                                    style={{ color: C.dim, fontSize: 10.5, fontWeight: 800, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2, textDecorationStyle: "dotted" }}
+                                    style={{ color: C.dim, fontSize: 10.5, fontWeight: 650, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2, textDecorationStyle: "dotted" }}
                                   >
                                     {/* El rojo va sólo en el número que hay que
                                         atacar. Pintar el renglón entero cuando
@@ -1093,12 +1091,12 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                             </div>
                             {!isMobile && (
                               <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 12.5, color: C.muted }}>
-                                <span style={{ color: cobertura === 1 ? C.green : C.text, fontWeight: 850 }}>{rubro.firme + rubro.viejo}</span>
+                                <span style={{ color: cobertura === 1 ? C.green : C.text, fontWeight: 700 }}>{rubro.firme + rubro.viejo}</span>
                                 <span style={{ color: C.dim }}> / {rubro.items}</span>
                               </div>
                             )}
-                            <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 13.5, fontWeight: 850 }}>{rubro.ars ? fmt(rubro.ars) : "—"}</div>
-                            {!isMobile && <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 13.5, fontWeight: 850, color: rubro.usd ? C.text : C.dim }}>{rubro.usd ? fmt(rubro.usd, "USD") : "—"}</div>}
+                            <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 13.5, fontWeight: 700 }}>{rubro.ars ? fmt(rubro.ars) : "—"}</div>
+                            {!isMobile && <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 13.5, fontWeight: 700, color: rubro.usd ? C.text : C.dim }}>{rubro.usd ? fmt(rubro.usd, "USD") : "—"}</div>}
                           </div>
                           {abierto ? (
                             <DetalleRubro
@@ -1113,15 +1111,15 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       );
                     })}
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 80px" : "minmax(0,2fr) 96px minmax(120px,1fr) minmax(110px,.8fr)", gap: 10, padding: "11px 14px", borderTop: `1px solid ${C.border2}`, background: C.panelSolid, alignItems: "center" }}>
-                      <div style={{ fontSize: 13, fontWeight: 950 }}>Total K{modelo}</div>
+                      <div style={{ fontSize: 13, fontWeight: 750 }}>Total K{modelo}</div>
                       {!isMobile && (
                         <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 12.5 }}>
-                          <span style={{ color: C.text, fontWeight: 950 }}>{total.firme + total.viejo}</span>
+                          <span style={{ color: C.text, fontWeight: 750 }}>{total.firme + total.viejo}</span>
                           <span style={{ color: C.dim }}> / {total.items}</span>
                         </div>
                       )}
-                      <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>{fmt(total.ars)}</div>
-                      {!isMobile && <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 950, color: total.usd ? C.text : C.dim }}>{total.usd ? fmt(total.usd, "USD") : "—"}</div>}
+                      <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>{fmt(total.ars)}</div>
+                      {!isMobile && <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 750, color: total.usd ? C.text : C.dim }}>{total.usd ? fmt(total.usd, "USD") : "—"}</div>}
                     </div>
                   </section>
                 ) : null}
@@ -1144,7 +1142,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                           style={{
                             width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`,
                             background: C.panelSolid, color: C.text, borderRadius: 9,
-                            padding: "9px 32px 9px 32px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, outline: "none",
+                            padding: "9px 32px 9px 32px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600, outline: "none",
                           }}
                         />
                         {busca ? (
@@ -1156,7 +1154,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       {filtroRubro ? (
                         <button type="button" onClick={() => setFiltroRubro(null)} title="Ver todos los rubros" style={{
                           border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999,
-                          padding: "6px 10px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 900,
+                          padding: "6px 10px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
                           display: "inline-flex", alignItems: "center", gap: 6,
                         }}>
                           {resumen.rubros.find((rubro) => rubro.id === filtroRubro)?.nombre || "Rubro"}
@@ -1166,7 +1164,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       {grupos.length > 1 ? (
                         <button type="button" onClick={() => setAbiertos(todosAbiertos ? {} : Object.fromEntries(grupos.map((grupo) => [grupo.clave, true])))} style={{
                           border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, borderRadius: 9,
-                          padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, whiteSpace: "nowrap",
+                          padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
                         }}>
                           {todosAbiertos ? "Cerrar todo" : "Abrir todo"}
                         </button>
@@ -1176,7 +1174,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                     {/* Cuando no queda nada, el cartel de abajo ya lo dice: este
                         contador sólo repetiría el cero. */}
                     {filtrando && faltantesALaVista > 0 ? (
-                      <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 800, padding: "0 2px" }}>
+                      <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 650, padding: "0 2px" }}>
                         {faltantesALaVista} de {faltantesTotales} sin precio
                       </div>
                     ) : null}
@@ -1184,10 +1182,10 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                     {filasRecuperables.length ? (
                       <section style={{ ...seccion, borderColor: C.violetB, background: C.violetL, padding: isMobile ? 12 : 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                         <div style={{ flex: 1, minWidth: 220 }}>
-                          <div style={{ color: C.violet, fontSize: 13.5, fontWeight: 950 }}>
+                          <div style={{ color: C.violet, fontSize: 13.5, fontWeight: 750 }}>
                             {filasRecuperables.length === 1 ? "Hay un precio que ya está en el sistema" : `${filasRecuperables.length} precios ya están en el sistema`}
                           </div>
-                          <div style={{ color: C.muted, fontSize: 12, fontWeight: 700, lineHeight: 1.5, marginTop: 3 }}>
+                          <div style={{ color: C.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.5, marginTop: 3 }}>
                             Vienen de remitos que el pañol ya escaneó y vinculó. No hay que pedirle nada a nadie:
                             se pasan a la lista de precios y el costo se actualiza.
                           </div>
@@ -1195,7 +1193,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                         <button type="button" onClick={aplicarRecuperables} disabled={Boolean(ocupado)} style={{
                           border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.violet, borderRadius: 9,
                           padding: "10px 15px", cursor: ocupado ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5,
-                          fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
+                          fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
                         }}>
                           {ocupado === "recuperar" ? <LoaderCircle size={14} className="spin" /> : <Check size={14} />}
                           {filasRecuperables.length === 1 ? "Aplicarlo" : `Aplicar los ${filasRecuperables.length}`}
@@ -1231,10 +1229,10 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                               {grupo.items.every((fila) => seleccion.has(fila.material.id)) ? <Check size={11} /> : null}
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13.5, fontWeight: 950, color: huerfano ? C.red : C.text }}>
+                              <div style={{ fontSize: 13.5, fontWeight: 750, color: huerfano ? C.red : C.text }}>
                                 {huerfano ? "Sin proveedor asignado" : grupo.proveedor}
                               </div>
-                              <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 750, marginTop: 2 }}>
+                              <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 650, marginTop: 2 }}>
                                 {huerfano
                                   ? "No entran en ningún pedido hasta que se les asigne uno"
                                   : `${grupo.items.length} artículo${grupo.items.length === 1 ? "" : "s"} para cotizar`}
@@ -1250,7 +1248,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                                 onClick={(event) => { event.stopPropagation(); exportarGrupo(grupo); }}
                                 onKeyDown={(event) => { if (event.key === "Enter") { event.stopPropagation(); exportarGrupo(grupo); } }}
                                 title={`Bajar la lista para mandarle a ${grupo.proveedor}`}
-                                style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.text, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 850, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.text, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}
                               >
                                 <Send size={12} /> Pedir precios
                               </span>
@@ -1276,10 +1274,10 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                                     style={{ width: 15, height: 15, accentColor: C.blue, cursor: "pointer" }}
                                   />
                                   <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    <div style={{ fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                       {fila.material.descripcion}
                                     </div>
-                                    <div style={{ color: C.dim, fontSize: 11, fontWeight: 700, marginTop: 1 }}>
+                                    <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, marginTop: 1 }}>
                                       {fila.rubro}{fila.material.codigo ? ` · ${fila.material.codigo}` : ""}
                                     </div>
                                     {/* Los precios que ya tiene de otros proveedores, para
@@ -1287,7 +1285,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                                     {fila.precios.length ? (
                                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
                                         {fila.precios.map((otro, j) => (
-                                          <span key={`${otro.proveedorId || "x"}-${j}`} style={{ color: otro === fila.barato && fila.precios.length > 1 ? C.green : C.muted, fontSize: 10.5, fontWeight: 800, fontFamily: C.mono }}>
+                                          <span key={`${otro.proveedorId || "x"}-${j}`} style={{ color: otro === fila.barato && fila.precios.length > 1 ? C.green : C.muted, fontSize: 10.5, fontWeight: 650, fontFamily: C.mono }}>
                                             {otro.proveedor || "sin proveedor"}: {fmt(otro.precio, otro.moneda)}
                                           </span>
                                         ))}
@@ -1321,13 +1319,13 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       filtrando ? (
                         <div style={{ ...seccion, padding: 30, textAlign: "center" }}>
                           <Search size={20} color={C.dim} style={{ marginBottom: 8 }} />
-                          <div style={{ fontSize: 13.5, fontWeight: 900 }}>Nada sin precio con ese filtro</div>
+                          <div style={{ fontSize: 13.5, fontWeight: 700 }}>Nada sin precio con ese filtro</div>
                           <div style={{ color: C.dim, fontSize: 12.5, marginTop: 4 }}>
                             El K{modelo} tiene {faltantesTotales} materiales sin precio, pero ninguno coincide.
                           </div>
                           <button type="button" onClick={() => { setBusca(""); setFiltroRubro(null); }} style={{
                             marginTop: 12, border: `1px solid ${C.border2}`, background: C.panel, color: C.text,
-                            borderRadius: 9, padding: "8px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850,
+                            borderRadius: 9, padding: "8px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700,
                           }}>
                             Ver todos
                           </button>
@@ -1335,7 +1333,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       ) : (
                         <div style={{ ...seccion, padding: 34, textAlign: "center" }}>
                           <Check size={22} color={C.green} style={{ marginBottom: 8 }} />
-                          <div style={{ fontSize: 14, fontWeight: 900 }}>No falta ningún precio</div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>No falta ningún precio</div>
                           <div style={{ color: C.dim, fontSize: 12.5, marginTop: 4 }}>El costo del K{modelo} está completo.</div>
                         </div>
                       )
@@ -1343,7 +1341,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   </div>
                 ) : null}
 
-                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 700, lineHeight: 1.55, padding: "0 2px 6px" }}>
+                <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 600, lineHeight: 1.55, padding: "0 2px 6px" }}>
                   <Download size={12} style={{ verticalAlign: -2, marginRight: 5 }} />
                   El costo se guarda en pesos y en dólares por separado. El total unificado se calcula al vuelo con
                   el oficial vendedor y no queda registrado: así nadie termina costeando con una cotización de hace
@@ -1389,7 +1387,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       background: activo ? (quita ? C.redL : C.blueL) : "transparent",
                       color: activo ? (quita ? C.red : C.blue) : C.dim,
                       borderRadius: 7, padding: "6px 10px", cursor: "pointer", fontFamily: C.sans,
-                      fontSize: 11.5, fontWeight: 900, whiteSpace: "nowrap",
+                      fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
                     }}>
                       {isMobile ? opcion.corto : opcion.label}
                     </button>
@@ -1415,7 +1413,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   background: modoProveedor === "quitar" ? C.redL : C.blueL,
                   color: modoProveedor === "quitar" ? C.red : C.blue,
                   borderRadius: 9,
-                  padding: "8px 10px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900,
+                  padding: "8px 10px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700,
                   outline: "none", cursor: "pointer",
                   // En el teléfono se lleva un renglón entero: si comparte con
                   // el contador y "Limpiar" no entra ninguno de los tres.
@@ -1438,14 +1436,14 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   border: `1px solid ${elegidos.length ? (modoProveedor === "quitar" ? C.redB : C.blueB) : C.border}`,
                   background: elegidos.length ? (modoProveedor === "quitar" ? C.red : C.blue) : C.panel,
                   color: elegidos.length ? "var(--inverse-text)" : C.dim,
-                  borderRadius: 9, padding: "8px 13px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900,
+                  borderRadius: 9, padding: "8px 13px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700,
                   cursor: elegidos.length && ocupado !== "masivo" ? "pointer" : "default", whiteSpace: "nowrap",
                 }}
               >
                 {modoProveedor === "quitar" ? "Quitar" : "Agregar"}
                 {elegidos.length > 1 ? ` los ${elegidos.length}` : ""}
               </button>
-              <button type="button" onClick={() => { setSeleccion(new Set()); setElegidos([]); }} style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, marginLeft: isMobile ? "auto" : 0 }}>
+              <button type="button" onClick={() => { setSeleccion(new Set()); setElegidos([]); }} style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, marginLeft: isMobile ? "auto" : 0 }}>
                 Limpiar
               </button>
               </div>
@@ -1459,7 +1457,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                       border: `1px solid ${modoProveedor === "quitar" ? C.redB : C.blueB}`,
                       background: modoProveedor === "quitar" ? C.redL : C.blueL,
                       color: modoProveedor === "quitar" ? C.red : C.blue,
-                      borderRadius: 999, padding: "3px 5px 3px 10px", fontSize: 11.5, fontWeight: 900,
+                      borderRadius: 999, padding: "3px 5px 3px 10px", fontSize: 11.5, fontWeight: 700,
                     }}>
                       {proveedor.nombre}
                       <button
@@ -1474,7 +1472,7 @@ export default function CostoBarcoScreen({ profile, signOut }) {
                   ))}
                 </div>
               ) : null}
-              <div style={{ color: modoProveedor === "quitar" ? C.red : C.muted, fontSize: 11.5, fontWeight: 750, paddingLeft: 2 }}>
+              <div style={{ color: modoProveedor === "quitar" ? C.red : C.muted, fontSize: 11.5, fontWeight: 650, paddingLeft: 2 }}>
                 {modoProveedor === "quitar"
                   ? "Se les sacan a los que los tengan. El precio que haya cargado no se borra."
                   : elegidos.length > 1

@@ -708,12 +708,12 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {selectedMaterial && (
             <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: `1px solid ${C.blueB}`, background: "rgba(59,130,246,0.08)", display: "grid", gap: 8 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{selectedMaterial.descripcion}</div>
+                <div style={{ fontSize: 12, fontWeight: 650, color: C.text }}>{selectedMaterial.descripcion}</div>
                 <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>Escaneá un código para sumarlo a este material. No pisa los anteriores.</div>
               </div>
               {selectedMaterial.variantes?.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Variante específica (opcional)</div>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Variante específica (opcional)</div>
                   <select
                     value={selectedVariante}
                     onChange={(e) => setSelectedVariante(e.target.value)}
@@ -732,7 +732,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     title={row.etiqueta || "Código de barras"}
                   >
                     {row.codigo}
-                    {row.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 700 }}>{row.variante}</span>}
+                    {row.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 600 }}>{row.variante}</span>}
                     <button
                       type="button"
                       disabled={barcodeSaving}
@@ -786,7 +786,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               padding: 16, borderRadius: 12, marginBottom: 16,
               background: C.panel, border: `1px solid ${C.border}`,
             }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: C.text }}>{lastScannedMaterial.descripcion}</div>
+              <div style={{ fontWeight: 600, fontSize: 15, color: C.text }}>{lastScannedMaterial.descripcion}</div>
               <div style={{ fontSize: 12, color: C.dim, marginTop: 4, fontFamily: C.mono }}>
                 {lastScannedMaterial.codigo} · {lastScannedMaterial.unidad_medida || "unidad"}
               </div>
@@ -842,15 +842,15 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {lastResult && !lastResult.ok && lastResult.code && (
             <div style={{
               padding: "12px 14px", borderRadius: 10, marginBottom: 16,
-              background: "rgba(245,158,11,0.1)", border: `1px solid rgba(245,158,11,0.3)`,
+              background: "rgba(34,211,238,0.1)", border: `1px solid rgba(34,211,238,0.3)`,
             }}>
-              <div style={{ fontSize: 12, color: C.amber, marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: C.cyan, marginBottom: 8 }}>
                 Código no encontrado: <strong style={{ fontFamily: C.mono }}>{lastResult.code}</strong>
               </div>
               <button
                 type="button"
                 onClick={() => { setMode("assign"); setPendingBarcode(lastResult.code); }}
-                style={{ ...btnBase, background: C.amber, color: "#000", border: "none", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                style={{ ...btnBase, background: C.cyan, color: "#000", border: "none", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
               >
                 Asignar este código a un producto <ArrowRight size={12} />
               </button>
@@ -877,7 +877,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                       <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{entry.material.codigo}</div>
                     </div>
                     <span style={{
-                      fontWeight: 800, fontSize: 14, fontFamily: C.mono,
+                      fontWeight: 650, fontSize: 14, fontFamily: C.mono,
                       color: isPlus ? C.green : C.red,
                     }}>{entry.action}</span>
                   </div>
@@ -908,7 +908,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* ── STEP 1: Identify product ── */}
           {countStep === 1 && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>¿Qué producto es?</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>¿Qué producto es?</div>
               <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Buscá por nombre, código o escaneá el código de barras.</div>
 
               <div style={{ position: "relative", marginBottom: 12 }}>
@@ -966,7 +966,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   border: `1px solid ${C.border}`, background: C.panel,
                   display: "grid", gap: 8,
                 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Alta rápida de material</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>Alta rápida de material</div>
                   <input
                     value={quickCreateDesc}
                     onChange={e => setQuickCreateDesc(e.target.value)}
@@ -1024,7 +1024,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     />
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                       <StickyNote size={11} /> Observaciones (opcional)
                     </div>
                     <textarea
@@ -1037,14 +1037,14 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   </div>
                   {/* Variantes / marcas con precio */}
                   <div>
-                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Variantes / marcas (con precio)</div>
+                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Variantes / marcas (con precio)</div>
                     {quickCreateVariantes.length > 0 && (
                       <div style={{ display: "grid", gap: 5, marginBottom: 6 }}>
                         {quickCreateVariantes.map((v) => {
                           const p = quickCreateVariantesPrecios[v] || {};
                           return (
                             <div key={v} style={{ display: "grid", gridTemplateColumns: "minmax(52px,0.85fr) minmax(70px,1fr) 84px 54px 28px", gap: 5, alignItems: "center" }}>
-                              <span style={{ color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+                              <span style={{ color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
                               <input value={p.codigo ?? ""} onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), codigo: e.target.value } }))} placeholder="Código" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", fontFamily: C.mono }} />
                               <input value={p.precio ?? ""} inputMode="decimal" onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), precio: e.target.value } }))} placeholder="Precio" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", fontFamily: C.mono }} />
                               <select value={p.moneda || "ARS"} onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || {}), moneda: e.target.value } }))} style={{ ...selectStyle, fontSize: 12, padding: "6px 4px" }}>
@@ -1065,7 +1065,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
                   {/* Foto del producto */}
                   <div>
-                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Foto del producto</div>
+                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Foto del producto</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 52, height: 52, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
                         {quickImgPreview ? <img src={quickImgPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImagePlus size={18} color={C.dim} />}
@@ -1095,14 +1095,14 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* ── STEP 2: Count and assign destination ── */}
           {countStep === 2 && countMaterial && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>¿Cuántos hay y para dónde van?</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>¿Cuántos hay y para dónde van?</div>
 
               {/* Selected material card */}
               <div style={{
                 padding: 14, borderRadius: 10, marginBottom: 14,
                 background: "rgba(59,130,246,0.08)", border: `1px solid rgba(59,130,246,0.25)`,
               }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{countMaterial.descripcion}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{countMaterial.descripcion}</div>
                 <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono, marginTop: 2 }}>
                   {countMaterial.codigo}{countMaterial.proveedor ? ` · ${countMaterial.proveedor}` : ""}
                 </div>
@@ -1110,7 +1110,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
               {/* Quantity */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Cantidad física</div>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Cantidad física</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <button type="button" onClick={() => setCountQty(q => Math.max(1, q - 1))} style={{ ...btnBase, padding: "8px 12px", background: C.panel }}><Minus size={14} /></button>
                   <input
@@ -1118,7 +1118,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     min={1}
                     value={countQty}
                     onChange={e => setCountQty(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{ ...inputStyle, width: 80, textAlign: "center", fontSize: 18, fontWeight: 700, padding: "8px" }}
+                    style={{ ...inputStyle, width: 80, textAlign: "center", fontSize: 18, fontWeight: 600, padding: "8px" }}
                   />
                   <button type="button" onClick={() => setCountQty(q => q + 1)} style={{ ...btnBase, padding: "8px 12px", background: C.panel }}><Plus size={14} /></button>
                   <span style={{ fontSize: 12, color: C.dim }}>{countMaterial.unidad_medida || "unidad"}</span>
@@ -1128,7 +1128,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               {/* Sede — obligatoria siempre (permiso + dónde vive el stock general),
                   aplica a todos los destinos de este ítem. */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Sede</div>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Sede</div>
                 <select value={countSede} onChange={e => setCountSede(e.target.value)} style={selectStyle}>
                   {SEDES_PANOL.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -1138,8 +1138,8 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   obras y/o stock general. Con 1 solo destino la cantidad se auto-completa. */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700 }}>Destino(s)</div>
-                  <span style={{ fontSize: 10, fontFamily: C.mono, fontWeight: 800, color: destinosTotal === Number(countQty) ? C.green : C.amber }}>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600 }}>Destino(s)</div>
+                  <span style={{ fontSize: 10, fontFamily: C.mono, fontWeight: 650, color: destinosTotal === Number(countQty) ? C.green : C.cyan }}>
                     asignado {destinosTotal} / {countQty}
                   </span>
                 </div>
@@ -1210,7 +1210,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
               {/* Observaciones del producto (se guardan al confirmar el conteo) */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                   <StickyNote size={11} /> Observaciones
                 </div>
                 <textarea
@@ -1225,7 +1225,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               {/* Variant selector */}
               {countMaterial.variantes?.length > 0 && (
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Variante (opcional)</div>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Variante (opcional)</div>
                   <select value={countVariante} onChange={e => setCountVariante(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
                     <option value="">Sin variante específica</option>
                     {countMaterial.variantes.map(v => <option key={v} value={v}>{v}</option>)}
@@ -1251,7 +1251,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* ── STEP 3: Barcode assignment + confirm ── */}
           {countStep === 3 && countMaterial && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Código de barras (opcional)</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>Código de barras (opcional)</div>
               <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Escaneá o escribí un código para asignarlo a este material, o saltá este paso.</div>
 
               {/* Summary card */}
@@ -1261,7 +1261,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{countMaterial.descripcion}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{countMaterial.descripcion}</div>
                   <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
                     {countQty} {countMaterial.unidad_medida || "unidad"} →{" "}
                     {countDestinos.filter(d => Number(d.cantidad) > 0).map(d => (
@@ -1270,13 +1270,13 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     {countVariante ? ` · ${countVariante}` : ""}
                   </div>
                 </div>
-                <span style={{ fontFamily: C.mono, fontWeight: 800, fontSize: 18, color: C.blue }}>{countQty}</span>
+                <span style={{ fontFamily: C.mono, fontWeight: 650, fontSize: 18, color: C.blue }}>{countQty}</span>
               </div>
 
               {/* Existing barcodes */}
               {materialBarcodeList(countMaterial).length > 0 && (
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Códigos ya asignados</div>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Códigos ya asignados</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {materialBarcodeList(countMaterial).map(row => (
                       <span key={`${row.id || "l"}-${row.codigo}`} style={{
@@ -1285,7 +1285,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                         borderRadius: 999, padding: "3px 8px", fontSize: 10, fontFamily: C.mono, color: C.muted,
                       }}>
                         {row.codigo}
-                        {row.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 700 }}>{row.variante}</span>}
+                        {row.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 600 }}>{row.variante}</span>}
                       </span>
                     ))}
                   </div>
@@ -1294,7 +1294,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
               {/* Barcode input */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Nuevo código (opcional)</div>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Nuevo código (opcional)</div>
                 <input
                   value={countBarcodeInput}
                   onChange={e => setCountBarcodeInput(e.target.value)}
@@ -1313,7 +1313,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   style={{
                     ...btnBase, flex: 2, padding: "12px",
                     background: C.green, color: "#fff", border: "none",
-                    fontWeight: 700, fontSize: 14,
+                    fontWeight: 600, fontSize: 14,
                     opacity: countSaving ? 0.5 : 1,
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   }}
@@ -1363,10 +1363,10 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                         <div style={{ fontSize: 10, color: C.dim, marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontFamily: C.mono }}>{destLabel}</span>
                           {entry.barcode && <span style={{ fontFamily: C.mono, color: C.blue }}>⊟ {entry.barcode}</span>}
-                          {entry.reverted && <span style={{ color: C.red, fontWeight: 700 }}>Revertido</span>}
+                          {entry.reverted && <span style={{ color: C.red, fontWeight: 600 }}>Revertido</span>}
                         </div>
                       </div>
-                      <span style={{ fontFamily: C.mono, fontWeight: 800, fontSize: 14, color: entry.reverted ? C.dim : C.green, flexShrink: 0, textDecoration: entry.reverted ? "line-through" : "none" }}>+{entry.qty}</span>
+                      <span style={{ fontFamily: C.mono, fontWeight: 650, fontSize: 14, color: entry.reverted ? C.dim : C.green, flexShrink: 0, textDecoration: entry.reverted ? "line-through" : "none" }}>+{entry.qty}</span>
                       <button
                         type="button"
                         onClick={() => undoCountItem(entry)}
@@ -1394,8 +1394,8 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => confirmMatrixAndContinue(false)}>
           <div style={{ background: C.panelSolid || C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, maxWidth: 440, width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <AlertTriangle size={18} color={C.amber} />
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>¿Agregar a la lista matriz?</div>
+              <AlertTriangle size={18} color={C.cyan} />
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>¿Agregar a la lista matriz?</div>
             </div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
               <strong style={{ color: C.text }}>{countMaterial?.descripcion}</strong> todavía no figura en la lista matriz de{" "}
@@ -1407,7 +1407,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
             <div style={{ display: "grid", gap: 6, marginBottom: 14 }}>
               {Object.entries(matrixPrompt.cantidades).map(([linea, cant]) => (
                 <div key={linea} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12, fontFamily: C.mono, fontWeight: 700, color: C.blue, minWidth: 40 }}>K{linea}</span>
+                  <span style={{ fontSize: 12, fontFamily: C.mono, fontWeight: 600, color: C.blue, minWidth: 40 }}>K{linea}</span>
                   <input
                     type="number" min={0} step="any"
                     value={cant}

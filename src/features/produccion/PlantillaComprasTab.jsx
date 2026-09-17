@@ -63,7 +63,7 @@ function EtapaItem({ etapa, activa, onSelect, onSubir, onBajar, primera, ultima 
         onClick={onSelect}
         style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "9px 6px 9px 11px" }}
       >
-        <div style={{ color: activa ? C.text : C.muted, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
+        <div style={{ color: activa ? C.text : C.muted, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
           {etapa.nombre}
         </div>
         <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{etapa.totalMateriales} materiales</div>
@@ -236,10 +236,10 @@ function DetalleEtapa({ etapa, procesos, otrasEtapas = [], onReload, toast }) {
               onChange={(e) => setNombre(e.target.value)}
               onBlur={guardarNombre}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setNombre(etapa.nombre); setEditandoNombre(false); } }}
-              style={{ ...INPUT, flex: 1, minWidth: 140, fontSize: 15, fontWeight: 900, padding: "5px 9px" }}
+              style={{ ...INPUT, flex: 1, minWidth: 140, fontSize: 15, fontWeight: 700, padding: "5px 9px" }}
             />
           ) : (
-            <h2 style={{ margin: 0, flex: 1, minWidth: 120, fontSize: 15.5, fontWeight: 900, color: C.text, display: "flex", alignItems: "center", gap: 7 }}>
+            <h2 style={{ margin: 0, flex: 1, minWidth: 120, fontSize: 15.5, fontWeight: 700, color: C.text, display: "flex", alignItems: "center", gap: 7 }}>
               {etapa.nombre}
               <IconBtn icon={Pencil} title="Renombrar" size={24} onClick={() => { setNombre(etapa.nombre); setEditandoNombre(true); }} />
             </h2>
@@ -262,7 +262,7 @@ function DetalleEtapa({ etapa, procesos, otrasEtapas = [], onReload, toast }) {
                   key={p.id}
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 9,
-                    fontSize: 11, fontWeight: 750,
+                    fontSize: 11, fontWeight: 650,
                     border: `1px solid ${tint(pc, 30)}`, background: tint(pc, 11), color: C.muted,
                   }}
                 >
@@ -299,7 +299,7 @@ function DetalleEtapa({ etapa, procesos, otrasEtapas = [], onReload, toast }) {
             onChange={(e) => guardarSentido(e.target.value)}
             style={{
               ...INPUT, width: "auto", padding: "4px 8px", fontSize: 12, borderRadius: 9, cursor: "pointer",
-              fontWeight: 800, color: sentido === "despues" ? C.amber : C.text,
+              fontWeight: 650, color: sentido === "despues" ? C.cyan : C.text,
             }}
           >
             <option value="antes">antes de</option>
@@ -475,7 +475,7 @@ export default function PlantillaComprasTab({ isMobile, toast }) {
             <button
               type="button"
               onClick={() => setNueva(true)}
-              style={{ border: `1px dashed ${C.border2}`, background: "transparent", color: C.dim, borderRadius: 12, padding: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}
+              style={{ border: `1px dashed ${C.border2}`, background: "transparent", color: C.dim, borderRadius: 12, padding: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}
             >
               + Nueva etapa
             </button>

@@ -623,7 +623,7 @@ export default function PedirAComprasModal({
           borderBottom: `1px solid ${C.border}`,
         }}>
           <Send size={17} color={C.blue} />
-          <div style={{ fontSize: 15, fontWeight: 800 }}>Pedir a compras</div>
+          <div style={{ fontSize: 15, fontWeight: 650 }}>Pedir a compras</div>
           {prefilled?.source && (
             <span style={{
               fontSize: 9, color: C.dim,
@@ -696,10 +696,10 @@ export default function PedirAComprasModal({
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <Paperclip size={13} style={{ color: C.blue }} />
-                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 850 }}>
+                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>
                   Planos adjuntos automáticamente
                 </span>
-                <span style={{ marginLeft: "auto", color: C.blue, fontSize: 10.5, fontWeight: 900 }}>
+                <span style={{ marginLeft: "auto", color: C.blue, fontSize: 10.5, fontWeight: 700 }}>
                   {prefilled.attachments.length}
                 </span>
               </div>
@@ -719,7 +719,7 @@ export default function PedirAComprasModal({
                       background: C.panel,
                       color: C.blue,
                       fontSize: 9.5,
-                      fontWeight: 750,
+                      fontWeight: 650,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -773,7 +773,7 @@ export default function PedirAComprasModal({
                     padding: "7px 14px",
                     cursor: plantillaObra && !loadingPlantilla ? "pointer" : "default",
                     fontSize: 12,
-                    fontWeight: 800,
+                    fontWeight: 650,
                     fontFamily: C.sans,
                     whiteSpace: "nowrap",
                   }}
@@ -802,7 +802,7 @@ export default function PedirAComprasModal({
                     padding: "7px 11px",
                     background: C.panel2,
                     fontSize: 11,
-                    fontWeight: 750,
+                    fontWeight: 650,
                     letterSpacing: 0.6,
                     textTransform: "uppercase",
                     color: dest === "Sin destino" ? C.dim : C.text,
@@ -836,7 +836,7 @@ export default function PedirAComprasModal({
                               borderRadius: 5,
                               padding: "2px 6px",
                               fontSize: 10,
-                              fontWeight: 850,
+                              fontWeight: 700,
                               letterSpacing: 0.6,
                               textTransform: "uppercase",
                             }}>
@@ -880,7 +880,7 @@ export default function PedirAComprasModal({
                                 borderRadius: 5,
                                 padding: "2px 6px",
                                 fontSize: 10,
-                                fontWeight: 800,
+                                fontWeight: 650,
                                 letterSpacing: 0.6,
                                 textTransform: "uppercase",
                               }}>
@@ -1013,7 +1013,7 @@ export default function PedirAComprasModal({
                 padding: "6px 12px",
                 cursor: newDesc.trim() ? "pointer" : "default",
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 600,
                 fontFamily: C.sans,
               }}
             >
@@ -1045,7 +1045,7 @@ export default function PedirAComprasModal({
                       padding: "6px 12px",
                       cursor: "pointer",
                       fontSize: 11,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       letterSpacing: 0.5,
                       textTransform: "uppercase",
                     }}
@@ -1084,8 +1084,8 @@ export default function PedirAComprasModal({
                       fontFamily: C.sans,
                     }}
                   >
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 900 }}>{option.label}</span>
-                    <span style={{ display: "block", marginTop: 2, color: active ? option.color : C.dim, fontSize: 10.5, fontWeight: 650 }}>{option.detail}</span>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700 }}>{option.label}</span>
+                    <span style={{ display: "block", marginTop: 2, color: active ? option.color : C.dim, fontSize: 10.5, fontWeight: 600 }}>{option.detail}</span>
                   </button>
                 );
               })}
@@ -1111,7 +1111,7 @@ export default function PedirAComprasModal({
               padding: "9px 16px",
               cursor: "pointer",
               fontSize: 12,
-              fontWeight: 700,
+              fontWeight: 600,
               fontFamily: C.sans,
             }}
           >
@@ -1128,7 +1128,7 @@ export default function PedirAComprasModal({
               padding: "9px 16px",
               cursor: saving || !title.trim() || items.length === 0 || !tipoPedido ? "default" : "pointer",
               fontSize: 12,
-              fontWeight: 800,
+              fontWeight: 650,
               fontFamily: C.sans,
               letterSpacing: 0.3,
               display: "inline-flex", alignItems: "center", gap: 6,
@@ -1147,7 +1147,7 @@ const labelStyle = {
   fontSize: 10,
   letterSpacing: 1.2,
   textTransform: "uppercase",
-  fontWeight: 750,
+  fontWeight: 650,
   marginBottom: 6,
 };
 

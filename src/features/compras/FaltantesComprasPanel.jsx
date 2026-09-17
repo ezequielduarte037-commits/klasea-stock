@@ -50,7 +50,7 @@ function Stat({ icon, label, value, color }) {
         <StatIcon size={15} />
       </span>
       <div>
-        <div style={{ color: C.text, fontFamily: C.mono, fontSize: 16, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+        <div style={{ color: C.text, fontFamily: C.mono, fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{value}</div>
         <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>{label}</div>
       </div>
     </div>
@@ -66,7 +66,7 @@ function EstadoSelect({ value, onChange, disabled }) {
       onChange={(event) => onChange(event.target.value)}
       style={{
         ...inputStyle, width: "auto", minWidth: 118, padding: "6px 8px",
-        color: meta.color, fontWeight: 850, cursor: disabled ? "wait" : "pointer",
+        color: meta.color, fontWeight: 700, cursor: disabled ? "wait" : "pointer",
         background: `${meta.color}10`, borderColor: `${meta.color}44`,
       }}
     >
@@ -165,7 +165,7 @@ export default function FaltantesComprasPanel({ toast }) {
           <PackageSearch size={17} />
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: C.text, fontWeight: 900, fontSize: 13 }}>Faltantes detectados en solicitudes de pañol</div>
+          <div style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>Faltantes detectados en solicitudes de pañol</div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.5, marginTop: 2 }}>
             Aparecen automáticamente cuando pañol marca un ítem sin stock o el sistema detecta cantidad insuficiente. Al dejar de ser faltante, se resuelve solo.
           </div>
@@ -221,7 +221,7 @@ export default function FaltantesComprasPanel({ toast }) {
       ) : !filtered.length ? (
         <div style={{ textAlign: "center", padding: "38px 18px", border: `1px dashed ${C.border2}`, borderRadius: 12, color: C.dim }}>
           <CheckCircle2 size={28} color={C.green} />
-          <div style={{ color: C.text, fontWeight: 850, marginTop: 8 }}>No hay faltantes con este filtro</div>
+          <div style={{ color: C.text, fontWeight: 700, marginTop: 8 }}>No hay faltantes con este filtro</div>
           <div style={{ fontSize: 12, marginTop: 3 }}>Cuando pañol detecte uno, aparecerá acá automáticamente.</div>
         </div>
       ) : (
@@ -230,7 +230,7 @@ export default function FaltantesComprasPanel({ toast }) {
             <div style={{
               display: "grid", gridTemplateColumns: "minmax(220px, 1.8fr) minmax(130px, 1fr) 120px 145px 132px",
               gap: 10, padding: "8px 12px", borderBottom: `1px solid ${C.border}`,
-              color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.6, textTransform: "uppercase",
+              color: C.dim, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
             }}>
               <span>Material</span><span>Solicitud / obra</span><span>Faltante</span><span>Estado</span><span>Actualizado</span>
             </div>
@@ -266,7 +266,7 @@ export default function FaltantesComprasPanel({ toast }) {
                   {isMobile ? (
                     <span style={{ textAlign: "right" }}>
                       <strong style={{ display: "block", color: C.red, fontFamily: C.mono, fontSize: 12.5 }}>{fmt(row.cantidad_faltante)} {row.unidad || "u"}</strong>
-                      <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 800 }}>{meta.label}</span>
+                      <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 650 }}>{meta.label}</span>
                     </span>
                   ) : (
                     <>
@@ -301,7 +301,7 @@ export default function FaltantesComprasPanel({ toast }) {
                     )}
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 1fr) minmax(230px, .8fr)", gap: 12 }}>
                       <div>
-                        <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Seguimiento de Compras</div>
+                        <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Seguimiento de Compras</div>
                         <textarea
                           value={notes}
                           onChange={(event) => setNotes(event.target.value)}
@@ -316,7 +316,7 @@ export default function FaltantesComprasPanel({ toast }) {
                             onClick={() => actualizar(row, { notas_compras: notes })}
                             style={{
                               border: `1px solid ${C.blue}55`, background: `${C.blue}15`, color: C.blue,
-                              borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 850,
+                              borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700,
                             }}
                           >
                             {saving === row.id ? "Guardando…" : "Guardar nota"}
@@ -324,7 +324,7 @@ export default function FaltantesComprasPanel({ toast }) {
                           {row.solicitud_id && (
                             <Link
                               to={`/solicitudes-panol?open=${row.solicitud_id}`}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.blue, fontSize: 11.5, fontWeight: 800, textDecoration: "none" }}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.blue, fontSize: 11.5, fontWeight: 650, textDecoration: "none" }}
                             >
                               <ClipboardList size={13} /> Abrir solicitud <ArrowUpRight size={12} />
                             </Link>
@@ -332,7 +332,7 @@ export default function FaltantesComprasPanel({ toast }) {
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Registro de cambios</div>
+                        <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Registro de cambios</div>
                         <div style={{ display: "grid", gap: 5, marginTop: 6 }}>
                           {history.slice(0, 6).map((entry) => (
                             <div key={entry.id} style={{ display: "flex", gap: 7, color: C.dim, fontSize: 10.5 }}>

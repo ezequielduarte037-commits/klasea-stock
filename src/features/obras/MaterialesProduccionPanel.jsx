@@ -60,8 +60,8 @@ function shortQuantity(value) {
 function Metric({ value, label, tone = C.text }) {
   return (
     <div style={{ minWidth: 76 }}>
-      <div style={{ color: tone, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>{value}</div>
-      <div style={{ marginTop: 2, color: C.dim, fontSize: 8.5, fontWeight: 800, letterSpacing: 0.75, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ color: tone, fontFamily: C.mono, fontSize: 14, fontWeight: 700 }}>{value}</div>
+      <div style={{ marginTop: 2, color: C.dim, fontSize: 8.5, fontWeight: 650, letterSpacing: 0.75, textTransform: "uppercase" }}>{label}</div>
     </div>
   );
 }
@@ -364,7 +364,7 @@ export default function MaterialesProduccionPanel({
             <Layers3 size={17} />
           </span>
           <div style={{ flex: 1, minWidth: 180 }}>
-            <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Productos de producción</div>
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Productos de producción</div>
             <div style={{ marginTop: 3, color: C.dim, fontSize: 10.5, lineHeight: 1.45 }}>
               Asigná cada producto a la etapa completa o a la tarea exacta que lo utiliza.
             </div>
@@ -372,7 +372,7 @@ export default function MaterialesProduccionPanel({
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             <Metric value={data.matrix.length || "—"} label={data.modelo ? `Matriz K${data.modelo}` : "Sin matriz"} />
             <Metric value={covered} label="Asignados" tone={C.green} />
-            <Metric value={pending.length} label="Pendientes" tone={pending.length ? C.amber : C.green} />
+            <Metric value={pending.length} label="Pendientes" tone={pending.length ? C.cyan : C.green} />
           </div>
         </div>
 
@@ -387,7 +387,7 @@ export default function MaterialesProduccionPanel({
                 transition: "width .25s ease",
               }} />
             </div>
-            <div style={{ marginTop: 4, color: pending.length ? C.dim : C.green, fontSize: 9.5, fontWeight: pending.length ? 650 : 850 }}>
+            <div style={{ marginTop: 4, color: pending.length ? C.dim : C.green, fontSize: 9.5, fontWeight: pending.length ? 600 : 700 }}>
               {pending.length
                 ? `${coverage}% de la matriz ubicado en el proceso`
                 : "Matriz completa: no quedan productos por ubicar"}
@@ -405,7 +405,7 @@ export default function MaterialesProduccionPanel({
         background: C.panel2,
         flexWrap: "wrap",
       }}>
-        <span style={{ color: C.dim, fontSize: 9, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>Asignar a</span>
+        <span style={{ color: C.dim, fontSize: 9, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase" }}>Asignar a</span>
         <select
           value={target}
           onChange={(event) => setTarget(event.target.value)}
@@ -433,7 +433,7 @@ export default function MaterialesProduccionPanel({
             cursor: busy ? "wait" : "pointer",
             fontFamily: C.sans,
             fontSize: 11,
-            fontWeight: 850,
+            fontWeight: 700,
           }}
         >
           <PackagePlus size={13} /> Buscar en catálogo completo
@@ -471,7 +471,7 @@ export default function MaterialesProduccionPanel({
                 cursor: "pointer",
                 fontFamily: C.sans,
                 fontSize: 10.5,
-                fontWeight: active ? 850 : 700,
+                fontWeight: active ? 700 : 600,
                 whiteSpace: "nowrap",
               }}
             >
@@ -490,7 +490,7 @@ export default function MaterialesProduccionPanel({
         </div>
       )}
       {notice && (
-        <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontSize: 10.5, fontWeight: 750 }}>
+        <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontSize: 10.5, fontWeight: 650 }}>
           {notice}
         </div>
       )}
@@ -544,13 +544,13 @@ export default function MaterialesProduccionPanel({
                   type="button"
                   onClick={() => { setQuery(""); setProveedorSel(""); setRubroSel(""); }}
                   title="Limpiar los filtros"
-                  style={{ border: 0, background: "transparent", color: C.dim, cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 800 }}
+                  style={{ border: 0, background: "transparent", color: C.dim, cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 650 }}
                 >
                   Limpiar
                 </button>
               )}
 
-              <button type="button" onClick={toggleAllVisible} style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 800 }}>
+              <button type="button" onClick={toggleAllVisible} style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 10.5, fontWeight: 650 }}>
                 {filteredPending.length > 0 && filteredPending.every((row) => selected.has(row.id))
                   ? "Desmarcar visibles"
                   : "Seleccionar visibles"}
@@ -560,7 +560,7 @@ export default function MaterialesProduccionPanel({
                   la bandeja entera. Decir cuántos son evita asignar 40 creyendo
                   que eran 6. */}
               {filtrosPuestos && (
-                <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>
+                <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 600 }}>
                   {filteredPending.length} de {pending.length}
                 </span>
               )}
@@ -584,7 +584,7 @@ export default function MaterialesProduccionPanel({
                     cursor: busy ? "wait" : "pointer",
                     fontFamily: C.sans,
                     fontSize: 10.5,
-                    fontWeight: 900,
+                    fontWeight: 700,
                   }}
                 >
                   <Check size={12} /> Asignar {selected.size}
@@ -598,7 +598,7 @@ export default function MaterialesProduccionPanel({
               <span style={{ width: 42, height: 42, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, borderRadius: 13, background: C.panel2, color: C.dim }}>
                 <Archive size={20} />
               </span>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Esta línea todavía no tiene matriz</div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Esta línea todavía no tiene matriz</div>
               <div style={{ maxWidth: 430, color: C.dim, fontSize: 10.5, lineHeight: 1.5 }}>
                 Podés empezar con “Buscar en catálogo completo” o cargar primero la lista matriz del modelo.
               </div>
@@ -608,7 +608,7 @@ export default function MaterialesProduccionPanel({
               <span style={{ width: 42, height: 42, display: "grid", placeItems: "center", border: `1px solid ${C.greenB}`, borderRadius: 13, background: C.greenL, color: C.green }}>
                 <CircleCheck size={21} />
               </span>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Bandeja en cero</div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Bandeja en cero</div>
               <div style={{ maxWidth: 390, color: C.dim, fontSize: 10.5, lineHeight: 1.5 }}>
                 Todos los productos de la matriz K{data.modelo || "—"} ya tienen una etapa o tarea asignada.
               </div>
@@ -626,7 +626,7 @@ export default function MaterialesProduccionPanel({
               <button
                 type="button"
                 onClick={() => { setQuery(""); setProveedorSel(""); setRubroSel(""); }}
-                style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 850 }}
+                style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}
               >
                 Limpiar los filtros
               </button>
@@ -661,13 +661,13 @@ export default function MaterialesProduccionPanel({
                       {checked && <Check size={10} strokeWidth={3} />}
                     </span>
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", overflow: "hidden", color: C.text, fontSize: 11.5, fontWeight: 800, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+                      <span style={{ display: "block", overflow: "hidden", color: C.text, fontSize: 11.5, fontWeight: 650, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
                       <span style={{ display: "flex", gap: 7, marginTop: 3, overflow: "hidden", color: C.dim, fontSize: 9.5, whiteSpace: "nowrap" }}>
                         {row.codigo && <span style={{ fontFamily: C.mono }}>{row.codigo}</span>}
                         {row.proveedor && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row.proveedor}</span>}
                       </span>
                     </span>
-                    <span style={{ color: C.muted, fontFamily: C.mono, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+                    <span style={{ color: C.muted, fontFamily: C.mono, fontSize: 10, fontWeight: 650, whiteSpace: "nowrap" }}>
                       {shortQuantity(row.cantidad)} {row.unidad}
                     </span>
                   </button>
@@ -706,10 +706,10 @@ export default function MaterialesProduccionPanel({
                   }}
                 >
                   <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / 3" : "auto" }}>
-                    <div style={{ overflow: "hidden", color: C.text, fontSize: 11.5, fontWeight: 800, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "Material sin nombre"}</div>
+                    <div style={{ overflow: "hidden", color: C.text, fontSize: 11.5, fontWeight: 650, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "Material sin nombre"}</div>
                     <div style={{ display: "flex", gap: 6, marginTop: 3, color: C.dim, fontSize: 9.5 }}>
                       {material.codigo && <span style={{ fontFamily: C.mono }}>{material.codigo}</span>}
-                      {extra && <span style={{ color: C.violet, fontWeight: 800 }}>Catálogo adicional</span>}
+                      {extra && <span style={{ color: C.violet, fontWeight: 650 }}>Catálogo adicional</span>}
                     </div>
                   </div>
                   <select
@@ -781,10 +781,10 @@ export default function MaterialesProduccionPanel({
         gap: 7,
         padding: "8px 12px",
         borderTop: `1px solid ${C.border}`,
-        background: purchaseStages.length ? C.greenL : C.amberL,
-        color: purchaseStages.length ? C.green : C.amber,
+        background: purchaseStages.length ? C.greenL : C.cyanL,
+        color: purchaseStages.length ? C.green : C.cyan,
         fontSize: 9.5,
-        fontWeight: 750,
+        fontWeight: 650,
         lineHeight: 1.45,
       }}>
         {purchaseStages.length ? (

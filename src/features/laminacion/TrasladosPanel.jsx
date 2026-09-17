@@ -31,11 +31,11 @@ const fechaCorta = (ts) => {
 
 const S = {
   card: { border: "1px solid var(--panel-2)", borderRadius: 12, background: "var(--panel)", padding: 16, marginBottom: 12 },
-  h3: { margin: 0, color: "var(--text)", fontSize: 15, fontWeight: 700 },
+  h3: { margin: 0, color: "var(--text)", fontSize: 15, fontWeight: 600 },
   small: { color: "var(--dim)", fontSize: 12.5 },
-  label: { display: "block", color: "var(--dim)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
+  label: { display: "block", color: "var(--dim)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
   input: { width: "100%", boxSizing: "border-box", border: "1px solid var(--panel-2)", background: "var(--panel-2)", color: "var(--text)", borderRadius: 8, padding: "8px 10px", fontFamily: "inherit", fontSize: 13.5, outline: "none" },
-  btn: { border: "1px solid var(--panel-2)", background: "var(--panel-2)", color: "var(--text)", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 },
+  btn: { border: "1px solid var(--panel-2)", background: "var(--panel-2)", color: "var(--text)", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 },
   fila: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--panel-2)" },
   vacio: { color: "var(--dim)", fontSize: 12.5, padding: "14px 0" },
 };
@@ -126,10 +126,10 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
   return (
     <div>
       {err ? (
-        <div style={{ ...S.card, borderColor: "var(--red-border)", background: "var(--red-soft)", color: "var(--red)", fontWeight: 700, fontSize: 13 }}>{err}</div>
+        <div style={{ ...S.card, borderColor: "var(--red-border)", background: "var(--red-soft)", color: "var(--red)", fontWeight: 600, fontSize: 13 }}>{err}</div>
       ) : null}
       {ok ? (
-        <div style={{ ...S.card, borderColor: "var(--green-border)", background: "var(--green-soft)", color: "var(--green)", fontWeight: 700, fontSize: 13 }}>{ok}</div>
+        <div style={{ ...S.card, borderColor: "var(--green-border)", background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, fontSize: 13 }}>{ok}</div>
       ) : null}
 
       {/* ── 1 · Lo que me está llegando ────────────────────────────────────── */}
@@ -138,7 +138,7 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
           <PackageOpen size={16} color="var(--green)" />
           <h3 style={S.h3}>Me está llegando de {otra}</h3>
           {traslados.entrando.length ? (
-            <span style={{ fontFamily: "var(--mono, monospace)", fontWeight: 900, color: "var(--green)", fontSize: 13 }}>{traslados.entrando.length}</span>
+            <span style={{ fontFamily: "var(--mono, monospace)", fontWeight: 700, color: "var(--green)", fontSize: 13 }}>{traslados.entrando.length}</span>
           ) : null}
           <button type="button" style={{ ...S.btn, marginLeft: "auto", padding: "6px 10px" }} onClick={() => void cargar()} disabled={cargando}>
             {cargando ? <LoaderCircle size={13} className="spin" /> : <RotateCcw size={13} />}
@@ -151,7 +151,7 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
           <div key={t.id} style={S.fila}>
             <Truck size={15} color="var(--dim)" style={{ flexShrink: 0 }} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 700 }}>
+              <div style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 600 }}>
                 {fmt(t.cantidad)} {unidadDe(t)} · {nombreDe(t)}
               </div>
               <div style={S.small}>
@@ -180,7 +180,7 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
         ) : traslados.saliendo.map((t) => (
           <div key={t.id} style={S.fila}>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 700 }}>
+              <div style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 600 }}>
                 {fmt(t.cantidad)} {unidadDe(t)} · {nombreDe(t)}
               </div>
               <div style={S.small}>Salió el {fechaCorta(t.created_at)}{t.observaciones ? ` · ${t.observaciones}` : ""}</div>
@@ -224,7 +224,7 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
               onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))} />
           </div>
           {materialElegido ? (
-            <div style={{ marginTop: 9, fontSize: 12.5, fontWeight: 700, color: seLlevaDeMas ? "var(--red)" : "var(--dim)" }}>
+            <div style={{ marginTop: 9, fontSize: 12.5, fontWeight: 600, color: seLlevaDeMas ? "var(--red)" : "var(--dim)" }}>
               {seLlevaDeMas
                 ? `Acá hay ${fmt(stockPropio)} ${materialElegido.unidad}: estás mandando más de lo que tenés.`
                 : `Te quedan ${fmt(stockPropio - num(form.cantidad))} ${materialElegido.unidad} después de mandarlo.`}
@@ -253,12 +253,12 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
           {filasOtra.map((m) => (
             <div key={m.id} style={S.fila}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nombre}</div>
+                <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nombre}</div>
                 <div style={S.small}>{m.categoria || "Sin categoría"}</div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontFamily: "var(--mono, monospace)", fontWeight: 900, fontSize: 14, color: m.alla > 0 ? "var(--text)" : "var(--dim)" }}>
-                  {fmt(m.alla)} <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--dim)" }}>{m.unidad}</span>
+                <div style={{ fontFamily: "var(--mono, monospace)", fontWeight: 700, fontSize: 14, color: m.alla > 0 ? "var(--text)" : "var(--dim)" }}>
+                  {fmt(m.alla)} <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--dim)" }}>{m.unidad}</span>
                 </div>
                 <div style={{ ...S.small, fontSize: 11 }}>acá {fmt(m.aca)}</div>
               </div>
@@ -279,7 +279,7 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
                   ? <Check size={14} color="var(--green)" style={{ flexShrink: 0 }} />
                   : <X size={14} color="var(--dim)" style={{ flexShrink: 0 }} />}
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 700 }}>
+                  <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 600 }}>
                     {fmt(t.cantidad)} {unidadDe(t)} · {nombreDe(t)}
                   </div>
                   <div style={S.small}>

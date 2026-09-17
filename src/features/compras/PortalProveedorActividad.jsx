@@ -35,7 +35,7 @@ export default function PortalProveedorActividad({ requestId }) {
 
   return (
     <div style={{ margin: "10px 16px 0", border: "1px solid rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.05)", borderRadius: 12, padding: "10px 13px" }}>
-      <div style={{ fontSize: 10.5, fontWeight: 850, color: C.green, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>
         Actividad del proveedor (portal)
       </div>
       <div style={{ display: "grid", gap: 6 }}>
@@ -46,10 +46,10 @@ export default function PortalProveedorActividad({ requestId }) {
             <div key={ev.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5 }}>
               <Icon size={14} style={{ color: meta.color, flexShrink: 0, marginTop: 2 }} />
               <div style={{ minWidth: 0 }}>
-                <span style={{ color: C.text, fontWeight: 750 }}>{ev.proveedor}</span>
+                <span style={{ color: C.text, fontWeight: 650 }}>{ev.proveedor}</span>
                 <span style={{ color: C.dim }}> · {meta.label}</span>
-                {ev.fecha_estimada && <span style={{ color: meta.color, fontWeight: 750 }}> · llega {new Date(`${ev.fecha_estimada}T12:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}</span>}
-                {ev.archivo_url && <> · <a href={ev.archivo_url} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", fontWeight: 750 }}>ver archivo</a></>}
+                {ev.fecha_estimada && <span style={{ color: meta.color, fontWeight: 650 }}> · llega {new Date(`${ev.fecha_estimada}T12:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}</span>}
+                {ev.archivo_url && <> · <a href={ev.archivo_url} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", fontWeight: 650 }}>ver archivo</a></>}
                 {ev.mensaje && <div style={{ color: C.dim, marginTop: 1 }}>"{ev.mensaje}"</div>}
                 <span style={{ color: C.dim, fontSize: 11 }}> {fmt(ev.created_at)}</span>
               </div>

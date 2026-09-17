@@ -30,7 +30,7 @@ function InboxItem({ item }) {
         </div>
       </div>
       {item.meta && (
-        <span style={{ fontFamily:T.mono, fontSize:11, fontWeight:700, color:item.color, flexShrink:0 }}>
+        <span style={{ fontFamily:T.mono, fontSize:11, fontWeight:600, color:item.color, flexShrink:0 }}>
           {item.meta}
         </span>
       )}
@@ -47,7 +47,7 @@ export default function ActionInbox({ items, filter, onFilterChange, counts }) {
       <div style={{ padding:"14px 14px 9px", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
         <div style={{ ...EYEBROW }}>Pendientes</div>
         <span style={{ minWidth:22, height:22, padding:"0 7px", borderRadius:99, display:"inline-flex", alignItems:"center", justifyContent:"center",
-          border:"1px solid var(--border)", background:"var(--panel)", color:"var(--muted)", fontSize:11, fontWeight:700, fontFamily:T.mono }}>
+          border:"1px solid var(--border)", background:"var(--panel)", color:"var(--muted)", fontSize:11, fontWeight:600, fontFamily:T.mono }}>
           {items.length}
         </span>
       </div>
@@ -63,7 +63,7 @@ export default function ActionInbox({ items, filter, onFilterChange, counts }) {
               background: active ? "var(--panel-2)" : "transparent",
               color: active ? "var(--text)" : "var(--dim)",
               padding:"3px 9px", borderRadius:7, cursor:"pointer", fontSize:10,
-              fontWeight: active ? 700 : 400, fontFamily:T.sans, transition:"all 0.12s",
+              fontWeight: active ? 600 : 400, fontFamily:T.sans, transition:"all 0.12s",
               whiteSpace:"nowrap",
             }}>
               {f.label}{n > 0 ? ` ${n}` : ""}

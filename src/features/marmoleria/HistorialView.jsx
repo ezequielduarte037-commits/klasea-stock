@@ -16,7 +16,7 @@ export default function HistorialView({ historialEnvios, loading, isMobile, onBa
       <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <div>
           <div style={{ ...EYEBROW, marginBottom:5 }}>Registro</div>
-          <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:"var(--text)", letterSpacing:-0.3 }}>Historial de envíos</h1>
+          <h1 style={{ margin:0, fontSize:18, fontWeight:600, color:"var(--text)", letterSpacing:-0.3 }}>Historial de envíos</h1>
           <p style={{ color:"var(--dim)", fontSize:12, margin:"4px 0 0" }}>
             Todas las plantillas enviadas desde que empezaste a usar el programa
             {historialEnvios.length > 0 && <> — <strong style={{ color:"var(--muted)" }}>{historialEnvios.length} registros</strong></>}
@@ -48,7 +48,7 @@ export default function HistorialView({ historialEnvios, loading, isMobile, onBa
             <div style={{ display:"grid", gridTemplateColumns:"90px 120px 1fr 110px 110px 120px",
               gap:10, padding:"8px 16px", borderBottom:"1px solid var(--border)", background:"var(--panel-solid-2)" }}>
               {["Barco","Sector","Pieza / Color","F. envío","F. regreso","Estado"].map((h,i) => (
-                <div key={i} style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase", color:"var(--dim)", fontWeight:700, fontFamily:T.mono }}>{h}</div>
+                <div key={i} style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase", color:"var(--dim)", fontWeight:600, fontFamily:T.mono }}>{h}</div>
               ))}
             </div>
             {historialEnvios.map((p, idx) => {
@@ -59,7 +59,7 @@ export default function HistorialView({ historialEnvios, loading, isMobile, onBa
                   gap:10, alignItems:"center", padding:"9px 16px",
                   borderBottom:"1px solid var(--border)",
                 }}>
-                  <div style={{ fontFamily:T.mono, fontSize:13, fontWeight:700, color:"var(--text)" }}>{p.codigo_barco}</div>
+                  <div style={{ fontFamily:T.mono, fontSize:13, fontWeight:600, color:"var(--text)" }}>{p.codigo_barco}</div>
                   <div style={{ fontSize:12, color:"var(--dim)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.sector}</div>
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:13, color:"var(--text)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.pieza}</div>
@@ -69,7 +69,7 @@ export default function HistorialView({ historialEnvios, loading, isMobile, onBa
                   <div style={{ fontFamily:T.mono, fontSize:12, color:"var(--dim)" }}>{fmtFecha(p.fecha_regreso)}</div>
                   <div>
                     <span style={{ fontSize:10, letterSpacing:0.8, textTransform:"uppercase", padding:"3px 8px",
-                      borderRadius:99, fontWeight:700, background:m.bg, color:m.color, border:`1px solid ${m.border === "transparent" ? "var(--border)" : m.border}` }}>
+                      borderRadius:99, fontWeight:600, background:m.bg, color:m.color, border:`1px solid ${m.border === "transparent" ? "var(--border)" : m.border}` }}>
                       {p.estado}
                     </span>
                   </div>

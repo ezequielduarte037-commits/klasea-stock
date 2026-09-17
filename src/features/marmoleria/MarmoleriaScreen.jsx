@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import {
@@ -31,7 +30,7 @@ import HistorialView from "./HistorialView";
 import GeneralView from "./GeneralView";
 
 // ── CENTRO DE CONTROL DE MARMOLERÍA ───────────────────────────────
-export default function MarmoleriaScreen({ profile, signOut }) {
+export default function MarmoleriaScreen({ profile }) {
   const { isMobile } = useResponsive();
   const role    = profile?.role ?? "invitado";
   const isAdmin = hasAdminAccess(profile);
@@ -308,7 +307,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         const d = diasDesde(p.fecha_envio);
         items.push({
           id:`demorada-${p.id}`, kind:"demorada",
-          color:"var(--amber)", icon:<AlertTriangle size={14} />,
+          color:"var(--cyan)", icon:<AlertTriangle size={14} />,
           titulo:`Demorada hace ${d}d: ${p.pieza}`,
           detalle:`${p.codigo_barco} · ${p.sector} · enviada ${fmtFecha(p.fecha_envio)}`,
           meta:`${d}d`,
@@ -320,7 +319,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     desmoldesRows.filter(r => r.bucket === "proximos").forEach(r => {
       items.push({
         id:`proximo-${r.barco}`, kind:"proximo",
-        color:"var(--amber)", icon:<CalendarClock size={14} />,
+        color:"var(--cyan)", icon:<CalendarClock size={14} />,
         titulo:`Preparar pedido — ${r.barco}`,
         detalle:`${r.linea} · est. ${fmtFecha(r.estStr)}`,
         meta:`${r.dias}d`,
@@ -843,17 +842,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const mostrarDetalle = !!unidadSel;
 
   return (
-    <div style={{ background:"var(--bg)", position:"fixed", inset:0, overflow:"hidden", color:"var(--text)", fontFamily:T.sans }}>
+    <div style={{ background:"var(--bg)", position:"absolute", inset:0, overflow:"hidden", color:"var(--text)", fontFamily:T.sans }}>
       <style>{MARM_CSS}</style>
 
-      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height:"100vh", overflow:"hidden", position:"relative", zIndex:1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display:"grid", gridTemplateColumns: "minmax(0, 1fr)", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
 
-        <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
+        <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
 
           <div style={{
             minHeight:52, background:"var(--panel-solid)", borderBottom:"1px solid var(--border)",
-            padding:isMobile ? "8px 12px 8px 52px" : "8px 20px",
+            padding:isMobile ? "8px 12px" : "8px 20px",
             display:"flex", alignItems:"center", gap:14, flexShrink:0, flexWrap:"wrap",
           }}>
             <button
@@ -865,7 +863,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               }}
             >
               <Gem size={16} style={{ color:"var(--blue)" }} />
-              <span style={{ fontSize:15, fontWeight:700, letterSpacing:-0.2 }}>Marmolería</span>
+              <span style={{ fontSize:15, fontWeight:600, letterSpacing:-0.2 }}>Marmolería</span>
             </button>
 
             {!isMobile && enCentro && (
@@ -881,7 +879,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   },
                   {
                     key:"demoradas", value:signals.demoradas, label:"demoradas",
-                    color:signals.demoradas > 0 ? "var(--amber)" : "var(--dim)",
+                    color:signals.demoradas > 0 ? "var(--cyan)" : "var(--dim)",
                     icon:<AlertTriangle size={11} />, onClick:() => filtrarInbox("demorada"),
                   },
                   {
@@ -934,7 +932,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               display:"flex", alignItems:"center", gap:6,
               border:"1px solid var(--border)", background:"transparent",
               color:"var(--muted)", padding:"6px 10px", borderRadius:7, cursor:"pointer",
-              fontFamily:T.sans, fontSize:12, fontWeight:700, transition:"opacity 0.15s",
+              fontFamily:T.sans, fontSize:12, fontWeight:600, transition:"opacity 0.15s",
               opacity: isExporting ? 0.6 : 1 }}>
               <Download size={13} /> {isMobile ? "" : (isExporting ? "Generando…" : "Exportar PDF")}
             </button>
@@ -950,7 +948,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 <button key={t.key} onClick={() => setMobileTab(t.key)} style={{
                   flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
                   padding:"8px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12,
-                  fontWeight: mobileTab === t.key ? 700 : 400,
+                  fontWeight: mobileTab === t.key ? 600 : 400,
                   border: mobileTab === t.key ? "1px solid var(--blue-border)" : "1px solid var(--border)",
                   background: mobileTab === t.key ? "var(--blue-soft)" : "transparent",
                   color: mobileTab === t.key ? "var(--blue)" : "var(--dim)",

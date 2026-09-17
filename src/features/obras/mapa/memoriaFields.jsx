@@ -88,7 +88,7 @@ const _F = {
   sternthruster:      { key:"sternthruster",      label:"Sternthruster",       icon:IC.anchor,    col:2, section:"Equipamiento", type:"toggle", color:"#7dd3fc" },
   fabricadora_hielo:  { key:"fabricadora_hielo",  label:"Fabricadora de hielo",icon:IC.bolt,      col:1, section:"Equipamiento", type:"toggle", color:"#86efac" },
   radar:              { key:"radar",              label:"Radar",               icon:IC.signal,    col:2, section:"Equipamiento", type:"toggle", color:"#fca5a5" },
-  pluma:              { key:"pluma",              label:"Pluma",               icon:IC.anchor,    col:1, section:"Equipamiento", type:"toggle", color:"#fcd34d" },
+  pluma:              { key:"pluma",              label:"Pluma",               icon:IC.anchor,    col:1, section:"Equipamiento", type:"toggle", color:"#c4b5fd" },
   mesa_fly:           { key:"mesa_fly",           label:"Mesa Fly",            icon:IC.ship,      col:2, section:"Equipamiento", type:"toggle", color:"#c4b5fd" },
   aire_acondicionado: { key:"aire_acondicionado", label:"Aire Acondicionado",  icon:IC.bolt,      col:1, section:"Equipamiento", type:"toggle", color:"#67e8f9" },
   calefactor:         { key:"calefactor",         label:"Calefactor",          icon:IC.bolt,      col:2, section:"Equipamiento", type:"toggle", color:"#fda4af" },

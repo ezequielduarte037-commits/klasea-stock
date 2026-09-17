@@ -26,7 +26,7 @@ export const BUTTON = {
   color: C.muted,
   padding: "8px 12px",
   fontSize: 12,
-  fontWeight: 800,
+  fontWeight: 650,
   fontFamily: C.sans,
   cursor: "pointer",
 };

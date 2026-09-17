@@ -550,21 +550,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     });
   }, [centroFilter, query, rows, tipoFilter]);
 
-  const centrosTop = useMemo(() => {
-    const map = new Map();
-    filteredRows.forEach((row) => {
-      if (row.tipo !== "egreso") return;
-      const key = row.centro_costo || "Sin centro";
-      const current = map.get(key) || { centro: key, ARS: 0, USD: 0, count: 0 };
-      current[row.moneda === "USD" ? "USD" : "ARS"] += Number(row.importe || 0);
-      current.count += 1;
-      map.set(key, current);
-    });
-    return Array.from(map.values())
-      .sort((a, b) => b.ARS - a.ARS || b.USD - a.USD)
-      .slice(0, 8);
-  }, [filteredRows]);
-
   const importReady = useMemo(() => importRows.filter((row) => rowIssues(row).length === 0), [importRows]);
   const importReview = importRows.length - importReady.length;
 
@@ -929,7 +914,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           <Wallet size={18} />
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 850 }}>Caja chica</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Caja chica</h2>
           <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13 }}>
             Movimientos organizados por cierres semanales o por período.
           </p>
@@ -937,7 +922,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
         <button
           type="button"
           onClick={abrirReciboNuevo}
-          style={{ ...smallBtn(), border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 900 }}
+          style={{ ...smallBtn(), border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 700 }}
           title="Armar un recibo para que lo firmen"
         >
           <Receipt size={14} /> Recibo
@@ -974,7 +959,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
         />
         {!lockedOwnerId && owners.length > 0 && (
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12 }}>
-            <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, alignSelf: "center" }}>Caja:</span>
+            <span style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, alignSelf: "center" }}>Caja:</span>
             {[{ id: CAJA_COMPRAS, label: "Compras" }, ...owners.map((o) => ({ id: o.id, label: o.username }))].map((opt) => (
               <button
                 key={opt.id}
@@ -988,7 +973,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
                   padding: "5px 13px",
                   cursor: "pointer",
                   fontSize: 12.5,
-                  fontWeight: 850,
+                  fontWeight: 700,
                 }}
               >
                 {opt.label}
@@ -1008,7 +993,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           }}>
             <Wallet size={16} style={{ color: cajaCerrada ? C.dim : C.blue, flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, lineHeight: 1.15 }}>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750, lineHeight: 1.15 }}>
                 {selectedCierre.nombre}
               </div>
               {/* La fecha se mostraba abajo, en un bloque "Cierre activo" que
@@ -1025,8 +1010,8 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div style={{ textAlign: "right" }}>
-                <div style={{ color: C.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Saldo</div>
-                <div style={{ color: totalesCaja.saldoArs < 0 ? C.red : C.text, fontFamily: C.mono, fontSize: 16, fontWeight: 950 }}>
+                <div style={{ color: C.dim, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Saldo</div>
+                <div style={{ color: totalesCaja.saldoArs < 0 ? C.red : C.text, fontFamily: C.mono, fontSize: 16, fontWeight: 750 }}>
                   {fmtMoney(totalesCaja.saldoArs, "ARS")}
                 </div>
                 {(totalesCaja.USD.ingresos > 0 || totalesCaja.USD.egresos > 0) && (
@@ -1035,12 +1020,12 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               </div>
               {cajaCerrada ? (
                 <button type="button" onClick={() => setReabrirOpen(true)}
-                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
                   Reabrir
                 </button>
               ) : (
                 <button type="button" onClick={() => setCerrarOpen(true)}
-                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap" }}>
                   Cerrar caja
                 </button>
               )}
@@ -1057,7 +1042,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           style={{
             display: "inline-flex", alignItems: "center", gap: 7,
             border: "none", background: "transparent", padding: "2px 0",
-            color: C.muted, fontFamily: C.sans, fontSize: 12, fontWeight: 850, cursor: "pointer",
+            color: C.muted, fontFamily: C.sans, fontSize: 12, fontWeight: 700, cursor: "pointer",
           }}
         >
           <ChevronDown size={13} style={{ transform: verCierres ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
@@ -1080,7 +1065,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
                         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
                         border: `1px solid ${C.border}`, background: C.panel, color: C.muted,
                         borderRadius: 10, padding: "9px 11px", cursor: "pointer",
-                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, textAlign: "left",
+                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, textAlign: "left",
                       }}
                     >
                       <span>Cerradas · {cierresCerrados.length}</span>
@@ -1112,7 +1097,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               de la lista de la izquierda y, como es un grid, sus filas crecen
               con el: con diez cajas cargadas los campos quedaban gigantes. */}
           <form onSubmit={handleCreateCierre} style={{ display: "grid", gap: 8, alignSelf: "start", alignContent: "start", border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 850, color: C.text }}>Nuevo cierre</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Nuevo cierre</div>
             <Field label="Nombre">
               <input value={cierreForm.nombre} onChange={(e) => patchCierreForm({ nombre: e.target.value })} placeholder="Ej: Cierre 14/05 al 21/05" style={inputStyle()} />
             </Field>
@@ -1170,7 +1155,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
                   return (
                   <tr key={row.id} style={{ borderTop: `1px solid ${C.border}` }}>
                     <td style={tdStyle({ whiteSpace: "nowrap", color: C.dim })}>{fmtDate(row.fecha)}</td>
-                    <td style={tdStyle({ fontWeight: 750 })}>{row.proveedor || "-"}</td>
+                    <td style={tdStyle({ fontWeight: 650 })}>{row.proveedor || "-"}</td>
                     <td style={tdStyle()}>
                       <div>{row.detalle}</div>
                       {/* Borrador = el gasto está asentado pero el papel todavía
@@ -1186,10 +1171,10 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
                     <td style={tdStyle()}>
                       <span style={pill(C.blue)}>{row.centro_costo || "Sin centro"}</span>
                     </td>
-                    <td style={tdStyle({ color: C.red, fontFamily: C.mono, fontWeight: 800 })}>
+                    <td style={tdStyle({ color: C.red, fontFamily: C.mono, fontWeight: 650 })}>
                       {row.tipo === "egreso" ? fmtMoney(row.importe, row.moneda) : "-"}
                     </td>
-                    <td style={tdStyle({ color: C.green, fontFamily: C.mono, fontWeight: 800 })}>
+                    <td style={tdStyle({ color: C.green, fontFamily: C.mono, fontWeight: 650 })}>
                       {row.tipo === "ingreso" ? fmtMoney(row.importe, row.moneda) : "-"}
                     </td>
                     <td style={tdStyle({ textAlign: "right", whiteSpace: "nowrap" })}>
@@ -1215,24 +1200,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           </div>
         </section>
 
-        <aside style={{ display: "none" }}>
-          <SectionTitle title="Centros de costo" subtitle="Egresos principales para revisar por obra o área." />
-          <div style={{ display: "grid", gap: 8 }}>
-            {centrosTop.length ? centrosTop.map((item) => (
-              <div key={item.centro} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel2 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-                  <strong style={{ fontSize: 13 }}>{item.centro}</strong>
-                  <span style={{ fontFamily: C.mono, color: C.red, fontWeight: 850, fontSize: 12 }}>{fmtMoney(item.ARS)}</span>
-                </div>
-                <div style={{ marginTop: 5, color: C.dim, fontSize: 12 }}>
-                  {item.count} movimientos{item.USD ? ` · ${fmtMoney(item.USD, "USD")}` : ""}
-                </div>
-              </div>
-            )) : (
-              <div style={{ color: C.dim, fontSize: 13, padding: "18px 0" }}>Sin centros cargados todavía.</div>
-            )}
-          </div>
-        </aside>
       </div>
 
       {/* Los formularios van DEBAJO de la tabla.
@@ -1263,7 +1230,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               </Field>
               <Field label="Importe">
                 <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: C.dim, fontWeight: 800 }}>{form.moneda === "USD" ? "USD" : "$"}</span>
+                  <span style={{ color: C.dim, fontWeight: 650 }}>{form.moneda === "USD" ? "USD" : "$"}</span>
                   <input
                     value={form.importe}
                     onChange={(e) => patchForm({ importe: e.target.value })}
@@ -1396,8 +1363,8 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
               ["Saldo", fmtMoney(totalesCaja.saldoArs, "ARS"), totalesCaja.saldoArs < 0 ? C.red : C.blue],
             ].map(([label, valor, color]) => (
               <div key={label} style={{ border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: "9px 11px" }}>
-                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</div>
-                <div style={{ color, fontFamily: C.mono, fontSize: 16, fontWeight: 950, marginTop: 3 }}>{valor}</div>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</div>
+                <div style={{ color, fontFamily: C.mono, fontSize: 16, fontWeight: 750, marginTop: 3 }}>{valor}</div>
               </div>
             ))}
           </div>
@@ -1407,7 +1374,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
             </div>
           )}
           {totalesCaja.movimientos === 0 && (
-            <div style={{ color: C.red, fontSize: 12, fontWeight: 800 }}>
+            <div style={{ color: C.red, fontSize: 12, fontWeight: 650 }}>
               Ojo: esta caja no tiene ningún movimiento cargado.
             </div>
           )}
@@ -1428,7 +1395,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
           </>}
         >
           <label style={{ display: "grid", gap: 5 }}>
-            <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>¿Por qué la reabrís?</span>
+            <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>¿Por qué la reabrís?</span>
             <input
               autoFocus
               value={reabrirMotivo}
@@ -1462,7 +1429,7 @@ function CajaModal({ titulo, bajada, onClose, children, pie }) {
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.5)", display: "grid", placeItems: "center", padding: 16 }}>
       <div onClick={(event) => event.stopPropagation()} style={{ width: "min(470px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", display: "grid" }}>
         <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>{titulo}</div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>{titulo}</div>
           {bajada && <div style={{ color: C.dim, fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>{bajada}</div>}
         </div>
         <div style={{ padding: 16, display: "grid", gap: 11 }}>{children}</div>
@@ -1488,8 +1455,8 @@ function Kpi({ icon, label, value, color }) {
         {icon}
       </div>
       <div>
-        <div style={{ color, fontFamily: C.mono, fontSize: 20, fontWeight: 900, lineHeight: 1 }}>{value}</div>
-        <div style={{ marginTop: 5, color: C.dim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 800 }}>{label}</div>
+        <div style={{ color, fontFamily: C.mono, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{value}</div>
+        <div style={{ marginTop: 5, color: C.dim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 650 }}>{label}</div>
       </div>
     </div>
   );
@@ -1498,7 +1465,7 @@ function Kpi({ icon, label, value, color }) {
 function SectionTitle({ title, subtitle }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 850 }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
       {subtitle && <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 12, lineHeight: 1.35 }}>{subtitle}</p>}
     </div>
   );
@@ -1507,7 +1474,7 @@ function SectionTitle({ title, subtitle }) {
 function Field({ label, children }) {
   return (
     <label style={{ display: "grid", gap: 5 }}>
-      <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850 }}>{label}</span>
+      <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>{label}</span>
       {children}
     </label>
   );
@@ -1534,7 +1501,7 @@ function inputStyle() {
     borderRadius: 8,
     padding: "9px 10px",
     fontSize: 13,
-    fontWeight: 650,
+    fontWeight: 600,
     outline: "none",
     fontFamily: C.sans,
   };
@@ -1560,7 +1527,7 @@ function ghostBtn() {
     borderRadius: 9,
     padding: "9px 13px",
     fontSize: 13,
-    fontWeight: 800,
+    fontWeight: 650,
     cursor: "pointer",
     fontFamily: C.sans,
   };
@@ -1577,7 +1544,7 @@ function primaryBtn(disabled = false) {
     borderRadius: 9,
     padding: "9px 13px",
     fontSize: 13,
-    fontWeight: 850,
+    fontWeight: 700,
     cursor: disabled ? "not-allowed" : "pointer",
   };
 }
@@ -1593,7 +1560,7 @@ function smallBtn(disabled = false) {
     borderRadius: 9,
     padding: "8px 11px",
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 650,
     cursor: disabled ? "not-allowed" : "pointer",
   };
 }
@@ -1626,7 +1593,7 @@ function pill(color) {
     color,
     padding: "4px 8px",
     fontSize: 11,
-    fontWeight: 850,
+    fontWeight: 700,
   };
 }
 
@@ -1638,7 +1605,7 @@ function thStyle() {
     fontSize: 10,
     textTransform: "uppercase",
     letterSpacing: 1.1,
-    fontWeight: 850,
+    fontWeight: 700,
     background: C.panel2,
     borderBottom: `1px solid ${C.border}`,
   };

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { supabase } from "@/supabaseClient";
@@ -22,7 +21,7 @@ function newItemDraft(order = 0) {
   return { id: tmpId(), material_id: "", cantidad: "", notas: "", orden: order };
 }
 
-export default function PlantillasLineaScreen({ profile, signOut }) {
+export default function PlantillasLineaScreen({ profile }) {
   const toast = useToast();
   const { isMobile } = useResponsive();
   const role = profile?.role ?? "invitado";
@@ -202,21 +201,15 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans }}>
-      <Sidebar profile={profile} signOut={signOut} />
+    <div style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans }}>
 
       <main style={{ flex: 1, minWidth: 0, overflow: "auto", padding: isMobile ? 14 : 22 }}>
         <style>{`
-          select option { background: var(--panel-solid); color: var(--text); }
-          input:focus, textarea:focus, select:focus {
-            border-color: var(--focus) !important;
-            box-shadow: 0 0 0 3px rgba(126,179,255,0.08);
-          }
         `}</style>
 
         <header style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 850, color: C.text }}>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.text }}>
               Plantillas por linea
             </h1>
             <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13, lineHeight: 1.45 }}>
@@ -231,7 +224,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
         </header>
 
         {!canEdit && (
-          <div style={{ ...cardStyle(), marginBottom: 14, color: C.amber, borderColor: C.amber }}>
+          <div style={{ ...cardStyle(), marginBottom: 14, color: C.cyan, borderColor: C.cyan }}>
             Solo administracion y tecnica pueden editar plantillas.
           </div>
         )}
@@ -244,7 +237,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
 
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0, 1fr)",
+          gridTemplateColumns: "minmax(0, 1fr)",
           gap: 14,
           alignItems: "start",
         }}>
@@ -276,8 +269,8 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
                     }}
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850 }}>{p.linea}</span>
-                      <span style={{ color: p.activa ? C.green : C.dim, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.1 }}>
+                      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>{p.linea}</span>
+                      <span style={{ color: p.activa ? C.green : C.dim, fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 1.1 }}>
                         {p.activa ? "Activa" : "Inactiva"}
                       </span>
                     </span>
@@ -298,7 +291,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
                   onChange={(e) => setDraft((d) => ({ ...d, linea: e.target.value.toUpperCase() }))}
                   placeholder="K42 o ANTAGO"
                   disabled={!canEdit}
-                  style={inputStyle({ fontFamily: C.mono, fontWeight: 800 })}
+                  style={inputStyle({ fontFamily: C.mono, fontWeight: 650 })}
                 />
               </Field>
               <Field label="Nombre">
@@ -322,7 +315,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
                   background: C.panel,
                   color: C.muted,
                   fontSize: 13,
-                  fontWeight: 700,
+                  fontWeight: 600,
                 }}>
                   <input
                     type="checkbox"
@@ -347,7 +340,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
             </Field>
 
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
-              <h2 style={{ margin: 0, fontSize: 14, fontWeight: 850, color: C.text }}>Items de la plantilla</h2>
+              <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text }}>Items de la plantilla</h2>
               <span style={{ color: C.dim, fontSize: 12, fontFamily: C.mono }}>{itemDrafts.filter((it) => it.material_id).length}</span>
               <span style={{ flex: 1 }} />
               {canEdit && (
@@ -461,7 +454,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
 function Field({ label, children }) {
   return (
     <label style={{ display: "grid", gap: 5 }}>
-      <span style={{ color: C.dim, fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase" }}>
+      <span style={{ color: C.dim, fontSize: 10, fontWeight: 650, letterSpacing: 1.2, textTransform: "uppercase" }}>
         {label}
       </span>
       {children}
@@ -508,7 +501,7 @@ function buttonStyle(color, primary = false, disabled = false) {
     alignItems: "center",
     gap: 6,
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 650,
     fontFamily: C.sans,
     opacity: disabled ? 0.55 : 1,
   };

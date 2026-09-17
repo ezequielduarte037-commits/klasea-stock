@@ -169,10 +169,10 @@ export default function Tour({
         <div style={{ padding: "15px 16px 13px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, color: C.violet, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.violet, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 5 }}>
                 Paso {pasoIndex + 1} de {tour.pasos.length}
               </div>
-              <h2 style={{ margin: 0, fontSize: 16, lineHeight: 1.25, fontWeight: 900 }}>{paso.titulo}</h2>
+              <h2 style={{ margin: 0, fontSize: 16, lineHeight: 1.25, fontWeight: 700 }}>{paso.titulo}</h2>
             </div>
             <button
               type="button"
@@ -185,13 +185,13 @@ export default function Tour({
           </div>
           <p style={{ margin: "10px 0 0", color: C.muted, fontSize: 13, lineHeight: 1.55 }}>{paso.cuerpo}</p>
           {targetFaltante && (
-            <div style={{ marginTop: 10, padding: "9px 10px", borderRadius: 9, background: C.amberL, border: `1px solid ${C.amberB}`, color: C.amber, fontSize: 11.5, lineHeight: 1.45 }}>
+            <div style={{ marginTop: 10, padding: "9px 10px", borderRadius: 9, background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 11.5, lineHeight: 1.45 }}>
               Esta sección no está disponible con los datos o filtros actuales. Podés continuar sin perder el resto del recorrido.
-              <button type="button" onClick={() => setRetryToken(value => value + 1)} style={{ display: "block", marginTop: 6, padding: 0, border: "none", background: "transparent", color: C.amber, cursor: "pointer", fontSize: 11.5, fontWeight: 850 }}>Reintentar ubicación</button>
+              <button type="button" onClick={() => setRetryToken(value => value + 1)} style={{ display: "block", marginTop: 6, padding: 0, border: "none", background: "transparent", color: C.cyan, cursor: "pointer", fontSize: 11.5, fontWeight: 700 }}>Reintentar ubicación</button>
             </div>
           )}
           {paso.interactivo && (
-            <div style={{ marginTop: 9, padding: "7px 9px", borderRadius: 9, background: C.violetL, border: `1px solid ${C.violetB}`, color: C.violet, fontSize: 11.5, fontWeight: 750 }}>
+            <div style={{ marginTop: 9, padding: "7px 9px", borderRadius: 9, background: C.violetL, border: `1px solid ${C.violetB}`, color: C.violet, fontSize: 11.5, fontWeight: 650 }}>
               Podés usar el elemento resaltado antes de continuar.
             </div>
           )}
@@ -200,7 +200,7 @@ export default function Tour({
           <button
             type="button"
             onClick={onCerrar}
-            style={{ border: "none", background: "transparent", color: C.dim, padding: "7px 5px", cursor: "pointer", fontSize: 12, fontWeight: 750 }}
+            style={{ border: "none", background: "transparent", color: C.dim, padding: "7px 5px", cursor: "pointer", fontSize: 12, fontWeight: 650 }}
           >
             Salir
           </button>
@@ -209,7 +209,7 @@ export default function Tour({
             <button
               type="button"
               onClick={onAnterior}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 800 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 650 }}
             >
               <ArrowLeft size={13} /> Atrás
             </button>
@@ -217,7 +217,7 @@ export default function Tour({
           <button
             type="button"
             onClick={onSiguiente}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "linear-gradient(135deg,var(--violet),var(--blue))", color: "#fff", borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "linear-gradient(135deg,var(--violet),var(--blue))", color: "#fff", borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}
           >
             {ultimo ? "Entendido" : "Siguiente"} {!ultimo && <ArrowRight size={13} />}
           </button>

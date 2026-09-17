@@ -96,7 +96,7 @@ export function CrearProcesoModal({
             border: `1px solid ${C.blueB}`,
             background: C.blueL,
           }}>
-            <div style={{ color: C.blue, fontSize: 12, fontWeight: 850 }}>
+            <div style={{ color: C.blue, fontSize: 12, fontWeight: 700 }}>
               Plantilla {plantilla.linea?.nombre || obra.linea_nombre}
             </div>
             <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.5 }}>
@@ -263,7 +263,7 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                     title="Cuánto de este material lleva el renglón. Es la cantidad que se le pide a Compras."
                     style={{ ...INPUT, width: 58, minHeight: 30, padding: "0 7px", textAlign: "center" }}
                   />
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 650, whiteSpace: "nowrap" }}>
                     {mat.unidad_medida || mat.unidad || "unidad"}
                   </span>
                 </div>
@@ -278,7 +278,7 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                       ? "Cantidad del paquete de línea de eje. Vale si este barco la lleva; si va con pata o dentro-fuera, corregila."
                       : "Cantidad que la línea lleva siempre, según su matriz. Podés cambiarla."}
                     style={{
-                      flexShrink: 0, fontSize: 9, fontWeight: 850,
+                      flexShrink: 0, fontSize: 9, fontWeight: 700,
                       borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap",
                       color: row.origenCantidad === "linea_eje" ? C.violet : C.blue,
                       border: `1px solid ${row.origenCantidad === "linea_eje" ? C.violetB : C.blueB}`,
@@ -290,10 +290,10 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                 )}
                 <div style={{ minWidth: 0, flex: 1, display: "grid" }}>
                   {mat.alias && (
-                    <span style={{ color: C.blue, fontSize: 10, fontWeight: 850 }}>{mat.alias}</span>
+                    <span style={{ color: C.blue, fontSize: 10, fontWeight: 700 }}>{mat.alias}</span>
                   )}
                   <span style={{
-                    fontSize: 11.5, fontWeight: 800, color: C.text,
+                    fontSize: 11.5, fontWeight: 650, color: C.text,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>
                     {mat.descripcion || "Material del catálogo"}
@@ -393,7 +393,7 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                 }}
               >
                 {puesto && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontSize: 10, fontWeight: 850 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontSize: 10, fontWeight: 700 }}>
                     <Check size={11} /> Ya está en el renglón
                   </span>
                 )}
@@ -402,9 +402,9 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                     sin verlo no se entiende por qué apareció un "Bulón Cabeza
                     ALLEN" cuando buscaste "manchon". */}
                 {row.alias && (
-                  <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 850 }}>{row.alias}</span>
+                  <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 700 }}>{row.alias}</span>
                 )}
-                <span style={{ fontSize: 12, fontWeight: 800 }}>{row.descripcion}</span>
+                <span style={{ fontSize: 12, fontWeight: 650 }}>{row.descripcion}</span>
                 <span style={{ color: C.dim, fontSize: 10.5 }}>
                   {[row.codigo, row.proveedor, row.unidad].filter(Boolean).join(" · ")}
                 </span>
@@ -628,7 +628,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                   fontFamily: C.sans,
                 }}
               >
-                <span style={{ fontSize: 11.5, fontWeight: 850 }}>{title}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{title}</span>
                 <span style={{ fontSize: 9.5, lineHeight: 1.35 }}>{hint}</span>
               </button>
             );
@@ -644,7 +644,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           background: alcance === "linea" ? C.violetL : C.panel,
         }}>
           <div>
-            <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Aplicar este cambio en</div>
+            <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Aplicar este cambio en</div>
             <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
               Los estados de compra y recepción siempre siguen siendo propios de cada obra.
             </div>
@@ -677,7 +677,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                     fontFamily: C.sans,
                   }}
                 >
-                  <span style={{ fontSize: 11.5, fontWeight: 900 }}>{title}</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 700 }}>{title}</span>
                   <span style={{ fontSize: 9.5, lineHeight: 1.35 }}>{detail}</span>
                 </button>
               );
@@ -717,7 +717,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
             background: C.blueL,
           }}>
             <div>
-              <div style={{ color: C.blue, fontSize: 12, fontWeight: 850 }}>Materiales que forman el conjunto</div>
+              <div style={{ color: C.blue, fontSize: 12, fontWeight: 700 }}>Materiales que forman el conjunto</div>
               <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
                 Al completar esos recorridos, este será el ítem que viaje en la etapa siguiente.
               </div>
@@ -739,7 +739,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                       color: checked ? C.text : C.muted,
                       cursor: "pointer",
                       fontSize: 11.5,
-                      fontWeight: 750,
+                      fontWeight: 650,
                     }}>
                       <input
                         type="checkbox"
@@ -843,7 +843,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
               <FileText size={15} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Planos del material</div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Planos del material</div>
               <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
                 PDF, DXF, DWG, STEP, imágenes o cualquier archivo técnico. Se adjuntan automáticamente al pedido de Compras.
               </div>
@@ -871,7 +871,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                       minWidth: 0,
                       color: C.blue,
                       fontSize: 11,
-                      fontWeight: 800,
+                      fontWeight: 650,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -893,7 +893,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           )}
 
           {!!archivosNuevos.length && (
-            <div style={{ color: C.green, fontSize: 10.5, fontWeight: 800 }}>
+            <div style={{ color: C.green, fontSize: 10.5, fontWeight: 650 }}>
               {archivosNuevos.length} archivo{archivosNuevos.length === 1 ? "" : "s"} nuevo{archivosNuevos.length === 1 ? "" : "s"} listo{archivosNuevos.length === 1 ? "" : "s"} para subir.
             </div>
           )}
@@ -1043,10 +1043,10 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 850 }}>Piezas de este paso</div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Piezas de este paso</div>
               <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Marcá qué materiales viajan juntos.</div>
             </div>
-            <span style={{ color: C.blue, fontSize: 11, fontWeight: 850 }}>{components.size} seleccionadas</span>
+            <span style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>{components.size} seleccionadas</span>
           </div>
           <div style={{ display: "grid", gap: 5, maxHeight: 270, overflowY: "auto" }}>
             {(proceso.items || []).filter((item) => item.activo !== false).map((item) => {
@@ -1076,7 +1076,7 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
                     {selected && <Check size={14} />}
                   </button>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: C.text, fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ color: C.text, fontSize: 12, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.descripcion}
                     </div>
                     <div style={{ color: C.dim, fontSize: 10.5 }}>{item.grupo}</div>
@@ -1251,7 +1251,7 @@ export function MovimientoModal({
 
         <div>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ color: C.text, fontSize: 12, fontWeight: 850 }}>Cantidades</div>
+            <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Cantidades</div>
             <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Cargá solamente lo que sale o vuelve en este movimiento.</div>
           </div>
           <div style={{ display: "grid", gap: 6 }}>
@@ -1267,7 +1267,7 @@ export function MovimientoModal({
                 background: C.panel,
               }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 12, fontWeight: 800 }}>
+                  <div style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>
                     {row.item?.descripcion || "Pieza"}
                   </div>
                   <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
@@ -1309,7 +1309,7 @@ export function MovimientoModal({
             />
           </label>
           {!!files.length && (
-            <div style={{ color: C.green, fontSize: 11, fontWeight: 750 }}>
+            <div style={{ color: C.green, fontSize: 11, fontWeight: 650 }}>
               {files.length} archivo{files.length === 1 ? "" : "s"} listo{files.length === 1 ? "" : "s"} para subir
             </div>
           )}
@@ -1451,7 +1451,7 @@ export function FleteModal({
 
         <div style={{ display: "grid", gap: 7 }}>
           <div>
-            <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Carga del flete</div>
+            <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Carga del flete</div>
             <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
               Revisá las cantidades. Cada obra conservará su movimiento y su historial por separado.
             </div>
@@ -1471,7 +1471,7 @@ export function FleteModal({
               }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>
+                    <span style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>
                       {row.process?.obra?.codigo || row.process?.nombre}
                     </span>
                     <span style={{ color: C.dim, fontSize: 10 }}>

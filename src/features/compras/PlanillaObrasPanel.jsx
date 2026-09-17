@@ -125,7 +125,7 @@ function CeldaCalor({ celda, vista }) {
         display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
         background: completo ? "var(--green-soft)" : C.violetL,
         color: completo ? C.green : C.violet,
-        fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, fontVariantNumeric: "tabular-nums",
+        fontFamily: C.mono, fontSize: 10.5, fontWeight: 700, fontVariantNumeric: "tabular-nums",
       }}>
         {texto}
       </span>
@@ -151,7 +151,7 @@ function CeldaCalor({ celda, vista }) {
       <span className="celda-calor" style={{
         display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
         ...estado,
-        fontFamily: C.mono, fontSize: 12, fontWeight: 950, fontVariantNumeric: "tabular-nums",
+        fontFamily: C.mono, fontSize: 12, fontWeight: 750, fontVariantNumeric: "tabular-nums",
       }}>
         {mostrarNumero(soloEste)}
       </span>
@@ -160,17 +160,17 @@ function CeldaCalor({ celda, vista }) {
 
   let estilo = { background: "transparent", color: C.border2 };
   let texto = "—";
-  let peso = 900;
+  let peso = 700;
 
   if (sinDefinir) {
     estilo = { background: C.violetL, color: C.violet }; texto = "?";
   } else if (falta > 0) {
-    estilo = { background: C.redL, color: C.red }; texto = mostrarNumero(falta); peso = 950;
+    estilo = { background: C.redL, color: C.red }; texto = mostrarNumero(falta); peso = 750;
   } else if (enPanol > 0) {
     estilo = { background: C.cyanL, color: C.cyan }; texto = mostrarNumero(enPanol);
   } else if (entregado > 0) {
     // Lo entregado es un hecho consumado: se ve, pero no compite por atencion.
-    estilo = { background: "var(--green-soft)", color: C.green }; texto = mostrarNumero(entregado); peso = 800;
+    estilo = { background: "var(--green-soft)", color: C.green }; texto = mostrarNumero(entregado); peso = 650;
   }
 
   return (
@@ -213,8 +213,8 @@ function Metric({ valor, etiqueta, color = C.text, icono: Icon }) {
         </span>
       ) : null}
       <span style={{ display: "grid", gap: 1 }}>
-        <strong style={{ color, fontFamily: C.mono, fontSize: 14, fontWeight: 950, lineHeight: 1 }}>{valor}</strong>
-        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap" }}>{etiqueta}</span>
+        <strong style={{ color, fontFamily: C.mono, fontSize: 14, fontWeight: 750, lineHeight: 1 }}>{valor}</strong>
+        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 650, whiteSpace: "nowrap" }}>{etiqueta}</span>
       </span>
     </div>
   );
@@ -243,11 +243,11 @@ function EstadoNumero({ value, tone = "neutral", suffix = "" }) {
       padding: "3px 7px",
       fontFamily: C.mono,
       fontSize: 12,
-      fontWeight: 900,
+      fontWeight: 700,
       fontVariantNumeric: "tabular-nums",
     }}>
       {mostrarNumero(value)}
-      {suffix ? <small style={{ fontSize: 8.5, fontWeight: 800 }}>{suffix}</small> : null}
+      {suffix ? <small style={{ fontSize: 8.5, fontWeight: 650 }}>{suffix}</small> : null}
     </span>
   );
 }
@@ -260,7 +260,7 @@ function DesgloseConfiguracion({ celda, unidad }) {
     .map((item) => `${item.nombre}: ${item.delta > 0 ? "+" : ""}${mostrarNumero(item.delta)} ${unidad}`)
     .join(" · ");
   return (
-    <div title={detalle || "Cantidad ajustada por la configuración de esta obra"} style={{ marginTop: 3, color: C.violet, fontSize: 8.5, fontWeight: 900, lineHeight: 1.25 }}>
+    <div title={detalle || "Cantidad ajustada por la configuración de esta obra"} style={{ marginTop: 3, color: C.violet, fontSize: 8.5, fontWeight: 700, lineHeight: 1.25 }}>
       {base > 0 ? `${mostrarNumero(base)} base ` : "Sólo configuración "}
       {ajuste > 0 ? "+" : "−"} {mostrarNumero(Math.abs(ajuste))}
     </div>
@@ -285,7 +285,7 @@ function OrigenBadge({ origen, compacto = false }) {
         borderRadius: 999,
         padding: compacto ? "2px 6px" : "4px 8px",
         fontSize: compacto ? 9 : 10.5,
-        fontWeight: 900,
+        fontWeight: 700,
         lineHeight: 1.15,
         whiteSpace: "nowrap",
       }}
@@ -851,7 +851,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     padding: "8px 10px",
     fontFamily: C.sans,
     fontSize: 12.5,
-    fontWeight: 800,
+    fontWeight: 650,
     outline: "none",
     cursor: "pointer",
   };
@@ -862,7 +862,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     background: "var(--panel-solid)",
     textAlign: "center",
     fontSize: 10,
-    fontWeight: 900,
+    fontWeight: 700,
     letterSpacing: 0.55,
     textTransform: "uppercase",
     color: C.dim,
@@ -910,7 +910,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         .planilla-obras .planilla-celda-detalle { display: block; width: 100%; min-height: 40px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
         .planilla-obras .planilla-celda-detalle:hover { border-color: var(--blue); }
         .planilla-obras .planilla-celda-detalle[aria-pressed="true"] { outline: 2px solid var(--blue); outline-offset: -2px; }
-        .planilla-obras .planilla-nombre { display: block; width: 100%; padding: 0; background: transparent; border: none; text-align: left; color: var(--text); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; line-height: 1.4; }
+        .planilla-obras .planilla-nombre { display: block; width: 100%; padding: 0; background: transparent; border: none; text-align: left; color: var(--text); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; line-height: 1.4; }
         .planilla-obras .planilla-nombre:hover { color: var(--blue); }
         .planilla-compacta .planilla-celda-fija { padding-block: 5px !important; }
         .planilla-compacta .planilla-nombre { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -956,10 +956,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             <Layers3 size={16} />
           </span>
           <div style={{ minWidth: 180, flex: 1 }}>
-            <h2 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 18, lineHeight: 1.15, fontWeight: 950 }}>Planillas por obra</h2>
-            <p style={{ margin: "2px 0 0", color: C.dim, fontSize: 10.5, fontWeight: 700 }}>Compará materiales y obras en una sola tabla.</p>
+            <h2 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 18, lineHeight: 1.15, fontWeight: 750 }}>Planillas por obra</h2>
+            <p style={{ margin: "2px 0 0", color: C.dim, fontSize: 10.5, fontWeight: 600 }}>Compará materiales y obras en una sola tabla.</p>
           </div>
-          {datos ? <span style={{ color: C.dim, fontSize: 11, fontWeight: 800 }}>{datos.obras.length} obras · {resumenFoco.materiales} materiales</span> : null}
+          {datos ? <span style={{ color: C.dim, fontSize: 11, fontWeight: 650 }}>{datos.obras.length} obras · {resumenFoco.materiales} materiales</span> : null}
           <button type="button" aria-expanded={resumenAbierto} onClick={() => setResumenAbierto(actual => !actual)} style={{ ...control, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 6, color: resumenAbierto ? C.blue : C.dim }}>
             Resumen <ChevronDown size={13} style={{ transform: resumenAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
           </button>
@@ -989,16 +989,16 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             {obraSeleccionada ? (
               <>
                 <div style={{ minWidth: 140 }}>
-                  <div style={{ color: C.text, fontSize: 18, fontWeight: 950 }}>{obraSeleccionada.codigo}</div>
-                  <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
+                  <div style={{ color: C.text, fontSize: 18, fontWeight: 750 }}>{obraSeleccionada.codigo}</div>
+                  <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
                     {obraSeleccionada.filasCargadas} materiales de {linea}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  <span style={{ color: "var(--cyan)", fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.pendientes} materiales con faltantes</span>
-                  <span style={{ color: C.cyan, fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.enPanol} esperando retiro</span>
-                  <span style={{ color: C.green, fontSize: 12, fontWeight: 850 }}>{obraSeleccionada.entregados} con entregas</span>
-                  {obraSeleccionada.opcionesPendientes ? <span style={{ color: C.cyan, fontSize: 12, fontWeight: 950 }}>{obraSeleccionada.opcionesPendientes} productos por definir</span> : null}
+                  <span style={{ color: "var(--cyan)", fontSize: 12, fontWeight: 700 }}>{obraSeleccionada.pendientes} materiales con faltantes</span>
+                  <span style={{ color: C.cyan, fontSize: 12, fontWeight: 700 }}>{obraSeleccionada.enPanol} esperando retiro</span>
+                  <span style={{ color: C.green, fontSize: 12, fontWeight: 700 }}>{obraSeleccionada.entregados} con entregas</span>
+                  {obraSeleccionada.opcionesPendientes ? <span style={{ color: C.cyan, fontSize: 12, fontWeight: 750 }}>{obraSeleccionada.opcionesPendientes} productos por definir</span> : null}
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                   <span style={{
@@ -1007,7 +1007,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                     borderRadius: 999,
                     padding: "5px 9px",
                     fontSize: 10.5,
-                    fontWeight: 900,
+                    fontWeight: 700,
                   }}>
                     {CARGA[obraSeleccionada.carga]?.texto || "en curso"}
                   </span>
@@ -1016,12 +1016,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             ) : (
               <>
                 <div>
-                  <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>{linea} · todas las obras activas</div>
-                  <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+                  <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>{linea} · todas las obras activas</div>
+                  <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
                     Rojo significa que falta material, sin importar si falta una unidad o varias. La cifra indica la cantidad.
                   </div>
                 </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 10.5, fontWeight: 850 }}>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 10.5, fontWeight: 700 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.red }}>
                     <i style={{ width: 14, height: 11, borderRadius: 3, background: C.redL, border: `1px solid ${C.redB}` }} /> faltante
                   </span>
@@ -1042,10 +1042,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             <CircleAlert size={16} />
           </span>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>
+            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>
               {obraSeleccionada.opcionesPendientes} ítem{obraSeleccionada.opcionesPendientes === 1 ? " matriz necesita" : "s matriz necesitan"} un producto concreto
             </div>
-            <div style={{ marginTop: 2, color: C.dim, fontSize: 10.5, fontWeight: 700 }}>
+            <div style={{ marginTop: 2, color: C.dim, fontSize: 10.5, fontWeight: 600 }}>
               Elegilo en la columna “Producto para esta obra”. La compra y el aviso a pañol usarán ese producto, no el requisito genérico.
             </div>
           </div>
@@ -1063,8 +1063,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         <div style={{ ...panel, display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", borderColor: C.cyanB, background: C.cyanL }}>
           <AlertTriangle size={16} color={C.cyan} style={{ marginTop: 1, flexShrink: 0 }} />
           <div>
-            <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 900 }}>{linea} todavía no tiene lista matriz</div>
-            <div style={{ marginTop: 2, color: C.muted, fontSize: 11.5, fontWeight: 700 }}>
+            <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 700 }}>{linea} todavía no tiene lista matriz</div>
+            <div style={{ marginTop: 2, color: C.muted, fontSize: 11.5, fontWeight: 600 }}>
               Sólo pueden aparecer movimientos históricos. Configurá la línea en Materiales para que todas sus obras nazcan con pendientes.
             </div>
           </div>
@@ -1092,7 +1092,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           onChange={(event) => cambiarLinea(event.target.value)}
           aria-label="Línea de producción"
           title="Línea de producción"
-          style={{ ...control, minWidth: 82, borderColor: C.blueB, background: C.blueL, color: C.blue, fontWeight: 950 }}
+          style={{ ...control, minWidth: 82, borderColor: C.blueB, background: C.blueL, color: C.blue, fontWeight: 750 }}
         >
           {(datos?.lineasDisponibles ?? [linea]).map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
@@ -1115,7 +1115,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
             placeholder="Buscar material, código, rubro o proveedor…"
-            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}
+            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600 }}
           />
           {busqueda ? (
             <button type="button" onClick={() => { setBusqueda(""); buscadorRef.current?.focus(); }} aria-label="Limpiar búsqueda" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 0 }}>
@@ -1176,7 +1176,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   cursor: "pointer",
                   fontFamily: C.sans,
                   fontSize: 11,
-                  fontWeight: vista === item.valor ? 900 : 750,
+                  fontWeight: vista === item.valor ? 700 : 650,
                   background: vista === item.valor ? C.blueL : "transparent",
                   color: vista === item.valor ? C.blue : C.dim,
                 }}
@@ -1224,7 +1224,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </div>
 
         <div className="planilla-origenes" aria-label="Filtrar por origen del material" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", paddingTop: 8, borderTop: `1px solid ${C.border}`, scrollbarWidth: "thin" }}>
-          <span style={{ flexShrink: 0, padding: "0 4px", color: C.dim, fontSize: 9.5, fontWeight: 950, letterSpacing: .85, textTransform: "uppercase" }}>Origen</span>
+          <span style={{ flexShrink: 0, padding: "0 4px", color: C.dim, fontSize: 9.5, fontWeight: 750, letterSpacing: .85, textTransform: "uppercase" }}>Origen</span>
           {ORIGENES.map((item) => {
             const activa = origenFiltro === item.valor;
             const meta = item.valor === "todos" ? { color: C.text, fondo: "var(--panel-2)", borde: C.border2 } : ORIGEN_TONOS[item.valor];
@@ -1253,13 +1253,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   cursor: "pointer",
                   fontFamily: C.sans,
                   fontSize: 10.5,
-                  fontWeight: activa ? 950 : 800,
+                  fontWeight: activa ? 750 : 650,
                   transition: "border-color .18s ease, color .18s ease, background .18s ease",
                 }}
               >
                 <Icon size={12} />
                 {item.etiqueta}
-                <span style={{ minWidth: 19, borderRadius: 999, padding: "2px 5px", textAlign: "center", background: activa ? "color-mix(in srgb, currentColor 12%, transparent)" : "var(--panel-2)", color: "currentColor", fontFamily: C.mono, fontSize: 9, fontWeight: 900 }}>
+                <span style={{ minWidth: 19, borderRadius: 999, padding: "2px 5px", textAlign: "center", background: activa ? "color-mix(in srgb, currentColor 12%, transparent)" : "var(--panel-2)", color: "currentColor", fontFamily: C.mono, fontSize: 9, fontWeight: 700 }}>
                   {conteoOrigen[item.valor] || 0}
                 </span>
                 {activa ? (
@@ -1268,7 +1268,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               </MotionButton>
             );
           })}
-          <span style={{ marginLeft: "auto", flexShrink: 0, color: C.dim, fontSize: 10.5, fontWeight: 800 }}>{filasVisibles.length} visibles</span>
+          <span style={{ marginLeft: "auto", flexShrink: 0, color: C.dim, fontSize: 10.5, fontWeight: 650 }}>{filasVisibles.length} visibles</span>
         </div>
         </> : null}
       </section>
@@ -1277,10 +1277,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         <section style={{ ...panel, padding: 12, borderColor: C.greenB, background: "linear-gradient(120deg, var(--panel-solid), var(--green-soft))", display: "grid", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ minWidth: 210, flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 900 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 700 }}>
                 <Building2 size={15} color={C.green} /> Obras incluidas en el aviso
               </div>
-              <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+              <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
                 Es independiente de la obra que estás mirando. Cada cantidad quedará asignada a su barco.
               </div>
             </div>
@@ -1310,7 +1310,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                     fontFamily: C.sans,
                   }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 900 }}>{obra.codigo}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{obra.codigo}</span>
                   <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: 6, border: `1px solid ${activa ? C.greenB : C.border2}`, background: activa ? C.green : "transparent", color: activa ? "#fff" : C.dim }}>
                     {activa ? <Check size={12} strokeWidth={3} /> : null}
                   </span>
@@ -1321,18 +1321,18 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </section>
       ) : obrasAvisoSeleccionadas.length ? (
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "0 3px" }}>
-          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.55 }}>Aviso a pañol</span>
+          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.55 }}>Aviso a pañol</span>
           {obrasAvisoSeleccionadas.map((obra) => (
-            <button key={obra.id} type="button" onClick={() => alternarObraAviso(obra.id)} title="Quitar del aviso" style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 900 }}>
+            <button key={obra.id} type="button" onClick={() => alternarObraAviso(obra.id)} title="Quitar del aviso" style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}>
               {obra.codigo} ×
             </button>
           ))}
-          <button type="button" onClick={() => setSelectorObrasAvisoAbierto(true)} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 850 }}>+ sumar obra</button>
+          <button type="button" onClick={() => setSelectorObrasAvisoAbierto(true)} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700 }}>+ sumar obra</button>
         </div>
       ) : null}
 
       {error ? (
-        <div style={{ ...panel, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 800 }}>{error}</div>
+        <div style={{ ...panel, borderColor: C.redB, background: C.redL, padding: "11px 14px", fontSize: 12.5, color: C.red, fontWeight: 650 }}>{error}</div>
       ) : null}
 
       {vistaAbierta ? <PlanillaHerramientas key={profile?.id || "local"} usuario={profile?.id}
@@ -1341,14 +1341,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         anchoObra={anchoObra} onAnchoObra={setAnchoObra} cantidad={filasVisibles.length} /> : null}
 
       {cargando && !datos ? (
-        <div style={{ ...panel, padding: 36, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 750 }}>
+        <div style={{ ...panel, padding: 36, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
           <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
           <div>Armando la planilla de {linea}…</div>
         </div>
       ) : !grupos.length ? (
         <div style={{ ...panel, padding: 36, textAlign: "center" }}>
           <CheckCircle2 size={22} color={soloPendientes ? C.green : C.dim} style={{ marginBottom: 8 }} />
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>
             {soloSinOpcion
               ? `${obraSeleccionada?.codigo || "La obra"} no tiene productos matriz sin definir con estos filtros`
               : origenFiltro !== "todos"
@@ -1356,7 +1356,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               : soloPendientes ? "No hay pendientes con estos filtros" : `No hay materiales que coincidan en ${linea}`}
           </div>
           {soloPendientes || soloSinOpcion ? (
-            <button type="button" onClick={() => { setSoloPendientes(false); setSoloSinOpcion(false); }} style={{ marginTop: 10, border: "none", background: "transparent", color: C.blue, fontFamily: C.sans, fontSize: 12, fontWeight: 850, cursor: "pointer" }}>
+            <button type="button" onClick={() => { setSoloPendientes(false); setSoloSinOpcion(false); }} style={{ marginTop: 10, border: "none", background: "transparent", color: C.blue, fontFamily: C.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               Quitar filtros operativos
             </button>
           ) : null}
@@ -1373,7 +1373,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   <>
                     <th style={{ ...th, minWidth: 230, color: C.blue }}>
                       <div>{origenFiltro === "secundario" ? "Circuito" : "Producto para esta obra"}</div>
-                      <div style={{ marginTop: 2, color: C.dim, fontSize: 8.5, fontWeight: 750, letterSpacing: 0, textTransform: "none" }}>{obraSeleccionada.codigo}</div>
+                      <div style={{ marginTop: 2, color: C.dim, fontSize: 8.5, fontWeight: 650, letterSpacing: 0, textTransform: "none" }}>{obraSeleccionada.codigo}</div>
                     </th>
                     <th style={{ ...th, minWidth: 82 }}>{origenFiltro === "secundario" ? "Plan" : "Necesita"}</th>
                     <th style={{ ...th, minWidth: 82 }}>{origenFiltro === "secundario" ? "Consumido" : "Entregado"}</th>
@@ -1402,11 +1402,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px" }}>
                         <input type="checkbox" className="planilla-check" checked={todosPuestos} disabled={!filasOperativas.length} onChange={() => alternarGrupo(grupo)} title={filasOperativas.length ? "Elegir todo el grupo" : "Circuito informativo: no genera acciones de Pañol"} style={{ accentColor: C.blue, width: 18, height: 18, cursor: filasOperativas.length ? "pointer" : "not-allowed", opacity: filasOperativas.length ? 1 : .35, flexShrink: 0 }} />
                         <button type="button" onClick={() => alternarCerrado(grupo.nombre)} style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", cursor: "pointer", padding: 0, fontFamily: C.sans }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: grupo.sinProveedor ? C.red : C.text, fontSize: 11.5, fontWeight: 900, letterSpacing: 0.35, textTransform: "uppercase" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: grupo.sinProveedor ? C.red : C.text, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.35, textTransform: "uppercase" }}>
                             <ChevronDown size={13} style={{ transform: cerrado ? "rotate(-90deg)" : "none", transition: "transform .16s ease" }} />
                             {grupo.nombre}
                           </span>
-                          <span style={{ color: C.dim, fontSize: 11, fontWeight: 750, marginLeft: 8 }}>
+                          <span style={{ color: C.dim, fontSize: 11, fontWeight: 650, marginLeft: 8 }}>
                             {grupo.filas.length} materiales{grupo.secundarios === grupo.filas.length ? " · circuito productivo · costo y consumo" : ` · ${grupo.pendientes} requieren atención${grupo.aComprar ? ` · ${grupo.aComprar} requieren compra` : ""}`}
                           </span>
                         </button>
@@ -1512,13 +1512,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                           )}
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <button type="button" className="planilla-nombre" title={fila.secundario ? "Material de producción: costo y consumo" : `Ver detalle de ${nombreVisible}`} onClick={event => { if (!fila.secundario) abrirDetalle(event, fila); }}>{nombreVisible}</button>
-                            <div style={{ marginTop: 2, color: C.dim, fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ marginTop: 2, color: C.dim, fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {[codigoVisible, fila.unidad, agrupar === "rubro" ? (fila.proveedor || "sin proveedor") : fila.rubro].filter(Boolean).join(" · ")}
                             </div>
                             <div className="planilla-origen-fila" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
                               {origenesFila.map((origen) => <OrigenBadge key={origen} origen={origen} compacto />)}
                               {celdaFoco?.avisoPendiente ? (
-                                <span style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "2px 6px", fontSize: 9, fontWeight: 900 }}>Aviso abierto</span>
+                                <span style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "2px 6px", fontSize: 9, fontWeight: 700 }}>Aviso abierto</span>
                               ) : null}
                             </div>
                           </div>
@@ -1533,14 +1533,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                       {obraSeleccionada ? (fila.secundario ? (
                         <>
                           <td style={{ padding: 8, borderLeft: `1px solid ${C.border}`, verticalAlign: "middle" }}>
-                            <div style={{ color: origenTono.color, fontSize: 11, fontWeight: 950 }}>
+                            <div style={{ color: origenTono.color, fontSize: 11, fontWeight: 750 }}>
                               {fila.circuito === "laminacion" ? "Circuito de Laminación" : "Consumo de Maderas"}
                             </div>
-                            <div style={{ marginTop: 3, color: C.dim, fontSize: 9.5, fontWeight: 750, lineHeight: 1.3 }}>
+                            <div style={{ marginTop: 3, color: C.dim, fontSize: 9.5, fontWeight: 650, lineHeight: 1.3 }}>
                               No genera compras ni avisos en Pañol.
                             </div>
                             {fila.circuito === "maderas" && fila.referenciaMaderasObraId === obraSeleccionada.id ? (
-                              <div style={{ marginTop: 4, color: C.violet, fontSize: 9.5, fontWeight: 950 }}>
+                              <div style={{ marginTop: 4, color: C.violet, fontSize: 9.5, fontWeight: 750 }}>
                                 Referencia de costo por barco
                               </div>
                             ) : null}
@@ -1555,15 +1555,15 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             {celdaFoco?.soloConsumo ? <span style={{ color: C.dim }}>—</span> : <EstadoNumero value={celdaFoco?.restanteUso} tone="info" />}
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title={fila.precioInfo?.fuente || "Todavía no hay precio cargado"}>
-                            <span style={{ color: fila.precioInfo ? C.text : C.cyan, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{fmtPrecioSecundario(fila.precioInfo)}</span>
+                            <span style={{ color: fila.precioInfo ? C.text : C.cyan, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>{fmtPrecioSecundario(fila.precioInfo)}</span>
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }} title="Costo planificado para esta obra">
-                            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
+                            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>
                               {celdaFoco?.soloConsumo || !fila.precioInfo ? "—" : fmtPrecioSecundario({ ...fila.precioInfo, precio_unidad_matriz: Number(fila.precioInfo.precio_unidad_matriz || 0) * Number(celdaFoco?.requerido || 0) })}
                             </span>
                           </td>
                           <td style={{ padding: 7, textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
-                            <span style={{ display: "inline-flex", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 950 }}>Circuito propio</span>
+                            <span style={{ display: "inline-flex", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 750 }}>Circuito propio</span>
                           </td>
                         </>
                       ) : (
@@ -1579,7 +1579,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                           >
                             {celdaFoco?.requiereProductoConcreto ? (
                               <div style={{ display: "grid", gap: 6 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 5, color: celdaFoco.productoDefinido ? C.green : C.cyan, fontSize: 9.5, fontWeight: 950 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, color: celdaFoco.productoDefinido ? C.green : C.cyan, fontSize: 9.5, fontWeight: 750 }}>
                                   {celdaFoco.productoDefinido ? <CheckCircle2 size={11} /> : <CircleAlert size={11} />}
                                   {celdaFoco.productoDefinido ? "Producto definido" : "Falta definir producto"}
                                 </div>
@@ -1605,7 +1605,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                                     padding: "7px 8px",
                                     fontFamily: C.sans,
                                     fontSize: 10.5,
-                                    fontWeight: 850,
+                                    fontWeight: 700,
                                     cursor: productoBusy === configuracionRow?.id ? "wait" : "pointer",
                                   }}
                                 >
@@ -1627,7 +1627,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                                 />
                               </div>
                             ) : (
-                              <span style={{ color: C.dim, fontSize: 10, fontWeight: 750 }}>Producto directo</span>
+                              <span style={{ color: C.dim, fontSize: 10, fontWeight: 650 }}>Producto directo</span>
                             )}
                           </td>
                           <td style={{ padding: "7px", textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
@@ -1658,7 +1658,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                               ? `${mostrarNumero(fila.enPanolLibre)} ${fila.unidad} libres · ${mostrarNumero(fila.reservado)} apartados a otras obras`
                               : `${mostrarNumero(fila.enPanolLibre)} ${fila.unidad} libres en el pañol`}
                           >
-                            <strong style={{ color: Number(fila.enPanolLibre) > 0 ? C.text : C.border2, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, fontVariantNumeric: "tabular-nums" }}>{fila.secundario ? "·" : mostrarNumero(fila.enPanolLibre)}</strong>
+                            <strong style={{ color: Number(fila.enPanolLibre) > 0 ? C.text : C.border2, fontFamily: C.mono, fontSize: 12.5, fontWeight: 750, fontVariantNumeric: "tabular-nums" }}>{fila.secundario ? "·" : mostrarNumero(fila.enPanolLibre)}</strong>
                           </td>
                           <td
                             style={{ padding: "6px 4px", textAlign: "center" }}
@@ -1667,9 +1667,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                               : "No hay que comprar nada de este material"}
                           >
                             {fila.secundario ? (
-                              <span style={{ color: C.violet, fontSize: 9, fontWeight: 950 }}>SEC.</span>
+                              <span style={{ color: C.violet, fontSize: 9, fontWeight: 750 }}>SEC.</span>
                             ) : aComprar > 0 ? (
-                              <strong style={{ color: C.red, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, fontVariantNumeric: "tabular-nums" }}>{mostrarNumero(aComprar)}</strong>
+                              <strong style={{ color: C.red, fontFamily: C.mono, fontSize: 12.5, fontWeight: 750, fontVariantNumeric: "tabular-nums" }}>{mostrarNumero(aComprar)}</strong>
                             ) : <Check size={13} color={C.green} />}
                           </td>
                           {obrasVisibles.map((obra) => {
@@ -1712,7 +1712,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               <button
                 type="button"
                 onClick={cargarMasFilas}
-                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 36, padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel2, color: C.text, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 36, padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel2, color: C.text, fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
               >
                 Mostrando {cantidadRenderizada} de {filasVisibles.length} · Cargar más
               </button>
@@ -1752,17 +1752,17 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           WebkitBackdropFilter: "var(--glass-filter)",
         }}>
           <Check size={16} color={C.blue} />
-          <span style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>{seleccionados.length} material{seleccionados.length === 1 ? "" : "es"}</span>
-          <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 750 }}>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{seleccionados.length} material{seleccionados.length === 1 ? "" : "es"}</span>
+          <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
             {obrasAvisoSeleccionadas.length
               ? `aviso para ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
               : obraSeleccionada ? `viendo ${obraSeleccionada.codigo}` : `en ${linea}`}
           </span>
           <button type="button" onClick={() => setElegidos(new Set())} style={{ ...control, padding: "6px 10px", fontSize: 12, color: C.dim }}>Limpiar</button>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={copiar} style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 850 }}><Copy size={14} /> Copiar</button>
+            <button type="button" onClick={copiar} style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Copy size={14} /> Copiar</button>
             {onPedir ? (
-              <button type="button" onClick={pedir} style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <button type="button" onClick={pedir} style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
                 <ShoppingCart size={14} /> Crear pedido
               </button>
             ) : null}
@@ -1770,7 +1770,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               type="button"
               onClick={avisarPanol}
               title={obrasAvisoSeleccionadas.length ? "El material ya fue comprado: preparar aviso de recepción en pañol" : "Primero elegí una o varias obras para el aviso"}
-              style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}
+              style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
             >
               <Send size={14} /> Avisar a pañol
             </button>
@@ -1803,8 +1803,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                 <Send size={18} />
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 id="preparar-aviso-title" style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 950 }}>Preparar aviso a pañol</h3>
-                <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 12, fontWeight: 700, lineHeight: 1.45 }}>
+                <h3 id="preparar-aviso-title" style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 750 }}>Preparar aviso a pañol</h3>
+                <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 12, fontWeight: 600, lineHeight: 1.45 }}>
                   Revisá cómo se identifica. En el paso siguiente elegís la sede y confirmás los renglones.
                 </p>
               </div>
@@ -1817,16 +1817,16 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               {avisoPreparacion.obras.map((obra) => {
                 const renglones = avisoPreparacion.items.filter((item) => item.obra_id === obra.id).length;
                 return (
-                  <span key={obra.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "5px 9px", fontSize: 11.5, fontWeight: 900 }}>
-                    {obra.codigo} <small style={{ color: C.dim, fontSize: 10, fontWeight: 800 }}>{renglones} ítem{renglones === 1 ? "" : "s"}</small>
+                  <span key={obra.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "5px 9px", fontSize: 11.5, fontWeight: 700 }}>
+                    {obra.codigo} <small style={{ color: C.dim, fontSize: 10, fontWeight: 650 }}>{renglones} ítem{renglones === 1 ? "" : "s"}</small>
                   </span>
                 );
               })}
-              <span style={{ marginLeft: "auto", color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 900 }}>{avisoPreparacion.items.length} renglones</span>
+              <span style={{ marginLeft: "auto", color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 700 }}>{avisoPreparacion.items.length} renglones</span>
             </div>
 
             {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? (
-              <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 9, padding: "8px 10px", fontSize: 11.5, fontWeight: 800, lineHeight: 1.45 }}>
+              <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 9, padding: "8px 10px", fontSize: 11.5, fontWeight: 650, lineHeight: 1.45 }}>
                 {avisoPreparacion.yaAvisados ? `${avisoPreparacion.yaAvisados} ${avisoPreparacion.yaAvisados === 1 ? "asignación ya tenía" : "asignaciones ya tenían"} un aviso abierto. ` : ""}
                 {avisoPreparacion.cubiertos ? `${avisoPreparacion.cubiertos} se ${avisoPreparacion.cubiertos === 1 ? "cubre" : "cubren"} con stock libre.` : ""}
                 {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? " No se duplicarán en este aviso." : ""}
@@ -1834,7 +1834,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             ) : null}
 
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 900, letterSpacing: .65, textTransform: "uppercase" }}>Título del aviso *</span>
+              <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>Título del aviso *</span>
               <input
                 autoFocus
                 value={avisoPreparacion.titulo}
@@ -1845,7 +1845,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 900, letterSpacing: .65, textTransform: "uppercase" }}>Observaciones</span>
+              <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>Observaciones</span>
               <textarea
                 value={avisoPreparacion.observaciones}
                 onChange={(event) => setAvisoPreparacion((current) => ({ ...current, observaciones: event.target.value }))}
@@ -1857,7 +1857,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
             <footer style={{ display: "flex", justifyContent: "flex-end", gap: 9, flexWrap: "wrap" }}>
               <button type="button" onClick={() => setAvisoPreparacion(null)} style={{ ...control, padding: "9px 13px" }}>Cancelar</button>
-              <button type="button" onClick={continuarAvisoPanol} disabled={!avisoPreparacion.titulo.trim()} style={{ border: "none", background: avisoPreparacion.titulo.trim() ? C.green : C.border2, color: "#fff", borderRadius: 9, padding: "9px 15px", cursor: avisoPreparacion.titulo.trim() ? "pointer" : "not-allowed", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <button type="button" onClick={continuarAvisoPanol} disabled={!avisoPreparacion.titulo.trim()} style={{ border: "none", background: avisoPreparacion.titulo.trim() ? C.green : C.border2, color: "#fff", borderRadius: 9, padding: "9px 15px", cursor: avisoPreparacion.titulo.trim() ? "pointer" : "not-allowed", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
                 Revisar aviso <Send size={14} />
               </button>
             </footer>

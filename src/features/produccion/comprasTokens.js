@@ -18,7 +18,7 @@ export const INPUT = {
 };
 
 export const LBL = {
-  fontSize: 10, color: C.dim, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase",
+  fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase",
 };
 
 export const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };

@@ -184,7 +184,7 @@ export default function ComprasBicho({ profile }) {
         .bicho-launcher:focus-visible, .bicho-panel button:focus-visible, .bicho-panel input:focus-visible { outline: 3px solid color-mix(in srgb, var(--bicho-color) 30%, transparent); outline-offset: 2px; }
         .bicho-copy { display: grid; gap: 1px; text-align: left; }
         .bicho-copy strong { font-size: 12px; letter-spacing: .02em; }
-        .bicho-copy small { font-size: 10px; color: var(--dim); font-weight: 700; }
+        .bicho-copy small { font-size: 10px; color: var(--dim); font-weight: 600; }
         .bicho-cat { position: relative; display: block; width: 38px; height: 39px; flex: 0 0 auto; }
         .bicho-head { position: absolute; left: 4px; top: 8px; width: 30px; height: 25px; border: 2px solid var(--bicho-color); border-radius: 46% 46% 43% 43%; background: color-mix(in srgb, var(--bicho-color) 13%, var(--panel-solid)); }
         .bicho-ear { position: absolute; top: 5px; width: 13px; height: 14px; border: 2px solid var(--bicho-color); background: color-mix(in srgb, var(--bicho-color) 13%, var(--panel-solid)); transform: rotate(45deg); border-radius: 3px 8px 3px 8px; }
@@ -205,16 +205,16 @@ export default function ComprasBicho({ profile }) {
         .bicho-message-bicho { justify-self: start; background: var(--panel-2); border: 1px solid var(--border); }
         .bicho-message-you { justify-self: end; background: color-mix(in srgb, var(--bicho-color) 13%, var(--panel-solid)); border: 1px solid color-mix(in srgb, var(--bicho-color) 23%, var(--border)); }
         .bicho-quick { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 13px 11px; }
-        .bicho-quick button { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 6px 9px; cursor: pointer; font: inherit; font-size: 10px; font-weight: 750; }
+        .bicho-quick button { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 6px 9px; cursor: pointer; font: inherit; font-size: 10px; font-weight: 650; }
         .bicho-quick button:hover { border-color: var(--bicho-color); }
         .bicho-compose { display: flex; gap: 7px; padding: 11px 13px 13px; border-top: 1px solid var(--border); }
         .bicho-compose input { min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; }
         .bicho-compose button { width: 35px; border: 0; border-radius: 10px; background: var(--bicho-color); color: #fff; cursor: pointer; }
         .bicho-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 13px 12px; }
         .bicho-stat { padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
-        .bicho-stat strong { display: block; font: 800 16px var(--mono); color: var(--bicho-color); } .bicho-stat span { color: var(--dim); font-size: 9px; font-weight: 750; }
+        .bicho-stat strong { display: block; font: 650 16px var(--mono); color: var(--bicho-color); } .bicho-stat span { color: var(--dim); font-size: 9px; font-weight: 650; }
         .bicho-open-list { display: grid; gap: 5px; padding: 0 13px 12px; }
-        .bicho-open-list button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; text-align: left; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); color: var(--text); cursor: pointer; font: inherit; font-size: 10px; font-weight: 750; }
+        .bicho-open-list button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; text-align: left; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); color: var(--text); cursor: pointer; font: inherit; font-size: 10px; font-weight: 650; }
         .bicho-open-list button:hover { border-color: var(--bicho-color); }
         @media (max-width: 640px) { .bicho-launcher { right: 12px; bottom: 68px; } .bicho-panel { right: 12px; bottom: 122px; } .bicho-copy small { display: none; } }
       `}</style>

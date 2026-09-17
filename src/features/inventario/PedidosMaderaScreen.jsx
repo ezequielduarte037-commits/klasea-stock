@@ -24,10 +24,10 @@ import { C } from "@/theme";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { createPurchaseRequest, addRequestItem, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 import { useResponsive } from "@/hooks/useResponsive";
+import Cargando from "@/components/ui/Cargando";
 
 // ── Paleta (igual que el resto del sistema) ───────────────────────
 const GLASS = {
@@ -49,7 +49,7 @@ const INP = {
 };
 
 const ESTADOS = [
-  { value: "pedido",   label: "Pedido",      color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)"  },
+  { value: "pedido",   label: "Pedido",      color: C.cyan,   bg: "rgba(34,211,238,0.1)",  border: "rgba(34,211,238,0.25)"  },
   { value: "transito", label: "En transito", color: C.primary, bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)"  },
   { value: "parcial",  label: "Parcial",     color: C.violet,  bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.25)"  },
   { value: "recibido", label: "Recibido",    color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
@@ -76,7 +76,7 @@ function urgenciaColor(semanas) {
   if (semanas <= 0) return C.red;
   if (semanas < 1)  return C.red;
   if (semanas < 2)  return C.orange;
-  if (semanas < 4)  return C.amber;
+  if (semanas < 4)  return C.cyan;
   return C.green;
 }
 
@@ -173,7 +173,7 @@ function generarEmailTexto({ obras, stockItems, destinatario }) {
 // ══════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
-export default function PedidosMaderaScreen({ profile, signOut, embedded = false }) {
+export default function PedidosMaderaScreen({ profile, embedded = false }) {
   const { isMobile } = useResponsive();
   const [tab,         setTab]         = useState("sugeridas"); // "sugeridas" | "pedido" | "historial"
   const [loading,     setLoading]     = useState(true);
@@ -517,7 +517,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
     background: filled ? color : `${color}18`,
     color:      filled ? "#fff" : color,
     padding:    "8px 16px", borderRadius: 8, cursor: "pointer",
-    fontWeight: 700, fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap",
+    fontWeight: 600, fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap",
   });
 
   const btnSm = (color) => ({
@@ -525,29 +525,22 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
     background: `${color}15`,
     color,
     padding:    "5px 12px", borderRadius: 6, cursor: "pointer",
-    fontWeight: 700, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap",
+    fontWeight: 600, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap",
   });
 
   // ══════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════
   return (
-    <div style={{ background: C.bg, position: embedded ? "relative" : "fixed", inset: embedded ? undefined : 0, overflow: "hidden", color: C.t0, fontFamily: C.sans, height: embedded ? "min(760px, calc(100vh - 230px))" : undefined, minHeight: embedded ? 620 : undefined, borderRadius: embedded ? 12 : 0, border: embedded ? `1px solid ${C.b0}` : "none" }}>
+    <div className="pedidos-madera-root" style={{ background: C.bg, position: embedded ? "relative" : "absolute", inset: embedded ? undefined : 0, overflow: "hidden", color: C.t0, fontFamily: C.sans, height: embedded ? "min(760px, calc(100vh - 230px))" : undefined, minHeight: embedded ? 620 : undefined, borderRadius: embedded ? 12 : 0, border: embedded ? `1px solid ${C.b0}` : "none" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; }
-        button:not([disabled]):hover { opacity: 0.82; }
-        button[disabled] { opacity: 0.4; cursor: not-allowed; }
+        .pedidos-madera-root button:not([disabled]):hover { opacity: 0.82; }
+        .pedidos-madera-root button[disabled] { opacity: 0.4; cursor: not-allowed; }
         .bg-glow {
           position: ${embedded ? "absolute" : "fixed"}; inset: 0; pointer-events: none; z-index: 0;
           background:
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.06) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.03) 0%, transparent 55%);
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.03) 0%, transparent 55%);
         }
         .mat-row { transition: background 0.12s; }
         .mat-row:hover { background: rgba(255,255,255,0.025) !important; cursor: pointer; }
@@ -556,13 +549,12 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: embedded || isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        {!embedded && <Sidebar profile={profile} signOut={signOut} />}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-        <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* ── TOPBAR ─────────────────────────────────────────── */}
-          <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Pedidos de Madera</div>
               <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
@@ -572,12 +564,12 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
             {[
               { label: "Sin stock", val: cntSinStock,  color: C.red     },
               { label: "Criticos",  val: cntCritico,   color: C.orange  },
-              { label: "Urgentes",  val: cntUrgente,   color: C.amber   },
+              { label: "Urgentes",  val: cntUrgente,   color: C.cyan   },
               { label: "Pedidos",   val: cntPedidos,   color: C.primary },
               { label: "Transito",  val: cntTransito,  color: C.violet  },
             ].map(s => (
               <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${s.color}` }}>
-                <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
+                <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, color: s.color, lineHeight: 1 }}>{s.val}</span>
                 <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
@@ -597,7 +589,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
             <button style={tabBtn(tab === "historial")} onClick={() => setTab("historial")}>
               Historial
               {cntActivos > 0 && (
-                <span style={{ marginLeft: 6, background: C.amber + "30", color: C.amber, borderRadius: 99, padding: "0 6px", fontSize: 10, fontWeight: 700 }}>
+                <span style={{ marginLeft: 6, background: C.cyan + "30", color: C.cyan, borderRadius: 99, padding: "0 6px", fontSize: 10, fontWeight: 600 }}>
                   {cntActivos}
                 </span>
               )}
@@ -630,7 +622,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                     ))}
                     <div style={{ flex: 1 }} />
                     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.t1, userSelect: "none" }}>
-                      <input type="checkbox" checked={soloUrgentes} onChange={e => setSoloUrgentes(e.target.checked)} style={{ accentColor: C.amber }} />
+                      <input type="checkbox" checked={soloUrgentes} onChange={e => setSoloUrgentes(e.target.checked)} style={{ accentColor: C.cyan }} />
                       Solo urgentes
                     </label>
                     <input
@@ -650,11 +642,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                       ))}
                     </div>
 
-                    {loading && (
-                      <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 13, fontFamily: C.mono }}>
-                        Cargando...
-                      </div>
-                    )}
+                    {loading && <Cargando />}
 
                     {!loading && statsOrdenadas.length === 0 && (
                       <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 13 }}>
@@ -680,23 +668,23 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                               <div style={{ fontWeight: 600, fontSize: 14, color: C.t0 }}>{row.mat.nombre}</div>
                               <div style={{ fontSize: 11, color: C.t2 }}>{row.mat.unidad_medida}</div>
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: row.stockActual <= 0 ? C.red : C.t0 }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: row.stockActual <= 0 ? C.red : C.t0 }}>
                               {Math.round(row.stockActual)}
                             </div>
                             <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1 }}>
                               {row.egresoSemanal.toFixed(1)} / sem
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color }}>
                               {semStr} sem
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: cobN > 0 ? C.amber : C.t2 }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: cobN > 0 ? C.cyan : C.t2 }}>
                               {cobN > 0 ? cobN : "—"}
                             </div>
                             <div style={{ fontFamily: C.mono, fontSize: 14, color: cob4 > 0 ? C.t1 : C.t2 }}>
                               {cob4 > 0 ? cob4 : "—"}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: color + "22", color, border: `1px solid ${color}44` }}>
+                              <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 600, padding: "2px 8px", borderRadius: 5, background: color + "22", color, border: `1px solid ${color}44` }}>
                                 {urgenciaLabel(row.semanasDeStock)}
                               </span>
                               <span style={{ color: C.t2, fontSize: 12 }}>{isExp ? "▲" : "▼"}</span>
@@ -713,7 +701,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                                 {row.porSemana.length > 0 ? row.porSemana.map(s => (
                                   <div key={s.semana} style={{ border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 10px", background: "rgba(255,255,255,0.02)", minWidth: 60, textAlign: "center" }}>
                                     <div style={{ fontSize: 10, color: C.t2, marginBottom: 3 }}>{s.label}</div>
-                                    <div style={{ fontFamily: C.mono, fontSize: 14, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: 700 }}>
+                                    <div style={{ fontFamily: C.mono, fontSize: 14, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: 600 }}>
                                       {s.cantidad > 0 ? s.cantidad : "—"}
                                     </div>
                                   </div>
@@ -722,12 +710,12 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: 12, color: C.t2 }}>
                                 <span>Promedio: <span style={{ fontFamily: C.mono, color: C.t1 }}>{row.egresoSemanal.toFixed(2)}/sem</span></span>
                                 <span>Ventana: <span style={{ fontFamily: C.mono, color: C.t1 }}>{row.semanasObservadas.toFixed(1)} sem</span></span>
-                                <span>Para 4 sem: <span style={{ fontFamily: C.mono, color: C.amber }}>{Math.ceil(row.egresoSemanal * 4)} necesario</span></span>
-                                <span>Para 6 sem: <span style={{ fontFamily: C.mono, color: C.amber }}>{Math.ceil(row.egresoSemanal * 6)} necesario</span></span>
+                                <span>Para 4 sem: <span style={{ fontFamily: C.mono, color: C.cyan }}>{Math.ceil(row.egresoSemanal * 4)} necesario</span></span>
+                                <span>Para 6 sem: <span style={{ fontFamily: C.mono, color: C.cyan }}>{Math.ceil(row.egresoSemanal * 6)} necesario</span></span>
                               </div>
                               {cobN > 0 && (
                                 <button
-                                  style={{ ...btnSm(C.amber), marginTop: 10 }}
+                                  style={{ ...btnSm(C.cyan), marginTop: 10 }}
                                   onClick={e => { e.stopPropagation(); agregarSugerencia(row); setTab("pedido"); }}>
                                   + Agregar {cobN} {row.mat.unidad_medida} al pedido
                                 </button>
@@ -906,8 +894,8 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                       const cobN = Math.max(0, Math.ceil(r.egresoSemanal * 4) - Math.round(r.stockActual));
                       return cobN > 0;
                     }).length > 0 && (
-                      <div style={{ background: C.s0, border: `1px solid ${C.amber}44`, borderRadius: 12, padding: 16 }}>
-                        <div style={{ fontSize: 11, color: C.amber, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 }}>
+                      <div style={{ background: C.s0, border: `1px solid ${C.cyan}44`, borderRadius: 12, padding: 16 }}>
+                        <div style={{ fontSize: 11, color: C.cyan, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 }}>
                           El sistema sugiere comprar
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -961,9 +949,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                       ))}
                     </div>
 
-                    {loading && (
-                      <div style={{ padding: 20, textAlign: "center", color: C.t2, fontSize: 13, fontFamily: C.mono }}>Cargando...</div>
-                    )}
+                    {loading && <Cargando />}
 
                     {pedidosFiltrados.map(p => {
                       const m = ESTADO_META[p.estado] ?? { color: C.t2, bg: C.s0, border: C.b0, label: p.estado };
@@ -976,7 +962,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                           </div>
                           <div style={{ fontSize: 12, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", gridColumn: isMobile ? "1 / -1" : undefined }}>{p.nota || "—"}</div>
                           <div style={{ gridColumn: isMobile ? "1" : undefined }}>
-                            <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
+                            <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 600, padding: "2px 8px", borderRadius: 5, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
                               {m.label}
                             </span>
                           </div>
@@ -1001,7 +987,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                     <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: C.t0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: C.t0 }}>
                             {pedidoSel.proveedor}{pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}
                           </div>
                           {pedidoSel.nota && <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{pedidoSel.nota}</div>}
@@ -1015,7 +1001,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                             const m = ESTADO_META[est.value];
                             const isActive = pedidoSel.estado === est.value;
                             return (
-                              <button key={est.value} style={{ border: `1px solid ${m.border}`, background: isActive ? m.bg : "transparent", color: isActive ? m.color : C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: isActive ? 700 : 400 }}
+                              <button key={est.value} style={{ border: `1px solid ${m.border}`, background: isActive ? m.bg : "transparent", color: isActive ? m.color : C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: isActive ? 600 : 400 }}
                                 onClick={() => cambiarEstado(pedidoSel.id, est.value)}>
                                 {m.label}
                               </button>
@@ -1024,7 +1010,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                           {/* Los pedidos nuevos ya salen a Compras al registrarse. Este botón
                               solo escala a Compras pedidos viejos que aún no se enviaron. */}
                           {pedidoSelItems.some(it => it.purchase_request_item_id) ? (
-                            <span title="Este pedido ya está en Compras" style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "5px 12px", borderRadius: 7, fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>✓ En compras</span>
+                            <span title="Este pedido ya está en Compras" style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "5px 12px", borderRadius: 7, fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}>✓ En compras</span>
                           ) : (
                           <button onClick={() => setComprasModal({ open: true, prefilled: {
                             title: `Pedido Madera: ${pedidoSel.proveedor}`,
@@ -1048,7 +1034,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                               catalogSource: "madera",
                               notes: "",
                             })),
-                          } })} disabled={!pedidoSelItems.length} title={pedidoSelItems.length ? "Vincular este pedido a Compras" : "El pedido no tiene ítems"} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: pedidoSelItems.length ? "pointer" : "not-allowed", opacity: pedidoSelItems.length ? 1 : 0.5, fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
+                          } })} disabled={!pedidoSelItems.length} title={pedidoSelItems.length ? "Vincular este pedido a Compras" : "El pedido no tiene ítems"} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: pedidoSelItems.length ? "pointer" : "not-allowed", opacity: pedidoSelItems.length ? 1 : 0.5, fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}>Pedir a Compras</button>
                           )}
                         </div>
                       </div>
@@ -1069,7 +1055,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                           }
                           return Object.entries(grupos).map(([cat, items]) => (
                             <div key={cat}>
-                              <div style={{ padding: "8px 12px", fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, borderBottom: `1px solid var(--panel)`, background: "rgba(255,255,255,0.02)" }}>
+                              <div style={{ padding: "8px 12px", fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 600, borderBottom: `1px solid var(--panel)`, background: "rgba(255,255,255,0.02)" }}>
                                 {cat}
                               </div>
                               {items.map(it => (

@@ -33,7 +33,7 @@ const INP = {
 };
 const LBL = {
   fontSize: 9.5, letterSpacing: 1.2, color: C.t1, display: "block",
-  marginBottom: 5, textTransform: "uppercase", fontWeight: 800,
+  marginBottom: 5, textTransform: "uppercase", fontWeight: 650,
 };
 
 function Seccion({ icono, titulo, extra, children }) {
@@ -92,7 +92,7 @@ function FilaContacto({ contacto, onGuardar, onBorrar }) {
             Cancelar
           </button>
           <button type="button" onClick={guardar} disabled={!form.nombre.trim() || guardando}
-            style={{ background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.35)}`, color: C.blue, padding: "5px 13px", borderRadius: 7, fontSize: 12, fontWeight: 800, cursor: form.nombre.trim() ? "pointer" : "default" }}>
+            style={{ background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.35)}`, color: C.blue, padding: "5px 13px", borderRadius: 7, fontSize: 12, fontWeight: 650, cursor: form.nombre.trim() ? "pointer" : "default" }}>
             {guardando ? "Guardando…" : "Guardar"}
           </button>
         </div>
@@ -103,7 +103,7 @@ function FilaContacto({ contacto, onGuardar, onBorrar }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 9, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 7 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: C.t0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {contacto.nombre}
           {contacto.rol ? <span style={{ color: C.t2, fontWeight: 600, fontSize: 11.5 }}> · {contacto.rol}</span> : null}
         </div>
@@ -239,7 +239,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
         <div style={{ padding: "16px 18px 13px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 17, fontWeight: 800, color: C.t0 }}>{barco.nombre_barco}</div>
+              <div style={{ fontSize: 17, fontWeight: 650, color: C.t0 }}>{barco.nombre_barco}</div>
               <div style={{ fontSize: 12.5, color: C.t2, marginTop: 2 }}>
                 {barco.propietario || "Sin propietario cargado"}
               </div>
@@ -275,7 +275,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 extra={(
                   <button type="button" title="Agregar"
                     onClick={() => setContactos((a) => [...a, { nombre: "", rol: "", telefono: "", orden: a.length }])}
-                    style={{ background: tinta(C.blue, 0.1), border: `1px solid ${tinta(C.blue, 0.28)}`, color: C.blue, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    style={{ background: tinta(C.blue, 0.1), border: `1px solid ${tinta(C.blue, 0.28)}`, color: C.blue, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <UserPlus size={11} /> Sumar
                   </button>
                 )}
@@ -329,7 +329,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 icono={ImagePlus}
                 titulo={`Fotos${fotos.length ? ` · ${fotos.length}` : ""}`}
                 extra={(
-                  <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     {subiendo === "foto" ? <LoaderCircle size={11} className="spin" /> : <Plus size={11} />} Subir
                     <input type="file" accept="image/*" multiple hidden
                       onChange={(e) => { subir(e.target.files, "foto"); e.target.value = ""; }} />
@@ -363,7 +363,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 icono={Paperclip}
                 titulo={`Documentación${papeles.length ? ` · ${papeles.length}` : ""}`}
                 extra={(
-                  <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     {subiendo === "documento" ? <LoaderCircle size={11} className="spin" /> : <Plus size={11} />} Subir
                     <input type="file" multiple hidden
                       onChange={(e) => { subir(e.target.files, "documento"); e.target.value = ""; }} />
@@ -403,7 +403,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
         {/* Lo que se le manda al técnico */}
         <div style={{ borderTop: `1px solid ${C.b0}`, padding: 14, flexShrink: 0, background: "var(--panel)" }}>
           <button type="button" onClick={copiarFicha}
-            style={{ width: "100%", background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.4)}`, color: C.blue, borderRadius: 9, padding: "11px 14px", fontSize: 13, fontWeight: 850, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: C.sans }}>
+            style={{ width: "100%", background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.4)}`, color: C.blue, borderRadius: 9, padding: "11px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: C.sans }}>
             <Copy size={14} /> Copiar ficha
           </button>
           <div style={{ color: C.t2, fontSize: 11, marginTop: 7, lineHeight: 1.45, textAlign: "center" }}>

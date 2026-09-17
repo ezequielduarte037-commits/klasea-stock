@@ -31,7 +31,7 @@ export default function SqlModal({ onClose }) {
         </button>
 
         <div style={{ ...EYEBROW, marginBottom:5 }}>Supabase SQL Editor</div>
-        <h2 style={{ margin:"0 0 4px", fontSize:17, fontWeight:700, color:"var(--text)", fontFamily:T.sans }}>Consultas SQL</h2>
+        <h2 style={{ margin:"0 0 4px", fontSize:17, fontWeight:600, color:"var(--text)", fontFamily:T.sans }}>Consultas SQL</h2>
         <p style={{ margin:"0 0 18px", fontSize:12, color:"var(--dim)" }}>
           Copiá estas queries y corrélas en el <strong style={{ color:"var(--muted)" }}>SQL Editor</strong> de tu proyecto Supabase
         </p>
@@ -42,7 +42,7 @@ export default function SqlModal({ onClose }) {
         ].map(({ title, sql }) => (
           <div key={title} style={{ marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
-              <span style={{ fontSize:12, fontWeight:700, color:"var(--muted)" }}>{title}</span>
+              <span style={{ fontSize:12, fontWeight:600, color:"var(--muted)" }}>{title}</span>
               <button onClick={() => { navigator.clipboard.writeText(sql); setSqlCopiado(title); setTimeout(() => setSqlCopiado(""), 2000); }}
                 className={sqlCopiado === title ? undefined : "mrm-btn-ghost"}
                 style={{

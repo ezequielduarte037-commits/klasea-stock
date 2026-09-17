@@ -18,6 +18,9 @@ export function useTheme() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    // La barra del navegador del celular acompaña al tema elegido en la app.
+    document.querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "light" ? "#f4f5f7" : theme === "hc" ? "#000000" : "#08090d");
     try {
       window.localStorage?.setItem(STORAGE_KEY, theme);
     } catch {

@@ -10,7 +10,7 @@ import { materialMatchScore, topMaterialMatches } from "@/features/panol/materia
 // Después compras/técnica decide si lo suben a la matriz como estándar.
 
 const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 850, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
+const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
 
 function norm(s) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
@@ -163,7 +163,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, flexShrink: 0 }}><PackagePlus size={20} /></div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 950, color: C.text }}>Crear producto nuevo</div>
+            <div style={{ fontSize: 16, fontWeight: 750, color: C.text }}>Crear producto nuevo</div>
             <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>Va al catálogo completo. No entra en la lista matriz de ningún barco — después compras/técnica decide si lo suben como estándar.</div>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
           {/* Duplicados EN VIVO: aparece mientras escriben descripción o código, antes de crear. */}
           {duplicados.length > 0 && (
             <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 7 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 900, color: C.violet, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 700, color: C.violet, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 <AlertTriangle size={13} /> Ojo · {duplicados.length} posible{duplicados.length === 1 ? "" : "s"} duplicado{duplicados.length === 1 ? "" : "s"} en el catálogo
               </div>
               <div style={{ display: "grid", gap: 5 }}>
@@ -189,8 +189,8 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
                       : { t: "PARECIDO", c: C.dim, bg: C.panel, br: C.border };
                   return (
                     <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.text, padding: "6px 9px", background: C.panelSolid, borderRadius: 8, border: `1px solid ${C.border}` }}>
-                      <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 900, color: tag.c, background: tag.bg, border: `1px solid ${tag.br}`, borderRadius: 999, padding: "2px 7px", letterSpacing: 0.4 }}>{tag.t}</span>
-                      <span style={{ fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{m.descripcion}</span>
+                      <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: tag.c, background: tag.bg, border: `1px solid ${tag.br}`, borderRadius: 999, padding: "2px 7px", letterSpacing: 0.4 }}>{tag.t}</span>
+                      <span style={{ fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{m.descripcion}</span>
                       {m.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11, flexShrink: 0 }}>· {m.codigo}</span>}
                       {m.proveedor && <span style={{ color: C.dim, fontSize: 11, marginLeft: "auto", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: isMobile ? 90 : 140 }}>{m.proveedor}</span>}
                     </div>
@@ -243,7 +243,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
           <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "9px 11px", borderRadius: 9, border: `1px solid ${esConsumible ? C.violetB : C.border}`, background: esConsumible ? C.violetL : C.panelSolid }}>
             <input type="checkbox" checked={esConsumible} onChange={(e) => setEsConsumible(e.target.checked)} style={{ width: 17, height: 17, cursor: "pointer" }} />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 850, color: esConsumible ? C.violet : C.text }}>Es consumible</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: esConsumible ? C.violet : C.text }}>Es consumible</div>
               <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>Tornillos, lijas, acetona, etc. Va al fondo del catálogo, no molesta en la matriz del barco.</div>
             </div>
           </label>
@@ -259,8 +259,8 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
               <div style={{ width: 56, height: 56, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
                 {imgPreview ? <img src={imgPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImagePlus size={18} color={C.dim} />}
               </div>
-              <button type="button" onClick={() => imgRef.current?.click()} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.blue, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 800 }}>{imageFile ? "Cambiar foto" : "Elegir / sacar foto"}</button>
-              {imageFile && <button type="button" onClick={() => setImageFile(null)} style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 12.5, fontWeight: 800 }}>Quitar</button>}
+              <button type="button" onClick={() => imgRef.current?.click()} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.blue, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 650 }}>{imageFile ? "Cambiar foto" : "Elegir / sacar foto"}</button>
+              {imageFile && <button type="button" onClick={() => setImageFile(null)} style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 12.5, fontWeight: 650 }}>Quitar</button>}
               <input ref={imgRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { setImageFile(e.target.files?.[0] || null); e.target.value = ""; }} />
             </div>
           </div>
@@ -282,22 +282,22 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
               <div style={{ display: "grid", gap: 5 }}>
                 {duplicateReview.candidates.map(({ m, s }) => (
                   <div key={m.id} style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelSolid }}>
-                    <span style={{ minWidth: 0, flex: 1, color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+                    <span style={{ minWidth: 0, flex: 1, color: C.text, fontSize: 11.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
                     {m.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5, whiteSpace: "nowrap" }}>{m.codigo}</span>}
-                    <span style={{ color: C.violet, fontSize: 9, fontWeight: 950, textTransform: "uppercase", whiteSpace: "nowrap" }}>{s >= 105 ? "Mismo nombre" : s >= 88 ? "Muy parecido" : "Parecido"}</span>
+                    <span style={{ color: C.violet, fontSize: 9, fontWeight: 750, textTransform: "uppercase", whiteSpace: "nowrap" }}>{s >= 105 ? "Mismo nombre" : s >= 88 ? "Muy parecido" : "Parecido"}</span>
                   </div>
                 ))}
               </div>
               <div style={{ color: C.dim, fontSize: 10.5 }}>El único bloqueo definitivo es un código completo o código de barras idéntico.</div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setDuplicateReview(null)} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 850 }}>Volver a revisar</button>
-                <button type="button" onClick={() => crear(true)} disabled={saving} style={{ border: `1px solid ${C.violetB}`, background: C.violet, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? .6 : 1 }}><PackagePlus size={15} /> {saving ? "Creando..." : "Crear igualmente"}</button>
+                <button type="button" onClick={() => setDuplicateReview(null)} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>Volver a revisar</button>
+                <button type="button" onClick={() => crear(true)} disabled={saving} style={{ border: `1px solid ${C.violetB}`, background: C.violet, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? .6 : 1 }}><PackagePlus size={15} /> {saving ? "Creando..." : "Crear igualmente"}</button>
               </div>
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <button type="button" onClick={limpiar} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "10px 16px", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>Limpiar</button>
-              <button type="button" onClick={() => crear(false)} disabled={saving || !descripcion.trim() || !categoriaId} style={{ border: "none", background: saving || !descripcion.trim() || !categoriaId ? C.panel2 : C.green, color: saving || !descripcion.trim() || !categoriaId ? C.dim : "#fff", borderRadius: 9, padding: "10px 18px", cursor: saving ? "default" : "pointer", fontSize: 13.5, fontWeight: 950, display: "flex", alignItems: "center", gap: 7 }}>
+              <button type="button" onClick={limpiar} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "10px 16px", cursor: "pointer", fontSize: 13, fontWeight: 650 }}>Limpiar</button>
+              <button type="button" onClick={() => crear(false)} disabled={saving || !descripcion.trim() || !categoriaId} style={{ border: "none", background: saving || !descripcion.trim() || !categoriaId ? C.panel2 : C.green, color: saving || !descripcion.trim() || !categoriaId ? C.dim : "#fff", borderRadius: 9, padding: "10px 18px", cursor: saving ? "default" : "pointer", fontSize: 13.5, fontWeight: 750, display: "flex", alignItems: "center", gap: 7 }}>
                 <PackagePlus size={16} /> {saving ? "Creando..." : "Crear producto"}
               </button>
             </div>
@@ -306,12 +306,12 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
 
         {ultimos.length > 0 && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontSize: 10.5, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Creados recién (ya podés ingresarlos)</div>
+            <div style={{ fontSize: 10.5, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Creados recién (ya podés ingresarlos)</div>
             <div style={{ display: "grid", gap: 5 }}>
               {ultimos.map((u) => (
                 <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.text, padding: "6px 9px", background: C.panelSolid, borderRadius: 8 }}>
-                  <span style={{ color: C.green, fontWeight: 900 }}>✓</span>
-                  <span style={{ fontWeight: 700 }}>{u.descripcion}</span>
+                  <span style={{ color: C.green, fontWeight: 700 }}>✓</span>
+                  <span style={{ fontWeight: 600 }}>{u.descripcion}</span>
                   {u.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>· {u.codigo}</span>}
                 </div>
               ))}

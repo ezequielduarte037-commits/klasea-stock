@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import useAlertas from "@/hooks/useAlertas";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 
 // ─── PALETA (igual que ObrasScreen) ─────────────────────────────────────────
 const GLASS = {
@@ -13,7 +13,7 @@ const GLASS = {
 
 const GRAVEDAD = {
   critical: { bg: "rgba(239,68,68,0.07)",  border: "rgba(239,68,68,0.22)",  color: C.red,     icon: "🔴", label: "CRÍTICA"     },
-  warning:  { bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.22)", color: C.amber,   icon: "⚠️", label: "ADVERTENCIA" },
+  warning:  { bg: "rgba(34,211,238,0.07)", border: "rgba(34,211,238,0.22)", color: C.cyan,   icon: "⚠️", label: "ADVERTENCIA" },
   info:     { bg: "rgba(59,130,246,0.07)", border: "rgba(59,130,246,0.22)", color: C.primary, icon: "ℹ️", label: "INFO"        },
 };
 
@@ -33,7 +33,7 @@ const filterBtn = (active, color) => ({
   fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
 });
 
-export default function AlertasScreen({ profile, signOut }) {
+export default function AlertasScreen({ profile }) {
   const { isMobile } = useResponsive();
   const isAdmin = hasAdminAccess(profile);
   const { alertas, stats, loading, resolverAlerta, recargar } = useAlertas();
@@ -62,36 +62,27 @@ export default function AlertasScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        button:not([disabled]):hover { opacity: 0.8; }
         @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
           background:
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%);
         }
         .alerta-row { animation: slideUp 0.18s ease both; }
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: C.topbar, ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
@@ -103,7 +94,7 @@ export default function AlertasScreen({ profile, signOut }) {
 
             {[
               { label: "Críticas",     val: stats.criticas, color: C.red     },
-              { label: "Advertencias", val: stats.warnings, color: C.amber   },
+              { label: "Advertencias", val: stats.warnings, color: C.cyan   },
               { label: "Info",         val: stats.infos,    color: C.primary },
             ].map(s => (
               <div key={s.label} style={{
@@ -111,7 +102,7 @@ export default function AlertasScreen({ profile, signOut }) {
                 borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`,
                 borderLeft: `2px solid ${s.color}`,
               }}>
-                <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
+                <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, color: s.color, lineHeight: 1 }}>{s.val}</span>
                 <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
@@ -157,7 +148,7 @@ export default function AlertasScreen({ profile, signOut }) {
                 {[
                   { label: "Total activas", val: stats.total,    color: "#888"    },
                   { label: "Críticas",      val: stats.criticas, color: C.red     },
-                  { label: "Advertencias",  val: stats.warnings, color: C.amber   },
+                  { label: "Advertencias",  val: stats.warnings, color: C.cyan   },
                   { label: "Informativas",  val: stats.infos,    color: C.primary },
                 ].map(s => (
                   <div key={s.label} style={{
@@ -165,7 +156,7 @@ export default function AlertasScreen({ profile, signOut }) {
                     border: `1px solid ${s.color}20`, background: `${s.color}08`,
                   }}>
                     <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 5 }}>{s.label}</div>
-                    <div style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 600, color: s.color, lineHeight: 1 }}>{s.val}</div>
                   </div>
                 ))}
               </div>
@@ -181,12 +172,7 @@ export default function AlertasScreen({ profile, signOut }) {
                 </div>
               )}
 
-              {loading && (
-                <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 12,
-                  letterSpacing: 1.3, textTransform: "uppercase", fontFamily: C.mono }}>
-                  Cargando…
-                </div>
-              )}
+              {loading && <Cargando />}
 
               {!loading && filtradas.length === 0 && (
                 <div style={{
@@ -212,7 +198,7 @@ export default function AlertasScreen({ profile, signOut }) {
                         {/* Badges */}
                         <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8, flexWrap: "wrap" }}>
                           <span style={{
-                            fontSize: 10, fontWeight: 800, letterSpacing: 1.1, textTransform: "uppercase",
+                            fontSize: 10, fontWeight: 650, letterSpacing: 1.1, textTransform: "uppercase",
                             padding: "2px 8px", borderRadius: 5,
                             background: `${g.color}18`, color: g.color, border: `1px solid ${g.color}30`,
                           }}>
@@ -250,7 +236,7 @@ export default function AlertasScreen({ profile, signOut }) {
                             background: "rgba(16,185,129,0.08)",
                             color: C.green, padding: "6px 14px",
                             borderRadius: 8, cursor: "pointer",
-                            fontSize: 12, fontWeight: 700, fontFamily: C.sans, flexShrink: 0,
+                            fontSize: 12, fontWeight: 600, fontFamily: C.sans, flexShrink: 0,
                           }}
                         >
                           ✓ Resolver

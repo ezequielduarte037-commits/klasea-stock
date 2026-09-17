@@ -98,8 +98,8 @@ export function printFaltantes({ linea, unidad, chapa, faltantes = [], total = 0
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
   .chip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
   .chip strong{color:var(--ink);font-weight:800}
-  .chip-warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
-  .chip-warn strong{color:#92400e}
+  .chip-warn{background:#ecfeff;border-color:#a5f3fc;color:#155e75}
+  .chip-warn strong{color:#155e75}
 
   /* Secciones por sector */
   .sector{margin-bottom:22px;break-inside:avoid}

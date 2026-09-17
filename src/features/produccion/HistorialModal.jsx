@@ -64,7 +64,7 @@ export default function HistorialModal({ etapa, obraCompraEtapaId = null, compra
             <History size={15} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 850, color: C.text }}>Historial de cambios</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Historial de cambios</div>
             {etapa && <div style={{ fontSize: 11.5, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa}</div>}
           </div>
           <button
@@ -106,7 +106,7 @@ export default function HistorialModal({ etapa, obraCompraEtapaId = null, compra
                 <div style={{ minWidth: 0, paddingBottom: ultimo ? 4 : 13, flex: 1 }}>
                   <div style={{ fontSize: 12.5, color: C.text, lineHeight: 1.45 }}>{f.descripcion || "Cambio registrado"}</div>
                   <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
-                    <b style={{ fontWeight: 750, color: C.muted }}>{f.actor_nombre || "sistema"}</b> · {cuando(f.created_at)}
+                    <b style={{ fontWeight: 650, color: C.muted }}>{f.actor_nombre || "sistema"}</b> · {cuando(f.created_at)}
                   </div>
                 </div>
               </div>

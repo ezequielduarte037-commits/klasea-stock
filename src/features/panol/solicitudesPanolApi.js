@@ -27,7 +27,7 @@ export const SOLICITUD_ESTADOS = [
   // La arma el solicitante desde su usuario y la manda; pañol todavía no la
   // tomó. Es el estado que separa "lo estoy escribiendo" de "está en la cola".
   { value: "enviada", label: "Enviada", color: "#8b5cf6" },
-  { value: "preparando", label: "Preparando", color: "#f59e0b" },
+  { value: "preparando", label: "Preparando", color: "#22d3ee" },
   { value: "listo", label: "Listo para retirar", color: "#3b82f6" },
   { value: "entregado", label: "Entregado", color: "#10b981" },
   { value: "cancelado", label: "Cancelada", color: "#ef4444" },

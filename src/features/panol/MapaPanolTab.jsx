@@ -107,8 +107,8 @@ function KpiChip({ icon, label, value, color }) {
         {icon}
       </div>
       <div>
-        <div style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 950, color: C.text, lineHeight: 1.1 }}>{value}</div>
-        <div style={{ fontSize: 10, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</div>
+        <div style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 750, color: C.text, lineHeight: 1.1 }}>{value}</div>
+        <div style={{ fontSize: 10, color: C.dim, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</div>
       </div>
     </div>
   );
@@ -409,11 +409,11 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto o estantería (ej. abrazadera, G2)..." style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "9px 30px 9px 32px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }} />
             {q && <button type="button" onClick={() => setQ("")} style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 3, display: "grid", placeItems: "center" }}><X size={13} /></button>}
           </div>
-          <button type="button" onClick={() => setIso((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${iso ? C.blueB : C.border}`, background: iso ? C.blueL : C.panelSolid, color: iso ? C.blue : C.text, borderRadius: 10, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>
+          <button type="button" onClick={() => setIso((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${iso ? C.blueB : C.border}`, background: iso ? C.blueL : C.panelSolid, color: iso ? C.blue : C.text, borderRadius: 10, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}>
             <Layers size={14} /> {iso ? "Vista 3D" : "Vista 2D"}
           </button>
           {canEdit && (
-            <button type="button" onClick={() => setEditMode(!editMode)} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${editMode ? C.blueB : C.border}`, background: editMode ? C.blueL : C.panelSolid, color: editMode ? C.blue : C.text, borderRadius: 10, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>
+            <button type="button" onClick={() => setEditMode(!editMode)} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${editMode ? C.blueB : C.border}`, background: editMode ? C.blueL : C.panelSolid, color: editMode ? C.blue : C.text, borderRadius: 10, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 650, fontFamily: C.sans }}>
               <Move size={14} /> {editMode ? "Editando · arrastrá" : "Editar plano"}
             </button>
           )}
@@ -426,14 +426,14 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
             const active = zonaFiltro === z;
             return (
               <button key={z} type="button" onClick={() => setZonaFiltro(active ? "" : z)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.border}`, background: active ? `${color}1c` : C.panelSolid, color: active ? color : C.text, borderRadius: 999, padding: "4px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.border}`, background: active ? `${color}1c` : C.panelSolid, color: active ? color : C.text, borderRadius: 999, padding: "4px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
                 <span style={{ width: 9, height: 9, borderRadius: 3, background: color, display: "inline-block" }} />
                 {z}{count > 0 ? ` · ${count}` : ""}
               </button>
             );
           })}
           {(zonaFiltro || q) && (
-            <button type="button" onClick={() => { setZonaFiltro(""); setQ(""); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 750, fontFamily: C.sans, textDecoration: "underline" }}>Limpiar</button>
+            <button type="button" onClick={() => { setZonaFiltro(""); setQ(""); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, textDecoration: "underline" }}>Limpiar</button>
           )}
         </div>
 
@@ -510,21 +510,21 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                     <rect x={105} y={ROOM_H - WALL} width={285} height={3.5} fill={C.violet} />
                     <rect x={102} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <rect x={387} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
-                    <text x={247.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={700}>PUERTA</text>
+                    <text x={247.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={600}>PUERTA</text>
                     {/* VENTANA — doble línea (vidrio) en el espesor del muro */}
                     <rect x={485} y={ROOM_H - WALL} width={195} height={WALL} fill="#38bdf8" fillOpacity={0.16} />
                     <line x1={485} y1={ROOM_H - WALL * 0.62} x2={680} y2={ROOM_H - WALL * 0.62} stroke="#38bdf8" strokeWidth={2.5} />
                     <line x1={485} y1={ROOM_H - WALL * 0.38} x2={680} y2={ROOM_H - WALL * 0.38} stroke="#38bdf8" strokeWidth={2.5} />
                     <rect x={482} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <rect x={677} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
-                    <text x={582.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={700}>VENTANA</text>
+                    <text x={582.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={600}>VENTANA</text>
                     {/* PUERTA derecha — umbral + jambas + arco de barrido */}
                     <rect x={1542} y={ROOM_H - WALL} width={275} height={WALL} fill={C.violet} fillOpacity={0.2} />
                     <rect x={1542} y={ROOM_H - WALL} width={275} height={3.5} fill={C.violet} />
                     <rect x={1539} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <rect x={1814} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <path d={`M 1542 ${ROOM_H - WALL} A 205 205 0 0 1 1747 ${ROOM_H - WALL - 205}`} fill="none" stroke={C.violet} strokeWidth={2.5} strokeDasharray="12 10" opacity={0.4} />
-                    <text x={1679.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={700}>PUERTA</text>
+                    <text x={1679.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={600}>PUERTA</text>
                   </g>
 
                   {/* Estanterías */}
@@ -561,8 +561,8 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                         {/* Ocupadas: fill más saturado. Vacías: apenas un tinte → se
                             distingue de un vistazo dónde hay stock. */}
                         <rect x={est.x_cm} y={est.y_cm} width={est.w_cm} height={est.h_cm} rx={7}
-                          fill={isHit ? "rgba(245,158,11,0.5)" : nMats > 0 ? `${color}30` : `${color}0f`}
-                          stroke={isSel ? C.blue : isHit ? "#f59e0b" : color}
+                          fill={isHit ? "rgba(34,211,238,0.5)" : nMats > 0 ? `${color}30` : `${color}0f`}
+                          stroke={isSel ? C.blue : isHit ? "#22d3ee" : color}
                           strokeWidth={isSel ? 9 : isHit ? 8 : 3.5}
                           strokeOpacity={nMats > 0 ? 1 : 0.5} />
                         {/* Canto superior (lip) — banda más saturada arriba = profundidad física */}
@@ -574,8 +574,8 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                         {/* borde interior sutil (profundidad) */}
                         <rect x={est.x_cm + 6} y={est.y_cm + 6} width={Math.max(4, est.w_cm - 12)} height={Math.max(4, est.h_cm - 12)} rx={4} fill="none" stroke={color} strokeOpacity={nMats > 0 ? 0.28 : 0.12} strokeWidth={2} />
                         <text x={est.x_cm + est.w_cm / 2} y={est.y_cm + est.h_cm / 2 + (small ? 9 : 11)}
-                          textAnchor="middle" fontSize={small ? 27 : 34} fontWeight={900}
-                          fill={isHit ? "#92400e" : color} fillOpacity={nMats > 0 ? 1 : 0.65} fontFamily={C.sans}>{est.codigo}</text>
+                          textAnchor="middle" fontSize={small ? 27 : 34} fontWeight={700}
+                          fill={isHit ? "#155e75" : color} fillOpacity={nMats > 0 ? 1 : 0.65} fontFamily={C.sans}>{est.codigo}</text>
                         {/* Badge de cantidad tipo notificación en la esquina sup. derecha */}
                         {nMats > 0 && (() => {
                           const r = Math.max(9, Math.min(15, est.w_cm / 4, est.h_cm / 4));
@@ -583,8 +583,8 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                           const cy = est.y_cm + r + 4;
                           return (
                             <g style={{ pointerEvents: "none" }}>
-                              <circle cx={cx} cy={cy} r={r} fill={isHit ? "#b45309" : color} stroke="#fff" strokeWidth={1.5} />
-                              <text x={cx} y={cy + r * 0.36} textAnchor="middle" fontSize={r * 1.15} fontWeight={900} fill="#fff" fontFamily={C.sans}>{nMats}</text>
+                              <circle cx={cx} cy={cy} r={r} fill={isHit ? "#0e7490" : color} stroke="#fff" strokeWidth={1.5} />
+                              <text x={cx} y={cy + r * 0.36} textAnchor="middle" fontSize={r * 1.15} fontWeight={700} fill="#fff" fontFamily={C.sans}>{nMats}</text>
                             </g>
                           );
                         })()}
@@ -607,7 +607,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                 {/* Controles de zoom (overlay) */}
                 <div style={{ position: "absolute", top: 20, right: 20, display: "flex", flexDirection: "column", gap: 6 }}>
                   {[["+", () => zoomBy(1.4), "Acercar"], ["−", () => zoomBy(1 / 1.4), "Alejar"]].map(([lbl, fn, ti]) => (
-                    <button key={ti} type="button" title={ti} onClick={fn} style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, fontSize: 18, fontWeight: 800, lineHeight: 1, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}>{lbl}</button>
+                    <button key={ti} type="button" title={ti} onClick={fn} style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, fontSize: 18, fontWeight: 650, lineHeight: 1, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}>{lbl}</button>
                   ))}
                   {view.scale > 1.01 && (
                     <button type="button" title="Restablecer vista" onClick={() => setView({ scale: 1, tx: 0, ty: 0 })} style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", display: "grid", placeItems: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}><Move size={15} /></button>
@@ -630,10 +630,10 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                       <div style={{ height: 4, background: color }} />
                       <div style={{ padding: "10px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                          <span style={{ fontFamily: C.mono, fontWeight: 950, fontSize: 15, color, background: `${color}18`, border: `1px solid ${color}44`, borderRadius: 8, padding: "2px 8px" }}>{est.codigo}</span>
+                          <span style={{ fontFamily: C.mono, fontWeight: 750, fontSize: 15, color, background: `${color}18`, border: `1px solid ${color}44`, borderRadius: 8, padding: "2px 8px" }}>{est.codigo}</span>
                           <span style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{est.alto_cm || "?"}×{est.largo_cm || "?"}×{est.prof_cm || "?"} cm</span>
                         </div>
-                        <div style={{ fontSize: 11.5, fontWeight: 850, color: mats.length ? C.text : C.dim, marginBottom: mats.length ? 6 : 0 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: mats.length ? C.text : C.dim, marginBottom: mats.length ? 6 : 0 }}>
                           {mats.length ? `${mats.length} producto${mats.length === 1 ? "" : "s"}` : "Estantería vacía"}
                         </div>
                         {mats.slice(0, 4).map((m) => (
@@ -649,7 +649,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
 
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 6px 2px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, color: C.dim }}>{editMode ? "Arrastrá una estantería y la posición se guarda sola." : "Tocá una estantería · rueda para zoom · arrastrá el fondo para moverte."}</span>
-                  {highlighted && <span style={{ fontSize: 11, color: C.violet, fontWeight: 800 }}>{highlighted.size} estantería{highlighted.size === 1 ? "" : "s"} resaltada{highlighted.size === 1 ? "" : "s"}</span>}
+                  {highlighted && <span style={{ fontSize: 11, color: C.violet, fontWeight: 650 }}>{highlighted.size} estantería{highlighted.size === 1 ? "" : "s"} resaltada{highlighted.size === 1 ? "" : "s"}</span>}
                 </div>
               </div>
             )}
@@ -725,13 +725,13 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
     <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 14, padding: "11px 13px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 9 }}>
         <PackageOpen size={15} style={{ color: C.violet }} />
-        <span style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>Afuera del pañol ({total})</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>Afuera del pañol ({total})</span>
         {sinLugar > 0 && (
           <span className="afuera-alerta" style={{
             display: "inline-flex", alignItems: "center", gap: 5,
             padding: "2px 9px", borderRadius: 999,
             border: `1px solid ${C.redB}`, background: C.redL, color: C.red,
-            fontSize: 11, fontWeight: 900,
+            fontSize: 11, fontWeight: 700,
           }}>
             <AlertTriangle size={11} />
             {sinLugar} sin lugar
@@ -763,11 +763,11 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
                 {g.lugar
                   ? <MapPin size={13} style={{ color: tono.color, flexShrink: 0 }} />
                   : <AlertTriangle size={13} style={{ color: tono.color, flexShrink: 0 }} />}
-                <span style={{ fontSize: 12.5, fontWeight: 850, color: g.lugar ? C.text : C.red, minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: g.lugar ? C.text : C.red, minWidth: 0, flex: 1 }}>
                   {g.lugar || "Sin lugar anotado"}
                 </span>
                 <span style={{
-                  fontSize: 11, fontWeight: 900, color: tono.color,
+                  fontSize: 11, fontWeight: 700, color: tono.color,
                   border: `1px solid ${tono.borde}`, borderRadius: 999, padding: "1px 8px",
                 }}>
                   {g.items.length}
@@ -784,7 +784,7 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
                     >
                       {editando === m.id ? (
                         <div style={{ display: "grid", gap: 6, padding: "7px 8px", borderRadius: 8, background: "var(--panel-2)" }}>
-                          <span style={{ fontSize: 12, color: C.text, fontWeight: 700 }}>{m.descripcion}</span>
+                          <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{m.descripcion}</span>
                           <input
                             autoFocus
                             list="afuera-lugares"
@@ -810,7 +810,7 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
                                 display: "inline-flex", alignItems: "center", gap: 5,
                                 padding: "6px 12px", borderRadius: 8, cursor: "pointer",
                                 border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green,
-                                fontSize: 12, fontWeight: 850, opacity: guardando ? 0.6 : 1,
+                                fontSize: 12, fontWeight: 700, opacity: guardando ? 0.6 : 1,
                               }}
                             >
                               <Check size={12} /> {guardando ? "Guardando…" : "Guardar"}
@@ -821,7 +821,7 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
                               style={{
                                 padding: "6px 12px", borderRadius: 8, cursor: "pointer",
                                 border: `1px solid ${C.border}`, background: "transparent", color: C.dim,
-                                fontSize: 12, fontWeight: 800,
+                                fontSize: 12, fontWeight: 650,
                               }}
                             >
                               Cancelar
@@ -843,7 +843,7 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
                           <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {m.descripcion}
                           </span>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 11, fontWeight: 650, flexShrink: 0 }}>
                             <Pencil size={11} /> {m.ubicacion_obs ? "Cambiar" : "Anotar"}
                           </span>
                         </button>
@@ -943,9 +943,9 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
       <div style={{ height: 5, background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
       <div style={{ padding: "13px 15px", display: "grid", gap: 12, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: `${color}1e`, border: `1px solid ${color}55`, color, fontWeight: 950, fontFamily: C.mono, fontSize: 15 }}>{est.codigo}</div>
+          <div style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: `${color}1e`, border: `1px solid ${color}55`, color, fontWeight: 750, fontFamily: C.mono, fontSize: 15 }}>{est.codigo}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 900, color: C.text }}>Estantería {est.codigo}</div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>Estantería {est.codigo}</div>
             <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>
               {est.alto_cm || "?"} × {est.largo_cm || "?"} × {est.prof_cm || "?"} cm
             </div>
@@ -959,14 +959,14 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: `${color}12`, border: `1px solid ${color}33`, borderRadius: 9, padding: "5px 10px" }}>
             <Package size={13} style={{ color }} />
-            <span style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>{mats.length}</span>
-            <span style={{ fontSize: 11, color: C.dim, fontWeight: 700 }}>{mats.length === 1 ? "producto" : "productos"}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>{mats.length}</span>
+            <span style={{ fontSize: 11, color: C.dim, fontWeight: 600 }}>{mats.length === 1 ? "producto" : "productos"}</span>
           </div>
           {nivelCount.size > 0 && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 9, padding: "5px 10px" }}>
               <Layers size={13} style={{ color: C.dim }} />
-              <span style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>{nivelCount.size}</span>
-              <span style={{ fontSize: 11, color: C.dim, fontWeight: 700 }}>{nivelCount.size === 1 ? "nivel" : "niveles"} con stock</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>{nivelCount.size}</span>
+              <span style={{ fontSize: 11, color: C.dim, fontWeight: 600 }}>{nivelCount.size === 1 ? "nivel" : "niveles"} con stock</span>
             </div>
           )}
         </div>
@@ -988,7 +988,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
         {esCajonera && cajones.length > 0 && (
           <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 11px 11px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 8 }}>
-              <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Cajonera</span>
+              <span style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Cajonera</span>
               <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono }}>{columnasCajonera} × {filasCajonera} · {cajones.length} cajones</span>
             </div>
             {/* La grilla se dibuja como está el mueble: la numeración baja por
@@ -1011,9 +1011,9 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                     display: "flex", flexDirection: "column", gap: 3,
                   }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 900, color: items.length ? color : C.dim, fontFamily: C.mono }}>{numero}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: items.length ? color : C.dim, fontFamily: C.mono }}>{numero}</span>
                       {items.length > 0 && (
-                        <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: 900, color: C.dim, fontFamily: C.mono }}>{conStock}/{items.length}</span>
+                        <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: 700, color: C.dim, fontFamily: C.mono }}>{conStock}/{items.length}</span>
                       )}
                     </div>
                     {canEdit ? (
@@ -1038,13 +1038,13 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                           width: "100%", boxSizing: "border-box", resize: "none",
                           border: "1px solid transparent", background: "transparent",
                           color: etiqueta ? C.text : C.dim, fontFamily: C.sans,
-                          fontSize: 9, lineHeight: 1.2, fontWeight: 700,
+                          fontSize: 9, lineHeight: 1.2, fontWeight: 600,
                           borderRadius: 4, padding: "1px 3px", outline: "none",
                           opacity: guardandoCajon === numero ? 0.5 : 1,
                         }}
                       />
                     ) : (
-                      <div style={{ fontSize: 9, lineHeight: 1.2, color: C.dim, fontWeight: 700, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      <div style={{ fontSize: 9, lineHeight: 1.2, color: C.dim, fontWeight: 600, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                         {etiqueta || "sin rótulo"}
                       </div>
                     )}
@@ -1076,7 +1076,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
         {!esCajonera && niveles.length > 0 && (
           <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 11px 11px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 8 }}>
-              <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Vista frontal</span>
+              <span style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Vista frontal</span>
               <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono }}>{largo} × {alto} cm</span>
             </div>
             <div style={{ display: "grid", gap: 3, borderLeft: `3px solid ${color}`, borderRight: `3px solid ${color}`, borderRadius: 4, padding: "0 4px" }}>
@@ -1088,7 +1088,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                     borderTop: `2px solid ${color}`, padding: "5px 2px 4px",
                   }}>
                     <div style={{ flexShrink: 0, width: 46, textAlign: "right" }}>
-                      <div style={{ fontSize: 11, fontWeight: 900, color: items.length ? color : C.dim, fontFamily: C.mono }}>{nivel}º</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: items.length ? color : C.dim, fontFamily: C.mono }}>{nivel}º</div>
                       <div style={{ fontSize: 9, color: C.dim, fontFamily: C.mono }}>{n} cm</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: 3, alignContent: "center" }}>
@@ -1111,7 +1111,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                       })}
                     </div>
                     {items.length > 0 && (
-                      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 900, color, fontFamily: C.mono, minWidth: 16, textAlign: "right" }}>{items.length}</span>
+                      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color, fontFamily: C.mono, minWidth: 16, textAlign: "right" }}>{items.length}</span>
                     )}
                   </div>
                 );
@@ -1124,7 +1124,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
         {/* Productos por estante */}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-            <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>
+            <span style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
               Productos {filtro ? `(${filtered.length}/${mats.length})` : `(${mats.length})`}
             </span>
           </div>
@@ -1152,8 +1152,8 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                 <div key={nivel} style={{ display: "grid", gap: 7 }}>
                   {matsPorNivel.size > 1 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 2 }}>
-                      <span style={{ fontSize: 10, color, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.4 }}>{nivel === 0 ? (esCajonera ? "Sin cajón asignado" : "Sin estante asignado") : esCajonera ? `Cajón ${nivel}${cajones[nivel - 1] ? ` · ${cajones[nivel - 1]}` : ""}` : `${nivel}º estante`}</span>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: C.dim, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: "1px 6px" }}>{items.length}</span>
+                      <span style={{ fontSize: 10, color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>{nivel === 0 ? (esCajonera ? "Sin cajón asignado" : "Sin estante asignado") : esCajonera ? `Cajón ${nivel}${cajones[nivel - 1] ? ` · ${cajones[nivel - 1]}` : ""}` : `${nivel}º estante`}</span>
+                      <span style={{ fontSize: 10, fontWeight: 650, color: C.dim, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: "1px 6px" }}>{items.length}</span>
                       <div style={{ flex: 1, height: 1, background: C.border }} />
                     </div>
                   )}
@@ -1170,18 +1170,18 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
                           <Package size={18} strokeWidth={2.2} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 850, color: C.text, lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{m.descripcion}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{m.descripcion}</div>
                           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 5, minWidth: 0 }}>
                             {m.codigo
-                              ? <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 800, color: C.dim, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>{m.codigo}</span>
+                              ? <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 650, color: C.dim, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>{m.codigo}</span>
                               : <span style={{ fontSize: 11, color: C.dim, fontWeight: 600 }}>Ver stock por obra</span>}
                             {m.ubicacion_obs && <span style={{ fontSize: 11, color: C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {m.ubicacion_obs}</span>}
                           </div>
                         </div>
                         <div style={{ flexShrink: 0, minWidth: 56, border: `1px solid ${qtyBorder}`, background: qtyBg, color: qtyColor, borderRadius: 10, padding: "5px 7px", textAlign: "center" }}>
-                          <div style={{ fontSize: 8.5, color: qtyColor, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1 }}>Disp.</div>
-                          <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, lineHeight: 1.2, marginTop: 2 }}>{fmtQty(disponible)}</div>
-                          <div style={{ fontSize: 9, color: qtyColor, opacity: 0.8, fontWeight: 800, lineHeight: 1, marginTop: 1 }}>{m.unidad_medida || "unid"}</div>
+                          <div style={{ fontSize: 8.5, color: qtyColor, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1 }}>Disp.</div>
+                          <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 750, lineHeight: 1.2, marginTop: 2 }}>{fmtQty(disponible)}</div>
+                          <div style={{ fontSize: 9, color: qtyColor, opacity: 0.8, fontWeight: 650, lineHeight: 1, marginTop: 1 }}>{m.unidad_medida || "unid"}</div>
                         </div>
                         <ChevronRight size={17} style={{ color: C.dim, flexShrink: 0 }} />
                       </button>
@@ -1232,7 +1232,7 @@ function MovimientoTimelineRow({ row }) {
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, fontWeight: 900, color: meta.color }}>{meta.label}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
           <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{fmtDate(rowMovementAt(row))}</span>
         </div>
         <div style={{ fontSize: 12, color: C.t1, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1244,7 +1244,7 @@ function MovimientoTimelineRow({ row }) {
           </div>
         )}
       </div>
-      <div style={{ color: meta.color, fontFamily: C.mono, fontSize: 13, fontWeight: 950, whiteSpace: "nowrap", paddingTop: 1 }}>
+      <div style={{ color: meta.color, fontFamily: C.mono, fontSize: 13, fontWeight: 750, whiteSpace: "nowrap", paddingTop: 1 }}>
         {meta.sign}{movimientoQty(row)}
       </div>
     </div>
@@ -1384,7 +1384,7 @@ function MaterialDetalleModal({ material, onClose }) {
               <PackageOpen size={22} strokeWidth={2.5} />
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: C.t0, letterSpacing: "-0.3px" }}>Radiografía del Estante</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.t0, letterSpacing: "-0.3px" }}>Radiografía del Estante</div>
               <div style={{ fontSize: 13, color: C.t2, fontWeight: 500 }}>Contenido físico registrado</div>
             </div>
           </div>
@@ -1396,10 +1396,10 @@ function MaterialDetalleModal({ material, onClose }) {
         <div style={{ padding: 24, flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 28 }}>
           {/* Material Header */}
           <div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.t0, lineHeight: 1.3, marginBottom: 12 }}>{material.descripcion}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: C.t0, lineHeight: 1.3, marginBottom: 12 }}>{material.descripcion}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {material.codigo && <span style={{ padding: "4px 10px", background: C.s0, color: C.t1, border: `1px solid ${C.b0}`, borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: C.mono, display: "flex", alignItems: "center", gap: 6 }}><Search size={14} /> COD: {material.codigo}</span>}
-              <span style={{ padding: "4px 10px", background: `${C.blue}15`, color: C.blue, border: `1px solid ${C.blue}30`, borderRadius: 8, fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}><MapPin size={14} /> UBICACIÓN: {material.ubicacion}</span>
+              {material.codigo && <span style={{ padding: "4px 10px", background: C.s0, color: C.t1, border: `1px solid ${C.b0}`, borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: C.mono, display: "flex", alignItems: "center", gap: 6 }}><Search size={14} /> COD: {material.codigo}</span>}
+              <span style={{ padding: "4px 10px", background: `${C.blue}15`, color: C.blue, border: `1px solid ${C.blue}30`, borderRadius: 8, fontSize: 12, fontWeight: 650, display: "flex", alignItems: "center", gap: 6 }}><MapPin size={14} /> UBICACIÓN: {material.ubicacion}</span>
             </div>
           </div>
 
@@ -1425,12 +1425,12 @@ function MaterialDetalleModal({ material, onClose }) {
                 
                 <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <div style={{ fontSize: 13, color: isZero ? C.dim : C.green, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Total Físico en Pañol</div>
+                    <div style={{ fontSize: 13, color: isZero ? C.dim : C.green, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Total Físico en Pañol</div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <span style={{ fontSize: 48, fontWeight: 950, color: isZero ? C.t1 : C.green, fontFamily: C.mono, lineHeight: 1, letterSpacing: "-1.5px" }}>
+                      <span style={{ fontSize: 48, fontWeight: 750, color: isZero ? C.t1 : C.green, fontFamily: C.mono, lineHeight: 1, letterSpacing: "-1.5px" }}>
                         {data.total}
                       </span>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: isZero ? C.dim : `${C.green}99` }}>
+                      <span style={{ fontSize: 16, fontWeight: 600, color: isZero ? C.dim : `${C.green}99` }}>
                         {data.total === 1 ? "unidad" : "unidades"}
                       </span>
                     </div>
@@ -1444,7 +1444,7 @@ function MaterialDetalleModal({ material, onClose }) {
               {/* Breakdown */}
               {data.total > 0 && (
                 <div>
-                  <div style={{ fontSize: 13, color: C.t1, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 13, color: C.t1, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
                     <Warehouse size={16} /> Desglose de asignaciones
                   </div>
                   
@@ -1455,12 +1455,12 @@ function MaterialDetalleModal({ material, onClose }) {
                         <div style={{ position: "absolute", left: 0, bottom: 0, height: 4, background: C.t2, width: `${(data.general / data.total) * 100}%`, transition: "width 0.5s ease-out" }} />
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: C.t0 }}>Stock General</div>
+                            <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>Stock General</div>
                             <div style={{ fontSize: 13, color: C.t2, marginTop: 2 }}>Disponible, sin asignar</div>
                           </div>
                           <div style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: C.t0, fontFamily: C.mono }}>{data.general}</div>
-                            <div style={{ fontSize: 12, color: C.t2, fontWeight: 700 }}>{data.general === 1 ? "ud" : "uds"}</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: C.t0, fontFamily: C.mono }}>{data.general}</div>
+                            <div style={{ fontSize: 12, color: C.t2, fontWeight: 600 }}>{data.general === 1 ? "ud" : "uds"}</div>
                           </div>
                         </div>
                       </div>
@@ -1472,12 +1472,12 @@ function MaterialDetalleModal({ material, onClose }) {
                         <div style={{ position: "absolute", left: 0, bottom: 0, height: 4, background: C.blue, width: `${(o.cantidad / data.total) * 100}%`, transition: "width 0.5s ease-out" }} />
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: C.t0 }}>Reserva {o.obra}</div>
+                            <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>Reserva {o.obra}</div>
                             <div style={{ fontSize: 13, color: C.t2, marginTop: 2 }}>{o.linea}</div>
                           </div>
                           <div style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: C.blue, fontFamily: C.mono }}>{o.cantidad}</div>
-                            <div style={{ fontSize: 12, color: C.blue, opacity: 0.8, fontWeight: 700 }}>{o.cantidad === 1 ? "ud" : "uds"}</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: C.blue, fontFamily: C.mono }}>{o.cantidad}</div>
+                            <div style={{ fontSize: 12, color: C.blue, opacity: 0.8, fontWeight: 600 }}>{o.cantidad === 1 ? "ud" : "uds"}</div>
                           </div>
                         </div>
                       </div>
@@ -1489,10 +1489,10 @@ function MaterialDetalleModal({ material, onClose }) {
               {/* Empty State */}
               {data.total === 0 && (
                 <div style={{ padding: "24px 20px", textAlign: "center", background: `#f59e0b10`, border: `1px dashed #f59e0b40`, borderRadius: 16 }}>
-                  <div style={{ width: 48, height: 48, margin: "0 auto 16px", background: `#f59e0b20`, color: `#d97706`, borderRadius: "50%", display: "grid", placeItems: "center" }}>
+                  <div style={{ width: 48, height: 48, margin: "0 auto 16px", background: `#f59e0b20`, color: `#0891b2`, borderRadius: "50%", display: "grid", placeItems: "center" }}>
                     <Search size={24} strokeWidth={2.5} />
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: C.t0, marginBottom: 8 }}>¿Ves el material en el estante?</div>
+                  <div style={{ fontSize: 16, fontWeight: 650, color: C.t0, marginBottom: 8 }}>¿Ves el material en el estante?</div>
                   <div style={{ fontSize: 14, color: C.t2, lineHeight: 1.5 }}>
                     El sistema marca <b>0 unidades</b> físicas aquí. Si el material está en la estantería significa que aún no ingresó al sistema o no se hizo el conteo.
                   </div>
@@ -1502,10 +1502,10 @@ function MaterialDetalleModal({ material, onClose }) {
               <div style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 16, overflow: "hidden" }}>
                 <div style={{ padding: "15px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div>
-                    <div style={{ fontSize: 13, color: C.t1, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6 }}>Movimientos</div>
+                    <div style={{ fontSize: 13, color: C.t1, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Movimientos</div>
                     <div style={{ fontSize: 12, color: C.t2, marginTop: 2 }}>Kardex del material: ingresos, recepciones, egresos y transferencias.</div>
                   </div>
-                  <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850 }}>
+                  <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700 }}>
                     {data.movimientos.length}
                   </span>
                 </div>
@@ -1515,7 +1515,7 @@ function MaterialDetalleModal({ material, onClose }) {
                       <MovimientoTimelineRow key={mov.id || `${mov.estado}-${index}`} row={mov} />
                     ))
                   ) : (
-                    <div style={{ padding: "22px 0", textAlign: "center", color: C.t2, fontSize: 13, fontWeight: 650 }}>
+                    <div style={{ padding: "22px 0", textAlign: "center", color: C.t2, fontSize: 13, fontWeight: 600 }}>
                       Sin movimientos registrados
                     </div>
                   )}

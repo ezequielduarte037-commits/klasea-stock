@@ -1,20 +1,16 @@
-:root{
-  --bg:#000;
-  --panel:#070707;
-  --panel2:#0b0b0b;
-  --border:#2a2a2a;
+/* Nombres heredados de la primera versión del sistema. Los colores de verdad
+   viven en theme/palette.css; acá quedan sólo los alias que todavía usan
+   algunas pantallas, apuntando a los tokens actuales en los tres temas.
 
-  --text:#d0d0d0;
-  --muted:#9a9a9a;
-
-  --ok:#30d158;
-  --bad:#ff453a;
-  --warn:#ffd60a;
-
-  --radius:14px;
+   Antes este archivo definía su propia paleta y ponía el cuerpo en Roboto y
+   los títulos en Montserrat, dos familias que nunca se cargaban: cada pantalla
+   que no declaraba su fuente caía en la del sistema operativo. Y --warn era
+   amarillo puro en el tema oscuro. */
+:root {
+  --ok: var(--green);
+  --bad: var(--red);
+  --warn: var(--cyan);
 }
 
-*{box-sizing:border-box;}
-body{margin:0;background:var(--bg);color:var(--text);font-family:Roboto,system-ui,Arial;}
-h1,h2,h3{font-family:Montserrat,system-ui,Arial;margin:0;}
-input,select,button{font:inherit;}
+h1, h2, h3 { margin: 0; }
+input, select, button { font: inherit; }

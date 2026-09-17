@@ -58,7 +58,7 @@ export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMateri
       >
         <img src={url} loading="lazy" alt={alt} onError={() => setFailedUrl(url)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         {multiple && (
-          <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 9, fontWeight: 900, padding: "2px 5px", borderTopLeftRadius: 6, backdropFilter: "blur(2px)" }}>
+          <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 5px", borderTopLeftRadius: 6, backdropFilter: "blur(2px)" }}>
             {imagenes.length} <Camera size={8} style={{ display: "inline", verticalAlign: "middle" }} />
           </div>
         )}
@@ -158,10 +158,10 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
     >
       <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: themeAware ? C.panelSolid : "rgba(15,23,42,0.94)", borderRadius: 12, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto" }}>
         <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-          <div title={alt} style={{ color: themeAware ? C.text : "#f8fafc", fontSize: 13, fontWeight: 850, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
+          <div title={alt} style={{ color: themeAware ? C.text : "#f8fafc", fontSize: 13, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
           
-          <button type="button" onClick={makeMain} disabled={loading || isMain} title={isMain ? "Ya es la foto principal" : "Hacer foto principal"} style={{ height: 34, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: isMain ? (themeAware ? C.blueL : "rgba(250,204,21,0.2)") : "transparent", color: themeAware ? (isMain ? C.blue : C.text) : (isMain ? "#facc15" : "#cbd5e1"), display: "flex", alignItems: "center", gap: 6, cursor: loading || isMain ? "default" : "pointer" }}>
-            <Star size={15} fill={isMain ? "currentColor" : "none"} /> <span style={{ fontSize: 12, fontWeight: 700 }}>{isMain ? "Principal" : "Hacer Principal"}</span>
+          <button type="button" onClick={makeMain} disabled={loading || isMain} title={isMain ? "Ya es la foto principal" : "Hacer foto principal"} style={{ height: 34, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: isMain ? (themeAware ? C.blueL : "rgba(34,211,238,0.2)") : "transparent", color: themeAware ? (isMain ? C.blue : C.text) : (isMain ? "#22d3ee" : "#cbd5e1"), display: "flex", alignItems: "center", gap: 6, cursor: loading || isMain ? "default" : "pointer" }}>
+            <Star size={15} fill={isMain ? "currentColor" : "none"} /> <span style={{ fontSize: 12, fontWeight: 600 }}>{isMain ? "Principal" : "Hacer Principal"}</span>
           </button>
           
           {current?.id && current.id !== 'main' && (
@@ -284,12 +284,12 @@ export function PriceBadge({ material }) {
       alignItems: "center",
       gap: 5,
       borderRadius: 999,
-      border: `1px solid ${stale ? "rgba(245,158,11,0.35)" : "rgba(16,185,129,0.3)"}`,
-      background: stale ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)",
-      color: stale ? C.amber : C.green,
+      border: `1px solid ${stale ? "rgba(34,211,238,0.35)" : "rgba(16,185,129,0.3)"}`,
+      background: stale ? "rgba(34,211,238,0.08)" : "rgba(16,185,129,0.08)",
+      color: stale ? C.cyan : C.green,
       padding: "3px 8px",
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       whiteSpace: "nowrap",
     }}>
       <Clock size={12} />
@@ -322,13 +322,13 @@ export function PriceHistory({ material }) {
           boxShadow: "0 18px 60px rgba(0,0,0,.32)",
           padding: 10,
         }}>
-          <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>
             Últimos precios
           </div>
           {rows.slice(0, 8).map((row) => (
             <div key={row.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, padding: "6px 0", borderTop: `1px solid ${C.b0}` }}>
               <div>
-                <div style={{ fontSize: 12, color: C.t0, fontWeight: 700 }}>{fmtMoney(row.precio_unitario, row.moneda)}</div>
+                <div style={{ fontSize: 12, color: C.t0, fontWeight: 600 }}>{fmtMoney(row.precio_unitario, row.moneda)}</div>
                 <div style={{ fontSize: 11, color: C.t2 }}>{row.proveedor || "Sin proveedor"} · {row.fuente || "manual"}</div>
               </div>
               <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{fmtDate(row.fecha || row.created_at)}</div>

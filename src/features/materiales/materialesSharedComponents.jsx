@@ -70,7 +70,7 @@ function ProveedorAlternativasHint({ proveedor, proveedores, compact = false }) 
       style={{
         color: C.t3,
         fontSize: compact ? 10 : 11,
-        fontWeight: 750,
+        fontWeight: 650,
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -85,8 +85,8 @@ function ProveedorAlternativasHint({ proveedor, proveedores, compact = false }) 
 function SetupPendienteMateriales({ onRetry }) {
   return (
     <div style={{ padding: 28 }}>
-      <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 12, padding: 22, maxWidth: 620 }}>
-        <div style={{ fontSize: 14, color: C.amber, fontWeight: 700, marginBottom: 8 }}>Faltan crear las tablas de Materiales</div>
+      <div style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 12, padding: 22, maxWidth: 620 }}>
+        <div style={{ fontSize: 14, color: C.cyan, fontWeight: 600, marginBottom: 8 }}>Faltan crear las tablas de Materiales</div>
         <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, marginBottom: 14 }}>
           No se pudieron leer las tablas <code style={{ fontFamily: C.mono, fontSize: 12 }}>panol_*</code>.
           Cuando estén disponibles en Supabase, tocá Reintentar.
@@ -176,7 +176,7 @@ function ImportarTab({ batches, onImported }) {
 
       {result && (
         <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, color: C.green, fontWeight: 700, marginBottom: 6 }}>Importación completada</div>
+          <div style={{ fontSize: 14, color: C.green, fontWeight: 600, marginBottom: 6 }}>Importación completada</div>
           <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.8 }}>
             {result.creados} materiales nuevos, {result.actualizados} actualizados y {result.cantidades_upsert} cantidades BOM cargadas/actualizadas.
           </div>
@@ -185,7 +185,7 @@ function ImportarTab({ batches, onImported }) {
 
       {parsed && (
         <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 20, marginBottom: 18 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 600, marginBottom: 12 }}>
             Vista previa — {fileName}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
@@ -233,7 +233,7 @@ function ImportarTab({ batches, onImported }) {
         </div>
       )}
 
-      <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, margin: "20px 0 8px" }}>
+      <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 600, margin: "20px 0 8px" }}>
         Importaciones anteriores
       </div>
       {!batches?.length ? (

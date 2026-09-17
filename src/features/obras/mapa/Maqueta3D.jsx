@@ -184,11 +184,11 @@ function Puesto3D({p,obra,salio,pasadoPlazo,onHover,onOut,onClickPuesto,onContex
               <div style={{
                 padding:"3px 9px",borderRadius:7,
                 background:"rgba(5,7,13,0.85)",border:`1px solid ${color}88`,
-                color:"#f4f6fb",fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:700,
+                color:"#f4f6fb",fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,
                 whiteSpace:"nowrap",textAlign:"center",lineHeight:1.25,
               }}>
                 {obra.codigo}
-                <div style={{fontSize:8.5,color,fontWeight:700}}>{obra._pct??0}%{pasadoPlazo?" · PASADA":""}</div>
+                <div style={{fontSize:8.5,color,fontWeight:600}}>{obra._pct??0}%{pasadoPlazo?" · PASADA":""}</div>
               </div>
             </Html>
           </>

@@ -13,10 +13,10 @@ let cacheEstanterias = null;
 export function UbicacionChip({ ubicacion, obs = null, size = "sm" }) {
   const { cod, nivel, afuera } = parseUbicacion(ubicacion);
   if (!cod) return null;
-  const color = afuera ? "#f59e0b" : zonaColor(cod);
+  const color = afuera ? "#22d3ee" : zonaColor(cod);
   const label = afuera ? "Afuera del pañol" : nivel ? `${cod} · ${nivel}º` : cod;
   return (
-    <span title={obs ? `${label} — ${obs}` : label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: size === "sm" ? 10 : 11.5, fontWeight: 850, fontFamily: C.mono, color, border: `1px solid ${color}55`, background: `${color}14`, borderRadius: 6, padding: size === "sm" ? "1px 6px" : "3px 8px", whiteSpace: "nowrap" }}>
+    <span title={obs ? `${label} — ${obs}` : label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: size === "sm" ? 10 : 11.5, fontWeight: 700, fontFamily: C.mono, color, border: `1px solid ${color}55`, background: `${color}14`, borderRadius: 6, padding: size === "sm" ? "1px 6px" : "3px 8px", whiteSpace: "nowrap" }}>
       {afuera ? <PackageOpen size={size === "sm" ? 10 : 12} /> : <MapPin size={size === "sm" ? 10 : 12} />}
       {label}
     </span>
@@ -85,7 +85,7 @@ export default function UbicacionPicker({ materialId, ubicacion = null, ubicacio
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1, display: "flex", alignItems: "center", gap: 5 }}>
+      <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, display: "flex", alignItems: "center", gap: 5 }}>
         <MapPin size={11} /> {label}
       </span>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -104,7 +104,7 @@ export default function UbicacionPicker({ materialId, ubicacion = null, ubicacio
         )}
         <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder={cod === "AFUERA" ? "¿Dónde? (ej. galpón, atrás del taller...)" : "Obs. (opcional)"} style={{ ...inp, flex: "1 1 140px" }} />
         {dirty && (
-          <button type="button" onClick={guardar} disabled={saving || !materialId} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 8, padding: "7px 12px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, opacity: saving ? 0.6 : 1 }}>
+          <button type="button" onClick={guardar} disabled={saving || !materialId} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 8, padding: "7px 12px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, opacity: saving ? 0.6 : 1 }}>
             {saving ? "..." : "Guardar"}
           </button>
         )}

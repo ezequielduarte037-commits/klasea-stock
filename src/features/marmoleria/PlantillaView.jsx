@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Plus, X, Check, Pencil, Trash2, Info, Layers } from "lucide-react";
 import { T, PANEL, EYEBROW, INP, INP_SM, TXT, ICON_BTN, uniqueSorted } from "./marmShared";
+import Cargando from "@/components/ui/Cargando";
 
 // ── PLANTILLA DE LÍNEA ────────────────────────────────────────────
 export default function PlantillaView({
@@ -50,7 +51,7 @@ export default function PlantillaView({
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:12, flexWrap:"wrap" }}>
         <div>
           <div style={{ ...EYEBROW, marginBottom:5 }}>Plantilla de línea</div>
-          <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:"var(--text)", letterSpacing:-0.3 }}>
+          <h1 style={{ margin:0, fontSize:18, fontWeight:600, color:"var(--text)", letterSpacing:-0.3 }}>
             {linea?.nombre}
             <span style={{ fontWeight:400, color:"var(--dim)", fontSize:14 }}> — {plantillaLinea.length} piezas</span>
           </h1>
@@ -61,7 +62,7 @@ export default function PlantillaView({
             border:`1px solid ${showAdd ? "var(--red-border)" : "var(--blue-border)"}`,
             background: showAdd ? "var(--red-soft)" : "var(--blue-soft)",
             color: showAdd ? "var(--red)" : "var(--blue)",
-            padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:700,
+            padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600,
           }}>
             {showAdd ? <X size={13} /> : <Plus size={13} />}
             {showAdd ? "Cancelar" : "Agregar pieza"}
@@ -127,7 +128,7 @@ export default function PlantillaView({
           <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:12, flexWrap:"wrap" }}>
             <button onClick={submitAdd} style={{
               border:"1px solid var(--blue-border)", background:"var(--blue-soft)",
-              color:"var(--blue)", padding:"8px 18px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:13, fontWeight:700,
+              color:"var(--blue)", padding:"8px 18px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:13, fontWeight:600,
             }}>Agregar y seguir</button>
             <button type="button" className="mrm-btn-ghost" onClick={() => setForm({ pieza:"", sector:"", opcional:false })} style={{
               border:"1px solid var(--border)", background:"transparent", color:"var(--dim)", padding:"8px 12px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12,
@@ -137,7 +138,7 @@ export default function PlantillaView({
       )}
 
       {loading ? (
-        <div style={{ textAlign:"center", padding:40, fontSize:12, color:"var(--dim)", letterSpacing:1.2, textTransform:"uppercase", fontFamily:T.mono }}>Cargando…</div>
+        <Cargando />
       ) : plantillaLinea.length === 0 ? (
         <div style={{ ...PANEL, textAlign:"center", padding:"56px 32px", color:"var(--dim)", borderStyle:"dashed" }}>
           <Layers size={26} style={{ opacity:0.4, marginBottom:10 }} />
@@ -145,7 +146,7 @@ export default function PlantillaView({
           {esAdmin && (
             <button onClick={() => setShowAdd(true)} style={{
               border:"1px solid var(--blue-border)", background:"var(--blue-soft)",
-              color:"var(--blue)", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:13, fontWeight:700,
+              color:"var(--blue)", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:13, fontWeight:600,
               display:"inline-flex", alignItems:"center", gap:6,
             }}><Plus size={13} /> Agregar primera pieza</button>
           )}
@@ -156,7 +157,7 @@ export default function PlantillaView({
             <div style={{ display:"grid", gridTemplateColumns:"1fr 160px 80px 64px",
               gap:12, padding:"8px 16px", borderBottom:"1px solid var(--border)", background:"var(--panel-solid-2)" }}>
               {["Pieza","Sector","Opcional",""].map((h,i) => (
-                <div key={i} style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase", color:"var(--dim)", fontWeight:700, fontFamily:T.mono }}>{h}</div>
+                <div key={i} style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase", color:"var(--dim)", fontWeight:600, fontFamily:T.mono }}>{h}</div>
               ))}
             </div>
 
@@ -164,7 +165,7 @@ export default function PlantillaView({
               <div key={sector}>
                 <div style={{ padding:"7px 16px", background:"var(--panel)", borderBottom:"1px solid var(--border)",
                   display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ fontSize:10, letterSpacing:1.2, fontWeight:700, color:"var(--muted)", textTransform:"uppercase", fontFamily:T.mono }}>{sector}</span>
+                  <span style={{ fontSize:10, letterSpacing:1.2, fontWeight:600, color:"var(--muted)", textTransform:"uppercase", fontFamily:T.mono }}>{sector}</span>
                   <span style={{ fontSize:10, color:"var(--dim)", fontFamily:T.mono }}>({rows.length})</span>
                 </div>
 

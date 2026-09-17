@@ -127,7 +127,7 @@ function Pill({ children, color = C.dim, soft = C.panel2, border = C.border, tit
         borderRadius: 999,
         padding: "3px 8px",
         fontSize: 10.5,
-        fontWeight: 900,
+        fontWeight: 700,
         whiteSpace: "nowrap",
         maxWidth: "100%",
         overflow: "hidden",
@@ -176,7 +176,7 @@ function Button({ children, onClick, disabled = false, tone = "neutral", title =
         gap: 6,
         fontFamily: C.sans,
         fontSize: 12,
-        fontWeight: 900,
+        fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         whiteSpace: "nowrap",
@@ -203,7 +203,7 @@ function Metric({ label, value, color, detail }) {
     }}>
       <strong style={{ color, fontFamily: C.mono, fontSize: 18, lineHeight: 1 }}>{value}</strong>
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>{label}</div>
+        <div style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>{label}</div>
         <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</div>
       </div>
     </div>
@@ -649,14 +649,14 @@ export default function ScannerRemitosTab({
       <div style={{ width: "100%", maxWidth: 1320, margin: "0 auto", padding: isMobile ? 12 : 18, boxSizing: "border-box", display: "grid", gap: 12 }}>
         {faltaMigracion ? (
           <div style={{ padding: "12px 14px", borderRadius: 12, background: C.redL, border: `1px solid ${C.redB}` }}>
-            <div style={{ fontSize: 13, fontWeight: 950, color: C.red, marginBottom: 5 }}>
+            <div style={{ fontSize: 13, fontWeight: 750, color: C.red, marginBottom: 5 }}>
               Falta correr la migración multiobra en Supabase
             </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, lineHeight: 1.55 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, lineHeight: 1.55 }}>
               El archivo documental sigue disponible, pero <b>todavía no se puede asociar un mismo
               PDF a varias obras</b>. Aplicá la migración antes de confirmar un remito multiobra.
             </div>
-            <div style={{ fontSize: 11.5, fontWeight: 750, color: C.dim, marginTop: 7 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 650, color: C.dim, marginTop: 7 }}>
               Supabase → SQL Editor → pegar el archivo{" "}
               <code style={{ fontFamily: "monospace", background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 5px" }}>
                 20260831120000_panol_remitos_multiobra.sql
@@ -672,7 +672,7 @@ export default function ScannerRemitosTab({
               <ScanLine size={18} />
             </div>
             <div style={{ flex: 1, minWidth: 210 }}>
-              <div style={{ color: C.text, fontSize: 15.5, fontWeight: 950 }}>Escanear remitos</div>
+              <div style={{ color: C.text, fontSize: 15.5, fontWeight: 750 }}>Escanear remitos</div>
               <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
                 El papel se guarda siempre. Después la IA lo lee, y si no puede lo reintentás sin perder el documento.
               </div>
@@ -691,7 +691,7 @@ export default function ScannerRemitosTab({
                   value={sede}
                   onChange={(event) => setSede(event.target.value)}
                   aria-label="Sede de ingreso"
-                  style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "7px 10px", fontFamily: C.sans, fontSize: 12, fontWeight: 850, outline: "none" }}
+                  style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "7px 10px", fontFamily: C.sans, fontSize: 12, fontWeight: 700, outline: "none" }}
                 >
                   {SEDES_PANOL.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
@@ -776,7 +776,7 @@ export default function ScannerRemitosTab({
           {escaneoEnCurso && (
             <div style={{ border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: "8px 11px", display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
               <ScanLine size={14} style={{ color: C.blue, flexShrink: 0 }} />
-              <span style={{ color: C.muted, fontSize: 11.5, fontWeight: 750 }}>
+              <span style={{ color: C.muted, fontSize: 11.5, fontWeight: 650 }}>
                 Lo que se escanee ahora se guarda como:
               </span>
               <DestinoPill contexto={escaneoEnCurso.contexto} />
@@ -799,7 +799,7 @@ export default function ScannerRemitosTab({
           <section style={seccion}>
             <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9 }}>
               <FolderOpen size={15} style={{ color: C.blue }} />
-              <div style={{ flex: 1, color: C.text, fontSize: 13, fontWeight: 900 }}>Escaneados en esta PC, sin cargar</div>
+              <div style={{ flex: 1, color: C.text, fontSize: 13, fontWeight: 700 }}>Escaneados en esta PC, sin cargar</div>
               <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{localFiles.length}</span>
             </div>
             {loadingLocal ? (
@@ -821,7 +821,7 @@ export default function ScannerRemitosTab({
                     <div key={row.id} className="panol-remito-fila" style={{ padding: "11px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       <FileText size={18} style={{ color: C.blue, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 190 }}>
-                        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</div>
+                        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
                           <span style={{ color: C.dim, fontSize: 10.5 }}>{fmtBytes(row.size)} · {fmtDate(row.updatedAt)}</span>
                           {contexto ? <DestinoPill contexto={contexto} /> : (
@@ -858,7 +858,7 @@ export default function ScannerRemitosTab({
           <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
             <Inbox size={15} style={{ color: C.violet }} />
             <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Remitos guardados que esperan algo</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Remitos guardados que esperan algo</div>
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
                 El archivo ya está guardado y es buscable. Acá quedan los que falta leer o ingresar al stock.
               </div>
@@ -867,7 +867,7 @@ export default function ScannerRemitosTab({
           </div>
 
           {remoteError ? (
-            <div style={{ margin: 12, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: 12, display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 800 }}>
+            <div style={{ margin: 12, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: 12, display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 650 }}>
               <AlertTriangle size={16} /> {remoteError}
             </div>
           ) : loadingRemote ? (
@@ -875,7 +875,7 @@ export default function ScannerRemitosTab({
           ) : receipts.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: C.dim }}>
               <CheckCircle2 size={26} style={{ color: C.green, marginBottom: 8 }} />
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900 }}>No hay nada pendiente en {sede}</div>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 700 }}>No hay nada pendiente en {sede}</div>
               <div style={{ fontSize: 12, marginTop: 4 }}>Los remitos ya archivados están en la pestaña Remitos.</div>
             </div>
           ) : (
@@ -893,7 +893,7 @@ export default function ScannerRemitosTab({
                         {done ? <CheckCircle2 size={16} /> : <FileText size={16} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900 }}>
+                        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 700 }}>
                           {row.titulo || row.proveedor || "Sin proveedor identificado"}
                           {row.numero ? ` · Nº ${row.numero}` : ""}
                         </div>

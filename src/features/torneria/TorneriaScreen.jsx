@@ -5,7 +5,7 @@ import {
   MapPin, PackageCheck, PackageOpen, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Repeat, Search,
   Settings2, ShoppingCart, SkipForward, Trash2, Truck, Wrench,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
+import { plegarMenu } from "@/lib/menuLateral";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -312,7 +312,7 @@ function CatalogTechnicalName({ item, compact = false }) {
             }}
           >
             <Link2 size={compact ? 9 : 10} style={{ flexShrink: 0, color: C.green }} />
-            <span style={{ flexShrink: 0, fontWeight: 800, fontFamily: C.mono }}>
+            <span style={{ flexShrink: 0, fontWeight: 650, fontFamily: C.mono }}>
               ×{Number(row.cantidad) || 1}
             </span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -340,7 +340,7 @@ function CatalogTechnicalName({ item, compact = false }) {
       }}
     >
       <Link2 size={compact ? 9 : 10} style={{ flexShrink: 0, color: C.green }} />
-      <span style={{ flexShrink: 0, fontWeight: 800 }}>Catálogo</span>
+      <span style={{ flexShrink: 0, fontWeight: 650 }}>Catálogo</span>
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {[material.codigo, material.descripcion].filter(Boolean).join(" · ")}
       </span>
@@ -422,10 +422,10 @@ function Kpi({ icon, value, label, color, activo = false, onClick, compacto = fa
     createElement(
       "div",
       { style: { minWidth: 0 } },
-      createElement("div", { style: { color: activo ? color : C.text, fontSize: compacto ? 16 : 15, fontWeight: 900, lineHeight: 1 } }, value),
+      createElement("div", { style: { color: activo ? color : C.text, fontSize: compacto ? 16 : 15, fontWeight: 700, lineHeight: 1 } }, value),
       createElement("div", {
         style: {
-          color: activo ? color : C.dim, fontSize: 9.5, fontWeight: 750, marginTop: 4,
+          color: activo ? color : C.dim, fontSize: 9.5, fontWeight: 650, marginTop: 4,
           textTransform: "uppercase", letterSpacing: "0.05em",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         },
@@ -480,7 +480,7 @@ function ProcessCard({ process, selected, onClick }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>
+            <span style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>
               {process.obra?.codigo || process.nombre}
             </span>
             <span style={{
@@ -489,7 +489,7 @@ function ProcessCard({ process, selected, onClick }) {
               border: `1px solid ${C.border}`,
               color: C.dim,
               fontSize: 9.5,
-              fontWeight: 800,
+              fontWeight: 650,
             }}>
               {process.obra?.linea_nombre || "Sin línea"}
             </span>
@@ -498,7 +498,7 @@ function ProcessCard({ process, selected, onClick }) {
             marginTop: 4,
             color: current ? C.muted : sinCircuito ? C.red : C.green,
             fontSize: 11,
-            fontWeight: sinCircuito ? 850 : 400,
+            fontWeight: sinCircuito ? 700 : 400,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -513,11 +513,11 @@ function ProcessCard({ process, selected, onClick }) {
         <span style={{ color: C.dim, fontSize: 10.5 }}>{PROCESS_STATE[process.estado] || process.estado}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           {unresolved > 0 && (
-            <span style={{ color: C.red, fontSize: 10.5, fontWeight: 850 }}>
+            <span style={{ color: C.red, fontSize: 10.5, fontWeight: 700 }}>
               {unresolved} por confirmar
             </span>
           )}
-          <span style={{ color: progress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 900 }}>
+          <span style={{ color: progress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 700 }}>
             {progress}%
           </span>
         </div>
@@ -673,7 +673,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0, paddingLeft: 3 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 900 }}>
+            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 700 }}>
               {piezas || operation.nombre}
             </span>
             {/* El viaje va en su propio chip y con número grande: es lo que
@@ -684,7 +684,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
                 display: "inline-flex", alignItems: "center", gap: 4,
                 padding: "2px 8px", borderRadius: 999,
                 border: `1px solid ${accentBorde}`, background: accentSoft, color: accent,
-                fontSize: 10, fontWeight: 900, whiteSpace: "nowrap",
+                fontSize: 10, fontWeight: 700, whiteSpace: "nowrap",
               }}>
                 <Repeat size={10} />
                 Viaje {operation.viaje}
@@ -697,7 +697,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
               background: C.panel2,
               color: C.dim,
               fontSize: 9.5,
-              fontWeight: 850,
+              fontWeight: 700,
               textTransform: "uppercase",
             }}>
               {operation.tipo === "plegadora" ? "Plegadora" : operation.tipo === "torneria" ? "Tornería" : operation.tipo}
@@ -706,7 +706,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
           {/* La acción baja a segundo renglón, en gris: sigue estando para quien
               la necesite, pero deja de ser el título. */}
           {piezas && operation.nombre && (
-            <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginTop: 3 }}>
+            <div style={{ color: C.muted, fontSize: 11, fontWeight: 600, marginTop: 3 }}>
               {operation.nombre}
             </div>
           )}
@@ -721,7 +721,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
             gap: 5,
             color: C.dim,
             fontSize: 9.5,
-            fontWeight: 750,
+            fontWeight: 650,
             marginTop: 5,
           }}>
             <MapPin size={10} />
@@ -749,7 +749,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
         </div>
       )}
       {ready && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.green, fontSize: 10.5, fontWeight: 800 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.green, fontSize: 10.5, fontWeight: 650 }}>
           <Check size={13} /> Listo para enviar
         </div>
       )}
@@ -799,7 +799,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
                 <div style={{
                   color: C.muted,
                   fontSize: 11.5,
-                  fontWeight: 750,
+                  fontWeight: 650,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -811,7 +811,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
                   Sale {qty(row.cantidad_enviada)} · volvió {qty(row.cantidad_recibida)}
                 </div>
               </div>
-              <span style={{ color: rowPct === 100 ? C.green : C.dim, fontSize: 10.5, fontWeight: 850 }}>
+              <span style={{ color: rowPct === 100 ? C.green : C.dim, fontSize: 10.5, fontWeight: 700 }}>
                 {qty(row.cantidad_recibida)}/{qty(row.cantidad_requerida)} {row.item?.unidad}
               </span>
             </div>
@@ -1131,7 +1131,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
   const tiempos = (
     <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
       {diasCompra != null && (
-        <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 700 }}>
+        <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 600 }}>
           Compra: {diasCompra} {diasCompra === 1 ? "día" : "días"}
         </span>
       )}
@@ -1149,7 +1149,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
   if (actual.tipo === "sin_viaje") {
     return (
       <div style={{ display: "grid", gap: 6 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5, fontWeight: 850 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
           <Clock3 size={13} /> Sin viajes cargados para este material
         </span>
         {tiempos}
@@ -1160,7 +1160,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
   if (actual.tipo === "listo") {
     return (
       <div style={{ display: "grid", gap: 6 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.green, fontSize: 11.5, fontWeight: 850 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.green, fontSize: 11.5, fontWeight: 700 }}>
           <Check size={13} /> {esInsumo(item) ? "Entregado en el taller" : "Circuito completo"}
         </span>
         {tiempos}
@@ -1181,20 +1181,20 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
             display: "inline-flex", alignItems: "center", gap: 5, minHeight: 23,
             padding: "2px 8px", borderRadius: 999,
             border: `1px solid ${meta.borde}`, background: meta.soft, color: meta.color,
-            fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap",
+            fontSize: 9.5, fontWeight: 700, whiteSpace: "nowrap",
           }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.color }} />
             {meta.label}
           </span>
           {item.proveedor_compra && (
-            <span style={{ color: C.muted, fontSize: 11, fontWeight: 800 }}>{item.proveedor_compra}</span>
+            <span style={{ color: C.muted, fontSize: 11, fontWeight: 650 }}>{item.proveedor_compra}</span>
           )}
           {/* Un pedido que lleva mucho sin llegar es el dato que dispara el reclamo. */}
           {diasPidiendo != null && (
             <span style={{
               color: diasPidiendo >= 15 ? C.red : C.dim,
               fontSize: 10.5,
-              fontWeight: diasPidiendo >= 15 ? 850 : 700,
+              fontWeight: diasPidiendo >= 15 ? 700 : 600,
             }}>
               Pedido hace {diasPidiendo} {diasPidiendo === 1 ? "día" : "días"}
             </span>
@@ -1303,30 +1303,30 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
           display: "inline-flex", alignItems: "center", gap: 5, minHeight: 23,
           padding: "2px 8px", borderRadius: 999,
           border: `1px solid ${borde}`, background: soft, color,
-          fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap",
+          fontSize: 9.5, fontWeight: 700, whiteSpace: "nowrap",
         }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
           {insumo ? label : `Viaje ${operation.viaje || 1} · ${label}`}
         </span>
         {operation.nombre && (
-          <span style={{ color: C.muted, fontSize: 11, fontWeight: 750 }}>{operation.nombre}</span>
+          <span style={{ color: C.muted, fontSize: 11, fontWeight: 650 }}>{operation.nombre}</span>
         )}
         {diasAfuera != null && (
           <span style={{
             color: diasAfuera >= 15 ? C.red : C.dim,
             fontSize: 10.5,
-            fontWeight: diasAfuera >= 15 ? 850 : 700,
+            fontWeight: diasAfuera >= 15 ? 700 : 600,
           }}>
             Afuera hace {diasAfuera} {diasAfuera === 1 ? "día" : "días"}
           </span>
         )}
         {diasEsperandoFlete != null && (
-          <span style={{ color: diasEsperandoFlete >= 3 ? C.red : C.dim, fontSize: 10.5, fontWeight: 750 }}>
+          <span style={{ color: diasEsperandoFlete >= 3 ? C.red : C.dim, fontSize: 10.5, fontWeight: 650 }}>
             Flete pendiente {diasEsperandoFlete}d
           </span>
         )}
         {diasEsperandoRetiro != null && (
-          <span style={{ color: diasEsperandoRetiro >= 3 ? C.red : C.dim, fontSize: 10.5, fontWeight: 750 }}>
+          <span style={{ color: diasEsperandoRetiro >= 3 ? C.red : C.dim, fontSize: 10.5, fontWeight: 650 }}>
             Retiro pendiente {diasEsperandoRetiro}d
           </span>
         )}
@@ -1461,14 +1461,14 @@ function StandaloneRouteCard({
       }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
+            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 700, lineHeight: 1.3 }}>
               {item.descripcion}
             </span>
             {esInsumo(item) && (
               <span title="Se entrega al taller y no vuelve" style={{
                 padding: "2px 8px", borderRadius: 999,
                 border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal,
-                fontSize: 9.5, fontWeight: 900, textTransform: "uppercase",
+                fontSize: 9.5, fontWeight: 700, textTransform: "uppercase",
               }}>
                 Insumo
               </span>
@@ -1532,7 +1532,7 @@ function TransformationSource({ process, row, onMove, onReady, onPedirCompra = n
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.3 }}>
+          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>
             {row.item.descripcion}
           </div>
           <CatalogTechnicalName item={row.item} compact />
@@ -1547,7 +1547,7 @@ function TransformationSource({ process, row, onMove, onReady, onPedirCompra = n
           flexShrink: 0,
           color: complete ? C.green : C.dim,
           fontSize: 9.5,
-          fontWeight: 850,
+          fontWeight: 700,
         }}>
           {complete ? <Check size={11} /> : <Repeat size={11} />}
           {complete ? "Listo" : "En proceso"}
@@ -1607,7 +1607,7 @@ function TransformationFlow({
       }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            <span style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>
+            <span style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>
               Formación de {resultItem.descripcion}
             </span>
             <span style={{
@@ -1620,7 +1620,7 @@ function TransformationFlow({
               background: C.blueL,
               color: C.blue,
               fontSize: 9,
-              fontWeight: 900,
+              fontWeight: 700,
               textTransform: "uppercase",
             }}>
               <GitMerge size={10} /> {sources.length} componentes
@@ -1636,7 +1636,7 @@ function TransformationFlow({
           gap: 5,
           color: complete ? C.green : sourcesReady ? C.blue : C.dim,
           fontSize: 10.5,
-          fontWeight: 850,
+          fontWeight: 700,
         }}>
           {complete ? <Check size={13} /> : <GitMerge size={13} />}
           {estadoTexto}
@@ -1645,7 +1645,7 @@ function TransformationFlow({
 
       <div className="tor-transform-flow">
         <div style={{ display: "grid", alignContent: "start", gap: 7, minWidth: 0 }}>
-          <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
             Preparación de componentes
           </div>
           <div className="tor-transform-sources">
@@ -1680,10 +1680,10 @@ function TransformationFlow({
         }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.blue, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <div style={{ color: C.blue, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Conjunto resultante
               </div>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, marginTop: 3 }}>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750, marginTop: 3 }}>
                 {resultItem.descripcion}
               </div>
               <CatalogTechnicalName item={resultItem} compact />
@@ -1727,7 +1727,7 @@ function TransformationFlow({
               border: `1px solid ${sourcesReady ? C.greenB : C.border}`,
               background: sourcesReady ? C.greenL : C.panel2,
               color: sourcesReady ? C.green : C.dim,
-              fontSize: 10.5, fontWeight: 800,
+              fontSize: 10.5, fontWeight: 650,
             }}>
               {sourcesReady ? <Check size={13} /> : <GitMerge size={13} />}
               {sourcesReady ? "Resultado terminado en el astillero" : "Se forma cuando regresan todos los componentes"}
@@ -1843,7 +1843,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
         textAlign: "center",
       }}>
         <Search size={20} />
-        <div style={{ color: C.muted, fontSize: 12.5, fontWeight: 850 }}>No encontramos ese material</div>
+        <div style={{ color: C.muted, fontSize: 12.5, fontWeight: 700 }}>No encontramos ese material</div>
         <div style={{ fontSize: 11 }}>Probá con el nombre, el grupo, Tornería o Plegadora.</div>
       </div>
     );
@@ -1863,7 +1863,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <Factory size={14} style={{ color: C.blue, flexShrink: 0 }} />
-            <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Circuito por material</span>
+            <span style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Circuito por material</span>
           </div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
             Cada viaje muestra su origen real y termina cuando el material vuelve al astillero.
@@ -1891,7 +1891,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
               gap: 5,
               color: C.muted,
               fontSize: 9.5,
-              fontWeight: 800,
+              fontWeight: 650,
               whiteSpace: "nowrap",
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
@@ -1917,7 +1917,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
               <span style={{
                 color: C.text,
                 fontSize: 10.5,
-                fontWeight: 900,
+                fontWeight: 700,
                 letterSpacing: "0.09em",
                 textTransform: "uppercase",
                 whiteSpace: "nowrap",
@@ -1932,7 +1932,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
                 background: completed === blocks.length ? C.greenL : C.panel,
                 color: completed === blocks.length ? C.green : C.dim,
                 fontSize: 9.5,
-                fontWeight: 900,
+                fontWeight: 700,
                 fontVariantNumeric: "tabular-nums",
               }}>
                 {completed}/{blocks.length} completos
@@ -2102,7 +2102,7 @@ function CompraResumen({ process, onPedirCompra }) {
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <ShoppingCart size={14} style={{ color: sinPedir.length ? C.cyan : C.dim, flexShrink: 0 }} />
-            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 900 }}>Compra del material</span>
+            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 700 }}>Compra del material</span>
           </div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
             {promedio != null
@@ -2114,7 +2114,7 @@ function CompraResumen({ process, onPedirCompra }) {
           <button
             type="button"
             onClick={() => onPedirCompra(sinPedir)}
-            style={{ ...PRIMARY_BUTTON, flexShrink: 0, minHeight: 36, fontWeight: 900 }}
+            style={{ ...PRIMARY_BUTTON, flexShrink: 0, minHeight: 36, fontWeight: 700 }}
           >
             <ShoppingCart size={14} />
             Pedir {sinPedir.length} {sinPedir.length === 1 ? "material" : "materiales"}
@@ -2138,7 +2138,7 @@ function CompraResumen({ process, onPedirCompra }) {
             background: soft,
             color,
             fontSize: 10.5,
-            fontWeight: 900,
+            fontWeight: 700,
             fontVariantNumeric: "tabular-nums",
           }}>
             {count} {label}
@@ -2155,7 +2155,7 @@ function CompraResumen({ process, onPedirCompra }) {
             background: C.redL,
             color: C.red,
             fontSize: 10.5,
-            fontWeight: 900,
+            fontWeight: 700,
           }}>
             <AlertTriangle size={11} /> Hay un pedido de hace {masViejo} días
           </span>
@@ -2198,7 +2198,7 @@ function CircuitTab({
           border: `1px solid ${C.redB}`,
           background: C.redL,
         }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 900 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 700 }}>
             <AlertTriangle size={14} /> Esta obra no tiene viajes cargados
           </span>
           <span style={{ color: C.muted, fontSize: 11, lineHeight: 1.45 }}>
@@ -2261,14 +2261,14 @@ function CircuitTab({
             <Settings2 size={15} />
           </span>
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850 }}>
+            <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 700 }}>
               Gestión de envíos y pasos
             </span>
             <span style={{ display: "block", color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
               Editar destinos externos, piezas, cantidades y movimientos anteriores.
             </span>
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 800 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 650 }}>
             {operations.length}
             <ChevronRight size={15} style={{
               transform: showManagement ? "rotate(90deg)" : "none",
@@ -2287,7 +2287,7 @@ function CircuitTab({
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>Envíos configurados</div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Envíos configurados</div>
                 <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
                   Un envío puede reunir varias piezas en el mismo viaje.
                 </div>
@@ -2311,7 +2311,7 @@ function CircuitTab({
                   <span style={{
                     color: C.muted,
                     fontSize: 10.5,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
                   }}>
@@ -2352,7 +2352,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Materiales del proceso</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Materiales del proceso</div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
             Materiales comprados y conjuntos que se forman durante el circuito.
           </div>
@@ -2362,7 +2362,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
             <button
               type="button"
               onClick={() => onPedirCompra(sinPedir)}
-              style={{ ...PRIMARY_BUTTON, fontWeight: 900 }}
+              style={{ ...PRIMARY_BUTTON, fontWeight: 700 }}
             >
               <ShoppingCart size={14} /> Pedir {sinPedir.length}
             </button>
@@ -2381,7 +2381,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
               borderRadius: "50%",
               background: GROUP_COLORS[group] || C.dim,
             }} />
-            <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.09em", textTransform: "uppercase" }}>
+            <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase" }}>
               {group}
             </span>
           </div>
@@ -2405,7 +2405,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                     <span style={{
                       color: C.text,
                       fontSize: 12.5,
-                      fontWeight: 850,
+                      fontWeight: 700,
                       textDecoration: item.no_lleva ? "line-through" : "none",
                     }}>
                       {item.descripcion}
@@ -2418,7 +2418,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         background: C.panel2,
                         color: C.muted,
                         fontSize: 9.5,
-                        fontWeight: 900,
+                        fontWeight: 700,
                         textTransform: "uppercase",
                       }}>
                         No lleva
@@ -2432,7 +2432,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         background: C.tealL,
                         color: C.teal,
                         fontSize: 9.5,
-                        fontWeight: 900,
+                        fontWeight: 700,
                         textTransform: "uppercase",
                       }}>
                         Insumo
@@ -2445,7 +2445,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         gap: 4,
                         color: C.blue,
                         fontSize: 9.5,
-                        fontWeight: 850,
+                        fontWeight: 700,
                       }}>
                         <Boxes size={12} /> Conjunto resultante
                       </span>
@@ -2454,7 +2454,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         <Link2 size={12} />
                       </span>
                     ) : (
-                      <span style={{ color: C.red, fontSize: 9.5, fontWeight: 800 }}>Sin catálogo</span>
+                      <span style={{ color: C.red, fontSize: 9.5, fontWeight: 650 }}>Sin catálogo</span>
                     )}
                   </div>
                   <CatalogTechnicalName item={item} compact />
@@ -2472,7 +2472,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         gap: 4,
                         color: C.blue,
                         fontSize: 9.5,
-                        fontWeight: 900,
+                        fontWeight: 700,
                       }}>
                         <FileText size={11} /> {item.planos.length} {item.planos.length === 1 ? "plano" : "planos"}
                       </span>
@@ -2491,7 +2491,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                             background: C.blueL,
                             color: C.blue,
                             fontSize: 9,
-                            fontWeight: 750,
+                            fontWeight: 650,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -2518,12 +2518,12 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                       {item.solicitado_at && <span>Pedido {fmtDate(item.solicitado_at, false)}</span>}
                       {item.recibido_astillero_at && <span>· Llegó {fmtDate(item.recibido_astillero_at, false)}</span>}
                       {diasEntre(item.solicitado_at, item.recibido_astillero_at) != null && (
-                        <span style={{ color: C.green, fontWeight: 850 }}>
+                        <span style={{ color: C.green, fontWeight: 700 }}>
                           · {diasEntre(item.solicitado_at, item.recibido_astillero_at)} días
                         </span>
                       )}
                       {item.purchase_request_id && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.blue, fontWeight: 800 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.blue, fontWeight: 650 }}>
                           <ShoppingCart size={10} /> vinculado a compras
                         </span>
                       )}
@@ -2559,7 +2559,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                       background: C.panel2,
                       color: C.dim,
                       fontSize: 9.5,
-                      fontWeight: 850,
+                      fontWeight: 700,
                       whiteSpace: "nowrap",
                     }}>
                       Fuera de esta obra
@@ -2575,7 +2575,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                       background: C.blueL,
                       color: C.blue,
                       fontSize: 9.5,
-                      fontWeight: 850,
+                      fontWeight: 700,
                       whiteSpace: "nowrap",
                     }}>
                       Cantidad manual
@@ -2718,7 +2718,7 @@ function HistoryTab({ process, onOpenMovement }) {
   return (
     <div style={{ display: "grid", gap: 7 }}>
       <div style={{ marginBottom: 5 }}>
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Registro de actividad</div>
+        <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Registro de actividad</div>
         <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>
           Salidas, regresos y ediciones con usuario y fecha.
         </div>
@@ -2756,7 +2756,7 @@ function HistoryTab({ process, onOpenMovement }) {
             {event.movement?.tipo === "salida" ? <ArrowRight size={14} /> : event.movement ? <ArrowLeft size={14} /> : <Edit3 size={14} />}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 11.5, fontWeight: 850 }}>{event.title}</div>
+            <div style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>{event.title}</div>
             <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {event.description} · {event.actor}
             </div>
@@ -2800,10 +2800,10 @@ function HelpModal({ onClose }) {
               background: C.blueL,
               color: C.blue,
               fontSize: 12,
-              fontWeight: 900,
+              fontWeight: 700,
             }}>{number}</span>
             <div>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 850 }}>{title}</div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>{title}</div>
               <div style={{ color: C.dim, fontSize: 11, lineHeight: 1.45, marginTop: 2 }}>{text}</div>
             </div>
           </div>
@@ -2839,8 +2839,8 @@ function KpiChip({ icon, value, label, color, activo = false, onClick }) {
       }}
     >
       {createElement(icon, { size: 13, style: { color, flexShrink: 0 } })}
-      <span style={{ color: activo ? color : C.text, fontSize: 13, fontWeight: 900, fontFamily: C.mono }}>{value}</span>
-      <span style={{ color: activo ? color : C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ color: activo ? color : C.text, fontSize: 13, fontWeight: 700, fontFamily: C.mono }}>{value}</span>
+      <span style={{ color: activo ? color : C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{label}</span>
     </button>
   );
 }
@@ -2892,7 +2892,7 @@ function WorkshopLane({
           {createElement(Icon, { size: 15 })}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>{titulo}</div>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>{titulo}</div>
           <div style={{ color: C.dim, fontSize: 9.5, marginTop: 1 }}>
             {!rows.length
               ? "Nada afuera ahora"
@@ -2906,7 +2906,7 @@ function WorkshopLane({
           border: `1px solid ${rows.length ? border : C.border}`,
           background: rows.length ? soft : C.panel2,
           color: rows.length ? color : C.dim,
-          fontSize: 12, fontWeight: 950, fontFamily: C.mono,
+          fontSize: 12, fontWeight: 750, fontFamily: C.mono,
         }}>
           {rows.length}
         </span>
@@ -2943,7 +2943,7 @@ function WorkshopLane({
             background: demorada ? C.redL : C.bg,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <span style={{ color: C.text, fontSize: 12.5, fontWeight: 950, whiteSpace: "nowrap" }}>
+              <span style={{ color: C.text, fontSize: 12.5, fontWeight: 750, whiteSpace: "nowrap" }}>
                 {process.obra?.codigo || process.nombre}
               </span>
               <span style={{ color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2956,14 +2956,14 @@ function WorkshopLane({
                   border: `1px solid ${demorada ? C.redB : C.border}`,
                   background: demorada ? C.redL : C.panel,
                   color: demorada ? C.red : C.dim,
-                  fontSize: 10, fontWeight: 900, fontFamily: C.mono,
+                  fontSize: 10, fontWeight: 700, fontFamily: C.mono,
                 }}>
                   <Clock3 size={10} /> {dias}d
                 </span>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
-              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 850 }}>
+              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>
                 {dashboardPieces(op)}
               </span>
               <StatusBadge status={op.estado} compact label={operationStatusLabel(op)} />
@@ -2994,7 +2994,7 @@ function WorkshopLane({
                   else onReady(pendientesRetiro, "retiro", true);
                 }}
                 style={{
-                  ...BUTTON, minHeight: 29, padding: "3px 9px", fontSize: 9.5, fontWeight: 900,
+                  ...BUTTON, minHeight: 29, padding: "3px 9px", fontSize: 9.5, fontWeight: 700,
                   borderColor: border, background: soft, color,
                   width: isMobile ? "100%" : undefined,
                 }}
@@ -3057,10 +3057,10 @@ function ReadyBatchQueue({
         {outbound
           ? <Truck size={13} style={{ color }} />
           : <PackageOpen size={13} style={{ color }} />}
-        <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>
+        <span style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>
           {outbound ? "Listos para enviar" : "Listos para retirar"}
         </span>
-        <span style={{ marginLeft: "auto", color, fontSize: 11, fontWeight: 950 }}>
+        <span style={{ marginLeft: "auto", color, fontSize: 11, fontWeight: 750 }}>
           {rows.length}
         </span>
       </div>
@@ -3086,7 +3086,7 @@ function ReadyBatchQueue({
               background: "transparent",
               color,
               fontSize: 10,
-              fontWeight: 900,
+              fontWeight: 700,
               cursor: "pointer",
               fontFamily: C.sans,
             }}
@@ -3147,7 +3147,7 @@ function ReadyBatchQueue({
                       display: "block",
                       color: C.text,
                       fontSize: 10.5,
-                      fontWeight: 850,
+                      fontWeight: 700,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -3158,7 +3158,7 @@ function ReadyBatchQueue({
                       {workshopName(row.operation)} · Viaje {row.operation.viaje || 1}
                     </span>
                   </span>
-                  <span style={{ color, fontSize: 9.5, fontWeight: 900, whiteSpace: "nowrap" }}>
+                  <span style={{ color, fontSize: 9.5, fontWeight: 700, whiteSpace: "nowrap" }}>
                     {qty(row.cantidad)} {item?.unidad || ""}
                   </span>
                 </button>
@@ -3320,7 +3320,7 @@ function OperationalDashboard({
           color: C.dim, textAlign: "center",
         }}>
           <PackageCheck size={26} style={{ color: C.green }} />
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Sin movimientos externos</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Sin movimientos externos</div>
           <div style={{ fontSize: 11.5 }}>
             No hay operaciones pendientes ni piezas afuera. Cuando algo salga a Tornería o Plegadora, aparece acá.
           </div>
@@ -3339,7 +3339,7 @@ function OperationalDashboard({
           <LayoutDashboard size={17} />
         </span>
         <div style={{ minWidth: 180, flex: 1 }}>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Panel general de Tornería y Plegadora</div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Panel general de Tornería y Plegadora</div>
           <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
             Qué hay afuera, qué puede salir y qué está trabado. Las demoras cuentan desde la última salida.
           </div>
@@ -3412,7 +3412,7 @@ function OperationalDashboard({
           color: C.dim, textAlign: "center",
         }}>
           <Search size={20} />
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Nada coincide con estos filtros</div>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Nada coincide con estos filtros</div>
           <button type="button" onClick={limpiarFiltros} style={{ ...BUTTON, minHeight: 30, padding: "4px 10px", fontSize: 10 }}>
             Quitar filtros
           </button>
@@ -3463,8 +3463,8 @@ function OperationalDashboard({
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <Check size={12} style={{ color: C.blue }} />
-                  <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Para preparar salida</span>
-                  <span style={{ marginLeft: "auto", color: C.blue, fontSize: 11, fontWeight: 950 }}>{toPrepare.length}</span>
+                  <span style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>Para preparar salida</span>
+                  <span style={{ marginLeft: "auto", color: C.blue, fontSize: 11, fontWeight: 750 }}>{toPrepare.length}</span>
                 </div>
                 {toPrepare.slice(0, 8).map(({ process, op }) => {
                   const components = (op.componentes || []).filter(
@@ -3485,7 +3485,7 @@ function OperationalDashboard({
                       borderTop: `1px solid ${C.blueB}`,
                     }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ color: C.text, fontSize: 10.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ color: C.text, fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {process.obra?.codigo} · {dashboardPieces(op)}
                         </div>
                         <div style={{ color: C.dim, fontSize: 9, marginTop: 2 }}>
@@ -3508,8 +3508,8 @@ function OperationalDashboard({
             <section style={{ display: "grid", gap: 7, padding: 11, borderRadius: 13, border: `1px solid ${C.border}`, background: C.panel }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <AlertTriangle size={12} style={{ color: blocked.length ? C.red : C.dim }} />
-                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Esperando antes de salir</span>
-                <span style={{ marginLeft: "auto", color: blocked.length ? C.red : C.dim, fontSize: 11, fontWeight: 950 }}>{blocked.length}</span>
+                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>Esperando antes de salir</span>
+                <span style={{ marginLeft: "auto", color: blocked.length ? C.red : C.dim, fontSize: 11, fontWeight: 750 }}>{blocked.length}</span>
               </div>
               {!blocked.length ? (
                 <div style={{ color: C.dim, fontSize: 10 }}>No hay pasos bloqueados con estos filtros.</div>
@@ -3523,7 +3523,7 @@ function OperationalDashboard({
                     border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", cursor: "pointer", fontFamily: C.sans,
                   }}
                 >
-                  <span style={{ color: C.text, fontSize: 10.5, fontWeight: 850 }}>{process.obra?.codigo} · {dashboardPieces(op)}</span>
+                  <span style={{ color: C.text, fontSize: 10.5, fontWeight: 700 }}>{process.obra?.codigo} · {dashboardPieces(op)}</span>
                   <span style={{ color: C.dim, fontSize: 9.5, lineHeight: 1.35 }}>
                     {dependencias.length
                       ? `Espera ${dependencias.map((row) => row.nombre).join(", ")}`
@@ -3544,7 +3544,7 @@ function OperationalDashboard({
   );
 }
 
-export default function TorneriaScreen({ profile, signOut }) {
+export default function TorneriaScreen({ profile }) {
   const { isMobile } = useResponsive(860);
   const toast = useToast();
   const confirm = useConfirm();
@@ -3616,6 +3616,14 @@ export default function TorneriaScreen({ profile, signOut }) {
   useEffect(() => {
     if (isMobile) return;
     window.localStorage.setItem("torneria.desktopCircuitFocus", desktopCircuitFocus ? "true" : "false");
+  }, [desktopCircuitFocus, isMobile]);
+
+  // "Enfocar circuito" antes escondía el menú propio de la pantalla. Ahora el
+  // menú es uno solo para toda la app: se pliega a íconos y al salir vuelve.
+  useEffect(() => {
+    if (isMobile || !desktopCircuitFocus) return undefined;
+    plegarMenu(true);
+    return () => plegarMenu(null);
   }, [desktopCircuitFocus, isMobile]);
 
   useEffect(() => {
@@ -4013,14 +4021,10 @@ export default function TorneriaScreen({ profile, signOut }) {
 
   return (
     <div style={{
-      position: "fixed",
+      position: "absolute",
       inset: 0,
       display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : desktopCircuitFocus
-          ? "minmax(0,1fr)"
-          : "auto minmax(0,1fr)",
+      gridTemplateColumns: "minmax(0,1fr)",
       overflow: "hidden",
       background: C.bg,
       // Halo ambiental, igual que Obras: da profundidad sin agregar un div ni
@@ -4034,7 +4038,6 @@ export default function TorneriaScreen({ profile, signOut }) {
       fontFamily: C.sans,
     }}>
       <style>{`
-        *,*::before,*::after{box-sizing:border-box}
         /* Evita la apariencia nativa de los controles en navegadores móviles. */
         button{-webkit-appearance:none;appearance:none}
         /* La card de proceso no es un <button>: algunos Chrome/Android colapsan
@@ -4043,10 +4046,6 @@ export default function TorneriaScreen({ profile, signOut }) {
            del render nativo del control. */
         .tor-process-card{width:100%;height:max-content;text-align:left;outline:none}
         .tor-process-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-        /* Scrollbars finas, como en Obras y Muebles. */
-        ::-webkit-scrollbar{width:3px;height:3px}
-        ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:99px}
         .spin{animation:tor-spin .8s linear infinite}
         @keyframes tor-spin{to{transform:rotate(360deg)}}
         /* Entradas: las mismas curvas que el resto de la app. */
@@ -4102,7 +4101,7 @@ export default function TorneriaScreen({ profile, signOut }) {
         /* overflow-x como válvula: con espacio los rieles se estiran igual, y si
            el taller tiene un nombre largo scrollea en vez de recortarse. */
         .tor-journey-path{display:flex;align-items:center;gap:0;min-width:0;overflow-x:auto;padding-bottom:2px}
-        .tor-route-node{min-height:26px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 8px;border:1px solid var(--border);border-radius:999px;font-size:9.5px;font-weight:850;white-space:nowrap}
+        .tor-route-node{min-height:26px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 8px;border:1px solid var(--border);border-radius:999px;font-size:9.5px;font-weight:700;white-space:nowrap}
         .tor-rail{flex:1 1 10px;min-width:10px;height:3px;border-radius:99px;margin:0 4px;background:var(--panel-2);position:relative;overflow:hidden}
         .tor-rail[data-hecho="1"]{background:currentColor}
         /* Tramo en curso: el barrido corre hacia adelante, en el sentido del
@@ -4126,8 +4125,6 @@ export default function TorneriaScreen({ profile, signOut }) {
         /* Carriles de taller: uno al lado del otro mientras haya ~320px por
            carril; si no, se apilan solos. */
         .tor-dashboard-lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px;align-items:start}
-        input:focus,select:focus,textarea:focus{border-color:var(--blue-border)!important}
-        select option{background:var(--panel-solid);color:var(--text)}
         @media(max-width:1120px){
           .tor-operation-grid{grid-template-columns:1fr}
           /* Con el sidebar y la lista de obras abiertos el panel queda angosto:
@@ -4144,15 +4141,13 @@ export default function TorneriaScreen({ profile, signOut }) {
         }
       `}</style>
 
-      {(isMobile || !desktopCircuitFocus) && <Sidebar profile={profile} signOut={signOut} />}
-
       <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header style={{
           flexShrink: 0,
           display: "grid",
           gap: isMobile && !mobileTopbarOpen ? 0 : 10,
           padding: isMobile
-            ? mobileTopbarOpen ? "12px 12px 10px 54px" : "8px 10px 8px 54px"
+            ? mobileTopbarOpen ? "12px 12px 10px" : "8px 10px"
             : "12px 16px",
           borderBottom: `1px solid ${C.border}`,
           background: C.topbarSoft,
@@ -4181,11 +4176,11 @@ export default function TorneriaScreen({ profile, signOut }) {
                       whiteSpace: "nowrap",
                       color: C.text,
                       fontSize: 14,
-                      fontWeight: 950,
+                      fontWeight: 750,
                     }}>
                       {selected.obra?.codigo}
                     </span>
-                    <span style={{ color: C.blue, fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap" }}>
+                    <span style={{ color: C.blue, fontSize: 9.5, fontWeight: 700, whiteSpace: "nowrap" }}>
                       {selected.obra?.linea_nombre || "Sin línea"}
                     </span>
                   </div>
@@ -4202,7 +4197,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         background: C.redL,
                         color: C.red,
                         fontSize: 9.5,
-                        fontWeight: 900,
+                        fontWeight: 700,
                       }}
                     >
                       {selectedUnresolved.length}
@@ -4211,7 +4206,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                   <span style={{
                     color: selectedProgress === 100 ? C.green : C.blue,
                     fontSize: 10.5,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     whiteSpace: "nowrap",
                   }}>
                     {selectedProgress}%
@@ -4230,7 +4225,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                     <Wrench size={15} style={{ color: C.blue, flexShrink: 0 }} />
-                    <span style={{ color: C.text, fontSize: 14, fontWeight: 900, whiteSpace: "nowrap" }}>
+                    <span style={{ color: C.text, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
                       {dashboardOpen ? "Panel general" : "Tornería"}
                     </span>
                   </div>
@@ -4287,7 +4282,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                   <Wrench size={18} />
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <h1 style={{ margin: 0, color: C.text, fontSize: 18, lineHeight: 1.1, fontWeight: 900 }}>
+                  <h1 style={{ margin: 0, color: C.text, fontSize: 18, lineHeight: 1.1, fontWeight: 700 }}>
                     Tornería
                   </h1>
                   <div style={{ color: C.dim, fontSize: 10, marginTop: 2, whiteSpace: "nowrap" }}>
@@ -4328,7 +4323,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                       display: "inline-flex", alignItems: "center", gap: 6,
                       minHeight: 32, padding: "4px 11px", borderRadius: 999,
                       border: `1px solid ${C.blueB}`, background: C.blueL,
-                      color: C.blue, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: C.sans,
+                      color: C.blue, fontSize: 11, fontWeight: 650, cursor: "pointer", fontFamily: C.sans,
                     }}
                   >
                     {filtered.length} de {processes.length} ✕
@@ -4395,7 +4390,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                     <Wrench size={18} />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <h1 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 19, lineHeight: 1.1, fontWeight: 900 }}>
+                    <h1 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 19, lineHeight: 1.1, fontWeight: 700 }}>
                       Tornería
                     </h1>
                     <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -4493,7 +4488,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                   style={{
                     marginTop: 7, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
                     padding: "5px 11px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL,
-                    color: C.blue, fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans,
+                    color: C.blue, fontSize: 11.5, fontWeight: 650, cursor: "pointer", fontFamily: C.sans,
                   }}
                 >
                   Mostrando {filtered.length} de {processes.length} · quitar filtro ✕
@@ -4520,7 +4515,7 @@ export default function TorneriaScreen({ profile, signOut }) {
               border: `1px solid ${C.redB}`,
               background: C.redL,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 9, color: C.red, fontSize: 14, fontWeight: 900 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, color: C.red, fontSize: 14, fontWeight: 700 }}>
                 <AlertTriangle size={18} />
                 {setupMissing ? "Falta aplicar la migración de Tornería" : "No se pudo cargar el módulo"}
               </div>
@@ -4624,8 +4619,8 @@ export default function TorneriaScreen({ profile, signOut }) {
                         )}
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, flexWrap: "wrap" }}>
-                            <span style={{ color: C.text, fontSize: isMobile ? 16 : 17, fontWeight: 950 }}>{selected.obra?.codigo}</span>
-                            <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 850 }}>
+                            <span style={{ color: C.text, fontSize: isMobile ? 16 : 17, fontWeight: 750 }}>{selected.obra?.codigo}</span>
+                            <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 700 }}>
                               {selected.obra?.linea_nombre || "Sin línea"}
                             </span>
                             <span style={{ color: C.dim, fontSize: 10.5, display: isMobile ? "none" : "inline" }}>
@@ -4684,7 +4679,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                       alignItems: "center",
                     }}>
                       <ProgressBar value={selectedProgress} color={selectedProgress === 100 ? C.green : C.blue} />
-                      <span style={{ color: selectedProgress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 900 }}>{selectedProgress}%</span>
+                      <span style={{ color: selectedProgress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 700 }}>{selectedProgress}%</span>
                       {isMobile && selectedUnresolved.length > 0 && (
                         <button
                           type="button"
@@ -4705,7 +4700,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                             color: C.red,
                             cursor: "pointer",
                             fontSize: 9.5,
-                            fontWeight: 850,
+                            fontWeight: 700,
                             fontFamily: C.sans,
                             whiteSpace: "nowrap",
                           }}
@@ -4734,7 +4729,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                           color: C.red,
                           cursor: "pointer",
                           fontSize: 10.5,
-                          fontWeight: 800,
+                          fontWeight: 650,
                         }}
                       >
                         <AlertTriangle size={13} />
@@ -4757,8 +4752,8 @@ export default function TorneriaScreen({ profile, signOut }) {
                       background: C.panel,
                       flexWrap: "wrap",
                     }}>
-                      <span style={{ color: C.text, fontSize: 15, fontWeight: 950, whiteSpace: "nowrap" }}>{selected.obra?.codigo}</span>
-                      <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 850, whiteSpace: "nowrap" }}>
+                      <span style={{ color: C.text, fontSize: 15, fontWeight: 750, whiteSpace: "nowrap" }}>{selected.obra?.codigo}</span>
+                      <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>
                         {selected.obra?.linea_nombre || "Sin línea"}
                       </span>
                       <span style={{ color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>
@@ -4774,7 +4769,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         <div style={{ flex: 1 }}>
                           <ProgressBar value={selectedProgress} color={selectedProgress === 100 ? C.green : C.blue} />
                         </div>
-                        <span style={{ color: selectedProgress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 900 }}>
+                        <span style={{ color: selectedProgress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 700 }}>
                           {selectedProgress}%
                         </span>
                       </div>

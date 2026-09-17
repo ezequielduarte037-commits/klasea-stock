@@ -160,7 +160,7 @@ export const PLANTILLA_K42 = [
   {
     nombre: "Sala de Maquinas",
     orden: 6,
-    color: "#f59e0b",
+    color: "#ec4899",
     tareas: [
       { orden: 1, nombre: "Colocar bases para filtros de agua de motor", horas_estimadas: 1.0, personas_necesarias: 1 },
       { orden: 2, nombre: "Completar antirruido de mamparo de sala de maquinas", horas_estimadas: 10.0, personas_necesarias: 1 },
@@ -557,7 +557,7 @@ export const PLANTILLA_K52 = [
   {
     nombre: "Sala de Máquinas",
     orden: 9,
-    color: "#f59e0b",
+    color: "#ec4899",
     tareas: [
       { orden: 1, nombre: "HACER BASES DE CASCO, TIMONES, TANQUES Y SOPORTES DE TANQUES. HACER BASES DE CAJAS ROCKER ELECTRICAS Y BASES DE SEPARADOR DE AGUAS.", horas_estimadas: 160.0, personas_necesarias: null },
       { orden: 2, nombre: "CERRAR ESPEJO, SEGÚN CORRESPONDA PLANCHADA TENDERLIFT O NO.", horas_estimadas: 200.0, personas_necesarias: null },

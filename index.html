@@ -1,10 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Klase App</title>
+    <!-- viewport-fit=cover: sin esto env(safe-area-inset-*) vale 0 y en un
+         iPhone con notch la barra superior queda debajo del recorte. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Klase A</title>
+    <meta name="description" content="Sistema de gestión del astillero Klase A" />
+
+    <!-- Instalable en el celular ("Agregar a la pantalla de inicio"). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#08090d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Klase A" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Las dos familias del sistema se cargan una sola vez acá. Antes cada
+         pantalla hacía su propio @import de Outfit (17 veces) y el cuerpo de la
+         página caía en Roboto/Montserrat, que nunca se cargaban. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400..700&family=Outfit:wght@300..900&display=swap" />
   </head>
   <body>
     <div id="root"></div>
@@ -14,6 +33,8 @@
           var t = localStorage.getItem("klasea-theme");
           if (t !== "light" && t !== "hc") t = "dark";
           document.documentElement.dataset.theme = t;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", t === "light" ? "#f4f5f7" : t === "hc" ? "#000000" : "#08090d");
         } catch(e) {}
       })();
     </script>

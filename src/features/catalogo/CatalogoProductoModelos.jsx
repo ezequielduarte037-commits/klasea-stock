@@ -55,15 +55,15 @@ export default function CatalogoProductoModelos({ materialId, unidad = "unidad" 
           <Ship size={14} />
         </span>
         <span style={{ minWidth: 0, flex: 1 }}>
-          <span style={{ display: "block", color: C.text, fontSize: 13, fontWeight: 900 }}>En qué modelos entra</span>
+          <span style={{ display: "block", color: C.text, fontSize: 13, fontWeight: 700 }}>En qué modelos entra</span>
           <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 1 }}>
             Cuántas unidades lleva cada barco, según la matriz
           </span>
         </span>
         {estado === "listo" && rows.length > 0 && (
           <span style={{ textAlign: "right", flexShrink: 0 }}>
-            <span style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>Por barco entero</span>
-            <span style={{ display: "block", color: C.text, fontFamily: C.mono, fontSize: 15, fontWeight: 950 }}>{fmtQty(total)}</span>
+            <span style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Por barco entero</span>
+            <span style={{ display: "block", color: C.text, fontFamily: C.mono, fontSize: 15, fontWeight: 750 }}>{fmtQty(total)}</span>
           </span>
         )}
       </header>
@@ -99,7 +99,7 @@ export default function CatalogoProductoModelos({ materialId, unidad = "unidad" 
                 }}
               >
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>{modeloLabel(row.modelo)}</span>
+                  <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{modeloLabel(row.modelo)}</span>
                   {row.via === "predeterminado" && (
                     <span style={{ color: C.dim, fontSize: 10.5, marginLeft: 7 }}>
                       por defecto del requisito
@@ -111,8 +111,8 @@ export default function CatalogoProductoModelos({ materialId, unidad = "unidad" 
                     </span>
                   )}
                 </span>
-                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 13.5, fontWeight: 900, whiteSpace: "nowrap" }}>
-                  {fmtQty(row.cantidad)} <span style={{ color: C.dim, fontSize: 11, fontWeight: 700 }}>{unidad}</span>
+                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap" }}>
+                  {fmtQty(row.cantidad)} <span style={{ color: C.dim, fontSize: 11, fontWeight: 600 }}>{unidad}</span>
                 </span>
               </div>
             ))}

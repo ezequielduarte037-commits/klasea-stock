@@ -16,9 +16,9 @@ import { C } from "@/theme";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
+import Cargando from "@/components/ui/Cargando";
 
 // ─── Tipos de movimiento ──────────────────────────────────────────────────────
 // Cada tipo usa un par completo del theme (color + fondo suave + borde).
@@ -217,7 +217,7 @@ function EventBadge({ ev, onClick, compact }) {
     >
       {/* Muesca de color: el tipo se lee de costado, no pinta todo el pill */}
       <span style={{ width: 3, alignSelf: "stretch", background: t.color, flexShrink: 0, borderRadius: "3px 0 0 3px" }} />
-      <span style={{ fontSize: 11, color: C.t0, fontWeight: 650, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25, fontFamily: C.sans, flex: 1, minWidth: 0 }}>
+      <span style={{ fontSize: 11, color: C.t0, fontWeight: 600, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25, fontFamily: C.sans, flex: 1, minWidth: 0 }}>
         {ev.titulo}{ev.obra ? ` - ${ev.obra}` : ""}
       </span>
       <CoordDots ev={ev} />
@@ -241,8 +241,8 @@ function MetricPill({ label, value, color, soft, border, onClick, activo }) {
         color, flexShrink: 0, cursor: onClick ? "pointer" : "default", fontFamily: C.sans,
       }}
     >
-      <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 850 }}>{value}</span>
-      <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 800 }}>{label}</span>
+      <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700 }}>{value}</span>
+      <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 650 }}>{label}</span>
     </Tag>
   );
 }
@@ -255,7 +255,7 @@ function FilterChip({ active, label, count, color, soft, border, onClick }) {
       border: `1px solid ${active ? border : C.b0}`,
       background: active ? soft : "transparent",
       color: active ? color : C.t2,
-      cursor: "pointer", fontSize: 12, fontWeight: active ? 850 : 650,
+      cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 600,
       fontFamily: C.sans, whiteSpace: "nowrap",
     }}>
       <span style={{ width: 6, height: 6, borderRadius: 99, background: color, opacity: active ? 1 : 0.65 }} />
@@ -293,7 +293,7 @@ function EventModal({ ev, preset, fechaDefault, obrasConocidas, onClose, onSave,
     coordinacion: presetCoordinacion(tipo),
   }));
 
-  const LBL = { fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, display: "block", marginBottom: 5, fontWeight: 700 };
+  const LBL = { fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, display: "block", marginBottom: 5, fontWeight: 600 };
   const INP = { background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "8px 10px", borderRadius: 7, fontSize: 13, outline: "none", width: "100%", fontFamily: C.sans, boxSizing: "border-box" };
   const t = TIPOS[form.tipo] ?? TIPOS.otro;
 
@@ -302,7 +302,7 @@ function EventModal({ ev, preset, fechaDefault, obrasConocidas, onClose, onSave,
       <div onClick={(e) => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: "22px 22px 18px", width: 460, maxWidth: "96vw", maxHeight: "92vh", overflowY: "auto" }}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.t0 }}>{isNew ? "Nuevo movimiento" : "Editar movimiento"}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>{isNew ? "Nuevo movimiento" : "Editar movimiento"}</div>
           <button onClick={onClose} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.close}</button>
         </div>
 
@@ -316,7 +316,7 @@ function EventModal({ ev, preset, fechaDefault, obrasConocidas, onClose, onSave,
                 background: form.tipo === key ? tt.soft : "transparent",
                 border: `1px solid ${form.tipo === key ? tt.border : C.b0}`,
                 color: form.tipo === key ? tt.color : C.t2,
-                fontWeight: form.tipo === key ? 700 : 400,
+                fontWeight: form.tipo === key ? 600 : 400,
               }}>{tt.label}</button>
             ))}
           </div>
@@ -368,7 +368,7 @@ function EventModal({ ev, preset, fechaDefault, obrasConocidas, onClose, onSave,
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
                       padding: "5px 10px", borderRadius: 6, cursor: "pointer",
-                      fontSize: 12, fontFamily: C.sans, fontWeight: item.ok ? 700 : 400,
+                      fontSize: 12, fontFamily: C.sans, fontWeight: item.ok ? 600 : 400,
                       background: item.ok ? C.greenL : "transparent",
                       border: `1px solid ${item.ok ? C.greenB : C.cyanB}`,
                       color: item.ok ? C.green : C.cyan,
@@ -402,7 +402,7 @@ function EventModal({ ev, preset, fechaDefault, obrasConocidas, onClose, onSave,
           <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
             <button onClick={onClose} style={{ padding: "8px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Cancelar</button>
             <button onClick={() => ok && onSave({ ...form, titulo: tituloAuto(form) })} disabled={!ok}
-              style={{ padding: "8px 22px", background: ok ? C.blueL : C.s0, border: `1px solid ${ok ? C.blueB : C.b0}`, color: ok ? C.blue : C.t2, borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, fontFamily: C.sans, opacity: ok ? 1 : 0.5 }}>
+              style={{ padding: "8px 22px", background: ok ? C.blueL : C.s0, border: `1px solid ${ok ? C.blueB : C.b0}`, color: ok ? C.blue : C.t2, borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 600, fontFamily: C.sans, opacity: ok ? 1 : 0.5 }}>
               {isNew ? "Guardar movimiento" : "Guardar cambios"}
             </button>
           </div>
@@ -430,13 +430,13 @@ function DayDetail({ fecha, eventos, conflictos, feriadoNombre, climaDia, onAdd,
       <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.b0}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: feriadoNombre ? C.red : C.t2, marginBottom: 4, fontWeight: 800 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: feriadoNombre ? C.red : C.t2, marginBottom: 4, fontWeight: 650 }}>
               {DIAS_FULL[dowOf(fecha)]}{feriadoNombre ? ` · ${feriadoNombre}` : ""}
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 30, fontWeight: 800, color: C.t0, fontFamily: C.mono, lineHeight: 1 }}>{d}</span>
+              <span style={{ fontSize: 30, fontWeight: 650, color: C.t0, fontFamily: C.mono, lineHeight: 1 }}>{d}</span>
               <span style={{ fontSize: 12, color: C.t2 }}>{MESES_ES[m]} {y}</span>
-              {fecha === HOY && <span style={{ fontSize: 10, color: C.blue, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>Hoy</span>}
+              {fecha === HOY && <span style={{ fontSize: 10, color: C.blue, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.08em" }}>Hoy</span>}
             </div>
           </div>
           {isMobile && (
@@ -454,10 +454,10 @@ function DayDetail({ fecha, eventos, conflictos, feriadoNombre, climaDia, onAdd,
               <ClimaIcon icon={climaInfo(climaDia.code).icon} size={22} />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 750, color: C.t0 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 650, color: C.t0 }}>
                 {climaInfo(climaDia.code).label} · {Math.round(climaDia.tmax)}°/{Math.round(climaDia.tmin)}°
               </div>
-              <div style={{ fontSize: 10, color: climaDia.viento >= VIENTO_LIMITE_GRUA ? C.red : C.t2, marginTop: 1, fontWeight: climaDia.viento >= VIENTO_LIMITE_GRUA ? 800 : 400 }}>
+              <div style={{ fontSize: 10, color: climaDia.viento >= VIENTO_LIMITE_GRUA ? C.red : C.t2, marginTop: 1, fontWeight: climaDia.viento >= VIENTO_LIMITE_GRUA ? 650 : 400 }}>
                 Viento {Math.round(climaDia.viento)} km/h{climaDia.viento >= VIENTO_LIMITE_GRUA ? " · fuerte para grúa" : ""}
                 {climaDia.lluvia != null ? ` · lluvia ${climaDia.lluvia}%` : ""}
               </div>
@@ -511,7 +511,7 @@ function DayDetail({ fecha, eventos, conflictos, feriadoNombre, climaDia, onAdd,
                         display: "inline-flex", alignItems: "center", gap: 4,
                         padding: "3px 8px", borderRadius: 5, fontSize: 10.5, fontFamily: C.sans,
                         cursor: esAdmin ? "pointer" : "default",
-                        fontWeight: item.ok ? 700 : 400,
+                        fontWeight: item.ok ? 600 : 400,
                         background: item.ok ? C.greenL : "transparent",
                         border: `1px solid ${item.ok ? C.greenB : C.cyanB}`,
                         color: item.ok ? C.green : C.cyan,
@@ -576,7 +576,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate, f
         {DIAS_SHORT.map((d, i) => (
           <div key={d} style={{
             padding: "2px 4px", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase",
-            color: i >= 5 ? C.t3 : C.t2, fontWeight: 800,
+            color: i >= 5 ? C.t3 : C.t2, fontWeight: 650,
           }}>{d}</div>
         ))}
       </div>
@@ -615,7 +615,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate, f
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                 <div style={{
-                  fontSize: 12, fontWeight: isToday ? 800 : 500, fontFamily: C.mono,
+                  fontSize: 12, fontWeight: isToday ? 650 : 500, fontFamily: C.mono,
                   color: isToday ? "var(--bg)" : feriado ? C.red : dow >= 5 ? C.t2 : C.t1,
                   width: 21, height: 21, borderRadius: "50%",
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -631,7 +631,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate, f
                       style={{ color: vientoFuerte ? C.red : C.t2, display: "inline-flex", alignItems: "center", gap: 3 }}
                     >
                       <ClimaIcon icon={climaInfo(climaDia.code).icon} size={13} />
-                      {vientoFuerte && <span style={{ fontSize: 8.5, fontWeight: 900, fontFamily: C.mono }}>{Math.round(climaDia.viento)}</span>}
+                      {vientoFuerte && <span style={{ fontSize: 8.5, fontWeight: 700, fontFamily: C.mono }}>{Math.round(climaDia.viento)}</span>}
                     </span>
                   )}
                   {cell.current && (
@@ -646,7 +646,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate, f
               </div>
               {feriado && cell.current && (
                 <div style={{
-                  fontSize: 8.5, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase",
+                  fontSize: 8.5, fontWeight: 650, letterSpacing: "0.06em", textTransform: "uppercase",
                   color: C.red, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>{feriado}</div>
               )}
@@ -699,7 +699,7 @@ function WeekView({ startOfWeek, eventos, selDate, onSelectDate, onAddOnDate, fe
                   <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: feriado ? C.red : C.t2, display: "flex", alignItems: "center", gap: 4 }}>
                     {DIAS_SHORT[i]} {hayConflicto && <span style={{ color: C.red, display: "inline-flex" }}>{I.warn}</span>}
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: C.mono, color: isToday ? C.t0 : C.t1, lineHeight: 1.2 }}>{day.d}</div>
+                  <div style={{ fontSize: 20, fontWeight: 600, fontFamily: C.mono, color: isToday ? C.t0 : C.t1, lineHeight: 1.2 }}>{day.d}</div>
                   <div style={{ fontSize: 10, color: feriado ? C.red : C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
                     {feriado ?? MESES_ES[day.m].slice(0, 3)}
                   </div>
@@ -772,7 +772,7 @@ function TimelineView({ year, month, eventos, selDate, onSelectDate, onOpenEvent
       <div style={{ minWidth: 940 }}>
         {/* Header de semanas */}
         <div style={{ display: "grid", gridTemplateColumns: "150px minmax(0,1fr)", borderBottom: `1px solid ${C.b0}`, position: "sticky", top: 0, background: C.panelSolid, zIndex: 2 }}>
-          <div style={{ padding: "8px 12px", fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: C.t2, fontWeight: 800, borderRight: `1px solid ${C.b0}`, display: "flex", alignItems: "center" }}>
+          <div style={{ padding: "8px 12px", fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: C.t2, fontWeight: 650, borderRight: `1px solid ${C.b0}`, display: "flex", alignItems: "center" }}>
             Obra · {fmtCorta(inicio)} → {fmtCorta(fin)}
           </div>
           <div style={{ position: "relative", height: 34 }}>
@@ -781,7 +781,7 @@ function TimelineView({ year, month, eventos, selDate, onSelectDate, onOpenEvent
                 position: "absolute", left: `${(w / TIMELINE_SEMANAS) * 100}%`, top: 0, bottom: 0,
                 borderLeft: `1px solid ${C.b0}`, padding: "9px 0 0 5px",
                 fontSize: 9.5, color: sem <= HOY && addDaysStr(sem, 6) >= HOY ? C.blue : C.t2,
-                fontFamily: C.mono, fontWeight: sem <= HOY && addDaysStr(sem, 6) >= HOY ? 800 : 400,
+                fontFamily: C.mono, fontWeight: sem <= HOY && addDaysStr(sem, 6) >= HOY ? 650 : 400,
                 whiteSpace: "nowrap",
               }}>
                 {fmtCorta(sem)}
@@ -799,7 +799,7 @@ function TimelineView({ year, month, eventos, selDate, onSelectDate, onOpenEvent
           <div key={obra || "__general"} style={{ display: "grid", gridTemplateColumns: "150px minmax(0,1fr)", borderBottom: `1px solid ${C.b0}` }}>
             <div style={{
               padding: "0 12px", borderRight: `1px solid ${C.b0}`, display: "flex", alignItems: "center",
-              fontFamily: C.mono, fontSize: 11.5, fontWeight: 800, color: obra ? C.t0 : C.t2,
+              fontFamily: C.mono, fontSize: 11.5, fontWeight: 650, color: obra ? C.t0 : C.t2,
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               position: "sticky", left: 0, background: C.panelSolid, zIndex: 1,
             }}>
@@ -903,7 +903,7 @@ function AgendaView({ eventos, onOpenEvent, onAddOnDate, esAdmin }) {
           <div key={fecha} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <span style={{
-                fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
+                fontSize: 11, fontWeight: 650, letterSpacing: "0.08em", textTransform: "uppercase",
                 color: fecha === HOY ? C.blue : esFeriado ? C.red : C.t1,
               }}>
                 {rotulo(fecha)}
@@ -926,11 +926,11 @@ function AgendaView({ eventos, onOpenEvent, onAddOnDate, esAdmin }) {
                     background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `3px solid ${t.color}`,
                     fontFamily: C.sans,
                   }}>
-                  <span style={{ width: 40, flexShrink: 0, fontFamily: C.mono, fontSize: 12, color: ev.hora ? C.t0 : C.t3, fontWeight: 700 }}>
+                  <span style={{ width: 40, flexShrink: 0, fontFamily: C.mono, fontSize: 12, color: ev.hora ? C.t0 : C.t3, fontWeight: 600 }}>
                     {ev.hora || "—"}
                   </span>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 13, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {ev.titulo}
                     </span>
                     <span style={{ display: "block", fontSize: 10.5, color: t.color, marginTop: 1 }}>
@@ -949,7 +949,7 @@ function AgendaView({ eventos, onOpenEvent, onAddOnDate, esAdmin }) {
 }
 
 // ─── Pantalla principal ───────────────────────────────────────────────────────
-export default function CalendarioScreen({ profile, signOut }) {
+export default function CalendarioScreen({ profile }) {
   const { isMobile } = useResponsive();
   const isAdmin = hasAdminAccess(profile);
   const role    = profile?.role ?? "invitado";
@@ -1298,10 +1298,7 @@ export default function CalendarioScreen({ profile, signOut }) {
     : [["mes", "Mes"], ["timeline", "Timeline"], ["semana", "Semana"]];
 
   if (dbErr) return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, display: "flex", fontFamily: C.sans }}>
-      <div style={{ flexShrink: 0, width: isMobile ? 0 : undefined, overflow: "visible" }}>
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
+    <div style={{ position: "absolute", inset: 0, background: C.bg, display: "flex", fontFamily: C.sans }}>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
         <div style={{ background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 12, padding: 28, maxWidth: 560 }}>
           <div style={{ fontSize: 13, color: C.red, fontWeight: 600, marginBottom: 10 }}>Falta crear la tabla en Supabase</div>
@@ -1314,13 +1311,8 @@ export default function CalendarioScreen({ profile, signOut }) {
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input[type="date"], input[type="time"] { color-scheme: var(--input-color-scheme, dark); }
         .cal-cell:hover { background: var(--panel) !important; }
         .cal-cell:hover .cell-add { opacity: 1 !important; }
         .ev-badge:hover { filter: brightness(1.15); }
@@ -1330,20 +1322,17 @@ export default function CalendarioScreen({ profile, signOut }) {
         }
       `}</style>
 
-      <div style={{ flexShrink: 0, width: isMobile ? 0 : undefined, overflow: "visible" }}>
-        <Sidebar profile={profile} signOut={signOut} />
-      </div>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* TOPBAR */}
-        <div style={{ minHeight: 52, flexShrink: 0, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, padding: isMobile ? "6px 12px 6px 52px" : "0 24px", background: C.topbar, backdropFilter: "blur(20px)", flexWrap: "wrap" }}>
+        <div style={{ minHeight: 52, flexShrink: 0, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, padding: isMobile ? "6px 12px" : "0 24px", background: C.topbar, backdropFilter: "blur(20px)", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={vistaActual === "semana" ? prevWeek : prevMonth} aria-label="Anterior" style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.prev}</button>
             <button onClick={vistaActual === "semana" ? nextWeek : nextMonth} aria-label="Siguiente" style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.next}</button>
           </div>
 
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.t0, fontFamily: C.mono, minWidth: isMobile ? 0 : 200 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.t0, fontFamily: C.mono, minWidth: isMobile ? 0 : 200 }}>
             {vistaActual === "semana" ? weekLabel : `${MESES_ES[month]} ${year}`}
           </div>
 
@@ -1388,7 +1377,7 @@ export default function CalendarioScreen({ profile, signOut }) {
           )}
           {esAdmin && (
             <button onClick={() => setModal({ ev: null, fecha: selDate })}
-              style={{ padding: "7px 14px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
+              style={{ padding: "7px 14px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
               {I.plus} Movimiento
             </button>
           )}
@@ -1400,7 +1389,7 @@ export default function CalendarioScreen({ profile, signOut }) {
             flexShrink: 0, borderBottom: `1px solid ${C.redB}`, background: C.redL,
             padding: "6px 16px", display: "flex", gap: 10, alignItems: "center", overflowX: "auto",
           }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.red, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.red, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
               {I.warn} {conflictos.length} conflicto{conflictos.length !== 1 ? "s" : ""}
             </span>
             {conflictos.slice(0, 4).map((c) => (
@@ -1427,7 +1416,7 @@ export default function CalendarioScreen({ profile, signOut }) {
             flexShrink: 0, borderBottom: `1px solid ${C.cyanB}`, background: C.cyanL,
             padding: "6px 16px", display: "flex", gap: 10, alignItems: "center", overflowX: "auto",
           }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.cyan, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.cyan, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
               {I.bulb} Sugerencias
             </span>
             {sugerencias.map((b) => (
@@ -1439,7 +1428,7 @@ export default function CalendarioScreen({ profile, signOut }) {
                 {b.modelo}-{b.numero} figura con desmolde estimado el {fmtCorta(b.desmolde_estimado)} y no hay evento cargado
                 <button
                   onClick={() => setModal({ ev: null, preset: { tipo: "desmolde", obra: `${b.modelo}-${b.numero}`, fecha: b.desmolde_estimado } })}
-                  style={{ padding: "2px 10px", borderRadius: 999, cursor: "pointer", background: C.cyan, border: "none", color: "var(--bg)", fontSize: 11, fontWeight: 800, fontFamily: C.sans }}>
+                  style={{ padding: "2px 10px", borderRadius: 999, cursor: "pointer", background: C.cyan, border: "none", color: "var(--bg)", fontSize: 11, fontWeight: 650, fontFamily: C.sans }}>
                   Cargar
                 </button>
                 <button onClick={() => setDescartadas((prev) => new Set(prev).add(b.id))} aria-label="Descartar sugerencia"
@@ -1471,10 +1460,10 @@ export default function CalendarioScreen({ profile, signOut }) {
               }}
             >
               <ClimaIcon icon={climaInfo(clima[HOY].code).icon} size={14} />
-              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 800 }}>
+              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 650 }}>
                 {Math.round(clima[HOY].tmax)}°/{Math.round(clima[HOY].tmin)}°
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700 }}>
+              <span style={{ fontSize: 10, fontWeight: 600 }}>
                 {Math.round(clima[HOY].viento)} km/h{clima[HOY].viento >= VIENTO_LIMITE_GRUA ? " ⚠" : ""}
               </span>
             </span>
@@ -1499,7 +1488,7 @@ export default function CalendarioScreen({ profile, signOut }) {
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {loading ? (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 13 }}>Cargando…</div>
+              <Cargando llenar />
             ) : vistaActual === "mes" ? (
               <MonthView year={year} month={month} eventos={eventosFiltrados} selDate={selDate} onSelectDate={seleccionarFecha} onAddOnDate={(fecha) => setModal({ ev: null, fecha })} fechasConflicto={fechasConflicto} feriadosInfo={feriadosInfo} clima={clima} />
             ) : vistaActual === "semana" ? (

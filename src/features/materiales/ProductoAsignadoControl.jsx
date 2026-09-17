@@ -55,9 +55,9 @@ function ProductRow({ product, linked = false, selected = false, busy = false, o
     >
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{product.descripcion}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{product.descripcion}</span>
           {linked && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 700 }}>
               <Link2 size={10} /> Compatible
             </span>
           )}
@@ -91,7 +91,7 @@ function ScopeButton({ active, title, description, onClick }) {
         fontFamily: C.sans,
       }}
     >
-      <span style={{ fontSize: 11.5, fontWeight: 900, color: active ? C.blue : C.t0 }}>{title}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: active ? C.blue : C.t0 }}>{title}</span>
       <span style={{ fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>{description}</span>
     </button>
   );
@@ -172,13 +172,13 @@ export default function ProductoAsignadoControl({
         gap: 5,
         maxWidth: 280,
         minHeight: 24,
-        border: `1px solid ${specOnly ? (specEntries.length ? C.blueB : C.b0) : selected ? C.greenB : C.amberB}`,
-        background: specOnly ? (specEntries.length ? C.blueL : C.s0) : selected ? C.greenL : C.amberL,
-        color: specOnly ? (specEntries.length ? C.blue : C.t2) : selected ? C.green : C.amber,
+        border: `1px solid ${specOnly ? (specEntries.length ? C.blueB : C.b0) : selected ? C.greenB : C.cyanB}`,
+        background: specOnly ? (specEntries.length ? C.blueL : C.s0) : selected ? C.greenL : C.cyanL,
+        color: specOnly ? (specEntries.length ? C.blue : C.t2) : selected ? C.green : C.cyan,
         borderRadius: 999,
         padding: "3px 8px",
         fontSize: 10,
-        fontWeight: 900,
+        fontWeight: 700,
         fontFamily: C.sans,
         cursor: busy ? "default" : "pointer",
         opacity: busy ? 0.6 : 1,
@@ -219,7 +219,7 @@ export default function ProductoAsignadoControl({
       {busy
         ? <span className="spin" style={{ width: 12, height: 12, border: "2px solid currentColor", borderRightColor: "transparent", borderRadius: 999 }} />
         : <Search size={12} />}
-      <span style={{ whiteSpace: "nowrap", fontSize: 9.5, fontWeight: 900 }}>Buscar en catálogo</span>
+      <span style={{ whiteSpace: "nowrap", fontSize: 9.5, fontWeight: 700 }}>Buscar en catálogo</span>
     </button>
   );
 
@@ -243,7 +243,7 @@ export default function ProductoAsignadoControl({
           <section style={{ width: specOnly ? "min(620px, 100%)" : "min(980px, 100%)", maxHeight: isMobile ? "calc(100vh - 16px)" : "min(820px, calc(100vh - 36px))", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto", overflow: "hidden", border: `1px solid ${C.b1}`, borderRadius: isMobile ? 12 : 16, background: "var(--panel-solid)", boxShadow: "0 26px 80px rgba(0,0,0,.32)" }}>
             <header style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 12, alignItems: "start", padding: "14px 16px", borderBottom: `1px solid ${C.b0}` }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.t0, fontSize: 15, fontWeight: 950 }}>{specOnly ? "Especificaciones de la obra" : "Producto y especificaciones"}</div>
+                <div style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>{specOnly ? "Especificaciones de la obra" : "Producto y especificaciones"}</div>
                 <div style={{ color: C.t2, fontSize: 11.5, marginTop: 3 }}>
                   Requisito: <strong style={{ color: C.t1 }}>{row?.descripcion || "Material de matriz"}</strong>
                 </div>
@@ -260,7 +260,7 @@ export default function ProductoAsignadoControl({
                   <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar descripción, marca, modelo, código, proveedor u observación…" style={{ width: "100%", border: "none", outline: "none", background: "transparent", color: C.t0, padding: "10px 0", fontFamily: C.sans, fontSize: 12.5 }} />
                 </label>
                 <div style={{ color: C.t2, fontSize: 10.5 }}>Los compatibles aparecen primero, pero podés elegir cualquier producto concreto del catálogo.</div>
-                <button type="button" onClick={() => setSelectedProductId("")} style={{ border: `1px solid ${!selectedProductId ? C.amberB : C.b0}`, background: !selectedProductId ? C.amberL : C.bg, color: !selectedProductId ? C.amber : C.t2, borderRadius: 10, padding: "9px 11px", textAlign: "left", fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
+                <button type="button" onClick={() => setSelectedProductId("")} style={{ border: `1px solid ${!selectedProductId ? C.cyanB : C.b0}`, background: !selectedProductId ? C.cyanL : C.bg, color: !selectedProductId ? C.cyan : C.t2, borderRadius: 10, padding: "9px 11px", textAlign: "left", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
                   Dejar producto pendiente
                 </button>
                 <div style={{ display: "grid", gap: 7 }}>
@@ -273,7 +273,7 @@ export default function ProductoAsignadoControl({
 
               <aside style={{ display: "grid", gap: 12, minWidth: 0 }}>
                 <section style={{ display: "grid", gap: 8, padding: 11, border: `1px solid ${C.b0}`, borderRadius: 12, background: C.s0 }}>
-                  <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 950 }}>{allowLineScope ? "Aplicar cambio a" : "Alcance del cambio"}</div>
+                  <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 750 }}>{allowLineScope ? "Aplicar cambio a" : "Alcance del cambio"}</div>
                   <ScopeButton active={scope === "obra"} title={`Solo obra ${obraCodigo}`} description="Cambia este barco sin modificar la matriz ni las demás obras." onClick={() => setScope("obra")} />
                   {allowLineScope ? <ScopeButton active={scope === "linea"} title={`Estándar de línea K${linea}`} description="Queda como producto recomendado para las próximas obras de esta línea." onClick={() => setScope("linea")} /> : null}
                   {allowLineScope && scope === "linea" && (
@@ -286,12 +286,12 @@ export default function ProductoAsignadoControl({
 
                 <section style={{ display: "grid", gap: 9, padding: 11, border: `1px solid ${C.b0}`, borderRadius: 12, background: C.s0 }}>
                   <div>
-                    <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 950 }}>Especificaciones</div>
+                    <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 750 }}>Especificaciones</div>
                     <div style={{ color: C.t2, fontSize: 10.5, marginTop: 2, lineHeight: 1.4 }}>Usalas cuando el dato cambia por obra pero no representa otro producto de stock.</div>
                   </div>
                   {PRODUCT_SPEC_FIELDS.map((field) => (
                     <label key={field.key} style={{ display: "grid", gap: 4 }}>
-                      <span style={{ color: C.t2, fontSize: 9.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: .7 }}>{field.label}</span>
+                      <span style={{ color: C.t2, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .7 }}>{field.label}</span>
                       {field.key === "detalle" ? (
                         <textarea value={specs[field.key] || ""} onChange={(event) => setSpecs((current) => ({ ...current, [field.key]: event.target.value }))} placeholder={field.placeholder} rows={3} style={{ width: "100%", resize: "vertical", border: `1px solid ${C.b0}`, background: C.bg, color: C.t0, borderRadius: 9, padding: "8px 9px", outline: "none", fontFamily: C.sans, fontSize: 11.5 }} />
                       ) : (
@@ -305,11 +305,11 @@ export default function ProductoAsignadoControl({
 
             <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "11px 14px", borderTop: `1px solid ${C.b0}`, background: C.s0 }}>
               <div style={{ minWidth: 0, color: C.t2, fontSize: 10.5 }}>
-                {specOnly ? <>Producto: <strong style={{ color: C.t0 }}>{selected?.descripcion || row?.descripcion}</strong></> : selectedDraft ? <>Seleccionado: <strong style={{ color: C.t0 }}>{selectedDraft.descripcion}</strong></> : <strong style={{ color: C.amber }}>Producto pendiente</strong>}
+                {specOnly ? <>Producto: <strong style={{ color: C.t0 }}>{selected?.descripcion || row?.descripcion}</strong></> : selectedDraft ? <>Seleccionado: <strong style={{ color: C.t0 }}>{selectedDraft.descripcion}</strong></> : <strong style={{ color: C.cyan }}>Producto pendiente</strong>}
               </div>
               <div style={{ display: "flex", gap: 7 }}>
-                <button type="button" disabled={busy} onClick={() => setOpen(false)} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 9, padding: "8px 12px", fontFamily: C.sans, fontWeight: 850, cursor: "pointer" }}>Cancelar</button>
-                <button type="button" disabled={busy} onClick={save} style={{ border: `1px solid ${C.blueB}`, background: C.blue, color: "white", borderRadius: 9, padding: "8px 13px", fontFamily: C.sans, fontWeight: 900, cursor: busy ? "default" : "pointer", opacity: busy ? .6 : 1 }}>
+                <button type="button" disabled={busy} onClick={() => setOpen(false)} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 9, padding: "8px 12px", fontFamily: C.sans, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+                <button type="button" disabled={busy} onClick={save} style={{ border: `1px solid ${C.blueB}`, background: C.blue, color: "white", borderRadius: 9, padding: "8px 13px", fontFamily: C.sans, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? .6 : 1 }}>
                   {busy ? "Guardando…" : "Guardar configuración"}
                 </button>
               </div>

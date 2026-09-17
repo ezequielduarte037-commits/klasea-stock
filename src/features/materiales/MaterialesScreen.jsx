@@ -2,7 +2,6 @@ import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useR
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import {
@@ -219,7 +218,7 @@ function MaterialLoadMore({ hiddenCount, batchSize, onMore }) {
       <button
         type="button"
         onClick={onMore}
-        style={{ ...BTN, minHeight: 40, padding: "8px 16px", color: C.blue, borderColor: C.blueB, background: C.blueL, fontWeight: 900 }}
+        style={{ ...BTN, minHeight: 40, padding: "8px 16px", color: C.blue, borderColor: C.blueB, background: C.blueL, fontWeight: 700 }}
       >
         Mostrar {Math.min(batchSize, hiddenCount)} más · quedan {hiddenCount}
       </button>
@@ -268,13 +267,13 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
   if (readOnly) {
     return (
       <div style={{ display: "grid", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: "9px 11px" }}>
-        <div style={{ color: C.blue, fontSize: 11.5, fontWeight: 900 }}>
+        <div style={{ color: C.blue, fontSize: 11.5, fontWeight: 700 }}>
           Las variantes ahora son productos independientes del catálogo.
         </div>
         {variants.length > 0 ? (
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
             {variants.map((variant) => (
-              <span key={variant} style={{ color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 850 }}>
+              <span key={variant} style={{ color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700 }}>
                 {variant}
               </span>
             ))}
@@ -339,7 +338,7 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
     }
   };
 
-  const chip = { display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 850 };
+  const chip = { display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 700 };
   // Mismo look que el chip pero editable.
   const chipInput = { ...chip, outline: "none", fontFamily: C.sans, minWidth: 0, cursor: "text" };
 
@@ -459,7 +458,7 @@ function MaterialLinksEditor({ value = [], onChange, compact = false }) {
   return (
     <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: compact ? 8 : 10, display: "grid", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Links utiles</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Links utiles</span>
         <span style={{ fontSize: 10.5, color: C.t3 }}>ficha tecnica, proveedor, compra, manual</span>
       </div>
       {links.length > 0 && (
@@ -492,7 +491,7 @@ function MaterialLinksSummary({ links = [] }) {
   const clean = normalizeMaterialLinks(links);
   if (!clean.length) return null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.blue, fontSize: 10.5, fontWeight: 800, flexShrink: 0 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.blue, fontSize: 10.5, fontWeight: 650, flexShrink: 0 }}>
       <ExternalLink size={12} /> {clean.length} link{clean.length === 1 ? "" : "s"}
     </span>
   );
@@ -518,7 +517,7 @@ function PendingImagePicker({ file, onChange, imageUrl, onImageUrlChange }) {
           )}
         </div>
         <div style={{ flex: 1, minWidth: 220, display: "grid", gap: 6 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Imagen del item</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Imagen del item</div>
           <input value={imageUrl || ""} onChange={(e) => onImageUrlChange?.(e.target.value)} placeholder="URL de imagen o ficha visual" style={{ ...INP, width: "100%" }} />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button type="button" onClick={() => inputRef.current?.click()} style={{ ...BTN, padding: "6px 10px", color: C.blue }}>
@@ -563,15 +562,15 @@ function DraftBarcodeEditor({ value = [], onChange, variantes = [] }) {
     <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Barcode size={14} color={C.blue} />
-        <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Codigos de barra adicionales</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Codigos de barra adicionales</span>
         <span style={{ fontSize: 10.5, color: C.t3 }}>para marcas, cajas o codigos alternativos</span>
       </div>
       {rows.length > 0 && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {rows.map((row, index) => (
-            <span key={`${row.codigo}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850, fontFamily: C.mono }}>
+            <span key={`${row.codigo}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 700, fontFamily: C.mono }}>
               {row.codigo}
-              {row.variante && <span style={{ fontFamily: C.sans, color: C.t1, fontWeight: 800 }}>{row.variante}</span>}
+              {row.variante && <span style={{ fontFamily: C.sans, color: C.t1, fontWeight: 650 }}>{row.variante}</span>}
               {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2 }}>{row.etiqueta}</span>}
               <button type="button" onClick={() => onChange?.(rows.filter((_, i) => i !== index))} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0 }}>
                 <X size={11} />
@@ -624,10 +623,10 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
         <MaterialThumb material={material} size={72} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 700, marginBottom: 5 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 600, marginBottom: 5 }}>
             Material sin revisar
           </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.t0, lineHeight: 1.25 }}>{material.descripcion}</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: C.t0, lineHeight: 1.25 }}>{material.descripcion}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
             <SubsectorSelect categorias={categorias} value={draft.categoria_id} onChange={(id) => setDraft((d) => ({ ...d, categoria_id: id }))} />
             <span style={{ fontSize: 11, color: C.t2 }}>origen {material.origen || "manual"}</span>
@@ -808,7 +807,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
     <form onSubmit={submit} style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 16, marginBottom: 16, display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Alta manual de material</div>
+          <div style={{ fontSize: 13, fontWeight: 750, color: C.t0 }}>Alta manual de material</div>
           <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crea el item completo: proveedor, precio, matriz, codigos, links e imagen.</div>
         </div>
         <button type="button" onClick={() => setOpenState(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
@@ -835,7 +834,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
       <label style={{ display: "flex", alignItems: "flex-start", gap: 9, border: `1px solid ${draft.es_requisito ? C.blueB : C.b0}`, background: draft.es_requisito ? C.blueL : C.bg, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
         <input type="checkbox" checked={!!draft.es_requisito} onChange={(e) => setDraft((current) => ({ ...current, es_requisito: e.target.checked }))} style={{ marginTop: 2 }} />
         <span>
-          <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12.5, fontWeight: 900 }}>Es un requisito genérico de matriz</span>
+          <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12.5, fontWeight: 700 }}>Es un requisito genérico de matriz</span>
           <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>Ej.: “TV 32 pulgadas”. Los modelos Samsung, LG o Noblex se crean como productos separados y se asignan en cada obra.</span>
         </span>
       </label>
@@ -952,7 +951,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: review.flag ? C.amberL : hovered ? C.s0 : undefined,
+        background: review.flag ? C.cyanL : hovered ? C.s0 : undefined,
         boxShadow: hovered ? `inset 3px 0 0 ${C.blue}` : undefined,
         transition: "background .14s ease, box-shadow .14s ease",
       }}
@@ -970,10 +969,10 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
         <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
         <div style={{ marginTop: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4, minHeight: 14 }}>
-            <span style={{ fontSize: 9.5, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>Variantes</span>
+            <span style={{ fontSize: 9.5, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Variantes</span>
             {varSave === "saving" && <span style={{ fontSize: 10, color: C.t2 }}>guardando…</span>}
-            {varSave === "ok" && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>guardado ✓</span>}
-            {varSave === "err" && <span style={{ fontSize: 10, color: C.red, fontWeight: 700 }}>no se pudo guardar</span>}
+            {varSave === "ok" && <span style={{ fontSize: 10, color: C.green, fontWeight: 600 }}>guardado ✓</span>}
+            {varSave === "err" && <span style={{ fontSize: 10, color: C.red, fontWeight: 600 }}>no se pudo guardar</span>}
           </div>
           <VariantsEditor
             value={variantes}
@@ -1150,7 +1149,7 @@ function MaterialAuditTrail({ materialId, onRestored }) {
 
       {open && (
         <div style={{ borderTop: `1px solid ${C.b0}`, padding: 10, display: "grid", gap: 7 }}>
-          {loading && <div style={{ fontSize: 12, color: C.t2 }}>Cargando historial...</div>}
+          {loading && <Cargando compacto texto="Cargando historial…" />}
           {error && <div style={{ fontSize: 12, color: C.red }}>{error}</div>}
           {!loading && !error && rows.length === 0 && (
             <div style={{ fontSize: 12, color: C.t2 }}>Sin cambios registrados todavia.</div>
@@ -1158,7 +1157,7 @@ function MaterialAuditTrail({ materialId, onRestored }) {
           {!loading && !error && rows.map((row) => (
             <div key={row.id} style={{ display: "grid", gap: 4, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 8, background: C.s0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>{AUDIT_FIELD_LABELS[row.campo] || row.campo}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>{AUDIT_FIELD_LABELS[row.campo] || row.campo}</span>
                 <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{auditDateLabel(row.created_at)}</span>
                 {row.origen && <span style={{ fontSize: 10, color: C.t3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 6px" }}>{row.origen}</span>}
                 <button
@@ -1173,12 +1172,12 @@ function MaterialAuditTrail({ materialId, onRestored }) {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 7 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 9.5, color: C.t3, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Antes</div>
+                  <div style={{ fontSize: 9.5, color: C.t3, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 }}>Antes</div>
                   <div title={auditValueLabel(row.valor_anterior)} style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_anterior)}</div>
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 9.5, color: C.green, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Despues</div>
-                  <div title={auditValueLabel(row.valor_nuevo)} style={{ fontSize: 11.5, color: C.t0, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_nuevo)}</div>
+                  <div style={{ fontSize: 9.5, color: C.green, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 }}>Despues</div>
+                  <div title={auditValueLabel(row.valor_nuevo)} style={{ fontSize: 11.5, color: C.t0, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_nuevo)}</div>
                 </div>
               </div>
             </div>
@@ -1233,7 +1232,7 @@ function MaterialBarcodeEditor({ material, onChanged }) {
   return (
     <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Codigos de barra</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Codigos de barra</span>
         <span style={{ fontSize: 10.5, color: C.t3 }}>uno o varios por marca/proveedor</span>
       </div>
       {barcodes.length ? (
@@ -1242,11 +1241,11 @@ function MaterialBarcodeEditor({ material, onChanged }) {
             <span
               key={`${row.id || "legacy"}-${row.codigo}`}
               title={row.etiqueta || (row.legacy ? "Principal legacy" : "Codigo alternativo")}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850, fontFamily: C.mono }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 700, fontFamily: C.mono }}
             >
               {row.codigo}
               {row.variante && <span style={{ fontFamily: C.sans, color: C.bg, background: C.blue, padding: "1px 4px", borderRadius: 4 }}>{row.variante}</span>}
-              {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2, fontWeight: 700 }}>{row.etiqueta}</span>}
+              {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2, fontWeight: 600 }}>{row.etiqueta}</span>}
               <button type="button" onClick={() => removeCode(row)} disabled={saving} title="Quitar codigo" style={{ border: "none", background: "transparent", color: C.blue, cursor: saving ? "default" : "pointer", padding: 0, display: "grid", placeItems: "center" }}>
                 <Trash2 size={11} />
               </button>
@@ -1357,7 +1356,7 @@ function NotasQuickButton({ material, onChanged }) {
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         title={material.notas ? `Observación: ${textoTooltip(material.notas)}` : "Agregar observación"}
-        style={{ ...BTN, padding: "5px 9px", color: material.notas ? C.amber : C.t2 }}
+        style={{ ...BTN, padding: "5px 9px", color: material.notas ? C.cyan : C.t2 }}
       >
         <StickyNote size={13} />
       </button>
@@ -1377,7 +1376,7 @@ function NotasQuickButton({ material, onChanged }) {
               padding: 10, boxShadow: "0 18px 40px rgba(0,0,0,0.45)", display: "grid", gap: 8,
             }}
           >
-            <span style={{ fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>
+            <span style={{ fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 600 }}>
               Observaciones
             </span>
             <textarea
@@ -1459,7 +1458,7 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
     <div style={{ border: `1px solid ${C.violet}33`, background: "rgba(139,92,246,0.08)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 950, color: C.t0 }}>Asociaciones de obra</div>
+          <div style={{ fontSize: 12, fontWeight: 750, color: C.t0 }}>Asociaciones de obra</div>
           <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Este material nació como adicional/opcional. Podés moverlo a otra obra si todavía no entró a pañol.</div>
         </div>
         <button type="button" onClick={load} disabled={loading} style={{ ...BTN, padding: "6px 9px" }}>
@@ -1468,7 +1467,7 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
       </div>
       {err && <div style={{ fontSize: 11.5, color: C.red }}>{err}</div>}
       {loading ? (
-        <div style={{ fontSize: 12, color: C.t2 }}>Cargando asociaciones...</div>
+        <Cargando compacto texto="Cargando asociaciones…" />
       ) : rows.length ? (
         <div style={{ display: "grid", gap: 6 }}>
           {rows.map((addon) => {
@@ -1479,8 +1478,8 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
               <div key={addon.id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(180px, .8fr)", gap: 8, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 8 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 10, fontWeight: 900, color: meta.color, background: `${meta.color}16`, border: `1px solid ${meta.color}44`, borderRadius: 999, padding: "2px 7px" }}>{meta.label}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 850, color: C.t0 }}>{current?.codigo || "Sin obra"}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: `${meta.color}16`, border: `1px solid ${meta.color}44`, borderRadius: 999, padding: "2px 7px" }}>{meta.label}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: C.t0 }}>{current?.codigo || "Sin obra"}</span>
                     <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>{qtyText(addon.cantidad || 1, addon.unidad || material.unidad_medida || "unidad")}</span>
                   </div>
                   {addon.observaciones && <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{addon.observaciones}</div>}
@@ -1633,7 +1632,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const review = reviewInfoForMaterial(material);
   const savedVariants = materialVariants(material);
   const precio = priceInfo(material);
-  const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 4 };
+  const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 600, display: "block", marginBottom: 4 };
   const active = editing || hovered;
 
   return (
@@ -1643,7 +1642,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
       onMouseLeave={() => setHovered(false)}
       style={{
         position: "relative",
-        border: `1px solid ${editing ? C.blueB : hovered ? C.blueB : review.flag ? C.amberB : C.b0}`,
+        border: `1px solid ${editing ? C.blueB : hovered ? C.blueB : review.flag ? C.cyanB : C.b0}`,
         borderRadius: 10,
         marginBottom: 6,
         background: editing ? "var(--panel)" : hovered ? "color-mix(in srgb, var(--panel) 92%, #2563eb 8%)" : C.s0,
@@ -1658,13 +1657,13 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
         <MaterialThumb material={material} size={36} />
         <div style={{ flex: "1 1 260px", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13.5, color: C.t0, fontWeight: 900, lineHeight: 1.25, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
+            <span style={{ fontSize: 13.5, color: C.t0, fontWeight: 700, lineHeight: 1.25, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
             {savedVariants.length > 0 && (
-              <span title={`Variantes: ${savedVariants.join(" / ")}`} style={{ fontSize: 9.5, fontWeight: 800, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.28)", borderRadius: 999, padding: "1px 6px", flexShrink: 0, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span title={`Variantes: ${savedVariants.join(" / ")}`} style={{ fontSize: 9.5, fontWeight: 650, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.28)", borderRadius: 999, padding: "1px 6px", flexShrink: 0, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {savedVariants.join(" / ")}
               </span>
             )}
-            {material.es_consumible && <span style={{ fontSize: 9.5, fontWeight: 800, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>Consumible</span>}
+            {material.es_consumible && <span style={{ fontSize: 9.5, fontWeight: 650, color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>Consumible</span>}
             <StockLibreChip info={stockInfo} />
             {review.flag && <ReviewBadge reason={review.reason} />}
           </div>
@@ -1675,7 +1674,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             {sector && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>· {sector}</span>}
             {material.areas?.length > 1 && (
               <span title={`Multi-sector: ${material.areas.map((a) => categorias.find((c) => c.id === a)?.nombre).filter(Boolean).join(", ")}`}
-                style={{ fontSize: 9.5, fontWeight: 800, color: C.violet || "#a78bfa", flexShrink: 0 }}>
+                style={{ fontSize: 9.5, fontWeight: 650, color: C.violet || "#a78bfa", flexShrink: 0 }}>
                 ⊞ {material.areas.length}
               </span>
             )}
@@ -1688,7 +1687,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               const on = linea === m;
               return (
                 <span key={m} title={`Lleva ${toNum(bom[m])} en la línea K${m}`}
-                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: on ? "#fff" : C.blue,
+                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, color: on ? "#fff" : C.blue,
                     background: on ? C.blue : "rgba(59,130,246,0.1)", border: `1px solid ${on ? C.blue : "rgba(59,130,246,0.25)"}`,
                     borderRadius: 6, padding: "2px 7px" }}>
                   K{m} {toNum(bom[m])}
@@ -1703,7 +1702,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               return (
                 <span key={`${m}-eje`}
                   title={`No lo lleva todo K${m}. Son ${toNum(bomEje[m])} sólo si el barco es de línea de eje.`}
-                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: on ? "#fff" : C.violet,
+                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, color: on ? "#fff" : C.violet,
                     background: on ? C.violet : "rgba(139,92,246,0.1)", border: `1px solid ${on ? C.violet : "rgba(139,92,246,0.28)"}`,
                     borderRadius: 6, padding: "2px 7px" }}>
                   K{m} eje {toNum(bomEje[m])}
@@ -1713,7 +1712,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
           </div>
         )}
         <div style={{ minWidth: 86, textAlign: "right", flexShrink: 0 }} title={precio.amount ? `Precio vigente${precio.proveedor ? ` · ${precio.proveedor}` : ""}` : "Sin precio cargado"}>
-          <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, color: precio.amount ? C.t2 : C.amber, whiteSpace: "nowrap" }}>{precio.text}</div>
+          <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 650, color: precio.amount ? C.t2 : C.cyan, whiteSpace: "nowrap" }}>{precio.text}</div>
           {material.unidad_medida && <div style={{ fontSize: 10, color: C.t3, whiteSpace: "nowrap" }}>{material.unidad_medida}</div>}
         </div>
         {material.revisado && <span title="Revisado" style={{ color: C.green, fontSize: 13, flexShrink: 0 }}>✓</span>}
@@ -1730,14 +1729,14 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <span style={lbl}>Descripción</span>
             <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: draft.es_consumible ? C.amber : C.t1 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: draft.es_consumible ? C.cyan : C.t1 }}>
             <input type="checkbox" checked={!!draft.es_consumible} onChange={(e) => setDraft((d) => ({ ...d, es_consumible: e.target.checked }))} style={{ width: 16, height: 16, cursor: "pointer" }} />
             Es consumible <span style={{ fontWeight: 400, color: C.t2, fontSize: 11 }}>(va al fondo del catálogo, fuera de la matriz del barco)</span>
           </label>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer", border: `1px solid ${draft.es_requisito ? C.blueB : C.b0}`, background: draft.es_requisito ? C.blueL : C.bg, borderRadius: 10, padding: "9px 11px" }}>
             <input type="checkbox" checked={!!draft.es_requisito} onChange={(e) => setDraft((d) => ({ ...d, es_requisito: e.target.checked }))} style={{ marginTop: 2 }} />
             <span>
-              <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12, fontWeight: 900 }}>Requisito genérico de matriz</span>
+              <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12, fontWeight: 700 }}>Requisito genérico de matriz</span>
               <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No suma stock por marca/modelo. En cada obra se le asigna un producto concreto del catálogo.</span>
             </span>
           </label>
@@ -1753,8 +1752,8 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             </div>
           </div>
           {savedVariants.length > 0 && (
-            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "9px 11px" }}>
-              <span style={{ display: "block", color: C.amber, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: .6 }}>Variantes legacy migradas</span>
+            <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px" }}>
+              <span style={{ display: "block", color: C.cyan, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: .6 }}>Variantes legacy migradas</span>
               <span style={{ display: "block", color: C.t1, fontSize: 11.5, marginTop: 4 }}>{savedVariants.join(" · ")}</span>
               <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 3 }}>Se conservan sólo como historial. Los productos nuevos se gestionan como filas independientes.</span>
             </div>
@@ -1823,7 +1822,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {MODELOS.map((modelo) => (
                 <div key={modelo} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ fontSize: 11, color: linea === modelo ? C.blue : C.t2, fontWeight: 700, fontFamily: C.mono }}>K{modelo}</span>
+                  <span style={{ fontSize: 11, color: linea === modelo ? C.blue : C.t2, fontWeight: 600, fontFamily: C.mono }}>K{modelo}</span>
                   <input type="number" step="any" value={cantidades[modelo] ?? ""} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, width: 82, fontFamily: C.mono }} />
                 </div>
               ))}
@@ -1837,7 +1836,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
                 const on = idx >= 0;
                 return (
                   <button type="button" key={c.id} onClick={() => setSectores((prev) => on ? prev.filter((x) => x !== c.id) : [...prev, c.id])}
-                    style={{ fontSize: 10.5, fontWeight: 700, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? (C.violet || "#a78bfa") : C.b0}`, background: on ? "rgba(167,139,250,0.14)" : "transparent", color: on ? (C.violet || "#a78bfa") : C.t2 }}>
+                    style={{ fontSize: 10.5, fontWeight: 600, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? (C.violet || "#a78bfa") : C.b0}`, background: on ? "rgba(167,139,250,0.14)" : "transparent", color: on ? (C.violet || "#a78bfa") : C.t2 }}>
                     {idx === 0 ? "★ " : on ? "✓ " : ""}{c.nombre}
                   </button>
                 );
@@ -1969,7 +1968,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...BTN, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 700 }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...BTN, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 600 }}>
         <ShoppingCart size={14} /> Preparar orden de compra {open ? "▴" : "▾"}
       </button>
       {open && (
@@ -1984,7 +1983,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
                 { value: "estandar", label: "Estándar", color: C.blue },
                 { value: "adicional", label: "Adicional", color: C.violet },
               ].map(({ value, label, color }) => (
-                <button key={label} type="button" onClick={() => setPedidoTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoTipo === value ? color : C.t2, background: pedidoTipo === value ? `${color}18` : "transparent", borderColor: pedidoTipo === value ? color : "transparent", fontWeight: 900 }}>
+                <button key={label} type="button" onClick={() => setPedidoTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoTipo === value ? color : C.t2, background: pedidoTipo === value ? `${color}18` : "transparent", borderColor: pedidoTipo === value ? color : "transparent", fontWeight: 700 }}>
                   {label}
                 </button>
               ))}
@@ -2002,13 +2001,13 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
           {grupos.map((g) => (
             <div key={g.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</div>
                 <div style={{ fontSize: 11.5, color: C.t2 }}>
                   {g.items.length} items{g.usd ? ` · ${fmtMoney(g.usd, "USD")}` : ""}{g.ars ? ` · ${fmtMoney(g.ars, "ARS")}` : ""}
                 </div>
               </div>
               {hechos.includes(g.label)
-                ? <span style={{ fontSize: 12, color: C.green, fontWeight: 800, flexShrink: 0 }}>✓ Pedido creado</span>
+                ? <span style={{ fontSize: 12, color: C.green, fontWeight: 650, flexShrink: 0 }}>✓ Pedido creado</span>
                 : <button type="button" onClick={() => pedirGrupo(g)} disabled={creando === g.label} style={{ ...BTN_GREEN, padding: "6px 12px", flexShrink: 0 }}>{creando === g.label ? "Creando…" : "Pedir a compras"}</button>}
             </div>
           ))}
@@ -2163,7 +2162,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
     <div style={{ border: `1px solid ${C.greenB || C.b1}`, borderRadius: 14, background: C.greenL || C.s0, padding: 13, marginBottom: 14 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 11, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Agregar ítem a {title || `K${linea}`}</div>
+          <div style={{ fontSize: 13, fontWeight: 750, color: C.t0 }}>Agregar ítem a {title || `K${linea}`}</div>
           <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Sumá un material existente o creá uno nuevo ya vinculado a esta matriz.</div>
         </div>
         <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
@@ -2176,7 +2175,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
         ].map(([key, label]) => {
           const on = mode === key;
           return (
-            <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
+            <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
               {label}
             </button>
           );
@@ -2203,7 +2202,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
                   style={{ textAlign: "left", border: `1px solid ${on ? C.blueB : C.b0}`, background: on ? C.blueL : C.bg, color: C.t0, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center" }}
                 >
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
                     <span style={{ display: "block", fontSize: 11, color: C.t2, marginTop: 2 }}>{categoriaNombre(categorias, m.categoria_id)}{m.proveedor ? ` · ${m.proveedor}` : ""}</span>
                   </span>
                   <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2, whiteSpace: "nowrap" }}>{m.unidad_medida || "unidad"}</span>
@@ -2220,7 +2219,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr) 92px", gap: 8 }}>
-            <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38, fontWeight: 750 }} />
+            <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38, fontWeight: 650 }} />
             <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "unidad") }))} list="linea-add-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
             <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
           </div>
@@ -2595,7 +2594,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
       <div style={{ width: "min(1040px, calc(100vw - 28px))", maxHeight: "92vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
         <div style={{ position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.b0}`, padding: 16, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
+            <div style={{ fontSize: 16, fontWeight: 750, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>No modifica la matriz base: queda en el catalogo completo y se asocia a esta obra.</div>
           </div>
           <button type="button" onClick={onClose} style={{ ...BTN, padding: "7px 9px" }} title="Cerrar"><X size={15} /></button>
@@ -2610,7 +2609,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
               ].map(([key, label]) => {
                 const on = mode === key;
                 return (
-                  <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
+                  <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
                     {label}
                   </button>
                 );
@@ -2622,7 +2621,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
             </select>
             <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, width: 92, height: 36, fontFamily: C.mono }} />
             <label style={{ display: "grid", gap: 3, flex: "1 1 210px", minWidth: 190 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 900, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <span style={{ fontSize: 9.5, fontWeight: 700, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
               <select
                 value={targetObraFinalId}
                 onChange={(e) => setTargetObraId(e.target.value)}
@@ -2635,7 +2634,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
                 ))}
               </select>
               {moveLocked || snapshotLocked ? (
-                <span style={{ fontSize: 10.5, color: C.amber }}>Ya tiene movimiento de pañol; mover desde stock para conservar kardex.</span>
+                <span style={{ fontSize: 10.5, color: C.cyan }}>Ya tiene movimiento de pañol; mover desde stock para conservar kardex.</span>
               ) : null}
             </label>
           </div>
@@ -2651,10 +2650,10 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
                     <button key={material.id} type="button" onClick={() => setSelectedId(material.id)} style={{ textAlign: "left", border: `1px solid ${on ? C.blueB : C.b0}`, background: on ? C.blueL : C.bg, color: C.t0, borderRadius: 10, padding: 10, cursor: "pointer", display: "flex", gap: 10, alignItems: "center" }}>
                       <MaterialThumb material={material} size={42} />
                       <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: "block", fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
                         <span style={{ display: "block", fontSize: 11, color: C.t2, marginTop: 2 }}>{categoriaNombre(categorias, material.categoria_id)} · {material.proveedor || "Sin proveedor"} · {material.codigo || "sin codigo"}</span>
                       </span>
-                      <span style={{ fontFamily: C.mono, fontSize: 11, color: precio.amount ? C.t0 : C.amber, whiteSpace: "nowrap" }}>{precio.text}</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 11, color: precio.amount ? C.t0 : C.cyan, whiteSpace: "nowrap" }}>{precio.text}</span>
                     </button>
                   );
                 })}
@@ -2668,7 +2667,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
           ) : (
             <div style={{ display: "grid", gap: 10, border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr)", gap: 8 }}>
-                <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripcion del material" style={{ ...INP, height: 38, fontWeight: 750 }} />
+                <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripcion del material" style={{ ...INP, height: 38, fontWeight: 650 }} />
                 <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "unidad") }))} list="obra-addon-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
               </div>
               <datalist id="obra-addon-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist>
@@ -2819,7 +2818,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
     padding: "8px 13px",
     cursor: "pointer",
     fontSize: 12.5,
-    fontWeight: 900,
+    fontWeight: 700,
     fontFamily: C.sans,
     background: on ? C.blue : "transparent",
     color: on ? "#fff" : C.t2,
@@ -2843,8 +2842,8 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
         <option value="solo" style={OPT_ST}>Solo consumibles</option>
       </select>
       <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
-        style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? C.amberB : C.b0}`, background: soloPendientes ? C.amberL : C.s0, color: soloPendientes ? C.amber : C.t1, fontSize: 12.5, fontWeight: 850 }}>
-        <span style={{ width: 16, height: 16, borderRadius: 6, border: `1px solid ${soloPendientes ? C.amber : C.b1}`, background: soloPendientes ? C.amber : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#111827", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
+        style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? C.cyanB : C.b0}`, background: soloPendientes ? C.cyanL : C.s0, color: soloPendientes ? C.cyan : C.t1, fontSize: 12.5, fontWeight: 700 }}>
+        <span style={{ width: 16, height: 16, borderRadius: 6, border: `1px solid ${soloPendientes ? C.cyan : C.b1}`, background: soloPendientes ? C.cyan : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#111827", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
         Solo sin precio
       </button>
     </>
@@ -2873,7 +2872,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           <button
             type="button"
             onClick={() => setAdvancedOpen((open) => !open)}
-            style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 11, color: advancedOpen || activeFilterCount ? C.blue : C.t1, border: `1px solid ${advancedOpen || activeFilterCount ? C.blueB : C.b0}`, background: advancedOpen || activeFilterCount ? C.blueL : C.s0, fontWeight: 900 }}
+            style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 11, color: advancedOpen || activeFilterCount ? C.blue : C.t1, border: `1px solid ${advancedOpen || activeFilterCount ? C.blueB : C.b0}`, background: advancedOpen || activeFilterCount ? C.blueL : C.s0, fontWeight: 700 }}
             title="Proveedor, tipo, rubro, consumibles y sin precio"
           >
             <SlidersHorizontal size={14} /> Filtros
@@ -2895,12 +2894,12 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           <option value="solo" style={OPT_ST}>Solo consumibles</option>
         </select>
         <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
-          style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? "rgba(245,158,11,0.45)" : C.b0}`, background: soloPendientes ? "rgba(245,158,11,0.12)" : C.s0, color: soloPendientes ? C.amber : C.t1, fontSize: 12.5, fontWeight: 600 }}>
-          <span style={{ width: 15, height: 15, borderRadius: 5, border: `1px solid ${soloPendientes ? C.amber : C.b1}`, background: soloPendientes ? C.amber : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#000", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
+          style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? "rgba(34,211,238,0.45)" : C.b0}`, background: soloPendientes ? "rgba(34,211,238,0.12)" : C.s0, color: soloPendientes ? C.cyan : C.t1, fontSize: 12.5, fontWeight: 600 }}>
+          <span style={{ width: 15, height: 15, borderRadius: 5, border: `1px solid ${soloPendientes ? C.cyan : C.b1}`, background: soloPendientes ? C.cyan : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#000", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
           Sólo sin precio
         </button>
         </>)}
-        <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
+        <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
           {visibles.length} ítems{lineaLista ? ` · K${lineaLista}` : ""}{lineaPendiente ? " · actualizando..." : ""}
         </span>
       </div>
@@ -2978,7 +2977,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 // tema oscuro. Por eso evitamos optgroup y usamos opciones planas (sí respetan el style),
 // con el sector padre en negrita y los subsectores con el path completo.
 const OPT_ST = { background: C.panelSolid, color: C.t0 };
-const OPT_HEAD = { background: C.panelSolid, color: C.t0, fontWeight: 800 };
+const OPT_HEAD = { background: C.panelSolid, color: C.t0, fontWeight: 650 };
 
 function SectorPicker({ categorias, value, onChange, invalid }) {
   const raices = categorias.filter(esRaiz);
@@ -3024,7 +3023,7 @@ function VincularItem({ activos, categorias, item, onChange, soloPrecios = false
         ) : (
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ðŸ” Buscar un material del catálogo para vincular (si la IA no lo encontró)…" style={{ ...INP, flex: 1, fontSize: 12 }} />
         )}
-        <span style={{ fontSize: 11, color: sel ? C.green : C.amber, fontWeight: 700, whiteSpace: "nowrap", minWidth: 104, textAlign: "right" }}>
+        <span style={{ fontSize: 11, color: sel ? C.green : C.cyan, fontWeight: 600, whiteSpace: "nowrap", minWidth: 104, textAlign: "right" }}>
           {sel ? "actualiza precio" : soloPrecios ? "vincular" : "crea uno nuevo"}
         </span>
       </div>
@@ -3218,8 +3217,8 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, so
       <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 16, padding: 22, width: "min(1180px, 97vw)", maxHeight: "94vh", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.t0 }}>{soloPrecios ? "Cargar precios" : "Cargar presupuesto"}</div>
-            {restaurado && !resultado && <span style={{ fontSize: 10.5, color: "#a78bfa", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>● borrador restaurado</span>}
+            <div style={{ fontSize: 17, fontWeight: 650, color: C.t0 }}>{soloPrecios ? "Cargar precios" : "Cargar presupuesto"}</div>
+            {restaurado && !resultado && <span style={{ fontSize: 10.5, color: "#a78bfa", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>● borrador restaurado</span>}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             {(items || texto) && !resultado && <button type="button" onClick={descartar} style={{ ...BTN, padding: "4px 10px", color: C.red }}>Descartar</button>}
@@ -3236,7 +3235,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, so
 
         {resultado ? (
           <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, textAlign: "center" }}>
-            <div style={{ fontSize: 15, color: C.green, fontWeight: 700 }}>{soloPrecios ? "Precios cargados" : "Presupuesto cargado"} ✓</div>
+            <div style={{ fontSize: 15, color: C.green, fontWeight: 600 }}>{soloPrecios ? "Precios cargados" : "Presupuesto cargado"} ✓</div>
             <div style={{ fontSize: 13, color: C.t1, marginTop: 6 }}>
               {resultado.actualizados} precios actualizados
               {soloPrecios && resultado.omitidos ? ` · ${resultado.omitidos} omitidos sin vínculo/precio` : ""}
@@ -3328,7 +3327,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, so
                     {!soloPrecios && it.material_id && (() => {
                       const mat = activos.find((m) => m.id === it.material_id);
                       return mat && it._catId && mat.categoria_id !== it._catId ? (
-                        <div style={{ fontSize: 11, color: C.amber, marginTop: 4, paddingLeft: 84 }}>? se mueve de ?{categoriaNombre(categorias, mat.categoria_id)}? a ?{categoriaNombre(categorias, it._catId)}?</div>
+                        <div style={{ fontSize: 11, color: C.cyan, marginTop: 4, paddingLeft: 84 }}>? se mueve de ?{categoriaNombre(categorias, mat.categoria_id)}? a ?{categoriaNombre(categorias, it._catId)}?</div>
                       ) : null;
                     })()}
                   </div>
@@ -3339,7 +3338,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, so
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
               <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>← Volver</button>
               {sinSector > 0 && <span style={{ fontSize: 11, color: C.red }}>{sinSector} ítem(s) sin sector</span>}
-              {soloPrecios && sinVinculo > 0 && <span style={{ fontSize: 11, color: C.amber }}>{sinVinculo} ítem(s) se omiten si no los vinculás</span>}
+              {soloPrecios && sinVinculo > 0 && <span style={{ fontSize: 11, color: C.cyan }}>{sinVinculo} ítem(s) se omiten si no los vinculás</span>}
               <div style={{ flex: 1 }} />
               <button type="button" onClick={aplicar} disabled={aplicando || !items.length || (soloPrecios && !listosPrecio)} style={{ ...BTN_PRIMARY, opacity: aplicando || !items.length || (soloPrecios && !listosPrecio) ? 0.6 : 1 }}>
                 {aplicando ? "Aplicando…" : soloPrecios ? `Aplicar precios (${listosPrecio})` : `Aplicar (${coinciden + nuevos})`}
@@ -3393,7 +3392,7 @@ function BuscadorAgregar({ categorias, materiales, selectedId, onChanged }) {
 
   return (
     <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
-      <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 700, marginBottom: 9 }}>
+      <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 600, marginBottom: 9 }}>
         Buscar en el catálogo y agregar a <span style={{ color: "#60a5fa" }}>{destino}</span>
       </div>
       <div style={{ position: "relative" }}>
@@ -3416,7 +3415,7 @@ function BuscadorAgregar({ categorias, materiales, selectedId, onChanged }) {
                 </div>
                 <PriceBadge material={m} />
                 {yaEsta ? (
-                  <span style={{ fontSize: 11, color: C.green, fontWeight: 700, padding: "5px 10px", whiteSpace: "nowrap" }}>✓ ya está acá</span>
+                  <span style={{ fontSize: 11, color: C.green, fontWeight: 600, padding: "5px 10px", whiteSpace: "nowrap" }}>✓ ya está acá</span>
                 ) : (
                   <button type="button" disabled={busy === m.id} onClick={() => agregar(m)} style={{ ...BTN_PRIMARY, padding: "6px 12px", fontSize: 12, opacity: busy === m.id ? 0.6 : 1, whiteSpace: "nowrap" }}>
                     {busy === m.id ? "Agregando…" : "Agregar acá"}
@@ -3545,7 +3544,7 @@ function RevisionTab({ categorias, materiales, proveedores, onChanged }) {
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 13, color: C.t0, fontWeight: 700 }}>
+          <div style={{ fontSize: 13, color: C.t0, fontWeight: 600 }}>
             {categoriaNombre(categorias, effectiveSelectedId)}: {progress.revisados} / {progress.total} revisados
           </div>
           <div style={{ height: 7, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 99, marginTop: 7, overflow: "hidden" }}>
@@ -3624,7 +3623,7 @@ function RevisionTab({ categorias, materiales, proveedores, onChanged }) {
           />
         ) : (
           <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 20, marginBottom: 18 }}>
-            <div style={{ fontSize: 15, color: C.green, fontWeight: 700 }}>Sector revisado</div>
+            <div style={{ fontSize: 15, color: C.green, fontWeight: 600 }}>Sector revisado</div>
             <div style={{ fontSize: 13, color: C.t1, marginTop: 6 }}>No quedan materiales pendientes en este sector.</div>
           </div>
         )
@@ -3712,8 +3711,8 @@ function ResumenTab({ categorias, materiales }) {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <KpiCard label="Materiales" value={total} />
         <KpiCard label="Revisados" value={`${pct}%`} sub={`${revisados} de ${total}`} color={pct === 100 ? C.green : "#60a5fa"} />
-        <KpiCard label="Sin precio" value={sinPrecio} color={sinPrecio ? C.amber : C.green} />
-        <KpiCard label="Sin UM" value={sinUm} color={sinUm ? C.amber : C.green} />
+        <KpiCard label="Sin precio" value={sinPrecio} color={sinPrecio ? C.cyan : C.green} />
+        <KpiCard label="Sin UM" value={sinUm} color={sinUm ? C.cyan : C.green} />
         <KpiCard label="Sin código" value={sinCodigo} color={sinCodigo ? C.t2 : C.green} />
       </div>
 
@@ -3751,9 +3750,9 @@ function ResumenTab({ categorias, materiales }) {
                     <span style={{ fontFamily: C.mono, color: C.t2, fontSize: 12 }}>{row.pct}%</span>
                   </div>
                 </Td>
-                <Td right mono color={row.sinPrecio ? C.amber : C.t2}>{row.sinPrecio}</Td>
+                <Td right mono color={row.sinPrecio ? C.cyan : C.t2}>{row.sinPrecio}</Td>
                 <Td right mono color={row.promedio ? C.t1 : C.t2}>{row.promedio ? fmtMoney(row.promedio, "") : "—"}</Td>
-                <Td right mono color={row.sinUm ? C.amber : C.t2}>{row.sinUm}</Td>
+                <Td right mono color={row.sinUm ? C.cyan : C.t2}>{row.sinUm}</Td>
                 <Td right mono color={row.sinCodigo ? C.t2 : C.green}>{row.sinCodigo}</Td>
               </tr>
             ))}
@@ -3829,7 +3828,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
         <span style={{ fontSize: 12, color: C.t2 }}>Modelo de barco:</span>
         <div style={{ display: "flex", gap: 4, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
           {MODELOS.map((mod) => (
-            <button key={mod} type="button" onClick={() => setModelo(mod)} style={{ ...BTN, border: "none", background: modelo === mod ? C.s2 : "transparent", color: modelo === mod ? C.t0 : C.t2, padding: "6px 16px", fontWeight: modelo === mod ? 700 : 500 }}>
+            <button key={mod} type="button" onClick={() => setModelo(mod)} style={{ ...BTN, border: "none", background: modelo === mod ? C.s2 : "transparent", color: modelo === mod ? C.t0 : C.t2, padding: "6px 16px", fontWeight: modelo === mod ? 600 : 500 }}>
               K{mod}
             </button>
           ))}
@@ -3841,7 +3840,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
         <KpiCard label="Línea de eje USD" value={fmtMoney(total.ejeUsd, "USD")} sub="Sólo si aplica a la obra" color={C.violet} />
         <KpiCard label={`Base estimada ARS · K${modelo}`} value={fmtMoney(total.ars, "ARS")} color={C.t0} />
         <KpiCard label="Ítems con cantidad" value={total.items} color={C.t1} />
-        <KpiCard label="Sin precio (faltan cotizar)" value={total.sinPrecio} color={total.sinPrecio ? C.amber : C.green} />
+        <KpiCard label="Sin precio (faltan cotizar)" value={total.sinPrecio} color={total.sinPrecio ? C.cyan : C.green} />
       </div>
 
       <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
@@ -3861,7 +3860,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
               <tr key={f.cat.id}>
                 <Td>{f.cat.nombre}</Td>
                 <Td right mono>{f.agg.items || "—"}</Td>
-                <Td right mono color={f.agg.sinPrecio ? C.amber : C.t2}>{f.agg.sinPrecio || "—"}</Td>
+                <Td right mono color={f.agg.sinPrecio ? C.cyan : C.t2}>{f.agg.sinPrecio || "—"}</Td>
                 <Td right mono>{money(f.agg.usd, "USD")}</Td>
                 <Td right mono color={f.agg.ejeUsd ? C.violet : C.t2}>{money(f.agg.ejeUsd, "USD")}</Td>
                 <Td right mono>{money(f.agg.ars, "ARS")}</Td>
@@ -3870,7 +3869,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
                 <tr key={s.cat.id} style={{ background: C.s0 }}>
                   <Td><span style={{ paddingLeft: 18, color: C.t2 }}>? {s.cat.nombre}</span></Td>
                   <Td right mono color={C.t2}>{s.agg.items || "—"}</Td>
-                  <Td right mono color={s.agg.sinPrecio ? C.amber : C.t2}>{s.agg.sinPrecio || "—"}</Td>
+                  <Td right mono color={s.agg.sinPrecio ? C.cyan : C.t2}>{s.agg.sinPrecio || "—"}</Td>
                   <Td right mono color={C.t2}>{money(s.agg.usd, "USD")}</Td>
                   <Td right mono color={s.agg.ejeUsd ? C.violet : C.t2}>{money(s.agg.ejeUsd, "USD")}</Td>
                   <Td right mono color={C.t2}>{money(s.agg.ars, "ARS")}</Td>
@@ -3882,7 +3881,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
             <tr style={{ borderTop: `2px solid ${C.b1}` }}>
               <Td><strong>Total obra K{modelo}</strong></Td>
               <Td right mono><strong>{total.items}</strong></Td>
-              <Td right mono color={total.sinPrecio ? C.amber : C.t2}><strong>{total.sinPrecio || "—"}</strong></Td>
+              <Td right mono color={total.sinPrecio ? C.cyan : C.t2}><strong>{total.sinPrecio || "—"}</strong></Td>
               <Td right mono><strong>{fmtMoney(total.usd, "USD")}</strong></Td>
               <Td right mono color={total.ejeUsd ? C.violet : C.t2}><strong>{fmtMoney(total.ejeUsd, "USD")}</strong></Td>
               <Td right mono><strong>{fmtMoney(total.ars, "ARS")}</strong></Td>
@@ -3920,7 +3919,7 @@ function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
 
   if (!row.materialId) {
     return (
-      <div style={{ flex: "1 1 100%", border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "8px 10px", color: C.amber, fontSize: 11.5 }}>
+      <div style={{ flex: "1 1 100%", border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "8px 10px", color: C.cyan, fontSize: 11.5 }}>
         Este adicional no está vinculado al catálogo de pañol. Vinculalo antes de asignarlo a una etapa de compra.
       </div>
     );
@@ -3930,19 +3929,19 @@ function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
     <div style={{ flex: "1 1 100%", display: "grid", gap: 8, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: "9px 10px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11.5, fontWeight: 950, color: C.t0 }}>Etapas de compra</div>
+          <div style={{ fontSize: 11.5, fontWeight: 750, color: C.t0 }}>Etapas de compra</div>
           <div style={{ fontSize: 10.5, color: C.t2, marginTop: 1 }}>
             {asignaciones.length ? "Mover conserva la cantidad y las notas de la asignación." : "Este material todavía está sin asignar."}
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {asignaciones.length ? asignaciones.map((etapa) => (
-            <span key={etapa.filaId} title={`${qtyText(etapa.cantidad, etapa.unidad || row.unidad)} en ${etapa.nombre}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 900, color: etapa.color, background: `${etapa.color}16`, border: `1px solid ${etapa.color}48`, borderRadius: 999, padding: "3px 7px" }}>
+            <span key={etapa.filaId} title={`${qtyText(etapa.cantidad, etapa.unidad || row.unidad)} en ${etapa.nombre}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: etapa.color, background: `${etapa.color}16`, border: `1px solid ${etapa.color}48`, borderRadius: 999, padding: "3px 7px" }}>
               <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color }} />
               {etapa.nombre}
             </span>
           )) : (
-            <span style={{ fontSize: 10, fontWeight: 900, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px" }}>
               Sin asignar
             </span>
           )}
@@ -3952,7 +3951,7 @@ function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
       {etapas.length === 0 ? (
         <div style={{ color: C.t2, fontSize: 11.5 }}>Esta obra todavía no tiene etapas de compra. Crealas desde el seguimiento de Compras.</div>
       ) : destinos.length === 0 ? (
-        <div style={{ color: C.green, fontSize: 11.5, fontWeight: 800 }}>El material ya está contemplado en todas las etapas disponibles.</div>
+        <div style={{ color: C.green, fontSize: 11.5, fontWeight: 650 }}>El material ya está contemplado en todas las etapas disponibles.</div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
           {asignaciones.length > 1 ? (
@@ -5341,7 +5340,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       {[["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
       <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
-        <strong style={{ fontWeight: 650 }}>Cantidades</strong>
+        <strong style={{ fontWeight: 600 }}>Cantidades</strong>
         {[["Necesario", cant.necesita], ["Recibido", cant.panol], ["Entregado", cant.entregado], ["Por comprar", cant.faltaComprar], ["Por entregar", cant.faltaEntregar]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.muted }}>{label}</span><span style={{ fontFamily: C.mono }}>{qtyText(value, row.unidad)}</span></div>)}
         <DesgloseCantidad row={row} />
         {row.cantidadOrigenEtapa && <span style={{ color: C.blue }}>Cantidad de esta etapa</span>}
@@ -5484,7 +5483,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "3px 0 7px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ minWidth: 160 }}>
           <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", color: C.muted, cursor: "pointer", padding: "0 0 4px", fontSize: 11, fontFamily: C.sans }}>← {lineaNombre}</button>
-          <h2 style={{ margin: 0, fontSize: 20, lineHeight: 1.2, fontWeight: 650, color: C.text }}>Obra {obra.codigo}</h2>
+          <h2 style={{ margin: 0, fontSize: 20, lineHeight: 1.2, fontWeight: 600, color: C.text }}>Obra {obra.codigo}</h2>
           <span style={{ fontSize: 11, color: C.muted }}>{kpis.items.toLocaleString("es-AR")} ítems · {snapshotStatus.label}</span>
         </div>
         {/* Cada número es un atajo al filtro de la columna Estado: cuenta las
@@ -5499,7 +5498,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           ].map(([label, etiquetas, color]) => {
             const value = etiquetas.reduce((sum, e) => sum + (conteoEstadoObra.get(e) || 0), 0);
             const puesto = etiquetas.length === estadosSel.size && etiquetas.every((e) => estadosSel.has(e));
-            return <button key={label} type="button" aria-pressed={puesto} onClick={() => setEstadosSel(puesto ? new Set() : new Set(etiquetas))} style={{ display: "grid", gap: 3, border: "none", borderLeft: `1px solid ${C.border}`, borderBottom: `2px solid ${puesto ? color : "transparent"}`, background: "transparent", textAlign: "left", padding: "4px 13px", cursor: "pointer", fontFamily: C.sans }}><span style={{ display: "block", fontSize: 11, color: C.muted }}>{label}</span><strong style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 650, color }}>{value.toLocaleString("es-AR")}</strong></button>;
+            return <button key={label} type="button" aria-pressed={puesto} onClick={() => setEstadosSel(puesto ? new Set() : new Set(etiquetas))} style={{ display: "grid", gap: 3, border: "none", borderLeft: `1px solid ${C.border}`, borderBottom: `2px solid ${puesto ? color : "transparent"}`, background: "transparent", textAlign: "left", padding: "4px 13px", cursor: "pointer", fontFamily: C.sans }}><span style={{ display: "block", fontSize: 11, color: C.muted }}>{label}</span><strong style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 600, color }}>{value.toLocaleString("es-AR")}</strong></button>;
           })}
         </div>
         <div style={{ fontSize: 11, color: C.muted, textAlign: "right" }}>
@@ -5523,12 +5522,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 10, marginBottom: 12, display: "grid", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Configuracion de esta obra</div>
+              <div style={{ fontSize: 12.5, fontWeight: 750, color: C.t0 }}>Configuracion de esta obra</div>
               <div style={{ fontSize: 11, color: C.t2, marginTop: 2, lineHeight: 1.35 }}>
                 Se toca una vez: base + condicionantes activos.
               </div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 900, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 999, padding: "4px 9px" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 999, padding: "4px 9px" }}>
               {condicionantesActivos.length}/{condicionantesModelo.length} activos
             </span>
           </div>
@@ -5548,12 +5547,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 <div key={condicionante.id} style={{ border: `1px solid ${active ? C.greenB : C.b0}`, background: active ? C.greenL : C.s0, borderRadius: 10, padding: "7px 8px", display: "grid", gap: 5 }} title={condicionante.descripcion || condicionante.nombre}>
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionante.nombre}</div>
+                      <div style={{ fontSize: 12, fontWeight: 750, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionante.nombre}</div>
                       <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
                         {condicionante.definidoEnObra ? "Definido en esta obra" : condicionante.activo_por_defecto ? "Activo por defecto" : "Apagado por defecto"}
                       </div>
                     </div>
-                    <button type="button" disabled={condicionanteBusy === condicionante.id} onClick={() => toggleCondicionanteObra(condicionante)} style={{ ...BTN, padding: "4px 8px", color: active ? C.green : C.t2, borderColor: active ? C.greenB : C.b0, background: active ? C.bg : C.s0, fontSize: 10.5, fontWeight: 900 }}>
+                    <button type="button" disabled={condicionanteBusy === condicionante.id} onClick={() => toggleCondicionanteObra(condicionante)} style={{ ...BTN, padding: "4px 8px", color: active ? C.green : C.t2, borderColor: active ? C.greenB : C.b0, background: active ? C.bg : C.s0, fontSize: 10.5, fontWeight: 700 }}>
                       {active ? "Lleva" : "No lleva"}
                     </button>
                   </div>
@@ -5575,7 +5574,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       {obraPanel === "excluidos" && (
         <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 10 }}>
           <div>
-            <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Items quitados solo de {obra.codigo}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 750, color: C.t0 }}>Items quitados solo de {obra.codigo}</div>
             <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
               No se borran del catalogo ni de la matriz K{linea}; simplemente no aplican a esta obra.
             </div>
@@ -5584,7 +5583,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             {exclusionesDetalle.map((item) => (
               <div key={item.material_id} style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 10, flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 900, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.material?.descripcion || "Material excluido"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.material?.descripcion || "Material excluido"}</div>
                   <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{item.material?.codigo || "sin codigo"}{item.motivo ? ` · ${item.motivo}` : ""}</div>
                 </div>
                 <button type="button" disabled={exclusionBusy === item.material_id} onClick={() => restaurarRowEnObra(item.material_id)} style={{ ...BTN_GREEN, padding: "7px 10px", fontSize: 11 }}>
@@ -5628,7 +5627,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           <div style={{ width: "min(560px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>
+                <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>
                   ¿Mandar {pedidoConfirm.rows.length} {pedidoConfirm.rows.length === 1 ? "ítem" : "ítems"} a Compras?
                 </div>
                 <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
@@ -5641,7 +5640,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             </div>
 
             <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", color: C.t2 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", color: C.t2 }}>
                 Título del pedido
               </span>
               <input
@@ -5658,7 +5657,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                   color: C.t0,
                   padding: "9px 10px",
                   fontSize: 13,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   fontFamily: C.sans,
                   outline: "none",
                 }}
@@ -5672,11 +5671,11 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               {pedidoConfirm.rows.map((row, index) => (
                 <div key={row.id || index} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "5px 4px", borderBottom: index === pedidoConfirm.rows.length - 1 ? "none" : `1px solid ${C.b0}` }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                    <div style={{ fontSize: 12, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
                     <div style={{ fontSize: 10.5, color: C.t3 }}>{row.proveedor || "Sin proveedor"}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: tieneAjusteCondicionante(row) ? C.violet : C.t1, whiteSpace: "nowrap" }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: tieneAjusteCondicionante(row) ? C.violet : C.t1, whiteSpace: "nowrap" }}>
                       {qtyText(row.cantidad, row.unidad)}
                     </div>
                     <DesgloseCantidad row={row} />
@@ -5700,7 +5699,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           <div style={{ width: "min(460px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>Reasignar adicional</div>
+                <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>Reasignar adicional</div>
                 <div style={{ fontSize: 12, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {reassignAddon.descripcion || "Item adicional"}
                 </div>
@@ -5721,7 +5720,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             )}
 
             <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ fontSize: 10, fontWeight: 900, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
               <select
                 value={reassignObraId}
                 disabled={reassignAddon.__snapshotLocked || reassignBusy}
@@ -6298,7 +6297,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     borderRadius: 999,
     padding: "7px 11px",
     fontSize: 12,
-    fontWeight: 900,
+    fontWeight: 700,
     cursor: "pointer",
     fontFamily: C.sans,
     transition: "background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease",
@@ -6328,7 +6327,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
           <select
             value={code}
             onChange={(event) => onSelectLinea?.(event.target.value)}
-            style={{ ...INP, width: 112, height: 32, borderRadius: 8, padding: "0 24px 0 10px", fontWeight: 900, color: C.t0, background: C.s0 }}
+            style={{ ...INP, width: 112, height: 32, borderRadius: 8, padding: "0 24px 0 10px", fontWeight: 700, color: C.t0, background: C.s0 }}
             title="Cambiar linea"
           >
             {lineOptions.map((item) => {
@@ -6337,14 +6336,14 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             })}
           </select>
           {/* El selector de al lado ya dice K37: repetirlo de título no agrega nada. */}
-          {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 800, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" }}>{kpis.sinPrecio} sin precio</span> : null}
+          {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 650, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" }}>{kpis.sinPrecio} sin precio</span> : null}
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" }}>
             <span title="Presupuesto base estimado" style={{ display: "inline-flex", alignItems: "baseline", gap: 7, marginRight: 3 }}>
-              <span style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Presupuesto</span>
-              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 900, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</span>
+              <span style={{ fontSize: 10, color: C.t2, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.6 }}>Presupuesto</span>
+              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</span>
             </span>
             {lineSnapshotsLoading ? (
-              <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 850 }}>Revisando listas de obras...</span>
+              <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 700 }}>Revisando listas de obras...</span>
             ) : lineSnapshotsError ? (
               <button type="button" onClick={cargarLineSnapshots} style={{ ...BTN, height: 32, padding: "0 10px", color: C.red, borderColor: C.redB, background: "rgba(239,68,68,0.08)" }} title={lineSnapshotsError}>
                 <AlertTriangle size={14} /> Reintentar control
@@ -6391,8 +6390,8 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
               ["Linea eje USD", kpis.ejeUsd ? fmtMoney(kpis.ejeUsd, "USD") : "-", C.t2],
             ].map(([label, value, color]) => (
               <div key={label} style={{ borderLeft: `2px solid ${color}`, padding: "3px 10px", minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 900 }}>{label}</div>
-                <div style={{ marginTop: 3, fontFamily: C.mono, fontSize: 13, fontWeight: 950, color }}>{value}</div>
+                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 700 }}>{label}</div>
+                <div style={{ marginTop: 3, fontFamily: C.mono, fontSize: 13, fontWeight: 750, color }}>{value}</div>
               </div>
             ))}
           </div>
@@ -6418,7 +6417,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                   title={`Abrir la lista de ${obra.codigo} · ${total ? obraRecepcionResumenLabel(r) : "sin lista"}`}
                   style={{ border: `1px solid ${C.b0}`, borderRadius: 8, background: C.panelSolid, color: C.t1, fontFamily: C.sans, padding: "0 8px 0 9px", height: 30, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}
                 >
-                  <span style={{ color: C.t0, fontWeight: 800, fontSize: 12.5, letterSpacing: -0.2 }}>{obra.codigo}</span>
+                  <span style={{ color: C.t0, fontWeight: 650, fontSize: 12.5, letterSpacing: -0.2 }}>{obra.codigo}</span>
                   {/* La barra dice el avance sin que haya que leer el número. */}
                   <span style={{ display: "flex", width: 34, height: 4, borderRadius: 99, overflow: "hidden", background: C.panel3 }}>
                     {total ? <>
@@ -6426,7 +6425,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                       <i style={{ width: pc(enPanol), background: C.violet }} />
                     </> : null}
                   </span>
-                  <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 650, whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 600, whiteSpace: "nowrap" }}>
                     {total ? obraRecepcionResumenLabel(r) : "sin lista"}
                   </span>
                   <ChevronRight className="obra-linea-flecha" size={13} style={{ color: C.t2 }} />
@@ -6439,7 +6438,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
           <div style={{ marginTop: 14, borderTop: `1px solid ${C.b0}`, paddingTop: 12, display: "grid", gap: 9 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 950 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 750 }}>
                   <AlertTriangle size={15} /> Control de matriz K{code}
                 </div>
                 <div style={{ marginTop: 3, color: C.t2, fontSize: 11.5, lineHeight: 1.4 }}>
@@ -6461,10 +6460,10 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                   <div key={issue.key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.tealB}`, background: "color-mix(in srgb, var(--panel) 88%, #14b8a6 6%)", borderRadius: 11, padding: "8px 9px" }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{issue.descripcion}</span>
-                        <span style={{ fontSize: 9.5, color: C.teal, border: `1px solid ${C.tealB}`, background: C.tealL, borderRadius: 999, padding: "2px 6px", fontWeight: 900, textTransform: "capitalize" }}>{tipoLabel}</span>
-                        {!issue.materialId ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 900 }}>Sin vínculo catálogo</span> : null}
-                        {issue.cantidadesDistintas ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 900 }}>Cantidades distintas</span> : null}
+                        <span style={{ minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{issue.descripcion}</span>
+                        <span style={{ fontSize: 9.5, color: C.teal, border: `1px solid ${C.tealB}`, background: C.tealL, borderRadius: 999, padding: "2px 6px", fontWeight: 700, textTransform: "capitalize" }}>{tipoLabel}</span>
+                        {!issue.materialId ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 700 }}>Sin vínculo catálogo</span> : null}
+                        {issue.cantidadesDistintas ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 700 }}>Cantidades distintas</span> : null}
                       </div>
                       <div title={obraCodes.join(", ")} style={{ marginTop: 4, color: C.t2, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {issue.codigo || "sin código"} · {issue.obras.length} obras: {obraCodes.join(", ")}
@@ -6502,7 +6501,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <span style={{ width: 8, height: 8, borderRadius: 999, background: secondaryState.error ? C.red : C.violet, boxShadow: `0 0 0 4px ${secondaryState.error ? C.red : C.violet}18`, flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: secondaryState.error ? C.red : C.t0, fontSize: 12.5, fontWeight: 950 }}>
+              <div style={{ color: secondaryState.error ? C.red : C.t0, fontSize: 12.5, fontWeight: 750 }}>
                 {secondaryState.loading ? "Cargando materiales de producción…" : secondaryState.error ? "No se pudieron cargar los materiales de producción" : `${secondaryRows.length} materiales de producción incluidos en K${code}`}
               </div>
               <div style={{ color: C.t2, fontSize: 10.5, marginTop: 2 }}>
@@ -6511,7 +6510,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             </div>
           </div>
           {!secondaryState.loading && !secondaryState.error && (
-            <span style={{ color: C.violet, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", borderRadius: 999, padding: "4px 9px", fontSize: 10.5, fontWeight: 900 }}>
+            <span style={{ color: C.violet, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", borderRadius: 999, padding: "4px 9px", fontSize: 10.5, fontWeight: 700 }}>
               No genera OC de Pañol
             </span>
           )}
@@ -6594,7 +6593,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                 type="button"
                 onClick={() => setTipoFilter("linea_eje")}
                 title={`El barco estándar no lleva línea de eje. Hay ${ocultosLineaEje} ítems que sólo van si la obra la lleva; tocá para verlos.`}
-                style={{ ...filterPillStyle(false, C.violet), color: C.t2, fontWeight: 650 }}
+                style={{ ...filterPillStyle(false, C.violet), color: C.t2, fontWeight: 600 }}
               >
                 {`+${ocultosLineaEje} de línea de eje`}
               </button>
@@ -6615,7 +6614,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         <div ref={listaRef} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, overflow: "clip", background: "var(--panel)" }}>
           <div style={{ overflow: "auto", height: listaAlto, minHeight: 320, scrollbarWidth: "thin", scrollbarColor: "var(--border) transparent" }}>
             <div style={{ minWidth: 940, fontSize: 12.5 }}>
-              <div role="row" style={{ display: "grid", gridTemplateColumns: MATRIZ_COLS, alignItems: "center", minHeight: 42, position: "sticky", top: 0, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.b1}`, color: C.t2, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <div role="row" style={{ display: "grid", gridTemplateColumns: MATRIZ_COLS, alignItems: "center", minHeight: 42, position: "sticky", top: 0, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.b1}`, color: C.t2, fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 <span />
                 <span style={{ padding: "0 12px" }}>Material</span>
                 <ObraColumnFilter label="Rubro" options={opcionesColumna.rubros} selected={rubrosSel} onChange={setRubrosSel} />
@@ -6630,14 +6629,14 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                   {/* Fondo sólido, no var(--panel-2): al quedar fijo, un fondo
                       con transparencia deja ver la fila que pasa por debajo. */}
                   <div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 42, padding: "0 14px", background: C.panelSolid2, borderBottom: `1px solid ${C.b0}`, boxShadow: `inset 3px 0 0 ${group.color || C.blue}`, position: "sticky", top: 34, zIndex: 2 }}>
-                    <strong style={{ fontSize: 13, fontWeight: 800, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{group.label}</strong>
-                    <span style={{ fontSize: 11, color: C.t2, background: C.panel2, borderRadius: 6, padding: "2px 7px", fontWeight: 700, whiteSpace: "nowrap" }}>{group.totalRows ?? group.rows.length}</span>
+                    <strong style={{ fontSize: 13, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{group.label}</strong>
+                    <span style={{ fontSize: 11, color: C.t2, background: C.panel2, borderRadius: 6, padding: "2px 7px", fontWeight: 600, whiteSpace: "nowrap" }}>{group.totalRows ?? group.rows.length}</span>
                     {group.sinPrecio ? <span style={{ fontSize: 11, color: C.red, whiteSpace: "nowrap" }}>{group.sinPrecio} sin precio</span> : null}
                     <span style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", whiteSpace: "nowrap" }}>
                       {/* Teal y no ámbar: "a revisar" es una tarea pendiente, no una alarma. */}
-                      {group.revisar ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.teal }}>{group.revisar} a revisar</span> : null}
-                      {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, color: C.t1 }}>{fmtMoney(group.usd, "USD")}</span> : null}
-                      {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, color: C.t1 }}>{fmtMoney(group.ars, "ARS")}</span> : null}
+                      {group.revisar ? <span style={{ fontSize: 10.5, fontWeight: 650, color: C.teal }}>{group.revisar} a revisar</span> : null}
+                      {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 600, color: C.t1 }}>{fmtMoney(group.usd, "USD")}</span> : null}
+                      {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 600, color: C.t1 }}>{fmtMoney(group.ars, "ARS")}</span> : null}
                     </span>
                   </div>
                   {group.rows.map((row) => {
@@ -6664,7 +6663,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                         >
                           <div style={{ display: "grid", placeItems: "center" }}>
                             {row.secundario ? (
-                              <span title="Material de producción: conserva su circuito propio" style={{ width: 18, height: 18, display: "grid", placeItems: "center", borderRadius: 5, border: `1px solid ${C.violet}44`, color: C.violet, fontSize: 9, fontWeight: 950 }}>P</span>
+                              <span title="Material de producción: conserva su circuito propio" style={{ width: 18, height: 18, display: "grid", placeItems: "center", borderRadius: 5, border: `1px solid ${C.violet}44`, color: C.violet, fontSize: 9, fontWeight: 750 }}>P</span>
                             ) : (
                               <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} title="Seleccionar para la orden" style={{ accentColor: C.blue, margin: 0 }} />
                             )}
@@ -6677,7 +6676,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                             <div style={{ minWidth: 0, display: "grid", gap: 3 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                                 <span style={{ fontSize: 13.5, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{row.descripcion}</span>
-                                <span style={{ fontSize: 10, fontWeight: 800, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{row.bucket.label}</span>
+                                <span style={{ fontSize: 10, fontWeight: 650, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{row.bucket.label}</span>
                                 {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                               </div>
                               <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -6694,18 +6693,18 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                             <ProveedorAlternativasHint proveedor={row.proveedor} proveedores={proveedores} compact />
                           </div>
                           <div style={{ padding: "0 12px", textAlign: "right" }}>
-                            <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 800, color: row.secundario ? C.violet : tieneAjusteCondicionante(row) ? C.cyan : C.t0 }}>{qtyText(qty, row.unidad)}</span>
+                            <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 650, color: row.secundario ? C.violet : tieneAjusteCondicionante(row) ? C.cyan : C.t0 }}>{qtyText(qty, row.unidad)}</span>
                             {row.secundario && row.circuito === "maderas"
                               ? <div style={{ color: C.t2, fontSize: 9.5 }}>{row.referenciaMaderasCodigo ? `Patrón: ${row.referenciaMaderasCodigo}` : `${lineObras.length} ${lineObras.length === 1 ? "obra K" : "obras K"}${code}`}</div>
                               : null}
                             {!row.secundario && <DesgloseCantidad row={row} />}
                           </div>
                           {/* Sin precio va en rojo: es lo que traba una compra, no un aviso. */}
-                          <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: row.precio.amount ? 13 : 11.5, fontWeight: 800, color: row.precio.amount ? C.t0 : C.red }}>{row.precio.amount ? row.precio.text : "Sin precio"}</div>
+                          <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: row.precio.amount ? 13 : 11.5, fontWeight: 650, color: row.precio.amount ? C.t0 : C.red }}>{row.precio.amount ? row.precio.text : "Sin precio"}</div>
                           <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{total ? fmtMoney(total, row.precio.moneda) : ""}</div>
                           <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", paddingRight: 10 }}>
                             {row.secundario ? (
-                              <span title="Se administra desde su módulo de origen" style={{ color: C.violet, fontSize: 9.5, fontWeight: 900 }}>propio</span>
+                              <span title="Se administra desde su módulo de origen" style={{ color: C.violet, fontSize: 9.5, fontWeight: 700 }}>propio</span>
                             ) : (
                               <>
                                 <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: 5, minHeight: 28, color: editing ? C.blue : C.t2, borderColor: "transparent", background: "transparent" }} title="Editar item">
@@ -6931,7 +6930,7 @@ function DesgloseCantidad({ row }) {
   return (
     <div
       title={detalle || "Cantidad ajustada por la configuración de esta obra"}
-      style={{ marginTop: 3, color: C.amber, fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}
+      style={{ marginTop: 3, color: C.cyan, fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}
     >
       {qtyText(base, row.unidad)} base {sign} {qtyText(Math.abs(ajuste), row.unidad)} = {qtyText(row.cantidad, row.unidad)}
     </div>
@@ -6947,7 +6946,7 @@ function condicionanteItemLabel(item) {
 function RecepcionChip({ row }) {
   const meta = recepcionMetaForRow(row);
   return (
-    <span style={{ fontSize: 10, fontWeight: 900, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+    <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
       {meta.label}
     </span>
   );
@@ -6960,7 +6959,7 @@ function StockLibreChip({ info, loading = false }) {
     .map(([sede, qty]) => `${sede}: ${qtyText(qty, info.unidad)}`);
   const title = sedes.length ? `Stock sin obra asignada · ${sedes.join(" · ")}` : "Stock sin obra asignada";
   return (
-    <span title={title} style={{ fontSize: 10, fontWeight: 950, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+    <span title={title} style={{ fontSize: 10, fontWeight: 750, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
       Stock libre {qtyText(info.cantidad, info.unidad)}
     </span>
   );
@@ -6968,7 +6967,7 @@ function StockLibreChip({ info, loading = false }) {
 
 function CompactStat({ label, value, color, active = false, onClick }) {
   return (
-    <button type="button" onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.b0}`, background: active ? softStateBg(color) : C.s0, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850, color: active ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans }}>
+    <button type="button" onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.b0}`, background: active ? softStateBg(color) : C.s0, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700, color: active ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans }}>
       <span>{label}</span>
       <span style={{ color, fontFamily: C.mono }}>{value}</span>
     </button>
@@ -6977,7 +6976,7 @@ function CompactStat({ label, value, color, active = false, onClick }) {
 
 function softStateBg(color) {
   if (color === C.blue) return C.blueL;
-  if (color === C.amber) return C.amberL;
+  if (color === C.cyan) return C.cyanL;
   if (color === C.green) return C.greenL;
   if (color === C.violet) return "var(--violet-soft)";
   return C.s1;
@@ -7046,7 +7045,7 @@ function ObraEstadoControl({ row, busy = false, onChange }) {
           onChange={(e) => setEstadoDraft(e.target.value)}
           disabled={busy}
           title="Estado de esta obra"
-          style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, fontWeight: 850, minWidth: 0 }}
+          style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, fontWeight: 700, minWidth: 0 }}
         >
           {OBRA_ESTADO_OPTIONS.map(([value, label]) => <option key={value} value={value} style={OPT_ST}>{label}</option>)}
         </select>
@@ -7080,7 +7079,7 @@ function ObraEstadoControl({ row, busy = false, onChange }) {
             style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, minWidth: 0, borderColor: retira.trim() ? C.b0 : C.red }}
           />
           {!retira.trim() && (
-            <span style={{ fontSize: 10, color: C.red, fontWeight: 800 }}>Obligatorio para marcar como egresado.</span>
+            <span style={{ fontSize: 10, color: C.red, fontWeight: 650 }}>Obligatorio para marcar como egresado.</span>
           )}
         </div>
       )}
@@ -7115,7 +7114,7 @@ function ObraSnapshotHistory({ snapshotId }) {
     return () => { alive = false; };
   }, [snapshotId]);
 
-  if (loading) return <div style={{ fontSize: 11, color: C.t2 }}>Cargando historial...</div>;
+  if (loading) return <Cargando compacto texto="Cargando historial…" />;
   if (error) return <div style={{ fontSize: 11, color: C.red }}>{error}</div>;
   if (!rows.length) return <div style={{ fontSize: 11, color: C.t2 }}>Sin cambios registrados.</div>;
 
@@ -7126,7 +7125,7 @@ function ObraSnapshotHistory({ snapshotId }) {
         return (
           <div key={item.id} style={{ display: "grid", gap: 2, borderBottom: `1px solid ${C.b0}`, paddingBottom: 5 }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10.5, fontWeight: 900, color: C.t0 }}>{item.campo}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: C.t0 }}>{item.campo}</span>
               <span style={{ fontSize: 10, color: C.t3, fontFamily: C.mono }}>{auditDateLabel(item.created_at)}</span>
               <span style={{ fontSize: 10, color: C.t2 }}>{actor}</span>
             </div>
@@ -7182,15 +7181,15 @@ function SnapshotTraceCard({
   const origen = String(row.source || "matriz").replaceAll("_", " ");
 
   return (
-    <div style={{ flex: "1 1 360px", minWidth: 0, display: "grid", gap: 8, padding: "10px 11px", border: `1px solid ${C.amberB}`, borderRadius: 10, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 88%, var(--amber) 7%), var(--panel))" }}>
+    <div style={{ flex: "1 1 360px", minWidth: 0, display: "grid", gap: 8, padding: "10px 11px", border: `1px solid ${C.cyanB}`, borderRadius: 10, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 88%, var(--cyan) 7%), var(--panel))" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 950 }}>Tracking de fila histórica</div>
+          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 750 }}>Tracking de fila histórica</div>
           <div style={{ marginTop: 2, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
             Está visible porque la obra la conserva, pero no encontró equivalente en la matriz viva.
           </div>
         </div>
-        <span style={{ fontSize: 10, color: estadoMeta.color, border: `1px solid ${estadoMeta.border}`, background: estadoMeta.bg, borderRadius: 999, padding: "3px 7px", fontWeight: 900 }}>
+        <span style={{ fontSize: 10, color: estadoMeta.color, border: `1px solid ${estadoMeta.border}`, background: estadoMeta.bg, borderRadius: 999, padding: "3px 7px", fontWeight: 700 }}>
           {estadoMeta.label}
         </span>
       </div>
@@ -7210,13 +7209,13 @@ function SnapshotTraceCard({
 
       <div style={{ padding: "7px 8px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, fontSize: 11, lineHeight: 1.45 }}>
         {catalogStatus}
-        {lockReason ? <span style={{ color: C.amber }}> {lockReason}</span> : <span style={{ color: C.green }}> No tiene movimientos bloqueantes.</span>}
+        {lockReason ? <span style={{ color: C.cyan }}> {lockReason}</span> : <span style={{ color: C.green }}> No tiene movimientos bloqueantes.</span>}
       </div>
 
       {!material?.id ? (
         <div style={{ display: "grid", gap: 7, padding: "9px", border: `1px solid ${C.blueB}`, borderRadius: 9, background: C.blueL }}>
           <div>
-            <div style={{ fontSize: 10.5, color: C.blue, fontWeight: 950 }}>Vincular al catálogo</div>
+            <div style={{ fontSize: 10.5, color: C.blue, fontWeight: 750 }}>Vincular al catálogo</div>
             <div style={{ marginTop: 2, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
               Elegí un material ya existente o crealo acá. Después se habilita Pasar a estándar para K{linea}.
             </div>
@@ -7317,7 +7316,7 @@ function SnapshotTraceCard({
 
       {row.snapshotId ? (
         <div style={{ display: "grid", gap: 5, paddingTop: 2 }}>
-          <div style={{ fontSize: 10, color: C.t3, textTransform: "uppercase", letterSpacing: .8, fontWeight: 850 }}>Historial registrado</div>
+          <div style={{ fontSize: 10, color: C.t3, textTransform: "uppercase", letterSpacing: .8, fontWeight: 700 }}>Historial registrado</div>
           <ObraSnapshotHistory snapshotId={row.snapshotId} />
         </div>
       ) : null}
@@ -7676,10 +7675,10 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
 
 function LineaMetricDot({ label, value, color }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 10px", borderRadius: 999, color: C.t2, fontSize: 12, fontWeight: 850, whiteSpace: "nowrap" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 10px", borderRadius: 999, color: C.t2, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
       <span style={{ width: 7, height: 7, borderRadius: 999, background: color, boxShadow: `0 0 10px ${color}88`, flexShrink: 0 }} />
       <span>{label}</span>
-      <span style={{ color: C.t0, fontFamily: C.mono, fontWeight: 950 }}>{value}</span>
+      <span style={{ color: C.t0, fontFamily: C.mono, fontWeight: 750 }}>{value}</span>
     </span>
   );
 }
@@ -7745,8 +7744,8 @@ function ResolverFueraDeMatrizModal({
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-              <AlertTriangle size={17} style={{ color: C.amber }} />
-              <span style={{ color: C.t0, fontSize: 15, fontWeight: 950 }}>Resolver fuera de matriz</span>
+              <AlertTriangle size={17} style={{ color: C.cyan }} />
+              <span style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>Resolver fuera de matriz</span>
             </div>
             <div style={{ marginTop: 5, color: C.t2, fontSize: 11.5, lineHeight: 1.4 }}>
               Se conserva el historial de {issue.obras.length} obra(s), se vincula al catálogo si hace falta y se agrega como estándar de K{linea}.
@@ -7757,27 +7756,27 @@ function ResolverFueraDeMatrizModal({
           </button>
         </div>
 
-        <div style={{ border: `1px solid ${C.amberB}`, borderRadius: 11, background: "color-mix(in srgb, var(--panel) 88%, #f59e0b 6%)", padding: "9px 10px" }}>
-          <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 950 }}>{issue.descripcion}</div>
+        <div style={{ border: `1px solid ${C.cyanB}`, borderRadius: 11, background: "color-mix(in srgb, var(--panel) 88%, #22d3ee 6%)", padding: "9px 10px" }}>
+          <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 750 }}>{issue.descripcion}</div>
           <div style={{ marginTop: 5, display: "flex", gap: 5, flexWrap: "wrap" }}>
             <span style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>{issue.obras.length} obras afectadas</span>
             <span style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>{issue.snapshotIds.length} filas históricas</span>
-            {!issue.materialId ? <span style={{ fontSize: 10, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px", fontWeight: 900 }}>Sin vínculo catálogo</span> : null}
+            {!issue.materialId ? <span style={{ fontSize: 10, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px", fontWeight: 700 }}>Sin vínculo catálogo</span> : null}
           </div>
         </div>
 
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: .7, fontWeight: 900 }}>Cantidad estándar para K{linea}</span>
+          <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: .7, fontWeight: 700 }}>Cantidad estándar para K{linea}</span>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
             <input type="number" min="0.001" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} disabled={busy} style={{ ...INP, width: 150, height: 36 }} />
             <span style={{ color: C.t2, fontSize: 12 }}>{issue.unidad || "unidad"}</span>
-            {issue.cantidadesDistintas ? <span style={{ color: C.red, fontSize: 10.5, fontWeight: 850 }}>Las obras tenían cantidades distintas: revisá este valor antes de confirmar.</span> : null}
+            {issue.cantidadesDistintas ? <span style={{ color: C.red, fontSize: 10.5, fontWeight: 700 }}>Las obras tenían cantidades distintas: revisá este valor antes de confirmar.</span> : null}
           </div>
         </label>
 
         <div style={{ display: "grid", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 11 }}>
           <div>
-            <div style={{ fontSize: 11, color: C.blue, fontWeight: 950 }}>Material de catálogo</div>
+            <div style={{ fontSize: 11, color: C.blue, fontWeight: 750 }}>Material de catálogo</div>
             <div style={{ marginTop: 2, color: C.t2, fontSize: 10.5 }}>Buscá por nombre, observación o #tag. Podés cambiar el vínculo existente si estaba mal.</div>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -8043,7 +8042,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         <div style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 18 }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 950, color: C.t0, letterSpacing: "-0.4px" }}>Matriz por línea de producción</div>
+            <div style={{ fontSize: 22, fontWeight: 750, color: C.t0, letterSpacing: "-0.4px" }}>Matriz por línea de producción</div>
             <div style={{ fontSize: 13, color: C.t2, marginTop: 5 }}>Entrá a una línea para administrar matriz, obras activas y preparación de compras.</div>
           </div>
 
@@ -8075,7 +8074,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
             <LineaMetricDot label="Líneas" value={totals.lineas} color={C.blue} />
             <LineaMetricDot label="Obras" value={totals.obras} color={C.green} />
             <LineaMetricDot label="Items" value={totals.items} color={C.violet} />
-            <LineaMetricDot label="Sin precio" value={totals.sinPrecio} color={totals.sinPrecio ? C.amber : C.green} />
+            <LineaMetricDot label="Sin precio" value={totals.sinPrecio} color={totals.sinPrecio ? C.cyan : C.green} />
           </div>
         </div>
       </div>
@@ -8113,15 +8112,15 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
                   alignItems: "center",
                   justifyContent: "center",
                   color: C.blue,
-                  fontWeight: 950,
+                  fontWeight: 750,
                   fontSize: 18,
                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 12px 24px -18px rgba(37,99,235,0.85)",
                 }}>
                   {linea.nombre?.replace("K", "") || linea.codigo}
                 </div>
                 <div>
-                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 950, color: C.t0, letterSpacing: "-0.4px" }}>{linea.nombre || `K${linea.codigo}`}</div>
-                  <div style={{ fontSize: 11.5, color: C.t2, fontWeight: 750 }}>{linea.obras.length} obras activas</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 750, color: C.t0, letterSpacing: "-0.4px" }}>{linea.nombre || `K${linea.codigo}`}</div>
+                  <div style={{ fontSize: 11.5, color: C.t2, fontWeight: 650 }}>{linea.obras.length} obras activas</div>
                 </div>
               </div>
               <div className="linea-arrow" style={{ width: 34, height: 34, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, transition: "transform .3s ease, color .3s ease, background .3s ease" }}>
@@ -8131,8 +8130,8 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
 
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Cobertura de precio</span>
-                <span style={{ fontFamily: C.mono, fontSize: 12, color: linea.progreso > 80 ? C.green : C.blue, fontWeight: 950 }}>{linea.progreso}%</span>
+                <span style={{ fontSize: 11, color: C.t2, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Cobertura de precio</span>
+                <span style={{ fontFamily: C.mono, fontSize: 12, color: linea.progreso > 80 ? C.green : C.blue, fontWeight: 750 }}>{linea.progreso}%</span>
               </div>
               <div style={{ height: 10, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, overflow: "hidden", position: "relative" }}>
                 <div style={{ width: `${linea.progreso}%`, height: "100%", background: "linear-gradient(90deg, #1d4ed8, #06b6d4)", borderRadius: 999, transition: "width .5s ease-out", position: "relative", boxShadow: "0 0 16px rgba(6,182,212,0.28)" }}>
@@ -8153,7 +8152,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
                     {linea.maderasItems ? (
                       <>
                         <span style={{ opacity: 0.5 }}>+</span>
-                        <span style={{ color: C.amber }}>{linea.maderasItems} maderas · ref. {linea.maderasReferenciaCodigo}</span>
+                        <span style={{ color: C.cyan }}>{linea.maderasItems} maderas · ref. {linea.maderasReferenciaCodigo}</span>
                       </>
                     ) : null}
                   </>
@@ -8170,25 +8169,25 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
                 ["Rubros", linea.rubros],
               ].map(([label, value]) => (
                 <div key={label} style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: C.mono, fontSize: 25, lineHeight: 1, color: C.t0, fontWeight: 950, letterSpacing: "-0.5px" }}>{value}</div>
-                  <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 850, letterSpacing: 0.25, marginTop: 5 }}>{label}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 25, lineHeight: 1, color: C.t0, fontWeight: 750, letterSpacing: "-0.5px" }}>{value}</div>
+                  <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 700, letterSpacing: 0.25, marginTop: 5 }}>{label}</div>
                 </div>
               ))}
             </div>
 
             <div style={{ display: "grid", gap: 8, marginTop: "auto", paddingTop: 4 }}>
               {!linea.secundariosLoading && !linea.secundariosError && (linea.laminacionUsd || linea.laminacionArs || linea.maderasUsd || linea.maderasArs) ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", fontSize: 10.5, color: C.t2, fontWeight: 750 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", fontSize: 10.5, color: C.t2, fontWeight: 650 }}>
                   <span style={{ textTransform: "uppercase", letterSpacing: 0.55 }}>Costo por barco</span>
-                  {(linea.baseUsd || linea.laminacionUsd || linea.maderasUsd) ? <span><strong style={{ color: C.t1 }}>USD:</strong> Matriz {fmtMoney(linea.baseUsd, "USD")}{linea.laminacionUsd ? <> + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionUsd, "USD")}</strong></> : null}{linea.maderasUsd ? <> + <strong style={{ color: C.amber }}>Maderas {linea.maderasReferenciaCodigo} {fmtMoney(linea.maderasUsd, "USD")}</strong></> : null}</span> : null}
-                  {(linea.baseArs || linea.laminacionArs || linea.maderasArs) ? <span><strong style={{ color: C.t1 }}>ARS:</strong> Matriz {fmtMoney(linea.baseArs, "ARS")}{linea.laminacionArs ? <> + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionArs, "ARS")}</strong></> : null}{linea.maderasArs ? <> + <strong style={{ color: C.amber }}>Maderas {linea.maderasReferenciaCodigo} {fmtMoney(linea.maderasArs, "ARS")}</strong></> : null}</span> : null}
+                  {(linea.baseUsd || linea.laminacionUsd || linea.maderasUsd) ? <span><strong style={{ color: C.t1 }}>USD:</strong> Matriz {fmtMoney(linea.baseUsd, "USD")}{linea.laminacionUsd ? <> + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionUsd, "USD")}</strong></> : null}{linea.maderasUsd ? <> + <strong style={{ color: C.cyan }}>Maderas {linea.maderasReferenciaCodigo} {fmtMoney(linea.maderasUsd, "USD")}</strong></> : null}</span> : null}
+                  {(linea.baseArs || linea.laminacionArs || linea.maderasArs) ? <span><strong style={{ color: C.t1 }}>ARS:</strong> Matriz {fmtMoney(linea.baseArs, "ARS")}{linea.laminacionArs ? <> + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionArs, "ARS")}</strong></> : null}{linea.maderasArs ? <> + <strong style={{ color: C.cyan }}>Maderas {linea.maderasReferenciaCodigo} {fmtMoney(linea.maderasArs, "ARS")}</strong></> : null}</span> : null}
                 </div>
               ) : null}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {linea.usd ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 12, color: C.blue, border: `1px solid ${C.blueB}`, background: "color-mix(in srgb, var(--panel) 82%, transparent)", borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.blue }} />TOTAL {fmtMoney(linea.usd, "USD")}</span> : null}
-                {linea.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}>TOTAL {fmtMoney(linea.ars, "ARS")}</span> : null}
-                {linea.sinPrecio ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.amber, border: "1px solid rgba(245,158,11,0.24)", background: "rgba(245,158,11,0.045)", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.amber }} />{linea.sinPrecio} sin precio</span> : null}
-                {linea.secundariosError ? <span style={{ fontSize: 11, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 999, padding: "5px 9px", fontWeight: 850 }}>Producción sin calcular</span> : null}
+                {linea.usd ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 12, color: C.blue, border: `1px solid ${C.blueB}`, background: "color-mix(in srgb, var(--panel) 82%, transparent)", borderRadius: 999, padding: "5px 10px", fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.blue }} />TOTAL {fmtMoney(linea.usd, "USD")}</span> : null}
+                {linea.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 999, padding: "5px 10px", fontWeight: 700 }}>TOTAL {fmtMoney(linea.ars, "ARS")}</span> : null}
+                {linea.sinPrecio ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.cyan, border: "1px solid rgba(34,211,238,0.24)", background: "rgba(34,211,238,0.045)", borderRadius: 999, padding: "5px 10px", fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.cyan }} />{linea.sinPrecio} sin precio</span> : null}
+                {linea.secundariosError ? <span style={{ fontSize: 11, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 999, padding: "5px 9px", fontWeight: 700 }}>Producción sin calcular</span> : null}
               </div>
             </div>
           </button>
@@ -8499,9 +8498,9 @@ function duplicateGroupDismissed(group, dismissedPairs) {
 function ConfidenceBadge({ value }) {
   const meta = value === "alta"
     ? { label: "Alta", color: C.green, bg: C.greenL, border: C.greenB }
-    : { label: "Media", color: C.amber, bg: C.amberL, border: C.amberB };
+    : { label: "Media", color: C.cyan, bg: C.cyanL, border: C.cyanB };
   return (
-    <span style={{ fontSize: 10, fontWeight: 900, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+    <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
       {meta.label}
     </span>
   );
@@ -8613,7 +8612,7 @@ function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
     background: on ? C.s1 : C.s0,
     border: `1px solid ${on ? C.b1 : C.b0}`,
     color: on ? color : C.t2,
-    fontWeight: 850,
+    fontWeight: 700,
   });
 
   return (
@@ -8621,7 +8620,7 @@ function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
       <div style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 18, padding: 16, display: "grid", gap: 13 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 950, color: C.t0 }}>Asistente de normalización</div>
+            <div style={{ fontSize: 20, fontWeight: 750, color: C.t0 }}>Asistente de normalización</div>
             <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>Sugerencias confirmables para limpiar nombres, proveedores, códigos, unidades y rubros.</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(110px, 1fr))", gap: 8, minWidth: 330 }}>
@@ -8671,7 +8670,7 @@ function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
         <KpiCard label="Sin proveedor sugerido" value={kpis.proveedor} color={C.blue} />
-        <KpiCard label="Visibles" value={visibleActions.length} color={C.amber} />
+        <KpiCard label="Visibles" value={visibleActions.length} color={C.cyan} />
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
@@ -8682,7 +8681,7 @@ function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start", padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 750, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
                     <PriceBadge material={material} />
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", color: C.t2, fontSize: 11.5, marginTop: 4 }}>
@@ -8705,17 +8704,17 @@ function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
                       <input type="checkbox" checked={checked} onChange={() => toggleAction(action.id)} style={{ marginTop: 3 }} />
                       <div style={{ minWidth: 0, display: "grid", gap: 5 }}>
                         <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-                          <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.6 }}>{meta.label}</span>
+                          <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.6 }}>{meta.label}</span>
                           <ConfidenceBadge value={action.confidence} />
                           {action.kind === "proveedor" && <ProveedorTipoBadge meta={proveedorMeta(action.patch.proveedor, proveedores)} compact />}
-                          <span style={{ fontSize: 12.5, fontWeight: 900, color: C.t0 }}>{action.title}</span>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: C.t0 }}>{action.title}</span>
                         </div>
                         <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
                           <div style={{ color: C.t2, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             Antes: <span style={{ color: C.t1 }}>{action.before}</span>
                           </div>
                           <div style={{ color: C.t2, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            Después: <span style={{ color: C.t0, fontWeight: 850 }}>{action.after}</span>
+                            Después: <span style={{ color: C.t0, fontWeight: 700 }}>{action.after}</span>
                           </div>
                         </div>
                         <div style={{ color: C.t3, fontSize: 11 }}>{action.detail}</div>
@@ -8874,18 +8873,18 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 16, padding: 14, display: "grid", gap: 10 }}>
+      <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 16, padding: 14, display: "grid", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>Posibles duplicados</div>
+            <div style={{ fontSize: 16, fontWeight: 750, color: C.t0 }}>Posibles duplicados</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
               No se borra ni fusiona nada solo. Primero revisás el grupo, después fusionás o archivás con confirmación.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{groups.length} grupos</span>
-            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{totalItems} items</span>
-            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{cleanupCandidates.length} raros</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.cyanB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{groups.length} grupos</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.cyanB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{totalItems} items</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.cyanB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{cleanupCandidates.length} raros</span>
             <button type="button" onClick={copyForAI} style={{ ...BTN, padding: "5px 10px", color: C.violet, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)" }} title="Copia los grupos visibles para revisarlos con IA">
               <Copy size={13} /> {copied ? "Copiado" : "Copiar para IA"}
             </button>
@@ -8903,7 +8902,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
             ["revisar", `Dudosos (${groups.length - mediumConfidence})`],
             ["codigo", "Codigo / descripcion"],
           ].map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setFiltro(key)} style={{ ...BTN, padding: "6px 10px", background: filtro === key ? C.bg : "transparent", border: `1px solid ${filtro === key ? C.amberB : C.b0}`, color: filtro === key ? C.amber : C.t1 }}>
+            <button key={key} type="button" onClick={() => setFiltro(key)} style={{ ...BTN, padding: "6px 10px", background: filtro === key ? C.bg : "transparent", border: `1px solid ${filtro === key ? C.cyanB : C.b0}`, color: filtro === key ? C.cyan : C.t1 }}>
               {label}
             </button>
           ))}
@@ -8915,7 +8914,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
         <section style={{ border: `1px solid ${C.redB || "rgba(239,68,68,0.35)"}`, background: "rgba(239,68,68,0.06)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 950 }}>Cosas raras para revisar</div>
+              <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 750 }}>Cosas raras para revisar</div>
               <div style={{ color: C.t2, fontSize: 11.5, marginTop: 2 }}>Items con texto roto, generico o demasiado pobre. Archivar requiere confirmacion.</div>
             </div>
             <button
@@ -8931,7 +8930,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
             {cleanupCandidates.map(({ material, reason }) => (
               <div key={material.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.b0}`, background: C.bg }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripcion)"}</div>
+                  <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripcion)"}</div>
                   <div style={{ color: C.t2, fontSize: 11, marginTop: 2, display: "flex", gap: 7, flexWrap: "wrap" }}>
                     <span>{reason}</span>
                     <span>{categoriaNombre(categorias, material.categoria_id)}</span>
@@ -8955,7 +8954,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
         <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 950, color: C.t0 }}>Grupo {idx + 1} · {group.materials.length} parecidos</div>
+              <div style={{ fontSize: 13.5, fontWeight: 750, color: C.t0 }}>Grupo {idx + 1} · {group.materials.length} parecidos</div>
               <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Elegí cuál conservar. El resto se fusiona (junta los datos) o se archiva.</div>
             </div>
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
@@ -8976,7 +8975,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
               return (
                 <div key={material.id} style={{ border: keep ? `1px solid ${C.greenB}` : `1px solid ${C.b0}`, borderRadius: 12, background: keep ? C.greenL : C.bg, padding: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: keep ? C.green : C.t1, fontWeight: 850, cursor: busy ? "default" : "pointer" }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: keep ? C.green : C.t1, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
                       <input type="radio" name={`keeper-${group.id}`} checked={keep} disabled={!!busy} onChange={() => setKeeper(group, material.id)} />
                       {keep ? "Se conserva ✓" : "Conservar este"}
                     </label>
@@ -9066,7 +9065,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
     background: active ? bg : C.s0,
     border: `1px solid ${active ? border : C.b0}`,
     color: active ? color : C.t1,
-    fontWeight: 900,
+    fontWeight: 700,
     boxShadow: active ? "0 10px 24px -20px rgba(15,23,42,0.75)" : "none",
   });
 
@@ -9082,12 +9081,12 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
       padding: "4px 9px",
       color: C.t2,
       fontSize: 11.5,
-      fontWeight: 750,
+      fontWeight: 650,
       whiteSpace: "nowrap",
     }}>
       <span style={{ width: 6, height: 6, borderRadius: 999, background: color, flexShrink: 0 }} />
       <span style={{ color: C.t1 }}>{label}</span>
-      <span style={{ color, fontFamily: C.mono, fontWeight: 900 }}>{value}</span>
+      <span style={{ color, fontFamily: C.mono, fontWeight: 700 }}>{value}</span>
     </span>
   );
 
@@ -9173,7 +9172,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
             <button type="button" onClick={() => setModo("lista")} style={actionStyle(modo === "lista", C.blue, C.blueL, C.blueB)}>
               <FileText size={14} /> Lista
             </button>
-            <button type="button" onClick={() => { setCatalogQ(""); setModo("duplicados"); }} style={actionStyle(modo === "duplicados", C.amber, C.amberL, C.amberB)}>
+            <button type="button" onClick={() => { setCatalogQ(""); setModo("duplicados"); }} style={actionStyle(modo === "duplicados", C.cyan, C.cyanL, C.cyanB)}>
               <RefreshCw size={14} /> Duplicados {modo === "duplicados" ? <span style={{ fontFamily: C.mono, marginLeft: 2 }}>{duplicateGroups.length}</span> : null}
             </button>
             <button type="button" onClick={() => setShowCatTools((v) => !v)} style={actionStyle(showCatTools, C.violet, "var(--violet-soft)", `${C.violet}55`)}>
@@ -9204,7 +9203,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
               borderRadius: 999,
               background: C.bg,
               fontSize: 12,
-              fontWeight: 850,
+              fontWeight: 700,
               color: sel ? C.t0 : C.t2,
               paddingLeft: 12,
             }}
@@ -9221,10 +9220,10 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
             ))}
           </select>
           <StatPill label={sel ? selCat?.nombre || "Sector" : "Catalogo"} value={catalogStats.items} color={C.blue} />
-          <StatPill label="Sin precio" value={catalogStats.sinPrecio} color={catalogStats.sinPrecio ? C.amber : C.green} />
-          <StatPill label="A revisar" value={catalogStats.revisar} color={catalogStats.revisar ? C.amber : C.green} />
+          <StatPill label="Sin precio" value={catalogStats.sinPrecio} color={catalogStats.sinPrecio ? C.cyan : C.green} />
+          <StatPill label="A revisar" value={catalogStats.revisar} color={catalogStats.revisar ? C.cyan : C.green} />
           <StatPill label="Consumibles" value={catalogStats.consumibles} color={C.violet} />
-          <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.t3, fontWeight: 750 }}>
+          <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.t3, fontWeight: 650 }}>
             {catalogQ ? "Busqueda activa" : "Busca primero; filtra despues si hace falta."}
           </span>
         </div>
@@ -9232,7 +9231,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
       {showCatTools && <div style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: C.s0, padding: 12, display: "grid", gap: 10, marginTop: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Organizar catalogo</div>
+            <div style={{ fontSize: 13, fontWeight: 750, color: C.t0 }}>Organizar catalogo</div>
             <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crear sectores y subsectores sin ensuciar la vista diaria.</div>
           </div>
           <button type="button" onClick={() => setShowCatTools(false)} style={{ ...BTN, padding: "5px 9px", color: C.t2 }}>
@@ -9241,7 +9240,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
         <div style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.bg, padding: 12, display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase" }}>Nueva categoria</div>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 700, textTransform: "uppercase" }}>Nueva categoria</div>
           <div style={{ display: "flex", gap: 8 }}>
             <input value={catForm.root} onChange={(e) => setCatForm((f) => ({ ...f, root: e.target.value }))} placeholder="Ej: Seguridad" style={{ ...INP, flex: 1, height: 38 }} />
             <button type="button" onClick={crearCategoriaRaiz} disabled={!catForm.root.trim() || catBusy === "root"} style={{ ...BTN_GREEN, padding: "8px 12px", whiteSpace: "nowrap" }}>
@@ -9250,7 +9249,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
           </div>
         </div>
         <div style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.bg, padding: 12, display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 700, textTransform: "uppercase" }}>
             Nueva subcategoria {parentParaSub ? `en ${parentParaSub.nombre}` : ""}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -9311,7 +9310,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
   );
 }
 
-export default function MaterialesScreen({ profile, signOut }) {
+export default function MaterialesScreen({ profile }) {
   const { isMobile } = useResponsive();
   // La solapa vive en la URL: sin esto no había forma de mandar a alguien a
   // Condicionantes o a Proveedores -ni desde el buscador, ni con un link
@@ -9421,14 +9420,9 @@ export default function MaterialesScreen({ profile, signOut }) {
   const listo = categorias != null && materiales != null;
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
+    <div className="materiales-root" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
       <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        :where(.materiales-root) button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
         .materiales-tabbar {
           display: inline-flex;
           gap: 4px;
@@ -9455,7 +9449,7 @@ export default function MaterialesScreen({ profile, signOut }) {
           cursor: pointer;
           font-family: inherit;
           font-size: 13px;
-          font-weight: 850;
+          font-weight: 700;
           white-space: nowrap;
           transition: color .3s ease, background .3s ease, box-shadow .3s ease, transform .3s ease;
         }
@@ -9585,12 +9579,11 @@ export default function MaterialesScreen({ profile, signOut }) {
         }
       `}</style>
 
-      <Sidebar profile={profile} signOut={signOut} />
 
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div className="materiales-page-body" style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
-          <div className="materiales-page-heading" style={{ marginBottom: 28, paddingLeft: isMobile ? 40 : 0 }}>
-            <h1 style={{ fontSize: 32, fontWeight: 900, background: "linear-gradient(135deg, var(--t0) 0%, var(--t2) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
+          <div className="materiales-page-heading" style={{ marginBottom: 28 }}>
+            <h1 style={{ fontSize: 32, fontWeight: 700, background: "linear-gradient(135deg, var(--t0) 0%, var(--t2) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
             <div style={{ fontSize: 14, color: C.t2, marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 600 }}>Líneas de producción</span>
               <span style={{ opacity: 0.5 }}>›</span>
@@ -9626,7 +9619,7 @@ export default function MaterialesScreen({ profile, signOut }) {
                           <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 100, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 6, minWidth: 220, boxShadow: "0 18px 42px -24px rgba(0,0,0,0.55)", backdropFilter: "blur(12px)" }}>
                             {TABS_MORE.map((t) => (
                               <button key={t.key} type="button" onClick={() => switchTab(t.key)}
-                                style={{ display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left", padding: "9px 12px", fontSize: 13, fontFamily: C.sans, fontWeight: 850, borderRadius: 10, cursor: "pointer", border: "none", background: tab === t.key ? C.s1 : "transparent", color: tab === t.key ? C.t0 : C.t1 }}>
+                                style={{ display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left", padding: "9px 12px", fontSize: 13, fontFamily: C.sans, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "none", background: tab === t.key ? C.s1 : "transparent", color: tab === t.key ? C.t0 : C.t1 }}>
                                 {t.label}
                               </button>
                             ))}

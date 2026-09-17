@@ -66,7 +66,7 @@ const S = {
     padding: "2px 8px",
     borderRadius: 5,
     fontSize: 11,
-    fontWeight: 700,
+    fontWeight: 600,
     // Los tokens del theme son variables CSS: color + "22" produce
     // "var(--red)22", CSS inválido que el navegador descarta en silencio.
     // color-mix mezcla la variable sin romperla.
@@ -83,7 +83,7 @@ const S = {
     padding: "4px 11px",
     borderRadius: 6,
     cursor: "pointer",
-    fontWeight: 700,
+    fontWeight: 600,
     fontSize: 12,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
@@ -96,7 +96,7 @@ const S = {
     padding: "5px 14px",
     borderRadius: 7,
     cursor: "pointer",
-    fontWeight: active ? 700 : 400,
+    fontWeight: active ? 600 : 400,
     fontSize: 13,
     fontFamily: C.sans,
     transition: "all .15s",
@@ -243,7 +243,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
           padding: "2px 7px",
           borderRadius: 5,
           fontSize: 11,
-          fontWeight: 800,
+          fontWeight: 650,
           background: `color-mix(in srgb, ${modeloColor(barco.modelo)} 14%, transparent)`,
           color: modeloColor(barco.modelo),
           border: `1px solid ${modeloColor(barco.modelo)}44`,
@@ -254,7 +254,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
       </td>
 
       {/* Número */}
-      <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 700, color: C.t0 }}>
+      <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 600, color: C.t0 }}>
         {barco.numero}
       </td>
 
@@ -263,7 +263,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
         <div style={{ fontFamily: C.mono, fontSize: 13, color: esReal ? C.green : C.t1 }}>
           {fmtDate(desmolde)}
           {esReal && (
-            <span style={{ fontSize: 10, color: C.green, marginLeft: 5, fontWeight: 700, letterSpacing: 0.5 }}>REAL</span>
+            <span style={{ fontSize: 10, color: C.green, marginLeft: 5, fontWeight: 600, letterSpacing: 0.5 }}>REAL</span>
           )}
           {!esReal && desmolde && (
             <span style={{ fontSize: 10, color: C.t2, marginLeft: 5, letterSpacing: 0.5 }}>EST</span>
@@ -295,7 +295,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
             padding: "4px 10px",
             borderRadius: 6,
             cursor: "pointer",
-            fontWeight: 700,
+            fontWeight: 600,
             fontSize: 12,
             fontFamily: C.sans,
             display: "flex",
@@ -346,7 +346,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
                   cursor: "pointer",
                   fontSize: 13,
                   fontFamily: C.sans,
-                  fontWeight: barco.estado_pedido === e.key ? 700 : 400,
+                  fontWeight: barco.estado_pedido === e.key ? 600 : 400,
                   textAlign: "left",
                 }}
               >
@@ -540,7 +540,7 @@ export default function BarcoCalendarioPanel() {
             background: kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.cyan : C.green,
             boxShadow: `0 0 8px ${kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.cyan : C.green}`,
           }} />
-          <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: C.t0, fontFamily: C.sans }}>
             Barcos 2026
           </span>
           {kpis.urgentes > 0 && (
@@ -590,7 +590,7 @@ export default function BarcoCalendarioPanel() {
                 flexDirection: "column",
                 gap: 3,
               }}>
-                <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color, lineHeight: 1 }}>{val}</span>
+                <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 600, color, lineHeight: 1 }}>{val}</span>
                 <span style={{ fontSize: 11, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontFamily: C.sans }}>{label}</span>
               </div>
             ))}
@@ -618,7 +618,7 @@ export default function BarcoCalendarioPanel() {
                     padding: "4px 12px",
                     borderRadius: 6,
                     cursor: "pointer",
-                    fontWeight: filtroModelo === m ? 700 : 400,
+                    fontWeight: filtroModelo === m ? 600 : 400,
                     fontSize: 13,
                     fontFamily: C.sans,
                   }}
@@ -755,7 +755,7 @@ export default function BarcoCalendarioPanel() {
                           padding: "2px 10px",
                           borderRadius: 6,
                           fontSize: 12,
-                          fontWeight: 800,
+                          fontWeight: 650,
                           background: `color-mix(in srgb, ${modeloColor(modelo)} 14%, transparent)`,
                           color: modeloColor(modelo),
                           border: `1px solid ${modeloColor(modelo)}44`,

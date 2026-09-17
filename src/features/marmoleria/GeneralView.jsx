@@ -54,7 +54,7 @@ export default function GeneralView({ dashboard, isMobile, onBack, onOpenPieza }
       }}>
         <div>
           <div style={{ ...EYEBROW, marginBottom:4 }}>Planilla general</div>
-          <h1 style={{ margin:0, color:"var(--text)", fontSize:18, fontWeight:700, letterSpacing:-0.3 }}>
+          <h1 style={{ margin:0, color:"var(--text)", fontSize:18, fontWeight:600, letterSpacing:-0.3 }}>
             Envíos en seguimiento
           </h1>
           <p style={{ margin:"4px 0 0", color:"var(--dim)", fontSize:12 }}>
@@ -78,7 +78,7 @@ export default function GeneralView({ dashboard, isMobile, onBack, onOpenPieza }
                   padding:"5px 9px", borderRadius:7, cursor:"pointer",
                   border:active ? "1px solid var(--border-2)" : "1px solid var(--border)",
                   background:active ? "var(--panel-2)" : "transparent",
-                  color, fontFamily:T.sans, fontSize:11, fontWeight:active ? 700 : 500,
+                  color, fontFamily:T.sans, fontSize:11, fontWeight:active ? 600 : 500,
                 }}
               >
                 {filtro.key === "Rehacer" && count > 0
@@ -150,7 +150,7 @@ export default function GeneralView({ dashboard, isMobile, onBack, onOpenPieza }
                 >
                   <div style={{ display:"flex", alignItems:"center", gap:7, minWidth:0 }}>
                     <span style={{ width:6, height:6, borderRadius:"50%", background:estadoMeta.color, flexShrink:0 }} />
-                    <span style={{ overflow:"hidden", textOverflow:"ellipsis", fontFamily:T.mono, color:"var(--text)", fontSize:12, fontWeight:700 }}>
+                    <span style={{ overflow:"hidden", textOverflow:"ellipsis", fontFamily:T.mono, color:"var(--text)", fontSize:12, fontWeight:600 }}>
                       {pieza.codigo_barco}
                     </span>
                   </div>
@@ -168,7 +168,7 @@ export default function GeneralView({ dashboard, isMobile, onBack, onOpenPieza }
                     <span style={{
                       display:"inline-flex", padding:"3px 7px", borderRadius:6,
                       border:`1px solid ${prioridad.border}`, background:prioridad.bg, color:prioridad.color,
-                      fontSize:10, fontWeight:700,
+                      fontSize:10, fontWeight:600,
                     }}>
                       {pieza.prioridad || "Media"}
                     </span>
@@ -182,7 +182,7 @@ export default function GeneralView({ dashboard, isMobile, onBack, onOpenPieza }
                     <span style={{
                       display:"inline-flex", padding:"3px 7px", borderRadius:6,
                       border:`1px solid ${estadoMeta.border}`, background:estadoMeta.bg, color:estadoMeta.color,
-                      fontSize:10, fontWeight:700,
+                      fontSize:10, fontWeight:600,
                     }}>
                       {pieza.estado}
                     </span>

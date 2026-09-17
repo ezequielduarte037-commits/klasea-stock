@@ -11,26 +11,17 @@ import { C } from "@/theme";
 import { useMemo, useState, useEffect, useRef } from "react";
 
 // ─── Paleta — idéntica a ObrasScreen ─────────────────────────────────────────
-// ─── CSS global ───────────────────────────────────────────────────────────────
+// ─── Animaciones de la vista ──────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-  *, *::before, *::after { box-sizing: border-box; }
-  ::-webkit-scrollbar { width: 3px; height: 3px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.13); }
-  input::placeholder, textarea::placeholder { color: ${C.t3} !important; }
-  input:focus, textarea:focus, select:focus { border-color: rgba(59,130,246,0.4) !important; outline: none; }
-
-  @keyframes fadeSlideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes fadeSlideIn  { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
-  @keyframes fadeIn       { from{opacity:0} to{opacity:1} }
-  @keyframes expandDown   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes rowSlide     { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
-  @keyframes progressFill { from{width:0} }
-  @keyframes shimmer      { 0%{background-position:-200% center} 100%{background-position:200% center} }
-  @keyframes pulseDot     { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.55)} }
-  @keyframes stepIn       { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
+  @keyframes pv-fadeSlideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pv-fadeSlideIn  { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes pv-fadeIn       { from{opacity:0} to{opacity:1} }
+  @keyframes pv-expandDown   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pv-rowSlide     { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes pv-progressFill { from{width:0} }
+  @keyframes pv-shimmer      { 0%{background-position:-200% center} 100%{background-position:200% center} }
+  @keyframes pv-pulseDot     { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.55)} }
+  @keyframes pv-stepIn       { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
 
   .pl-row   { transition: background .12s, border-left-color .12s; }
   .pl-row:hover { background: rgba(255,255,255,0.028) !important; }
@@ -125,7 +116,7 @@ const Dot = ({ color, glow = false, pulse = false, size = 7 }) => (
     width: size, height: size, borderRadius: "50%", flexShrink: 0,
     background: color,
     boxShadow: glow ? `0 0 6px ${color}80` : "none",
-    animation: pulse ? "pulseDot 2s ease-in-out infinite" : "none",
+    animation: pulse ? "pv-pulseDot 2s ease-in-out infinite" : "none",
   }}/>
 );
 
@@ -134,7 +125,7 @@ const Chip = ({ label, color, bg, border }) => (
     display:"inline-flex", alignItems:"center",
     fontSize: 10, padding: "2px 8px", borderRadius: 99,
     background: bg, color, border: `1px solid ${border}`,
-    fontFamily: C.mono, fontWeight: 700,
+    fontFamily: C.mono, fontWeight: 600,
     letterSpacing: "0.08em", textTransform: "uppercase",
     whiteSpace: "nowrap", flexShrink: 0, lineHeight: 1.7,
   }}>{label}</span>
@@ -150,7 +141,7 @@ function ProgressBar({ value, color, height = 3, shimmer = false }) {
           ? `linear-gradient(90deg, ${color}60, ${color}, ${color}60)`
           : `linear-gradient(90deg, ${color}70, ${color})`,
         backgroundSize: shimmer ? "200% 100%" : undefined,
-        animation: shimmer ? "shimmer 2s linear infinite, progressFill .7s ease both" : "progressFill .7s ease both",
+        animation: shimmer ? "pv-shimmer 2s linear infinite, pv-progressFill .7s ease both" : "pv-progressFill .7s ease both",
         borderRadius: 99,
         transition: "width .6s cubic-bezier(.4,0,.2,1)",
       }}/>
@@ -163,7 +154,7 @@ function Btn({ children, onClick, variant = "ghost", sm = false, disabled = fals
     ghost:   { bg:"transparent",      color:C.t1,    border:`1px solid ${C.b1}` },
     primary: { bg:C.blueL,            color:"#60a5fa", border:`1px solid ${C.blueB}` },
     green:   { bg:C.greenL,           color:"#34d399", border:`1px solid ${C.greenB}` },
-    amber:   { bg:C.amberL,           color:"#fbbf24", border:`1px solid ${C.amberB}` },
+    cian:    { bg:C.cyanL,           color:C.cyan,    border:`1px solid ${C.cyanB}` },
     danger:  { bg:C.redL,             color:"#f87171", border:`1px solid ${C.redB}` },
     solid:   { bg:C.blue,             color:"#fff",    border:"none" },
   };
@@ -258,7 +249,7 @@ function GanttBar({ etapas, lProcs, obra, height = 32 }) {
                 <div style={{
                   position: "absolute", inset: 0, pointerEvents: "none",
                   background: "linear-gradient(90deg, transparent 0%, var(--border-2) 50%, transparent 100%)",
-                  animation: "shimmer 2.2s ease-in-out infinite",
+                  animation: "pv-shimmer 2.2s ease-in-out infinite",
                   backgroundSize: "200% 100%",
                 }}/>
               )}
@@ -275,7 +266,7 @@ function GanttBar({ etapas, lProcs, obra, height = 32 }) {
           width: 2, background: C.blue,
           boxShadow: `0 0 8px ${C.blue}99`,
           borderRadius: 1, transform: "translateX(-50%)", zIndex: 2,
-          animation: "fadeIn .4s ease both",
+          animation: "pv-fadeIn .4s ease both",
         }}>
           <div style={{
             position: "absolute", bottom: "calc(100% + 5px)", left: "50%",
@@ -438,25 +429,25 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
               style={{
                 padding: "11px 14px",
                 background: sel ? `${oC.dot}0d` : "transparent",
-                borderLeft: `3px solid ${sel ? oC.dot : pend > 0 ? C.amber : "transparent"}`,
+                borderLeft: `3px solid ${sel ? oC.dot : pend > 0 ? C.cyan : "transparent"}`,
                 borderBottom: `1px solid ${C.b0}`,
                 cursor: "pointer",
-                animation: `rowSlide .22s ${idx * 0.04}s both`,
+                animation: `pv-rowSlide .22s ${idx * 0.04}s both`,
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <Dot color={oC.dot} size={6} glow={o.estado === "activa"} pulse={o.estado === "activa"}/>
-                  <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: sel ? oC.dot : C.t0 }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: sel ? oC.dot : C.t0 }}>
                     {o.codigo}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   {pend > 0 && (
                     <span style={{
-                      fontSize: 10, fontFamily: C.mono, fontWeight: 700,
-                      color: C.amber, background: C.amberL,
-                      border: `1px solid ${C.amberB}`,
+                      fontSize: 10, fontFamily: C.mono, fontWeight: 600,
+                      color: C.cyan, background: C.cyanL,
+                      border: `1px solid ${C.cyanB}`,
                       padding: "1px 6px", borderRadius: 99,
                     }}>{pend}</span>
                   )}
@@ -566,7 +557,7 @@ function FichaBarco({ obra, onUpdateObra }) {
   );
 
   const zonas = [
-    { key:"cocina_desc",  label:"Cocina",   color:C.amber },
+    { key:"cocina_desc",  label:"Cocina",   color:C.cyan },
     { key:"bano_desc",    label:"Baño",     color:C.blue },
     { key:"cockpit_desc", label:"Cockpit",  color:C.green },
     ...(hasFly ? [{ key:"fly_desc", label:"Fly", color:C.purple }] : []),
@@ -599,7 +590,7 @@ function FichaBarco({ obra, onUpdateObra }) {
           <div style={{
             padding: "40px 20px", textAlign: "center",
             border: `1px dashed ${C.b1}`, borderRadius: 10,
-            animation: "fadeIn .3s ease both",
+            animation: "pv-fadeIn .3s ease both",
           }}>
             <div style={{ fontSize: 24, color: C.t3, marginBottom: 10 }}>⊡</div>
             <div style={{ fontSize: 14, color: C.t1, marginBottom: 4 }}>Sin datos técnicos</div>
@@ -607,7 +598,7 @@ function FichaBarco({ obra, onUpdateObra }) {
             <Btn sm onClick={abrirEdicion}>+ Completar ficha</Btn>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "fadeSlideUp .25s ease both" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "pv-fadeSlideUp .25s ease both" }}>
 
             {/* Mecánica */}
             {(motorStr || grupoStr) && (
@@ -629,9 +620,9 @@ function FichaBarco({ obra, onUpdateObra }) {
               <div style={{
                 background: C.s0, border: `1px solid ${C.b0}`,
                 borderRadius: 10, padding: "14px 16px",
-                borderTop: `2px solid ${C.amber}`,
+                borderTop: `2px solid ${C.cyan}`,
               }}>
-                <SectionHeader label="Muebles & Terminaciones" color={C.amber}/>
+                <SectionHeader label="Muebles & Terminaciones" color={C.cyan}/>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 12 }}>
                   {obra.muebles_estilo   && <StaticField label="Estilo / Madera" value={obra.muebles_estilo}/>}
                   {obra.muebles_color    && <StaticField label="Color muebles"   value={obra.muebles_color}/>}
@@ -654,9 +645,9 @@ function FichaBarco({ obra, onUpdateObra }) {
                     <div key={z.key} style={{
                       background: `${z.color}08`, borderRadius: 8, padding: "10px 12px",
                       border: `1px solid ${z.color}20`, borderLeft: `3px solid ${z.color}`,
-                      animation: "fadeSlideUp .3s ease both",
+                      animation: "pv-fadeSlideUp .3s ease both",
                     }}>
-                      <div style={{ fontSize: 10, fontFamily: C.mono, color: z.color, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 5, fontWeight: 700 }}>
+                      <div style={{ fontSize: 10, fontFamily: C.mono, color: z.color, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 5, fontWeight: 600 }}>
                         {z.label}
                       </div>
                       <div style={{ fontSize: 13, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{obra[z.key]}</div>
@@ -680,7 +671,7 @@ function FichaBarco({ obra, onUpdateObra }) {
           </div>
         )
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeSlideUp .2s ease both" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "pv-fadeSlideUp .2s ease both" }}>
           {/* Mecánica */}
           <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "14px 16px" }}>
             <SectionHeader label="Mecánica"/>
@@ -789,9 +780,9 @@ function OCStepperInline({ oc, onUpdateOCEstado }) {
                 background: active ? C.green : past ? C.greenL : "transparent",
                 border: `2px solid ${active ? C.green : past ? C.green : C.t3}`,
                 color: active ? "#fff" : past ? C.green : C.t3,
-                fontSize: past || active ? 11 : 10, fontWeight: 700,
+                fontSize: past || active ? 11 : 10, fontWeight: 600,
                 position: "relative", zIndex: 1,
-                animation: active ? "stepIn .3s ease both" : undefined,
+                animation: active ? "pv-stepIn .3s ease both" : undefined,
                 transition: "all .2s",
                 flexShrink: 0,
               }}>
@@ -874,7 +865,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
     oc?.estado === "recibida" ? C.green :
     oc                        ? C.blue  :
     vencido                   ? C.red   :
-    urgente                   ? C.amber :
+    urgente                   ? C.cyan :
     C.t3;
 
   const accentBg =
@@ -882,7 +873,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
     oc?.estado === "recibida" ? C.greenL :
     oc                        ? C.blueL  :
     vencido                   ? C.redL   :
-    urgente                   ? C.amberL :
+    urgente                   ? C.cyanL :
     C.s0;
 
   const accentBorder =
@@ -890,7 +881,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
     oc?.estado === "recibida" ? C.greenB :
     oc                        ? C.blueB  :
     vencido                   ? C.redB   :
-    urgente                   ? C.amberB :
+    urgente                   ? C.cyanB :
     C.b0;
 
   const statusLabel =
@@ -938,7 +929,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
           </div>
           {timing && (
             <div style={{
-              fontSize: 12, color: vencido ? C.red : urgente && !oc ? C.amber : C.t2,
+              fontSize: 12, color: vencido ? C.red : urgente && !oc ? C.cyan : C.t2,
               fontFamily: C.sans, lineHeight: 1.4,
             }}>{timing}</div>
           )}
@@ -947,7 +938,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
         <Chip label={statusLabel} color={accentColor} bg={`${accentColor}15`} border={`${accentColor}30`}/>
 
         {!done && !oc && onNuevaOC && (
-          <Btn sm variant="amber" onClick={e => {
+          <Btn sm variant="cian" onClick={e => {
             e.stopPropagation();
             onNuevaOC({
               obra_id: obra.id, obra_codigo: obra.codigo,
@@ -974,7 +965,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
           borderTop: `1px solid ${accentBorder}`,
           padding: "14px",
           display: "flex", flexDirection: "column", gap: 12,
-          animation: "expandDown .18s ease both",
+          animation: "pv-expandDown .18s ease both",
         }}>
           {/* Items de descripción */}
           {items.length > 0 && (
@@ -991,7 +982,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
                   {it.titulo && (
                     <div style={{
                       fontSize: 10, fontFamily: C.mono, color: accentColor,
-                      letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 3, fontWeight: 700,
+                      letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 3, fontWeight: 600,
                     }}>{it.titulo}</div>
                   )}
                   {it.desc && (
@@ -1012,7 +1003,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
               border: `1px solid ${C.b0}`, borderRadius: 8,
             }}>
               <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.1 }}>Monto est.</span>
-              <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.amber }}>
+              <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: C.cyan }}>
                 ${num(etapa.orden_compra_monto_estimado).toLocaleString("es-AR")}
               </span>
             </div>
@@ -1058,7 +1049,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
   );
 
   return (
-    <div style={{ padding: "16px 20px", animation: "fadeSlideUp .25s .04s ease both" }}>
+    <div style={{ padding: "16px 20px", animation: "pv-fadeSlideUp .25s .04s ease both" }}>
       {/* Summary strip */}
       <div style={{
         display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap",
@@ -1067,10 +1058,10 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
           <div style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "5px 12px", borderRadius: 7,
-            background: C.amberL, border: `1px solid ${C.amberB}`,
+            background: C.cyanL, border: `1px solid ${C.cyanB}`,
           }}>
-            <Dot color={C.amber} size={5} pulse/>
-            <span style={{ fontSize: 11, color: C.amber, fontFamily: C.sans, fontWeight: 700 }}>
+            <Dot color={C.cyan} size={5} pulse/>
+            <span style={{ fontSize: 11, color: C.cyan, fontFamily: C.sans, fontWeight: 600 }}>
               {sinOC} sin gestionar
             </span>
           </div>
@@ -1082,7 +1073,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
             background: C.blueL, border: `1px solid ${C.blueB}`,
           }}>
             <Dot color={C.blue} size={5}/>
-            <span style={{ fontSize: 11, color: C.blue, fontFamily: C.sans, fontWeight: 700 }}>
+            <span style={{ fontSize: 11, color: C.blue, fontFamily: C.sans, fontWeight: 600 }}>
               {conOC} con OC
             </span>
           </div>
@@ -1094,7 +1085,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
             background: C.greenL, border: `1px solid ${C.greenB}`,
           }}>
             <Dot color={C.green} size={5}/>
-            <span style={{ fontSize: 11, color: C.green, fontFamily: C.sans, fontWeight: 700 }}>
+            <span style={{ fontSize: 11, color: C.green, fontFamily: C.sans, fontWeight: 600 }}>
               {done} completadas
             </span>
           </div>
@@ -1104,7 +1095,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
       {/* Cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {compras.map((c, i) => (
-          <div key={c.etapa.id} style={{ animation: `fadeSlideUp .2s ${i * 0.05}s ease both` }}>
+          <div key={c.etapa.id} style={{ animation: `pv-fadeSlideUp .2s ${i * 0.05}s ease both` }}>
             <CompraCard
               etapa={c.etapa} diaInicio={c.diaInicio}
               obra={obra} oc={c.oc}
@@ -1151,7 +1142,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
       flex: 1, display: "flex", flexDirection: "column",
       overflow: "hidden",
       background: C.bg,
-      animation: "fadeSlideIn .22s ease both",
+      animation: "pv-fadeSlideIn .22s ease both",
     }}>
       {/* ── Header ── */}
       <div style={{
@@ -1166,7 +1157,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <Dot color={oC.dot} size={8} glow pulse={obra.estado === "activa"}/>
-              <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: oC.dot, letterSpacing: ".01em" }}>
+              <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 600, color: oC.dot, letterSpacing: ".01em" }}>
                 {obra.codigo}
               </span>
               {obra.linea_nombre && (
@@ -1189,7 +1180,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
               {dias !== null && obra.estado === "activa" && (
                 <div>
                   <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 2 }}>Día actual</div>
-                  <div style={{ fontSize: 13, color: C.blue, fontFamily: C.mono, fontWeight: 700 }}>{dias} / {totalDias}</div>
+                  <div style={{ fontSize: 13, color: C.blue, fontFamily: C.mono, fontWeight: 600 }}>{dias} / {totalDias}</div>
                 </div>
               )}
               {actEt && (
@@ -1210,9 +1201,9 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
           {/* Right: progress ring area */}
           <div style={{ flexShrink: 0, textAlign: "right" }}>
             <div style={{
-              fontFamily: C.mono, fontSize: 28, fontWeight: 700, lineHeight: 1,
+              fontFamily: C.mono, fontSize: 28, fontWeight: 600, lineHeight: 1,
               color: pct === 100 ? C.green : C.t0,
-              animation: "fadeSlideUp .4s ease both",
+              animation: "pv-fadeSlideUp .4s ease both",
               marginBottom: 6,
             }}>{pct}%</div>
             <div style={{ width: 100, marginBottom: 4 }}>
@@ -1248,10 +1239,10 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
                 {t.label}
                 {t.badge !== null && (
                   <span style={{
-                    fontSize: 10, fontFamily: C.mono, fontWeight: 700,
-                    background: C.amberL, border: `1px solid ${C.amberB}`,
-                    color: C.amber, padding: "1px 6px", borderRadius: 99,
-                    animation: "fadeIn .3s ease both",
+                    fontSize: 10, fontFamily: C.mono, fontWeight: 600,
+                    background: C.cyanL, border: `1px solid ${C.cyanB}`,
+                    color: C.cyan, padding: "1px 6px", borderRadius: 99,
+                    animation: "pv-fadeIn .3s ease both",
                   }}>{t.badge}</span>
                 )}
               </button>
@@ -1280,7 +1271,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
 function Vacio() {
   return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: C.bg }}>
-      <div style={{ textAlign: "center", animation: "fadeSlideUp .4s ease both" }}>
+      <div style={{ textAlign: "center", animation: "pv-fadeSlideUp .4s ease both" }}>
         <div style={{
           width: 56, height: 56, borderRadius: "50%",
           background: C.s0, border: `1px solid ${C.b1}`,

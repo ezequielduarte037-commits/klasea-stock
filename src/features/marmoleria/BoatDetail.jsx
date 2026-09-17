@@ -7,6 +7,7 @@ import {
   T, PANEL, EYEBROW, INP, INP_SM, TXT, ICON_BTN, ESTADOS, ESTADO_META,
   PRIORIDAD_META, estadoSelectStyle, fmtFecha, pct,
 } from "./marmShared";
+import Cargando from "@/components/ui/Cargando";
 
 // ── DETALLE CONTEXTUAL DEL BARCO (checklist operativo) ────────────
 export default function BoatDetail({
@@ -94,7 +95,7 @@ export default function BoatDetail({
               <button className="mrm-icon-btn" style={ICON_BTN} onClick={() => setRenaming(false)} title="Cancelar"><X size={13} /></button>
             </span>
           ) : (
-            <div style={{ fontSize:16, fontWeight:800, color:"var(--text)", fontFamily:T.mono, lineHeight:1.2 }}>
+            <div style={{ fontSize:16, fontWeight:650, color:"var(--text)", fontFamily:T.mono, lineHeight:1.2 }}>
               {unidad.codigo}
             </div>
           )}
@@ -130,10 +131,10 @@ export default function BoatDetail({
         <div style={{ ...PANEL, padding:"12px 14px", marginBottom:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:8 }}>
             <div style={{ fontSize:12, color:"var(--dim)" }}>
-              <span style={{ color:"var(--text)", fontWeight:700 }}>{stats.recibido}</span> de {stats.total} recibidas
-              {stats.rehacer > 0 && <span style={{ color:"var(--red)", fontWeight:700 }}> · {stats.rehacer} a rehacer</span>}
+              <span style={{ color:"var(--text)", fontWeight:600 }}>{stats.recibido}</span> de {stats.total} recibidas
+              {stats.rehacer > 0 && <span style={{ color:"var(--red)", fontWeight:600 }}> · {stats.rehacer} a rehacer</span>}
             </div>
-            <span style={{ fontFamily:T.mono, fontSize:17, fontWeight:800, color:pctColor }}>
+            <span style={{ fontFamily:T.mono, fontSize:17, fontWeight:650, color:pctColor }}>
               {porcentaje}<span style={{ fontSize:11, opacity:0.55 }}>%</span>
             </span>
           </div>
@@ -151,7 +152,7 @@ export default function BoatDetail({
                   border: active ? `1px solid ${(m?.border && m.border !== "transparent") ? m.border : "var(--border-2)"}` : "1px solid var(--border)",
                   background: active ? (m?.bg ?? "var(--panel-2)") : "transparent",
                   color: active ? (m?.color ?? "var(--text)") : "var(--dim)",
-                  padding:"3px 10px", borderRadius:99, cursor:"pointer", fontSize:11, fontWeight: active ? 700 : 400,
+                  padding:"3px 10px", borderRadius:99, cursor:"pointer", fontSize:11, fontWeight: active ? 600 : 400,
                   whiteSpace:"nowrap", fontFamily:T.sans, transition:"all 0.12s",
                 }}>{e === "todos" ? "Todas" : e}</button>
               );
@@ -205,7 +206,7 @@ export default function BoatDetail({
               </div>
             )}
             <div style={{ display:"flex", gap:7, marginTop:11, flexWrap:"wrap" }}>
-              <button onClick={() => submitAdd(false)} style={{ border:"1px solid var(--blue-border)", background:"var(--blue-soft)", color:"var(--blue)", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:700 }}>
+              <button onClick={() => submitAdd(false)} style={{ border:"1px solid var(--blue-border)", background:"var(--blue-soft)", color:"var(--blue)", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12, fontWeight:600 }}>
                 Solo a este barco
               </button>
               <button onClick={() => submitAdd(true)} className="mrm-btn-ghost" style={{ border:"1px solid var(--border)", background:"transparent", color:"var(--muted)", padding:"7px 12px", borderRadius:8, cursor:"pointer", fontFamily:T.sans, fontSize:12 }}>
@@ -217,7 +218,7 @@ export default function BoatDetail({
 
         {/* Sectores */}
         {loading ? (
-          <div style={{ textAlign:"center", padding:36, fontSize:12, color:"var(--dim)", letterSpacing:1.2, textTransform:"uppercase", fontFamily:T.mono }}>Cargando…</div>
+          <Cargando />
         ) : Object.keys(porSector).length === 0 ? (
           <div style={{ textAlign:"center", padding:"44px 0", fontSize:11, color:"var(--dim)", letterSpacing:1.2, textTransform:"uppercase", fontFamily:T.mono }}>
             {q || filtroEstado !== "todos" ? "Sin resultados para el filtro" : "Checklist vacío"}
@@ -233,7 +234,7 @@ export default function BoatDetail({
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8,
                   padding:"9px 13px", background:"var(--panel-solid-2)", borderBottom:"1px solid var(--border)", flexWrap:"wrap" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:10, letterSpacing:1.2, fontWeight:700, color:"var(--muted)", textTransform:"uppercase", fontFamily:T.mono }}>{sector}</span>
+                    <span style={{ fontSize:10, letterSpacing:1.2, fontWeight:600, color:"var(--muted)", textTransform:"uppercase", fontFamily:T.mono }}>{sector}</span>
                     {esAdmin ? (
                       <input defaultValue={colorSector} placeholder="Material…"
                         style={{ background:"var(--panel)", border:"1px solid var(--border)",
@@ -275,7 +276,7 @@ export default function BoatDetail({
                           </span>
                           {(p.prioridad === "Alta" || p.prioridad === "Urgente") && (
                             <span style={{ fontSize:9, letterSpacing:0.8, textTransform:"uppercase", padding:"1px 7px",
-                              borderRadius:99, fontWeight:800, background:prio.bg, color:prio.color, border:`1px solid ${prio.border}` }}>
+                              borderRadius:99, fontWeight:650, background:prio.bg, color:prio.color, border:`1px solid ${prio.border}` }}>
                               {p.prioridad}
                             </span>
                           )}

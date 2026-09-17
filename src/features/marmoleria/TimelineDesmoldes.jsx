@@ -12,14 +12,14 @@ function HitoCard({ row, stats, onOpen }) {
       style={{ ...PANEL, width:230, padding:"11px 12px", cursor:"pointer", flexShrink:0 }}
     >
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:9 }}>
-        <span style={{ fontFamily:T.mono, fontSize:13, fontWeight:700, color:"var(--text)" }}>
+        <span style={{ fontFamily:T.mono, fontSize:13, fontWeight:600, color:"var(--text)" }}>
           {row.barco}
           <span style={{ fontWeight:400, fontSize:10, color:"var(--dim)" }}> · {row.linea}</span>
         </span>
         <span style={{
           padding:"2px 6px", borderRadius:6, whiteSpace:"nowrap",
           border:`1px solid ${bucket.border}`, background:bucket.bg, color:bucket.color,
-          fontSize:10, fontWeight:700,
+          fontSize:10, fontWeight:600,
         }}>
           {row.bucket === "ahora" ? `Pedir · ${diasLabel}` : bucket.label}
         </span>
@@ -28,7 +28,7 @@ function HitoCard({ row, stats, onOpen }) {
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10 }}>
         <span style={{ fontSize:11, color:"var(--dim)" }}>Plantillas estimadas</span>
         <span style={{
-          fontFamily:T.mono, fontSize:12, fontWeight:700,
+          fontFamily:T.mono, fontSize:12, fontWeight:600,
           color:row.tieneTemplates ? "var(--green)" : "var(--text)",
         }}>
           {fmtFecha(row.estStr)}
@@ -88,7 +88,7 @@ export default function TimelineDesmoldes({
                   border:active ? `1px solid ${option.border ?? "var(--border-2)"}` : "1px solid var(--border)",
                   background:active ? (option.bg ?? "var(--panel-2)") : "transparent",
                   color:active ? (option.color ?? "var(--text)") : "var(--dim)",
-                  fontFamily:T.sans, fontSize:10, fontWeight:active ? 700 : 400,
+                  fontFamily:T.sans, fontSize:10, fontWeight:active ? 600 : 400,
                 }}
               >
                 {option.label}{count > 0 ? ` ${count}` : ""}

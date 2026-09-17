@@ -48,7 +48,7 @@ function Fila({ row, procesos, puedeEditar, onCantidad, onProceso, onQuitar, sel
             <Package size={13} />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {row.material?.descripcion || "Material"}
             </div>
             <div style={{ display: "flex", gap: 7, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -88,7 +88,7 @@ function Fila({ row, procesos, puedeEditar, onCantidad, onProceso, onQuitar, sel
                   overflow: "hidden",
                   color: C.teal,
                   fontSize: 10,
-                  fontWeight: 800,
+                  fontWeight: 650,
                   lineHeight: 1.25,
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -199,7 +199,7 @@ export default function MaterialesEtapa({
     <div className="ce-surface" data-tour="agregar-materiales" style={{ overflow: "hidden" }}>
       {/* cabecera: el botón de agregar vive acá, siempre visible */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 10, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase", color: C.dim }}>Materiales</span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", color: C.dim }}>Materiales</span>
         <Pill color={materiales.length ? C.blue : C.dim} soft={materiales.length ? C.blueL : C.panel2} borde={materiales.length ? C.blueB : "transparent"} mono>
           {materiales.length}
         </Pill>
@@ -233,13 +233,13 @@ export default function MaterialesEtapa({
           display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", flexWrap: "wrap",
           background: C.violetL, borderBottom: `1px solid ${C.violetB}`,
         }}>
-          <span style={{ fontSize: 12.5, fontWeight: 850, color: C.violet }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: C.violet }}>
             {sel.size} {sel.size === 1 ? "seleccionado" : "seleccionados"}
           </span>
           <button
             type="button"
             onClick={() => setSel(new Set())}
-            style={{ border: "none", background: "transparent", color: C.dim, fontSize: 11.5, fontWeight: 750, cursor: "pointer", fontFamily: C.sans }}
+            style={{ border: "none", background: "transparent", color: C.dim, fontSize: 11.5, fontWeight: 650, cursor: "pointer", fontFamily: C.sans }}
           >
             Limpiar
           </button>
@@ -291,7 +291,7 @@ export default function MaterialesEtapa({
           <div style={{ width: 60, height: 60, borderRadius: 18, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
             <Plus size={26} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 850, color: C.text }}>Esta etapa todavía no tiene materiales</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Esta etapa todavía no tiene materiales</div>
           <div style={{ fontSize: 13, color: C.dim, maxWidth: 380, lineHeight: 1.6 }}>
             Agregá los materiales que se compran en esta tanda. Podés buscarlos por proveedor o rubro y marcar varios de una vez.
           </div>
@@ -323,7 +323,7 @@ export default function MaterialesEtapa({
                     key={h || i}
                     style={{
                       textAlign: i === 2 ? "right" : "left", padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
-                      fontSize: 10, fontWeight: 850, letterSpacing: 0.6, textTransform: "uppercase", color: C.dim,
+                      fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: C.dim,
                     }}
                   >
                     {h}

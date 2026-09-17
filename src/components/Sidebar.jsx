@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Eye, Gauge, KeyRound, LogOut, Maximize, Menu, Moon, PanelLeftClose, PanelLeftOpen, Phone, Search, Sun, X } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Eye, Gauge, KeyRound, LogOut, Maximize, Moon, Phone, Pin, PinOff, Search, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import logoK from "@/assets/logos/logo-k.png";
+import LogoK from "@/components/ui/LogoK";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
@@ -284,113 +284,182 @@ const SC = {
   semaforo:           "#a78bfa",   // violet
 };
 
-/** Ancho del panel segun este abierto o reducido a la columna de iconos. */
-const ANCHO_ABIERTO = 280;
-const ANCHO_COMPACTO = 64;
-const CLAVE_COMPACTO = "klasea.sidebar.compacto";
+/** Riel de íconos y panel abierto (px). */
+const ANCHO_ABIERTO = 272;
+const ANCHO_COMPACTO = 68;
+const CLAVE_FIJADO = "klasea.sidebar.fijado";
 const EVENTO_COMPACTO = "klasea:sidebar-compacto";
+// Intención: que un roce del mouse camino a otra cosa no abra el menú, y que
+// salir un instante por el borde no lo cierre.
+const ABRIR_TRAS_MS = 140;
+const CERRAR_TRAS_MS = 260;
 
-/**
- * El estado de plegado vive en localStorage y no en el componente.
- *
- * No es una preferencia de estilo: 35 pantallas montan su propio <Sidebar>, asi
- * que cada navegacion crea una instancia nueva. Con useState solo, el panel se
- * volveria a desplegar cada vez que cambias de pantalla.
- */
-function leerCompacto() {
+function leerFijado() {
   if (typeof window === "undefined") return false;
   try {
-    return window.localStorage.getItem(CLAVE_COMPACTO) === "true";
+    return window.localStorage.getItem(CLAVE_FIJADO) === "true";
   } catch {
     return false;
   }
 }
 
-// ─── ANIMATIONS CSS ───────────────────────────────────────────────────────────
+// ─── ESTILOS ──────────────────────────────────────────────────────────────────
 //
-// Quedaron solo las de ENTRADA y las de hover. Las que corrian en bucle -el item
-// activo latiendo y parpadeando, la barra con neon pulsante, el punto que
-// escalaba, la linea de escaneo cada 10 s- se sacaron: ninguna otra pantalla del
-// sistema se mueve sola, y algo parpadeando al costado ocho horas cansa.
+// En la computadora el menú es un riel de 68 px que se abre al pasar el mouse
+// (o al tabular hasta él) y se superpone al contenido sin moverlo. Quien lo
+// quiere siempre abierto lo fija con el chinche o Ctrl+B.
+//
+// Nada cambia de lugar al abrir: los íconos, la campanita y el avatar están
+// siempre en la misma columna centrada del riel; el panel crece y los textos
+// aparecen con un fundido. Antes el riel y el panel eran dos armados distintos:
+// todo saltaba de lugar y, peor, la campanita se desmontaba y se volvía a montar
+// en cada pasada del mouse (canales de realtime y consultas de nuevo cada vez).
 const CSS = `
-  @keyframes sb-in    { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
-  @keyframes sb-down  { from{opacity:0;transform:translateY(-8px)}  to{opacity:1;transform:translateY(0)} }
-  @keyframes sb-up    { from{opacity:0;transform:translateY(8px)}   to{opacity:1;transform:translateY(0)} }
-  @media (max-width: 768px) { .resp-hamburger { display: flex !important; } }
+  @keyframes sb-in    { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes sb-fondo { from{opacity:0} }
   @media (max-width: 900px) {
     body { overscroll-behavior: none; }
   }
 
-  .sb-item { position: relative; overflow: hidden; transition: color .16s, background .16s; text-decoration: none !important; }
-  .sb-icon { transition: transform .18s ease; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-  .sb-item:hover .sb-icon { transform: scale(1.08); }
-  .sb-shine { position:absolute; inset:0; border-radius:8px; opacity:0; pointer-events:none; transition:opacity .16s; }
-  .sb-item:hover .sb-shine { opacity:1; }
-  /* En 64 px una barra de scroll del ancho normal se come un cuarto del riel. */
-  .sb-nav { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
+  .sb-aside { font-family: 'Outfit', system-ui, sans-serif; }
+  /* Lo que sólo se ve con el panel abierto: se desvanece y además sale del
+     orden de tabulación mientras está cerrado. */
+  .sb-texto { opacity: 0; transition: opacity .12s ease; white-space: nowrap; }
+  .sb-solo-abierto { opacity: 0; visibility: hidden; transition: opacity .12s ease, visibility 0s linear .12s; }
+  .sb-aside[data-abierto="true"] .sb-texto { opacity: 1; transition: opacity .2s ease .06s; }
+  .sb-aside[data-abierto="true"] .sb-solo-abierto { opacity: 1; visibility: visible; transition: opacity .2s ease .06s, visibility 0s; }
+  .sb-solo-cerrado { transition: opacity .12s ease; }
+  .sb-aside[data-abierto="true"] .sb-solo-cerrado { opacity: 0; }
+
+  .sb-marca { height: 66px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); }
+  .sb-logo { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 11px; background: var(--panel-2); color: var(--text); }
+  .sb-marca-textos { flex: 1; min-width: 0; }
+
+  .sb-buscar {
+    width: 100%; height: 40px; display: flex; align-items: center; gap: 11px;
+    padding: 0 10px 0 13px; overflow: hidden;
+    border: 1px solid var(--border); border-radius: 11px;
+    background: var(--panel); color: var(--dim);
+    font: inherit; text-align: left;
+    transition: color .16s, background-color .16s, border-color .16s;
+  }
+  .sb-buscar:hover { color: var(--text); border-color: var(--border-2); background: var(--panel-2); }
+  .sb-buscar kbd { border: 1px solid var(--border); background: var(--panel-2); color: var(--dim); border-radius: 6px; padding: 2px 6px; font-size: 10.5px; font-family: 'JetBrains Mono', monospace; }
+
+  .sb-nav { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; overflow-x: hidden; }
   .sb-nav::-webkit-scrollbar { width: 6px; }
   .sb-nav::-webkit-scrollbar-track { background: transparent; }
   .sb-nav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
-  .sb-out { transition: color .18s, background .18s, border-color .18s; }
-  .sb-out:hover { color: var(--blue) !important; border-color: var(--blue-border) !important; background: var(--blue-soft) !important; }
-  .sb-logout { transition: color .18s, background .18s, border-color .18s; }
-  .sb-logout:hover { color: #f87171 !important; border-color: rgba(248,113,113,.3) !important; background: rgba(248,113,113,.06) !important; }
-  .sb-theme { transition: color .16s, background .16s, box-shadow .16s; }
-  .sb-theme:hover { color: var(--text) !important; background: var(--panel-2) !important; }
+
+  .sb-grupo { height: 30px; margin-top: 8px; display: flex; align-items: center; gap: 11px; padding-left: 31px; overflow: hidden; }
+  .sb-grupo-punto { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; opacity: .9; }
+  .sb-grupo-texto { font-size: 11px; letter-spacing: .09em; color: var(--dim); text-transform: uppercase; font-weight: 600; }
+
+  .sb-item {
+    position: relative; overflow: hidden;
+    height: 40px; margin: 2px 10px; padding: 0 10px 0 15px;
+    display: flex; align-items: center; gap: 12px;
+    border-radius: 11px;
+    color: var(--muted); font-size: 13.5px; font-weight: 500;
+    text-decoration: none !important;
+    transition: color .16s, background-color .16s;
+  }
+  .sb-item:hover { background: var(--panel); color: var(--text); }
+  .sb-item.sb-activo { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  .sb-item:active { transform: scale(.985); }
+  .sb-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); transition: color .16s; }
+  .sb-item:hover .sb-icon, .sb-item.sb-activo .sb-icon { color: var(--sb-col); }
+  .sb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* La barra del ítem activo lleva el degradé de la marca. */
+  .sb-marca-activa { position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: linear-gradient(180deg, var(--cyan), var(--blue)); }
+  .sb-contador, .sb-contador-mini {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--cyan-border); border-radius: 999px;
+    background: var(--cyan-soft); color: var(--cyan);
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; line-height: 1; box-sizing: border-box;
+  }
+  .sb-contador { min-width: 22px; height: 20px; padding: 0 6px; font-size: 10.5px; flex-shrink: 0; }
+  .sb-contador-mini { position: absolute; left: 30px; top: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 9px; }
+
+  .sb-pie { flex-shrink: 0; display: grid; gap: 8px; padding: 10px 0 12px; border-top: 1px solid var(--border); overflow: hidden; }
+  .sb-pie-fila { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 14px; }
+  .sb-avatar {
+    position: relative; width: 40px; height: 40px; flex-shrink: 0;
+    display: grid; place-items: center;
+    border: 1px solid var(--blue-border); border-radius: 12px;
+    background: var(--blue-soft); color: var(--text);
+    font-size: 13px; font-weight: 700;
+  }
+  .sb-avatar::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; background: var(--green); border: 2px solid var(--sb-fondo); box-sizing: border-box; }
+  .sb-boton {
+    width: 34px; height: 34px; flex-shrink: 0;
+    display: grid; place-items: center; padding: 0;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: transparent; color: var(--dim);
+    transition: color .18s, background-color .18s, border-color .18s;
+  }
+  .sb-boton:hover { color: var(--text); border-color: var(--border-2); background: var(--panel-2); }
+  .sb-boton.is-activo { color: var(--blue); border-color: var(--blue-border); background: var(--blue-soft); }
+  .sb-salir:hover { color: var(--red); border-color: var(--red-border); background: var(--red-soft); }
+  .sb-tema { display: flex; gap: 2px; margin-left: auto; padding: 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); flex-shrink: 0; }
+  .sb-tema button { width: 28px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--dim); transition: color .16s, background-color .16s; }
+  .sb-tema button:hover { color: var(--text); background: var(--panel-2); }
+  .sb-tema button[aria-checked="true"] { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--border-2); }
+
+  /* Celular: cajón siempre abierto y blancos más grandes para el dedo. */
+  .sb-aside[data-movil="true"] .sb-item { height: 46px; font-size: 14.5px; }
+  .sb-aside[data-movil="true"] .sb-boton { width: 40px; height: 40px; }
+  .sb-aside[data-movil="true"] .sb-tema button { width: 36px; height: 34px; }
 `;
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function Sidebar({ profile, signOut }) {
+// Lo monta AppShell una sola vez. En el celular es un cajón que abre la barra
+// superior del contenedor: abiertoMovil / onCerrarMovil vienen de ahí.
+export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerrarMovil }) {
   const loc    = useLocation();
   const path   = loc.pathname;
   const search = loc.search;
-  
-  const [hov, setHov] = useState(null);
+
   const { isMobile } = useResponsive();
   const { theme, setTheme } = useTheme();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [waOpen, setWaOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const toggleMenu = () => setMenuOpen(o => !o);
-  const menuVisible = isMobile && menuOpen;
+  const cerrarMenu = () => onCerrarMovil?.();
+  const menuVisible = isMobile && abiertoMovil;
 
-  // Plegado: solo en escritorio. En celular ya existe el cajon con hamburguesa,
-  // que es la version movil de lo mismo.
-  const [compactoGuardado, setCompactoGuardado] = useState(leerCompacto);
-  const compacto = !isMobile && compactoGuardado;
-  // Con la columna de iconos, el nombre del item aparece al lado del cursor. Va
-  // FUERA del <aside> a proposito: el aside tiene overflow hidden y una
-  // animacion de entrada con transform, asi que un hijo posicionado quedaria
-  // recortado contra los 64 px.
-  const [globo, setGlobo] = useState(null);
+  // Fijado: la preferencia de tenerlo siempre abierto, guardada por equipo.
+  // plegadoPorPantalla: Tornería ("Enfocar circuito") o Postventa lo piden en
+  // riel un rato sin tocar esa preferencia (ver lib/menuLateral.js).
+  const [fijadoGuardado, setFijadoGuardado] = useState(leerFijado);
+  const [plegadoPorPantalla, setPlegadoPorPantalla] = useState(false);
+  const fijado = !isMobile && fijadoGuardado && !plegadoPorPantalla;
+  const [abiertoPorHover, setAbiertoPorHover] = useState(false);
+  const temporizador = useRef(0);
+  const abierto = isMobile || fijado || abiertoPorHover;
+  // Sólo se superpone al contenido cuando se abrió por hover sin estar fijado.
+  const superpuesto = !isMobile && !fijado && abiertoPorHover;
 
-  // Nada de esto puede vivir adentro del updater de setState. React llama a esa
-  // función cuando le conviene y más de una vez -en desarrollo lo hace a
-  // propósito-, y ahí adentro estaban la escritura en localStorage y un
-  // dispatchEvent que este mismo componente escucha: el listener volvía a
-  // pisar el estado en plena actualización y el menú terminaba sin plegarse,
-  // con "false" guardado. Se calcula afuera y se avisa después.
-  const alternarCompacto = useCallback(() => {
-    const siguiente = !compactoGuardado;
-    setCompactoGuardado(siguiente);
-    setGlobo(null);
+  const ranuraRef = useRef(null);
+  useEffect(() => () => window.clearTimeout(temporizador.current), []);
+
+  const alternarFijado = useCallback(() => {
+    const siguiente = !fijadoGuardado;
+    setFijadoGuardado(siguiente);
+    setPlegadoPorPantalla(false);
+    setAbiertoPorHover(false);
+    if (ranuraRef.current) ranuraRef.current.style.zIndex = "";
     try {
-      window.localStorage.setItem(CLAVE_COMPACTO, String(siguiente));
+      window.localStorage.setItem(CLAVE_FIJADO, String(siguiente));
     } catch {
-      // Sin storage el plegado igual funciona mientras dure la sesion.
+      // Sin storage igual funciona mientras dure la sesión.
     }
-    window.dispatchEvent(new CustomEvent(EVENTO_COMPACTO, { detail: siguiente }));
-  }, [compactoGuardado]);
+  }, [fijadoGuardado]);
 
-  // Otra instancia del sidebar -o el mismo atajo desde otra pantalla- avisa por
-  // evento para que las dos queden iguales sin releer storage.
+  // Una pantalla pide el riel (true) o lo devuelve como estaba (null/false).
   useEffect(() => {
-    const alCambiar = (evento) => {
-      setCompactoGuardado(Boolean(evento.detail));
-      setGlobo(null);
-    };
-    window.addEventListener(EVENTO_COMPACTO, alCambiar);
-    return () => window.removeEventListener(EVENTO_COMPACTO, alCambiar);
+    const alPedir = (evento) => setPlegadoPorPantalla(evento.detail === true);
+    window.addEventListener(EVENTO_COMPACTO, alPedir);
+    return () => window.removeEventListener(EVENTO_COMPACTO, alPedir);
   }, []);
 
   useEffect(() => {
@@ -402,11 +471,11 @@ export default function Sidebar({ profile, signOut }) {
       const etiqueta = String(foco?.tagName || "").toLowerCase();
       if (etiqueta === "input" || etiqueta === "textarea" || foco?.isContentEditable) return;
       evento.preventDefault();
-      alternarCompacto();
+      alternarFijado();
     };
     window.addEventListener("keydown", alTeclear);
     return () => window.removeEventListener("keydown", alTeclear);
-  }, [isMobile, alternarCompacto]);
+  }, [isMobile, alternarFijado]);
 
   useEffect(() => {
     if (!isMobile) return undefined;
@@ -520,725 +589,447 @@ export default function Sidebar({ profile, signOut }) {
     };
   }, [esCompras, realAdmin]);
 
-  // ── NAV ITEM ACTUALIZADO ──────────────────────────────────────────────────────
+  // ── APERTURA POR HOVER ────────────────────────────────────────────────────
+  // Mientras está abierto por hover el riel sube de capa para superponerse al
+  // contenido; al cerrarse vuelve a su capa normal recién cuando terminó de
+  // achicarse (si no, el contenido lo taparía a mitad de camino). La capa se
+  // toca directo en el DOM: es un detalle visual que no merece un render.
+  const abrirPorHover = useCallback((espera) => {
+    window.clearTimeout(temporizador.current);
+    temporizador.current = window.setTimeout(() => {
+      if (ranuraRef.current) ranuraRef.current.style.zIndex = "50";
+      setAbiertoPorHover(true);
+    }, espera);
+  }, []);
+  const cerrarPorHover = useCallback((espera) => {
+    window.clearTimeout(temporizador.current);
+    temporizador.current = window.setTimeout(() => {
+      setAbiertoPorHover(false);
+      temporizador.current = window.setTimeout(() => {
+        if (ranuraRef.current) ranuraRef.current.style.zIndex = "";
+      }, 240);
+    }, espera);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile || !abiertoPorHover) return undefined;
+    const alTeclear = (evento) => { if (evento.key === "Escape") cerrarPorHover(0); };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [isMobile, abiertoPorHover, cerrarPorHover]);
+
+  // ── ÍTEM ──────────────────────────────────────────────────────────────────
+  // La misma estructura en el riel y abierto: el ícono queda en la columna
+  // centrada de 68 px y el nombre aparece al abrir. En el riel el nombre va
+  // en el aria-label y en el title; abierto, el title muestra la ayuda.
   const item = (href, label, c, exact = true, delay = 0, info = "", badge = null) => {
     const [hrefPath, hrefQuery = ""] = href.split("?");
     const expectedParams = new URLSearchParams(hrefQuery);
     const currentParams = new URLSearchParams(search);
     const matchesQuery = !hrefQuery || [...expectedParams.entries()].every(([key, value]) => currentParams.get(key) === value);
     const on  = exact ? path === hrefPath && matchesQuery : path.startsWith(hrefPath);
-    const isH = hov === href;
-    const col = c ?? C.muted;
     const hayBadge = badge != null && badge > 0;
-
-    // La ayuda sale AL COSTADO del ítem, en los dos modos. Antes, con el menú
-    // abierto, iba en un cartel abajo de todo: si el ítem que señalabas estaba
-    // cerca del final -Configuración, Procedimientos, Tickets-, el cartel se le
-    // montaba encima y tapaba justo lo que estabas mirando. Al costado no tapa
-    // nada del menú y no le mueve el alto a nadie.
-    const alEntrar = (evento) => {
-      setHov(href);
-      if (!info && !compacto) return;
-      const caja = evento.currentTarget.getBoundingClientRect();
-      setGlobo({ label, info, top: caja.top + caja.height / 2 });
-    };
-    const alSalir = () => { setHov(null); setGlobo(null); };
-
-    // Columna de iconos: 46x42 para que siga siendo un blanco comodo con el dedo
-    // en las PC del pañol, y el contador se monta sobre el icono.
-    if (compacto) {
-      return (
-        <Link
-          key={href} to={href}
-          className="sb-item"
-          title={label}
-          aria-label={label}
-          onMouseEnter={alEntrar}
-          onMouseLeave={alSalir}
-          style={{
-            width: 46, height: 42, margin: "1px auto", borderRadius: 9,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: on ? col : isH ? C.text : C.dim,
-            background: on ? C.panel2 : isH ? C.panel : "transparent",
-            animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
-          }}
-        >
-          {on && <div style={{ position: "absolute", left: -9, top: "20%", bottom: "20%", width: 2, borderRadius: "0 2px 2px 0", background: col }}/>}
-          <span className="sb-icon"><Icon id={href} color="currentColor" size={18} /></span>
-          {hayBadge && (
-            <span style={{
-              position: "absolute", top: 3, right: 1,
-              minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999,
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan,
-              fontSize: 9, fontFamily: C.mono, fontWeight: 900, lineHeight: 1,
-              boxSizing: "border-box",
-            }}>
-              {badge > 99 ? "99" : badge}
-            </span>
-          )}
-        </Link>
-      );
-    }
 
     return (
       <Link
         key={href} to={href}
-        className="sb-item"
-        onClick={() => { if (isMobile) setMenuOpen(false); }}
-        onMouseEnter={alEntrar}
-        onMouseLeave={alSalir}
+        className={on ? "sb-item sb-activo" : "sb-item"}
+        title={abierto ? info || undefined : label}
+        aria-label={abierto ? undefined : label}
+        aria-current={on ? "page" : undefined}
+        onClick={() => { if (isMobile) cerrarMenu(); }}
         style={{
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "9px 14px 9px 18px", margin: "2px 8px", borderRadius: 8,
-          color: on ? C.text : isH ? C.text : C.muted,
-          fontSize: 13, letterSpacing: "0.1px", fontWeight: on ? 700 : 600,
-          background: on ? C.panel2 : isH ? C.panel : "transparent",
-          animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+          "--sb-col": c ?? C.muted,
+          animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both`,
         }}
       >
-        <div className="sb-shine" style={{ background: `linear-gradient(90deg,${col}18,transparent 55%)` }} />
-        {on && <div style={{ position: "absolute", left: 0, top: "18%", bottom: "18%", width: 2, borderRadius: "0 2px 2px 0", background: col }}/>}
-        <span className="sb-icon" style={{ color: on ? col : isH ? col : C.dim }}>
-          <Icon id={href} color="currentColor" size={15} />
-        </span>
-        <span className="sb-label" style={{ flex: 1 }}>{label}</span>
-        {hayBadge && (
-          <span style={{
-            minWidth: 18,
-            height: 18,
-            padding: "0 6px",
-            borderRadius: 999,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            background: C.cyanL,
-            border: `1px solid ${C.cyanB}`,
-            color: C.cyan,
-            fontSize: 10,
-            fontFamily: C.mono,
-            fontWeight: 900,
-            lineHeight: 1,
-          }}>
-            {badge > 99 ? "99+" : badge}
-          </span>
-        )}
+        {on && <span className="sb-marca-activa" />}
+        <span className="sb-icon"><Icon id={href} color="currentColor" size={18} /></span>
+        <span className="sb-label sb-texto">{label}</span>
+        {hayBadge && <span className="sb-contador sb-texto">{badge > 99 ? "99+" : badge}</span>}
+        {hayBadge && <span className="sb-contador-mini sb-solo-cerrado" aria-hidden="true">{badge > 99 ? "99" : badge}</span>}
       </Link>
     );
   };
 
-  // ── SUB ITEM ACTUALIZADO ──────────────────────────────────────────────────────
-  const _subItem = (href, label, qs = "", c, delay = 0, info = "") => {
-    const key = `${href}${qs}`;
-    const on  = path === href && (qs ? search === qs : !search);
-    const isH = hov === key;
-    const col = c ?? C.dim;
-    return (
-      <Link
-        key={key} to={key}
-        className={`sb-item${on ? " active" : ""}`}
-        onClick={() => { if (isMobile) setMenuOpen(false); }}
-        onMouseEnter={(evento) => {
-          setHov(key);
-          if (isMobile || !info) return;
-          const caja = evento.currentTarget.getBoundingClientRect();
-          setGlobo({ label, info, top: caja.top + caja.height / 2 });
-        }}
-        onMouseLeave={() => { setHov(null); setGlobo(null); }}
-        style={{
-          display: "flex", alignItems: "center", gap: 8,
-          padding: "5px 16px 5px 42px", margin: "1px 8px", borderRadius: 7,
-          color: on ? C.text : isH ? C.muted : C.dim,
-          fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", fontWeight: on ? 700 : 600,
-          background: on ? C.panel2 : isH ? C.panel : "transparent",
-          animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
-        }}
-      >
-        {on && <div className="sb-bar" style={{ position: "absolute", left: 0, top: "12%", bottom: "12%", width: 2, borderRadius: "0 2px 2px 0", background: col, "--c": col }}/>}
-        <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: on ? col : C.border2, boxShadow: on ? `0 0 5px ${col}` : "none", transition: "background .16s" }}/>
-        <span className="sb-label">{label}</span>
-      </Link>
-    );
-  };
-
-  // ── GROUP & DIVIDER ─────────────────────────────────────────────────────
-  // Plegado no entra el titulo del grupo: lo reemplaza una linea, que es lo
-  // unico que hace falta para que los bloques no se lean como una lista sola.
-  const group = (label, c, delay = 0) => (compacto ? (
-    <div key={`g${label}`} style={{ width: 26, height: 1, margin: "9px auto", background: C.border }}/>
-  ) : (
-    <div key={`g${label}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "14px 20px 6px", animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both` }}>
-      {/* El color de seccion queda en el punto. El texto va con el token de
-          siempre: los colores de seccion son hex fijos pensados para el tema
-          oscuro y en claro el titulo quedaba casi invisible. */}
-      <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: c || C.dim }}/>
-      <span style={{ fontSize: 10, letterSpacing: "1.3px", color: C.dim, textTransform: "uppercase", fontWeight: 800 }}>{label}</span>
+  // ── GRUPO ─────────────────────────────────────────────────────────────────
+  // Alto fijo en los dos estados para que la lista no salte al abrir. El color
+  // de sección queda en el punto, que en el riel es lo único que se ve.
+  const group = (label, c, delay = 0) => (
+    <div key={`g${label}`} className="sb-grupo" style={{ animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both` }}>
+      <span className="sb-grupo-punto" style={{ background: c || C.dim }} />
+      <span className="sb-grupo-texto sb-texto">{label}</span>
     </div>
-  ));
+  );
 
-  // Plegado el separador ya lo pone el grupo: dos rayas seguidas serian ruido.
-  const divider = (k) => (compacto ? null : (
-    <div key={`d${k}`} style={{ height: 1, margin: "4px 20px", background: `linear-gradient(90deg,transparent,${C.border},transparent)` }}/>
-  ));
+  // Los títulos de grupo ya separan los bloques: la raya extra entre grupos
+  // era ruido. Queda la función para no tocar cada llamada del menú.
+  const divider = () => null;
 
-  const sidebarMobileStyle = {
+  const estiloMovil = {
     position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 1000,
-    width: "min(86vw, 310px)", background: C.bg,
+    width: "min(86vw, 320px)", background: C.panelSolid,
     display: "flex", flexDirection: "column",
     borderRight: `1px solid ${C.border}`,
-    transform: menuVisible ? "translateX(0)" : "translateX(-100%)",
-    transition: "transform .3s cubic-bezier(.22,1,.36,1)",
+    boxShadow: menuVisible ? "var(--elev-2)" : "none",
+    transform: menuVisible ? "translateX(0)" : "translateX(-102%)",
     overflow: "hidden",
     paddingTop: "env(safe-area-inset-top, 0px)",
+    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    // Cerrado queda oculto de verdad (sin esto el Tab entraba a los links de un
+    // cajón que no se ve), pero recién al terminar de salir.
+    visibility: menuVisible ? "visible" : "hidden",
+    transition: menuVisible
+      ? "transform .32s cubic-bezier(.22,1,.36,1), box-shadow .32s, visibility 0s"
+      : "transform .32s cubic-bezier(.22,1,.36,1), box-shadow .32s, visibility 0s linear .32s",
+    "--sb-fondo": "var(--panel-solid)",
   };
 
-  const sidebarDesktopStyle = {
-    width: compacto ? ANCHO_COMPACTO : ANCHO_ABIERTO,
-    flexShrink: 0, background: C.bg, height: "100%",
-    display: "flex", flexDirection: "column", borderRight: `1px solid ${C.border}`,
-    position: "relative", overflow: "hidden",
-    transition: "width .2s cubic-bezier(.22,1,.36,1)",
+  const estiloEscritorio = {
+    position: "absolute", top: 0, left: 0, bottom: 0,
+    width: abierto ? ANCHO_ABIERTO : ANCHO_COMPACTO,
+    display: "flex", flexDirection: "column",
+    background: superpuesto ? C.panelSolid : "transparent",
+    borderRight: `1px solid ${C.border}`,
+    boxShadow: superpuesto ? "var(--elev-2)" : "none",
+    overflow: "hidden", boxSizing: "border-box",
+    transition: "width .22s cubic-bezier(.22,1,.36,1), background-color .18s ease, box-shadow .22s ease",
     animation: "sb-in .38s cubic-bezier(.22,1,.36,1) both",
-    boxSizing: "border-box",
+    "--sb-fondo": superpuesto ? "var(--panel-solid)" : "var(--bg)",
   };
 
-  const botonPlegar = (
-    <button
-      type="button"
-      onClick={alternarCompacto}
-      title={`${compacto ? "Expandir" : "Contraer"} el menú (Ctrl + B)`}
-      aria-label={compacto ? "Expandir el menú" : "Contraer el menú"}
-      className="sb-out"
-      style={{
-        width: compacto ? 34 : 26, height: compacto ? 30 : 26, borderRadius: 7, flexShrink: 0,
-        background: C.panel, border: `1px solid ${C.border}`, color: C.dim,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", padding: 0, boxSizing: "border-box",
+  // En la computadora el riel ocupa su lugar en la fila; fijado, el panel entero.
+  const estiloRanura = {
+    position: "relative", height: "100%", flexShrink: 0,
+    width: fijado ? ANCHO_ABIERTO : ANCHO_COMPACTO,
+    transition: "width .22s cubic-bezier(.22,1,.36,1)",
+  };
+
+  const menu = (
+    <aside
+      className="sb-aside"
+      data-abierto={abierto ? "true" : "false"}
+      data-movil={isMobile ? "true" : "false"}
+      style={isMobile ? estiloMovil : estiloEscritorio}
+      aria-label="Menú principal"
+      onMouseEnter={() => { if (!isMobile && !fijado) abrirPorHover(ABRIR_TRAS_MS); }}
+      onMouseLeave={() => { if (!isMobile && !fijado) cerrarPorHover(CERRAR_TRAS_MS); }}
+      // Sólo con teclado: un clic en un ícono del riel navega sin abrir el panel.
+      onFocusCapture={(evento) => {
+        if (!isMobile && !fijado && evento.target.matches?.(":focus-visible")) abrirPorHover(0);
+      }}
+      onBlurCapture={(evento) => {
+        if (!isMobile && !fijado && !evento.currentTarget.contains(evento.relatedTarget)) cerrarPorHover(0);
       }}
     >
-      {compacto ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
-    </button>
+      {/* MARCA ───────────────────────────────────────────────────────────── */}
+      <div className="sb-marca" style={{ animation: "sb-in .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
+        <div className="sb-logo">
+          <LogoK size={24} titulo="Klase A" />
+        </div>
+        <div className="sb-marca-textos sb-texto">
+          <div style={{ fontWeight: 750, letterSpacing: ".16em", fontSize: 13, lineHeight: 1.1, color: C.text }}>KLASE A</div>
+          <div style={{ fontSize: 11.5, color: C.dim, marginTop: 3, fontWeight: 500 }}>Astillero · producción</div>
+        </div>
+        {isMobile ? (
+          <button
+            type="button"
+            onClick={cerrarMenu}
+            aria-label="Cerrar el menú"
+            className="sb-boton"
+            style={{ width: 40, height: 40, borderColor: "transparent" }}
+          >
+            <X size={19} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={alternarFijado}
+            className={`sb-boton sb-solo-abierto${fijado ? " is-activo" : ""}`}
+            title={fijado ? "Soltar el menú (Ctrl + B)" : "Fijar el menú abierto (Ctrl + B)"}
+            aria-label={fijado ? "Soltar el menú" : "Fijar el menú abierto"}
+            aria-pressed={fijado}
+          >
+            {fijado ? <PinOff size={15} /> : <Pin size={15} />}
+          </button>
+        )}
+      </div>
+
+      {/* El buscador nunca se esconde: en el riel queda la lupa, y Ctrl+K sigue
+          funcionando igual desde cualquier parte. */}
+      <div style={{ padding: "12px 12px 6px", flexShrink: 0 }}>
+        <button
+          type="button"
+          className="sb-buscar"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("klasea:open-global-search"));
+            if (isMobile) cerrarMenu();
+          }}
+          title="Buscar en todo Klase A (Ctrl + K)"
+          aria-label="Buscar en todo Klase A"
+          style={{ height: isMobile ? 44 : 40 }}
+        >
+          <Search size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
+          <span className="sb-texto" style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 500 }}>Buscar</span>
+          {!isMobile && <kbd className="sb-texto">Ctrl K</kbd>}
+        </button>
+      </div>
+
+      {/* NAV ───────────────────────────────────────────────────────────── */}
+      <nav className="sb-nav" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
+        {esPanol && <>
+          {group("Operación diaria", SC.panol_catalogo, 55)}
+          {item("/inicio-panol", "Panel de pañol", SC.panol_catalogo, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
+          {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.panol_catalogo, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
+          {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.panol_catalogo, true, 80, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
+          {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.panol_catalogo, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
+          {item("/egresos-panol", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
+          {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
+          {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
+          {/* Se llamaba "Egreso de consumibles" y quedaba pegado a
+              "Consumibles": dos renglones casi iguales, uno arriba del otro.
+              "Caja" es como le dicen en el pañol y ademas describe mejor lo
+              que hace, porque por aca tambien entra mercaderia. */}
+          {item("/consumibles-caja", "Caja de consumibles", SC.panol_catalogo, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
+
+          {divider("panol-consulta")}
+          {group("Consultar", SC.movimientos, 120)}
+          {item("/stock-panol?tab=maestro", "Stock maestro", SC.movimientos, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
+          {item("/catalogo-maestro", "Catálogo maestro", SC.movimientos, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
+          {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.movimientos, true, 140, "Plano de estanterías y productos ubicados.")}
+          {item("/stock-panol?tab=movimientos", "Movimientos", SC.movimientos, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
+          {item("/compras", "Pedidos a compras", SC.compras, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
+
+          {divider("panol-apoyo")}
+          {group("Áreas de apoyo", C.dim, 175)}
+          {item("/madera", "Maderas", C.dim, true, 185, "Stock y pedidos específicos de maderas.")}
+          {itemsLaminacion(C.dim, 195)}
+          {item("/scan-pedido", "Pedir reposición", C.dim, true, 205, "Crear rápidamente un pedido interno a Compras.")}
+        </>}
+
+        {esGestion && <>
+          {group("Inventario", SC.movimientos, 60)}
+          {item("/madera", "Maderas", SC.movimientos, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
+          {itemsLaminacion(SC.movimientos, 80)}
+          {item("/scan", "Escáner", SC.movimientos, true, 90, "Egreso de madera por escáner.")}
+        </>}
+
+        {esGestion && <>
+          {divider("prod")}
+          {group("Producción", SC.produccion, 120)}
+          {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
+          {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
+          {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
+          {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
+          {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
+          {item("/torneria",    "Tornería",    SC.produccion, true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}
+          {item("/calendario", "Logística", SC.produccion, true, 200, "Solicitudes, coordinación, agenda y costos de transportes del astillero.")}
+        </>}
+
+        {esMecanica && !esGestion && <>
+          {group("Mecánica", SC.produccion, 120)}
+          {item("/torneria", "Tornería", SC.produccion, true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
+        </>}
+
+        {puedePedirCompras && !esPanol && <>
+          {divider("compras")}
+          {group(comprasGroup, SC.compras, 205)}
+          {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
+          {esCompras && item("/solicitudes-panol", "Solicitudes de pañol", SC.panol_catalogo, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
+          {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
+          {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
+          {esCompras && item("/muebles", "Muebles y herrajes", SC.produccion, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
+          {esCompras && item("/calendario", "Logística", SC.produccion, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
+          {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
+        </>}
+
+        {esCompras && item("/torneria", "Tornería y mecanizados", SC.produccion, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
+
+        {esGestion && <>
+          {divider("panol-rec")}
+          {group("Pañol", SC.panol_catalogo, 216)}
+          {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
+          {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
+          {item("/stock-panol", "Stock", SC.panol_catalogo, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
+        </>}
+
+        {puedeVerCatalogo && !esPanol && <>
+          {divider("panol-cat")}
+          {group("Catálogo", SC.panol_catalogo, 218)}
+          {item("/catalogo-maestro", "Catálogo maestro", SC.panol_catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
+          {puedeVerMateriales && item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
+        </>}
+
+        {puedeVerPrecios && <>
+          {divider("precios")}
+          {group("Precios", SC.panol_catalogo, 230)}
+          {item("/costo-barco", "Costo del barco", SC.panol_catalogo, true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
+          {item("/precios", "Carga de precios", SC.panol_catalogo, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
+        </>}
+
+        {esAdministracion && puedeVerLogistica && <>
+          {divider("logistica-admin")}
+          {group("Logística", SC.produccion, 235)}
+          {item("/calendario", "Solicitar movimientos", SC.produccion, true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
+        </>}
+
+        {esGestion && <>
+          {divider("lam-prod")}
+          {group("Producción · Laminación", SC.gestion_laminacion, 200)}
+          {item("/obras-laminacion", "Por obra", SC.gestion_laminacion, false, 220, "Detalle de materiales de laminación imputados por casco.")}
+          {puedeEditarPlantillas && item("/laminacion/plantillas", "Plantillas", SC.gestion_laminacion, true, 225, "Recetas base por línea de producción de laminación.")}
+        </>}
+
+        {esGestion && <>
+          {divider("pv")}
+          {group("Post Venta", SC.postventa, 370)}
+          {item("/postventa", "Barcos Entregados", SC.postventa, true, 390, "Seguimiento de garantías y servicios realizados a clientes.")}
+        </>}
+
+        {esRrhh && <>
+          {divider("rrhh")}
+          {group("RRHH", SC.rrhh, 395)}
+          {item("/rrhh", "Presentismo", SC.rrhh, true, 400, "Asistencia, horas extras e informes del fichero Hikvision.")}
+        </>}
+
+        {esAdmin && <>
+          {divider("sys")}
+          {group("Sistema", SC.sistema, 410)}
+          {item("/configuracion", "Configuración", SC.sistema, true, 430, "Ajustes globales del sistema, altas y permisos de usuarios.")}
+        </>}
+
+        {(esGestion || ["laminacion","muebles","mecanica","electricidad"].includes(role)) && <>
+          {divider("ins")}
+          {group("Instrucciones", SC.instrucciones, 450)}
+          {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
+        </>}
+
+        {/* Sin condición de rol: pedirle algo al sistema lo tiene que poder
+            hacer cualquiera que entre. Va al final porque no es parte del
+            trabajo diario, pero está siempre a la vista. */}
+        {divider("tk")}
+        {group("Ayuda", SC.tickets, 490)}
+        {item("/tickets", "Tickets", SC.tickets, true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
+      </nav>
+
+      {/* PIE ─────────────────────────────────────────────────────────────────
+          La campanita y el avatar están siempre en la columna del riel; las
+          herramientas, el tema y salir aparecen al abrir. Una sola campanita
+          montada: antes el riel y el panel tenían cada uno la suya y pasar el
+          mouse las desmontaba y volvía a montar. */}
+      <div className="sb-pie">
+        <div className="sb-pie-fila">
+          {/* En el celular la campanita está en la barra superior. */}
+          {!isMobile && (
+            <NotificacionesBell
+              profile={profile}
+              size={40}
+              iconSize={17}
+              estiloBoton={{ borderRadius: 12, background: "transparent" }}
+            />
+          )}
+          <div className="sb-solo-abierto" style={{ display: "flex", gap: 6 }}>
+            {[
+              !isMobile && {
+                key: "pantalla",
+                title: "Pantalla completa",
+                Icono: Maximize,
+                onClick: () => {
+                  if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                  } else if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                  }
+                },
+              },
+              { key: "clave", title: "Cambiar contraseña", Icono: KeyRound, onClick: () => setPasswordOpen(true) },
+              role !== "cliente" && { key: "whatsapp", title: "Vincular WhatsApp", Icono: Phone, onClick: () => setWaOpen(true) },
+            ].filter(Boolean).map(({ key, title, Icono, onClick }) => (
+              <button key={key} type="button" onClick={onClick} title={title} aria-label={title} className="sb-boton">
+                {React.createElement(Icono, { size: 15 })}
+              </button>
+            ))}
+          </div>
+          <div className="sb-tema sb-solo-abierto" role="radiogroup" aria-label="Tema">
+            {[
+              { value: "dark", title: "Oscuro", Icon: Moon },
+              { value: "light", title: "Claro", Icon: Sun },
+              { value: "hc", title: "Alto contraste", Icon: Eye },
+            ].map(({ value, title, Icon: ThemeIcon }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={theme === value}
+                title={title}
+                aria-label={title}
+                onClick={() => setTheme(value)}
+              >
+                {React.createElement(ThemeIcon, { size: 13 })}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sb-pie-fila">
+          <div className="sb-avatar" title={`${username} · ${role}`}>{initials || "?"}</div>
+          <div className="sb-texto" style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, color: C.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
+              {username}
+            </div>
+            <div style={{ fontSize: 12, color: C.dim, fontWeight: 500, textTransform: "capitalize", marginTop: 1 }}>{role}</div>
+          </div>
+          <button
+            type="button"
+            onClick={signOut}
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            className="sb-boton sb-salir sb-solo-abierto"
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+
+        {role === "panol" && (
+          <div className="sb-pie-fila">
+            <button
+              type="button"
+              onClick={() => setModoLiviano((current) => !current)}
+              title="Reduce efectos visuales para equipos o conexiones lentas"
+              aria-label="Modo liviano"
+              aria-pressed={modoLiviano}
+              className={modoLiviano ? "sb-boton is-activo" : "sb-boton"}
+              style={{ width: 40, height: 40 }}
+            >
+              <Gauge size={16} />
+            </button>
+            <span className="sb-texto" style={{ fontSize: 12.5, fontWeight: 600, color: modoLiviano ? C.green : C.dim }}>
+              Modo liviano {modoLiviano ? "activo" : "desactivado"}
+            </span>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 
   return (
     <>
       <style>{CSS}</style>
 
-      {isMobile && (
-        <>
-          {menuVisible && (
-            <div onClick={toggleMenu} style={{
-              position: "fixed", inset: 0, zIndex: 999,
-              background: "var(--overlay)", backdropFilter: "blur(2px)",
-              WebkitBackdropFilter: "blur(2px)",
-            }} />
-          )}
-          <button onClick={toggleMenu} className="resp-hamburger" style={{
-            position: "fixed",
-            top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-            left: "calc(env(safe-area-inset-left, 0px) + 10px)",
-            zIndex: 1001,
-            width: 42, height: 42, borderRadius: 10,
-            background: C.panelSolid, border: `1px solid ${C.border}`,
-            color: C.text, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-            boxShadow: "0 10px 30px var(--shadow)",
-          }}>
-            {menuVisible ? <X size={18} /> : <Menu size={18} />}
-          </button>
-
-          {/* En el celular la campanita va al lado del botón de menú, arriba a
-              la izquierda. Adentro del cajón también está -en el pie- pero ahí
-              no se ve sin abrirlo, y un aviso que hay que ir a buscar no avisa.
-              Arriba a la izquierda no pisa nada: los botones de acción de las
-              listas viven abajo a la derecha, que es de donde venimos.
-              Con el cajón abierto se desvanece -el cajón va en z-index 1000 y
-              esto en 1001, así que si no, flotaría encima-. Se OCULTA, no se
-              desmonta: useNotificaciones abre canales de realtime al montar, y
-              montar y desmontar en cada toque del menú los estaría abriendo y
-              cerrando todo el día. */}
-          {(
-            <div style={{
-              position: "fixed",
-              top: "calc(env(safe-area-inset-top, 0px) + 10px)",
-              left: "calc(env(safe-area-inset-left, 0px) + 62px)",
-              zIndex: 1001,
-              opacity: menuVisible ? 0 : 1,
-              pointerEvents: menuVisible ? "none" : "auto",
-              transition: "opacity .2s",
-            }}>
-              <NotificacionesBell
-                profile={profile}
-                size={42}
-                iconSize={18}
-                estiloBoton={{
-                  borderRadius: 10,
-                  background: C.panelSolid,
-                  backdropFilter: "blur(6px)",
-                  WebkitBackdropFilter: "blur(6px)",
-                  boxShadow: "0 10px 30px var(--shadow)",
-                }}
-              />
-            </div>
-          )}
-        </>
+      {/* Fondo del cajón en el celular. El botón que lo abre y la campanita
+          viven en la barra superior de AppShell: antes flotaban encima del
+          título de cada pantalla. */}
+      {isMobile && menuVisible && (
+        <div onClick={cerrarMenu} aria-hidden="true" style={{
+          position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 999,
+          background: "var(--overlay)", backdropFilter: "blur(3px)",
+          WebkitBackdropFilter: "blur(3px)",
+          animation: "sb-fondo .2s ease-out",
+        }} />
       )}
 
-      <aside style={isMobile ? sidebarMobileStyle : sidebarDesktopStyle}>
-        {/* Sin la linea de escaneo ni el resplandor de arriba: eran los dos
-            unicos efectos de este tipo en toda la aplicacion. */}
+      {isMobile ? menu : <div ref={ranuraRef} style={estiloRanura}>{menu}</div>}
 
-        {/* BRAND ─────────────────────────────────────────────────────────── */}
-        <div style={{
-          padding: isMobile ? "14px 14px 12px" : compacto ? "18px 0" : "18px 14px 16px 18px",
-          borderBottom: `1px solid ${C.border}`, position: "relative", flexShrink: 0,
-          animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both",
-        }}>
-          {isMobile && (
-            <button onClick={toggleMenu} style={{
-              position: "absolute", top: 10, right: 10, zIndex: 5,
-              background: "transparent", border: "none", color: C.dim,
-              cursor: "pointer", fontSize: 18, padding: 4, lineHeight: 1,
-            }}>
-              ✕
-            </button>
-          )}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: compacto ? "center" : "flex-start", gap: 11 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: C.panel2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src={logoK} alt="K" className="klasea-logo-mono" style={{ width: 15, height: 15, objectFit: "contain" }}/>
-            </div>
-            {!compacto && (
-              <>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, letterSpacing: "1.3px", fontSize: 12, lineHeight: 1, color: C.text }}>
-                    KLASE A
-                  </div>
-                  <div style={{ fontSize: 10, letterSpacing: "1.1px", color: C.dim, textTransform: "uppercase", marginTop: 3, fontWeight: 700 }}>
-                    Sistema de producción
-                  </div>
-                </div>
-                {!isMobile && botonPlegar}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* El buscador nunca se esconde: plegado queda como lupa, y Ctrl+K sigue
-            funcionando igual desde cualquier parte. */}
-        <div style={{ padding: compacto ? "10px 0 6px" : "10px 8px 4px", position: "relative", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent("klasea:open-global-search"));
-              if (isMobile) setMenuOpen(false);
-            }}
-            title="Buscar en todo Klase A (Ctrl + K)"
-            aria-label="Buscar en todo Klase A"
-            className="sb-out"
-            style={{
-              width: compacto ? 40 : "100%", minHeight: 36, display: "flex", alignItems: "center",
-              justifyContent: compacto ? "center" : "flex-start", gap: 9,
-              padding: compacto ? 0 : "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`,
-              background: C.panel, color: C.dim, cursor: "pointer", fontFamily: C.sans,
-              textAlign: "left", boxSizing: "border-box",
-            }}
-          >
-            <Search size={compacto ? 15 : 14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
-            {!compacto && (
-              <>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 700, letterSpacing: ".2px" }}>Buscar en Klase A</span>
-                {!isMobile && <kbd style={{ border: `1px solid ${C.border}`, background: C.panel2, color: C.dim, borderRadius: 5, padding: "2px 5px", fontSize: 8.5, fontFamily: C.mono, whiteSpace: "nowrap" }}>Ctrl K</kbd>}
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* NAV ───────────────────────────────────────────────────────────── */}
-        <nav className="sb-nav" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
-          {esPanol && <>
-            {group("Operación diaria", SC.panol_catalogo, 55)}
-            {item("/inicio-panol", "Panel de pañol", SC.panol_catalogo, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
-            {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.panol_catalogo, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
-            {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.panol_catalogo, true, 80, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
-            {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.panol_catalogo, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
-            {item("/egresos-panol", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
-            {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
-            {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
-            {/* Se llamaba "Egreso de consumibles" y quedaba pegado a
-                "Consumibles": dos renglones casi iguales, uno arriba del otro.
-                "Caja" es como le dicen en el pañol y ademas describe mejor lo
-                que hace, porque por aca tambien entra mercaderia. */}
-            {item("/consumibles-caja", "Caja de consumibles", SC.panol_catalogo, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
-
-            {divider("panol-consulta")}
-            {group("Consultar", SC.movimientos, 120)}
-            {item("/stock-panol?tab=maestro", "Stock maestro", SC.movimientos, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
-            {item("/catalogo-maestro", "Catálogo maestro", SC.movimientos, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
-            {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.movimientos, true, 140, "Plano de estanterías y productos ubicados.")}
-            {item("/stock-panol?tab=movimientos", "Movimientos", SC.movimientos, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
-            {item("/compras", "Pedidos a compras", SC.compras, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
-
-            {divider("panol-apoyo")}
-            {group("Áreas de apoyo", C.dim, 175)}
-            {item("/madera", "Maderas", C.dim, true, 185, "Stock y pedidos específicos de maderas.")}
-            {itemsLaminacion(C.dim, 195)}
-            {item("/scan-pedido", "Pedir reposición", C.dim, true, 205, "Crear rápidamente un pedido interno a Compras.")}
-          </>}
-
-          {esGestion && <>
-            {group("Inventario", SC.movimientos, 60)}
-            {item("/madera", "Maderas", SC.movimientos, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
-            {itemsLaminacion(SC.movimientos, 80)}
-            {item("/scan", "Escáner", SC.movimientos, true, 90, "Egreso de madera por escáner.")}
-          </>}
-
-          {esGestion && <>
-            {divider("prod")}
-            {group("Producción", SC.produccion, 120)}
-            {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
-            {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
-            {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
-            {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
-            {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
-            {item("/torneria",    "Tornería",    SC.produccion, true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}
-            {item("/calendario", "Logística", SC.produccion, true, 200, "Solicitudes, coordinación, agenda y costos de transportes del astillero.")}
-          </>}
-
-          {esMecanica && !esGestion && <>
-            {group("Mecánica", SC.produccion, 120)}
-            {item("/torneria", "Tornería", SC.produccion, true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
-          </>}
-
-          {puedePedirCompras && !esPanol && <>
-            {divider("compras")}
-            {group(comprasGroup, SC.compras, 205)}
-            {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
-            {esCompras && item("/solicitudes-panol", "Solicitudes de pañol", SC.panol_catalogo, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
-            {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
-            {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
-            {esCompras && item("/muebles", "Muebles y herrajes", SC.produccion, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
-            {esCompras && item("/calendario", "Logística", SC.produccion, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
-            {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
-          </>}
-
-          {esCompras && item("/torneria", "Tornería y mecanizados", SC.produccion, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
-
-          {esGestion && <>
-            {divider("panol-rec")}
-            {group("Pañol", SC.panol_catalogo, 216)}
-            {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
-            {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
-            {item("/stock-panol", "Stock", SC.panol_catalogo, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
-          </>}
-
-          {puedeVerCatalogo && !esPanol && <>
-            {divider("panol-cat")}
-            {group("Catálogo", SC.panol_catalogo, 218)}
-            {item("/catalogo-maestro", "Catálogo maestro", SC.panol_catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
-            {puedeVerMateriales && item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
-          </>}
-
-          {puedeVerPrecios && <>
-            {divider("precios")}
-            {group("Precios", SC.panol_catalogo, 230)}
-            {item("/costo-barco", "Costo del barco", SC.panol_catalogo, true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
-            {item("/precios", "Carga de precios", SC.panol_catalogo, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
-          </>}
-
-          {esAdministracion && puedeVerLogistica && <>
-            {divider("logistica-admin")}
-            {group("Logística", SC.produccion, 235)}
-            {item("/calendario", "Solicitar movimientos", SC.produccion, true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
-          </>}
-
-          {esGestion && <>
-            {divider("lam-prod")}
-            {group("Producción · Laminación", SC.gestion_laminacion, 200)}
-            {item("/obras-laminacion", "Por obra", SC.gestion_laminacion, false, 220, "Detalle de materiales de laminación imputados por casco.")}
-            {puedeEditarPlantillas && item("/laminacion/plantillas", "Plantillas", SC.gestion_laminacion, true, 225, "Recetas base por línea de producción de laminación.")}
-          </>}
-
-          {esGestion && <>
-            {divider("pv")}
-            {group("Post Venta", SC.postventa, 370)}
-            {item("/postventa", "Barcos Entregados", SC.postventa, true, 390, "Seguimiento de garantías y servicios realizados a clientes.")}
-          </>}
-
-          {esRrhh && <>
-            {divider("rrhh")}
-            {group("RRHH", SC.rrhh, 395)}
-            {item("/rrhh", "Presentismo", SC.rrhh, true, 400, "Asistencia, horas extras e informes del fichero Hikvision.")}
-          </>}
-
-          {esAdmin && <>
-            {divider("sys")}
-            {group("Sistema", SC.sistema, 410)}
-            {item("/configuracion", "Configuración", SC.sistema, true, 430, "Ajustes globales del sistema, altas y permisos de usuarios.")}
-          </>}
-
-          {(esGestion || ["laminacion","muebles","mecanica","electricidad"].includes(role)) && <>
-            {divider("ins")}
-            {group("Instrucciones", SC.instrucciones, 450)}
-            {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
-          </>}
-
-          {/* Sin condición de rol: pedirle algo al sistema lo tiene que poder
-              hacer cualquiera que entre. Va al final porque no es parte del
-              trabajo diario, pero está siempre a la vista. */}
-          {divider("tk")}
-          {group("Ayuda", SC.tickets, 490)}
-          {item("/tickets", "Tickets", SC.tickets, true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
-        </nav>
-
-        {/* PIE PLEGADO ────────────────────────────────────────────────────
-            Solo lo que se busca a ciegas: expandir, quien soy y salir. El tema,
-            la contraseña y el resto viven en el pie completo, a un Ctrl+B. */}
-        {compacto && (
-          <div style={{
-            borderTop: `1px solid ${C.border}`, padding: "10px 0 12px", flexShrink: 0,
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-          }}>
-            {botonPlegar}
-            {/* Con el menú plegado el pie es lo único que queda: si la campanita
-                no entra acá, el que trabaja con el menú chico no ve un aviso. */}
-            <NotificacionesBell profile={profile} size={30} iconSize={15} />
-            <div
-              title={`${username} · ${role}`}
-              style={{
-                width: 30, height: 30, borderRadius: 9, background: C.panel2,
-                border: `1px solid ${C.border}`, display: "flex", alignItems: "center",
-                justifyContent: "center", fontSize: 11, fontWeight: 800, color: C.text,
-                letterSpacing: .4, position: "relative", boxSizing: "border-box",
-              }}
-            >
-              {initials || "?"}
-              <span style={{ position: "absolute", right: -1, bottom: -1, width: 8, height: 8, borderRadius: "50%", background: C.green, border: `2px solid ${C.bg}`, boxSizing: "border-box" }}/>
-            </div>
-            <button
-              type="button"
-              onClick={signOut}
-              title="Cerrar sesión"
-              aria-label="Cerrar sesión"
-              className="sb-logout"
-              style={{
-                background: C.panel, border: `1px solid ${C.border}`, borderRadius: 7,
-                color: C.dim, width: 30, height: 28, display: "flex", alignItems: "center",
-                justifyContent: "center", cursor: "pointer", padding: 0, boxSizing: "border-box",
-              }}
-            >
-              <LogOut size={13} />
-            </button>
-          </div>
-        )}
-
-        {/* FOOTER ────────────────────────────────────────────────────────── */}
-        {!compacto && (
-        <div style={{
-          borderTop: `1px solid ${C.border}`,
-          padding: "10px 12px 12px",
-          display: "grid",
-          gap: 8,
-          flexShrink: 0,
-          animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <div style={{
-              width: 30,
-              height: 30,
-              borderRadius: 9,
-              flexShrink: 0,
-              background: C.panel2,
-              border: `1px solid ${C.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 800,
-              color: C.text,
-              letterSpacing: .4,
-            }}>
-              {initials || "?"}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: C.text, letterSpacing: ".2px", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
-                {username}
-              </div>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <div className="sb-online" style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }}/>
-                <span style={{ fontSize: 10, color: C.dim, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 800 }}>{role}</span>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-              {/* Va primera de los controles de sesión: es la que más se mira.
-                  En el celular NO va acá: ahí está la de al lado del botón de
-                  menú, y montar las dos a la vez abriría dos veces los mismos
-                  canales de realtime -useNotificaciones los nombra por usuario-,
-                  con lo que al desmontar una se le cortaba la escucha a la otra. */}
-              {!isMobile && <NotificacionesBell profile={profile} size={28} iconSize={14} />}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(() => {});
-                  } else {
-                    if (document.exitFullscreen) document.exitFullscreen();
-                  }
-                }}
-                title="Pantalla completa"
-                className="sb-out"
-                style={{
-                  background: C.panel,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 7,
-                  color: C.dim,
-                  width: 28, height: 28,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", flexShrink: 0,
-                }}
-              >
-                <Maximize size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setPasswordOpen(true)}
-                title="Cambiar contraseña"
-                className="sb-out"
-                style={{
-                  background: C.panel,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 7,
-                  color: C.dim,
-                  width: 28, height: 28,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", flexShrink: 0,
-                }}
-              >
-                <KeyRound size={13} />
-              </button>
-              {role !== "cliente" && (
-                <button
-                  type="button"
-                  onClick={() => setWaOpen(true)}
-                  title="Vincular WhatsApp"
-                  className="sb-out"
-                  style={{
-                    background: C.panel,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 7,
-                    color: C.dim,
-                    width: 28, height: 28,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", flexShrink: 0,
-                  }}
-                >
-                  <Phone size={13} />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={signOut}
-                title="Cerrar sesión"
-                className="sb-logout"
-                style={{
-                  background: C.panel,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 7,
-                  color: C.dim,
-                  width: 28,
-                  height: 28,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <LogOut size={13} />
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 3, border: `1px solid ${C.border}`, borderRadius: 8, padding: 2, background: C.panel, flexShrink: 0 }}>
-            {[
-              { value: "dark", title: "Oscuro", Icon: Moon },
-              { value: "light", title: "Claro", Icon: Sun },
-              { value: "hc", title: "Alto contraste", Icon: Eye },
-            ].map(({ value, title, Icon: ThemeIcon }) => {
-              const active = theme === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  title={title}
-                  aria-label={title}
-                  onClick={() => setTheme(value)}
-                  className="sb-theme"
-                  style={{
-                    height: 25,
-                    border: "none",
-                    borderRadius: 6,
-                    background: active ? C.panel2 : "transparent",
-                    color: active ? C.text : C.dim,
-                    display: "grid",
-                    placeItems: "center",
-                    cursor: "pointer",
-                    padding: 0,
-                    boxShadow: active ? `inset 0 0 0 1px ${C.border2}` : "none",
-                  }}
-                >
-                  {React.createElement(ThemeIcon, { size: 13 })}
-                </button>
-              );
-            })}
-          </div>
-
-          {role === "panol" && (
-            <button
-              type="button"
-              onClick={() => setModoLiviano((current) => !current)}
-              title="Reduce efectos visuales para equipos o conexiones lentas"
-              style={{
-                width: "100%", marginTop: 6, minHeight: 28, borderRadius: 7,
-                border: `1px solid ${modoLiviano ? C.greenB : C.border}`,
-                background: modoLiviano ? C.greenL : C.panel,
-                color: modoLiviano ? C.green : C.dim,
-                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-                fontSize: 10, fontWeight: 800, letterSpacing: ".35px", cursor: "pointer",
-              }}
-            >
-              <Gauge size={13} /> Modo liviano {modoLiviano ? "activo" : "desactivado"}
-            </button>
-          )}
-        </div>
-        )}
-      </aside>
-
-      {/* El nombre del item cuando el menu esta plegado. Fuera del <aside> para
-          que no lo recorte el overflow de los 64 px. */}
-      {!isMobile && globo && (
-        <div style={{
-          position: "fixed",
-          left: (compacto ? ANCHO_COMPACTO : ANCHO_ABIERTO) + 10,
-          top: globo.top, transform: "translateY(-50%)",
-          zIndex: 1200, pointerEvents: "none",
-          background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 8,
-          padding: "7px 11px", boxShadow: "0 10px 30px var(--shadow)", maxWidth: 260,
-        }}>
-          {/* Con el menú abierto el nombre ya se lee en el ítem: repetirlo acá
-              sería decir dos veces lo mismo a diez centímetros. */}
-          {compacto ? (
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, whiteSpace: "nowrap" }}>{globo.label}</div>
-          ) : null}
-          {globo.info ? (
-            <div style={{ fontSize: 11, fontWeight: 600, color: compacto ? C.dim : C.muted, marginTop: compacto ? 2 : 0, lineHeight: 1.45 }}>
-              {globo.info}
-            </div>
-          ) : null}
-        </div>
-      )}
       <VincularWhatsAppModal
         open={waOpen}
         onClose={() => setWaOpen(false)}

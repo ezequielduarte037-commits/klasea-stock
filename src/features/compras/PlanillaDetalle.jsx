@@ -15,7 +15,7 @@ export default function PlanillaDetalle({ fila, obra, obras, onObra, onClose, on
 
   return <aside className="planilla-detalle" aria-label={`Detalle de ${fila.descripcion}`}>
     <header style={{ display: "flex", alignItems: "start", gap: 12 }}>
-      <div style={{ flex: 1 }}><small style={{ color: C.blue, fontWeight: 800 }}>DETALLE DEL MATERIAL</small><h3 style={{ margin: "8px 0", fontSize: 18, lineHeight: 1.3 }}>{fila.descripcion}</h3><span style={{ color: C.dim, fontSize: 12 }}>{[fila.codigo, fila.unidad, fila.proveedor].filter(Boolean).join(" · ")}</span></div>
+      <div style={{ flex: 1 }}><small style={{ color: C.blue, fontWeight: 650 }}>DETALLE DEL MATERIAL</small><h3 style={{ margin: "8px 0", fontSize: 18, lineHeight: 1.3 }}>{fila.descripcion}</h3><span style={{ color: C.dim, fontSize: 12 }}>{[fila.codigo, fila.unidad, fila.proveedor].filter(Boolean).join(" · ")}</span></div>
       <button type="button" style={boton} onClick={onClose} aria-label="Cerrar detalle"><X size={16} /></button>
     </header>
     {fila.imagenUrl ? <button type="button" onClick={() => onImagen(fila)} aria-label="Ampliar foto del material" style={{ ...boton, padding: 0, overflow: "hidden" }}><img src={fila.imagenUrl} alt={fila.descripcion} style={{ display: "block", width: "100%", height: 150, objectFit: "contain" }} /></button> : <div style={{ color: C.dim, display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}><Package size={16} />Sin foto de referencia</div>}

@@ -558,7 +558,7 @@ export default function ExtrasTab({ empleados, contratistas }) {
       {filtradas != null && (
         <>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-            <KpiCard label="Horas extra del rango" value={minToHM(totales.extra)} color={totales.extra > 0 ? C.amber : C.green} />
+            <KpiCard label="Horas extra del rango" value={minToHM(totales.extra)} color={totales.extra > 0 ? C.cyan : C.green} />
             <KpiCard label="Personas con extras" value={totales.conExtra} sub={`minimo ${EXTRA_MINIMA_MIN} min`} />
             <KpiCard label="Corte L-V" value={EXTRA_DESDE} sub="sabado todo extra" />
           </div>
@@ -600,7 +600,7 @@ function FilaExtra({ r, open, onToggle }) {
         <Td><GrupoBadge grupo={r.emp.grupo} contratistaNombre={r.emp.contratista?.nombre} /></Td>
         <Td right mono>{r.dias}</Td>
         <Td right mono>{minToHM(r.totalMin)}</Td>
-        <Td right mono color={r.extraMin > 0 ? C.amber : C.t2} style={{ fontWeight: r.extraMin > 0 ? 700 : 400 }}>
+        <Td right mono color={r.extraMin > 0 ? C.cyan : C.t2} style={{ fontWeight: r.extraMin > 0 ? 600 : 400 }}>
           {minToHM(r.extraMin)}
         </Td>
         <Td color={C.t2}>{open ? "▾" : "▸"}</Td>
@@ -612,9 +612,9 @@ function FilaExtra({ r, open, onToggle }) {
               {r.detalle.map(d => (
                 <div key={d.fecha} style={{
                   fontSize: 11, fontFamily: C.mono, padding: "4px 9px", borderRadius: 6,
-                  background: d.extra > 0 ? "rgba(245,158,11,0.08)" : C.s0,
-                  border: `1px solid ${d.extra > 0 ? "rgba(245,158,11,0.25)" : C.b0}`,
-                  color: d.extra > 0 ? C.amber : C.t2,
+                  background: d.extra > 0 ? "rgba(34,211,238,0.08)" : C.s0,
+                  border: `1px solid ${d.extra > 0 ? "rgba(34,211,238,0.25)" : C.b0}`,
+                  color: d.extra > 0 ? C.cyan : C.t2,
                 }}>
                   {fmtFechaCorta(d.fecha)} · {hhmm(d.entrada) || "—"}{d.salida ? `–${hhmm(d.salida)}` : " · sin salida"}{d.extra > 0 && ` (+${minToHM(d.extra)})`}
                 </div>

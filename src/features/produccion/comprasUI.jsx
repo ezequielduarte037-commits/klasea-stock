@@ -28,7 +28,7 @@ export function EmptyState({ icon, title, subtitle, accent = "#8b5cf6", action =
       }}>
         <Icon size={28} strokeWidth={1.6} style={{ opacity: 0.92 }} />
       </div>
-      <div style={{ fontSize: 15, fontWeight: 850, color: C.text }}>{title}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{title}</div>
       <div style={{ fontSize: 12.5, color: C.dim, maxWidth: 380, lineHeight: 1.55 }}>{subtitle}</div>
       {action && <div style={{ marginTop: 8 }}>{action}</div>}
     </div>
@@ -48,8 +48,8 @@ export function Kpi({ icon, valor, label, color = "var(--blue)", soft = "var(--b
         <Icon size={14} />
       </span>
       <div style={{ lineHeight: 1.15 }}>
-        <div style={{ fontSize: 15, fontWeight: 900, color: C.text, fontFamily: C.mono }}>{valor}</div>
-        <div style={{ fontSize: 10, fontWeight: 800, color: C.dim, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: C.mono }}>{valor}</div>
+        <div style={{ fontSize: 10, fontWeight: 650, color: C.dim, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</div>
       </div>
     </div>
   );
@@ -64,7 +64,7 @@ export function EstadoSelect({ value, options, onChange, disabled }) {
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       style={{
-        padding: "4px 9px", borderRadius: 8, fontSize: 11, fontWeight: 800, letterSpacing: 0.2,
+        padding: "4px 9px", borderRadius: 8, fontSize: 11, fontWeight: 650, letterSpacing: 0.2,
         border: `1px solid ${st.color}40`, background: `${st.color}16`, color: st.color,
         cursor: disabled ? "default" : "pointer", outline: "none",
         boxShadow: `inset 0 0 0 1px ${st.color}0d`,
@@ -93,7 +93,7 @@ export function Cta({ children, icon, onClick, disabled, tono = "violeta", size 
       style={{
         display: "inline-flex", alignItems: "center", gap: chico ? 6 : 7, flexShrink: 0,
         borderRadius: chico ? 9 : 10, padding: chico ? "7px 13px" : "9px 16px", border: "none",
-        cursor: disabled ? "default" : "pointer", fontSize: chico ? 12.5 : 13, fontWeight: 850,
+        cursor: disabled ? "default" : "pointer", fontSize: chico ? 12.5 : 13, fontWeight: 700,
         background: disabled ? C.panel2 : grad, color: disabled ? C.dim : "#fff",
         boxShadow: disabled ? "none" : glow, whiteSpace: "nowrap",
       }}
@@ -120,7 +120,7 @@ export function Ghost({ children, icon, onClick, disabled, tono, title, size = "
         border: `1px solid ${C.border}`, background: C.panelSolid,
         color: tono === "rojo" ? C.red : C.dim, borderRadius: chico ? 8 : 9,
         padding: chico ? "6px 10px" : "7px 12px", cursor: disabled ? "default" : "pointer",
-        fontSize: chico ? 11.5 : 12.5, fontWeight: 750, whiteSpace: "nowrap", opacity: disabled ? 0.5 : 1,
+        fontSize: chico ? 11.5 : 12.5, fontWeight: 650, whiteSpace: "nowrap", opacity: disabled ? 0.5 : 1,
       }}
     >
       {Icon && <Icon size={chico ? 13 : 14} />}
@@ -166,7 +166,7 @@ export function Pill({ children, color = "var(--dim)", soft = "var(--panel-2)", 
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0,
-      fontSize: 10.5, fontWeight: 850, color, background: soft,
+      fontSize: 10.5, fontWeight: 700, color, background: soft,
       border: `1px solid ${borde}`, borderRadius: 999, padding: "3px 9px",
       fontFamily: mono ? C.mono : C.sans, whiteSpace: "nowrap",
     }}>

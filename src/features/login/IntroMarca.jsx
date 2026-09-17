@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { esDispositivoTactil } from "@/lib/modoColector";
-import LogoK from "./LogoK";
-import { aRgb, ajustarCanvas, colorDelTema, dibujarOleaje, rgba } from "./efectosLogin";
+import LogoK from "@/components/ui/LogoK";
+import { aRgb, ajustarCanvas, colorDelTema, dibujarOleaje, rgba } from "@/lib/oleaje";
 
 // La intro de marca al iniciar sesión. Un telón circular sale del botón
 // "Ingresar", el monograma se dibuja trazo por trazo, "KLASE A" se descifra

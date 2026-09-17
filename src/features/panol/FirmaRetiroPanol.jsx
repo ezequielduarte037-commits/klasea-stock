@@ -43,7 +43,7 @@ function Comprobante({ solicitud, onAnular, puedeEditar }) {
       </span>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ ...LBL, color: C.green }}>Retirado</div>
-        <div style={{ fontSize: 14.5, fontWeight: 900, color: C.text, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {solicitud.retirado_por_nombre}
         </div>
         <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>
@@ -223,7 +223,7 @@ export default function FirmaRetiroPanol({
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ ...LBL }}>Firma de retiro</span>
         <span style={{
-          display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 750,
+          display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 650,
           color: bridgeOk ? C.green : bridge.status === "connecting" ? C.blue : C.violet,
         }}>
           <span style={{ width: 7, height: 7, borderRadius: 999, background: "currentColor", flexShrink: 0 }} />
@@ -233,7 +233,7 @@ export default function FirmaRetiroPanol({
           <button
             type="button"
             onClick={bridge.reconnect}
-            style={{ border: "none", background: "transparent", color: C.blue, fontSize: 11, fontWeight: 800, cursor: "pointer", padding: 0 }}
+            style={{ border: "none", background: "transparent", color: C.blue, fontSize: 11, fontWeight: 650, cursor: "pointer", padding: 0 }}
           >
             Reintentar
           </button>
@@ -261,7 +261,7 @@ export default function FirmaRetiroPanol({
           borderRadius: 9, padding: "8px 10px",
           border: `1px solid ${C.cyanB}`, background: C.cyanL,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.cyan, fontSize: 11.5, fontWeight: 900 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.cyan, fontSize: 11.5, fontWeight: 700 }}>
             <AlertTriangle size={13} style={{ flexShrink: 0 }} />
             {elegido.nombre} está retirando {reparos.length} {reparos.length === 1 ? "material que no le corresponde" : "materiales que no le corresponden"}
           </div>
@@ -283,7 +283,7 @@ export default function FirmaRetiroPanol({
             {empleado ? <Nfc size={15} /> : <UserCheck size={15} />}
           </span>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{elegido.nombre}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{elegido.nombre}</div>
             <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>
               {elegido.dni ? `DNI ${elegido.dni}` : "sin DNI cargado"}
               {empleado ? ` · tarjeta ${uid}` : " · confirmación manual"}
@@ -335,7 +335,7 @@ export default function FirmaRetiroPanol({
         </>
       )}
 
-      {error && <div style={{ fontSize: 11.5, color: C.red, fontWeight: 700 }}>{error}</div>}
+      {error && <div style={{ fontSize: 11.5, color: C.red, fontWeight: 600 }}>{error}</div>}
 
       <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
         <span style={{ flex: 1, minWidth: 120, fontSize: 11.5, color: C.dim }}>

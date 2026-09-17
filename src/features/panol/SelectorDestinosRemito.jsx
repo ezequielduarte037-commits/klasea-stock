@@ -56,7 +56,7 @@ function Ficha({ icono, texto, color, soft, border, onQuitar, titulo = "", disab
         borderRadius: 999,
         padding: onQuitar ? "4px 5px 4px 9px" : "4px 10px",
         fontSize: 11.5,
-        fontWeight: 900,
+        fontWeight: 700,
         maxWidth: "100%",
       }}
     >
@@ -113,11 +113,11 @@ function Opcion({ icono, titulo, detalle, color, onClick, disabled }) {
     >
       <span style={{ color, display: "flex", flexShrink: 0 }}>{icono}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {titulo}
         </span>
         {detalle ? (
-          <span style={{ display: "block", color: C.dim, fontSize: 10.5, fontWeight: 700 }}>{detalle}</span>
+          <span style={{ display: "block", color: C.dim, fontSize: 10.5, fontWeight: 600 }}>{detalle}</span>
         ) : null}
       </span>
     </button>
@@ -321,7 +321,7 @@ export default function SelectorDestinosRemito({
           padding: "9px 11px",
           fontFamily: C.sans,
           fontSize: 13,
-          fontWeight: 750,
+          fontWeight: 650,
           outline: "none",
           boxSizing: "border-box",
         }}
@@ -348,7 +348,7 @@ export default function SelectorDestinosRemito({
 
         {carpetasSugeridas.length ? (
           <>
-            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>
               Carpetas
             </div>
             {carpetasSugeridas.map((nombre) => (
@@ -366,7 +366,7 @@ export default function SelectorDestinosRemito({
 
         {obrasSugeridas.length ? (
           <>
-            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>
               Barcos
             </div>
             {obrasSugeridas.map((obra) => (
@@ -384,7 +384,7 @@ export default function SelectorDestinosRemito({
         ) : null}
 
         {sinResultados ? (
-          <div style={{ padding: "12px 9px", color: C.dim, fontSize: 11.5, fontWeight: 750, textAlign: "center" }}>
+          <div style={{ padding: "12px 9px", color: C.dim, fontSize: 11.5, fontWeight: 650, textAlign: "center" }}>
             {cargando
               ? "Cargando…"
               : !permiteCarpetas && escrita
@@ -397,13 +397,13 @@ export default function SelectorDestinosRemito({
       </div>
 
       {!hayElegido && !proveedorCarpeta ? (
-        <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 700 }}>
+        <div style={{ color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
           Sin barco ni carpeta: el remito queda en el archivo general.
         </div>
       ) : null}
 
       {elegidas.length > 1 ? (
-        <div style={{ color: C.cyan, fontSize: 11.5, fontWeight: 800 }}>
+        <div style={{ color: C.cyan, fontSize: 11.5, fontWeight: 650 }}>
           Multiobra · un solo PDF visible desde {elegidas.length} barcos.
         </div>
       ) : null}

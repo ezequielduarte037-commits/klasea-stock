@@ -80,7 +80,7 @@ function EmpleadoAvatar({ emp, size = 30, justified = false }) {
         overflow: "hidden",
         flexShrink: 0,
         fontSize: size >= 38 ? 11 : 9,
-        fontWeight: 800,
+        fontWeight: 650,
         color: justified ? C.green : C.blue,
         background: justified ? C.greenL : C.blueL,
         border: `1px solid ${justified ? C.greenB : C.blueB}`,
@@ -896,9 +896,9 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
           <div className="presentismo-summary">
             <KpiCard icon={UserCheck} label={modo === "dia" ? "Presentes" : "Personas"} value={stats.presentes} color={C.green} />
             <KpiCard label="Casa" value={stats.casa} color={C.blue} />
-            <KpiCard label="Contratistas" value={stats.contr} color={C.amber} />
+            <KpiCard label="Contratistas" value={stats.contr} color={C.cyan} />
             {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? C.red : C.green} sub={stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
-            <KpiCard icon={AlertTriangle} label="Anomalías" value={stats.anomalias} color={stats.anomalias ? C.amber : C.green} sub="entrada, salida o demora" />
+            <KpiCard icon={AlertTriangle} label="Anomalías" value={stats.anomalias} color={stats.anomalias ? C.cyan : C.green} sub="entrada, salida o demora" />
             <KpiCard
               icon={LogOut}
               label="Salieron y volvieron"
@@ -917,7 +917,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                 <CalendarOff size={14} /> Ver ausentes ({ausentes.length})
               </button>
             )}
-            <button type="button" style={{ ...selSt(vistaRapida === "tarde"), display: "inline-flex", alignItems: "center", gap: 6, color: vistaRapida === "tarde" ? C.amber : C.t2 }} onClick={() => setVistaRapida("tarde")}>
+            <button type="button" style={{ ...selSt(vistaRapida === "tarde"), display: "inline-flex", alignItems: "center", gap: 6, color: vistaRapida === "tarde" ? C.cyan : C.t2 }} onClick={() => setVistaRapida("tarde")}>
               <Timer size={14} /> Llegadas tarde ({filtradas.filter(row => row.tarde).length})
             </button>
             <div style={{ flex: 1 }} />
@@ -939,12 +939,12 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <Users size={16} color={C.blue} />
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.t0 }}>Marcaciones</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Marcaciones</div>
                     <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{filasVista.length} registros visibles</div>
                   </div>
                 </div>
-                {soloAnomalias && <span style={{ fontSize: 10, fontWeight: 700, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 8px" }}>Solo anomalías</span>}
-                {soloConSalidas && <span style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}44`, borderRadius: 999, padding: "3px 8px" }}>Salieron y volvieron</span>}
+                {soloAnomalias && <span style={{ fontSize: 10, fontWeight: 600, color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "3px 8px" }}>Solo anomalías</span>}
+                {soloConSalidas && <span style={{ fontSize: 10, fontWeight: 600, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}44`, borderRadius: 999, padding: "3px 8px" }}>Salieron y volvieron</span>}
               </div>
               <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -969,20 +969,20 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                           <EmpleadoAvatar emp={r.emp} size={30} justified={!!r.justificacion} />
                           <span style={{ minWidth: 0 }}>
-                            <span style={{ display: "block", fontWeight: 650, color: C.t0 }}>{r.emp.nombre}</span>
+                            <span style={{ display: "block", fontWeight: 600, color: C.t0 }}>{r.emp.nombre}</span>
                             <span style={{ display: "block", fontSize: 10, color: C.t2, fontFamily: C.mono, marginTop: 1 }}>{r.emp.dni}</span>
                           </span>
                         </div>
                       </Td>
                       <Td color={r.sede ? C.t1 : C.t2}>{r.sede ?? "—"}</Td>
                       <Td><GrupoBadge grupo={r.emp.grupo} contratistaNombre={r.emp.contratista?.nombre} /></Td>
-                      <Td right mono color={r.tarde ? C.amber : C.t0}>{r.entrada ?? "—"}</Td>
+                      <Td right mono color={r.tarde ? C.cyan : C.t0}>{r.entrada ?? "—"}</Td>
                       <Td right mono>{r.salida ?? "—"}</Td>
                       <Td right mono color={r.min != null ? C.t0 : C.t2}>{r.min != null ? minToHM(r.min) : "—"}</Td>
                       <Td style={{ whiteSpace: "normal", minWidth: 190 }}>
-                        {r.tarde && <span style={{ fontSize: 10, fontWeight: 700, color: C.amber, background: C.amberL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Tarde</span>}
-                        {r.sinEntrada && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin entrada</span>}
-                        {r.sinSalida && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin salida</span>}
+                        {r.tarde && <span style={{ fontSize: 10, fontWeight: 600, color: C.cyan, background: C.cyanL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Tarde</span>}
+                        {r.sinEntrada && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin entrada</span>}
+                        {r.sinSalida && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin salida</span>}
                         {/* Sólo aparece cuando hubo una salida larga en el medio
                             del día. Un día normal no muestra nada: la columna ya
                             tiene bastante. */}
@@ -995,15 +995,15 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                               "Ausente:",
                               ...r.dia.ausencias.map((a) => `   ${a.desde} a ${a.hasta}  (${minToHM(a.minutos)})`),
                             ].join(String.fromCharCode(10))}
-                            style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}44`, borderRadius: 5, padding: "2px 5px", marginRight: 5, cursor: "help" }}
+                            style={{ fontSize: 10, fontWeight: 600, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}44`, borderRadius: 5, padding: "2px 5px", marginRight: 5, cursor: "help" }}
                           >
                             {r.dia.ausencias.length === 1
                               ? `Salió ${r.dia.ausencias[0].desde}–${r.dia.ausencias[0].hasta}`
                               : `${r.dia.ausencias.length} salidas`}
                           </span>
                         )}
-                        {r.marcacion?.editado_por && <span title="Horario corregido manualmente" style={{ fontSize: 10, fontWeight: 700, color: C.blue, background: C.blueL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Manual</span>}
-                        {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 10, fontWeight: 700, color: C.green, background: C.greenL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Justificada</span>}
+                        {r.marcacion?.editado_por && <span title="Horario corregido manualmente" style={{ fontSize: 10, fontWeight: 600, color: C.blue, background: C.blueL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Manual</span>}
+                        {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 10, fontWeight: 600, color: C.green, background: C.greenL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Justificada</span>}
                         <button
                           className="presentismo-action"
                           type="button"
@@ -1040,7 +1040,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
             <div style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <AlertTriangle size={15} color={C.red} />
-                <div style={{ fontSize: 12, color: C.t0, fontWeight: 700 }}>Ausentes</div>
+                <div style={{ fontSize: 12, color: C.t0, fontWeight: 600 }}>Ausentes</div>
                 <span style={{ fontSize: 10, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 999, padding: "2px 7px" }}>{ausentes.length}</span>
                 <span style={{ fontSize: 10, color: C.t2 }}>{fmtFecha(fecha)}</span>
               </div>
@@ -1051,12 +1051,12 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                   <div className="presentismo-absence" key={emp.id} style={{ minWidth: 0, minHeight: 64, color: C.t1, background: justificacion ? C.greenL : C.s0, border: `1px solid ${justificacion ? C.greenB : C.b0}`, padding: 10, borderRadius: 9, display: "flex", gap: 10, alignItems: "center" }}>
                     <EmpleadoAvatar emp={emp} size={40} justified={!!justificacion} />
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.nombre}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.nombre}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, overflow: "hidden" }}>
                         {emp.sede && <span style={{ fontSize: 10, color: C.t2 }}>{emp.sede}</span>}
                         <GrupoBadge grupo={emp.grupo} contratistaNombre={emp.contratista?.nombre} />
                       </div>
-                      {justificacion && <div title={justificacion.motivo} style={{ marginTop: 5, color: C.green, fontSize: 10, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{justificacion.motivo}</div>}
+                      {justificacion && <div title={justificacion.motivo} style={{ marginTop: 5, color: C.green, fontSize: 10, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{justificacion.motivo}</div>}
                     </div>
                     <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                       <button
@@ -1221,7 +1221,7 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
 
   const estadoUi = {
     presente: { label: "Presente", color: C.green, background: C.greenL, border: C.greenB },
-    tarde: { label: "Llegada tarde", color: C.amber, background: C.amberL, border: C.amberB },
+    tarde: { label: "Llegada tarde", color: C.cyan, background: C.cyanL, border: C.cyanB },
     incompleta: { label: "Marcacion incompleta", color: C.blue, background: C.blueL, border: C.blueB },
     justificada: { label: "Ausencia justificada", color: C.green, background: C.greenL, border: C.greenB },
     ausente: { label: "Ausente", color: C.red, background: C.redL, border: C.redB },
@@ -1240,7 +1240,7 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
         <div style={{ minHeight: 62, padding: "14px 16px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.b0}` }}>
           <span style={{ width: 36, height: 36, display: "grid", placeItems: "center", borderRadius: 10, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><Search size={17} /></span>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>Seguimiento por persona</div>
+            <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>Seguimiento por persona</div>
             <div style={{ marginTop: 3, color: C.t2, fontSize: 11 }}>Marcaciones, llegadas tarde, ausencias y justificaciones.</div>
           </div>
           <button type="button" aria-label="Cerrar seguimiento" title="Cerrar" onClick={onClose} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center", background: "transparent" }}><X size={15} /></button>
@@ -1258,7 +1258,7 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
                   <button key={emp.id} type="button" onClick={() => seleccionar(emp)} style={{ width: "100%", minHeight: 52, padding: "8px 10px", display: "flex", alignItems: "center", gap: 9, textAlign: "left", cursor: "pointer", background: "transparent", color: C.t0, border: 0, borderBottom: `1px solid ${C.b0}` }}>
                     <EmpleadoAvatar emp={emp} size={32} />
                     <span style={{ minWidth: 0, flex: 1 }}>
-                      <span style={{ display: "block", fontSize: 12, fontWeight: 700 }}>{emp.nombre}</span>
+                      <span style={{ display: "block", fontSize: 12, fontWeight: 600 }}>{emp.nombre}</span>
                       <span style={{ display: "block", marginTop: 2, color: C.t2, fontSize: 10 }}>{emp.dni} {emp.sede ? `- ${emp.sede}` : ""}</span>
                     </span>
                     <ChevronRight size={15} color={C.t2} />
@@ -1272,7 +1272,7 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
               <div style={{ display: "flex", alignItems: "center", gap: 11, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
                 <EmpleadoAvatar emp={empleado} size={46} />
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>{empleado.nombre}</div>
+                  <div style={{ color: C.t0, fontSize: 15, fontWeight: 650 }}>{empleado.nombre}</div>
                   <div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>DNI {empleado.dni || "sin DNI"}{empleado.sede ? ` - ${empleado.sede}` : ""}</div>
                 </div>
                 <button type="button" onClick={imprimir} disabled={imprimiendo || loading || !historial.length}
@@ -1284,10 +1284,10 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
               </div>
 
               <div style={{ display: "flex", gap: 9, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
-                <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 700 }}>DESDE
+                <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 600 }}>DESDE
                   <input type="date" value={desde} onChange={(event) => { const next = event.target.value; if (next && next <= hasta) { setLoading(true); setError(""); } setDesde(next); }} style={{ ...INP, fontSize: 12 }} />
                 </label>
-                <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 700 }}>HASTA
+                <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 600 }}>HASTA
                   <input type="date" value={hasta} onChange={(event) => { const next = event.target.value; if (next && next >= desde) { setLoading(true); setError(""); } setHasta(next); }} style={{ ...INP, fontSize: 12 }} />
                 </label>
                 <span style={{ color: C.t2, fontSize: 10, alignSelf: "end", paddingBottom: 8 }}>No incluye sabados ni domingos.</span>
@@ -1301,13 +1301,13 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", overflow: "hidden", border: `1px solid ${C.b0}`, borderRadius: 10, marginBottom: 12 }}>
                     {[
                       ["Presentes", resumen.presentes, C.green],
-                      ["Tardes", resumen.tardes, resumen.tardes ? C.amber : C.green],
+                      ["Tardes", resumen.tardes, resumen.tardes ? C.cyan : C.green],
                       ["Ausentes", resumen.ausentes, resumen.ausentes ? C.red : C.green],
                       ["Justificadas", resumen.justificadas, C.green],
                     ].map(([label, value, color]) => (
                       <div key={label} style={{ padding: "10px 11px", borderRight: `1px solid ${C.b0}` }}>
-                        <div style={{ color, fontSize: 17, fontFamily: C.mono, fontWeight: 800 }}>{value}</div>
-                        <div style={{ color: C.t2, fontSize: 9, fontWeight: 700, textTransform: "uppercase", marginTop: 3 }}>{label}</div>
+                        <div style={{ color, fontSize: 17, fontFamily: C.mono, fontWeight: 650 }}>{value}</div>
+                        <div style={{ color: C.t2, fontSize: 9, fontWeight: 600, textTransform: "uppercase", marginTop: 3 }}>{label}</div>
                       </div>
                     ))}
                   </div>
@@ -1321,7 +1321,7 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
                       return (
                         <div key={row.fecha} style={{ minHeight: 48, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.b0}` }}>
                           <span style={{ width: 70, color: C.t2, fontSize: 10, fontFamily: C.mono, flexShrink: 0 }}>{fmtFechaCorta(row.fecha)}</span>
-                          <span style={{ color: ui.color, background: ui.background, border: `1px solid ${ui.border}`, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 800, flexShrink: 0 }}>{ui.label}</span>
+                          <span style={{ color: ui.color, background: ui.background, border: `1px solid ${ui.border}`, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 650, flexShrink: 0 }}>{ui.label}</span>
                           <span title={detalle} style={{ minWidth: 0, color: C.t1, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detalle}</span>
                         </div>
                       );
@@ -1382,7 +1382,7 @@ function JustificacionModal({ data, canEditTime, onClose, onSave }) {
         <div style={{ minHeight: 62, padding: "14px 16px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.b0}` }}>
           <EmpleadoAvatar emp={data.emp} size={38} justified={!data.marcacion && !!data.actual} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>{data.marcacion ? "Revisar jornada" : "Justificar ausencia o cargar horario"}</div>
+            <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>{data.marcacion ? "Revisar jornada" : "Justificar ausencia o cargar horario"}</div>
             <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{data.emp.nombre} · {fmtFecha(data.fecha)}</div>
           </div>
           <button type="button" aria-label="Cerrar" title="Cerrar" onClick={onClose} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center", background: "transparent" }}><X size={15} /></button>
@@ -1391,7 +1391,7 @@ function JustificacionModal({ data, canEditTime, onClose, onSave }) {
         <div style={{ padding: 16 }}>
           {canEditTime && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 750, color: C.t2, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Horarios del día</div>
+              <div style={{ fontSize: 10, fontWeight: 650, color: C.t2, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Horarios del día</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
                 <label style={{ display: "grid", gap: 6, fontSize: 11, color: C.t1 }}>
                   Entrada
@@ -1506,7 +1506,7 @@ function AusenciaPeriodoModal({ empleados, initialDate, onClose, onSave }) {
         <div style={{ minHeight: 62, padding: "14px 16px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.b0}` }}>
           <span style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 9, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}` }}><CalendarOff size={17} /></span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>Cargar ausencia justificada</div>
+            <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>Cargar ausencia justificada</div>
             <div style={{ marginTop: 3, color: C.t2, fontSize: 11 }}>Aplica reposo, vacaciones o licencia a una o varias personas.</div>
           </div>
           <button type="button" aria-label="Cerrar" onClick={onClose} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center", background: "transparent" }}><X size={15} /></button>
@@ -1532,7 +1532,7 @@ function AusenciaPeriodoModal({ empleados, initialDate, onClose, onSave }) {
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.b0}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
               <div>
-                <div style={{ color: C.t0, fontSize: 12, fontWeight: 700 }}>Personas</div>
+                <div style={{ color: C.t0, fontSize: 12, fontWeight: 600 }}>Personas</div>
                 <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>{selected.size} seleccionadas</div>
               </div>
               <button type="button" onClick={seleccionarVisibles} style={{ ...BTN, padding: "5px 8px", fontSize: 10 }}>Seleccionar visibles</button>
@@ -1543,7 +1543,7 @@ function AusenciaPeriodoModal({ empleados, initialDate, onClose, onSave }) {
                 <label key={emp.id} style={{ minHeight: 42, padding: "7px 10px", display: "flex", alignItems: "center", gap: 9, cursor: "pointer", borderBottom: `1px solid ${C.b0}`, background: selected.has(emp.id) ? C.greenL : "transparent" }}>
                   <input type="checkbox" checked={selected.has(emp.id)} onChange={() => toggle(emp.id)} />
                   <EmpleadoAvatar emp={emp} size={30} />
-                  <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", color: C.t0, fontSize: 11, fontWeight: 650 }}>{emp.nombre}</span><span style={{ display: "block", color: C.t2, fontSize: 9, marginTop: 2 }}>{emp.dni} · {emp.sede || "Sin sede"}</span></span>
+                  <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", color: C.t0, fontSize: 11, fontWeight: 600 }}>{emp.nombre}</span><span style={{ display: "block", color: C.t2, fontSize: 9, marginTop: 2 }}>{emp.dni} · {emp.sede || "Sin sede"}</span></span>
                 </label>
               ))}
               {!visibles.length && <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 11 }}>No hay personas para esta búsqueda.</div>}

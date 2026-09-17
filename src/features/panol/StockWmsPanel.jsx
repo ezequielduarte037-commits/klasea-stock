@@ -138,7 +138,7 @@ function empleadoInitials(nombre) {
 function EmpleadoRetiroAvatar({ empleado, size = 44 }) {
   const foto = String(empleado?.foto_url ?? "").trim();
   return (
-    <div style={{ width: size, height: size, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(59,130,246,0.14))", color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 950 }}>
+    <div style={{ width: size, height: size, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(59,130,246,0.14))", color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 750 }}>
       {foto ? <img src={foto} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : empleadoInitials(empleado?.nombre)}
     </div>
   );
@@ -244,7 +244,7 @@ function AvisoReparosRetiro({ empleado, reparos }) {
   const motivos = [...new Set(reparos.map((r) => r.motivo).filter(Boolean))];
   return (
     <div style={{ borderRadius: 10, border: `1px solid ${C.cyanB}`, background: C.cyanL, padding: "8px 10px", display: "grid", gap: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.cyan, fontSize: 11.5, fontWeight: 900 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.cyan, fontSize: 11.5, fontWeight: 700 }}>
         <AlertTriangle size={13} style={{ flexShrink: 0 }} />
         {empleado.nombre} retira {reparos.length} {reparos.length === 1 ? "material que no le corresponde" : "materiales que no le corresponden"}
       </div>
@@ -278,11 +278,11 @@ function RetiroNfcBox({ nfc, onClear, compact = false, materialIds = [] }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
           <EmpleadoRetiroAvatar empleado={nfc.empleado} size={compact ? 60 : 68} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.green, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Persona validada</div>
-            <div style={{ color: C.text, fontSize: compact ? 15 : 16, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nfc.empleado.nombre}</div>
+            <div style={{ color: C.green, fontSize: 9.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Persona validada</div>
+            <div style={{ color: C.text, fontSize: compact ? 15 : 16, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nfc.empleado.nombre}</div>
             <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>DNI {nfc.empleado.dni || "-"}{nfc.empleado.sede ? ` · ${nfc.empleado.sede}` : ""}</div>
           </div>
-          <button type="button" onClick={onClear} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, flexShrink: 0 }}>
+          <button type="button" onClick={onClear} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}>
             Cambiar
           </button>
         </div>
@@ -292,7 +292,7 @@ function RetiroNfcBox({ nfc, onClear, compact = false, materialIds = [] }) {
             <CreditCard size={17} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Identificar a quien retira</div>
+            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>Identificar a quien retira</div>
             <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoyá la tarjeta en el lector.</div>
           </div>
         </div>
@@ -300,9 +300,9 @@ function RetiroNfcBox({ nfc, onClear, compact = false, materialIds = [] }) {
 
       <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 22 }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: bridgeColor, boxShadow: bridgeOk ? `0 0 0 3px ${C.greenL}` : "none", flexShrink: 0 }} />
-        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 900 }}>{bridgeLabel}</span>
+        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 700 }}>{bridgeLabel}</span>
         {!bridgeOk && (
-          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: "none", background: "transparent", color: bridgeColor, padding: "3px 0", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: "none", background: "transparent", color: bridgeColor, padding: "3px 0", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
             Reintentar
           </button>
         )}
@@ -322,7 +322,7 @@ function RetiroNfcBox({ nfc, onClear, compact = false, materialIds = [] }) {
             placeholder="UID de tarjeta"
             style={{ background: C.panelSolid, border: `1px solid ${border}`, color: C.text, borderRadius: 9, padding: "8px 9px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }}
           />
-          <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
             Validar
           </button>
           <button type="button" onClick={onClear} aria-label="Limpiar tarjeta" title="Limpiar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 9, width: 34, minHeight: 34, display: "grid", placeItems: "center", cursor: "pointer" }}>
@@ -826,13 +826,13 @@ function SelectFilter({ label, value, onChange, options }) {
       border: `1px solid ${activo ? C.blueB : C.border}`,
       background: activo ? C.blueL : C.panelSolid,
     }}>
-      <span style={{ color: activo ? C.blue : C.dim, fontSize: 9, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
+      <span style={{ color: activo ? C.blue : C.dim, fontSize: 9, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
         {label}
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", color: C.text, padding: 0, fontSize: 11.5, fontWeight: 800, fontFamily: C.sans, outline: "none", cursor: "pointer" }}
+        style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", color: C.text, padding: 0, fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, outline: "none", cursor: "pointer" }}
       >
         {options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}
       </select>
@@ -854,7 +854,7 @@ function StateChip({ negative, imbalance = false, catalogOnly = false, transit =
       borderRadius: 999,
       padding: compact ? "2px 7px" : "3px 8px",
       fontSize: compact ? 9.5 : 10,
-      fontWeight: 950,
+      fontWeight: 750,
       textTransform: "uppercase",
       letterSpacing: compact ? 0.35 : 0.6,
       whiteSpace: "nowrap",
@@ -878,7 +878,7 @@ function KindChip({ tipo = "estandar" }) {
       borderRadius: 999,
       padding: "3px 8px",
       fontSize: 10,
-      fontWeight: 950,
+      fontWeight: 750,
       textTransform: "uppercase",
       letterSpacing: 0.6,
       whiteSpace: "nowrap",
@@ -903,13 +903,13 @@ function AsignadoChip({ asignaciones = [], compact = false }) {
   if (compact && terminada) {
     return (
       <span style={{
-        color: C.amber,
-        border: `1px solid ${C.amberB}`,
-        background: C.amberL,
+        color: C.cyan,
+        border: `1px solid ${C.cyanB}`,
+        background: C.cyanL,
         borderRadius: 999,
         padding: "3px 8px",
         fontSize: 10,
-        fontWeight: 950,
+        fontWeight: 750,
         textTransform: "uppercase",
         letterSpacing: 0.5,
         whiteSpace: "nowrap",
@@ -921,9 +921,9 @@ function AsignadoChip({ asignaciones = [], compact = false }) {
   const label = asignaciones.length === 1
     ? `${terminada ? "Obra terminada" : "Asignado"} · ${asignaciones[0].label}`
     : `${terminada ? "Incluye obra terminada" : "Asignado"} · ${asignaciones.length} obras`;
-  const color = terminada ? C.amber : C.blue;
-  const border = terminada ? C.amberB : C.blueB;
-  const background = terminada ? C.amberL : C.blueL;
+  const color = terminada ? C.cyan : C.blue;
+  const border = terminada ? C.cyanB : C.blueB;
+  const background = terminada ? C.cyanL : C.blueL;
   return (
     <span style={{
       color,
@@ -932,7 +932,7 @@ function AsignadoChip({ asignaciones = [], compact = false }) {
       borderRadius: 999,
       padding: "3px 9px",
       fontSize: 10,
-      fontWeight: 950,
+      fontWeight: 750,
       textTransform: "uppercase",
       letterSpacing: 0.5,
       whiteSpace: "nowrap",
@@ -996,7 +996,7 @@ function StockLevelChip({ group, compact = false, hideUnset = false }) {
   const level = stockLevel(group);
   if (hideUnset && level.key === "sin_minimo") return null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: level.color, border: `1px solid ${level.border}`, background: level.bg, borderRadius: 999, padding: compact ? "2px 7px" : "3px 8px", fontSize: compact ? 9 : 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.45, whiteSpace: "nowrap" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: level.color, border: `1px solid ${level.border}`, background: level.bg, borderRadius: 999, padding: compact ? "2px 7px" : "3px 8px", fontSize: compact ? 9 : 10, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.45, whiteSpace: "nowrap" }}>
       <span style={{ width: 6, height: 6, borderRadius: 999, background: level.color, boxShadow: level.key === "sin_minimo" ? "none" : `0 0 0 3px ${level.color}18` }} />
       {level.label}
     </span>
@@ -1048,10 +1048,10 @@ function MinimumEditor({ group, canEdit, onSave }) {
         }}
         placeholder="—"
         title="Dejalo vacío para quitar el mínimo"
-        style={{ width: 72, minWidth: 0, boxSizing: "border-box", border: `1px solid ${!valid ? C.redB : dirty || focused ? C.blueB : "transparent"}`, background: dirty || focused ? C.panelSolid : "transparent", color: C.text, borderRadius: 7, padding: "5px 6px", textAlign: "right", fontFamily: C.mono, fontSize: 11.5, fontWeight: 850, outline: "none", opacity: canEdit ? 1 : 0.72 }}
+        style={{ width: 72, minWidth: 0, boxSizing: "border-box", border: `1px solid ${!valid ? C.redB : dirty || focused ? C.blueB : "transparent"}`, background: dirty || focused ? C.panelSolid : "transparent", color: C.text, borderRadius: 7, padding: "5px 6px", textAlign: "right", fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, outline: "none", opacity: canEdit ? 1 : 0.72 }}
       />
       {canEdit && dirty && (
-        <button type="button" disabled={!valid || saving} onClick={save} style={{ border: `1px solid ${valid ? C.greenB : C.border}`, background: valid ? C.greenL : C.panel2, color: valid ? C.green : C.dim, borderRadius: 7, padding: "6px 7px", cursor: valid && !saving ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 900 }}>
+        <button type="button" disabled={!valid || saving} onClick={save} style={{ border: `1px solid ${valid ? C.greenB : C.border}`, background: valid ? C.greenL : C.panel2, color: valid ? C.green : C.dim, borderRadius: 7, padding: "6px 7px", cursor: valid && !saving ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 700 }}>
           {saving ? "..." : "Guardar"}
         </button>
       )}
@@ -1065,20 +1065,20 @@ function OptionStockSummary({ group, compact = false, max = 3 }) {
   const visibles = opciones.slice(0, max);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", minWidth: 0 }}>
-      <span style={{ color: C.dim, fontSize: compact ? 8.5 : 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.65, flexShrink: 0 }}>
+      <span style={{ color: C.dim, fontSize: compact ? 8.5 : 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.65, flexShrink: 0 }}>
         {opciones.length === 1 ? "Opción" : "Opciones"}
       </span>
       {visibles.map((opcion) => (
         <span
           key={opcion.nombre}
           title={`${opcion.nombre}: ${fmtQty(opcion.available)} ${group.unidad || "u"}`}
-          style={{ maxWidth: compact ? 180 : 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: compact ? "1px 6px" : "2px 8px", fontSize: compact ? 9.5 : 10.5, fontWeight: 850 }}
+          style={{ maxWidth: compact ? 180 : 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: compact ? "1px 6px" : "2px 8px", fontSize: compact ? 9.5 : 10.5, fontWeight: 700 }}
         >
           {opcion.nombre} · {fmtQty(opcion.available)}
         </span>
       ))}
       {opciones.length > visibles.length && (
-        <span style={{ color: C.dim, fontSize: compact ? 9 : 10, fontWeight: 900 }}>+{opciones.length - visibles.length}</span>
+        <span style={{ color: C.dim, fontSize: compact ? 9 : 10, fontWeight: 700 }}>+{opciones.length - visibles.length}</span>
       )}
     </div>
   );
@@ -1115,14 +1115,14 @@ function ProductPrimaryAction({ action, compact = false }) {
         borderRadius: 8,
         padding: isCompact ? "0 7px" : "0 9px",
         fontSize: 10.5,
-        fontWeight: 900,
+        fontWeight: 700,
         cursor: "pointer",
         whiteSpace: "nowrap",
       }}
     >
       <Icon size={13} aria-hidden="true" />
       {!isCompact && action.label}
-      {isCompact && action.badge && <span style={{ fontFamily: C.mono, fontSize: 9.5, fontWeight: 950 }}>{action.badge}</span>}
+      {isCompact && action.badge && <span style={{ fontFamily: C.mono, fontSize: 9.5, fontWeight: 750 }}>{action.badge}</span>}
     </span>
   );
 }
@@ -1161,7 +1161,7 @@ function ArchiveMatrixAction({ group, onArchive, compact = false }) {
         borderRadius: 7,
         padding: compact ? "0 5px" : "0 8px",
         fontSize: 9.5,
-        fontWeight: 900,
+        fontWeight: 700,
         cursor: "pointer",
         whiteSpace: "nowrap",
       }}
@@ -1199,7 +1199,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
     const asigs = groupAsignaciones(group);
     const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.locationImbalance ? ["REVISAR UBIC.", C.violet] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
     const micro = (label, color) => (
-      <span style={{ fontSize: 8.5, fontWeight: 950, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
+      <span style={{ fontSize: 8.5, fontWeight: 750, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
     );
     return (
       <button
@@ -1210,15 +1210,15 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, borderStyle: "solid", borderTopColor: active || hover ? C.blueB : level.border, borderRightColor: active || hover ? C.blueB : level.border, borderBottomColor: active || hover ? C.blueB : level.border, borderLeftColor: level.color, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderLeftWidth: 3, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transition: "border-color .12s, background .12s" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
           {/* Misma marca que en la vista de lista: un requisito no es una
               pieza que se pueda ir a buscar al estante. */}
           {group.esRequisito && (
-            <span title="Requisito de matriz: es generico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
+            <span title="Requisito de matriz: es generico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 750, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
           )}
           <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />
-          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 950, flexShrink: 0 }}>
-            {fmtQty(group.total)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 800, marginLeft: 3 }}>{group.unidad || "u"}</span>
+          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 750, flexShrink: 0 }}>
+            {fmtQty(group.total)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 650, marginLeft: 3 }}>{group.unidad || "u"}</span>
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
@@ -1289,10 +1289,10 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
           cada fila extra se multiplica por todo lo que entra en pantalla. */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
         <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={40} />
-        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 900, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
+        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 700, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
         <div style={{ display: "grid", justifyItems: "end", gap: 1, flexShrink: 0 }}>
-          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 950, lineHeight: 1 }}>{fmtQty(group.total)}</span>
-          <span style={{ color: C.dim, fontSize: 8, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.5 }}>{group.unidad || "u"}</span>
+          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 750, lineHeight: 1 }}>{fmtQty(group.total)}</span>
+          <span style={{ color: C.dim, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{group.unidad || "u"}</span>
         </div>
       </div>
       {/* Fila 2: badges + ubicación / sin ubicación */}
@@ -1300,14 +1300,14 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         <VerificacionChip estado={group.verificacion} compact />
         <KindChip tipo={group.tipoPedido} />
         {group.esRequisito && (
-          <span title="Requisito de matriz: es genérico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 950, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
+          <span title="Requisito de matriz: es genérico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 750, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
         )}
         <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} />
         <StockLevelChip group={group} hideUnset />
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
         <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} imbalance={group.locationImbalance} compact />
         {sinUbicacion ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 700 }}>
             <MapPin size={11} /> Sin ubicación
           </span>
         ) : (
@@ -1340,7 +1340,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
               border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`,
               background: inCart || cartHover ? C.greenL : "transparent",
               color: inCart || cartHover ? C.green : C.dim,
-              borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 850, cursor: "pointer",
+              borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 700, cursor: "pointer",
               transition: "color .12s, border-color .12s, background .12s",
             }}
           >
@@ -1350,8 +1350,8 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
       </div>
       {/* Fila 4: depósito / obra */}
       {active && <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, flexShrink: 0 }}>Depósito/obra</span>
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 700, color: group.egresado || group.negativo ? C.red : C.t1 }}>
+        <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7, flexShrink: 0 }}>Depósito/obra</span>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 600, color: group.egresado || group.negativo ? C.red : C.t1 }}>
           {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
         </span>
       </div>}
@@ -1380,7 +1380,7 @@ function VerificacionChip({ estado, compact = false }) {
       display: "inline-flex", alignItems: "center", gap: 5,
       color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg,
       borderRadius: 999, padding: compact ? "2px 7px" : "3px 9px",
-      fontSize: compact ? 9 : 10, fontWeight: 950, whiteSpace: "nowrap",
+      fontSize: compact ? 9 : 10, fontWeight: 750, whiteSpace: "nowrap",
     }}>
       <Icon size={compact ? 10 : 11} style={{ flexShrink: 0 }} />
       {meta.label}
@@ -1410,7 +1410,7 @@ function ProductTableStatus({ group }) {
   return (
     <span
       title={group.verificacion === "pendiente" ? `${meta.label} · control pendiente` : meta.label}
-      style={{ display: "inline-flex", alignItems: "center", gap: 6, color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg, borderRadius: 999, padding: "4px 9px", fontSize: 10.5, lineHeight: 1, fontWeight: 850, whiteSpace: "nowrap" }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg, borderRadius: 999, padding: "4px 9px", fontSize: 10.5, lineHeight: 1, fontWeight: 700, whiteSpace: "nowrap" }}
     >
       <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: meta.color, flexShrink: 0 }} />
       {meta.label}
@@ -1425,7 +1425,7 @@ function FaltaChip({ children }) {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
       color: C.red, border: `1px dashed ${C.redB}`, background: C.redL,
-      borderRadius: 6, padding: "1px 6px", fontSize: 9.5, fontWeight: 900, whiteSpace: "nowrap",
+      borderRadius: 6, padding: "1px 6px", fontSize: 9.5, fontWeight: 700, whiteSpace: "nowrap",
     }}>
       falta {children}
     </span>
@@ -1503,15 +1503,15 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
               y sin esto nadie entiende por qué no coinciden. */}
           <span
             title={group.labelHistorico ? `${displayLabel} · antes se llamaba: ${group.labelHistorico}` : displayLabel}
-            style={{ display: "block", width: "fit-content", maxWidth: "100%", color: C.text, fontSize: 13, lineHeight: 1.25, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: group.labelHistorico ? `1px dotted ${C.border2}` : "none" }}
+            style={{ display: "block", width: "fit-content", maxWidth: "100%", color: C.text, fontSize: 13, lineHeight: 1.25, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: group.labelHistorico ? `1px dotted ${C.border2}` : "none" }}
           >
             {displayLabel}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, minWidth: 0 }}>
-          {variantsMeta && <><span title={`Modelos con stock: ${variantsMeta}`} style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.2, fontWeight: 800 }}>{variantsMeta}</span><span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span></>}
+          {variantsMeta && <><span title={`Modelos con stock: ${variantsMeta}`} style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.2, fontWeight: 650 }}>{variantsMeta}</span><span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span></>}
           {group.codigo
-            ? <span title={group.codigo} style={{ color: C.blue, fontSize: 10.5, lineHeight: 1.2, fontFamily: C.mono, fontWeight: 850 }}>{group.codigo}</span>
+            ? <span title={group.codigo} style={{ color: C.blue, fontSize: 10.5, lineHeight: 1.2, fontFamily: C.mono, fontWeight: 700 }}>{group.codigo}</span>
             : <FaltaChip>código</FaltaChip>}
           <span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span>
           <span title={group.proveedor || "Proveedor sin registrar"} style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: compact ? 112 : 170 }}>{group.proveedor || "sin proveedor"}</span>
@@ -1520,32 +1520,32 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
         </div>
         {compact && group.esRequisito && (
           <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
-            <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 950, letterSpacing: 0.5 }}>MATRIZ</span>
+            <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 750, letterSpacing: 0.5 }}>MATRIZ</span>
             {onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
           </div>
         )}
       </div>
 
       {!compact && (
-        <div title={categoria || "Rubro sin registrar"} style={{ minWidth: 0, color: categoria ? C.text : C.dim, fontSize: 11.5, fontWeight: categoria ? 750 : 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div title={categoria || "Rubro sin registrar"} style={{ minWidth: 0, color: categoria ? C.text : C.dim, fontSize: 11.5, fontWeight: categoria ? 650 : 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {categoria || "Sin rubro"}
         </div>
       )}
 
       <div style={{ textAlign: "right", paddingRight: 4 }}>
-        <div style={{ color: level.key === "critico" ? level.color : C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 900, whiteSpace: "nowrap" }}>
-          {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 650 }}>{group.unidad || "u"}</span>
+        <div style={{ color: level.key === "critico" ? level.color : C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+          {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
         </div>
       </div>
 
       {compact ? (
-        <div title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, whiteSpace: "nowrap" }}>
+        <div title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
           {level.faltante > 0 ? `−${fmtQty(level.faltante)}` : "—"}
         </div>
       ) : (
         <>
           <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} />
-          <div title={level.faltante > 0 ? `Faltan ${fmtQty(level.faltante)} ${group.unidad || "u"} para el mínimo` : "Sin faltante"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900, whiteSpace: "nowrap" }}>
+          <div title={level.faltante > 0 ? `Faltan ${fmtQty(level.faltante)} ${group.unidad || "u"} para el mínimo` : "Sin faltante"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
             {level.faltante > 0 ? fmtQty(level.faltante) : "—"}
           </div>
         </>
@@ -1554,7 +1554,7 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
       <div style={{ minWidth: 0 }}>
         {sinUbicacion ? <FaltaChip>ubicación</FaltaChip> : (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, color: C.text, fontSize: 11.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               <MapPin size={11} style={{ color: C.dim, flexShrink: 0 }} />
               {location}
             </div>
@@ -1570,7 +1570,7 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
       {!compact && <div style={{ minWidth: 0, display: "grid", justifyItems: "start", gap: 4 }}>
         <ProductTableStatus group={group} />
         {group.esRequisito && (
-          <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 950, letterSpacing: 0.5 }}>MATRIZ</span>
+          <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 750, letterSpacing: 0.5 }}>MATRIZ</span>
         )}
         {group.esRequisito && onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
       </div>}
@@ -1587,7 +1587,7 @@ function LocationButton({ location, active, onClick, cierre }) {
       type="button"
       onClick={onClick}
       style={{
-        border: `1px solid ${active ? C.blueB : location.available < 0 ? C.redB : terminada ? C.amberB : C.border}`,
+        border: `1px solid ${active ? C.blueB : location.available < 0 ? C.redB : terminada ? C.cyanB : C.border}`,
         background: active ? C.blueL : location.available < 0 ? C.redL : C.panelSolid,
         color: C.text,
         borderRadius: 10,
@@ -1601,7 +1601,7 @@ function LocationButton({ location, active, onClick, cierre }) {
       }}
     >
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location.label}</span>
+        <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location.label}</span>
         <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{location.sede || "Sin sede"}{terminada ? " · obra terminada" : ""}</span>
         {terminada && (
           <span style={{ display: "block", marginTop: 4 }}>
@@ -1609,19 +1609,19 @@ function LocationButton({ location, active, onClick, cierre }) {
               <Link
                 to={`/sobrantes-obra/${cierre.id}`}
                 onClick={(event) => event.stopPropagation()}
-                style={{ color: C.amber, fontSize: 11, fontWeight: 900, textDecoration: "none" }}
+                style={{ color: C.cyan, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
               >
                 Ir al cierre de materiales
               </Link>
             ) : (
-              <span style={{ color: C.amber, fontSize: 11, fontWeight: 800 }}>Reservado a obra terminada · no es stock libre</span>
+              <span style={{ color: C.cyan, fontSize: 11, fontWeight: 650 }}>Reservado a obra terminada · no es stock libre</span>
             )}
           </span>
         )}
         {location.porVariante?.length > 0 && (
           <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
             {location.porVariante.map((pv) => (
-              <span key={pv.variante} style={{ fontSize: 10, fontWeight: 850, color: C.violet, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "1px 7px" }}>
+              <span key={pv.variante} style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "1px 7px" }}>
                 Opción · {pv.variante}: {fmtQty(pv.available)}{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
               </span>
             ))}
@@ -1631,7 +1631,7 @@ function LocationButton({ location, active, onClick, cierre }) {
           <span style={{ display: "block", color: C.violet, fontSize: 10.5, marginTop: 2 }}>por recibir {fmtQty(location.transitQty)}</span>
         )}
       </span>
-      <span style={{ color: location.available < 0 ? C.red : C.green, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>{fmtQty(location.available)}</span>
+      <span style={{ color: location.available < 0 ? C.red : C.green, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>{fmtQty(location.available)}</span>
     </button>
   );
 }
@@ -1658,11 +1658,11 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
     <article style={{ padding: "10px 0", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 7 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ color: labelColor, background: C.panel, border: `1px solid ${labelColor}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.3 }}>{yaAnulado ? "Anulado" : label}</span>
-          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.3, overflowWrap: "anywhere" }}>{descripcion}</span>
+          <span style={{ color: labelColor, background: C.panel, border: `1px solid ${labelColor}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.3 }}>{yaAnulado ? "Anulado" : label}</span>
+          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3, overflowWrap: "anywhere" }}>{descripcion}</span>
           {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
         </div>
-        <span style={{ flexShrink: 0, color: displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>
+        <span style={{ flexShrink: 0, color: displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
           {displayedDelta > 0 ? "+" : ""}{fmtQty(displayedDelta)} {row.unidad || ""}
         </span>
       </div>
@@ -1685,7 +1685,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
             onClick={() => onRevert?.(row)}
             disabled={busy || yaAnulado}
             title={yaAnulado ? "Este movimiento ya fue anulado" : "El movimiento fue un error: deshacerlo"}
-            style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, padding: "6px 7px", cursor: (busy || yaAnulado) ? "default" : "pointer", fontSize: 10.5, fontWeight: 850, fontFamily: C.sans, opacity: (busy || yaAnulado) ? 0.45 : 1 }}
+            style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, padding: "6px 7px", cursor: (busy || yaAnulado) ? "default" : "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, opacity: (busy || yaAnulado) ? 0.45 : 1 }}
           >
             {yaAnulado ? "Anulado" : "Revertir"}
           </button>
@@ -1696,7 +1696,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
             onClick={() => onDevolucion(row)}
             disabled={busy}
             title="Salió bien pero el operario lo devolvió fallado"
-            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, padding: "6px 7px", cursor: busy ? "default" : "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, opacity: busy ? 0.45 : 1 }}
+            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, padding: "6px 7px", cursor: busy ? "default" : "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, opacity: busy ? 0.45 : 1 }}
           >
             Generar devolución
           </button>
@@ -1738,20 +1738,20 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
     <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Historial de movimientos</div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Historial de movimientos</div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Egresos, asignaciones y reasignaciones ya registradas.</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{rows.length} movimientos</span>
-          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{fmtQty(totals.unidades)} unidades</span>
-          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{totals.materiales} productos</span>
-          <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{totals.hoy} hoy</span>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 700 }}>{rows.length} movimientos</span>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 700 }}>{fmtQty(totals.unidades)} unidades</span>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 700 }}>{totals.materiales} productos</span>
+          <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 700 }}>{totals.hoy} hoy</span>
         </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 10, display: "grid", gap: 8, alignContent: "start" }}>
         {loading ? (
-          <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando movimientos...</div>
+          <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 700 }}>Cargando movimientos...</div>
         ) : rows.length ? rows.map((row) => {
           const detalle = detalleLabel(row);
           const qtyOut = rowEgresoQuantity(row);
@@ -1773,35 +1773,35 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
               }}
             >
               <div>
-                <div style={{ color: tipoMeta.color, fontSize: 11, fontWeight: 950 }}>{tipoMeta.label}</div>
+                <div style={{ color: tipoMeta.color, fontSize: 11, fontWeight: 750 }}>{tipoMeta.label}</div>
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{fmtDate(rowMovementAt(row))}</div>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion || "(sin descripcion)"}</div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion || "(sin descripcion)"}</div>
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.codigo || "sin codigo"}{row.proveedor ? ` - ${row.proveedor}` : ""}</div>
                 <button
                   type="button"
                   onClick={() => onOpenProduct?.(row)}
-                  style={{ marginTop: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}
+                  style={{ marginTop: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}
                 >
                   Ver producto
                 </button>
               </div>
               <div>
-                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</div>
-                <div style={{ color: tipoMeta.color, fontFamily: C.mono, fontSize: 13.5, fontWeight: 950 }}>{qtyPrefix}{fmtQty(qtyOut)} {row.unidad || ""}</div>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</div>
+                <div style={{ color: tipoMeta.color, fontFamily: C.mono, fontSize: 13.5, fontWeight: 750 }}>{qtyPrefix}{fmtQty(qtyOut)} {row.unidad || ""}</div>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Origen</div>
-                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowOrigenMovimientoLabel(row, obraById)}</div>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Origen</div>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowOrigenMovimientoLabel(row, obraById)}</div>
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{rowSede(row) || "Sin sede"}</div>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Destino</div>
-                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{destinoLabel(row)}</div>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Destino</div>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{destinoLabel(row)}</div>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle</div>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle</div>
                 <div style={{ color: detalle ? C.text : C.dim, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detalle || "Sin nota"}</div>
               </div>
             </div>
@@ -2253,17 +2253,17 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
     <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Egreso multiple</div>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>Egreso multiple</div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Agregá varios productos y confirmalos juntos. Sólo se puede retirar stock físicamente recibido.</div>
         </div>
-        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
           <MonitorUp size={14} /> Pantalla
         </button>
       </div>
 
       {group ? (
         <div style={{ border: `1px solid ${C.border}`, background: C.bg, borderRadius: 10, padding: 10, display: "grid", gap: 8 }}>
-          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
           {!isCatalogOnly && (
             <div style={{ color: C.dim, fontSize: 11 }}>{selectedLocation?.label || "Stock general"} · disponible {fmtQty(availableActual)}</div>
           )}
@@ -2278,7 +2278,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
           )}
           {variantOptions.length > 0 && (
             <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Variante</span>
+              <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Variante</span>
               <select
                 value={variante}
                 onChange={(event) => {
@@ -2286,7 +2286,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                   setVariante(nextVariant);
                   setCantidad(defaultEgresoQty({ available: availableForVariant(selectedLocation, nextVariant) }));
                 }}
-                style={{ background: C.panelSolid, border: `1px solid ${variante ? "rgba(139,92,246,0.45)" : C.border}`, color: variante ? C.violet : C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", cursor: "pointer", fontWeight: variante ? 850 : 500 }}
+                style={{ background: C.panelSolid, border: `1px solid ${variante ? "rgba(139,92,246,0.45)" : C.border}`, color: variante ? C.violet : C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", cursor: "pointer", fontWeight: variante ? 700 : 500 }}
               >
                 <option value="">Sin variante especificada</option>
                 {variantOptions.map((value) => {
@@ -2298,10 +2298,10 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Cantidad</span>
+              <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Cantidad</span>
               <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.panelSolid, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
             </label>
-            <button type="button" onClick={addCurrentToCart} disabled={!canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? "default" : "pointer", opacity: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? 0.55 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
+            <button type="button" onClick={addCurrentToCart} disabled={!canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? "default" : "pointer", opacity: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? 0.55 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
               Agregar
             </button>
           </div>
@@ -2323,14 +2323,14 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
       <div style={{ border: `1px solid ${C.border}`, background: C.bg, borderRadius: 10, overflow: "hidden" }}>
         <div style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Seleccionados</span>
+          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>Seleccionados</span>
           <span style={{ color: C.dim, fontSize: 11 }}>{totalLineas} {totalLineas === 1 ? "renglon" : "renglones"} · {fmtQty(totalUnidades)} unidades</span>
         </div>
         <div style={{ display: "grid", maxHeight: 220, overflowY: "auto" }}>
           {cart.length ? cart.map((item) => (
             <div key={item.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 84px 28px", gap: 8, alignItems: "center", padding: "9px 10px", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
+                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.locationLabel}{item.sede ? ` · ${item.sede}` : ""}{item.catalogOnly ? " · sin registro digital" : ""}
                 </div>
@@ -2339,7 +2339,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                     <select
                       value={item.productoMaterialId || ""}
                       onChange={(event) => updateCartItemProduct(item.key, event.target.value)}
-                      style={{ background: item.productoMaterialId ? C.greenL : C.violetL, border: `1px solid ${item.productoMaterialId ? C.greenB : C.violetB}`, color: item.productoMaterialId ? C.green : C.violet, borderRadius: 8, padding: "5px 7px", fontSize: 11, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: 850 }}
+                      style={{ background: item.productoMaterialId ? C.greenL : C.violetL, border: `1px solid ${item.productoMaterialId ? C.greenB : C.violetB}`, color: item.productoMaterialId ? C.green : C.violet, borderRadius: 8, padding: "5px 7px", fontSize: 11, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: 700 }}
                     >
                       <option value="">Elegir producto concreto…</option>
                       {(item.productosCompatibles || []).map((producto) => (
@@ -2353,7 +2353,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                     <select
                       value={item.variante || ""}
                       onChange={(event) => updateCartItemVariant(item.key, event.target.value)}
-                      style={{ background: C.panelSolid, border: `1px solid ${item.variante ? "rgba(139,92,246,0.45)" : C.border}`, color: item.variante ? C.violet : C.text, borderRadius: 8, padding: "4px 7px", fontSize: 11, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: item.variante ? 850 : 500 }}
+                      style={{ background: C.panelSolid, border: `1px solid ${item.variante ? "rgba(139,92,246,0.45)" : C.border}`, color: item.variante ? C.violet : C.text, borderRadius: 8, padding: "4px 7px", fontSize: 11, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: item.variante ? 700 : 500 }}
                     >
                       <option value="">Variante: sin especificar</option>
                       {item.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -2364,13 +2364,13 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                         defaultValue=""
                         onBlur={() => setVariantAdderKey("")}
                         onChange={(event) => addAnotherVariant(item, event.target.value)}
-                        style={{ background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, borderRadius: 8, padding: "4px 7px", fontSize: 10.5, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: 850 }}
+                        style={{ background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, borderRadius: 8, padding: "4px 7px", fontSize: 10.5, fontFamily: C.sans, outline: "none", width: "100%", cursor: "pointer", fontWeight: 700 }}
                       >
                         <option value="">Elegir otra variante...</option>
                         {remainingCartVariants(item, cart).map((value) => <option key={value} value={value}>{value}</option>)}
                       </select>
                     ) : (
-                      <button type="button" onClick={() => setVariantAdderKey(item.key)} style={{ justifySelf: "start", border: "none", background: "transparent", color: C.blue, padding: "2px 0", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, cursor: "pointer" }}>
+                      <button type="button" onClick={() => setVariantAdderKey(item.key)} style={{ justifySelf: "start", border: "none", background: "transparent", color: C.blue, padding: "2px 0", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, cursor: "pointer" }}>
                         + Agregar otra variante
                       </button>
                     ))}
@@ -2389,15 +2389,15 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       </div>
 
       <div style={{ display: "grid", gap: 6 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Tipo de movimiento</span>
+        <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Tipo de movimiento</span>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          <button type="button" onClick={() => setMovementKind("consumir")} style={{ border: `1px solid ${movementKind === "consumir" ? C.greenB : C.border}`, background: movementKind === "consumir" ? C.greenL : C.panel, color: movementKind === "consumir" ? C.green : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Consumir en obra</button>
-          <button type="button" onClick={() => setMovementKind("transferir")} style={{ border: `1px solid ${movementKind === "transferir" ? C.blueB : C.border}`, background: movementKind === "transferir" ? C.blueL : C.panel, color: movementKind === "transferir" ? C.blue : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Asignar a obra</button>
+          <button type="button" onClick={() => setMovementKind("consumir")} style={{ border: `1px solid ${movementKind === "consumir" ? C.greenB : C.border}`, background: movementKind === "consumir" ? C.greenL : C.panel, color: movementKind === "consumir" ? C.green : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Consumir en obra</button>
+          <button type="button" onClick={() => setMovementKind("transferir")} style={{ border: `1px solid ${movementKind === "transferir" ? C.blueB : C.border}`, background: movementKind === "transferir" ? C.blueL : C.panel, color: movementKind === "transferir" ? C.blue : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Asignar a obra</button>
         </div>
       </div>
 
       <label style={{ display: "grid", gap: 5 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Reasignar a obra"}</span>
+        <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Reasignar a obra"}</span>
         <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
           <option value="">{movementKind === "transferir" ? "Elegir obra" : "Sin reasignar"}</option>
           {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
@@ -2416,11 +2416,11 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
       <div style={{ display: "flex", gap: 8 }}>
         {cart.length > 0 && (
-          <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 10, padding: "10px 12px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 10, padding: "10px 12px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
             Vaciar
           </button>
         )}
-        <button type="button" onClick={submitBatch} disabled={saving || !canReceive || cart.length === 0} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 950, cursor: saving || !canReceive || cart.length === 0 ? "default" : "pointer", opacity: saving || !canReceive || cart.length === 0 ? 0.6 : 1, fontFamily: C.sans }}>
+        <button type="button" onClick={submitBatch} disabled={saving || !canReceive || cart.length === 0} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 750, cursor: saving || !canReceive || cart.length === 0 ? "default" : "pointer", opacity: saving || !canReceive || cart.length === 0 ? 0.6 : 1, fontFamily: C.sans }}>
           <ArrowUpRight size={15} />
           {saving ? "Registrando..." : `Confirmar ${movementKind === "transferir" ? "asignación" : "egreso"} (${cart.length})`}
         </button>
@@ -2572,25 +2572,25 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   return (
     <div style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 11 }}>
       <div>
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : "Asignar stock"}</div>
+        <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : "Asignar stock"}</div>
         <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
       </div>
       {isCatalogOnly && (
         <div style={{ color: C.violet, fontSize: 11, lineHeight: 1.35 }}>Sin stock recibido: registrá el ingreso físico antes de intentar un egreso.</div>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso</button>
+        <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso</button>
         {mode !== "egreso" && !isCatalogOnly && (
-          <button type="button" onClick={() => setAction("asignar")} style={{ border: `1px solid ${action === "asignar" ? C.blueB : C.border}`, background: action === "asignar" ? C.blueL : C.panel, color: action === "asignar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>{asignarLabel}</button>
+          <button type="button" onClick={() => setAction("asignar")} style={{ border: `1px solid ${action === "asignar" ? C.blueB : C.border}`, background: action === "asignar" ? C.blueL : C.panel, color: action === "asignar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>{asignarLabel}</button>
         )}
         {mode !== "egreso" && (
-          <button type="button" onClick={() => setAction("ingresar")} style={{ border: `1px solid ${action === "ingresar" ? C.blueB : C.border}`, background: action === "ingresar" ? C.blueL : C.panel, color: action === "ingresar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Ingreso</button>
+          <button type="button" onClick={() => setAction("ingresar")} style={{ border: `1px solid ${action === "ingresar" ? C.blueB : C.border}`, background: action === "ingresar" ? C.blueL : C.panel, color: action === "ingresar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Ingreso</button>
         )}
       </div>
 
       {(action === "egresar" || action === "asignar") && !isCatalogOnly && (
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{action === "asignar" ? "Depósito / stock a asignar" : "Deposito / obra origen"}</span>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{action === "asignar" ? "Depósito / stock a asignar" : "Deposito / obra origen"}</span>
           <select value={selectedLocation?.key || ""} onChange={(event) => setSelectedLocationKey(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
             {group.locations.map((loc) => <option key={loc.key} value={loc.key}>{loc.label} · {fmtQty(loc.available)}</option>)}
           </select>
@@ -2600,7 +2600,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       {/* Selector de variante al egresar/asignar cuando el producto tiene variantes */}
       {(action === "egresar" || action === "asignar") && group.variantes?.length > 0 && (
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Variante {action === "egresar" ? "a egresar" : "a asignar"}</span>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Variante {action === "egresar" ? "a egresar" : "a asignar"}</span>
           <select value={varianteEgreso} onChange={(event) => setVarianteEgreso(event.target.value)} style={{ background: C.bg, border: `1px solid ${varianteEgreso ? C.violet : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
             <option value="">— Sin especificar —</option>
             {group.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -2610,7 +2610,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
       {action === "asignar" && (
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{originIsObra ? "Mover a" : "Asignar a la obra"}</span>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{originIsObra ? "Mover a" : "Asignar a la obra"}</span>
           <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${destinoObraId ? C.blueB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
             <option value="">Elegir destino</option>
             {originIsObra && <option value="__stock__">Pasar a stock (liberar)</option>}
@@ -2644,8 +2644,8 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       )}
 
       <label style={{ display: "grid", gap: 5 }}>
-        <span style={{ color: C.text, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.9 }}>Cantidad</span>
-        <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 16, fontWeight: 900, fontFamily: C.mono, outline: "none" }} />
+        <span style={{ color: C.text, fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.9 }}>Cantidad</span>
+        <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 16, fontWeight: 700, fontFamily: C.mono, outline: "none" }} />
       </label>
 
       {transitOnly && (
@@ -2664,7 +2664,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       {action === "egresar" && (
         <>
           <label style={{ display: "grid", gap: 5 }}>
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Obra a la que va</span>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Obra a la que va</span>
             <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${!destinoObraId && !selectedLocation?.obraId ? C.violetB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
               <option value="">Sin obra (mantenimiento, río, etc.)</option>
               {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
@@ -2690,7 +2690,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       {(() => {
         const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || insufficientStock || (action === "asignar" && !destinoObraId);
         return (
-          <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 950, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
+          <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 750, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
             {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
             {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : action === "ingresar" ? "Confirmar ingreso" : destinoObraId === "__stock__" ? "Pasar a stock" : originIsObra ? "Confirmar reasignación" : "Confirmar asignación"}
           </button>
@@ -2792,7 +2792,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "9px 12px" }}>
         <ShieldCheck size={14} style={{ color: C.dim, flexShrink: 0 }} />
-        <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Revisión del maestro</span>
+        <span style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Revisión del maestro</span>
         <VerificacionChip estado={estado} />
         <span style={{ color: C.dim, fontSize: 11 }}>Tu usuario no puede revisar productos.</span>
       </div>
@@ -2800,8 +2800,8 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
   }
 
   const campo = { width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" };
-  const rotulo = { color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 };
-  const paso = { width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10, fontWeight: 950, flexShrink: 0 };
+  const rotulo = { color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 };
+  const paso = { width: 18, height: 18, borderRadius: 999, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10, fontWeight: 750, flexShrink: 0 };
 
   return (
     // SIN overflow:hidden. El contenedor del detalle es un grid, y un ítem de
@@ -2823,10 +2823,10 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
         background: estado === "pendiente" ? C.blueL : meta.bg === "transparent" ? C.panel : meta.bg,
       }}>
         <ShieldCheck size={14} style={{ color: estado === "pendiente" ? C.blue : meta.color, flexShrink: 0 }} />
-        <span style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Revisión del maestro</span>
+        <span style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>Revisión del maestro</span>
         <VerificacionChip estado={estado} />
         <button type="button" onClick={() => setVerHistorial((v) => !v)}
-          style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11, fontWeight: 850, cursor: "pointer", fontFamily: C.sans, padding: 0 }}>
+          style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, padding: 0 }}>
           {verHistorial ? "Ocultar historial" : "Ver historial"}
         </button>
       </div>
@@ -2850,7 +2850,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
         <div style={{ display: "grid", gap: 9 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <span style={paso}>1</span>
-            <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Corregí la ficha con el producto en la mano</span>
+            <span style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Corregí la ficha con el producto en la mano</span>
           </div>
 
           <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
@@ -2882,7 +2882,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
                 placeholder="Dejalo vacío si no contaste"
                 style={{ ...campo, fontFamily: C.mono, borderColor: difiere ? C.redB : C.border }} />
             </label>
-            <div style={{ paddingBottom: 8, whiteSpace: "nowrap", color: difiere ? C.red : C.dim, fontSize: 11.5, fontWeight: difiere ? 900 : 750 }}>
+            <div style={{ paddingBottom: 8, whiteSpace: "nowrap", color: difiere ? C.red : C.dim, fontSize: 11.5, fontWeight: difiere ? 700 : 650 }}>
               {difiere
                 ? `Sistema ${fmtQty(sistema)} · difiere en ${fmtQty(Math.abs(contadaNum - sistema))}`
                 : `Sistema dice ${fmtQty(sistema)} ${group.unidad || "u"}`}
@@ -2894,23 +2894,23 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
         <div style={{ display: "grid", gap: 9, borderTop: `1px solid ${C.border}`, paddingTop: 11 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <span style={paso}>2</span>
-            <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>¿Quedó bien?</span>
+            <span style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>¿Quedó bien?</span>
           </div>
 
           {!abrirProblema ? (
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               <button type="button" onClick={() => guardar("ok")} disabled={!!guardando}
-                style={{ flex: "1 1 190px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
+                style={{ flex: "1 1 190px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 750, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
                 <CheckCircle2 size={14} /> {guardando === "ok" ? "Guardando…" : "Sí, guardar y marcar revisado"}
               </button>
               <button type="button" onClick={() => setAbrirProblema(true)} disabled={!!guardando}
-                style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+                style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
                 <AlertTriangle size={14} /> No, hay algo mal
               </button>
             </div>
           ) : (
             <div style={{ display: "grid", gap: 9, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 10, padding: 10 }}>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>¿Qué está mal? Marcá todo lo que corresponda</div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>¿Qué está mal? Marcá todo lo que corresponda</div>
               <div style={{ display: "grid", gap: 5 }}>
                 {VERIFICACION_PROBLEMAS.map(([clave, label, ayuda]) => {
                   const on = problemas.includes(clave);
@@ -2925,10 +2925,10 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
                       <span style={{
                         width: 15, height: 15, flexShrink: 0, marginTop: 1, borderRadius: 4,
                         border: `1px solid ${on ? C.red : C.border2}`, background: on ? C.red : "transparent",
-                        display: "grid", placeItems: "center", color: "#fff", fontSize: 10, fontWeight: 950, lineHeight: 1,
+                        display: "grid", placeItems: "center", color: "#fff", fontSize: 10, fontWeight: 750, lineHeight: 1,
                       }}>{on ? "✓" : ""}</span>
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: "block", color: on ? C.red : C.text, fontSize: 12, fontWeight: 900 }}>{label}</span>
+                        <span style={{ display: "block", color: on ? C.red : C.text, fontSize: 12, fontWeight: 700 }}>{label}</span>
                         <span style={{ display: "block", color: C.dim, fontSize: 10.5, lineHeight: 1.35, marginTop: 1 }}>{ayuda}</span>
                       </span>
                     </button>
@@ -2946,7 +2946,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
 
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
                 <button type="button" onClick={() => guardar("problema")} disabled={!!guardando || !problemas.length}
-                  style={{ flex: "1 1 190px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.redB}`, background: problemas.length ? C.red : C.panel, color: problemas.length ? "#fff" : C.dim, borderRadius: 9, padding: "10px 12px", cursor: guardando || !problemas.length ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
+                  style={{ flex: "1 1 190px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.redB}`, background: problemas.length ? C.red : C.panel, color: problemas.length ? "#fff" : C.dim, borderRadius: 9, padding: "10px 12px", cursor: guardando || !problemas.length ? "default" : "pointer", fontSize: 12.5, fontWeight: 750, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
                   <AlertTriangle size={14} />
                   {guardando === "problema"
                     ? "Guardando…"
@@ -2955,7 +2955,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
                       : "Elegí qué está mal"}
                 </button>
                 <button type="button" onClick={() => { setAbrirProblema(false); setProblemas([]); }} disabled={!!guardando}
-                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>
+                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
                   Estaba bien
                 </button>
               </div>
@@ -2964,7 +2964,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
 
           {estado !== "pendiente" && (
             <button type="button" onClick={() => guardar("pendiente")} disabled={!!guardando}
-              style={{ justifySelf: "start", border: "none", background: "transparent", color: C.dim, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: C.sans, textDecoration: "underline", padding: 0 }}>
+              style={{ justifySelf: "start", border: "none", background: "transparent", color: C.dim, fontSize: 11, fontWeight: 650, cursor: "pointer", fontFamily: C.sans, textDecoration: "underline", padding: 0 }}>
               Deshacer la revisión y volver a dejarlo pendiente
             </button>
           )}
@@ -2992,7 +2992,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
                 {(fila.problemas || []).length > 0 && (
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
                     {fila.problemas.map((clave) => (
-                      <span key={clave} style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 6, padding: "1px 6px", fontSize: 9.5, fontWeight: 900 }}>
+                      <span key={clave} style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 6, padding: "1px 6px", fontSize: 9.5, fontWeight: 700 }}>
                         {PROBLEMA_LABEL[clave] || clave}
                       </span>
                     ))}
@@ -3031,7 +3031,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       return (
         <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid }}>
-            <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Egreso multiple</div>
+            <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Egreso multiple</div>
             <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>Busca productos a la izquierda y agregalos a esta lista.</div>
           </div>
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
@@ -3054,7 +3054,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "grid", placeItems: "center", padding: 24 }}>
         <div style={{ textAlign: "center", maxWidth: 360 }}>
           <Warehouse size={36} style={{ color: C.blue, marginBottom: 10 }} />
-          <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Elegí un producto</div>
+          <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Elegí un producto</div>
           <div style={{ color: C.dim, fontSize: 13, lineHeight: 1.45, marginTop: 6 }}>Buscá primero. El detalle muestra saldo por obra/sede, kardex y acciones en un solo lugar.</div>
         </div>
       </section>
@@ -3243,7 +3243,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   ) : (
     <div style={{ display: "grid", gap: 8 }}>
       <div>
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Ubicacion fisica del producto</div>
+        <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>Ubicacion fisica del producto</div>
         <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}>
           Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex.
         </div>
@@ -3252,7 +3252,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         type="button"
         onClick={crearFichaParaUbicacion}
         disabled={creatingLocationMaterial}
-        style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", cursor: creatingLocationMaterial ? "default" : "pointer", opacity: creatingLocationMaterial ? 0.65 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}
+        style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", cursor: creatingLocationMaterial ? "default" : "pointer", opacity: creatingLocationMaterial ? 0.65 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}
       >
         <PackagePlus size={14} />
         {creatingLocationMaterial ? "Creando..." : "Crear ficha y ubicar"}
@@ -3265,10 +3265,10 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     if (collapsible) {
       return (
         <details style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
-          <summary style={{ listStyle: "none", padding: "9px 11px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: C.text, fontSize: 12, fontWeight: 900 }}>
+          <summary style={{ listStyle: "none", padding: "9px 11px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: C.text, fontSize: 12, fontWeight: 700 }}>
             <MapPin size={14} color={C.blue} />
             <span style={{ flex: 1 }}>Ubicacion y estanteria</span>
-            {group.ubicacion ? <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} /> : <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>Sin ubicar</span>}
+            {group.ubicacion ? <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} /> : <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 600 }}>Sin ubicar</span>}
           </summary>
           <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 12px" }}>{locationEditor}</div>
         </details>
@@ -3311,7 +3311,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ color: C.text, fontSize: 17, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+            <div style={{ color: C.text, fontSize: 17, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
             <KindChip tipo={group.tipoPedido} />
             <AsignadoChip asignaciones={groupAsignaciones(group)} />
             <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} imbalance={group.locationImbalance} catalogOnly={group.catalogOnly} />
@@ -3322,11 +3322,11 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
           {group.material?.id && onOpenCatalog && (
-            <button type="button" onClick={() => onOpenCatalog(group.material.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "7px 9px", fontSize: 11.5, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>
+            <button type="button" onClick={() => onOpenCatalog(group.material.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "7px 9px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>
               <ArrowUpRight size={13} />{!isMobile && "Ver ficha del producto"}
             </button>
           )}
-          <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>{isMobile ? "Lista" : "Cerrar"}</button>
+          <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{isMobile ? "Lista" : "Cerrar"}</button>
         </div>
       </div>
 
@@ -3346,7 +3346,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                 role="tab"
                 aria-selected={active}
                 onClick={() => { setActionOpen(false); setDetailTab(key); }}
-                style={{ minHeight: isMobile ? 44 : 38, padding: "7px 10px", border: "none", borderBottom: `2px solid ${active ? C.blue : "transparent"}`, background: "transparent", color: active ? C.blue : C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: active ? 950 : 750, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                style={{ minHeight: isMobile ? 44 : 38, padding: "7px 10px", border: "none", borderBottom: `2px solid ${active ? C.blue : "transparent"}`, background: "transparent", color: active ? C.blue : C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: active ? 750 : 650, fontFamily: C.sans, whiteSpace: "nowrap" }}
               >
                 {label}
               </button>
@@ -3357,7 +3357,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
         {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && <div>
-          <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Saldos por deposito / obra</div>
+          <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Saldos por deposito / obra</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 7 }}>
             {group.locations.map((loc) => (
               <LocationButton
@@ -3384,7 +3384,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 
         {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && group.esAdicional && detalleAdicional.length > 0 && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 6 }}>
-            <div style={{ color: C.violet, fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: 1 }}>Detalle del adicional</div>
+            <div style={{ color: C.violet, fontSize: 10, fontWeight: 750, textTransform: "uppercase", letterSpacing: 1 }}>Detalle del adicional</div>
             {detalleAdicional.map((detalle) => (
               <div key={detalle} style={{ color: C.text, fontSize: 12.5, lineHeight: 1.45 }}>{detalle}</div>
             ))}
@@ -3393,15 +3393,15 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 
         {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && negativeLocations.length > 0 && (
           <div style={{ border: `1px solid ${group.negativo ? C.redB : C.violetB}`, background: group.negativo ? C.redL : C.violetL, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
-            <div style={{ color: group.negativo ? C.red : C.violet, fontSize: 12.5, fontWeight: 950 }}>{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
+            <div style={{ color: group.negativo ? C.red : C.violet, fontSize: 12.5, fontWeight: 750 }}>{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
             {!group.negativo && <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4 }}>El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
             {negativeLocations.map((loc) => (
               <div key={loc.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, alignItems: "center" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 12, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{loc.label}</div>
-                  <div style={{ color: group.negativo ? C.red : C.violet, fontFamily: C.mono, fontSize: 11, fontWeight: 900 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
+                  <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{loc.label}</div>
+                  <div style={{ color: group.negativo ? C.red : C.violet, fontFamily: C.mono, fontSize: 11, fontWeight: 700 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
                 </div>
-                {group.negativo && <button type="button" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key} style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, padding: "8px 10px", cursor: reconcilingKey === loc.key ? "default" : "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans, opacity: reconcilingKey === loc.key ? 0.65 : 1 }}>
+                {group.negativo && <button type="button" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key} style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, padding: "8px 10px", cursor: reconcilingKey === loc.key ? "default" : "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans, opacity: reconcilingKey === loc.key ? 0.65 : 1 }}>
                   {reconcilingKey === loc.key ? "Cargando..." : "Cargar ingreso faltante"}
                 </button>}
               </div>
@@ -3439,11 +3439,11 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 
         {(mode === "egreso" || (!actionOpen && detailTab === "movimientos")) && <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <div style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1 }}>Kardex</div>
+            <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Kardex</div>
             <button
               type="button"
               onClick={() => setOcultarAnulados((v) => !v)}
-              style={{ border: `1px solid ${C.border}`, background: ocultarAnulados ? C.blueL : C.panelSolid, color: ocultarAnulados ? C.blue : C.dim, borderRadius: 7, padding: "3px 8px", cursor: "pointer", fontSize: 10, fontWeight: 850, fontFamily: C.sans }}
+              style={{ border: `1px solid ${C.border}`, background: ocultarAnulados ? C.blueL : C.panelSolid, color: ocultarAnulados ? C.blue : C.dim, borderRadius: 7, padding: "3px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: C.sans }}
             >
               {ocultarAnulados ? "Mostrar anulados" : "Ocultar anulados"}
             </button>
@@ -3467,15 +3467,15 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       {mode !== "egreso" && canReceive && (
         <div style={{ padding: "10px 12px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, display: "grid", gridTemplateColumns: actionOpen ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 8, flexShrink: 0 }}>
           {actionOpen ? (
-            <button type="button" className="stock-wms-control" onClick={() => { setActionOpen(false); setDetailTab("resumen"); }} style={{ minHeight: isMobile ? 44 : 38, border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+            <button type="button" className="stock-wms-control" onClick={() => { setActionOpen(false); setDetailTab("resumen"); }} style={{ minHeight: isMobile ? 44 : 38, border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
               Volver al resumen
             </button>
           ) : (
             <>
-              <button type="button" className="stock-wms-control" onClick={() => setActionOpen(true)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
+              <button type="button" className="stock-wms-control" onClick={() => setActionOpen(true)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
                 Registrar movimiento
               </button>
-              <button type="button" className="stock-wms-control" onClick={addSelectedToCart} disabled={!group.locations.some((item) => item.available > 0)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 11px", cursor: group.locations.some((item) => item.available > 0) ? "pointer" : "default", opacity: group.locations.some((item) => item.available > 0) ? 1 : 0.5, fontSize: 12, fontWeight: 950, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              <button type="button" className="stock-wms-control" onClick={addSelectedToCart} disabled={!group.locations.some((item) => item.available > 0)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 11px", cursor: group.locations.some((item) => item.available > 0) ? "pointer" : "default", opacity: group.locations.some((item) => item.available > 0) ? 1 : 0.5, fontSize: 12, fontWeight: 750, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                 <ShoppingCart size={14} aria-hidden="true" /> Agregar al carrito
               </button>
             </>
@@ -3488,7 +3488,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.38)", display: "grid", placeItems: "center", padding: 16 }}>
           <div style={{ width: "min(500px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Generar devolución</div>
+              <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Generar devolución</div>
               <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
                 {devolucionTarget.row.descripcion || group.label}
                 {devolucionTarget.row.retirado_por ? ` · lo retiró ${devolucionTarget.row.retirado_por}` : ""}
@@ -3498,7 +3498,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             <div style={{ padding: 16, display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 10 }}>
                 <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
                   <input
                     value={devolucionTarget.cantidad}
                     onChange={(e) => setDevolucionTarget((p) => ({ ...p, cantidad: e.target.value }))}
@@ -3508,7 +3508,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                   />
                 </label>
                 <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
                   <select
                     value={devolucionTarget.motivo}
                     onChange={(e) => setDevolucionTarget((p) => ({ ...p, motivo: e.target.value }))}
@@ -3520,7 +3520,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               </div>
 
               <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
                 <input
                   value={devolucionTarget.detalle}
                   onChange={(e) => setDevolucionTarget((p) => ({ ...p, detalle: e.target.value }))}
@@ -3531,7 +3531,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               </label>
 
               <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {DEVOLUCION_NECESITA.map(([valor, label]) => {
                     const on = devolucionTarget.necesita === valor;
@@ -3543,7 +3543,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                           border: `1px solid ${on ? C.blueB : C.border}`,
                           background: on ? C.blueL : C.panel,
                           color: on ? C.blue : C.muted,
-                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                          fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
                         }}>
                         {label}
                       </button>
@@ -3556,7 +3556,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                   vuelve al stock. Lo que cambia es que no se le puede reclamar
                   al proveedor, y de eso depende el total del reclamo. */}
               <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {DEVOLUCION_RESPONSABLE.map(([valor, label]) => {
                     const on = devolucionTarget.responsable === valor;
@@ -3568,7 +3568,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                           border: `1px solid ${on ? C.blueB : C.border}`,
                           background: on ? C.blueL : C.panel,
                           color: on ? C.blue : C.muted,
-                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                          fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
                         }}>
                         {label}
                       </button>
@@ -3585,7 +3585,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 
             <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" onClick={() => setDevolucionTarget(null)}
-                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>
+                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>
                 Cancelar
               </button>
               <button
@@ -3612,7 +3612,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                     setDevolucionBusy(false);
                   }
                 }}
-                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}
+                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}
               >
                 {devolucionBusy ? "Registrando…" : "Registrar devolución"}
               </button>
@@ -3626,7 +3626,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           <div style={{ width: "min(520px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Revertir movimiento</div>
+                <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Revertir movimiento</div>
                 <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
                   {reversalTarget.descripcion || group.label} · {fmtQty(Math.abs(rowDelta(reversalTarget)))} {reversalTarget.unidad || group.unidad}
                 </div>
@@ -3645,7 +3645,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                 Esto crea el movimiento inverso y deja marcado el original como anulado. El motivo queda en el kardex.
               </div>
               <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1 }}>Motivo de reversión</span>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Motivo de reversión</span>
                 <textarea
                   value={reversalReason}
                   onChange={(event) => setReversalReason(event.target.value)}
@@ -3659,7 +3659,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                   type="button"
                   onClick={() => { setReversalTarget(null); setReversalReason(""); }}
                   disabled={revertingId === reversalTarget.id}
-                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}
+                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
                 >
                   Cancelar
                 </button>
@@ -3667,7 +3667,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                   type="button"
                   onClick={() => revertirMovimiento(reversalTarget, reversalReason)}
                   disabled={revertingId === reversalTarget.id || !reversalReason.trim()}
-                  style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id || !reversalReason.trim() ? "default" : "pointer", opacity: revertingId === reversalTarget.id || !reversalReason.trim() ? 0.58 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}
+                  style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id || !reversalReason.trim() ? "default" : "pointer", opacity: revertingId === reversalTarget.id || !reversalReason.trim() ? 0.58 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}
                 >
                   {revertingId === reversalTarget.id ? "Revirtiendo..." : "Confirmar reversión"}
                 </button>
@@ -3938,14 +3938,14 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
           <ShoppingCart size={18} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: "#fff", fontSize: 15.5, fontWeight: 950, lineHeight: 1.1 }}>Carrito de pañol</div>
+          <div style={{ color: "#fff", fontSize: 15.5, fontWeight: 750, lineHeight: 1.1 }}>Carrito de pañol</div>
           <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 11, marginTop: 2 }}>{cart.length} {cart.length === 1 ? "renglon" : "renglones"} · {fmtQty(totalUnidades)} unidades</div>
         </div>
-        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 9px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 9px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
           <MonitorUp size={13} /> Pantalla
         </button>
         {cart.length > 0 && setSavedCarts && (
-          <button type="button" onClick={guardarCarrito} title="Guardar este carrito con nombre para retomarlo después" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={guardarCarrito} title="Guardar este carrito con nombre para retomarlo después" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
             <Save size={13} /> Guardar
           </button>
         )}
@@ -3958,15 +3958,15 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         {/* Carritos guardados: cargar / borrar */}
         {savedCarts.length > 0 && (
           <div>
-            <div style={{ fontSize: 10.5, fontWeight: 950, color: C.dim, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Carritos guardados</div>
+            <div style={{ fontSize: 10.5, fontWeight: 750, color: C.dim, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Carritos guardados</div>
             <div style={{ display: "grid", gap: 5 }}>
               {savedCarts.map((s) => (
                 <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 850, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.nombre}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.nombre}</div>
                     <div style={{ fontSize: 10, color: C.dim }}>{s.items.length} ítem{s.items.length === 1 ? "" : "s"} · {new Date(s.savedAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}</div>
                   </div>
-                  <button type="button" onClick={() => cargarGuardado(s)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, flexShrink: 0 }}>
+                  <button type="button" onClick={() => cargarGuardado(s)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}>
                     Cargar
                   </button>
                   <button type="button" onClick={() => borrarGuardado(s)} title="Borrar guardado" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 26, height: 26, display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
@@ -3989,7 +3989,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
           <div key={g.key}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
               <span style={{ width: 8, height: 8, borderRadius: 999, background: g.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 10.5, fontWeight: 950, color: g.color, textTransform: "uppercase", letterSpacing: 0.7 }}>{g.label}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 750, color: g.color, textTransform: "uppercase", letterSpacing: 0.7 }}>{g.label}</span>
               <span style={{ fontSize: 10.5, color: C.dim }}>· {g.items.length} ítem{g.items.length === 1 ? "" : "s"}</span>
             </div>
             <div style={{ display: "grid", gap: 6 }}>
@@ -3998,7 +3998,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                 return (
                   <div key={item.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 84px 28px", gap: 8, alignItems: "center", padding: "8px 10px", border: `1px solid ${excede ? C.violetB : C.border}`, borderRadius: 10, background: C.panelSolid }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
+                      <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
                       <div style={{ color: excede ? C.violet : C.dim, fontSize: 10.5, marginTop: 1 }}>
                         {item.catalogOnly ? "sin stock recibido" : `disponible ${fmtQty(item.available)} ${item.unidad || ""}`}{excede ? " · cantidad excedida" : ""}
                       </div>
@@ -4007,7 +4007,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                           <select
                             value={item.productoMaterialId || ""}
                             onChange={(event) => updateCartItemProduct(item.key, event.target.value)}
-                            style={{ ...inp, width: "100%", padding: "6px 7px", fontSize: 11, cursor: "pointer", color: item.productoMaterialId ? C.green : C.violet, borderColor: item.productoMaterialId ? C.greenB : C.violetB, background: item.productoMaterialId ? C.greenL : C.violetL, fontWeight: 850 }}
+                            style={{ ...inp, width: "100%", padding: "6px 7px", fontSize: 11, cursor: "pointer", color: item.productoMaterialId ? C.green : C.violet, borderColor: item.productoMaterialId ? C.greenB : C.violetB, background: item.productoMaterialId ? C.greenL : C.violetL, fontWeight: 700 }}
                           >
                             <option value="">Elegir producto concreto…</option>
                             {(item.productosCompatibles || []).map((producto) => (
@@ -4026,7 +4026,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                           <select
                             value={item.variante || ""}
                             onChange={(event) => updateCartItemVariant(item.key, event.target.value)}
-                            style={{ ...inp, width: "100%", padding: "5px 7px", fontSize: 11, cursor: "pointer", color: item.variante ? C.violet : C.text, borderColor: item.variante ? "rgba(139,92,246,0.45)" : C.border, fontWeight: item.variante ? 850 : 500 }}
+                            style={{ ...inp, width: "100%", padding: "5px 7px", fontSize: 11, cursor: "pointer", color: item.variante ? C.violet : C.text, borderColor: item.variante ? "rgba(139,92,246,0.45)" : C.border, fontWeight: item.variante ? 700 : 500 }}
                           >
                             <option value="">Variante: sin especificar</option>
                             {item.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -4037,13 +4037,13 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                               defaultValue=""
                               onBlur={() => setVariantAdderKey("")}
                               onChange={(event) => addAnotherVariant(item, event.target.value)}
-                              style={{ ...inp, width: "100%", padding: "5px 7px", fontSize: 10.5, cursor: "pointer", color: C.blue, borderColor: C.blueB, background: C.blueL, fontWeight: 850 }}
+                              style={{ ...inp, width: "100%", padding: "5px 7px", fontSize: 10.5, cursor: "pointer", color: C.blue, borderColor: C.blueB, background: C.blueL, fontWeight: 700 }}
                             >
                               <option value="">Elegir otra variante...</option>
                               {remainingCartVariants(item, cart).map((value) => <option key={value} value={value}>{value}</option>)}
                             </select>
                           ) : (
-                            <button type="button" onClick={() => setVariantAdderKey(item.key)} style={{ justifySelf: "start", border: "none", background: "transparent", color: C.blue, padding: "2px 0", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, cursor: "pointer" }}>
+                            <button type="button" onClick={() => setVariantAdderKey(item.key)} style={{ justifySelf: "start", border: "none", background: "transparent", color: C.blue, padding: "2px 0", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, cursor: "pointer" }}>
                               + Agregar otra variante
                             </button>
                           ))}
@@ -4065,18 +4065,18 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         {cart.length > 0 && (<>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <button type="button" onClick={() => setMovementKind("consumir")} style={{ border: `2px solid ${movementKind === "consumir" ? C.green : C.border}`, background: movementKind === "consumir" ? C.greenL : C.panelSolid, borderRadius: 12, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "consumir" ? C.green : C.text, fontSize: 13, fontWeight: 950 }}><ArrowUpRight size={15} /> Egresar</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "consumir" ? C.green : C.text, fontSize: 13, fontWeight: 750 }}><ArrowUpRight size={15} /> Egresar</div>
             <div style={{ fontSize: 10.5, color: C.dim, marginTop: 3 }}>Sale del pañol (consumo)</div>
           </button>
           <button type="button" onClick={() => setMovementKind("transferir")} style={{ border: `2px solid ${movementKind === "transferir" ? C.blue : C.border}`, background: movementKind === "transferir" ? C.blueL : C.panelSolid, borderRadius: 12, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "transferir" ? C.blue : C.text, fontSize: 13, fontWeight: 950 }}><RefreshCw size={15} /> Asignar</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "transferir" ? C.blue : C.text, fontSize: 13, fontWeight: 750 }}><RefreshCw size={15} /> Asignar</div>
             <div style={{ fontSize: 10.5, color: C.dim, marginTop: 3 }}>Queda en pañol, reservado a la obra</div>
           </button>
         </div>
 
         {/* Destino */}
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Obra a la que va"}</span>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Obra a la que va"}</span>
           <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ ...inp, cursor: "pointer", borderColor: movementKind === "transferir" && !destinoObraId ? C.violetB : C.border }}>
             <option value="">{movementKind === "transferir" ? "Elegir obra…" : "Cada ítem sale a su obra asignada (stock libre: detallar)"}</option>
             {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
@@ -4085,18 +4085,18 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
         {/* Qué va a pasar */}
         <div style={{ border: `1px dashed ${cruzados.length ? C.violetB : C.blueB}`, background: cruzados.length ? C.violetL : C.blueL, borderRadius: 11, padding: "9px 11px" }}>
-          <div style={{ fontSize: 10, fontWeight: 950, color: cruzados.length ? C.violet : C.blue, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Qué va a pasar</div>
+          <div style={{ fontSize: 10, fontWeight: 750, color: cruzados.length ? C.violet : C.blue, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Qué va a pasar</div>
           <div style={{ display: "grid", gap: 4 }}>
             {preview.slice(0, 6).map((p) => (
               <div key={p.key} style={{ fontSize: 11, lineHeight: 1.35, color: p.warn ? C.violet : C.text }}>
-                <span style={{ fontWeight: 850 }}>{p.warn ? "⚠ " : ""}{p.label}</span>
+                <span style={{ fontWeight: 700 }}>{p.warn ? "⚠ " : ""}{p.label}</span>
                 <span style={{ color: p.warn ? C.violet : C.dim }}> — {p.det}</span>
               </div>
             ))}
             {preview.length > 6 && <div style={{ fontSize: 10.5, color: C.dim }}>… y {preview.length - 6} más</div>}
           </div>
           {cruzados.length > 0 && (
-            <div style={{ fontSize: 10.5, color: C.violet, fontWeight: 850, marginTop: 6 }}>
+            <div style={{ fontSize: 10.5, color: C.violet, fontWeight: 700, marginTop: 6 }}>
               ⚠ {cruzados.length} ítem{cruzados.length === 1 ? " está" : "s están"} asignado{cruzados.length === 1 ? "" : "s"} a otra obra: se pide confirmación al confirmar.
             </div>
           )}
@@ -4120,10 +4120,10 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
       {/* Footer */}
       <div style={{ padding: 12, borderTop: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", gap: 8, flexShrink: 0 }}>
-        <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "11px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+        <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "11px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
           Vaciar
         </button>
-        <button type="button" onClick={submitBatch} disabled={disabled} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", background: disabled ? C.panel2 : (movementKind === "transferir" ? "#2563eb" : "#059669"), color: disabled ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", fontSize: 13.5, fontWeight: 950, cursor: disabled ? "default" : "pointer", fontFamily: C.sans, boxShadow: disabled ? "none" : "0 8px 20px -9px rgba(5,150,105,0.5)" }}>
+        <button type="button" onClick={submitBatch} disabled={disabled} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", background: disabled ? C.panel2 : (movementKind === "transferir" ? "#2563eb" : "#059669"), color: disabled ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", fontSize: 13.5, fontWeight: 750, cursor: disabled ? "default" : "pointer", fontFamily: C.sans, boxShadow: disabled ? "none" : "0 8px 20px -9px rgba(5,150,105,0.5)" }}>
           {movementKind === "transferir" ? <RefreshCw size={16} /> : <ArrowUpRight size={16} />}
           {saving ? "Registrando..." : movementKind === "transferir" ? `Asignar todo (${cart.length})` : `Confirmar egreso (${cart.length})`}
         </button>
@@ -4889,14 +4889,14 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               onClick={() => setFiltersOpen((value) => !value)}
               aria-expanded={filtersOpen}
               aria-controls="stock-advanced-filters"
-              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${filtersOpen || advancedFilterCount ? C.blueB : C.border}`, background: filtersOpen || advancedFilterCount ? C.blueL : C.panelSolid, color: filtersOpen || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}
+              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${filtersOpen || advancedFilterCount ? C.blueB : C.border}`, background: filtersOpen || advancedFilterCount ? C.blueL : C.panelSolid, color: filtersOpen || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
             >
               <SlidersHorizontal size={14} />
               Filtros
-              {advancedFilterCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: C.blue, color: "#fff", fontFamily: C.mono, fontSize: 10, fontWeight: 950 }}>{advancedFilterCount}</span>}
+              {advancedFilterCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: C.blue, color: "#fff", fontFamily: C.mono, fontSize: 10, fontWeight: 750 }}>{advancedFilterCount}</span>}
             </button>
           )}
-          <button type="button" className="stock-wms-control" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
+          <button type="button" className="stock-wms-control" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}>
             <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
           </button>
           {canReceive && (cart.length > 0 || savedCarts.length > 0) && (
@@ -4906,17 +4906,17 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               onClick={() => setCartOpen((value) => !value)}
               aria-expanded={cartOpen}
               title={cart.length ? `${cart.length} productos · ${fmtQty(cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0))} unidades` : `${savedCarts.length} carritos guardados`}
-              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.greenB}`, background: cartOpen ? C.green : C.greenL, color: cartOpen ? "#fff" : C.green, borderRadius: 10, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 900, fontFamily: C.sans, flexShrink: 0 }}
+              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.greenB}`, background: cartOpen ? C.green : C.greenL, color: cartOpen ? "#fff" : C.green, borderRadius: 10, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}
             >
               {cart.length ? <ShoppingCart size={15} aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}
               {!isMobile && <span>Carrito</span>}
-              <span aria-label={cart.length ? `${cart.length} productos en el carrito` : `${savedCarts.length} carritos guardados`} style={{ minWidth: 19, height: 19, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: cartOpen ? "rgba(255,255,255,0.2)" : C.panelSolid, color: cartOpen ? "#fff" : C.green, fontFamily: C.mono, fontSize: 10, fontWeight: 950 }}>
+              <span aria-label={cart.length ? `${cart.length} productos en el carrito` : `${savedCarts.length} carritos guardados`} style={{ minWidth: 19, height: 19, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: cartOpen ? "rgba(255,255,255,0.2)" : C.panelSolid, color: cartOpen ? "#fff" : C.green, fontFamily: C.mono, fontSize: 10, fontWeight: 750 }}>
                 {cart.length || savedCarts.length}
               </span>
             </button>
           )}
           {canReceive && !streamlinedToolbar && (
-            <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla para la persona que retira" style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
+            <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla para la persona que retira" style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}>
               <MonitorUp size={16} />{!isMobile && <span>Pantalla de retiro</span>}
             </button>
           )}
@@ -4938,7 +4938,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                     borderRadius: 8,
                     padding: "7px 10px",
                     fontSize: 12,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     cursor: "pointer",
                     fontFamily: C.sans,
                     whiteSpace: "nowrap",
@@ -4984,7 +4984,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedorOptions} />
           {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}
           {streamlinedToolbar && advancedFilterCount > 0 && (
-            <button type="button" onClick={clearAdvancedFilters} style={{ minHeight: 36, border: "none", background: "transparent", color: C.blue, padding: "7px 8px", cursor: "pointer", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}>
+            <button type="button" onClick={clearAdvancedFilters} style={{ minHeight: 36, border: "none", background: "transparent", color: C.blue, padding: "7px 8px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
               Limpiar filtros
             </button>
           )}
@@ -4998,7 +4998,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <div aria-label="Señales rápidas de inventario" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30 }}>
             {[
               ["existencia", "Con stock", kpis.productos, C.green, C.greenL, C.greenB],
-              ["reponer", "Reponer", kpis.reponer || 0, C.amber, C.amberL, C.amberB],
+              ["reponer", "Reponer", kpis.reponer || 0, C.cyan, C.cyanL, C.cyanB],
               ["en_camino", "En camino", productGroupsBase.filter((group) => group.buckets?.has("en_camino")).length, C.blue, C.blueL, C.blueB],
               ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, C.violet, C.violetL, C.violetB],
               ["revisar", "A revisar", verifCounts.pendiente, C.violet, C.violetL, C.violetB],
@@ -5030,7 +5030,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                     padding: "5px 10px",
                     cursor: "pointer",
                     fontSize: 11,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     fontFamily: C.sans,
                     whiteSpace: "nowrap",
                     boxShadow: active ? `0 0 0 2px ${background}` : "none",
@@ -5038,7 +5038,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 >
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: color, flexShrink: 0 }} />
                   {label}
-                  <span style={{ fontFamily: C.mono, color, fontWeight: 950 }}>{count}</span>
+                  <span style={{ fontFamily: C.mono, color, fontWeight: 750 }}>{count}</span>
                 </button>
               );
             })}
@@ -5052,7 +5052,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 padding: "5px 7px",
                 cursor: "pointer",
                 fontSize: 10.5,
-                fontWeight: 850,
+                fontWeight: 700,
                 fontFamily: C.sans,
               }}
             >
@@ -5071,7 +5071,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               ["ok", "Correctos", stockLevelCounts.ok, C.green, C.greenL, C.greenB],
               ["sin_minimo", "Sin mínimo", stockLevelCounts.sin_minimo, C.dim, C.panel2, C.border],
             ].map(([key, label, count, color, background, border]) => (
-              <button key={key} type="button" title="Filtrar por nivel de stock" onClick={() => setScope(scope === key ? "todos" : key)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color, borderRadius: 999, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+              <button key={key} type="button" title="Filtrar por nivel de stock" onClick={() => setScope(scope === key ? "todos" : key)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color, borderRadius: 999, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
                 {label} <span style={{ fontFamily: C.mono }}>{count}</span>
               </button>
@@ -5092,12 +5092,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         {stockManagement && verifCounts.todos > 0 && (!streamlinedToolbar || filtersOpen) && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 6, marginTop: 6 }}>
             <ShieldCheck size={13} style={{ color: C.blue, flexShrink: 0 }} />
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
             <div style={{ flex: "0 1 120px", minWidth: 70, height: 5, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
               <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
               <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
             </div>
-            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, flexShrink: 0 }}>
+            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, flexShrink: 0 }}>
               {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
             </span>
             {canArchiveMatrix && matrizPendientes.length > 0 && (
@@ -5108,7 +5108,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   border: `1px solid ${C.violet}66`, background: "var(--violet-soft)",
                   color: C.violet, borderRadius: 999, padding: "3px 10px",
                   cursor: archivandoLote ? "default" : "pointer", opacity: archivandoLote ? 0.6 : 1,
-                  fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                  fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
                 }}>
                 {archivandoLote ? "Archivando…" : `Archivar ${matrizPendientes.length} de matriz`}
               </button>
@@ -5122,7 +5122,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   background: verArchivados ? "var(--violet-soft)" : C.panelSolid,
                   color: verArchivados ? C.violet : C.dim, borderRadius: 999,
                   padding: "3px 9px", cursor: "pointer", fontSize: 10.5,
-                  fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                  fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
                 }}>
                 {matrizArchivadas} de matriz archivados
               </button>
@@ -5138,7 +5138,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   border: `1px solid ${verifScope === key ? color : border}`,
                   background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : C.panelSolid,
                   color, borderRadius: 999, padding: "3px 9px", cursor: "pointer",
-                  fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                  fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
                 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
                 {label}
@@ -5164,7 +5164,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               algo que se aprende la primera vez que hacés click. */}
           <div style={{ padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750 }}>{mode === "egreso" ? "Elegir material para egresar" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
               <div style={{ color: C.dim, fontSize: 11 }}>
                 {productGroups.length} resultados{hiddenProductCount ? ` · ${renderedProductGroups.length} visibles, el resto carga al bajar` : ""} · {stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
               </div>
@@ -5180,7 +5180,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   background: verArchivados ? "var(--violet-soft)" : C.panelSolid,
                   color: verArchivados ? C.violet : C.dim,
                   borderRadius: 999, padding: "5px 9px", cursor: "pointer",
-                  fontSize: 10.5, fontWeight: 900, fontFamily: C.sans,
+                  fontSize: 10.5, fontWeight: 700, fontFamily: C.sans,
                   whiteSpace: "nowrap",
                 }}
               >
@@ -5189,10 +5189,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             )}
             {stockManagement && (
               <div style={{ display: "inline-flex", gap: 3, padding: 3, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel }}>
-                <button type="button" onClick={() => setStockView("lista")} title="Ver como lista" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "lista" ? C.blueB : "transparent"}`, background: stockView === "lista" ? C.blueL : "transparent", color: stockView === "lista" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+                <button type="button" onClick={() => setStockView("lista")} title="Ver como lista" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "lista" ? C.blueB : "transparent"}`, background: stockView === "lista" ? C.blueL : "transparent", color: stockView === "lista" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
                   <List size={13} /> {!isMobile && "Lista"}
                 </button>
-                <button type="button" onClick={() => setStockView("tarjetas")} title="Ver como tarjetas" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "tarjetas" ? C.blueB : "transparent"}`, background: stockView === "tarjetas" ? C.blueL : "transparent", color: stockView === "tarjetas" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+                <button type="button" onClick={() => setStockView("tarjetas")} title="Ver como tarjetas" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "tarjetas" ? C.blueB : "transparent"}`, background: stockView === "tarjetas" ? C.blueL : "transparent", color: stockView === "tarjetas" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
                   <LayoutGrid size={13} /> {!isMobile && "Tarjetas"}
                 </button>
               </div>
@@ -5200,7 +5200,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </div>
           <div ref={productListRef} style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
             {stockManagement && stockView === "lista" && !loading && productGroups.length > 0 && (
-              <div style={{ minWidth: compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS, gap: 12, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 10.5, fontWeight: 850, letterSpacing: 0.15 }}>
+              <div style={{ minWidth: compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS, gap: 12, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.15 }}>
                 <span />
                 <span>Producto</span>
                 {!compactStockTable && <span>Rubro</span>}
@@ -5258,7 +5258,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                       padding: "10px 14px",
                       cursor: "pointer",
                       fontSize: 12,
-                      fontWeight: 900,
+                      fontWeight: 700,
                       fontFamily: C.sans,
                     }}
                   >
@@ -5269,7 +5269,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ) : (
               <div style={{ padding: "26px 18px", border: `1px dashed ${C.border}`, borderRadius: 10, textAlign: "center", display: "grid", justifyItems: "center", gap: 8 }}>
                 <Warehouse size={26} style={{ color: C.dim, opacity: 0.7 }} />
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>No hay stock para estos filtros</div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>No hay stock para estos filtros</div>
                 <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, maxWidth: 250 }}>
                   {q.trim() ? (stockMaster ? "Probá con menos palabras o abrí el Catálogo maestro desde el menú." : "Probá con menos palabras, o buscalo abajo en el catálogo completo.") : "Cambiá los filtros de tipo, obra o categoría para ver más productos."}
                 </div>
@@ -5279,19 +5279,19 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             {!stockMaster && q.trim().length >= 2 && (
               <div style={{ border: `1px dashed ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: 10, display: "grid", gap: 7 }}>
                 <div>
-                  <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900 }}>Catalogo completo</div>
+                  <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700 }}>Catalogo completo</div>
                   <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Usá el catálogo para identificar el producto. Si no tiene stock, primero registrá su ingreso o recepción física.</div>
                 </div>
                 {catalogMatches.map((mat) => (
                   <button key={mat.id} type="button" onClick={() => selectCatalogMaterial(mat)} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 10px", textAlign: "left", cursor: "pointer", fontFamily: C.sans }}>
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 900 }}>{mat.descripcion}</span>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700 }}>{mat.descripcion}</span>
                     <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{mat.codigo || "sin codigo"} - sin stock cargado</span>
                   </button>
                 ))}
                 {!catalogMatches.length && (
                   <div style={{ color: C.dim, fontSize: 12, padding: "4px 2px" }}>No hay coincidencias en el catalogo.</div>
                 )}
-                <button type="button" onClick={createFromSearch} disabled={creating || !canCreateCatalog} style={{ border: `1px solid ${canCreateCatalog ? C.blueB : C.border}`, background: C.panelSolid, color: canCreateCatalog ? C.blue : C.dim, borderRadius: 9, padding: "8px 10px", cursor: creating || !canCreateCatalog ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 950, fontFamily: C.sans }}>
+                <button type="button" onClick={createFromSearch} disabled={creating || !canCreateCatalog} style={{ border: `1px solid ${canCreateCatalog ? C.blueB : C.border}`, background: C.panelSolid, color: canCreateCatalog ? C.blue : C.dim, borderRadius: 9, padding: "8px 10px", cursor: creating || !canCreateCatalog ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
                   {!canCreateCatalog ? "Crear nuevo requiere administrador" : creating ? "Creando..." : `Crear "${q.trim()}" en catalogo`}
                 </button>
               </div>

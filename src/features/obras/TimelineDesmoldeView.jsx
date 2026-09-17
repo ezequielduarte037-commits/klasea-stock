@@ -113,7 +113,7 @@ function Stat({ icon, label, value, color = C.t0 }) {
     }}>
       <div style={{ color, display: "flex" }}>{icon}</div>
       <div>
-        <div style={{ color, fontFamily: C.mono, fontSize: 17, lineHeight: 1, fontWeight: 800 }}>{value}</div>
+        <div style={{ color, fontFamily: C.mono, fontSize: 17, lineHeight: 1, fontWeight: 650 }}>{value}</div>
         <div style={{ color: C.t2, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, marginTop: 3 }}>{label}</div>
       </div>
     </div>
@@ -224,7 +224,7 @@ function ConfigModal({
           gap: 16,
         }}>
           <div>
-            <div id="timeline-config-title" style={{ fontSize: 18, color: C.t0, fontWeight: 800 }}>
+            <div id="timeline-config-title" style={{ fontSize: 18, color: C.t0, fontWeight: 650 }}>
               Ubicar etapas en el cronograma
             </div>
             <div style={{ marginTop: 5, color: C.t2, fontSize: 12, lineHeight: 1.45 }}>
@@ -283,7 +283,7 @@ function ConfigModal({
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ width: 7, height: 7, borderRadius: 99, background: process.color || C.blue, flexShrink: 0 }} />
-                    <span style={{ color: C.t0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span style={{ color: C.t0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {process.nombre}
                     </span>
                   </div>
@@ -344,7 +344,7 @@ function ConfigModal({
                 background: C.blueL,
                 color: C.blue,
                 cursor: saving ? "default" : "pointer",
-                fontWeight: 800,
+                fontWeight: 650,
                 opacity: saving || !processes.length ? 0.55 : 1,
               }}
             >
@@ -561,7 +561,7 @@ export default function TimelineDesmoldeView({
                 <CalendarRange size={18} />
               </div>
               <div>
-                <h1 style={{ margin: 0, color: C.t0, fontSize: 18, lineHeight: 1.1, fontWeight: 800 }}>
+                <h1 style={{ margin: 0, color: C.t0, fontSize: 18, lineHeight: 1.1, fontWeight: 650 }}>
                   Línea de tiempo por desmolde
                 </h1>
                 <div style={{ color: C.t2, fontSize: 11.5, marginTop: 4 }}>
@@ -596,7 +596,7 @@ export default function TimelineDesmoldeView({
                   color: C.blue,
                   cursor: "pointer",
                   fontSize: 11,
-                  fontWeight: 800,
+                  fontWeight: 650,
                 }}
               >
                 <Settings2 size={14} /> Configurar etapas
@@ -608,8 +608,8 @@ export default function TimelineDesmoldeView({
         <div style={{ display: "flex", gap: 7, marginTop: 14, overflowX: "auto", paddingBottom: 1 }}>
           <Stat icon={<CalendarRange size={17} />} label="Obras visibles" value={rows.length} color={C.blue} />
           <Stat icon={<AlertTriangle size={17} />} label="Con atrasos" value={totals.delayed} color={totals.delayed ? C.red : C.green} />
-          <Stat icon={<Milestone size={17} />} label="Sin desmolde" value={totals.noDate} color={totals.noDate ? C.amber : C.green} />
-          <Stat icon={<Clock3 size={17} />} label="Etapas sin ubicar" value={totals.missing} color={totals.missing ? C.amber : C.green} />
+          <Stat icon={<Milestone size={17} />} label="Sin desmolde" value={totals.noDate} color={totals.noDate ? C.cyan : C.green} />
+          <Stat icon={<Clock3 size={17} />} label="Etapas sin ubicar" value={totals.missing} color={totals.missing ? C.cyan : C.green} />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "minmax(220px,1fr) 170px 170px", gap: 8, marginTop: 12 }}>
@@ -685,7 +685,7 @@ export default function TimelineDesmoldeView({
               borderRight: `1px solid ${C.b0}`,
               color: C.t2,
               fontSize: 9.5,
-              fontWeight: 800,
+              fontWeight: 650,
               textTransform: "uppercase",
               letterSpacing: 1.2,
             }}>
@@ -708,7 +708,7 @@ export default function TimelineDesmoldeView({
                       transform: tick === axis.min ? "none" : "translateX(-50%)",
                       color: tick === 0 ? C.violet : C.t2,
                       fontFamily: C.mono,
-                      fontWeight: tick === 0 ? 800 : 600,
+                      fontWeight: tick === 0 ? 650 : 600,
                       fontSize: 10,
                       whiteSpace: "nowrap",
                     }}>
@@ -727,7 +727,7 @@ export default function TimelineDesmoldeView({
           {!loading && !rows.length && (
             <div style={{ padding: 44, color: C.t2, textAlign: "center" }}>
               <CalendarRange size={28} style={{ marginBottom: 10, opacity: 0.55 }} />
-              <div style={{ color: C.t0, fontSize: 13, fontWeight: 700 }}>No hay obras para estos filtros</div>
+              <div style={{ color: C.t0, fontSize: 13, fontWeight: 600 }}>No hay obras para estos filtros</div>
               <div style={{ fontSize: 11.5, marginTop: 4 }}>Probá otra línea, estado o búsqueda.</div>
             </div>
           )}
@@ -777,7 +777,7 @@ export default function TimelineDesmoldeView({
                   </div>
                   {row.reference.projected ? (
                     <>
-                      <div style={{ marginTop: 7, color: C.violet, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>
+                      <div style={{ marginTop: 7, color: C.violet, fontFamily: C.mono, fontSize: 10.5, fontWeight: 600 }}>
                         S0 · {fechaCorta(row.reference.projected)}
                       </div>
                       <div style={{ marginTop: 2, color: C.t3, fontSize: 9.5 }}>
@@ -787,7 +787,7 @@ export default function TimelineDesmoldeView({
                       </div>
                     </>
                   ) : (
-                    <div style={{ marginTop: 7, color: C.amber, fontSize: 10.5, fontWeight: 700 }}>
+                    <div style={{ marginTop: 7, color: C.cyan, fontSize: 10.5, fontWeight: 600 }}>
                       Sin fecha de desmolde
                     </div>
                   )}
@@ -818,7 +818,7 @@ export default function TimelineDesmoldeView({
                       top: 0,
                       bottom: 0,
                       left: `${todayPct}%`,
-                      borderLeft: `1px solid ${C.amber}`,
+                      borderLeft: `1px solid ${C.cyan}`,
                       zIndex: 2,
                       pointerEvents: "none",
                     }}>
@@ -826,13 +826,13 @@ export default function TimelineDesmoldeView({
                         position: "absolute",
                         top: 2,
                         left: 3,
-                        color: C.amber,
+                        color: C.cyan,
                         background: C.bg1,
-                        border: `1px solid ${C.amberB}`,
+                        border: `1px solid ${C.cyanB}`,
                         borderRadius: 4,
                         padding: "1px 4px",
                         fontSize: 8.5,
-                        fontWeight: 800,
+                        fontWeight: 650,
                         textTransform: "uppercase",
                       }}>
                         Hoy
@@ -848,10 +848,10 @@ export default function TimelineDesmoldeView({
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 8,
-                      color: C.amber,
-                      border: `1px dashed ${C.amberB}`,
+                      color: C.cyan,
+                      border: `1px dashed ${C.cyanB}`,
                       borderRadius: 8,
-                      background: C.amberL,
+                      background: C.cyanL,
                       fontSize: 11.5,
                     }}>
                       <Milestone size={15} /> Cargá el desmolde estimado o real en Fechas para calcular el cronograma.
@@ -917,7 +917,7 @@ export default function TimelineDesmoldeView({
                       >
                         {timing.estado === "completado" && <CheckCircle2 size={11} style={{ flexShrink: 0 }} />}
                         {timing.atrasada && <AlertTriangle size={11} style={{ flexShrink: 0 }} />}
-                        <span style={{ fontSize: 9.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <span style={{ fontSize: 9.5, fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {process.nombre}
                         </span>
                       </button>

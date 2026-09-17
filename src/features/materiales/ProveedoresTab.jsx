@@ -166,7 +166,7 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
               <tr key={p.id}>
                 <Td>
                   <div style={{ display: "grid", gap: 3 }}>
-                    <span style={{ color: C.t0, fontWeight: 850 }}>{p.nombre}</span>
+                    <span style={{ color: C.t0, fontWeight: 700 }}>{p.nombre}</span>
                     {p.compite_con && <span style={{ color: C.t3, fontSize: 11 }}>Compite: {p.compite_con}</span>}
                   </div>
                 </Td>

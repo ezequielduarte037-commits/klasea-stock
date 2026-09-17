@@ -16,7 +16,6 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
@@ -93,7 +92,7 @@ const CLIENT_AREAS = [
     label: "Interior",
     kicker: "Maderas, pisos y mesadas",
     fields: ["madera_muebles", "piso", "alfombra", "color_mesadas"],
-    accent: C.amber,
+    accent: C.cyan,
   },
   {
     id: "tapiceria",
@@ -423,7 +422,7 @@ function ActionButton({ children, onClick, color = C.blue, disabled = false, pri
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.55 : 1,
         fontSize: 13,
-        fontWeight: 900,
+        fontWeight: 700,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
         transition: "transform .18s ease, border-color .18s ease, background .18s ease",
@@ -434,7 +433,7 @@ function ActionButton({ children, onClick, color = C.blue, disabled = false, pri
   );
 }
 
-export default function MemoriasScreen({ profile, signOut }) {
+export default function MemoriasScreen() {
   const { isMobile } = useResponsive(980);
   const toast = useToast();
   const [obras, setObras] = useState([]);
@@ -640,7 +639,7 @@ export default function MemoriasScreen({ profile, signOut }) {
   const savedExists = !!(selected && (dbMemorias[selected.id] || dbMemorias[normalizeCode(selected.codigo)]));
 
   return (
-    <div className="mem-root" style={{ position: "fixed", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
+    <div className="mem-root" style={{ position: "absolute", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <style>{`
         .mem-touch-button:active, .mem-material-card:active, .mem-area-card:active { transform: scale(.985); }
         .mem-material-card:hover { transform: translateY(-3px); }
@@ -674,8 +673,7 @@ export default function MemoriasScreen({ profile, signOut }) {
           @page { size: A4; margin: 10mm; }
         }
       `}</style>
-      <div className="mem-shell" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0, 1fr)", height: "100%" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div className="mem-shell" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
 
         <main className="mem-main" style={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden", position: "relative" }}>
           <PremiumHeader
@@ -814,7 +812,7 @@ function PremiumHeader({
       overflow: "hidden",
       borderBottom: `1px solid ${C.border}`,
       background: `linear-gradient(135deg, ${C.topbar}, ${C.panelSolid2})`,
-      padding: isMobile ? "10px 10px 10px 58px" : "14px 18px",
+      padding: isMobile ? "10px 12px" : "14px 18px",
       display: "grid",
       gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
       gap: isMobile ? 9 : 14,
@@ -871,19 +869,19 @@ function PremiumHeader({
 
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-            <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 900 }}>
+            <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 700 }}>
               Klase A Configuration Studio
             </span>
             {selected && (
-              <span style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 900 }}>
+              <span style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700 }}>
                 {lineName(selected)}
               </span>
             )}
             {savedExists && <StatusPill color={C.green} label="En sistema" icon={<CheckCircle2 size={13} />} />}
-            {!savedExists && seedExists && <StatusPill color={C.amber} label="Base Excel" />}
+            {!savedExists && seedExists && <StatusPill color={C.cyan} label="Base Excel" />}
             {dirty && <StatusPill color={C.blue} label="Cambios sin guardar" />}
           </div>
-          <h1 style={{ margin: "4px 0 0", fontSize: isMobile ? 17 : 24, lineHeight: 1.1, fontWeight: 950, letterSpacing: 0, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <h1 style={{ margin: "4px 0 0", fontSize: isMobile ? 17 : 24, lineHeight: 1.1, fontWeight: 750, letterSpacing: 0, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {selected ? `${selected.codigo}${selected.descripcion ? ` · ${selected.descripcion}` : ""}` : "Memorias descriptivas"}
           </h1>
         </div>
@@ -924,7 +922,7 @@ function PremiumHeader({
                   gap: 7,
                   cursor: "pointer",
                   fontSize: isMobile ? 11 : 12,
-                  fontWeight: 900,
+                  fontWeight: 700,
                   fontFamily: C.sans,
                   whiteSpace: "nowrap",
                 }}
@@ -936,17 +934,17 @@ function PremiumHeader({
         </div>
 
         <div style={{ minWidth: isMobile ? 52 : 68, textAlign: "right", marginLeft: 2 }}>
-          <div style={{ color: completion.pct >= 80 ? C.green : completion.pct >= 45 ? C.amber : C.blue, fontSize: 21, fontWeight: 950, fontFamily: C.mono }}>
+          <div style={{ color: completion.pct >= 80 ? C.green : completion.pct >= 45 ? C.cyan : C.blue, fontSize: 21, fontWeight: 750, fontFamily: C.mono }}>
             {completion.pct}%
           </div>
-          <div style={{ color: C.dim, fontSize: 10, fontWeight: 850 }}>{completion.pending} pendientes</div>
+          <div style={{ color: C.dim, fontSize: 10, fontWeight: 700 }}>{completion.pending} pendientes</div>
         </div>
 
         {!isMobile && (
           <>
             <ActionButton onClick={onLoad} color={C.muted}><RefreshCw size={14} /></ActionButton>
             <ActionButton onClick={onCopy} color={C.teal} disabled={!selected}><ClipboardCopy size={14} /> Copiar</ActionButton>
-            <ActionButton onClick={onPrint} color={C.amber} disabled={!selected}><Printer size={14} /> PDF</ActionButton>
+            <ActionButton onClick={onPrint} color={C.cyan} disabled={!selected}><Printer size={14} /> PDF</ActionButton>
             <ActionButton onClick={onSave} color={C.green} disabled={!selected || saving || !dirty} primary={dirty}>
               <Save size={14} /> {saving ? "Guardando..." : dirty ? "Guardar" : "Guardado"}
             </ActionButton>
@@ -981,7 +979,7 @@ function MobileActionBar({ selected, dirty, saving, onBoats, onCopy, onPrint, on
       <MobileBarButton onClick={onCopy} color={C.teal} label="Copiar" disabled={!selected}>
         <ClipboardCopy size={17} />
       </MobileBarButton>
-      <MobileBarButton onClick={onPrint} color={C.amber} label="PDF" disabled={!selected}>
+      <MobileBarButton onClick={onPrint} color={C.cyan} label="PDF" disabled={!selected}>
         <Printer size={17} />
       </MobileBarButton>
       <MobileBarButton onClick={onSave} color={C.green} label={saving ? "Guardando" : dirty ? "Guardar" : "OK"} disabled={!selected || saving || !dirty} primary={dirty}>
@@ -1008,7 +1006,7 @@ function MobileBarButton({ children, onClick, color, label, disabled, primary })
         placeItems: "center",
         gap: 2,
         fontSize: 10,
-        fontWeight: 950,
+        fontWeight: 750,
         fontFamily: C.sans,
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? .52 : 1,
@@ -1034,8 +1032,8 @@ function BoatRail({ open, floating = false, loading, query, setQuery, obras, sel
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.25, textTransform: "uppercase", fontWeight: 900 }}>Barcos activos</div>
-          <div style={{ color: C.text, fontSize: 18, fontWeight: 950 }}>{obras.length} memorias</div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.25, textTransform: "uppercase", fontWeight: 700 }}>Barcos activos</div>
+          <div style={{ color: C.text, fontSize: 18, fontWeight: 750 }}>{obras.length} memorias</div>
         </div>
         {onClose && (
           <button type="button" onClick={onClose} style={{ width: 42, height: 42, borderRadius: 13, border: `1px solid ${C.border}`, background: C.panel, color: C.text, display: "grid", placeItems: "center" }}>
@@ -1089,8 +1087,8 @@ function BoatRail({ open, floating = false, loading, query, setQuery, obras, sel
               >
                 <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
                   <strong style={{ fontSize: 18, lineHeight: 1 }}>{obra.codigo}</strong>
-                  <span style={{ color: C.dim, fontSize: 11, fontWeight: 900 }}>{lineName(obra)}</span>
-                  <span style={{ marginLeft: "auto", color: pct >= 80 ? C.green : pct >= 45 ? C.amber : C.blue, fontSize: 12, fontFamily: C.mono, fontWeight: 950 }}>{pct}%</span>
+                  <span style={{ color: C.dim, fontSize: 11, fontWeight: 700 }}>{lineName(obra)}</span>
+                  <span style={{ marginLeft: "auto", color: pct >= 80 ? C.green : pct >= 45 ? C.cyan : C.blue, fontSize: 12, fontFamily: C.mono, fontWeight: 750 }}>{pct}%</span>
                 </div>
                 <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.25, minHeight: 32, overflow: "hidden" }}>
                   {merged.propietario || merged.nombre_barco || obra.descripcion || "Sin propietario cargado"}
@@ -1129,10 +1127,10 @@ function StudioView({ selected, fields, areas, selectedArea, activeArea, onArea,
           }}>
             <div style={{ position: "absolute", inset: 0, opacity: .12, backgroundImage: "linear-gradient(90deg, transparent 0 95%, currentColor 95% 96%, transparent 96%), linear-gradient(0deg, transparent 0 95%, currentColor 95% 96%, transparent 96%)", backgroundSize: "48px 48px", color: C.text }} />
             <div style={{ position: "relative" }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "7px 11px", fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 950 }}>
-                <Sparkles size={14} color={C.amber} /> {isMobile ? "Configurador" : "Configuracion de acabados"}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "7px 11px", fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                <Sparkles size={14} color={C.cyan} /> {isMobile ? "Configurador" : "Configuracion de acabados"}
               </div>
-              <h2 style={{ margin: "18px 0 0", color: C.text, fontSize: isMobile ? 38 : 46, lineHeight: .95, fontWeight: 950, letterSpacing: -1 }}>
+              <h2 style={{ margin: "18px 0 0", color: C.text, fontSize: isMobile ? 38 : 46, lineHeight: .95, fontWeight: 750, letterSpacing: -1 }}>
                 {selected.codigo}
               </h2>
               <div style={{ marginTop: 8, color: C.muted, fontSize: 14, lineHeight: 1.45 }}>
@@ -1178,9 +1176,9 @@ function StudioView({ selected, fields, areas, selectedArea, activeArea, onArea,
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 11, height: 11, borderRadius: 99, background: area.accent, boxShadow: `0 0 18px ${area.accent}` }} />
                     <strong style={{ fontSize: 16 }}>{area.label}</strong>
-                    <span style={{ marginLeft: "auto", color: area.accent, fontSize: 12, fontWeight: 950, fontFamily: C.mono }}>{pct}%</span>
+                    <span style={{ marginLeft: "auto", color: area.accent, fontSize: 12, fontWeight: 750, fontFamily: C.mono }}>{pct}%</span>
                   </div>
-                  <div style={{ color: C.dim, fontSize: 12, marginTop: 4, fontWeight: 750 }}>{area.kicker}</div>
+                  <div style={{ color: C.dim, fontSize: 12, marginTop: 4, fontWeight: 650 }}>{area.kicker}</div>
                 </button>
               );
             })}
@@ -1196,7 +1194,7 @@ function StudioView({ selected, fields, areas, selectedArea, activeArea, onArea,
       {/* ─── SELECTORES DE MATERIALES (Carrusel Inferior) ─── */}
       <section style={{ display: "grid", gap: 24, marginTop: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
-          <h3 style={{ margin: 0, color: C.text, fontSize: isMobile ? 24 : 28, lineHeight: 1.1, fontWeight: 950 }}>{selectedArea.label}</h3>
+          <h3 style={{ margin: 0, color: C.text, fontSize: isMobile ? 24 : 28, lineHeight: 1.1, fontWeight: 750 }}>{selectedArea.label}</h3>
           <span style={{ color: C.dim, fontSize: 14 }}>{selectedArea.kicker}</span>
         </div>
 
@@ -1250,12 +1248,12 @@ function BoatPreview({ fields, isMobile = false }) {
         </div>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,10,16,.18) 0%, rgba(7,10,16,0) 32%, rgba(7,10,16,.86) 100%)" }} />
         <img src={logoKlasea} alt="" draggable={false} style={{ position: "absolute", top: 16, right: 18, height: 26, opacity: .55, filter: "grayscale(1) brightness(2.6)" }} />
-        <div style={{ position: "absolute", left: 20, top: 18, display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 11px", borderRadius: 999, background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.16)", backdropFilter: "blur(8px)", color: "#fff", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", fontWeight: 800 }}>
-          <Sparkles size={12} color={C.amber} /> Memoria de acabados{fields.propietario ? ` · ${fields.propietario}` : ""}
+        <div style={{ position: "absolute", left: 20, top: 18, display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 11px", borderRadius: 999, background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.16)", backdropFilter: "blur(8px)", color: "#fff", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", fontWeight: 650 }}>
+          <Sparkles size={12} color={C.cyan} /> Memoria de acabados{fields.propietario ? ` · ${fields.propietario}` : ""}
         </div>
         <div style={{ position: "absolute", left: 22, right: 22, bottom: 18 }}>
-          <div style={{ color: "rgba(255,255,255,.72)", fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", fontWeight: 800 }}>Enchapado · Maderas</div>
-          <div style={{ color: "#fff", fontSize: isMobile ? 24 : 30, fontWeight: 900, lineHeight: 1.05, marginTop: 3, textShadow: "0 2px 18px rgba(0,0,0,.6)" }}>{hero.label}</div>
+          <div style={{ color: "rgba(255,255,255,.72)", fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", fontWeight: 650 }}>Enchapado · Maderas</div>
+          <div style={{ color: "#fff", fontSize: isMobile ? 24 : 30, fontWeight: 700, lineHeight: 1.05, marginTop: 3, textShadow: "0 2px 18px rgba(0,0,0,.6)" }}>{hero.label}</div>
         </div>
       </div>
 
@@ -1266,8 +1264,8 @@ function BoatPreview({ fields, isMobile = false }) {
             <div style={{ height: isMobile ? 40 : 54, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,.1)", marginBottom: 8 }}>
               <TextureRenderer option={sw.option} />
             </div>
-            <div style={{ color: "rgba(255,255,255,.45)", fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 900 }}>{label}</div>
-            <div style={{ color: "#fff", fontSize: isMobile ? 11 : 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{sw.label}</div>
+            <div style={{ color: "rgba(255,255,255,.45)", fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700 }}>{label}</div>
+            <div style={{ color: "#fff", fontSize: isMobile ? 11 : 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{sw.label}</div>
           </div>
         ))}
       </div>
@@ -1326,8 +1324,8 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index, isM
           <Icon size={19} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.25, textTransform: "uppercase", fontWeight: 950 }}>{palette.title}</div>
-          <h4 style={{ margin: "3px 0 0", color: C.text, fontSize: isMobile ? 18 : 20, lineHeight: 1.1, fontWeight: 950 }}>{field.label}</h4>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.25, textTransform: "uppercase", fontWeight: 750 }}>{palette.title}</div>
+          <h4 style={{ margin: "3px 0 0", color: C.text, fontSize: isMobile ? 18 : 20, lineHeight: 1.1, fontWeight: 750 }}>{field.label}</h4>
         </div>
         {current && !isMobile && <StatusPill color={C.green} label="Seleccionado" />}
       </div>
@@ -1412,8 +1410,8 @@ function FeatureSwitch({ field, value, obs, onValue, onObs, index, isMobile = fa
       animationDelay: `${Math.min(index * 70, 360)}ms`,
     }}>
       <div>
-        <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 950 }}>Equipamiento</div>
-        <div style={{ color: C.text, fontSize: 17, fontWeight: 950, marginTop: 4 }}>{field.label}</div>
+        <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>Equipamiento</div>
+        <div style={{ color: C.text, fontSize: 17, fontWeight: 750, marginTop: 4 }}>{field.label}</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "160px minmax(160px, 1fr)", gap: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -1436,7 +1434,7 @@ function FeatureSwitch({ field, value, obs, onValue, onObs, index, isMobile = fa
                   borderRadius: 14,
                   cursor: "pointer",
                   fontSize: 14,
-                  fontWeight: 950,
+                  fontWeight: 750,
                   fontFamily: C.sans,
                 }}
               >
@@ -1468,8 +1466,8 @@ function DetailEditor({ field, value, obs, onValue, onObs, index, isMobile = fal
           {field.icon || <FileText size={18} />}
         </div>
         <div>
-          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 950 }}>{field.section || "Detalle"}</div>
-          <div style={{ color: C.text, fontSize: 18, fontWeight: 950 }}>{field.label}</div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>{field.section || "Detalle"}</div>
+          <div style={{ color: C.text, fontSize: 18, fontWeight: 750 }}>{field.label}</div>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 1fr) minmax(180px, .55fr)", gap: 10 }}>
@@ -1488,7 +1486,7 @@ const SHEET = {
   muted: "#64748b",
   section: "#e5e7eb",
   helper: "#f8fafc",
-  amber: "#c2410c",
+  violeta: "#6d28d9",
   green: "#10b981",
 };
 
@@ -1547,7 +1545,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
           background: SHEET.helper,
           color: SHEET.muted,
           fontSize: 11,
-          fontWeight: 850,
+          fontWeight: 700,
         }}>
           <span>Formato planilla editable. Imprime limpio, sin controles del sistema.</span>
           <span>{lineName(selected)}</span>
@@ -1560,7 +1558,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
               value={fields.propietario || ""}
               onChange={(e) => onPatch("propietario", e.target.value)}
               placeholder="Propietario"
-              style={{ ...sheetCellInputBase(), textAlign: "center", fontWeight: 700 }}
+              style={{ ...sheetCellInputBase(), textAlign: "center", fontWeight: 600 }}
             />
           </SheetHeaderRow>
           <SheetHeaderRow label="Nombre de barco">
@@ -1569,7 +1567,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
               value={fields.nombre_barco || ""}
               onChange={(e) => onPatch("nombre_barco", e.target.value)}
               placeholder="Nombre"
-              style={{ ...sheetCellInputBase(), textAlign: "center", fontWeight: 700 }}
+              style={{ ...sheetCellInputBase(), textAlign: "center", fontWeight: 600 }}
             />
           </SheetHeaderRow>
           <div className="mem-sheet-row" style={{
@@ -1579,7 +1577,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
             borderBottom: `1px solid ${SHEET.grid}`,
             background: SHEET.section,
           }}>
-            <div className="mem-sheet-cell" style={{ padding: "3px 8px", textAlign: "center", fontSize: 11, fontWeight: 900, color: SHEET.ink }}>
+            <div className="mem-sheet-cell" style={{ padding: "3px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: SHEET.ink }}>
               N de barco
             </div>
           </div>
@@ -1590,7 +1588,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
             color: SHEET.ink,
             background: SHEET.paper,
           }}>
-            <div style={{ fontSize: isMobile ? 28 : 38, lineHeight: 1, fontWeight: 950, letterSpacing: 0 }}>
+            <div style={{ fontSize: isMobile ? 28 : 38, lineHeight: 1, fontWeight: 750, letterSpacing: 0 }}>
               {selected.codigo}
             </div>
           </div>
@@ -1605,7 +1603,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
                 textAlign: "center",
                 color: SHEET.ink,
                 fontSize: 12,
-                fontWeight: 950,
+                fontWeight: 750,
               }}>
                 {section}
               </div>
@@ -1628,7 +1626,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
                     color: SHEET.ink,
                     fontSize: 12,
                     lineHeight: 1.25,
-                    fontWeight: 760,
+                    fontWeight: 650,
                     alignSelf: "stretch",
                     display: "flex",
                     alignItems: sheetIsLongText(field) ? "flex-start" : "center",
@@ -1681,7 +1679,7 @@ function SheetHeaderRow({ label, children }) {
         padding: "3px 8px",
         textAlign: "center",
         fontSize: 11,
-        fontWeight: 850,
+        fontWeight: 700,
         color: SHEET.ink,
         background: SHEET.section,
         borderBottom: `1px solid ${SHEET.grid}`,
@@ -1714,7 +1712,7 @@ function SheetCheck({ checked, onChange }) {
         cursor: "pointer",
         fontSize: 13,
         lineHeight: 1,
-        fontWeight: 950,
+        fontWeight: 750,
       }}
       aria-label={checked ? "Marcado" : "Sin marcar"}
     >
@@ -1781,7 +1779,7 @@ function SheetFieldCell({ field, value, obs, onValue, onObs }) {
             ...sheetCellInputBase(),
             minHeight: 24,
             padding: "1px 8px 4px",
-            color: obs ? SHEET.amber : SHEET.muted,
+            color: obs ? SHEET.violeta : SHEET.muted,
             fontSize: 12,
             borderTop: obs ? `1px solid ${SHEET.grid}` : 0,
           }}
@@ -1801,8 +1799,8 @@ function LuxuryFact({ label, value }) {
       padding: 13,
       minWidth: 0,
     }}>
-      <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 950 }}>{label}</div>
-      <div style={{ color: C.text, fontSize: 14, fontWeight: 950, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>{label}</div>
+      <div style={{ color: C.text, fontSize: 14, fontWeight: 750, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
     </div>
   );
 }
@@ -1819,7 +1817,7 @@ function StatusPill({ color, label, icon }) {
       borderRadius: 999,
       padding: "4px 9px",
       fontSize: 11,
-      fontWeight: 950,
+      fontWeight: 750,
       whiteSpace: "nowrap",
     }}>
       {icon} {label}
@@ -1840,7 +1838,7 @@ function EmptyState() {
     <div style={{ border: `1px dashed ${C.border}`, borderRadius: 24, minHeight: 420, display: "grid", placeItems: "center", color: C.dim, background: C.panel }}>
       <div style={{ textAlign: "center" }}>
         <Ship size={38} color={C.dim} />
-        <div style={{ marginTop: 12, fontSize: 15, fontWeight: 900 }}>Selecciona un barco activo.</div>
+        <div style={{ marginTop: 12, fontSize: 15, fontWeight: 700 }}>Selecciona un barco activo.</div>
       </div>
     </div>
   );

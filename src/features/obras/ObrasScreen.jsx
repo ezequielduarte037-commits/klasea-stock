@@ -13,7 +13,6 @@ import { C } from "@/theme";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import MapaProduccion         from "@/features/obras/MapaProduccion";
@@ -33,6 +32,7 @@ import {
   productionStageOffsetsMap,
   relativeWeekLabel,
 } from "@/features/obras/fechasEngine";
+import Cargando from "@/components/ui/Cargando";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -146,7 +146,7 @@ const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
 };
-const COLOR_PRESETS = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899","#64748b","#0ea5e9","#f43f5e"];
+const COLOR_PRESETS = ["#3b82f6","#10b981","#22d3ee","#8b5cf6","#ec4899","#64748b","#0ea5e9","#f43f5e"];
 
 function ocUrgencia(oc) {
   if (!oc.fecha_limite_pedido) return null;
@@ -155,7 +155,7 @@ function ocUrgencia(oc) {
   if (d < 0)   return { nivel: "vencida",  color: C.red,   label: `Vencida hace ${Math.abs(d)}d`, dias: d };
   if (d === 0) return { nivel: "hoy",      color: C.red,   label: "Vence hoy",                    dias: d };
   if (d <= 3)  return { nivel: "urgente",  color: C.red,   label: `Vence en ${d}d`,               dias: d };
-  if (d <= 7)  return { nivel: "proxima",  color: C.amber, label: `Vence en ${d}d`,               dias: d };
+  if (d <= 7)  return { nivel: "proxima",  color: C.cyan, label: `Vence en ${d}d`,               dias: d };
   return         { nivel: "ok",       color: C.green, label: `Vence en ${d}d`,               dias: d };
 }
 
@@ -179,7 +179,7 @@ function Btn({ onClick, type = "button", children, variant = "ghost", disabled =
     sm:      { border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, fontSize: 11 },
     confirm: { border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#fca5a5", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
     green:   { border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
-    amber:   { border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.10)", color: "#fbbf24", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
+    cian:    { border: "1px solid var(--cyan-border)", background: "var(--cyan-soft)", color: "var(--cyan)", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled} {...rest} style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, fontFamily: C.sans, transition: "opacity .15s", ...V[variant], ...style, ...sx }}>
@@ -191,7 +191,7 @@ function Btn({ onClick, type = "button", children, variant = "ghost", disabled =
 function InputSt({ label, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      {label && <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>{label}</label>}
+      {label && <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>{label}</label>}
       {children}
     </div>
   );
@@ -229,18 +229,18 @@ function SemanaDesmoldeField({ value, onChange }) {
       border: `1px solid ${phase === key ? C.blueB : C.b0}`,
       background: phase === key ? C.blueL : "transparent",
       color: phase === key ? C.blue : C.t1,
-      fontFamily: C.sans, fontSize: 11.5, fontWeight: 800,
+      fontFamily: C.sans, fontSize: 11.5, fontWeight: 650,
     },
   });
-  const previewColor = phase === "unset" ? C.amber : C.t0;
-  const previewBg = phase === "unset" ? C.amberL : C.s0;
-  const previewBorder = phase === "unset" ? C.amberB : C.b1;
+  const previewColor = phase === "unset" ? C.cyan : C.t0;
+  const previewBg = phase === "unset" ? C.cyanL : C.s0;
+  const previewBorder = phase === "unset" ? C.cyanB : C.b1;
 
   return (
     <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, padding: 12, background: "var(--panel)", marginBottom: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
         <div>
-          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 800 }}>Ubicación respecto del desmolde</div>
+          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 650 }}>Ubicación respecto del desmolde</div>
           <div style={{ fontSize: 10.5, color: C.t2, marginTop: 3 }}>Elegí primero si la etapa sucede antes, durante o después de S0.</div>
         </div>
         {phase !== "unset" && (
@@ -258,17 +258,17 @@ function SemanaDesmoldeField({ value, onChange }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(148px, 1fr))", gap: 12, alignItems: "end", marginTop: 12 }}>
           <InputSt label="Cantidad de semanas">
             <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.t1, fontFamily: C.mono, fontWeight: 900 }}>
+              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.t1, fontFamily: C.mono, fontWeight: 700 }}>
                 {phase === "before" ? "S−" : "S+"}
               </span>
-              <input type="number" min="0.5" step="0.5" style={{ ...INP, paddingLeft: 36, fontFamily: C.mono, fontWeight: 800 }} value={amount} onChange={e => setAmount(e.target.value)} />
+              <input type="number" min="0.5" step="0.5" style={{ ...INP, paddingLeft: 36, fontFamily: C.mono, fontWeight: 650 }} value={amount} onChange={e => setAmount(e.target.value)} />
             </div>
           </InputSt>
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1, fontWeight: 750, marginBottom: 6 }}>Valores frecuentes</div>
+            <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1, fontWeight: 650, marginBottom: 6 }}>Valores frecuentes</div>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {[1, 2, 3, 4, 6, 8, 10, 12].map(week => (
-                <button key={week} type="button" onClick={() => setAmount(week)} style={{ border: `1px solid ${amount === week ? previewBorder : C.b0}`, background: amount === week ? previewBg : "transparent", color: amount === week ? previewColor : C.t2, borderRadius: 6, padding: "4px 7px", cursor: "pointer", fontFamily: C.mono, fontSize: 10.5, fontWeight: 750 }}>
+                <button key={week} type="button" onClick={() => setAmount(week)} style={{ border: `1px solid ${amount === week ? previewBorder : C.b0}`, background: amount === week ? previewBg : "transparent", color: amount === week ? previewColor : C.t2, borderRadius: 6, padding: "4px 7px", cursor: "pointer", fontFamily: C.mono, fontSize: 10.5, fontWeight: 650 }}>
                   {week}
                 </button>
               ))}
@@ -277,7 +277,7 @@ function SemanaDesmoldeField({ value, onChange }) {
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 10, padding: "8px 10px", borderRadius: 8, background: previewBg, border: `1px solid ${previewBorder}` }}>
-        <span style={{ color: previewColor, fontFamily: C.mono, fontSize: 12, fontWeight: 900, whiteSpace: "nowrap" }}>{phase === "unset" ? "Sin ubicar" : relativeWeekLabel(numeric)}</span>
+        <span style={{ color: previewColor, fontFamily: C.mono, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{phase === "unset" ? "Sin ubicar" : relativeWeekLabel(numeric)}</span>
         <span style={{ color: C.t1, fontSize: 10.5, lineHeight: 1.4 }}>{relativeWeekDescription(raw)}</span>
       </div>
     </div>
@@ -296,7 +296,7 @@ function PrioridadPicker({ value, onChange }) {
     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
       {PRIORIDADES.map(([v, lbl]) => {
         const on = (value || "media") === v;
-        return <button type="button" key={v} onClick={() => onChange(v)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "4px 11px", border: `1px solid ${on ? C.blue : C.b0}`, background: on ? "rgba(59,130,246,0.12)" : "transparent", color: on ? C.blue : C.t2 }}>{lbl}</button>;
+        return <button type="button" key={v} onClick={() => onChange(v)} style={{ fontSize: 11, fontWeight: 600, cursor: "pointer", borderRadius: 6, padding: "4px 11px", border: `1px solid ${on ? C.blue : C.b0}`, background: on ? "rgba(59,130,246,0.12)" : "transparent", color: on ? C.blue : C.t2 }}>{lbl}</button>;
       })}
     </div>
   );
@@ -347,7 +347,7 @@ function AlertaMaterialTarea({ tarea, cerca = false }) {
   return (
     <span title={"Falta material para iniciar: " + faltan.map(m => m?.nombre ?? m).join(", ")}
       style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.18)", color: C.red,
-        border: "1px solid rgba(239,68,68,0.55)", flexShrink: 0, fontWeight: 800, animation: "gPulse 1s ease-in-out infinite" }}>
+        border: "1px solid rgba(239,68,68,0.55)", flexShrink: 0, fontWeight: 650, animation: "gPulse 1s ease-in-out infinite" }}>
       ⚠ FALTA MATERIAL
     </span>
   );
@@ -433,8 +433,8 @@ function VacacionesObraModal({ obra, periods = [], onClose, onSaved }) {
       <div style={{ padding: 22, overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 800 }}>Calendario de la obra</div>
-            <div style={{ fontSize: 17, color: C.t0, fontWeight: 850, marginTop: 3 }}>{obra.codigo} · vacaciones y pausas</div>
+            <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 650 }}>Calendario de la obra</div>
+            <div style={{ fontSize: 17, color: C.t0, fontWeight: 700, marginTop: 3 }}>{obra.codigo} · vacaciones y pausas</div>
             <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.45, marginTop: 4 }}>
               Estos días se excluyen del cronograma productivo. El desmolde no cambia; se desplazan los inicios y finales afectados.
             </div>
@@ -452,7 +452,7 @@ function VacacionesObraModal({ obra, periods = [], onClose, onSaved }) {
             <div key={period.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.b0}` }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ color: C.t0, fontSize: 12.5, fontWeight: 750, textTransform: "capitalize" }}>{period.tipo}</span>
+                  <span style={{ color: C.t0, fontSize: 12.5, fontWeight: 650, textTransform: "capitalize" }}>{period.tipo}</span>
                   <span style={{ color: C.t2, fontFamily: C.mono, fontSize: 11 }}>{fmtDateFull(period.fecha_desde)} → {fmtDateFull(period.fecha_hasta)}</span>
                   <span style={{ color: C.t1, fontFamily: C.mono, fontSize: 10.5 }}>{daysInPeriod(period)}d</span>
                 </div>
@@ -465,7 +465,7 @@ function VacacionesObraModal({ obra, periods = [], onClose, onSaved }) {
         </div>
 
         <form onSubmit={agregar} style={{ marginTop: 14, padding: 13, borderRadius: 10, border: `1px solid ${C.b1}`, background: C.s0 }}>
-          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>Agregar período no laborable</div>
+          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 650, marginBottom: 10 }}>Agregar período no laborable</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 9 }}>
             <InputSt label="Tipo">
               <select style={INP} value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
@@ -592,7 +592,7 @@ function ObraModal({ lineas, lProcs, stageOffsets = new Map(), onSave, onClose }
           <InputSt label="Notas"><input style={INP} value={form.notas} onChange={e => set("notas", e.target.value)} /></InputSt>
           {procsLinea.length > 0 && (
             <div style={{ marginBottom: 16, padding: "11px 14px", background: C.s0, borderRadius: 8, border: `1px solid ${C.b0}` }}>
-              <div style={{ fontSize: 12, color: C.t1, marginBottom: 3, fontWeight: 750 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
+              <div style={{ fontSize: 12, color: C.t1, marginBottom: 3, fontWeight: 650 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
               <div style={{ fontSize: 10.5, color: C.t2, marginBottom: 8 }}>
                 {lineaSel?.semanas_produccion_estimadas
                   ? `Plazo general de la línea: ${lineaSel.semanas_produccion_estimadas} semanas.`
@@ -605,7 +605,7 @@ function ObraModal({ lineas, lProcs, stageOffsets = new Map(), onSave, onClose }
                   return (
                     <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, padding: "3px 7px", borderRadius: 5, background: "var(--panel)", color: C.t1, border: `1px solid ${configured ? C.b1 : C.b0}` }}>
                       {p.nombre}
-                      <b style={{ color: configured ? C.t1 : C.amber, fontFamily: C.mono }}>{configured ? relativeWeekLabel(offset) : "sin ubicar"}</b>
+                      <b style={{ color: configured ? C.t1 : C.cyan, fontFamily: C.mono }}>{configured ? relativeWeekLabel(offset) : "sin ubicar"}</b>
                     </span>
                   );
                 })}
@@ -670,11 +670,11 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
         {isEdit && (
           <div style={{
             padding: "10px 12px", marginBottom: 14, borderRadius: 8,
-            background: etapa.cronograma?.configured ? C.s0 : C.amberL,
-            border: `1px solid ${etapa.cronograma?.configured ? C.b1 : C.amberB}`,
+            background: etapa.cronograma?.configured ? C.s0 : C.cyanL,
+            border: `1px solid ${etapa.cronograma?.configured ? C.b1 : C.cyanB}`,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: etapa.cronograma?.configured ? C.t0 : C.amber, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>
+              <span style={{ color: etapa.cronograma?.configured ? C.t0 : C.cyan, fontFamily: C.mono, fontSize: 12, fontWeight: 700 }}>
                 {etapa.cronograma?.relativeLabel || "Sin semana relativa"}
               </span>
               {etapa.cronograma?.plannedStartISO && (
@@ -695,7 +695,7 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
           <InputSt label="Nombre *"><input style={INP} required autoFocus value={form.nombre} onChange={e => set("nombre", e.target.value)} /></InputSt>
           {canEditMatrixDetails && (
             <div style={{ padding: "12px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 12 }}>
-              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase", fontWeight: 700 }}>Equipo / involucrados</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase", fontWeight: 600 }}>Equipo / involucrados</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 92px", gap: 10, marginBottom: 10 }}>
                 <InputSt label="Responsable"><input style={INP} value={form.responsable} onChange={e => set("responsable", e.target.value)} placeholder="Ej: Maxi / Dionisio" /></InputSt>
                 <InputSt label="Personas"><input type="number" min="0" step="1" style={INP} value={form.personas_necesarias} onChange={e => set("personas_necesarias", e.target.value)} placeholder="2" /></InputSt>
@@ -874,7 +874,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
             {/* Estado + Prioridad */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 700 }}>Estado</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 600 }}>Estado</label>
                 <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                   {Object.entries(C.tarea).map(([k, v]) => (
                     <button key={k} type="button" onClick={() => set("estado", k)} style={{ padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 10, border: form.estado === k ? `1px solid ${v.text}55` : `1px solid ${C.b0}`, background: form.estado === k ? `${v.text}14` : C.s0, color: form.estado === k ? v.text : C.t1, fontFamily: C.sans }}>{v.label}</button>
@@ -882,7 +882,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 700 }}>Prioridad</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 600 }}>Prioridad</label>
                 <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                   {Object.entries(C.prioridad).map(([k, v]) => (
                     <button key={k} type="button" onClick={() => set("prioridad", k)} style={{ padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 10, border: form.prioridad === k ? `1px solid ${v.color}55` : `1px solid ${C.b0}`, background: form.prioridad === k ? `${v.color}18` : C.s0, color: form.prioridad === k ? v.color : C.t1, fontFamily: C.sans }}>{v.label}</button>
@@ -944,7 +944,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
         {tab === "archivos" && (
           <div>
             {!isEdit && (
-              <div style={{ padding: "16px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 12, color: C.amber }}>
+              <div style={{ padding: "16px", background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 12, color: C.cyan }}>
                 ℹ Guarda la tarea primero para poder subir archivos.
               </div>
             )}
@@ -976,7 +976,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {archivosPlantilla.length > 0 && (
-                <div style={{ padding: "8px 10px", borderRadius: 8, background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10.5, fontWeight: 750 }}>
+                <div style={{ padding: "8px 10px", borderRadius: 8, background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10.5, fontWeight: 650 }}>
                   Planos base heredados de la línea de producción
                 </div>
               )}
@@ -1043,7 +1043,7 @@ function initials(name) {
 }
 function AvatarResp({ name, size = 22 }) {
   return (
-    <span title={name || "Sin asignar"} style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: Math.round(size * 0.42), fontWeight: 700, background: C.s1, color: name ? C.t1 : C.t3, border: `1px solid ${C.b0}`, flexShrink: 0, letterSpacing: 0 }}>
+    <span title={name || "Sin asignar"} style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: Math.round(size * 0.42), fontWeight: 600, background: C.s1, color: name ? C.t1 : C.t3, border: `1px solid ${C.b0}`, flexShrink: 0, letterSpacing: 0 }}>
       {name ? initials(name) : "—"}
     </span>
   );
@@ -1070,7 +1070,7 @@ const CARD_ACT_TONOS = {
   [C.blue]: { soft: C.blueL, borde: C.blueB },
   [C.green]: { soft: C.greenL, borde: C.greenB },
   [C.red]: { soft: C.redL, borde: C.redB },
-  [C.amber]: { soft: C.amberL, borde: C.amberB },
+  [C.cyan]: { soft: C.cyanL, borde: C.cyanB },
 };
 
 function CardAct({ children, color = "var(--dim)", onClick, title }) {
@@ -1083,7 +1083,7 @@ function CardAct({ children, color = "var(--dim)", onClick, title }) {
       className="obra-card-act"
       style={{
         border: `1px solid ${tono.borde}`, background: tono.soft, color,
-        borderRadius: 7, padding: "5px 11px", fontSize: 11, fontWeight: 800,
+        borderRadius: 7, padding: "5px 11px", fontSize: 11, fontWeight: 650,
         cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap", lineHeight: 1.2,
       }}
     >
@@ -1104,7 +1104,7 @@ function TaskCard({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGesti
   const dv = diasHasta(fechaVencimiento);
   const atrasada = dv !== null && dv < 0 && !done;
   const urgente = dv !== null && dv >= 0 && dv <= 3 && !done;
-  const dueColor = done ? C.t3 : atrasada ? C.red : urgente ? C.amber : C.t2;
+  const dueColor = done ? C.t3 : atrasada ? C.red : urgente ? C.cyan : C.t2;
   const dueTxt = dv === null ? "" : atrasada ? `−${-dv} d` : dv === 0 ? "hoy" : `en ${dv} d`;
   const bloqueada = bloqueantes.length > 0 || tarea.estado === "bloqueada";
   const etColor = etapa?.color || C.t2;
@@ -1135,7 +1135,7 @@ function TaskCard({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGesti
       </div>
 
       {bloqueantes.length > 0 && (
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, padding: "6px 8px", borderRadius: 7, background: `${C.amber}0d`, border: `1px solid ${C.amber}22`, color: C.amber, fontSize: 10.5, lineHeight: 1.35 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, padding: "6px 8px", borderRadius: 7, background: `${C.cyan}0d`, border: `1px solid ${C.cyan}22`, color: C.cyan, fontSize: 10.5, lineHeight: 1.35 }}>
           <LockIcon />
           <span>Bloqueada por: {bloqueantes.map(dep => dep.nombre).join(", ")}</span>
         </div>
@@ -1148,7 +1148,7 @@ function TaskCard({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGesti
         <span style={{ flex: 1 }} />
         {archivosCount > 0 && <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{archivosCount}·arch</span>}
         {bloqueada && <span title="Tiene predecesoras" style={{ color: C.t3, display: "inline-flex" }}><LockIcon /></span>}
-        {dueTxt && <span title={`${usaPlanEtapa ? "Plan de etapa" : "Vence"} ${fmtDate(fechaVencimiento)}`} style={{ fontSize: 11.5, fontFamily: C.mono, fontWeight: 700, color: dueColor }}>{done ? "✓" : dueTxt}{usaPlanEtapa ? " · etapa" : ""}</span>}
+        {dueTxt && <span title={`${usaPlanEtapa ? "Plan de etapa" : "Vence"} ${fmtDate(fechaVencimiento)}`} style={{ fontSize: 11.5, fontFamily: C.mono, fontWeight: 600, color: dueColor }}>{done ? "✓" : dueTxt}{usaPlanEtapa ? " · etapa" : ""}</span>}
       </div>
 
       {/* Acciones: siempre en el DOM pero colapsadas; se despliegan suave al hover. */}
@@ -1177,7 +1177,7 @@ function TaskListRow({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGe
   const fechaVencimiento = tarea.fecha_fin_estimada || fechaFinPlan;
   const usaPlanEtapa = !tarea.fecha_fin_estimada && !!fechaFinPlan;
   const due = diasHasta(fechaVencimiento);
-  const dueColor = done ? C.t3 : (due ?? 99) < 0 ? C.red : due !== null && due <= 3 ? C.amber : C.t2;
+  const dueColor = done ? C.t3 : (due ?? 99) < 0 ? C.red : due !== null && due <= 3 ? C.cyan : C.t2;
   const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
   const priorityColor = C.prioridad[tarea.prioridad ?? "media"].color;
   const dueText = done ? "Listo" : due === null ? "Sin fecha" : due < 0 ? `${-due}d tarde` : due === 0 ? "Hoy" : `en ${due}d`;
@@ -1193,8 +1193,8 @@ function TaskListRow({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGe
       )}
       <span style={{ width: 3, height: 26, borderRadius: 99, background: priorityColor, display: isMobile ? "none" : "block" }} />
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: done ? C.t2 : C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: tarea.estado === "cancelada" ? "line-through" : "none" }}>{tarea.nombre}</div>
-        {bloqueantes.length > 0 && <div style={{ marginTop: 3, color: C.amber, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Bloqueada por: {bloqueantes.map(dep => dep.nombre).join(", ")}</div>}
+        <div style={{ fontWeight: 600, fontSize: 13, color: done ? C.t2 : C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: tarea.estado === "cancelada" ? "line-through" : "none" }}>{tarea.nombre}</div>
+        {bloqueantes.length > 0 && <div style={{ marginTop: 3, color: C.cyan, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Bloqueada por: {bloqueantes.map(dep => dep.nombre).join(", ")}</div>}
         {isMobile && <div style={{ display: "flex", gap: 7, alignItems: "center", marginTop: 4, minWidth: 0 }}><span style={{ color: etapa?.color || C.t2, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span><span style={{ color: C.b2 }}>·</span><span style={{ color: C.t2, fontSize: 10.5 }}>{tarea.responsable || "Sin responsable"}</span></div>}
       </div>
       {!isMobile && <span style={{ fontSize: 11, color: etapa?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span>}
@@ -1206,7 +1206,7 @@ function TaskListRow({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGe
         title={usaPlanEtapa ? `Fecha heredada del plan de etapa · ${fmtDate(fechaVencimiento)}` : fmtDate(fechaVencimiento)}
         style={{ minWidth: 0, overflow: "hidden", lineHeight: 1.15 }}
       >
-        <span style={{ display: "block", fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: dueColor, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ display: "block", fontFamily: C.mono, fontSize: 11, fontWeight: 600, color: dueColor, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {dueText}
         </span>
         {usaPlanEtapa && (
@@ -1219,7 +1219,7 @@ function TaskListRow({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGe
         <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           {/* Un punto del color del estado: se distingue de un vistazo sin leer */}
           <span style={{ width: 6, height: 6, borderRadius: 99, background: tc.dot ?? tc.text, flexShrink: 0 }} />
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: tc.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tc.label}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: tc.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tc.label}</span>
         </span>
       )}
       {!bulkMode && (
@@ -1270,7 +1270,7 @@ function TareaDetalleModal({ tarea, bloqueantes = [], onClose, onEditar, onInici
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ width: 4, height: 48, borderRadius: 2, background: pc.color, flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 18, color: C.t0, fontWeight: 700, marginBottom: 8, lineHeight: 1.3 }}>{tarea.nombre}</div>
+            <div style={{ fontSize: 18, color: C.t0, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 }}>{tarea.nombre}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 99, background: `${tc.text}14`, color: tc.text, border: `1px solid ${tc.text}28`, letterSpacing: 1, textTransform: "uppercase" }}>{tc.label}</span>
               <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28`, letterSpacing: 1, textTransform: "uppercase" }}>Prioridad {pc.label}</span>
@@ -1290,8 +1290,8 @@ function TareaDetalleModal({ tarea, bloqueantes = [], onClose, onEditar, onInici
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 26px" }}>
 
         {bloqueantes.length > 0 && (
-          <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 8, background: `${C.amber}0d`, border: `1px solid ${C.amber}28` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.amber, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}><LockIcon /> Tarea bloqueada</div>
+          <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 8, background: `${C.cyan}0d`, border: `1px solid ${C.cyan}28` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.cyan, fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: 1 }}><LockIcon /> Tarea bloqueada</div>
             <div style={{ marginTop: 7, color: C.t1, fontSize: 12.5 }}>Para iniciarla primero debe finalizarse: <strong>{bloqueantes.map(dep => dep.nombre).join(", ")}</strong>.</div>
           </div>
         )}
@@ -1355,7 +1355,7 @@ function TareaDetalleModal({ tarea, bloqueantes = [], onClose, onEditar, onInici
           <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>
             Archivos adjuntos {todosLosArchivos.length > 0 && `(${todosLosArchivos.length})`}
           </div>
-          {loading && <div style={{ color: C.t2, fontSize: 12 }}>Cargando…</div>}
+          {loading && <Cargando compacto />}
           {!loading && todosLosArchivos.length === 0 && (
             <div style={{ textAlign: "center", padding: "20px 0", color: C.t2, fontSize: 12, border: `1px dashed ${C.b0}`, borderRadius: 8 }}>
               Sin archivos · Editá la tarea para subir planos y documentos
@@ -1386,7 +1386,7 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
     <Overlay onClose={onCancel} maxWidth={420}>
       <div style={{ padding: 26 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
           <div>
             <div style={{ fontSize: 14, color: C.t0, fontWeight: 600 }}>Tarea con predecesoras pendientes</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 2 }}>Hay tareas anteriores que todavía no se completaron</div>
@@ -1399,7 +1399,7 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
 
         <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 5 }}>
           {bloqueantes.map(t => (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)" }}>
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, background: "rgba(34,211,238,0.05)", border: "1px solid rgba(34,211,238,0.2)" }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.tarea[t.estado]?.dot ?? C.t2, flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: C.t1, flex: 1 }}>{t.nombre}</span>
               <span style={{ fontSize: 10, color: C.tarea[t.estado]?.text ?? C.t2, background: `${C.tarea[t.estado]?.text ?? C.t2}14`, padding: "2px 7px", borderRadius: 4, border: `1px solid ${C.tarea[t.estado]?.text ?? C.t2}28` }}>
@@ -1414,7 +1414,7 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="amber" onClick={onConfirm}>Sí, iniciar igual</Btn>
+          <Btn variant="cian" onClick={onConfirm}>Sí, iniciar igual</Btn>
           <Btn variant="outline" onClick={onCancel}>Cancelar</Btn>
         </div>
       </div>
@@ -1431,7 +1431,7 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
     <Overlay onClose={onClose} maxWidth={560}>
       <div style={{ padding: "18px 20px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.t0 }}>Etapas de producción</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.t0 }}>Etapas de producción</div>
           <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Estado, semana relativa y fecha calculada desde el desmolde.</div>
         </div>
         <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
@@ -1450,7 +1450,7 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
                   {etapa.dias_estimados ? ` · ${etapa.dias_estimados}d de etapa` : " · falta duración"}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4, fontSize: 10.5, fontFamily: C.mono }}>
-                  <span style={{ color: etapa.cronograma?.configured ? C.violet : C.amber, fontWeight: 850 }}>
+                  <span style={{ color: etapa.cronograma?.configured ? C.violet : C.cyan, fontWeight: 700 }}>
                     {etapa.cronograma?.relativeLabel || "sin ubicar"}
                   </span>
                   {etapa.cronograma?.plannedStartISO && (
@@ -1481,7 +1481,7 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
                   <RowBtn color={C.t2} title="Eliminar etapa" onClick={() => onEliminar(etapa)}>×</RowBtn>
                 </>
               ) : (
-                <span style={{ fontSize: 10, color: ec.text, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{ec.label}</span>
+                <span style={{ fontSize: 10, color: ec.text, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{ec.label}</span>
               )}
             </div>
           );
@@ -2032,13 +2032,13 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
       <div style={{ padding: isMobile ? 12 : 22, overflowY: "auto" }}>
         <div style={{ borderBottom: `1px solid ${C.b0}`, padding: "2px 0 14px", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: isMobile ? "wrap" : "nowrap" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 14, fontWeight: 700 }}>
               {String(localLinea.nombre || "L").trim().slice(0, 2).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.25, fontWeight: 800 }}>Configurar línea</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.25, fontWeight: 650 }}>Configurar línea</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
-                <h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.25, color: C.t0, fontWeight: 850 }}>{localLinea.nombre}</h2>
+                <h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.25, color: C.t0, fontWeight: 700 }}>{localLinea.nombre}</h2>
               </div>
               <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.45 }}>
                 Ordená las etapas y definí en qué semana suceden respecto del desmolde.
@@ -2056,7 +2056,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
           <div style={{ marginBottom: 12, padding: "13px 15px", borderRadius: 10, background: C.s0, border: `1px solid ${C.b1}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 11 }}>
               <div>
-                <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 800 }}>Datos generales de la línea</div>
+                <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 650 }}>Datos generales de la línea</div>
                 <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2 }}>El plazo general es una referencia. Cada etapa conserva su propia ubicación y duración.</div>
               </div>
             </div>
@@ -2079,8 +2079,8 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
         )}
 
         <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 7 : 14, marginBottom: 12, padding: "10px 12px", border: `1px solid ${C.b0}`, borderRadius: 9, background: C.s0 }}>
-          <div style={{ fontSize: 10.5, color: C.t1, fontWeight: 750, whiteSpace: "nowrap" }}>Cómo leer las semanas</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: C.mono, fontSize: 11, fontWeight: 800 }}>
+          <div style={{ fontSize: 10.5, color: C.t1, fontWeight: 650, whiteSpace: "nowrap" }}>Cómo leer las semanas</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: C.mono, fontSize: 11, fontWeight: 650 }}>
             <span>S− antes</span><span style={{ color: C.b2 }}>·</span><span>S0 desmolde</span><span style={{ color: C.b2 }}>·</span><span>S+ después</span>
           </div>
           <div style={{ marginLeft: isMobile ? 0 : "auto", fontSize: 10, color: C.t2 }}>La duración de la etapa manda; las tareas pueden hacerse en simultáneo y no se suman.</div>
@@ -2095,7 +2095,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
             ["Tareas", tareasState.length],
           ].map(([label, value], index) => (
             <div key={label} style={{ minWidth: 128, flex: 1, padding: "4px 12px", borderLeft: index ? `1px solid ${C.b0}` : "none", whiteSpace: "nowrap" }}>
-              <span style={{ display: "block", fontFamily: C.mono, fontSize: 14, fontWeight: 850, color: C.t0 }}>{value}</span>
+              <span style={{ display: "block", fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.t0 }}>{value}</span>
               <span style={{ display: "block", fontSize: 9, color: C.t2, textTransform: "uppercase", letterSpacing: .8, marginTop: 2 }}>{label}</span>
             </div>
           ))}
@@ -2104,10 +2104,10 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
           <aside data-tour="obras-etapas-lista" style={{ maxHeight: isMobile ? 230 : "70vh", overflowY: "auto", padding: 10, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 2px 9px" }}>
               <div>
-                <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 850 }}>1 · Recorrido</div>
+                <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700 }}>1 · Recorrido</div>
                 <div style={{ fontSize: 9.5, color: C.t3, marginTop: 2 }}>Elegí una etapa para configurarla.</div>
               </div>
-              {!adding && <button type="button" onClick={() => setAdding(true)} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, borderRadius: 7, padding: "5px 8px", fontSize: 10.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Etapa</button>}
+              {!adding && <button type="button" onClick={() => setAdding(true)} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, borderRadius: 7, padding: "5px 8px", fontSize: 10.5, fontWeight: 650, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Etapa</button>}
             </div>
             {items.map((item, idx) => {
               const active = selectedProc === item.id;
@@ -2195,19 +2195,19 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                       fontFamily: C.sans,
                     }}
                   >
-                    <span style={{ width: 27, height: 27, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: active ? C.s0 : "transparent", border: `1px solid ${active ? C.blueB : C.b0}`, color: active ? C.blue : C.t2, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{idx + 1}</span>
+                    <span style={{ width: 27, height: 27, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: active ? C.s0 : "transparent", border: `1px solid ${active ? C.blueB : C.b0}`, color: active ? C.blue : C.t2, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>{idx + 1}</span>
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.nombre}</span>
+                      <span style={{ display: "block", fontSize: 12, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.nombre}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden", fontSize: 9.5, color: C.t2, marginTop: 4, whiteSpace: "nowrap" }}>
-                        <span style={{ color: item.semana_desmolde === "" ? C.amber : C.t1, fontFamily: C.mono, fontWeight: 850 }}>
+                        <span style={{ color: item.semana_desmolde === "" ? C.cyan : C.t1, fontFamily: C.mono, fontWeight: 700 }}>
                           {item.semana_desmolde === "" ? "Sin ubicar" : relativeWeekLabel(item.semana_desmolde)}
                         </span>
                         <span>·</span>
                         <span>{total} tareas</span>
                         {item.dias_estimados
                           ? <><span>·</span><span>{item.dias_estimados} días</span></>
-                          : <><span>·</span><span style={{ color: C.amber, fontWeight: 800 }}>Falta duración</span></>}
-                        {dependencies > 0 && <span title={`${dependencies} dependencias`} style={{ color: C.amber }}>↳ {dependencies}</span>}
+                          : <><span>·</span><span style={{ color: C.cyan, fontWeight: 650 }}>Falta duración</span></>}
+                        {dependencies > 0 && <span title={`${dependencies} dependencias`} style={{ color: C.cyan }}>↳ {dependencies}</span>}
                       </span>
                     </span>
                   </button>
@@ -2218,7 +2218,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                       aria-label={`Subir ${item.nombre} una posición`}
                       onClick={() => moveItem(idx, -1)}
                       disabled={saving || idx === 0}
-                      style={{ border: 0, borderRight: `1px solid ${active ? C.blueB : C.b0}`, background: "transparent", color: idx === 0 ? C.t3 : C.t1, cursor: saving || idx === 0 ? "default" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 900 }}
+                      style={{ border: 0, borderRight: `1px solid ${active ? C.blueB : C.b0}`, background: "transparent", color: idx === 0 ? C.t3 : C.t1, cursor: saving || idx === 0 ? "default" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 700 }}
                     >
                       ↑
                     </button>
@@ -2228,7 +2228,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                       aria-label={`Bajar ${item.nombre} una posición`}
                       onClick={() => moveItem(idx, 1)}
                       disabled={saving || idx === items.length - 1}
-                      style={{ border: 0, background: "transparent", color: idx === items.length - 1 ? C.t3 : C.t1, cursor: saving || idx === items.length - 1 ? "default" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 900 }}
+                      style={{ border: 0, background: "transparent", color: idx === items.length - 1 ? C.t3 : C.t1, cursor: saving || idx === items.length - 1 ? "default" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 700 }}
                     >
                       ↓
                     </button>
@@ -2241,7 +2241,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
           <div style={{ maxHeight: isMobile ? "none" : "61vh", overflowY: isMobile ? "visible" : "auto", paddingRight: isMobile ? 0 : 4 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, padding: "0 2px" }}>
             <div>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 850 }}>{adding ? "2 · Nueva etapa" : "2 · Configuración de la etapa"}</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700 }}>{adding ? "2 · Nueva etapa" : "2 · Configuración de la etapa"}</div>
               <div style={{ fontSize: 9.5, color: C.t3, marginTop: 2 }}>{adding ? "Primero cargá sus datos y ubicación en el cronograma." : "Definí cuándo ocurre y qué tareas contiene."}</div>
             </div>
             {selectedProc && !adding && <span style={{ fontSize: 10, color: C.t2 }}>{items.findIndex(item => item.id === selectedProc) + 1} de {items.length}</span>}
@@ -2258,14 +2258,14 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px" }}>
                   <span draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(idx)); setDragIdx(idx); }} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     title="Arrastrá para reordenar la etapa" style={{ cursor: "grab", color: C.t2, fontSize: 13, lineHeight: 1, userSelect: "none", flexShrink: 0, letterSpacing: -1 }}>⠿</span>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 11, fontWeight: 900 }}>{idx + 1}</div>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 11, fontWeight: 700 }}>{idx + 1}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 14, color: C.t0, fontWeight: 850 }}>{item.nombre}</span>
+                      <span style={{ fontSize: 14, color: C.t0, fontWeight: 700 }}>{item.nombre}</span>
                     </div>
-                    <div style={{ fontSize: 10.5, color: item.dias_estimados ? C.t2 : C.amber, marginTop: 3 }}>{relativeWeekDescription(item.semana_desmolde)}{item.dias_estimados ? ` Duración total: ${item.dias_estimados} días.` : " Falta definir la duración total de la etapa."}</div>
+                    <div style={{ fontSize: 10.5, color: item.dias_estimados ? C.t2 : C.cyan, marginTop: 3 }}>{relativeWeekDescription(item.semana_desmolde)}{item.dias_estimados ? ` Duración total: ${item.dias_estimados} días.` : " Falta definir la duración total de la etapa."}</div>
                   </div>
-                  <span style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 900, padding: "4px 8px", borderRadius: 7, color: item.semana_desmolde === "" ? C.amber : C.t1, background: item.semana_desmolde === "" ? C.amberL : C.s1, border: `1px solid ${item.semana_desmolde === "" ? C.amberB : C.b1}` }}>
+                  <span style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 700, padding: "4px 8px", borderRadius: 7, color: item.semana_desmolde === "" ? C.cyan : C.t1, background: item.semana_desmolde === "" ? C.cyanL : C.s1, border: `1px solid ${item.semana_desmolde === "" ? C.cyanB : C.b1}` }}>
                     {item.semana_desmolde === "" ? "Sin ubicar" : relativeWeekLabel(item.semana_desmolde)}
                   </span>
                   <div style={{ display: "flex", gap: 3 }}>
@@ -2279,9 +2279,9 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                 {!isEditing && hasMatrixDetailContent(item) && (
                   <div style={{ margin: "0 12px 8px 23px", padding: "8px 10px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}` }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: item.descripcion || item.observaciones ? 6 : 0 }}>
-                      {item.responsable && <span style={{ fontSize: 10, color: C.blue, fontWeight: 700 }}>Resp. {item.responsable}</span>}
+                      {item.responsable && <span style={{ fontSize: 10, color: C.blue, fontWeight: 600 }}>Resp. {item.responsable}</span>}
                       {item.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{item.personas_necesarias} personas</span>}
-                      {item.involucrados && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>{item.involucrados}</span>}
+                      {item.involucrados && <span style={{ fontSize: 10, color: C.green, fontWeight: 600 }}>{item.involucrados}</span>}
                     </div>
                     {item.descripcion && <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{item.descripcion}</div>}
                     {item.observaciones && <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.45, marginTop: item.descripcion ? 4 : 0, whiteSpace: "pre-wrap" }}>{item.observaciones}</div>}
@@ -2319,7 +2319,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                                 {Array.isArray(tarea.predecesoras) && tarea.predecesoras.length > 0 && (
                                   <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, marginLeft: 6, verticalAlign: "middle" }}>
                                     {tarea.predecesoras.map(pid => (
-                                      <span key={pid} title="Depende de (predecesora)" style={{ fontSize: 9.5, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 4, padding: "0 5px", fontWeight: 700 }}>⤳ {nombreTarea(pid)}</span>
+                                      <span key={pid} title="Depende de (predecesora)" style={{ fontSize: 9.5, color: C.cyan, background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 4, padding: "0 5px", fontWeight: 600 }}>⤳ {nombreTarea(pid)}</span>
                                     ))}
                                   </span>
                                 )}
@@ -2366,7 +2366,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                                           <button type="button" key={t.id} onClick={() => setTareaEditBuf(f => {
                                             const cur = f.predecesoras ?? [];
                                             return { ...f, predecesoras: on ? cur.filter(x => x !== t.id) : [...cur, t.id] };
-                                          })} style={{ fontSize: 10.5, fontWeight: 700, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? C.amber : C.b0}`, background: on ? "rgba(245,158,11,0.12)" : "transparent", color: on ? C.amber : C.t2 }}>
+                                          })} style={{ fontSize: 10.5, fontWeight: 600, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? C.cyan : C.b0}`, background: on ? "rgba(34,211,238,0.12)" : "transparent", color: on ? C.cyan : C.t2 }}>
                                             {on ? "✓ " : ""}{t.nombre}
                                           </button>
                                         );
@@ -2426,10 +2426,10 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                 {isEditing && (
                   <div style={{ padding: "0 13px 13px" }}>
                     <div style={{ padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, marginBottom: 10 }}>
-                      <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850, marginBottom: 9 }}>Datos básicos</div>
+                      <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700, marginBottom: 9 }}>Datos básicos</div>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,1fr) 110px", gap: 10 }}>
                         <InputSt label="Nombre de la etapa"><input style={INP} value={editBuf.nombre ?? item.nombre} onChange={e => eb("nombre", e.target.value)} /></InputSt>
-                        <div data-tour="obras-duracion-etapa"><InputSt label="Duración total (días) *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(editBuf.dias_estimados ?? item.dias_estimados) > 0 ? C.b0 : C.amberB }} value={editBuf.dias_estimados ?? item.dias_estimados ?? ""} onChange={e => eb("dias_estimados", e.target.value)} /></InputSt></div>
+                        <div data-tour="obras-duracion-etapa"><InputSt label="Duración total (días) *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(editBuf.dias_estimados ?? item.dias_estimados) > 0 ? C.b0 : C.cyanB }} value={editBuf.dias_estimados ?? item.dias_estimados ?? ""} onChange={e => eb("dias_estimados", e.target.value)} /></InputSt></div>
                       </div>
                       <InputSt label="Color identificador">
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -2441,7 +2441,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                     <SemanaDesmoldeField value={editBuf.semana_desmolde ?? ""} onChange={value => eb("semana_desmolde", value)} />
                     {procDetailsEnabled && (
                       <div style={{ padding: "10px 12px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 8 }}>
-                        <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle operativo de la etapa</div>
+                        <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>Detalle operativo de la etapa</div>
                         <InputSt label="Descripcion"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} value={editBuf.descripcion ?? item.descripcion ?? ""} onChange={e => eb("descripcion", e.target.value)} /></InputSt>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8 }}>
                           <InputSt label="Responsable"><input style={INP} value={editBuf.responsable ?? item.responsable ?? ""} onChange={e => eb("responsable", e.target.value)} /></InputSt>
@@ -2465,16 +2465,16 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
             <div style={{ border: `1px solid ${C.blueB}`, borderRadius: 11, padding: "13px", background: C.blueL, marginBottom: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 11 }}>
                 <div>
-                  <div style={{ fontSize: 13, color: C.t0, fontWeight: 850 }}>Agregar etapa al recorrido</div>
+                  <div style={{ fontSize: 13, color: C.t0, fontWeight: 700 }}>Agregar etapa al recorrido</div>
                   <div style={{ fontSize: 10.5, color: C.t2, marginTop: 3 }}>Después vas a poder cargar las tareas que se copiarán a cada obra.</div>
                 </div>
                 <button type="button" onClick={() => setAdding(false)} aria-label="Cancelar nueva etapa" style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 16 }}>×</button>
               </div>
               <div style={{ padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, marginBottom: 10 }}>
-                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850, marginBottom: 9 }}>Datos básicos</div>
+                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700, marginBottom: 9 }}>Datos básicos</div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,1fr) 110px", gap: 10 }}>
                   <InputSt label="Nombre de la etapa *"><input style={INP} autoFocus placeholder="Ej.: Pintores" value={newForm.nombre} onChange={e => setNewForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
-                  <InputSt label="Duración total (días) *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(newForm.dias_estimados) > 0 ? C.b0 : C.amberB }} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
+                  <InputSt label="Duración total (días) *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(newForm.dias_estimados) > 0 ? C.b0 : C.cyanB }} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
                 </div>
                 <InputSt label="Color identificador">
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -2486,7 +2486,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
               <SemanaDesmoldeField value={newForm.semana_desmolde} onChange={value => setNewForm(f => ({ ...f, semana_desmolde: value }))} />
               {procDetailsEnabled && (
                 <div style={{ padding: "10px 12px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle operativo de la etapa</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>Detalle operativo de la etapa</div>
                   <InputSt label="Descripcion"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} value={newForm.descripcion} onChange={e => setNewForm(f => ({ ...f, descripcion: e.target.value }))} /></InputSt>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8 }}>
                     <InputSt label="Responsable"><input style={INP} value={newForm.responsable} onChange={e => setNewForm(f => ({ ...f, responsable: e.target.value }))} /></InputSt>
@@ -2550,7 +2550,7 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
         <div style={{ padding: "10px 20px", background: "rgba(239,68,68,0.06)", borderBottom: `1px solid rgba(239,68,68,0.18)`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <span style={{ fontSize: 16 }}>⚠</span>
           <div>
-            <div style={{ fontSize: 12, color: "#fca5a5", fontWeight: 700 }}>{alertasUrgentes.length} orden{alertasUrgentes.length > 1 ? "es" : ""} urgente{alertasUrgentes.length > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 12, color: "#fca5a5", fontWeight: 600 }}>{alertasUrgentes.length} orden{alertasUrgentes.length > 1 ? "es" : ""} urgente{alertasUrgentes.length > 1 ? "s" : ""}</div>
             <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
               {alertasUrgentes.slice(0, 4).map(oc => { const obra = obras.find(o => o.id === oc.obra_id); const u = ocUrgencia(oc); return <span key={oc.id} style={{ marginRight: 10, color: u?.color }}>{obra?.codigo} · {oc.etapa_nombre} ({u?.label})</span>; })}
               {alertasUrgentes.length > 4 && <span>+{alertasUrgentes.length - 4} más</span>}
@@ -2583,14 +2583,14 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
           const tieneUrgente = ocs.some(o => { const u = ocUrgencia(o); return u && ["vencida","hoy","urgente"].includes(u.nivel); });
           const tieneProxima = ocs.some(o => { const u = ocUrgencia(o); return u && u.nivel === "proxima"; });
           return (
-            <div key={obra?.id ?? "sin-obra"} style={{ marginBottom: 20, border: `1px solid ${tieneUrgente ? C.red : tieneProxima ? C.amber : C.b0}`, borderRadius: 12, overflow: "hidden" }}>
-              <div style={{ padding: "10px 16px", background: tieneUrgente ? "rgba(239,68,68,0.05)" : tieneProxima ? "rgba(245,158,11,0.04)" : C.s0, display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.b0}` }}>
+            <div key={obra?.id ?? "sin-obra"} style={{ marginBottom: 20, border: `1px solid ${tieneUrgente ? C.red : tieneProxima ? C.cyan : C.b0}`, borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "10px 16px", background: tieneUrgente ? "rgba(239,68,68,0.05)" : tieneProxima ? "rgba(34,211,238,0.04)" : C.s0, display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.b0}` }}>
                 <Dot color={obra ? (C.obra[obra.estado]?.dot ?? C.t2) : C.t2} size={7} glow />
                 <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 600 }}>{obra?.codigo ?? "Sin obra"}</span>
                 {obra?.linea_nombre && <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{obra.linea_nombre}</span>}
                 <span style={{ marginLeft: "auto", fontSize: 11, color: C.t2 }}>{ocs.length} OC</span>
                 {tieneUrgente && <span style={{ fontSize: 10, color: C.red, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", padding: "2px 8px", borderRadius: 4 }}>URGENTE</span>}
-                {!tieneUrgente && tieneProxima && <span style={{ fontSize: 10, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", padding: "2px 8px", borderRadius: 4 }}>PRÓXIMA</span>}
+                {!tieneUrgente && tieneProxima && <span style={{ fontSize: 10, color: C.cyan, background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", padding: "2px 8px", borderRadius: 4 }}>PRÓXIMA</span>}
               </div>
               {ocs.map(oc => {
                 const urg = ocUrgencia(oc); const ocC = C.oc[oc.estado] ?? C.oc.pendiente;
@@ -2642,7 +2642,7 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
-export default function ObrasScreen({ profile, signOut }) {
+export default function ObrasScreen({ profile }) {
   const { isMobile } = useResponsive();
   const [searchParams] = useSearchParams();
   const requestedObraId = searchParams.get("obra") || "";
@@ -3138,11 +3138,6 @@ export default function ObrasScreen({ profile, signOut }) {
     setEtapasMgr(false); setAddPick(false);
   }, [focusedObra]);
 
-  const stats = useMemo(() => ({
-    activas:    obras.filter(o => o.estado === "activa").length,
-    pausadas:   obras.filter(o => o.estado === "pausada").length,
-    terminadas: obras.filter(o => o.estado === "terminada").length,
-  }), [obras]);
   const statsFoco = useMemo(() => {
     const scoped = filtroLinea === "todas" ? obras : obras.filter(obra => obra.linea_id === filtroLinea);
     return {
@@ -3176,7 +3171,7 @@ export default function ObrasScreen({ profile, signOut }) {
     return (
       <div style={{ width: isMobile ? "100%" : 300, flexShrink: 0, borderRight: isMobile ? "none" : `1px solid ${C.b0}`, background: C.topbarSoft, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ padding: "10px 13px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>
+          <span style={{ fontSize: 10, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 650 }}>
             Obras <span style={{ fontFamily: C.mono, color: C.t1 }}>{obrasFilt.length}</span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -3189,7 +3184,7 @@ export default function ObrasScreen({ profile, signOut }) {
           </div>
         </div>
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {loading && <div style={{ textAlign: "center", padding: 40, color: C.t2, fontSize: 12 }}>Cargando…</div>}
+          {loading && <Cargando />}
           {!loading && obrasFilt.map(obra => {
             const sel     = focusedObra === obra.id;
             const obrapct = pctObra(obra.id);
@@ -3211,10 +3206,10 @@ export default function ObrasScreen({ profile, signOut }) {
                 </div>
                 {obra.cliente && <div style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.cliente}</div>}
                 <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                  {obra.linea_nombre && <span style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>}
+                  {obra.linea_nombre && <span style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>}
                   {activeStage && <><span style={{ color: C.b2, fontSize: 9 }}>·</span><span style={{ fontSize: 10.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeStage.nombre}</span></>}
-                  {activeStage?.cronograma?.configured && <span style={{ fontSize: 9.5, color: C.t2, fontFamily: C.mono, fontWeight: 850 }}>{activeStage.cronograma.relativeLabel}</span>}
-                  {overdueCount > 0 && <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 9.5, color: C.red, fontWeight: 800, whiteSpace: "nowrap" }}>{overdueCount} etapas tarde</span>}
+                  {activeStage?.cronograma?.configured && <span style={{ fontSize: 9.5, color: C.t2, fontFamily: C.mono, fontWeight: 700 }}>{activeStage.cronograma.relativeLabel}</span>}
+                  {overdueCount > 0 && <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 9.5, color: C.red, fontWeight: 650, whiteSpace: "nowrap" }}>{overdueCount} etapas tarde</span>}
                 </div>
               </div>
             );
@@ -3245,7 +3240,7 @@ export default function ObrasScreen({ profile, signOut }) {
     if (!editing) return (
       <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}
         onClick={esGestion ? e => { e.stopPropagation(); setEditing(true); } : undefined}>
-        <span style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 700, letterSpacing: 0.5 }}>{obra.codigo}</span>
+        <span style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 600, letterSpacing: 0.5 }}>{obra.codigo}</span>
         {esGestion && <span style={{ fontSize: 10, color: "var(--border-2)", cursor: "text" }}>✎</span>}
       </div>
     );
@@ -3258,7 +3253,7 @@ export default function ObrasScreen({ profile, signOut }) {
         onBlur={commit}
         onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setVal(obra.codigo); } e.stopPropagation(); }}
         onClick={e => e.stopPropagation()}
-        style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, letterSpacing: 0.5, color: C.t0, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", borderRadius: 5, padding: "2px 7px", outline: "none", width: 110, flexShrink: 0 }}
+        style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, letterSpacing: 0.5, color: C.t0, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", borderRadius: 5, padding: "2px 7px", outline: "none", width: 110, flexShrink: 0 }}
       />
     );
   }
@@ -3276,7 +3271,7 @@ export default function ObrasScreen({ profile, signOut }) {
     );
 
     if (!esGestion) return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, paddingLeft: 8, color: reference?.projected ? C.t1 : C.amber, borderLeft: `1px solid ${C.b0}`, fontSize: 11, fontFamily: C.mono, fontWeight: 750 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, paddingLeft: 8, color: reference?.projected ? C.t1 : C.cyan, borderLeft: `1px solid ${C.b0}`, fontSize: 11, fontFamily: C.mono, fontWeight: 650 }}>
         {content}
       </span>
     );
@@ -3288,7 +3283,7 @@ export default function ObrasScreen({ profile, signOut }) {
           onClick={() => setDesmoldeEditor({ obraId: obra.id, codigo: obra.codigo, value: obra.desmolde_estimado?.slice(0, 10) || "", original: obra.desmolde_estimado?.slice(0, 10) || "", saving: false, error: "" })}
           aria-label={`Cambiar fecha estimada de desmolde de ${obra.codigo}`}
           title="Cambiar fecha estimada de desmolde"
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px 4px 9px", color: reference?.projected ? C.t1 : C.amber, border: `1px solid ${editing ? C.b1 : "transparent"}`, borderLeftColor: C.b0, borderRadius: 7, background: editing ? C.s1 : "transparent", fontSize: 11, fontFamily: C.mono, fontWeight: 750, cursor: "pointer" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px 4px 9px", color: reference?.projected ? C.t1 : C.cyan, border: `1px solid ${editing ? C.b1 : "transparent"}`, borderLeftColor: C.b0, borderRadius: 7, background: editing ? C.s1 : "transparent", fontSize: 11, fontFamily: C.mono, fontWeight: 650, cursor: "pointer" }}
         >
           {content}
           <span aria-hidden="true" style={{ color: editing ? C.blue : C.t3, fontSize: 10 }}>✎</span>
@@ -3300,12 +3295,12 @@ export default function ObrasScreen({ profile, signOut }) {
             style={{ position: "absolute", zIndex: 120, top: "calc(100% + 7px)", left: 0, width: 292, padding: 12, border: `1px solid ${C.b1}`, borderRadius: 11, background: C.panelSolid || C.bg, boxShadow: "0 16px 42px rgba(0,0,0,0.28)", fontFamily: C.sans }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 850 }}>Fecha estimada · {obra.codigo}</div>
+            <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 700 }}>Fecha estimada · {obra.codigo}</div>
             <div style={{ fontSize: 10.5, color: C.t2, lineHeight: 1.45, marginTop: 3 }}>
               Al cambiarla se reprograman las etapas relativas al desmolde.
             </div>
             {obra.desmolde_real && (
-              <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 7, background: "rgba(245,158,11,0.09)", color: C.amber, fontSize: 10.5, lineHeight: 1.4 }}>
+              <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 7, background: "rgba(34,211,238,0.09)", color: C.cyan, fontSize: 10.5, lineHeight: 1.4 }}>
                 Hay un desmolde real ({fmtDateFull(obra.desmolde_real)}): esa fecha seguirá teniendo prioridad en el cronograma.
               </div>
             )}
@@ -3315,7 +3310,7 @@ export default function ObrasScreen({ profile, signOut }) {
               </div>
             )}
             <label style={{ display: "grid", gap: 4, marginTop: 10 }}>
-              <span style={{ fontSize: 9.5, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.7 }}>Nueva fecha base</span>
+              <span style={{ fontSize: 9.5, color: C.t2, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.7 }}>Nueva fecha base</span>
               <input
                 autoFocus
                 type="date"
@@ -3328,8 +3323,8 @@ export default function ObrasScreen({ profile, signOut }) {
             </label>
             {desmoldeEditor.error && <div role="alert" style={{ marginTop: 7, color: C.red, fontSize: 10.5 }}>{desmoldeEditor.error}</div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 10 }}>
-              <button type="button" onClick={() => setDesmoldeEditor(null)} disabled={desmoldeEditor.saving} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 9px", fontSize: 11, fontFamily: C.sans, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
-              <button type="submit" disabled={desmoldeEditor.saving || desmoldeEditor.value === desmoldeEditor.original} style={{ border: `1px solid ${C.blue}`, background: C.blue, color: "#fff", borderRadius: 7, padding: "6px 10px", fontSize: 11, fontFamily: C.sans, fontWeight: 800, cursor: desmoldeEditor.saving ? "wait" : "pointer", opacity: desmoldeEditor.value === desmoldeEditor.original ? 0.5 : 1 }}>
+              <button type="button" onClick={() => setDesmoldeEditor(null)} disabled={desmoldeEditor.saving} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 9px", fontSize: 11, fontFamily: C.sans, fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
+              <button type="submit" disabled={desmoldeEditor.saving || desmoldeEditor.value === desmoldeEditor.original} style={{ border: `1px solid ${C.blue}`, background: C.blue, color: "#fff", borderRadius: 7, padding: "6px 10px", fontSize: 11, fontFamily: C.sans, fontWeight: 650, cursor: desmoldeEditor.saving ? "wait" : "pointer", opacity: desmoldeEditor.value === desmoldeEditor.original ? 0.5 : 1 }}>
                 {desmoldeEditor.saving ? "Guardando…" : "Guardar"}
               </button>
             </div>
@@ -3343,7 +3338,7 @@ export default function ObrasScreen({ profile, signOut }) {
   //  DETALLE DE OBRA (columna derecha del master-detail)
   // ═══════════════════════════════════════════════════════════════
   function ObraDetail() {
-    if (loading) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12, letterSpacing: 3, fontFamily: C.mono }}>Cargando…</div>;
+    if (loading) return <Cargando llenar />;
 
     const obra = obrasFilt.find(o => o.id === focusedObra) || null;
 
@@ -3355,7 +3350,7 @@ export default function ObrasScreen({ profile, signOut }) {
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ textAlign: "center", maxWidth: 320, padding: "0 20px" }}>
               <div style={{ fontSize: 26, color: C.t3, marginBottom: 10 }}>◦</div>
-              <div style={{ color: C.t1, fontSize: 13, fontWeight: 700 }}>
+              <div style={{ color: C.t1, fontSize: 13, fontWeight: 600 }}>
                 {filtrando ? "Ninguna obra coincide con los filtros" : "Todavía no hay obras"}
               </div>
               <div style={{ color: C.t2, fontSize: 12, marginTop: 5, lineHeight: 1.5 }}>
@@ -3436,7 +3431,7 @@ export default function ObrasScreen({ profile, signOut }) {
     const health = etapasAtrasadas.length > 0
       ? { label: "Requiere atencion", color: C.red }
       : atrasadasN > 0 || bloqueadas.length > 0
-        ? { label: "Con bloqueos", color: C.amber }
+        ? { label: "Con bloqueos", color: C.cyan }
         : { label: "En curso", color: C.green };
 
     // Tareas visibles según filtros (etapa + chip).
@@ -3458,7 +3453,7 @@ export default function ObrasScreen({ profile, signOut }) {
     const chips = [
       { k: "todas",     t: "Todas",           n: obraTasks.length },
       { k: "atrasadas", t: "Atrasadas",       n: atrasadasN, c: C.red },
-      { k: "semana",    t: "Esta semana",     n: semanaN, c: C.amber },
+      { k: "semana",    t: "Esta semana",     n: semanaN, c: C.cyan },
       { k: "sinresp",   t: "Sin responsable", n: abiertas.filter(t => !t.responsable).length },
       { k: "bloqueadas", t: "Bloqueadas",      n: bloqueadas.length, c: C.blue },
       { k: "criticas",  t: "Críticas",        n: abiertas.filter(t => t.prioridad === "critica").length, c: C.red },
@@ -3489,7 +3484,7 @@ export default function ObrasScreen({ profile, signOut }) {
     // El chip activo antes sólo cambiaba de fondo y se perdía contra el panel.
     // Ahora suma borde y peso: se ve cuál está aplicado sin tener que comparar.
     const chipStyle = on => ({
-      fontSize: 12, fontWeight: on ? 800 : 600, padding: "5px 11px", borderRadius: 8,
+      fontSize: 12, fontWeight: on ? 650 : 600, padding: "5px 11px", borderRadius: 8,
       border: `1px solid ${on ? C.b1 : "transparent"}`,
       background: on ? C.panel2 : "transparent",
       color: on ? C.t0 : C.t2,
@@ -3515,17 +3510,17 @@ export default function ObrasScreen({ profile, signOut }) {
                 {i < obraEtapas.length - 1 && <span style={{ flex: 1, height: 1, background: e.estado === "completado" ? C.b1 : C.b0 }} />}
               </div>
               <div style={{ paddingTop: compact ? 7 : 9, paddingRight: 10 }}>
-                <div style={{ fontSize: compact ? 11.5 : 12, fontWeight: 700, color: on ? C.t0 : C.t1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.nombre}</div>
+                <div style={{ fontSize: compact ? 11.5 : 12, fontWeight: 600, color: on ? C.t0 : C.t1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.nombre}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: C.t3, fontFamily: C.mono, marginTop: 3 }}>
                   <span>{ep}% · {tareasDeEtapa(e.id).length}</span>
-                  <span style={{ color: e.cronograma?.configured ? C.t1 : C.amber, fontWeight: 850 }}>
+                  <span style={{ color: e.cronograma?.configured ? C.t1 : C.cyan, fontWeight: 700 }}>
                     {e.cronograma?.relativeLabel || "sin ubicar"}
                   </span>
                 </div>
                 {e.cronograma?.plannedStartISO && (
                   <div
                     title={`${e.cronograma.relativeLabel} · ${e.cronograma.durationDays || 0} días`}
-                    style={{ fontSize: 10, color: e.cronograma.overdue ? C.red : C.t2, fontFamily: C.mono, marginTop: 3, fontWeight: e.cronograma.overdue ? 800 : 600 }}
+                    style={{ fontSize: 10, color: e.cronograma.overdue ? C.red : C.t2, fontFamily: C.mono, marginTop: 3, fontWeight: e.cronograma.overdue ? 650 : 600 }}
                   >
                     {fmtDate(e.cronograma.plannedStartISO)}
                     {e.cronograma.plannedEndISO && e.cronograma.plannedEndISO !== e.cronograma.plannedStartISO
@@ -3544,19 +3539,19 @@ export default function ObrasScreen({ profile, signOut }) {
     const renderPriorityRow = tarea => {
       const due = diasHastaTarea(tarea);
       const done = ["finalizada", "cancelada"].includes(tarea.estado);
-      const dueColor = done ? C.t3 : (due ?? 999) < 0 ? C.red : due !== null && due <= 7 ? C.amber : C.t2;
+      const dueColor = done ? C.t3 : (due ?? 999) < 0 ? C.red : due !== null && due <= 7 ? C.cyan : C.t2;
       const etapa = etapaById.get(tarea.etapa_id);
       const deps = pendingDependencies(tarea);
       return (
         <div key={tarea.id} className="obra-task-row" role="button" tabIndex={0} onClick={() => setTareaDetalle(tarea)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setTareaDetalle(tarea); }} style={{ width: "100%", display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto" : "minmax(0,1fr) 150px 120px auto 92px", alignItems: "center", gap: 12, padding: "10px 7px", borderBottom: `1px solid ${C.b0}`, color: C.t0, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</div>
-            {deps.length > 0 && <div style={{ fontSize: 10.5, color: C.amber, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Bloqueada por: {deps.map(dep => dep.nombre).join(", ")}</div>}
+            <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</div>
+            {deps.length > 0 && <div style={{ fontSize: 10.5, color: C.cyan, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Bloqueada por: {deps.map(dep => dep.nombre).join(", ")}</div>}
             {isMobile && <div style={{ fontSize: 10.5, color: etapa?.color || C.t2, marginTop: 3 }}>{etapa?.nombre || "Sin etapa"}</div>}
           </div>
           {!isMobile && <span style={{ fontSize: 11, color: etapa?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span>}
           {!isMobile && <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><AvatarResp name={tarea.responsable} size={20} /><span style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.responsable || "Sin asignar"}</span></span>}
-          <span title={!tarea.fecha_fin_estimada && fechaPlanEtapaParaTarea(tarea) ? "Fecha heredada del plan de etapa" : undefined} style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 700, color: dueColor, whiteSpace: "nowrap" }}>
+          <span title={!tarea.fecha_fin_estimada && fechaPlanEtapaParaTarea(tarea) ? "Fecha heredada del plan de etapa" : undefined} style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 600, color: dueColor, whiteSpace: "nowrap" }}>
             {deps.length ? `${deps.length} bloqueo${deps.length > 1 ? "s" : ""}` : due === null ? "Sin fecha" : due < 0 ? `${-due}d tarde` : due === 0 ? "Hoy" : `en ${due}d`}
             {!deps.length && !tarea.fecha_fin_estimada && fechaPlanEtapaParaTarea(tarea) ? " · etapa" : ""}
           </span>
@@ -3614,19 +3609,19 @@ export default function ObrasScreen({ profile, signOut }) {
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "minmax(220px,1.7fr) minmax(170px,1fr) repeat(3,minmax(88px,auto))", gap: isMobile ? 10 : 16, alignItems: "center", marginTop: 9, padding: "10px 0 2px", borderTop: `1px solid ${C.b0}` }}>
             <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 7 }}>
-                <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700 }}>Avance general</span>
-                <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 800, color: C.t0 }}>{avance}%</span>
+                <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 600 }}>Avance general</span>
+                <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 650, color: C.t0 }}>{avance}%</span>
               </div>
               <div style={{ height: 5, borderRadius: 99, background: C.b0, overflow: "hidden" }}>
                 <div style={{ width: `${avance}%`, height: "100%", borderRadius: 99, background: C.blue, transition: "width .25s ease" }} />
               </div>
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Etapa actual</div>
-              <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 700, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentStage?.nombre || "Sin etapas"}</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 600 }}>Etapa actual</div>
+              <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 600, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentStage?.nombre || "Sin etapas"}</div>
               {currentStage?.cronograma?.configured && (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, fontSize: 10.5, fontFamily: C.mono }}>
-                  <span style={{ color: C.t1, fontWeight: 850 }}>{currentStage.cronograma.relativeLabel}</span>
+                  <span style={{ color: C.t1, fontWeight: 700 }}>{currentStage.cronograma.relativeLabel}</span>
                   <span style={{ color: currentStage.cronograma.overdue ? C.red : C.t2 }}>
                     {currentStage.cronograma.plannedStartISO ? fmtDate(currentStage.cronograma.plannedStartISO) : "esperando desmolde"}
                   </span>
@@ -3634,16 +3629,16 @@ export default function ObrasScreen({ profile, signOut }) {
               )}
             </div>
             <div>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Salud</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: health.color, fontSize: 11.5, fontWeight: 700, marginTop: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: health.color }} />{health.label}</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 600 }}>Salud</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: health.color, fontSize: 11.5, fontWeight: 600, marginTop: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: health.color }} />{health.label}</div>
             </div>
             <div>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Etapas fuera de plan</div>
-              <div style={{ fontFamily: C.mono, fontSize: 15, color: etapasAtrasadas.length ? C.red : C.t0, fontWeight: 800, marginTop: 2 }}>{etapasAtrasadas.length}</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 600 }}>Etapas fuera de plan</div>
+              <div style={{ fontFamily: C.mono, fontSize: 15, color: etapasAtrasadas.length ? C.red : C.t0, fontWeight: 650, marginTop: 2 }}>{etapasAtrasadas.length}</div>
             </div>
             <div>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Sin responsable</div>
-              <div style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 800, marginTop: 2 }}>{sinResponsableN}</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 600 }}>Sin responsable</div>
+              <div style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 650, marginTop: 2 }}>{sinResponsableN}</div>
             </div>
           </div>
 
@@ -3654,7 +3649,7 @@ export default function ObrasScreen({ profile, signOut }) {
             ].map(([key, label, count]) => {
               const active = detailView === key;
               return (
-                <button key={key} type="button" onClick={() => key === "tareas" ? abrirTareas() : setDetailView(key)} style={{ position: "relative", border: "none", background: "transparent", padding: "7px 1px 10px", color: active ? C.t0 : C.t2, fontSize: 12, fontWeight: 750, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                <button key={key} type="button" onClick={() => key === "tareas" ? abrirTareas() : setDetailView(key)} style={{ position: "relative", border: "none", background: "transparent", padding: "7px 1px 10px", color: active ? C.t0 : C.t2, fontSize: 12, fontWeight: 650, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
                   {label}{count !== null && <span style={{ marginLeft: 6, color: active ? C.blue : C.t3, fontFamily: C.mono, fontSize: 10.5 }}>{count}</span>}
                   {active && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, borderRadius: 99, background: C.blue }} />}
                 </button>
@@ -3671,16 +3666,16 @@ export default function ObrasScreen({ profile, signOut }) {
               <section data-tour="obras-ruta-produccion" style={{ padding: isMobile ? 12 : "13px 14px 11px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 9 }}>
                   <div>
-                    <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 800 }}>Ruta de producción</div>
+                    <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 650 }}>Ruta de producción</div>
                     <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2 }}>Plan relativo a la fecha de desmolde.</div>
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    {esGestion && <button data-tour="obras-vacaciones" type="button" onClick={() => setVacacionesModal(obra)} style={{ border: `1px solid ${obraPeriods.length ? C.b1 : C.b0}`, background: obraPeriods.length ? C.s1 : "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Vacaciones{obraNonWorkingDays ? ` · ${obraNonWorkingDays}d` : ""}</button>}
-                    {esGestion && <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Gestionar etapas</button>}
+                    {esGestion && <button data-tour="obras-vacaciones" type="button" onClick={() => setVacacionesModal(obra)} style={{ border: `1px solid ${obraPeriods.length ? C.b1 : C.b0}`, background: obraPeriods.length ? C.s1 : "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: C.sans }}>Vacaciones{obraNonWorkingDays ? ` · ${obraNonWorkingDays}d` : ""}</button>}
+                    {esGestion && <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: C.sans }}>Gestionar etapas</button>}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingBottom: 10, borderBottom: `1px solid ${C.b0}`, fontSize: 10.5, color: C.t2 }}>
-                  <span style={{ color: desmoldePlan?.projected ? C.t0 : C.amber, fontFamily: C.mono, fontWeight: 800 }}>
+                  <span style={{ color: desmoldePlan?.projected ? C.t0 : C.cyan, fontFamily: C.mono, fontWeight: 650 }}>
                     S0 {desmoldePlan?.projected
                       ? desmoldePlan.projected.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
                       : "cargar desmolde en Fechas"}
@@ -3696,7 +3691,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     <><span style={{ color: C.b2 }}>·</span><span>{obraNonWorkingDays} días no laborables aplicados</span></>
                   )}
                   {etapasSinUbicar > 0 && (
-                    <><span style={{ color: C.b2 }}>·</span><span style={{ color: C.amber, fontWeight: 750 }}>{etapasSinUbicar} sin ubicar</span></>
+                    <><span style={{ color: C.b2 }}>·</span><span style={{ color: C.cyan, fontWeight: 650 }}>{etapasSinUbicar} sin ubicar</span></>
                   )}
                 </div>
                 {renderStageRail(true)}
@@ -3706,10 +3701,10 @@ export default function ObrasScreen({ profile, signOut }) {
                 <section style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <div>
-                      <div style={{ fontSize: 14, color: C.t0, fontWeight: 800 }}>Trabajo prioritario</div>
+                      <div style={{ fontSize: 14, color: C.t0, fontWeight: 650 }}>Trabajo prioritario</div>
                       <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>Ordenado por vencimiento y prioridad.</div>
                     </div>
-                    <button type="button" onClick={() => abrirTareas()} style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Abrir etapa actual</button>
+                    <button type="button" onClick={() => abrirTareas()} style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: C.sans }}>Abrir etapa actual</button>
                   </div>
                   <div style={{ borderTop: `1px solid ${C.b1}` }}>
                     {priorityTasks.slice(0, 7).map(renderPriorityRow)}
@@ -3718,11 +3713,11 @@ export default function ObrasScreen({ profile, signOut }) {
                 </section>
 
                 <aside style={{ minWidth: 0, borderLeft: isMobile ? "none" : `1px solid ${C.b0}`, paddingLeft: isMobile ? 0 : 24 }}>
-                  <div style={{ fontSize: 14, color: C.t0, fontWeight: 800, marginBottom: 4 }}>Atencion operativa</div>
+                  <div style={{ fontSize: 14, color: C.t0, fontWeight: 650, marginBottom: 4 }}>Atencion operativa</div>
                   <div style={{ fontSize: 11, color: C.t2, marginBottom: 12 }}>Lo que necesita una decision o seguimiento.</div>
                   {[
                     { key: "atrasadas", label: "Tareas atrasadas", value: atrasadasN, color: C.red },
-                    { key: "semana", label: "Vencen esta semana", value: semanaN, color: C.amber },
+                    { key: "semana", label: "Vencen esta semana", value: semanaN, color: C.cyan },
                     { key: "sinresp", label: "Sin responsable", value: sinResponsableN, color: C.t2 },
                     { key: "bloqueadas", label: "Con dependencias", value: bloqueadas.length, color: C.blue },
                   ].map(item => (
@@ -3733,12 +3728,12 @@ export default function ObrasScreen({ profile, signOut }) {
                     }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 0", border: "none", borderBottom: `1px solid ${C.b0}`, background: "transparent", color: C.t0, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: item.value ? item.color : C.b1, flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 12.5, color: item.value ? C.t1 : C.t2 }}>{item.label}</span>
-                      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 800, color: item.value ? item.color : C.t3 }}>{item.value}</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 650, color: item.value ? item.color : C.t3 }}>{item.value}</span>
                     </button>
                   ))}
 
                   <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.b1}` }}>
-                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: C.t2, fontWeight: 800, marginBottom: 10 }}>Plan actual</div>
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: C.t2, fontWeight: 650, marginBottom: 10 }}>Plan actual</div>
                     {[
                       ["En curso", enCursoN, C.blue],
                       ["Finalizadas", doneN, C.green],
@@ -3746,7 +3741,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     ].map(([label, value, color]) => (
                       <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", fontSize: 12 }}>
                         <span style={{ color: C.t2 }}>{label}</span>
-                        <span style={{ color, fontFamily: C.mono, fontWeight: 800 }}>{Math.max(0, value)}</span>
+                        <span style={{ color, fontFamily: C.mono, fontWeight: 650 }}>{Math.max(0, value)}</span>
                       </div>
                     ))}
                   </div>
@@ -3761,7 +3756,7 @@ export default function ObrasScreen({ profile, signOut }) {
           {esGestion && sinTareas && (
             <div style={{ padding: isMobile ? "14px 14px 0" : "16px 22px 0" }}>
               <button type="button" onClick={() => importarTareasAObraExistente(obra)}
-                style={{ width: "100%", padding: "10px 16px", borderRadius: 9, cursor: "pointer", border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontSize: 13, fontFamily: C.sans, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                style={{ width: "100%", padding: "10px 16px", borderRadius: 9, cursor: "pointer", border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontSize: 13, fontFamily: C.sans, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 ⬇ Importar tareas desde la plantilla de línea
               </button>
             </div>
@@ -3774,9 +3769,9 @@ export default function ObrasScreen({ profile, signOut }) {
           {activeEtapaObj && hasMatrixDetailContent(activeEtapaObj) && (
             <div style={{ margin: isMobile ? "10px 14px 0" : "12px 22px 0", padding: "9px 12px", borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}` }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: activeEtapaObj.descripcion || activeEtapaObj.observaciones ? 5 : 0 }}>
-                {activeEtapaObj.responsable && <span style={{ fontSize: 10.5, color: C.blue, fontWeight: 700 }}>Resp. {activeEtapaObj.responsable}</span>}
+                {activeEtapaObj.responsable && <span style={{ fontSize: 10.5, color: C.blue, fontWeight: 600 }}>Resp. {activeEtapaObj.responsable}</span>}
                 {activeEtapaObj.personas_necesarias && <span style={{ fontSize: 10.5, color: C.t2 }}>×{activeEtapaObj.personas_necesarias} personas</span>}
-                {activeEtapaObj.involucrados && <span style={{ fontSize: 10.5, color: C.green, fontWeight: 700 }}>{activeEtapaObj.involucrados}</span>}
+                {activeEtapaObj.involucrados && <span style={{ fontSize: 10.5, color: C.green, fontWeight: 600 }}>{activeEtapaObj.involucrados}</span>}
               </div>
               {activeEtapaObj.descripcion && <div style={{ fontSize: 11.5, color: C.t1, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{activeEtapaObj.descripcion}</div>}
               {activeEtapaObj.observaciones && <div style={{ fontSize: 11.5, color: C.t2, lineHeight: 1.45, marginTop: activeEtapaObj.descripcion ? 4 : 0, whiteSpace: "pre-wrap" }}>{activeEtapaObj.observaciones}</div>}
@@ -3796,7 +3791,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   {c.c && c.n ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.c }} /> : null}
                   {c.t}
                   <span style={{
-                    fontFamily: C.mono, fontSize: 11, fontWeight: 700,
+                    fontFamily: C.mono, fontSize: 11, fontWeight: 600,
                     color: vacio ? C.t3 : c.c || (on ? C.t0 : C.t2),
                     opacity: vacio ? 0.55 : 1,
                   }}>
@@ -3835,7 +3830,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     background: boardView === k ? C.panelSolid : "transparent",
                     color: boardView === k ? C.t0 : C.t2,
                     padding: "5px 13px", borderRadius: 8, fontSize: 12.5,
-                    fontWeight: boardView === k ? 800 : 600, cursor: "pointer", fontFamily: C.sans,
+                    fontWeight: boardView === k ? 650 : 600, cursor: "pointer", fontFamily: C.sans,
                     boxShadow: boardView === k ? "0 2px 6px -2px var(--shadow)" : "none",
                   }}
                 >
@@ -3851,7 +3846,7 @@ export default function ObrasScreen({ profile, signOut }) {
           {/* Barra de acciones bulk */}
           {bulkMode && bulkSel.size > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, margin: isMobile ? "0 14px 12px" : "0 22px 12px", padding: "8px 12px", borderRadius: 9, background: C.blueL, border: `1px solid ${C.blueB}` }}>
-              <span style={{ fontSize: 11.5, color: C.blue, fontFamily: C.mono, fontWeight: 800 }}>{bulkSel.size} sel.</span>
+              <span style={{ fontSize: 11.5, color: C.blue, fontFamily: C.mono, fontWeight: 650 }}>{bulkSel.size} sel.</span>
               <CardAct color={C.blue} onClick={() => bulkAplicar("en_progreso")}>▶ Iniciar</CardAct>
               <CardAct color={C.green} onClick={() => bulkAplicar("finalizada")}>✓ Finalizar</CardAct>
               <CardAct color={C.t2} onClick={() => bulkAplicar("pendiente")}>↩ Reiniciar</CardAct>
@@ -3867,7 +3862,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   <div key={col.key}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 2px 12px", borderBottom: `1px solid ${C.b0}` }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: col.color }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: C.t1 }}>{col.label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: C.t1 }}>{col.label}</span>
                       <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 11, color: C.t3 }}>{list.length}</span>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 9, paddingTop: 12 }}>
@@ -3901,7 +3896,7 @@ export default function ObrasScreen({ profile, signOut }) {
               {!isMobile && <div style={{ display: "grid", gridTemplateColumns: bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 96px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 96px 96px 108px", gap: 12, padding: "8px 7px", borderBottom: `1px solid ${C.b1}` }}>
                 {bulkMode && <span />}
                 <span />
-                {["Tarea", "Etapa", "Responsable", "Vence", "Estado", "Accion"].map(label => <span key={label} style={{ fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, color: C.t2, fontWeight: 800 }}>{label}</span>)}
+                {["Tarea", "Etapa", "Responsable", "Vence", "Estado", "Accion"].map(label => <span key={label} style={{ fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, color: C.t2, fontWeight: 650 }}>{label}</span>)}
               </div>}
               {vis.slice().sort((a, b) => (a.estado === "finalizada") - (b.estado === "finalizada") || (diasHastaTarea(a) ?? 999) - (diasHastaTarea(b) ?? 999)).map(t => (
                 <TaskListRow
@@ -3963,42 +3958,32 @@ export default function ObrasScreen({ profile, signOut }) {
     return {
       display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px",
       borderRadius: 7, cursor: "pointer", fontSize: 11.5, fontFamily: C.sans,
-      fontWeight: active ? 800 : 650, border: `1px solid ${active ? C.b1 : "transparent"}`,
+      fontWeight: active ? 650 : 600, border: `1px solid ${active ? C.b1 : "transparent"}`,
       background: active ? C.s1 : "transparent", color: active ? C.t0 : C.t2,
       whiteSpace: "nowrap", flexShrink: 0,
     };
   };
 
   if (showHome) return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-        <div style={{ width: isMobile ? 0 : 280, flexShrink: 0, height: "100vh", overflow: "visible" }}>
-          <Sidebar profile={profile} signOut={signOut} />
-        </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
-          <ObrasHome
-            obras={obrasConPct}
-            profile={profile}
-            onEnterMapa={(view) => {
-              if (view) setMainView(view);
-              setShowHome(false);
-            }}
-          />
-        </div>
-      </div>
-    </div>
+    <ObrasHome
+      obras={obrasConPct}
+      cargando={loading && obras.length === 0}
+      onEnterMapa={(view, filtro) => {
+        if (view) setMainView(view);
+        // Desde un indicador se ve exactamente lo que contó: ese estado en todas
+        // las líneas. La línea en foco guardada no se toca (vuelve la próxima vez).
+        if (filtro?.estado) {
+          setFiltroEstado(filtro.estado);
+          setFiltroLinea("todas");
+        }
+        setShowHome(false);
+      }}
+    />
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
+    <div style={{ position: "absolute", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         .obra-card-act { transition: filter .14s ease, transform .1s ease; }
         .obra-card-act:hover { filter: brightness(1.18); }
         .obra-card-act:active { transform: scale(.97); }
@@ -4013,72 +3998,32 @@ export default function ObrasScreen({ profile, signOut }) {
         @keyframes panelLeft  { 0%{opacity:0;transform:translateX(-16px)} 60%{opacity:1} 100%{opacity:1;transform:translateX(0)} }
         @keyframes fadeIn     { from{opacity:0} to{opacity:1} }
         @keyframes expandDown { 0%{opacity:0;transform:translateY(-6px) scaleY(0.96);transform-origin:top} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scaleY(1)} }
-        @keyframes countIn    { 0%{opacity:0;transform:translateY(6px)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0)} }
         /* ── Loop ── */
         @keyframes gPulse     { 0%,100%{opacity:1} 50%{opacity:.55} }
         @keyframes pulseDot   { 0%,100%{transform:scale(1);opacity:.8} 50%{transform:scale(2.2);opacity:0} }
         @keyframes shimmer    { 0%{background-position:-200% center} 100%{background-position:200% center} }
         @keyframes beaconRing { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
-        button:not([disabled]):hover { opacity: 0.8; }
         .obra-gantt-row { transition: background .12s, border-color .15s; }
         .obra-gantt-row:hover { background: var(--panel) !important; }
         .etapa-inner-row { transition: background .1s; }
         .etapa-inner-row:hover { background: var(--panel) !important; }
-        .bg-glow { position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        .bg-glow { position: absolute; inset: 0; pointer-events: none; z-index: 0;
           background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%); }
+                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%); }
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <div style={{ width: isMobile ? 0 : 280, flexShrink: 0, height: "100vh", overflow: "visible" }}>
-          <Sidebar profile={profile} signOut={signOut} />
-        </div>
+      <div style={{ display: "flex", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", minWidth: 0 }}>
           {/* TOPBAR — sutil cuando el mapa/obras está abierto */}
-          <div style={{ minHeight: 48, background: "var(--topbar)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "7px 10px 7px 52px" : "7px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ minHeight: 48, background: "var(--topbar)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "7px 10px" : "7px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <button type="button" onClick={() => setShowHome(true)} title="Volver al inicio de Obras" style={{ display: "flex", alignItems: "center", gap: 7, border: "none", background: "transparent", color: C.t0, cursor: "pointer", padding: "4px 2px", fontFamily: C.sans, flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-              {!isMobile && <span style={{ fontSize: 13, fontWeight: 800 }}>Producción</span>}
+              {!isMobile && <span style={{ fontSize: 13, fontWeight: 650 }}>Producción</span>}
             </button>
             <div style={{ width: 1, height: 22, background: C.b0, flexShrink: 0 }} />
             {/* Pills compactos: solo dot + número + label */}
-            <div style={{ display: "none" }}>
-              {/* Botón volver a home */}
-              <button type="button" onClick={() => setShowHome(true)}
-                title="Volver al inicio de Obras"
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6,
-                  border: "1px solid var(--panel-2)", background: "var(--panel)",
-                  color: "var(--border-3)", cursor: "pointer", fontSize: 11,
-                  fontFamily: C.mono, letterSpacing: 1, marginRight: 4, transition: "all .15s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-2)"; e.currentTarget.style.color = "var(--text)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--panel-2)"; e.currentTarget.style.color = "var(--border-3)"; }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                Obras
-              </button>
-              <div style={{ width: 1, height: 12, background: "var(--panel-2)", marginRight: 4 }}/>
-              {[
-                {label:"Activas",   n:stats.activas,    c:C.obra.activa.dot   },
-                {label:"Pausadas",  n:stats.pausadas,   c:C.obra.pausada.dot  },
-                {label:"Terminadas",n:stats.terminadas, c:C.obra.terminada.dot},
-              ].map(({label, n, c}, i) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5,
-                  padding: "3px 10px", borderRadius: 6,
-                  background: "var(--panel)",
-                  border: `1px solid var(--panel-2)`,
-                  borderLeft: `2px solid ${c}`,
-                  animation: `countIn 0.4s ease ${i * 0.08}s both` }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: c,
-                    boxShadow: `0 0 6px ${c}80` }}/>
-                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: c }}>
-                    <AnimatedNumber value={n} duration={800}/>
-                  </span>
-                  <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1,
-                    textTransform: "uppercase" }}>{label}</span>
-                </div>
-              ))}
-            </div>
             <div style={{ display: "flex", gap: 2, minWidth: 0, overflowX: "auto", scrollbarWidth: "none", flex: 1 }}>
               <button type="button" onClick={() => setMainView("obras")} style={topNavButtonStyle("obras")}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
               <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={topNavButtonStyle("mapa")}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
@@ -4125,19 +4070,19 @@ export default function ObrasScreen({ profile, signOut }) {
               <div style={{ minHeight: 54, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, flexWrap: "wrap" }}>
                 <div data-tour="obras-linea-foco" style={{ display: "grid", gap: 5, minWidth: isMobile ? "100%" : 330 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 18 }}>
-                    <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>Línea enfocada</div>
+                    <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650 }}>Línea enfocada</div>
                     <span style={{ color: C.t3, fontSize: 9.5 }}>Filtra obras y edita su plantilla</span>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "minmax(150px,1fr) auto", alignItems: "stretch", gap: 7 }}>
-                    <select value={filtroLinea} onChange={e => cambiarFocoLinea(e.target.value)} style={{ ...INP, minWidth: 0, minHeight: 34, padding: "6px 30px 6px 10px", fontSize: 12, fontWeight: 750, background: C.s0 }}>
+                    <select value={filtroLinea} onChange={e => cambiarFocoLinea(e.target.value)} style={{ ...INP, minWidth: 0, minHeight: 34, padding: "6px 30px 6px 10px", fontSize: 12, fontWeight: 650, background: C.s0 }}>
                       <option value="todas">Todas las líneas</option>
                       {lineas.map(linea => <option key={linea.id} value={linea.id}>{linea.nombre}</option>)}
                     </select>
                     {esGestion && lineaEnFoco && (
-                      <button data-tour="obras-editar-linea" type="button" onClick={() => setLineasModal({ linea: lineaEnFoco })} title="Ordenar etapas, editar tareas y asignar materiales" style={{ minHeight: 34, border: `1px solid ${C.b1}`, background: C.s0, color: C.t0, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}>Configurar línea</button>
+                      <button data-tour="obras-editar-linea" type="button" onClick={() => setLineasModal({ linea: lineaEnFoco })} title="Ordenar etapas, editar tareas y asignar materiales" style={{ minHeight: 34, border: `1px solid ${C.b1}`, background: C.s0, color: C.t0, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11, fontWeight: 650, fontFamily: C.sans, whiteSpace: "nowrap" }}>Configurar línea</button>
                     )}
                     {esGestion && !lineaEnFoco && (
-                      <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ minHeight: 34, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 11, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Nueva línea</button>
+                      <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ minHeight: 34, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 11, fontWeight: 650, fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Nueva línea</button>
                     )}
                   </div>
                 </div>
@@ -4151,31 +4096,13 @@ export default function ObrasScreen({ profile, signOut }) {
                   ].map(([value, label, count]) => {
                     const active = filtroEstado === value;
                     return (
-                      <button key={value} type="button" onClick={() => setFiltroEstado(value)} style={{ border: `1px solid ${active ? C.b1 : "transparent"}`, background: active ? C.s1 : "transparent", color: active ? C.t0 : C.t2, padding: "6px 9px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: active ? 800 : 650, whiteSpace: "nowrap" }}>
+                      <button key={value} type="button" onClick={() => setFiltroEstado(value)} style={{ border: `1px solid ${active ? C.b1 : "transparent"}`, background: active ? C.s1 : "transparent", color: active ? C.t0 : C.t2, padding: "6px 9px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: active ? 650 : 600, whiteSpace: "nowrap" }}>
                         {label} <span style={{ marginLeft: 4, fontFamily: C.mono, color: active ? C.t1 : C.t3 }}>{count}</span>
                       </button>
                     );
                   })}
                 </div>
                 <div style={{ marginLeft: isMobile ? 0 : "auto", fontSize: 10.5, color: C.t2, whiteSpace: "nowrap" }}>{obrasFilt.length} obra{obrasFilt.length === 1 ? "" : "s"} visibles</div>
-              </div>
-              <div style={{ display: "none" }}>
-                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
-                {[["todos","Todos"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v, l]) => (
-                  <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{ border: filtroEstado === v ? `1px solid ${C.b1}` : `1px solid var(--panel)`, background: filtroEstado === v ? C.s1 : "transparent", color: filtroEstado === v ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l}</button>
-                ))}
-                <div style={{ width: 1, height: 12, background: C.b0, margin: "0 3px" }} />
-                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Línea</span>
-                <button type="button" onClick={() => setFiltroLinea("todas")} style={{ border: filtroLinea === "todas" ? `1px solid ${C.b1}` : `1px solid var(--panel)`, background: filtroLinea === "todas" ? C.s1 : "transparent", color: filtroLinea === "todas" ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Todas</button>
-                {lineas.map(l => (
-                  <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <button type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid var(--panel)`, borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: "5px 0 0 5px", cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l.nombre}</button>
-                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid var(--panel)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 10, fontFamily: C.sans }}><NavIcon.Gear /></button>}
-                  </div>
-                ))}
-                {esGestion && (
-                  <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ border: "1px dashed rgba(59,130,246,0.3)", background: "transparent", color: C.primary, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, flexShrink: 0, opacity: 0.8 }}>+ Nueva línea</button>
-                )}
               </div>
 
               <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>

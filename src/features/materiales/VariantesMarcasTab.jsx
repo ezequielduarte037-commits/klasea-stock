@@ -113,12 +113,12 @@ export default function VariantesMarcasTab({ materiales = [] }) {
       <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 16, padding: 16, display: "grid", gap: 13 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 950, color: C.t0 }}>Requisitos y productos</div>
+            <div style={{ fontSize: 20, fontWeight: 750, color: C.t0 }}>Requisitos y productos</div>
             <div style={{ color: C.t2, fontSize: 12.5, marginTop: 4, maxWidth: 650, lineHeight: 1.45 }}>
               La matriz define qué necesita el barco. Cada obra elige un producto real del catálogo; compras y Pañol trabajan siempre con ese producto.
             </div>
           </div>
-          <button type="button" onClick={reload} disabled={loading} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 9, padding: "8px 11px", fontFamily: C.sans, fontWeight: 850, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
+          <button type="button" onClick={reload} disabled={loading} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 9, padding: "8px 11px", fontFamily: C.sans, fontWeight: 700, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
             <RefreshCw size={14} /> {loading ? "Actualizando…" : "Actualizar"}
           </button>
         </div>
@@ -127,7 +127,7 @@ export default function VariantesMarcasTab({ materiales = [] }) {
           <Stat icon={Link2} label="Requisitos" value={stats.requirements} color={C.blue} />
           <Stat icon={PackageCheck} label="Productos vinculados" value={stats.products} color={C.violet} />
           <Stat icon={CheckCircle2} label="Obras resueltas" value={stats.resolved} color={C.green} />
-          <Stat icon={AlertTriangle} label="Obras pendientes" value={stats.pending} color={stats.pending ? C.amber : C.green} />
+          <Stat icon={AlertTriangle} label="Obras pendientes" value={stats.pending} color={stats.pending ? C.cyan : C.green} />
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -140,7 +140,7 @@ export default function VariantesMarcasTab({ materiales = [] }) {
           </select>
         </div>
         {error && (
-          <div style={{ border: `1px solid ${C.redB}`, background: "rgba(239,68,68,.08)", color: C.red, borderRadius: 10, padding: "9px 11px", fontSize: 12, fontWeight: 800 }}>
+          <div style={{ border: `1px solid ${C.redB}`, background: "rgba(239,68,68,.08)", color: C.red, borderRadius: 10, padding: "9px 11px", fontSize: 12, fontWeight: 650 }}>
             {error}
           </div>
         )}
@@ -151,33 +151,33 @@ export default function VariantesMarcasTab({ materiales = [] }) {
           const total = Number(migration.obras_total || 0);
           const resolved = Number(migration.obras_resueltas || 0);
           return (
-            <section key={requirement.id} style={{ border: `1px solid ${pending ? C.amberB : C.b0}`, background: C.s0, borderRadius: 13, padding: 12, display: "grid", gap: 10 }}>
+            <section key={requirement.id} style={{ border: `1px solid ${pending ? C.cyanB : C.b0}`, background: C.s0, borderRadius: 13, padding: 12, display: "grid", gap: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 12, alignItems: "start" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <span style={{ color: C.t0, fontSize: 13.5, fontWeight: 950 }}>{requirement.descripcion}</span>
-                    <span style={{ color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 900 }}>REQUISITO</span>
+                    <span style={{ color: C.t0, fontSize: 13.5, fontWeight: 750 }}>{requirement.descripcion}</span>
+                    <span style={{ color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 700 }}>REQUISITO</span>
                   </div>
                   <div style={{ color: C.t3, fontSize: 10.8, marginTop: 3 }}>{[requirement.codigo, requirement.proveedor].filter(Boolean).join(" · ") || "sin código"}</div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 900 }}>{resolved}/{total} obras resueltas</span>
-                  {pending > 0 && <span style={{ color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 900 }}>{pending} pendientes</span>}
+                  <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700 }}>{resolved}/{total} obras resueltas</span>
+                  {pending > 0 && <span style={{ color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700 }}>{pending} pendientes</span>}
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {products.map(({ product, link }) => (
-                  <span key={product.id} title={link.variante_legacy ? `Migrado desde: ${link.variante_legacy}` : "Producto compatible"} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t1, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", fontSize: 10.8, fontWeight: 850 }}>
+                  <span key={product.id} title={link.variante_legacy ? `Migrado desde: ${link.variante_legacy}` : "Producto compatible"} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t1, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", fontSize: 10.8, fontWeight: 700 }}>
                     <PackageCheck size={11} color={C.green} /> {product.descripcion}
                   </span>
                 ))}
-                {!products.length && <span style={{ color: C.amber, fontSize: 11.5, fontWeight: 800 }}>Todavía no tiene productos compatibles.</span>}
+                {!products.length && <span style={{ color: C.cyan, fontSize: 11.5, fontWeight: 650 }}>Todavía no tiene productos compatibles.</span>}
               </div>
 
               {legacy.length > 0 && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 8 }}>
-                  <span style={{ color: C.t3, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: .7 }}>Variantes anteriores</span>
+                  <span style={{ color: C.t3, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .7 }}>Variantes anteriores</span>
                   {legacy.map((variant) => <span key={variant} style={{ color: C.t2, fontSize: 10.5 }}>{variant}</span>)}
                 </div>
               )}
@@ -199,8 +199,8 @@ function Stat({ icon, label, value, color }) {
     <div style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 11, padding: "9px 11px", display: "grid", gridTemplateColumns: "30px 1fr", gap: 9, alignItems: "center" }}>
       <span style={{ width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: 9, color, background: `${color}18`, border: `1px solid ${color}35` }}>{createElement(icon, { size: 15 })}</span>
       <span>
-        <span style={{ display: "block", color, fontFamily: C.mono, fontSize: 17, fontWeight: 950 }}>{value}</span>
-        <span style={{ display: "block", color: C.t2, fontSize: 9.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: .55 }}>{label}</span>
+        <span style={{ display: "block", color, fontFamily: C.mono, fontSize: 17, fontWeight: 750 }}>{value}</span>
+        <span style={{ display: "block", color: C.t2, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .55 }}>{label}</span>
       </span>
     </div>
   );

@@ -22,7 +22,7 @@ import { addRequestItem, createPurchaseRequest } from "@/features/compras/purcha
 const HORIZONTE_DIAS = 30;
 
 // Paleta neón para las trazas del radar (se ciclan si hay más productos).
-const TRAZAS = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#60a5fa", "#fb923c", "#4ade80"];
+const TRAZAS = ["#22d3ee", "#a78bfa", "#34d399", "#e879f9", "#f472b6", "#60a5fa", "#fb923c", "#4ade80"];
 
 const glass = {
   background: "linear-gradient(160deg, rgba(15,23,42,0.72), rgba(15,23,42,0.55))",
@@ -45,8 +45,8 @@ function KpiHud({ icon, label, value, tone = "#22d3ee", sub }) {
         {icon}
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 950, color: "#e2e8f0", lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: 9.5, color: "#94a3b8", fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.1, marginTop: 4 }}>{label}</div>
+        <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 750, color: "#e2e8f0", lineHeight: 1 }}>{value}</div>
+        <div style={{ fontSize: 9.5, color: "#94a3b8", fontWeight: 650, textTransform: "uppercase", letterSpacing: 1.1, marginTop: 4 }}>{label}</div>
         {sub && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>{sub}</div>}
       </div>
     </div>
@@ -57,14 +57,14 @@ function TooltipHud({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ ...glass, padding: "10px 13px", borderRadius: 12 }}>
-      <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+      <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 650, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
         Día +{label}
       </div>
       {payload.filter((p) => p.value != null).map((p) => (
         <div key={p.dataKey} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, marginBottom: 2 }}>
           <span style={{ width: 8, height: 8, borderRadius: 3, background: p.stroke, boxShadow: `0 0 8px ${p.stroke}` }} />
           <span style={{ color: "#cbd5e1", maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-          <span style={{ fontFamily: C.mono, fontWeight: 900, color: p.value <= 0 ? "#f87171" : "#e2e8f0", marginLeft: "auto" }}>{fmtQty(p.value)}</span>
+          <span style={{ fontFamily: C.mono, fontWeight: 700, color: p.value <= 0 ? "#f87171" : "#e2e8f0", marginLeft: "auto" }}>{fmtQty(p.value)}</span>
         </div>
       ))}
     </div>
@@ -179,8 +179,8 @@ export default function RadarProfeta() {
             <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 30%, rgba(34,211,238,0.25) 50%, transparent 70%)", animation: "profetaScan 2.8s linear infinite" }} />
           </div>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 950, color: C.text, letterSpacing: 0.3 }}>EL PROFETA</div>
-            <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.4, fontWeight: 750 }}>Radar predictivo de quiebres · próximos {HORIZONTE_DIAS} días</div>
+            <div style={{ fontSize: 18, fontWeight: 750, color: C.text, letterSpacing: 0.3 }}>EL PROFETA</div>
+            <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.4, fontWeight: 650 }}>Radar predictivo de quiebres · próximos {HORIZONTE_DIAS} días</div>
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -192,7 +192,7 @@ export default function RadarProfeta() {
       {/* ── KPIs ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
         <KpiHud icon={<Zap size={17} />} label="Comprar hoy" value={urgentes.length} tone="#f87171" sub="quiebre antes de reposición" />
-        <KpiHud icon={<AlertTriangle size={17} />} label="En riesgo (14 días)" value={enRiesgo14} tone="#fbbf24" />
+        <KpiHud icon={<AlertTriangle size={17} />} label="En riesgo (14 días)" value={enRiesgo14} tone="#fb7185" />
         <KpiHud icon={<Activity size={17} />} label="Bajo vigilancia" value={alertas.length} tone="#22d3ee" sub="con consumo o demanda activa" />
         <KpiHud icon={<ShieldCheck size={17} />} label="Borradores generados" value={creados.size} tone="#34d399" sub="en esta sesión" />
       </div>
@@ -203,7 +203,7 @@ export default function RadarProfeta() {
         {/* Radar */}
         <div style={{ ...glass, padding: "16px 14px 8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 8px 10px", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 900, color: "#e2e8f0", textTransform: "uppercase", letterSpacing: 1 }}>Proyección de stock</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e2e8f0", textTransform: "uppercase", letterSpacing: 1 }}>Proyección de stock</div>
             <div style={{ fontSize: 10.5, color: "#64748b" }}>curvas = stock proyectado según consumo real de 60 días</div>
           </div>
 
@@ -223,8 +223,8 @@ export default function RadarProfeta() {
 
                 {/* Zona de peligro: stock por debajo del colchón de seguridad */}
                 <ReferenceArea y1={0} y2={zonaPeligroY} fill="rgba(248,113,113,0.09)" stroke="rgba(248,113,113,0.35)" strokeDasharray="5 5"
-                  label={{ value: "⚠ ZONA DE QUIEBRE", position: "insideBottomLeft", fill: "#f87171", fontSize: 10, fontWeight: 800, letterSpacing: 2 }} />
-                <ReferenceLine x={0} stroke="rgba(34,211,238,0.5)" strokeDasharray="4 4" label={{ value: "HOY", position: "top", fill: "#22d3ee", fontSize: 10, fontWeight: 800 }} />
+                  label={{ value: "⚠ ZONA DE QUIEBRE", position: "insideBottomLeft", fill: "#f87171", fontSize: 10, fontWeight: 650, letterSpacing: 2 }} />
+                <ReferenceLine x={0} stroke="rgba(34,211,238,0.5)" strokeDasharray="4 4" label={{ value: "HOY", position: "top", fill: "#22d3ee", fontSize: 10, fontWeight: 650 }} />
 
                 {/* Día de quiebre de cada producto urgente */}
                 {enRadar.filter((a) => a.requiere_compra_urgente && Number(a.dias_para_quiebre) <= HORIZONTE_DIAS).map((a) => (
@@ -262,7 +262,7 @@ export default function RadarProfeta() {
 
         {/* Panel de urgencias */}
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: "#f87171", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6 }}>
             <Zap size={13} /> Comprar hoy ({urgentes.length})
           </div>
           {loading && <div style={{ ...glass, padding: 18, color: "#64748b", fontSize: 12, textAlign: "center" }}>Analizando…</div>}
@@ -276,9 +276,9 @@ export default function RadarProfeta() {
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                   <span className="profeta-urgente" style={{ width: 8, height: 8, borderRadius: 99, background: "#f87171", boxShadow: "0 0 10px #f87171", marginTop: 5, flexShrink: 0 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 800, color: "#e2e8f0", lineHeight: 1.3 }}>{a.descripcion}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 650, color: "#e2e8f0", lineHeight: 1.3 }}>{a.descripcion}</div>
                     <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginTop: 5, fontSize: 10.5, color: "#94a3b8" }}>
-                      <span style={{ color: "#f87171", fontWeight: 800, fontFamily: C.mono }}>
+                      <span style={{ color: "#f87171", fontWeight: 650, fontFamily: C.mono }}>
                         {a.dias_para_quiebre != null ? `quiebre en ${fmtQty(a.dias_para_quiebre)}d` : "sin stock"}
                       </span>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
@@ -295,7 +295,7 @@ export default function RadarProfeta() {
                   style={{
                     marginTop: 10, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                     padding: "9px 12px", borderRadius: 10, cursor: (creando || generado) ? "default" : "pointer",
-                    fontSize: 12, fontWeight: 900, fontFamily: C.sans,
+                    fontSize: 12, fontWeight: 700, fontFamily: C.sans,
                     border: `1px solid ${generado ? "rgba(52,211,153,0.4)" : "rgba(34,211,238,0.4)"}`,
                     background: generado ? "rgba(52,211,153,0.12)" : "rgba(34,211,238,0.1)",
                     color: generado ? "#34d399" : "#22d3ee",

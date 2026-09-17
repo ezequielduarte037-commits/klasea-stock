@@ -72,7 +72,7 @@ const labelStyle = {
   fontSize: 10,
   letterSpacing: 1.1,
   textTransform: "uppercase",
-  fontWeight: 800,
+  fontWeight: 650,
   marginBottom: 5,
 };
 
@@ -336,7 +336,7 @@ function toneButton(color, active = false) {
     padding: "7px 10px",
     cursor: "pointer",
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 650,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
   };
@@ -367,7 +367,7 @@ function StatBox({ label, value, color = C.text }) {
       minWidth: 0,
     }}>
       <div style={{ ...labelStyle, marginBottom: 4 }}>{label}</div>
-      <div style={{ color, fontFamily: C.mono, fontSize: 18, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ color, fontFamily: C.mono, fontSize: 18, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {value}
       </div>
     </div>
@@ -403,7 +403,7 @@ function ItemMeta({ notes, linkUrl }) {
             gap: 3,
             color: C.cyan,
             textDecoration: "none",
-            fontWeight: 800,
+            fontWeight: 650,
             whiteSpace: "nowrap",
           }}
         >
@@ -1114,7 +1114,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
             <Table2 size={15} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Adicionales</div>
+            <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Adicionales</div>
             <div style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{boards.length} tablas</div>
           </div>
           <span style={{ flex: 1 }} />
@@ -1135,7 +1135,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
         ) : (
           <form onSubmit={handleCreateBoard} style={{ display: "grid", gap: 8, border: `1px solid ${C.border}`, borderRadius: 8, background: C.panel, padding: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>Nueva tabla</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Nueva tabla</div>
               <span style={{ flex: 1 }} />
               <button type="button" onClick={() => setShowBoardForm(false)} style={{ ...iconButton(C.dim), width: 26, height: 26 }}>
                 <X size={12} />
@@ -1184,7 +1184,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                     color: C.dim,
                     fontFamily: C.sans,
                     fontSize: 9.5,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     letterSpacing: 1.1,
                     textTransform: "uppercase",
                     cursor: plegable ? "pointer" : "default",
@@ -1230,7 +1230,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                         <span style={{ position: "absolute", left: 0, top: 8, bottom: 8, width: 3, borderRadius: "0 3px 3px 0", background: C.cyan }} />
                       )}
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: "block", fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                           {board.name}
                         </span>
                         <span style={{ display: "block", marginTop: 2, color: C.dim, fontSize: 11 }}>
@@ -1241,7 +1241,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                       {/* El "$0" iba en verde igual que un millón: los dos gritaban
                           lo mismo. Sin plata cargada no se muestra importe. */}
                       {conPlata && (
-                        <span style={{ display: "grid", gap: 2, justifyItems: "end", alignContent: "center", color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 900, whiteSpace: "nowrap" }}>
+                        <span style={{ display: "grid", gap: 2, justifyItems: "end", alignContent: "center", color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                           <span>{compactMoney(stat.totalArs, "ARS")}</span>
                           {stat.totalUsd > 0 && <span>{compactMoney(stat.totalUsd, "USD")}</span>}
                         </span>
@@ -1267,7 +1267,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                 <Ship size={17} />
               </div>
               <div style={{ minWidth: 0, flex: "1 1 220px" }}>
-                <div style={{ color: C.text, fontSize: 18, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ color: C.text, fontSize: 18, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {selected.name}
                 </div>
                 <div style={{ color: C.dim, fontSize: 12 }}>
@@ -1320,7 +1320,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ ...labelStyle, marginBottom: 3 }}>Audio del barco</div>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {selectedAudio}
                   </div>
                 </div>
@@ -1393,7 +1393,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                     fontSize: 10,
                     textTransform: "uppercase",
                     letterSpacing: 1.1,
-                    fontWeight: 850,
+                    fontWeight: 700,
                   }}>
                     <span>Fecha</span>
                     <span>Proveedor</span>
@@ -1424,9 +1424,9 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.provider || "-"}</span>
                           <span style={{ minWidth: 0 }}>
                             {item.cantidad != null && String(item.cantidad).trim() !== "" && (
-                              <span style={{ color: C.blue, fontWeight: 800, marginRight: 6, fontFamily: C.mono }}>{String(item.cantidad).trim()}×</span>
+                              <span style={{ color: C.blue, fontWeight: 650, marginRight: 6, fontFamily: C.mono }}>{String(item.cantidad).trim()}×</span>
                             )}
-                            <span style={{ color: C.text, fontWeight: 750 }}>{item.detail}</span>
+                            <span style={{ color: C.text, fontWeight: 650 }}>{item.detail}</span>
                             {item.purchase_request_id && (
                               <button type="button" onClick={() => onSelectRequest?.(item.purchase_request_id)} style={{ marginLeft: 7, border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0, verticalAlign: "middle" }} title="Abrir pedido">
                                 <ExternalLink size={12} />
@@ -1434,7 +1434,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                             )}
                             <ItemMeta notes={item.notes} linkUrl={item.link_url} />
                           </span>
-                          <span style={{ textAlign: "right", color: item.amount !== null && item.amount !== undefined ? C.green : C.dim, fontFamily: C.mono, fontWeight: 900 }}>
+                          <span style={{ textAlign: "right", color: item.amount !== null && item.amount !== undefined ? C.green : C.dim, fontFamily: C.mono, fontWeight: 700 }}>
                             {money(item.amount, item.currency)}
                           </span>
                           <span style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
@@ -1496,7 +1496,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                     color: C.muted,
                     fontFamily: C.sans,
                     fontSize: 12,
-                    fontWeight: 850,
+                    fontWeight: 700,
                     cursor: "pointer",
                   }}
                 >
@@ -1546,7 +1546,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                       }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                            <span style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                            <span style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                               {request.title}
                             </span>
                             {hint && (
@@ -1557,7 +1557,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                                 borderRadius: 999,
                                 padding: "2px 7px",
                                 fontSize: 10,
-                                fontWeight: 900,
+                                fontWeight: 700,
                                 flexShrink: 0,
                               }}>
                                 {hint}
@@ -1583,7 +1583,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                                 </div>
                               )}
                               {allItems.length !== scopedItems.length && (
-                                <div style={{ color: C.cyan, fontSize: 11, fontWeight: 800 }}>
+                                <div style={{ color: C.cyan, fontSize: 11, fontWeight: 650 }}>
                                   {scopedItems.length} de {allItems.length} items coinciden con esta obra
                                 </div>
                               )}

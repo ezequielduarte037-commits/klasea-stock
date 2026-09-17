@@ -4,6 +4,7 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import Cargando from "@/components/ui/Cargando";
 
 // Modal para vincular el WhatsApp del usuario actual con su cuenta del sistema.
 // Genera un código de 6 dígitos vía RPC `generate_phone_verification_code`,
@@ -159,7 +160,7 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
             <Phone size={16} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>Vincular WhatsApp</div>
+            <div style={{ fontSize: 15, fontWeight: 650 }}>Vincular WhatsApp</div>
             <div style={{ fontSize: 12, color: C.dim }}>
               Pedidos a compras desde tu celular
             </div>
@@ -172,9 +173,7 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
         </div>
 
         {loading ? (
-          <div style={{ padding: "24px 0", textAlign: "center", color: C.dim, fontSize: 13 }}>
-            Cargando…
-          </div>
+          <Cargando />
         ) : linked ? (
           // ── YA VINCULADO ───────────────────────────────────────────────
           <div style={{ display: "grid", gap: 14 }}>
@@ -187,10 +186,10 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
             }}>
               <Check size={16} color={C.green} />
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, color: C.dim, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
+                <div style={{ fontSize: 12, color: C.dim, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
                   Vinculado
                 </div>
-                <div style={{ fontSize: 14, fontFamily: C.mono, fontWeight: 700, color: C.text }}>
+                <div style={{ fontSize: 14, fontFamily: C.mono, fontWeight: 600, color: C.text }}>
                   +{linked.phone}
                 </div>
               </div>
@@ -211,7 +210,7 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
                 padding: "9px 14px",
                 cursor: "pointer",
                 fontSize: 12.5,
-                fontWeight: 700,
+                fontWeight: 600,
                 display: "inline-flex", alignItems: "center", gap: 6,
                 justifySelf: "start",
               }}
@@ -238,7 +237,7 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
                 display: "flex", alignItems: "center", gap: 10,
               }}
             >
-              <div style={{ flex: 1, fontFamily: C.mono, fontSize: 18, fontWeight: 800, letterSpacing: 1 }}>
+              <div style={{ flex: 1, fontFamily: C.mono, fontSize: 18, fontWeight: 650, letterSpacing: 1 }}>
                 vincular <span style={{ color: C.blue }}>{code}</span>
               </div>
               <div style={{
@@ -275,7 +274,7 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
                 padding: "7px 12px",
                 cursor: "pointer",
                 fontSize: 11.5,
-                fontWeight: 700,
+                fontWeight: 600,
                 justifySelf: "start",
               }}
             >
@@ -305,7 +304,7 @@ export default function VincularWhatsAppModal({ open, onClose, profile }) {
                 padding: "11px 14px",
                 cursor: generating ? "default" : "pointer",
                 fontSize: 13,
-                fontWeight: 800,
+                fontWeight: 650,
                 opacity: generating ? 0.6 : 1,
               }}
             >

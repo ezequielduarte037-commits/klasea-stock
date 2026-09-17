@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useId, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 
 export default function useAlertas(obraId = null, { enabled = true, summaryOnly = false } = {}) {
+  // Nombre de canal propio por instancia. supabase.channel(nombre) devuelve el
+  // canal existente si ya hay uno con ese nombre; cuando una campanita se
+  // desmontaba y otra se montaba en el mismo instante (cruzar el ancho de
+  // celular a escritorio, girar una tablet), la nueva recibía el canal viejo ya
+  // suscripto, .on() tiraba error y se caía la app entera.
+  const instancia = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [alertas,   setAlertas]   = useState([]);
   const [promedios, setPromedios] = useState([]);
   const [gaps,      setGaps]      = useState([]);
@@ -80,7 +86,7 @@ export default function useAlertas(obraId = null, { enabled = true, summaryOnly 
     };
 
     const ch = supabase
-      .channel(`rt-alertas-${summaryOnly ? "summary" : "full"}-${obraId || "all"}`)
+      .channel(`rt-alertas-${summaryOnly ? "summary" : "full"}-${obraId || "all"}-${instancia}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "alertas" }, scheduleRefresh)
       .subscribe();
 
@@ -103,7 +109,7 @@ export default function useAlertas(obraId = null, { enabled = true, summaryOnly 
       if (interval) window.clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisible);
     };
-  }, [obraId, cargar, enabled, summaryOnly]);
+  }, [obraId, cargar, enabled, summaryOnly, instancia]);
 
   // Mapa proceso_id -> promedio
   const promediosPorProceso = useMemo(() => {

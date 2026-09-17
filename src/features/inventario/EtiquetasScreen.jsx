@@ -75,7 +75,7 @@ export default function EtiquetasScreen() {
             background: #fff; color: #000;
           }
           .lbl-card img { width: 32mm; height: 32mm; display: block; margin: 0 auto; }
-          .lbl-name { font-weight: 700; font-size: 11pt; margin-top: 2mm; line-height: 1.1; }
+          .lbl-name { font-weight: 600; font-size: 11pt; margin-top: 2mm; line-height: 1.1; }
           .lbl-code { font-family: monospace; font-size: 12pt; margin-top: 1mm; letter-spacing: 1px; }
           @page { size: A4 portrait; margin: 10mm; }
         }
@@ -83,10 +83,10 @@ export default function EtiquetasScreen() {
 
       {/* Topbar */}
       <div className="no-print" style={{ flexShrink: 0, height: 52, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-        <span style={{ fontWeight: 800, fontSize: 15 }}>Etiquetas QR · Materiales</span>
+        <span style={{ fontWeight: 650, fontSize: 15 }}>Etiquetas QR · Materiales</span>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button onClick={() => window.print()} disabled={aImprimir.length === 0}
-            style={{ background: aImprimir.length ? C.blue : "#3a3a3f", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 700, cursor: "pointer" }}>
+            style={{ background: aImprimir.length ? C.blue : "#3a3a3f", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 600, cursor: "pointer" }}>
             Imprimir {aImprimir.length} etiqueta{aImprimir.length !== 1 ? "s" : ""}
           </button>
           <button onClick={() => nav("/")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 12px", cursor: "pointer" }}>Inicio</button>
@@ -114,7 +114,7 @@ export default function EtiquetasScreen() {
             <div key={m.id} style={card}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <input type="checkbox" checked={!!sel[m.id]} onChange={e => setSel(p => ({ ...p, [m.id]: e.target.checked }))} style={{ width: 16, height: 16 }} />
-                <div style={{ fontWeight: 700, fontSize: 15, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nombre}</div>
+                <div style={{ fontWeight: 600, fontSize: 15, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nombre}</div>
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 {m.codigo

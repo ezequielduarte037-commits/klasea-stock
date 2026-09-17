@@ -42,7 +42,7 @@ function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingO
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <div style={{padding:"4px 8px",background:"rgba(167,139,250,0.15)",borderRadius:6,border:"1px solid rgba(167,139,250,0.3)"}}>
-                <span style={{fontSize:11,letterSpacing:1.1,color:"#a78bfa",textTransform:"uppercase",fontWeight: 700}}>Asignar Obra</span>
+                <span style={{fontSize:11,letterSpacing:1.1,color:"#a78bfa",textTransform:"uppercase",fontWeight: 600}}>Asignar Obra</span>
               </div>
               <span style={{fontFamily:C.mono,fontSize:14,color:C.t2}}>→ Puesto {p?.label??puestoId}</span>
             </div>
@@ -60,7 +60,7 @@ function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingO
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:600}}>{obra.codigo}</span>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:6,height:6,borderRadius:3,background:oC.glow,boxShadow:`0 0 8px ${oC.glow}`}}/>
-                  <span style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:oC.glow,fontWeight: 700}}>{oC.label}</span>
+                  <span style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:oC.glow,fontWeight: 600}}>{oC.label}</span>
                 </div>
               </div>
               {obra.descripcion&&<div style={{fontSize:13,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.descripcion}</div>}
@@ -185,7 +185,7 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
           {groups.length===0&&<div style={{padding:"32px 16px",textAlign:"center",color:C.t2,fontSize:14}}>Sin resultados para "{q}"</div>}
           {groups.map(({group,items})=>(
             <div key={group} style={{marginBottom:4}}>
-              <div style={{padding:"6px 12px 4px",fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontWeight: 700}}>{group}</div>
+              <div style={{padding:"6px 12px 4px",fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontWeight: 600}}>{group}</div>
               {items.map((item)=>{
                 const idx=flatIdx++;
                 const isSel=idx===selIdx;
@@ -363,7 +363,7 @@ function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef}){
               }}>{s.icon}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{
-                  fontSize:6.5, letterSpacing:"1.3px", fontWeight:700,
+                  fontSize:6.5, letterSpacing:"1.3px", fontWeight:600,
                   fontFamily:"'JetBrains Mono',monospace",
                   color:`${oC.glow}65`, textTransform:"uppercase",
                   marginBottom:3, lineHeight:1,
@@ -406,7 +406,7 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
       {/* Label row */}
       <div style={{ display:"flex", alignItems:"center", gap:5, color:isEditing?"rgba(255,255,255,0.75)":"rgba(255,255,255,0.45)" }}>
         <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>{field.icon}</span>
-        <span style={{ fontSize:10, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:700, lineHeight:1 }}>
+        <span style={{ fontSize:10, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:600, lineHeight:1 }}>
           {field.label}
         </span>
         {!isEditing && !empty && (
@@ -594,7 +594,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       "Estructura":     "#0891b2",
       "Interiores":     "#059669",
       "Tapicería":      "#7c3aed",
-      "Lonería":        "#b45309",
+      "Lonería":        "#db2777",
       "Electrónica":    "#db2777",
       "Equipamiento":   ac,
       "Adicionales":    ac,
@@ -857,12 +857,12 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:8,height:8,borderRadius:4,background:oC.glow,boxShadow:`0 0 12px ${oC.glow}`}}/>
-              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"var(--text)",fontWeight:800,letterSpacing:0.5}}>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"var(--text)",fontWeight:650,letterSpacing:0.5}}>
                 {obra?.codigo??`Puesto ${puesto?.label}`}
               </span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:oC.glow,fontWeight:700,
+              <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:oC.glow,fontWeight:600,
                 background:`${oC.glow}12`,padding:"2px 8px",borderRadius:4,border:`1px solid ${oC.glow}25`}}>
                 {obra?.estado?.toUpperCase()??"VACÍO"}
               </span>
@@ -886,7 +886,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
             <div style={{flex:1,height:2,background:"var(--panel-2)",borderRadius:2,overflow:"hidden"}}>
               <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 6px ${oC.glow}`,borderRadius:2,transition:"width 0.4s"}}/>
             </div>
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:oC.glow,fontWeight:700,minWidth:28}}>{obra._pct??0}%</span>
+            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:oC.glow,fontWeight:600,minWidth:28}}>{obra._pct??0}%</span>
           </div>
         )}
 
@@ -947,7 +947,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                 return(
                   <button key={String(opt.val)} onClick={()=>{setFields(f=>({...f,teca_tipo:opt.val}));setDirty(true);}}
                     style={{padding:"0 9px",border:"none",cursor:"pointer",
-                      fontSize:11,fontWeight:active?700:400,fontFamily:"'Outfit',sans-serif",
+                      fontSize:11,fontWeight:active?600:400,fontFamily:"'Outfit',sans-serif",
                       background:active&&opt.val?`${col}18`:"rgba(255,255,255,0.02)",
                       color:active&&opt.val?col:active?"var(--border-2)":"rgba(255,255,255,0.22)",
                       borderRight:"1px solid var(--panel-2)",transition:"all 0.15s"}}>
@@ -980,7 +980,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
               {/* Título de sección */}
               <div style={{display:"flex",alignItems:"center",gap:6,margin:"8px 0 5px"}}>
                 <div style={{height:1,flex:1,background:`linear-gradient(90deg,${oC.glow}30,transparent)`}}/>
-                <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:`${oC.glow}80`,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,flexShrink:0}}>{sec}</span>
+                <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:`${oC.glow}80`,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,flexShrink:0}}>{sec}</span>
                 <div style={{height:1,flex:1,background:`linear-gradient(270deg,${oC.glow}30,transparent)`}}/>
               </div>
               {/* Grid 2 cols */}
@@ -1011,7 +1011,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         {/* Notes section */}
         <div style={{display:"flex",alignItems:"center",gap:5,color:"var(--border-3)",marginBottom:6}}>
           {IC.msgcircle}
-          <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",fontWeight: 700}}>
+          <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",fontWeight: 600}}>
             Notas del Equipo
           </span>
           {notas.length>0&&<span style={{marginLeft:"auto",fontSize:10,color:oC.glow,background:`${oC.glow}12`,padding:"1px 7px",borderRadius:10,border:`1px solid ${oC.glow}25`}}>{notas.length}</span>}
@@ -1050,7 +1050,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         <button onClick={saveAll} style={{flex:1,padding:"10px",borderRadius:9,
           border:`1px solid ${dirty?oC.glow+"45":"var(--panel-2)"}`,
           background:dirty?`${oC.glow}14`:"var(--panel)",
-          color:dirty?oC.glow:"var(--border-3)",cursor:"pointer",fontSize:13,fontWeight:700,
+          color:dirty?oC.glow:"var(--border-3)",cursor:"pointer",fontSize:13,fontWeight:600,
           transition:"all 0.2s",boxShadow:dirty?`0 0 18px ${oC.glow}18`:"none",
           fontFamily:"'Outfit',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
           {dirty ? <>{IC.save} Guardar cambios</> : <>{IC.check} Sin cambios</>}
@@ -1149,7 +1149,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           strokeDashoffset={circ*0.25}
           style={{transition:"stroke-dasharray 0.9s cubic-bezier(0.22,1,0.36,1)",filter:`drop-shadow(0 0 5px ${col}99)`}}/>
         <text x={r+sw} y={r+sw+0.5} textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize="10" fontWeight="800" fontFamily="'JetBrains Mono',monospace">{ocupPct}%</text>
+          fill="#fff" fontSize="10" fontWeight="650" fontFamily="'JetBrains Mono',monospace">{ocupPct}%</text>
       </svg>
     );
   };
@@ -1204,7 +1204,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
       <div style={{padding:"14px 16px 10px",borderBottom:"1px solid var(--panel-2)",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <span style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",
-            color:"rgba(255,255,255,0.22)",fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>
+            color:"rgba(255,255,255,0.22)",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>
             Resumen
           </span>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1215,7 +1215,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                 background:hasCrit?"rgba(239,68,68,0.15)":"rgba(167,139,250,0.12)",
                 border:`1px solid ${hasCrit?"rgba(239,68,68,0.4)":"rgba(167,139,250,0.3)"}`,
                 color:hasCrit?"#fca5a5":"#c4b5fd",
-                fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",
+                fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono',monospace",
                 boxShadow:hasCrit?"0 0 12px rgba(239,68,68,0.25)":"none",
                 animation:"beacon 2s ease-in-out infinite",
               }}>
@@ -1253,19 +1253,19 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
               Puestos
             </div>
             <div style={{display:"flex",alignItems:"baseline",gap:4}}>
-              <span style={{fontSize:28,fontWeight:800,color:"#a5b4fc",
+              <span style={{fontSize:28,fontWeight:650,color:"#a5b4fc",
                 fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{ocupados}</span>
               <span style={{fontSize:14,color:"var(--border-2)",fontFamily:"'JetBrains Mono',monospace"}}>
                 /{total}
               </span>
             </div>
             <div style={{display:"flex",gap:10,marginTop:4}}>
-              <span style={{fontSize:10,color:"#34d399",fontWeight: 700}}>
+              <span style={{fontSize:10,color:"#34d399",fontWeight: 600}}>
                 {libres} libre{libres!==1?"s":""}
               </span>
               {obrasActivas.length>0&&(
                 <span style={{fontSize:10,color:"var(--border-3)"}}>
-                  avg <span style={{color:"#3b82f6",fontWeight:700}}>{progPct}%</span>
+                  avg <span style={{color:"#3b82f6",fontWeight:600}}>{progPct}%</span>
                 </span>
               )}
             </div>
@@ -1297,7 +1297,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           <div style={{marginBottom:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:10,color:"rgba(255,255,255,0.3)",letterSpacing:.5}}>Progreso promedio</span>
-              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:800,
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:650,
                 color:"#3b82f6"}}>{progPct}%</span>
             </div>
             <div style={{height:4,borderRadius:3,background:"var(--panel)",overflow:"hidden"}}>
@@ -1331,7 +1331,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                   <div style={{height:"100%",width:`${pct}%`,background:c,borderRadius:2,
                     opacity:muted?0.3:1,transition:"width 0.6s ease"}}/>
                 </div>
-                <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:800,
+                <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:650,
                   color:n>0?c:"var(--border)",minWidth:20,textAlign:"right"}}>{n}</span>
               </div>
             ))}
@@ -1344,7 +1344,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           {obrasFantasma.length>0&&(
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:"#ef444490",
-                fontFamily:"'JetBrains Mono',monospace",fontWeight:700,marginBottom:6,
+                fontFamily:"'JetBrains Mono',monospace",fontWeight:600,marginBottom:6,
                 display:"flex",alignItems:"center",gap:5}}>
                 <div style={{width:5,height:5,borderRadius:"50%",background:"#ef4444",
                   boxShadow:"0 0 6px #ef4444",animation:"beacon 1.8s ease-in-out infinite"}}/>
@@ -1360,7 +1360,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                     borderLeft:"3px solid #ef4444",
                   }}>
                     <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,
-                      fontWeight:700,color:"#fca5a5",flex:1,
+                      fontWeight:600,color:"#fca5a5",flex:1,
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {o.codigo}
                     </span>
@@ -1415,14 +1415,14 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                           background:a.color,boxShadow:`0 0 8px ${a.color}`}}/>
                       </div>
                       {/* codigo */}
-                      <span style={{fontSize:13,fontWeight:700,
+                      <span style={{fontSize:13,fontWeight:600,
                         fontFamily:"'JetBrains Mono',monospace",flex:1,
                         color:isCrit?"#fca5a5":"rgba(255,255,255,0.9)",
                         overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {a.codigo}
                       </span>
                       {/* etiqueta */}
-                      <span style={{fontSize:10,color:a.color,fontWeight:700,
+                      <span style={{fontSize:10,color:a.color,fontWeight:600,
                         flexShrink:0,textTransform:"uppercase",letterSpacing:.5,
                         background:`${a.color}10`,padding:"1px 6px",borderRadius:4,
                         border:`1px solid ${a.color}20`}}>
@@ -1470,8 +1470,8 @@ function OpsRow({color,title,sub,right,bar,onClick}){
       <div style={{width:6,height:6,borderRadius:3,background:color,flexShrink:0,boxShadow:`0 0 6px ${color}`}}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6}}>
-          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,fontWeight:800,color:"rgba(255,255,255,0.92)",letterSpacing:0.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</span>
-          {right&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:700,color,flexShrink:0}}>{right}</span>}
+          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,fontWeight:650,color:"rgba(255,255,255,0.92)",letterSpacing:0.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</span>
+          {right&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:600,color,flexShrink:0}}>{right}</span>}
         </div>
         {sub&&<div style={{fontSize:10,color:"rgba(255,255,255,0.35)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sub}</div>}
         {bar!=null&&(
@@ -1489,8 +1489,8 @@ function OpsRailSection({icon,title,count,color,children}){
     <div style={{display:"flex",flexDirection:"column",gap:5,minHeight:0}}>
       <div style={{display:"flex",alignItems:"center",gap:6,padding:"0 2px",flexShrink:0}}>
         <span style={{fontSize:10,color}}>{icon}</span>
-        <span style={{fontSize:9.5,fontWeight:800,letterSpacing:1.4,textTransform:"uppercase",color:"rgba(255,255,255,0.45)"}}>{title}</span>
-        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9.5,fontWeight:700,color,background:`${color}15`,border:`1px solid ${color}30`,padding:"0 6px",borderRadius:8,marginLeft:"auto"}}>{count}</span>
+        <span style={{fontSize:9.5,fontWeight:650,letterSpacing:1.4,textTransform:"uppercase",color:"rgba(255,255,255,0.45)"}}>{title}</span>
+        <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9.5,fontWeight:600,color,background:`${color}15`,border:`1px solid ${color}30`,padding:"0 6px",borderRadius:8,marginLeft:"auto"}}>{count}</span>
       </div>
       {children}
     </div>
@@ -1567,7 +1567,7 @@ function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,o
       <div style={{padding:"14px 14px 12px",borderBottom:"1px solid var(--panel-2)",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:800,color:"rgba(255,255,255,0.92)",letterSpacing:1.6,textTransform:"uppercase"}}>Galpón</div>
+            <div style={{fontSize:13,fontWeight:650,color:"rgba(255,255,255,0.92)",letterSpacing:1.6,textTransform:"uppercase"}}>Galpón</div>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",marginTop:1}}>{ocupados} de {total} puestos{simActiva?" · proyección":" ocupados"}</div>
           </div>
           <div onClick={()=>onCollapse(true)} style={{cursor:"pointer",padding:4,borderRadius:6,display:"flex",alignItems:"center"}}

@@ -224,7 +224,7 @@ function materialBucket(material, opciones = [], modelo = null) {
   if (!variante && mentionsLineaEje(`${condicion?.nombre || ""} ${valor} ${material.descripcion || ""}`)) {
     return { key: "linea_eje", label: "Línea eje", color: C.violet };
   }
-  if (material.condicion_valor_id) return { key: "condicionante", label: valor || "Condicionante", color: C.amber };
+  if (material.condicion_valor_id) return { key: "condicionante", label: valor || "Condicionante", color: C.cyan };
   return { key: "base", label: "Base", color: C.green };
 }
 
@@ -253,10 +253,10 @@ function ReviewBadge({ reason }) {
       title={reason || "Revisar"}
       style={{
         fontSize: 10,
-        fontWeight: 900,
-        color: C.amber,
-        background: C.amberL,
-        border: `1px solid ${C.amberB}`,
+        fontWeight: 700,
+        color: C.cyan,
+        background: C.cyanL,
+        border: `1px solid ${C.cyanB}`,
         borderRadius: 999,
         padding: "2px 7px",
         whiteSpace: "nowrap",

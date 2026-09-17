@@ -108,14 +108,14 @@ export default function AdminActivityPanel() {
     { label: "Ingresos", value: stats.sessions, detail: `últimos ${range} días`, color: C.blue, icon: <Activity size={13} /> },
     { label: "Días activos", value: stats.activeDays, detail: `${Math.round((stats.activeDays / range) * 100)}% del período`, color: C.green, icon: <Route size={13} /> },
     { label: "Tiempo estimado", value: fmtDuration(stats.totalSeconds), detail: "pestaña activa", color: C.violet, icon: <Clock3 size={13} /> },
-    { label: "Última actividad", value: stats.lastSeen ? fmtDate(stats.lastSeen) : "Sin datos", detail: "cuenta Admin", color: C.amber, icon: <Monitor size={13} /> },
+    { label: "Última actividad", value: stats.lastSeen ? fmtDate(stats.lastSeen) : "Sin datos", detail: "cuenta Admin", color: C.cyan, icon: <Monitor size={13} /> },
   ];
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "22px 28px" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 17, color: C.t0, fontWeight: 800 }}>Actividad de la cuenta Admin</div>
+          <div style={{ fontSize: 17, color: C.t0, fontWeight: 650 }}>Actividad de la cuenta Admin</div>
           <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>
             Accesos y módulos visitados. No se registran contraseñas, formularios, IP ni contenido escrito.
           </div>
@@ -126,7 +126,7 @@ export default function AdminActivityPanel() {
               border: `1px solid ${range === days ? C.blueB : C.b0}`,
               background: range === days ? C.blueS : C.panel,
               color: range === days ? C.blue : C.t2,
-              borderRadius: 8, padding: "7px 11px", cursor: "pointer", fontSize: 11, fontWeight: 800,
+              borderRadius: 8, padding: "7px 11px", cursor: "pointer", fontSize: 11, fontWeight: 650,
             }}>{days} días</button>
           ))}
           <button type="button" onClick={() => load(range)} disabled={loading} title="Actualizar" style={{
@@ -149,7 +149,7 @@ export default function AdminActivityPanel() {
               <span style={{ width: 26, height: 26, display: "grid", placeItems: "center", borderRadius: 7, color, background: `${color}15`, border: `1px solid ${color}28` }}>{icon}</span>
               {label}
             </div>
-            <div style={{ fontFamily: C.mono, color: C.t0, fontSize: typeof value === "number" ? 24 : 14, fontWeight: 850, marginTop: 10 }}>{value}</div>
+            <div style={{ fontFamily: C.mono, color: C.t0, fontSize: typeof value === "number" ? 24 : 14, fontWeight: 700, marginTop: 10 }}>{value}</div>
             <div style={{ fontSize: 10, color: C.t2, marginTop: 4 }}>{detail}</div>
           </div>
         ))}
@@ -157,14 +157,14 @@ export default function AdminActivityPanel() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,420px),1fr))", gap: 12, alignItems: "start" }}>
         <section style={{ border: `1px solid ${C.b0}`, background: C.card, borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.b0}`, color: C.t0, fontSize: 12, fontWeight: 800 }}>Módulos más visitados</div>
+          <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.b0}`, color: C.t0, fontSize: 12, fontWeight: 650 }}>Módulos más visitados</div>
           <div style={{ padding: 12, display: "grid", gap: 8 }}>
             {stats.topRoutes.map((item, index) => {
               const max = stats.topRoutes[0]?.count || 1;
               return (
                 <div key={item.route} style={{ padding: "9px 10px", borderRadius: 9, background: C.panel }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11 }}>
-                    <span style={{ color: C.t1, fontWeight: 750 }}>{index + 1}. {routeLabel(item.route)}</span>
+                    <span style={{ color: C.t1, fontWeight: 650 }}>{index + 1}. {routeLabel(item.route)}</span>
                     <span style={{ color: C.blue, fontFamily: C.mono }}>{item.count}</span>
                   </div>
                   <div style={{ height: 3, background: C.s1, borderRadius: 99, marginTop: 8, overflow: "hidden" }}>
@@ -178,7 +178,7 @@ export default function AdminActivityPanel() {
         </section>
 
         <section style={{ border: `1px solid ${C.b0}`, background: C.card, borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.b0}`, color: C.t0, fontSize: 12, fontWeight: 800 }}>Últimas sesiones</div>
+          <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.b0}`, color: C.t0, fontSize: 12, fontWeight: 650 }}>Últimas sesiones</div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
               <thead><tr>{["Inicio", "Duración", "Páginas", "Última sección", "Dispositivo"].map((label) => <th key={label} style={{ textAlign: "left", padding: "10px 12px", color: C.t2, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: `1px solid ${C.b0}` }}>{label}</th>)}</tr></thead>

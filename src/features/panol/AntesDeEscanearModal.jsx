@@ -164,10 +164,10 @@ export default function AntesDeEscanearModal({
     });
   }
 
-  const etiqueta = { fontSize: 11, fontWeight: 900, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 };
+  const etiqueta = { fontSize: 11, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 };
   const campo = {
     width: "100%", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text,
-    borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 700, outline: "none",
+    borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
   };
 
   return (
@@ -192,9 +192,9 @@ export default function AntesDeEscanearModal({
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           {guardando ? <FileText size={17} color={C.blue} /> : <ScanLine size={17} color={C.blue} />}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 950, color: C.text }}>{encabezado}</div>
+            <div style={{ fontSize: 14.5, fontWeight: 750, color: C.text }}>{encabezado}</div>
             {archivoNombre ? (
-              <div style={{ fontSize: 11, fontWeight: 750, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 11, fontWeight: 650, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {archivoNombre}
               </div>
             ) : null}
@@ -207,10 +207,10 @@ export default function AntesDeEscanearModal({
         <div style={{ padding: 16, display: "grid", gap: 14, overflowY: "auto", minHeight: 0 }}>
           {faltaMigracion ? (
             <div style={{ padding: "11px 13px", borderRadius: 9, background: C.redL, border: `1px solid ${C.redB}` }}>
-              <div style={{ fontSize: 12.5, fontWeight: 900, color: C.red, marginBottom: 4 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: C.red, marginBottom: 4 }}>
                 Falta correr la migración multiobra en Supabase
               </div>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: C.muted, lineHeight: 1.5 }}>
                 El archivo documental sigue disponible, pero <b>no se puede guardar una selección
                 de varias obras</b> hasta aplicar la migración nueva. No confirmes un remito
                 multiobra mientras aparezca este aviso.
@@ -234,11 +234,11 @@ export default function AntesDeEscanearModal({
                     style={{
                       flex: 1, border: `1px solid ${activo ? C.blueB : C.border2}`, background: activo ? C.blueL : C.panelSolid,
                       color: activo ? C.blue : C.text, borderRadius: 9, padding: "9px 8px", cursor: "pointer",
-                      fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "grid", gap: 2,
+                      fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "grid", gap: 2,
                     }}
                   >
                     <span>{opcion.etiqueta}</span>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
                   </button>
                 );
               })}
@@ -247,7 +247,7 @@ export default function AntesDeEscanearModal({
 
           <div>
             <div style={etiqueta}>
-              De qué proveedor <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional, y es su carpeta)</span>
+              De qué proveedor <span style={{ textTransform: "none", fontWeight: 600 }}>(opcional, y es su carpeta)</span>
             </div>
             <input
               value={proveedor}
@@ -263,7 +263,7 @@ export default function AntesDeEscanearModal({
 
           <div>
             <div style={etiqueta}>
-              Guardar en <span style={{ textTransform: "none", fontWeight: 700 }}>(los barcos y carpetas que hagan falta)</span>
+              Guardar en <span style={{ textTransform: "none", fontWeight: 600 }}>(los barcos y carpetas que hagan falta)</span>
             </div>
             <SelectorDestinosRemito
               obras={obras}
@@ -286,7 +286,7 @@ export default function AntesDeEscanearModal({
           />
 
           {!hayCarpetas && carpetasElegidas.length ? (
-            <div style={{ fontSize: 11.5, color: C.cyan, fontWeight: 800, lineHeight: 1.45 }}>
+            <div style={{ fontSize: 11.5, color: C.cyan, fontWeight: 650, lineHeight: 1.45 }}>
               Falta la migración de carpetas: el remito va a quedar solo en la primera
               (<b>{carpetasElegidas[0]}</b>) y sin las demás.
             </div>
@@ -294,7 +294,7 @@ export default function AntesDeEscanearModal({
 
           <div>
             <div style={etiqueta}>
-              Referencia <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional, para encontrarlo después)</span>
+              Referencia <span style={{ textTransform: "none", fontWeight: 600 }}>(opcional, para encontrarlo después)</span>
             </div>
             <input
               value={titulo}
@@ -305,7 +305,7 @@ export default function AntesDeEscanearModal({
           </div>
 
           <div>
-            <div style={etiqueta}>Nota <span style={{ textTransform: "none", fontWeight: 700 }}>(opcional)</span></div>
+            <div style={etiqueta}>Nota <span style={{ textTransform: "none", fontWeight: 600 }}>(opcional)</span></div>
             <textarea
               value={notas}
               onChange={(event) => setNotas(event.target.value)}
@@ -325,10 +325,10 @@ export default function AntesDeEscanearModal({
                 style={{ marginTop: 2, accentColor: C.cyan, width: 15, height: 15, cursor: esMultiobra ? "default" : "pointer" }}
               />
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, color: C.text }}>
+                <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: C.text }}>
                   {esMultiobra ? "Solo archivar · requerido para multiobra" : "Solo archivar"}
                 </span>
-                <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: C.muted, lineHeight: 1.45 }}>
+                <span style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: C.muted, lineHeight: 1.45 }}>
                   {esMultiobra
                     ? "Guarda un solo PDF dentro de todas las obras elegidas, sin repartir cantidades ni elegir un destino de stock."
                     : "Guarda el papel y no lo lee con IA ni abre el ingreso. Es lo más rápido y no puede fallar: el remito queda buscable y el stock se carga otro día, si hace falta."}
@@ -351,11 +351,11 @@ export default function AntesDeEscanearModal({
                       style={{
                         flex: 1, border: `1px solid ${activo ? C.blueB : C.border2}`, background: activo ? C.blueL : C.panelSolid,
                         color: activo ? C.blue : C.text, borderRadius: 9, padding: "9px 8px", cursor: "pointer",
-                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "grid", gap: 2,
+                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "grid", gap: 2,
                       }}
                     >
                       <span>{opcion.etiqueta}</span>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: activo ? C.blue : C.dim }}>{opcion.detalle}</span>
                     </button>
                   );
                 })}
@@ -366,10 +366,10 @@ export default function AntesDeEscanearModal({
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel2, flexShrink: 0 }}>
-          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 850 }}>
+          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
             Cancelar
           </button>
-          <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
             {cargando ? <LoaderCircle size={14} className="spin" /> : guardando ? <FileText size={14} /> : <ScanLine size={14} />}
             {guardando
               ? (soloArchivoEfectivo ? "Guardar sin leer" : "Guardar y leer")

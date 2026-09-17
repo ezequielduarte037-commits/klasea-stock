@@ -32,10 +32,10 @@ const field = {
   border: `1px solid ${C.border}`, color: C.text, borderRadius: 9,
   padding: "10px 11px", fontSize: 15, fontFamily: C.sans, outline: "none",
 };
-const lbl = { margin: "0 0 5px", color: C.dim, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 };
+const lbl = { margin: "0 0 5px", color: C.dim, fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 };
 const qbtn = {
   width: 46, height: 40, background: C.panel, border: `1px solid ${C.border}`,
-  color: C.text, borderRadius: 9, fontSize: 22, fontWeight: 800, lineHeight: 1, padding: 0,
+  color: C.text, borderRadius: 9, fontSize: 22, fontWeight: 650, lineHeight: 1, padding: 0,
 };
 
 // Códigos de barra de un material (columna directa + tabla de códigos extra).
@@ -261,7 +261,7 @@ export default function ScanPedidoScreen({ profile }) {
         {/* Cabecera */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 900 }}>Pedir a compras</div>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>Pedir a compras</div>
             <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>Escaneá lo que se está acabando</div>
           </div>
           <div>
@@ -272,7 +272,7 @@ export default function ScanPedidoScreen({ profile }) {
 
         {msg && (
           <div style={{
-            padding: "9px 11px", borderRadius: 9, fontSize: 13.5, fontWeight: 700, marginBottom: 9,
+            padding: "9px 11px", borderRadius: 9, fontSize: 13.5, fontWeight: 600, marginBottom: 9,
             background: msg.ok ? "rgba(16,185,129,0.16)" : "rgba(239,68,68,0.16)",
             border: `1px solid ${msg.ok ? C.green : C.red}`, color: msg.ok ? C.green : C.red,
           }}>{msg.text}</div>
@@ -287,7 +287,7 @@ export default function ScanPedidoScreen({ profile }) {
             <button key={k} type="button" onClick={() => setTipo(k)}
               style={{
                 flex: 1, marginRight: i === 0 ? 6 : 0, padding: "9px 4px", borderRadius: 9,
-                fontSize: 13.5, fontWeight: 900, fontFamily: C.sans,
+                fontSize: 13.5, fontWeight: 700, fontFamily: C.sans,
                 border: `1px solid ${tipo === k ? C.blue : C.border}`,
                 background: tipo === k ? "rgba(59,130,246,0.16)" : C.panel,
                 color: tipo === k ? C.blue : C.dim,
@@ -310,14 +310,14 @@ export default function ScanPedidoScreen({ profile }) {
               enterKeyHint="enter" placeholder="Escaneá…" disabled={cargando}
               style={{ ...field, flex: 1, fontSize: 19, marginRight: 6 }}
             />
-            <button type="submit" style={{ ...qbtn, width: 62, fontSize: 15, fontWeight: 800, background: C.blue, color: "#fff", border: "none" }}>OK</button>
+            <button type="submit" style={{ ...qbtn, width: 62, fontSize: 15, fontWeight: 650, background: C.blue, color: "#fff", border: "none" }}>OK</button>
           </div>
         </form>
 
         {/* Código sin dueño: se busca el producto y se vincula en el momento */}
         {pendienteCodigo && (
-          <div style={{ border: `1px solid ${C.amberB}`, background: "rgba(245,158,11,0.10)", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 800, color: C.amber, marginBottom: 7 }}>
+          <div style={{ border: `1px solid ${C.cyanB}`, background: "rgba(34,211,238,0.10)", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 650, color: C.cyan, marginBottom: 7 }}>
               El código <b>{pendienteCodigo}</b> no está en ningún producto. Buscalo y lo dejamos vinculado.
             </div>
             <input value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Buscar producto por nombre…" style={{ ...field, marginBottom: 6 }} />
@@ -349,7 +349,7 @@ export default function ScanPedidoScreen({ profile }) {
                 <div key={it.id} style={{ background: C.panel, border: `1px solid ${poco ? C.redB : C.border}`, borderRadius: 10, padding: "8px 9px", marginBottom: 6 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ minWidth: 0, flex: 1, marginRight: 6 }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.nombre}</div>
+                      <div style={{ fontWeight: 650, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.nombre}</div>
                       <div style={{ color: poco ? C.red : C.dim, fontSize: 11, marginTop: 2 }}>
                         {it.codigo ? `${it.codigo} · ` : ""}en pañol: {it.stock}{poco ? " ⚠ sin stock" : ""}
                       </div>
@@ -360,7 +360,7 @@ export default function ScanPedidoScreen({ profile }) {
                     <button onClick={() => setQty(it.id, it.qty - 1)} style={{ ...qbtn, marginRight: 6 }}>−</button>
                     <input type="number" inputMode="numeric" value={it.qty}
                       onChange={(e) => setQty(it.id, e.target.value)}
-                      style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 800, padding: "7px 4px", flex: 1, marginRight: 6 }} />
+                      style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 650, padding: "7px 4px", flex: 1, marginRight: 6 }} />
                     <button onClick={() => setQty(it.id, it.qty + 1)} style={{ ...qbtn, marginRight: 6 }}>+</button>
                     <span style={{ fontSize: 11, color: C.dim, width: 46, textAlign: "right" }}>{it.unidad}</span>
                   </div>
@@ -383,7 +383,7 @@ export default function ScanPedidoScreen({ profile }) {
             {[["baja", "Baja"], ["media", "Normal"], ["alta", "Urgente"]].map(([k, label], i) => (
               <button key={k} type="button" onClick={() => setPrioridad(k)}
                 style={{
-                  flex: 1, marginRight: i < 2 ? 6 : 0, padding: "10px 4px", borderRadius: 9, fontSize: 13, fontWeight: 800,
+                  flex: 1, marginRight: i < 2 ? 6 : 0, padding: "10px 4px", borderRadius: 9, fontSize: 13, fontWeight: 650,
                   border: `1px solid ${prioridad === k ? (k === "alta" ? C.red : C.blue) : C.border}`,
                   background: prioridad === k ? (k === "alta" ? "rgba(239,68,68,0.16)" : "rgba(59,130,246,0.16)") : C.panel,
                   color: prioridad === k ? (k === "alta" ? C.red : C.blue) : C.dim,
@@ -408,7 +408,7 @@ export default function ScanPedidoScreen({ profile }) {
             width: "100%", padding: "14px 10px", borderRadius: 11, border: "none",
             background: cart.length && !enviando ? C.green : C.panel2,
             color: cart.length && !enviando ? "#fff" : C.dim,
-            fontSize: 16, fontWeight: 900, fontFamily: C.sans,
+            fontSize: 16, fontWeight: 700, fontFamily: C.sans,
           }}>
           {enviando
             ? "Enviando…"

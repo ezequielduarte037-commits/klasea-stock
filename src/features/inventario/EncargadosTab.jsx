@@ -27,6 +27,7 @@ import { C } from "@/theme";
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
+import Cargando from "@/components/ui/Cargando";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 function fmtDate(d) {
@@ -101,7 +102,7 @@ function FilaObra({ obra, onSave }) {
     <>
       <tr style={{ transition: "background .15s" }}>
         {/* Nombre obra */}
-        <td style={{ ...TD, fontWeight: 700, color: C.t0 }}>
+        <td style={{ ...TD, fontWeight: 600, color: C.t0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 16 }}>{meta.emoji}</span>
             <div>
@@ -115,7 +116,7 @@ function FilaObra({ obra, onSave }) {
         <td style={TD}>
           <span style={{
             display: "inline-block", padding: "3px 9px", borderRadius: 5,
-            fontSize: 11, fontWeight: 700,
+            fontSize: 11, fontWeight: 600,
             background: meta.color + "22", color: meta.color,
             border: `1px solid ${meta.color}44`,
             fontFamily: C.sans,
@@ -208,7 +209,7 @@ function FilaObra({ obra, onSave }) {
                 disabled={saving}
                 style={{
                   border: `1px solid ${C.green}44`, background: `${C.green}18`, color: C.green,
-                  padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans,
+                  padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans,
                 }}
               >
                 {saving ? "…" : "Guardar"}
@@ -304,7 +305,7 @@ export default function EncargadosTab() {
       {/* KPIs rápidos */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         {[
-          { label: "Sin material comprado", n: stats.sinMaterial, color: C.amber, emoji: "⚠️" },
+          { label: "Sin material comprado", n: stats.sinMaterial, color: C.cyan, emoji: "⚠️" },
           { label: "En proceso",            n: stats.enProceso,   color: C.blue,  emoji: "⏳" },
           { label: "Terminadas",            n: stats.terminadas,  color: C.green, emoji: "✅" },
         ].map(({ label, n, color, emoji }) => (
@@ -316,7 +317,7 @@ export default function EncargadosTab() {
             background: `${color}0a`,
           }}>
             <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 6 }}>{emoji} {label}</div>
-            <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color }}>{n}</div>
+            <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 600, color }}>{n}</div>
           </div>
         ))}
       </div>
@@ -358,7 +359,7 @@ export default function EncargadosTab() {
 
       {/* Tabla */}
       {loading ? (
-        <div style={{ padding: 24, color: C.t2, fontSize: 13 }}>Cargando…</div>
+        <Cargando />
       ) : (
         <div style={{
           border: `1px solid ${C.b0}`,

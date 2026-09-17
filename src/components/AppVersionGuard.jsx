@@ -138,7 +138,7 @@ export default function AppVersionGuard() {
         <RefreshCw size={15} />
       </span>
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.2 }}>
+        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.2 }}>
           Hay una versión nueva
         </div>
         <div style={{ color: C.dim, fontSize: 11, lineHeight: 1.35, marginTop: 2 }}>
@@ -152,7 +152,7 @@ export default function AppVersionGuard() {
           flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6,
           border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
           borderRadius: 9, padding: "8px 12px", cursor: "pointer",
-          fontSize: 12, fontWeight: 950, fontFamily: C.sans, whiteSpace: "nowrap",
+          fontSize: 12, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap",
         }}
       >
         <RefreshCw size={13} /> Actualizar

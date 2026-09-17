@@ -11,7 +11,7 @@ import logoK from "@/assets/logos/logo-k.png";
 const STATUS_LABEL = {
   nuevo: ["Nuevo", "#a1a1aa"],
   en_revision: ["En revisión", "#a1a1aa"],
-  cotizando: ["Cotizando", "#f59e0b"],
+  cotizando: ["Cotizando", "#22d3ee"],
   comprado: ["Comprado · esperando entrega", "#3b82f6"],
 };
 
@@ -77,7 +77,7 @@ function PedidoCard({ pedido, token, onDone }) {
 
   const btn = (active) => ({
     flex: "1 1 auto", padding: "9px 10px", borderRadius: 9, cursor: "pointer",
-    fontSize: 12.5, fontWeight: 800, fontFamily: C.sans,
+    fontSize: 12.5, fontWeight: 650, fontFamily: C.sans,
     border: `1px solid ${active ? C.blueB : C.border}`,
     background: active ? C.blueL : "transparent",
     color: active ? C.blue : C.text,
@@ -91,8 +91,8 @@ function PedidoCard({ pedido, token, onDone }) {
     <div className="portal-card" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 10px 30px -18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.05)" }}>
       <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 15, fontWeight: 850, color: C.text, flex: "1 1 200px", minWidth: 0 }}>{pedido.title}</div>
-          <span style={{ fontSize: 10.5, fontWeight: 850, color: statusColor, border: `1px solid ${statusColor}44`, background: `${statusColor}14`, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>{statusLabel}</span>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, flex: "1 1 200px", minWidth: 0 }}>{pedido.title}</div>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: statusColor, border: `1px solid ${statusColor}44`, background: `${statusColor}14`, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>{statusLabel}</span>
         </div>
         <div style={{ fontSize: 11.5, color: C.dim, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
           {pedido.obra && <span>Obra {pedido.obra}</span>}
@@ -105,7 +105,7 @@ function PedidoCard({ pedido, token, onDone }) {
         <div style={{ padding: "10px 15px", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 6 }}>
           {pedido.items.map((it, idx) => (
             <div key={idx} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13 }}>
-              <span style={{ color: C.blue, fontWeight: 850, fontFamily: C.mono, whiteSpace: "nowrap" }}>{it.quantity || "-"} {it.unit || ""}</span>
+              <span style={{ color: C.blue, fontWeight: 700, fontFamily: C.mono, whiteSpace: "nowrap" }}>{it.quantity || "-"} {it.unit || ""}</span>
               <span style={{ color: C.text }}>{it.description}</span>
             </div>
           ))}
@@ -143,7 +143,7 @@ function PedidoCard({ pedido, token, onDone }) {
         {accion === "confirmar" && (
           <div style={{ display: "grid", gap: 8 }}>
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 10.5, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.8 }}>Fecha estimada de entrega (opcional)</span>
+              <span style={{ fontSize: 10.5, color: C.dim, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.8 }}>Fecha estimada de entrega (opcional)</span>
               <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inp} />
             </label>
             <input value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Nota (opcional): transporte, horario, parcial..." style={inp} />
@@ -159,11 +159,11 @@ function PedidoCard({ pedido, token, onDone }) {
           <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3} placeholder="Mensaje para compras..." style={{ ...inp, resize: "vertical" }} />
         )}
         {accion && (
-          <button type="button" onClick={enviar} disabled={busy} style={{ padding: "11px 14px", borderRadius: 10, border: "none", cursor: busy ? "default" : "pointer", background: busy ? C.panel : C.blue, color: busy ? C.dim : "#fff", fontSize: 13.5, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={enviar} disabled={busy} style={{ padding: "11px 14px", borderRadius: 10, border: "none", cursor: busy ? "default" : "pointer", background: busy ? C.panel : C.blue, color: busy ? C.dim : "#fff", fontSize: 13.5, fontWeight: 700, fontFamily: C.sans }}>
             {busy ? "Enviando..." : "Enviar"}
           </button>
         )}
-        {feedback && <div style={{ fontSize: 12.5, color: feedback.includes("¡") || feedback.includes("enviado") ? C.green : C.red, fontWeight: 700 }}>{feedback}</div>}
+        {feedback && <div style={{ fontSize: 12.5, color: feedback.includes("¡") || feedback.includes("enviado") ? C.green : C.red, fontWeight: 600 }}>{feedback}</div>}
       </div>
     </div>
   );
@@ -205,8 +205,8 @@ export default function PortalProveedorScreen() {
         <div style={{ width: 64, height: 64, borderRadius: 17, background: "#0d1526", border: "1px solid rgba(148,163,184,0.22)", display: "grid", placeItems: "center", margin: "0 auto 13px", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)" }}>
           <img src={logoK} alt="Klase A" style={{ width: 38, height: 38, objectFit: "contain", display: "block" }} />
         </div>
-        <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: "0.14em", color: C.text }}>KLASE A</div>
-        <div style={{ marginTop: 5, fontSize: 10.5, letterSpacing: "0.14em", color: C.dim, textTransform: "uppercase", fontWeight: 750 }}>Portal de proveedores</div>
+        <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: "0.14em", color: C.text }}>KLASE A</div>
+        <div style={{ marginTop: 5, fontSize: 10.5, letterSpacing: "0.14em", color: C.dim, textTransform: "uppercase", fontWeight: 650 }}>Portal de proveedores</div>
         <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ position: "absolute", right: 14, top: 14, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 9, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center" }}>
           <RefreshCw size={15} />
         </button>

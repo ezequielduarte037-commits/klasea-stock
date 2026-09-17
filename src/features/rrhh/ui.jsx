@@ -1,5 +1,6 @@
 // Piezas de UI compartidas del módulo RRHH (estilo consistente con el resto del sistema).
 import { C } from "@/theme";
+import CargandoBloque from "@/components/ui/Cargando";
 
 export const INP = {
   background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t0,
@@ -24,14 +25,14 @@ export const BTN_GREEN = {
 
 export const LBL = {
   fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block",
-  marginBottom: 4, textTransform: "uppercase", fontWeight: 700,
+  marginBottom: 4, textTransform: "uppercase", fontWeight: 600,
 };
 
 // Colores por tokens de tema (adaptan a claro/oscuro). Antes eran hex del modo
 // oscuro hardcodeados y en claro se veían lavados (sobre todo el amarillo).
 export const GRUPO_META = {
   casa:        { label: "Casa",        color: C.blue,  bg: C.blueL,  border: C.blueB },
-  contratista: { label: "Contratista", color: C.amber, bg: C.amberL, border: C.amberB },
+  contratista: { label: "Contratista", color: C.cyan, bg: C.cyanL, border: C.cyanB },
   sin_asignar: { label: "Sin asignar", color: C.red,   bg: C.redL,   border: C.redB },
 };
 
@@ -57,19 +58,19 @@ export function KpiCard({ icon: Icon, label, value, sub, color }) {
     <div style={{ position: "relative", background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "11px 13px", minWidth: 110, overflow: "hidden" }}>
       <span style={{ position: "absolute", left: 0, top: 10, bottom: 10, width: 2, borderRadius: 2, background: accent, opacity: 0.9 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ fontSize: 9, letterSpacing: 1.05, textTransform: "uppercase", color: C.t2, fontWeight: 750 }}>{label}</div>
+        <div style={{ fontSize: 9, letterSpacing: 1.05, textTransform: "uppercase", color: C.t2, fontWeight: 650 }}>{label}</div>
         {Icon && <Icon size={13} color={accent} strokeWidth={1.9} />}
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 5 }}>
-        <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 750, color: color ?? C.t0, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+        <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 650, color: color ?? C.t0, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
         {sub && <div style={{ fontSize: 9, color: C.t2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>}
       </div>
     </div>
   );
 }
 
-export function Cargando() {
-  return <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>Cargando…</div>;
+export function Cargando(props) {
+  return <CargandoBloque {...props} />;
 }
 
 export function ErrorBox({ error, onRetry }) {
@@ -85,8 +86,8 @@ export function ErrorBox({ error, onRetry }) {
 export function SetupPendiente({ onRetry }) {
   return (
     <div style={{ padding: 28 }}>
-      <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 12, padding: 22, maxWidth: 560 }}>
-        <div style={{ fontSize: 14, color: C.amber, fontWeight: 700, marginBottom: 8 }}>⚠ Faltan crear las tablas de RRHH</div>
+      <div style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 12, padding: 22, maxWidth: 560 }}>
+        <div style={{ fontSize: 14, color: C.cyan, fontWeight: 600, marginBottom: 8 }}>⚠ Faltan crear las tablas de RRHH</div>
         <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, marginBottom: 14 }}>
           Hay que correr el SQL del módulo RRHH en <strong>Supabase → SQL Editor</strong> (el bloque que está en el chat:
           tablas <code style={{ fontFamily: C.mono, fontSize: 12 }}>rrhh_*</code> + seed de empleados y contratistas).
@@ -102,7 +103,7 @@ export function Th({ children, right }) {
   return (
     <th style={{
       textAlign: right ? "right" : "left", padding: "7px 10px", fontSize: 10,
-      letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 700,
+      letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 600,
       borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap", position: "sticky", top: 0,
       background: C.bg, zIndex: 2,
     }}>{children}</th>

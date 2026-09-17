@@ -57,7 +57,7 @@ function Section({ icon, title, hint, children }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid }}>
         <span style={{ color: C.blue, display: "grid", placeItems: "center" }}>{icon}</span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>{title}</div>
+          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>{title}</div>
           {hint && <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>{hint}</div>}
         </div>
       </div>
@@ -120,10 +120,10 @@ export default function CatalogoProductoOperacion({ material, rows = [], loading
           {enCamino.length ? enCamino.map((row) => (
             <div key={row.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 9, alignItems: "center", border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 9, padding: "8px 9px" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>{row.panol_envio?.titulo || `Envío ${shortId(row.panol_envio_id)}`}</div>
+                <div style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>{row.panol_envio?.titulo || `Envío ${shortId(row.panol_envio_id)}`}</div>
                 <div style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>{fmtQty(row.cantidad)} {row.unidad || material.unidad_medida || "u"} · {row.stock_sede || "Sin sede"}{row.obra?.codigo ? ` · obra ${row.obra.codigo}` : ""}</div>
               </div>
-              <button type="button" onClick={() => onReceive?.(row)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 8, padding: "7px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900 }}><PackageCheck size={13} />Recibir</button>
+              <button type="button" onClick={() => onReceive?.(row)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 8, padding: "7px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}><PackageCheck size={13} />Recibir</button>
             </div>
           )) : <div style={{ padding: 10, color: C.dim, fontSize: 11 }}>No hay envíos pendientes para este producto.</div>}
         </div>
@@ -138,9 +138,9 @@ export default function CatalogoProductoOperacion({ material, rows = [], loading
             const isOut = rowIsEgreso(row);
             return (
               <div key={row.id} style={{ display: "grid", gridTemplateColumns: "72px minmax(0,1fr) auto", gap: 9, alignItems: "start", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: meta.color, fontSize: 10, fontWeight: 950 }}><Icon size={11} />{meta.label}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: meta.color, fontSize: 10, fontWeight: 750 }}><Icon size={11} />{meta.label}</span>
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", color: C.text, fontSize: 11, fontWeight: 850 }}>{fmtDate(rowMovementAt(row))} · {isOut ? egresoDestino(row) : sourceLabel(row)}</span>
+                  <span style={{ display: "block", color: C.text, fontSize: 11, fontWeight: 700 }}>{fmtDate(rowMovementAt(row))} · {isOut ? egresoDestino(row) : sourceLabel(row)}</span>
                   <span style={{ display: "block", color: C.dim, fontSize: 9.8, lineHeight: 1.4, marginTop: 2 }}>
                     {isOut ? egresoActor(row) : `Ingresó ${ingresoActor(row)} · ${row.stock_sede || row.panol_envio?.sede || "sede sin registrar"}`}
                   </span>

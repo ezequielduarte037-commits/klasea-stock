@@ -42,7 +42,7 @@ const miniLabel = {
   marginBottom: 5,
   color: C.t2,
   fontSize: 9,
-  fontWeight: 850,
+  fontWeight: 700,
   letterSpacing: 1,
   textTransform: "uppercase",
 };
@@ -406,17 +406,17 @@ export default function MueblesOrdenesTrabajoPanel({
             <Link2 size={14} />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 850 }}>OT de materiales · Oberti</div>
+            <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 700 }}>OT de materiales · Oberti</div>
             <div style={{ color: C.t2, fontSize: 9.5, marginTop: 2 }}>
               Plantilla K{modelLabel}: {summary.linea} ítems · {overrideTypes.size ? `${summary.obra} ítems personalizados en ${obraCodigo}` : `${obraCodigo} usa la plantilla`}
             </div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => openScope("linea")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10, fontWeight: 850 }}>
+          <button type="button" onClick={() => openScope("linea")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
             <Layers3 size={13} /> {canEdit ? `Editar plantilla K${modelLabel}` : `Ver plantilla K${modelLabel}`}
           </button>
-          <button type="button" onClick={() => openScope("obra")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 10, fontWeight: 850 }}>
+          <button type="button" onClick={() => openScope("obra")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
             <FilePenLine size={13} /> {overrideTypes.size ? `Editar OT ${obraCodigo}` : `Revisar OT ${obraCodigo}`}
           </button>
         </div>
@@ -440,7 +440,7 @@ export default function MueblesOrdenesTrabajoPanel({
           <div style={{ display: "flex", gap: 11, alignItems: "center", minWidth: 0 }}>
             <span style={{ width: 36, height: 36, display: "grid", placeItems: "center", borderRadius: 10, color: C.teal, background: C.tealL, border: `1px solid ${C.tealB}`, flexShrink: 0 }}><FilePenLine size={17} /></span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.t0, fontSize: 15, fontWeight: 900 }}>{scope === "linea" ? `Plantilla de OT · K${modelLabel}` : `OT particular · ${obraCodigo}`}</div>
+              <div style={{ color: C.t0, fontSize: 15, fontWeight: 700 }}>{scope === "linea" ? `Plantilla de OT · K${modelLabel}` : `OT particular · ${obraCodigo}`}</div>
               <div className="muebles-ot-head-copy" style={{ color: C.t2, fontSize: 10.5, marginTop: 3 }}>{scope === "linea" ? "Base para todas las obras de la línea" : `Obra ${obraCodigo} · proveedor Oberti`}</div>
             </div>
           </div>
@@ -451,7 +451,7 @@ export default function MueblesOrdenesTrabajoPanel({
           {templateOnly && (
             <label style={{ display: "block", marginBottom: 12 }}>
               <span style={miniLabel}>Línea de producción</span>
-              <select value={lineaId || ""} onChange={(event) => onLineChange?.(event.target.value)} style={{ ...field, maxWidth: 320, fontWeight: 800 }}>
+              <select value={lineaId || ""} onChange={(event) => onLineChange?.(event.target.value)} style={{ ...field, maxWidth: 320, fontWeight: 650 }}>
                 {lineOptions.map((line) => <option key={line.id} value={line.id}>{line.nombre}</option>)}
               </select>
               <span style={{ display: "block", marginTop: 5, color: C.t2, fontSize: 9.5 }}>Elegí la línea y después editá Maderas o Kit de herrajes.</span>
@@ -460,18 +460,18 @@ export default function MueblesOrdenesTrabajoPanel({
 
           {!templateOnly && <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 12 }}>
             <button type="button" onClick={() => { setScope("linea"); setSaved(false); setShowCandidates(false); }} style={{ padding: "10px 11px", borderRadius: 10, border: `1px solid ${scope === "linea" ? C.tealB : C.b0}`, background: scope === "linea" ? C.tealL : C.s1, color: scope === "linea" ? C.teal : C.t1, textAlign: "left", cursor: "pointer" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 900 }}><Layers3 size={14} /> Plantilla K{modelLabel}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 700 }}><Layers3 size={14} /> Plantilla K{modelLabel}</div>
               <div style={{ marginTop: 3, color: C.t2, fontSize: 9.5 }}>Se aplica como base a todas las obras K{modelLabel}.</div>
             </button>
             <button type="button" onClick={() => { setScope("obra"); setSaved(false); setShowCandidates(false); }} style={{ padding: "10px 11px", borderRadius: 10, border: `1px solid ${scope === "obra" ? C.tealB : C.b0}`, background: scope === "obra" ? C.tealL : C.s1, color: scope === "obra" ? C.teal : C.t1, textAlign: "left", cursor: "pointer" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 900 }}><FilePenLine size={14} /> Obra {obraCodigo}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 700 }}><FilePenLine size={14} /> Obra {obraCodigo}</div>
               <div style={{ marginTop: 3, color: C.t2, fontSize: 9.5 }}>{overrideTypes.size ? `${overrideTypes.size} OT personalizada${overrideTypes.size === 1 ? "" : "s"}.` : `Actualmente hereda la plantilla K${modelLabel}.`}</div>
             </button>
           </div>}
 
           <div style={{ display: "flex", gap: 5, padding: 4, marginBottom: 12, width: "fit-content", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s1 }}>
             {Object.entries(MUEBLES_OT_TYPES).map(([key, meta]) => (
-              <button key={key} type="button" onClick={() => { setActiveType(key); setShowCandidates(false); setSearch(""); setSaved(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 7, border: `1px solid ${activeType === key ? C.tealB : "transparent"}`, background: activeType === key ? C.s0 : "transparent", color: activeType === key ? C.t0 : C.t2, cursor: "pointer", fontSize: 11, fontWeight: 800 }}>
+              <button key={key} type="button" onClick={() => { setActiveType(key); setShowCandidates(false); setSearch(""); setSaved(false); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 7, border: `1px solid ${activeType === key ? C.tealB : "transparent"}`, background: activeType === key ? C.s0 : "transparent", color: activeType === key ? C.t0 : C.t2, cursor: "pointer", fontSize: 11, fontWeight: 650 }}>
                 {key === "maderas" ? <Boxes size={13} /> : <PackagePlus size={13} />}
                 {meta.short}
                 <span style={{ color: activeType === key ? C.teal : C.t3, fontFamily: C.mono, fontSize: 9 }}>{drafts[scope][key].items.length}</span>
@@ -483,10 +483,10 @@ export default function MueblesOrdenesTrabajoPanel({
           {saved && <div style={{ marginBottom: 11, padding: "9px 11px", borderRadius: 9, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, fontSize: 11, display: "flex", gap: 7, alignItems: "center" }}><Check size={13} /> OT guardada y registrada en el historial.</div>}
           {isInherited && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 11, padding: "10px 11px", borderRadius: 10, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 900 }}>Esta obra usa la plantilla K{modelLabel}</div>
+              <div style={{ fontSize: 11, fontWeight: 700 }}>Esta obra usa la plantilla K{modelLabel}</div>
               <div style={{ marginTop: 3, color: C.t2, fontSize: 9.5 }}>Los campos están bloqueados para evitar cambios accidentales en una sola obra.</div>
             </div>
-            {canEdit && <button type="button" onClick={startOverride} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.s0, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 900 }}><Copy size={13} /> Personalizar {MUEBLES_OT_TYPES[activeType].short} para {obraCodigo}</button>}
+            {canEdit && <button type="button" onClick={startOverride} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.s0, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 700 }}><Copy size={13} /> Personalizar {MUEBLES_OT_TYPES[activeType].short} para {obraCodigo}</button>}
           </div>}
 
           {loading ? <div style={{ padding: 70, color: C.t2, textAlign: "center", fontSize: 12 }}>Cargando OT y lista de materiales…</div> : (
@@ -499,7 +499,7 @@ export default function MueblesOrdenesTrabajoPanel({
                 <label><span style={miniLabel}>Indicaciones generales</span><textarea disabled={!fieldsEditable} value={draft.notas} onChange={(event) => patchDraft({ notas: event.target.value })} placeholder={activeType === "maderas" ? "Preparación, medidas, veta, terminación…" : "Armado del kit, embalaje, identificación…"} rows={2} style={{ ...field, resize: "vertical" }} /></label>
 
                 {activeType === "maderas" && <div style={{ marginTop: 10, padding: 10, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s1 }}>
-                  <div style={{ color: C.t0, fontSize: 11, fontWeight: 850, marginBottom: 8 }}>Material base de la OT</div>
+                  <div style={{ color: C.t0, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>Material base de la OT</div>
                   <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1fr) 100px 100px", gap: 8 }}>
                     <label>
                       <span style={miniLabel}>Placas y terciados</span>
@@ -512,10 +512,10 @@ export default function MueblesOrdenesTrabajoPanel({
 
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", margin: "14px 0 8px" }}>
                   <div>
-                    <div style={{ color: C.t0, fontSize: 12, fontWeight: 850 }}>Ítems de la OT</div>
+                    <div style={{ color: C.t0, fontSize: 12, fontWeight: 700 }}>Ítems de la OT</div>
                     <div style={{ color: C.t2, fontSize: 9.5, marginTop: 2 }}>Cada vínculo conserva su origen para poder rastrearlo.</div>
                   </div>
-                  {fieldsEditable && <button type="button" onClick={addManual} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10, fontWeight: 800 }}><Plus size={12} /> Manual</button>}
+                  {fieldsEditable && <button type="button" onClick={addManual} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10, fontWeight: 650 }}><Plus size={12} /> Manual</button>}
                 </div>
 
                 <div style={{ display: "grid", gap: 7 }}>
@@ -542,7 +542,7 @@ export default function MueblesOrdenesTrabajoPanel({
               </section>
 
               <aside style={{ minWidth: 0, padding: 11, borderRadius: 12, border: `1px solid ${C.b0}`, background: C.s1, alignSelf: "start", position: "sticky", top: 0 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}><Link2 size={14} color={C.teal} /><div style={{ color: C.t0, fontSize: 11.5, fontWeight: 850 }}>Lista vinculada</div></div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}><Link2 size={14} color={C.teal} /><div style={{ color: C.t0, fontSize: 11.5, fontWeight: 700 }}>Lista vinculada</div></div>
                 <div style={{ color: C.t2, fontSize: 9.5, lineHeight: 1.45, marginBottom: 10 }}>
                   {scope === "linea"
                     ? `Catálogo estándar de la matriz K${modelLabel}.`
@@ -553,7 +553,7 @@ export default function MueblesOrdenesTrabajoPanel({
                 <div style={{ padding: "8px 9px", marginBottom: 9, borderRadius: 8, color: C.teal, background: C.tealL, border: `1px solid ${C.tealB}`, fontSize: 9.5, lineHeight: 1.4 }}>
                   Sólo referencia: los cambios de esta OT no alteran la lista, Compras ni el stock.
                 </div>
-                {fieldsEditable && <button type="button" onClick={() => setShowCandidates((value) => !value)} style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 10.5, fontWeight: 850 }}><PackagePlus size={13} /> Agregar desde materiales</button>}
+                {fieldsEditable && <button type="button" onClick={() => setShowCandidates((value) => !value)} style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}><PackagePlus size={13} /> Agregar desde materiales</button>}
 
                 {showCandidates && <div style={{ marginTop: 9 }}>
                   <div style={{ position: "relative", marginBottom: 7 }}>
@@ -563,7 +563,7 @@ export default function MueblesOrdenesTrabajoPanel({
                   <div style={{ display: "grid", gap: 5, maxHeight: 330, overflow: "auto" }}>
                     {filteredCandidates.map((candidate) => (
                       <button type="button" key={candidate.key} onClick={() => addCandidate(candidate)} style={{ padding: "8px 9px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, textAlign: "left", cursor: "pointer" }}>
-                        <div style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.25 }}>{candidate.descripcion}</div>
+                        <div style={{ fontSize: 10.5, fontWeight: 650, lineHeight: 1.25 }}>{candidate.descripcion}</div>
                         <div style={{ color: C.t2, fontSize: 8.8, marginTop: 3 }}>{[candidate.codigo, candidate.sourceLabel, candidate.proveedor, candidate.cantidad ? `${candidate.cantidad} ${candidate.unidad}` : ""].filter(Boolean).join(" · ")}</div>
                       </button>
                     ))}
@@ -578,9 +578,9 @@ export default function MueblesOrdenesTrabajoPanel({
         <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: `1px solid ${C.b0}`, background: C.s1 }}>
           <div style={{ color: C.t2, fontSize: 9.5 }}>{draft.items.length} ítems · {scope === "linea" ? `plantilla K${modelLabel}` : isInherited ? `heredados de K${modelLabel}` : `personalizados para ${obraCodigo}`} · Oberti</div>
           <div style={{ display: "flex", gap: 7 }}>
-            {scope === "obra" && overrideTypes.has(activeType) && canEdit && <button type="button" disabled={saving} onClick={discardOverride} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t2, cursor: saving ? "wait" : "pointer", fontSize: 10.5, fontWeight: 800 }}><RotateCcw size={13} /> Volver a plantilla</button>}
-            <button type="button" onClick={closeModal} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10.5, fontWeight: 800 }}>Cerrar</button>
-            {fieldsEditable && <button type="button" disabled={saving || loading} onClick={save} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.teal}`, background: C.teal, color: "white", cursor: saving || loading ? "wait" : "pointer", opacity: saving || loading ? .65 : 1, fontSize: 10.5, fontWeight: 850 }}><Save size={13} /> {saving ? "Guardando…" : scope === "linea" ? `Guardar plantilla ${MUEBLES_OT_TYPES[activeType].short}` : `Guardar OT ${obraCodigo}`}</button>}
+            {scope === "obra" && overrideTypes.has(activeType) && canEdit && <button type="button" disabled={saving} onClick={discardOverride} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t2, cursor: saving ? "wait" : "pointer", fontSize: 10.5, fontWeight: 650 }}><RotateCcw size={13} /> Volver a plantilla</button>}
+            <button type="button" onClick={closeModal} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>Cerrar</button>
+            {fieldsEditable && <button type="button" disabled={saving || loading} onClick={save} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.teal}`, background: C.teal, color: "white", cursor: saving || loading ? "wait" : "pointer", opacity: saving || loading ? .65 : 1, fontSize: 10.5, fontWeight: 700 }}><Save size={13} /> {saving ? "Guardando…" : scope === "linea" ? `Guardar plantilla ${MUEBLES_OT_TYPES[activeType].short}` : `Guardar OT ${obraCodigo}`}</button>}
           </div>
         </footer>
       </div>

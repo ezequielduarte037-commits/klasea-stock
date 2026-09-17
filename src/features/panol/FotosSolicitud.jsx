@@ -149,7 +149,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
             <Sparkles size={15} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 850, color: C.text }}>Borrador leído de la foto</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Borrador leído de la foto</div>
             <div style={{ fontSize: 11.5, color: C.dim }}>
               Revisá y tildá lo que esté bien. Nada se guarda hasta que confirmes.
             </div>
@@ -158,7 +158,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
         </div>
 
         {extraccion?.ilegible && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", background: C.violetL, borderBottom: `1px solid ${C.violetB}`, color: C.violet, fontSize: 12.5, fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", background: C.violetL, borderBottom: `1px solid ${C.violetB}`, color: C.violet, fontSize: 12.5, fontWeight: 600 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0 }} />
             <span>La IA avisa: {extraccion.ilegible}</span>
           </div>
@@ -213,7 +213,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
                   <button
                     type="button"
                     onClick={() => setItems((p) => p.map((i) => ({ ...i, usar: marcados !== items.length })))}
-                    style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans }}
+                    style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 650, cursor: "pointer", fontFamily: C.sans }}
                   >
                     {marcados === items.length ? "Desmarcar todos" : "Marcar todos"}
                   </button>
@@ -253,7 +253,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
                         <input
                           value={it.descripcion}
                           onChange={(e) => setItem(idx, { descripcion: e.target.value })}
-                          style={{ ...INPUT, padding: "4px 7px", fontSize: 12.5, fontWeight: 700 }}
+                          style={{ ...INPUT, padding: "4px 7px", fontSize: 12.5, fontWeight: 600 }}
                         />
                         {/* La vinculación con el catálogo es una sugerencia, no un
                             hecho: se puede desactivar y que entre como texto libre. */}
@@ -265,7 +265,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
                               onChange={(e) => setItem(idx, { usarSugerencia: e.target.checked })}
                               style={{ width: 12, height: 12, accentColor: "var(--violet)", flexShrink: 0 }}
                             />
-                            <span style={{ fontSize: 10.5, color: it.usarSugerencia ? C.violet : C.dim, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: 10.5, color: it.usarSugerencia ? C.violet : C.dim, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               → {it.sugerencia.descripcion}
                             </span>
                             <Pill color={C.violet} soft={C.violetL} borde={C.violetB} mono>{Math.round(it.certeza * 100)}%</Pill>

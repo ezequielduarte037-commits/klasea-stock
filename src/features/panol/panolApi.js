@@ -34,13 +34,13 @@ export const ITEM_ESTADO_META = {
   recibido:    { label: "Recibido",    color: "#34d399", bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.30)" },
   parcial:     { label: "Parcial",     color: "#a78bfa", bg: "rgba(139,92,246,0.12)",  border: "rgba(139,92,246,0.30)" },
   sin_info:    { label: "Sin info",    color: "#60a5fa", bg: "rgba(59,130,246,0.12)",  border: "rgba(59,130,246,0.30)" },
-  falta_stock: { label: "Falta stock", color: "#fbbf24", bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.30)" },
+  falta_stock: { label: "Falta stock", color: "#67e8f9", bg: "rgba(34,211,238,0.12)",  border: "rgba(34,211,238,0.30)" },
   rechazado:   { label: "Rechazado",   color: "#f87171", bg: "rgba(239,68,68,0.12)",   border: "rgba(239,68,68,0.30)" },
 };
 
 export const ENVIO_ESTADO_META = {
   borrador:       { label: "Borrador",       color: "#9ca3af" },
-  enviado:        { label: "Enviado",        color: "#fbbf24" },
+  enviado:        { label: "Enviado",        color: "#67e8f9" },
   en_preparacion: { label: "En preparación", color: "#60a5fa" },
   parcial:        { label: "Parcial",        color: "#a78bfa" },
   recibido:       { label: "Recibido",       color: "#34d399" },

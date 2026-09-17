@@ -5,7 +5,9 @@
 ────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Outfit en todo el sistema (se carga en index.html). Las pantallas que no
+     declaraban fuente caían en Roboto/Montserrat, que nunca se cargaban. */
+  font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -17,6 +19,135 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* ── Capa base de interacción ─────────────────────────────────────────────
+   Sólo propiedades que las pantallas casi nunca fijan en línea, así que
+   mejoran todo el sistema sin pisar lo que cada una ya decidió. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+
+:where(button, a, summary, [role="button"], label) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+:where(button:not(:disabled), [role="button"], summary) {
+  cursor: pointer;
+}
+
+/* Foco visible sólo con teclado: con el mouse no aparece el anillo. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+:where(input[type="checkbox"], input[type="radio"], input[type="range"], progress) {
+  accent-color: var(--blue);
+}
+
+/* Foco de los campos igual en los tres temas (antes sólo el claro lo tenía, y
+   varias pantallas lo agregaban para toda la app mientras estaban montadas). */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--focus) !important;
+}
+
+/* ── Piezas base del sistema (clases ui-) ─────────────────────────────────
+   Para pantallas nuevas o al rehacer una: botones, campos, chips, tarjetas y
+   pestañas con el mismo alto, radio y comportamiento en toda la app. */
+.ui-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 0 14px;
+  border: 1px solid var(--border-2); border-radius: 10px;
+  background: var(--panel); color: var(--text);
+  font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.1;
+  white-space: nowrap; text-decoration: none;
+  transition: background-color .15s, border-color .15s, color .15s, transform .12s, filter .15s;
+}
+.ui-btn:hover:not(:disabled) { background: var(--panel-2); border-color: var(--border-3); }
+.ui-btn:active:not(:disabled) { transform: scale(.98); }
+.ui-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ui-btn-primario { background: var(--blue); border-color: transparent; color: var(--inverse-text); }
+.ui-btn-primario:hover:not(:disabled) { background: var(--blue); border-color: transparent; filter: brightness(1.07); }
+.ui-btn-suave { background: var(--blue-soft); border-color: var(--blue-border); color: var(--blue); }
+.ui-btn-suave:hover:not(:disabled) { background: var(--blue-soft); border-color: var(--blue); }
+.ui-btn-peligro { background: var(--red-soft); border-color: var(--red-border); color: var(--red); }
+.ui-btn-peligro:hover:not(:disabled) { background: var(--red-soft); border-color: var(--red); }
+.ui-btn-fantasma { background: transparent; border-color: transparent; color: var(--muted); }
+.ui-btn-fantasma:hover:not(:disabled) { background: var(--panel-2); border-color: transparent; color: var(--text); }
+.ui-btn-icono { width: 38px; padding: 0; }
+
+.ui-input {
+  width: 100%; min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--border-2); border-radius: 10px;
+  background: var(--panel); color: var(--text);
+  font: inherit; font-size: 14px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.ui-input:focus { box-shadow: 0 0 0 3px var(--blue-soft); }
+
+.ui-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 24px; padding: 0 9px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--panel); color: var(--muted);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+
+.ui-card {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--panel-solid);
+  box-shadow: var(--elev-1);
+}
+.ui-card-hover { transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .18s, box-shadow .18s; }
+.ui-card-hover:hover { transform: translateY(-2px); border-color: var(--border-2); }
+
+.ui-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.ui-tabs::-webkit-scrollbar { display: none; }
+.ui-tab {
+  position: relative; flex-shrink: 0;
+  min-height: 36px; padding: 0 12px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--dim);
+  font: inherit; font-size: 13.5px; font-weight: 500; white-space: nowrap;
+  transition: color .15s, background-color .15s;
+}
+.ui-tab:hover { color: var(--text); background: var(--panel); }
+.ui-tab[aria-selected="true"], .ui-tab.is-activa { color: var(--text); font-weight: 600; }
+.ui-tab[aria-selected="true"]::after, .ui-tab.is-activa::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
+  border-radius: 2px; background: linear-gradient(90deg, var(--blue), var(--cyan));
+}
+
+@media (max-width: 899px) {
+  .ui-btn { min-height: 42px; }
+  .ui-btn-icono { width: 42px; }
+  .ui-input { min-height: 44px; }
+  .ui-tab { min-height: 40px; }
+}
+
+/* Quien pidió "reducir movimiento" en su sistema no ve animaciones en ningún
+   lado; las que ya estaban terminan al instante en su estado final. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 *,

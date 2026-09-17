@@ -153,7 +153,7 @@ function Pill({ children, color = C.blue }) {
       borderRadius: 7,
       padding: "4px 9px",
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       letterSpacing: 0.9,
       textTransform: "uppercase",
       whiteSpace: "nowrap",
@@ -203,14 +203,14 @@ function PersonChip({ user, tone = "default", onRemove }) {
         background: `${color}18`,
         color,
         fontSize: 11,
-        fontWeight: 800,
+        fontWeight: 650,
         flexShrink: 0,
         letterSpacing: 0,
       }}>
         {initials || "?"}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ color: C.text, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {name}
         </div>
         <div style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>
@@ -275,7 +275,7 @@ function StatusStepper({ current, onChange }) {
               padding: "5px 9px",
               cursor: "pointer",
               fontSize: 11,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: 0.6,
               textTransform: "uppercase",
               transition: "all .13s",
@@ -402,7 +402,7 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
           fontSize: 11,
-          fontWeight: 700,
+          fontWeight: 600,
         }}>
           {name}
         </span>
@@ -450,7 +450,7 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
           fontSize: 12,
-          fontWeight: 750,
+          fontWeight: 650,
         }}>
           {name}
         </span>
@@ -1241,7 +1241,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           }}>
             <FileText size={20} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 850 }}>No encontramos esta solicitud</div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>No encontramos esta solicitud</div>
           <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: C.muted }}>
             Puede que la hayan borrado después de que te llegó el aviso, o que no
             tengas permiso para verla. Si creés que deberías verla, pedile a Compras
@@ -1254,7 +1254,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               display: "inline-flex", alignItems: "center", gap: 7,
               padding: "8px 14px", borderRadius: 8,
               border: `1px solid ${C.border}`, background: "var(--panel)",
-              color: C.text, fontFamily: C.sans, fontSize: 12.5, fontWeight: 800,
+              color: C.text, fontFamily: C.sans, fontSize: 12.5, fontWeight: 650,
               cursor: "pointer",
             }}
           >
@@ -1288,11 +1288,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       overflow: "hidden",
     }}>
       <style>{`
-        select option { background: var(--panel-solid); color: var(--text); }
-        textarea:focus, select:focus, input:focus {
-          border-color: rgba(96,165,250,0.42) !important;
-          box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
-        }
         .pr-chat-scroll::-webkit-scrollbar { width: 4px; }
         .pr-chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
         .pr-main-scroll { scrollbar-gutter: stable; overscroll-behavior: contain; }
@@ -1336,9 +1331,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           alignItems: isMobile ? "flex-start" : "center",
           flexWrap: isMobile ? "wrap" : "nowrap",
           gap: isMobile ? 8 : 12,
-          // En mobile el botón hamburguesa del Sidebar flota arriba-izquierda;
-          // padding-left para que el botón "volver" no quede debajo de él.
-          padding: isMobile ? "10px 12px 10px 50px" : "10px 16px",
+          padding: isMobile ? "10px 12px" : "10px 16px",
           borderBottom: manager ? `1px solid ${C.border}` : "none",
         }}>
           <button type="button" onClick={onBack} title="Volver" className="icon-btn" style={iconButtonStyle}>
@@ -1353,7 +1346,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 margin: 0,
                 color: C.text,
                 fontSize: isMobile ? 14 : 16,
-                fontWeight: isMobile ? 700 : 800,
+                fontWeight: isMobile ? 600 : 650,
                 lineHeight: isMobile ? 1.25 : 1.2,
                 letterSpacing: -0.3,
                 flex: "1 1 auto",
@@ -1426,7 +1419,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         {manager && (
           <div style={{ padding: "10px 16px", display: "flex", alignItems: isMobile ? "stretch" : "center", gap: 12, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
             <div style={{ flex: 1, minWidth: 0, maxWidth: "100%", overflowX: "auto" }}>
-              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                 Estado
               </div>
               <StatusStepper current={request.status} onChange={async (status) => {
@@ -1447,7 +1440,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div style={{ flexShrink: 0, minWidth: isMobile ? 0 : 160 }}>
-              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                 Proveedor
               </div>
               <input
@@ -1468,7 +1461,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div style={{ flexShrink: 0 }}>
-              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                 Prioridad
               </div>
               <div style={{ display: "flex", gap: 4 }}>
@@ -1491,7 +1484,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         padding: "5px 9px",
                         cursor: isActive ? "default" : "pointer",
                         fontSize: 11,
-                        fontWeight: 700,
+                        fontWeight: 600,
                         textTransform: "uppercase",
                         letterSpacing: 0.6,
                         transition: "all .13s",
@@ -1524,7 +1517,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               fontSize: 10,
               letterSpacing: 1.1,
               textTransform: "uppercase",
-              fontWeight: 750,
+              fontWeight: 650,
             }}>
               Prioridad
             </span>
@@ -1548,7 +1541,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       padding: "5px 10px",
                       cursor: isActive ? "default" : "pointer",
                       fontSize: 11,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       textTransform: "uppercase",
                       letterSpacing: 0.6,
                       transition: "all .13s",
@@ -1578,16 +1571,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: "2px 0",
             }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>
                   Costos y recepción
                 </span>
                 {faltaImporte && (
-                  <span style={{ borderRadius: 999, padding: "2px 8px", background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 9.5, fontWeight: 900 }}>
+                  <span style={{ borderRadius: 999, padding: "2px 8px", background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 9.5, fontWeight: 700 }}>
                     Falta el importe
                   </span>
                 )}
               </span>
-              <span style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>
+              <span style={{ color: C.blue, fontSize: 11, fontWeight: 600 }}>
                 {costosOpen ? "▾ ocultar" : "▸ cargar precio / recepción"}
               </span>
             </button>
@@ -1596,7 +1589,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
               {(request.status === "cotizando" || request.status === "comprado" || request.status === "recibido") && (
                 <div>
-                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                     Monto cotizado $
                   </div>
                   <input
@@ -1621,7 +1614,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {(request.status === "comprado" || request.status === "recibido") && (
                 <div>
-                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                     Monto real $
                   </div>
                   <input
@@ -1646,7 +1639,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {(request.status === "comprado" || request.status === "recibido") && (
                 <div>
-                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                     Fecha entrega estimada
                   </div>
                   <input
@@ -1675,7 +1668,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 padding: "5px 10px",
                 borderRadius: 6,
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 600,
                 background: request.actual_amount <= request.estimated_amount
                   ? "rgba(16,185,129,0.1)"
                   : "rgba(239,68,68,0.1)",
@@ -1687,7 +1680,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               }}>
                 {request.actual_amount <= request.estimated_amount ? "✓" : "▲"} Presupuesto: ${Number(request.estimated_amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })} · Real: ${Number(request.actual_amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 {request.actual_amount > request.estimated_amount && (
-                  <span style={{ fontWeight: 800 }}>
+                  <span style={{ fontWeight: 650 }}>
                     (${(request.actual_amount - request.estimated_amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })} excedente)
                   </span>
                 )}
@@ -1704,13 +1697,13 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             display: "grid",
             gap: 12,
           }}>
-            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>
               Recepción
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
               <div>
-                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                   Cantidad recibida
                 </div>
                 <input
@@ -1731,7 +1724,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               </div>
 
               <div>
-                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                   Fecha recepción
                 </div>
                 <input
@@ -1752,7 +1745,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div>
-              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                 Notas de recepción
               </div>
               <textarea
@@ -1773,7 +1766,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div>
-              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 6 }}>
                 Factura / comprobante
               </div>
               {request.invoice_url ? (
@@ -1889,7 +1882,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <div>
               {ARCHIVED_STATUSES.includes(request.status) && <ArchivedBanner status={request.status} />}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
-                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>
                   Descripción
                 </div>
                 <span style={{ flex: 1 }} />
@@ -1909,7 +1902,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       color: C.blue,
                       cursor: "pointer",
                       fontSize: 12,
-                      fontWeight: 750,
+                      fontWeight: 650,
                       fontFamily: C.sans,
                     }}
                   >
@@ -1956,10 +1949,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               {(manager || enviosPanol.length > 0) && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: enviosPanol.length ? 8 : 0 }}>
-                    <div style={{ flex: 1, color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>Estado en Pañol</div>
+                    <div style={{ flex: 1, color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>Estado en Pañol</div>
                     {canSendToPanol && (
                       <button type="button" onClick={() => setPanolModal(true)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 7, border: "1px solid rgba(96,165,250,0.35)", background: "rgba(96,165,250,0.12)", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 7, border: "1px solid rgba(96,165,250,0.35)", background: "rgba(96,165,250,0.12)", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>
                         <Send size={12} /> Enviar a Pañol
                       </button>
                     )}
@@ -1976,7 +1969,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             <span style={{ width: 7, height: 7, borderRadius: "50%", background: em.color, flexShrink: 0 }} />
                             <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.titulo} · {e.sede}</span>
                             <span style={{ fontSize: 11, color: C.muted }}>{r.recibidos}/{r.total}</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: em.color, background: `${em.color}1c`, border: `1px solid ${em.color}44`, borderRadius: 999, padding: "1px 8px" }}>{em.label}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", color: em.color, background: `${em.color}1c`, border: `1px solid ${em.color}44`, borderRadius: 999, padding: "1px 8px" }}>{em.label}</span>
                           </div>
                         );
                       })}
@@ -1996,7 +1989,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
             {requestAttachments.length > 0 && (
               <div style={{ display: "grid", gap: 7, alignContent: "flex-start", minWidth: 0 }}>
-                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>
                   Archivos · {requestAttachments.length}
                 </div>
                 {requestAttachments.map((attachment, index) => (
@@ -2016,7 +2009,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             {/* ─── ITEMS ──────────────────────────────────────────────── */}
             <div style={{ marginBottom: items.length || showAddItem ? 24 : 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
-                <span style={{ color: C.muted, fontSize: 12, letterSpacing: 0.7, textTransform: "uppercase", fontWeight: 800 }}>Ítems del pedido</span>
+                <span style={{ color: C.muted, fontSize: 12, letterSpacing: 0.7, textTransform: "uppercase", fontWeight: 650 }}>Ítems del pedido</span>
                 {items.length > 0 && (
                   <span style={{
                     minWidth: 24,
@@ -2031,7 +2024,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     color: C.dim,
                     fontSize: 11,
                     fontFamily: C.mono,
-                    fontWeight: 750,
+                    fontWeight: 650,
                   }}>{items.length}</span>
                 )}
                 <span style={{ flex: 1 }} />
@@ -2047,7 +2040,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   background: C.panel,
                   color: C.muted,
                   fontFamily: C.sans,
-                  fontWeight: 750,
+                  fontWeight: 650,
                 }}>
                   <Copy size={12} />
                   Copiar pedido
@@ -2120,7 +2113,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           width: "100%",
                           minHeight: 36,
                           padding: "6px 24px 6px 9px",
-                          borderRadius: 8, fontSize: 11, fontWeight: 750,
+                          borderRadius: 8, fontSize: 11, fontWeight: 650,
                           border: `1px solid ${st.color}44`,
                           background: `${st.color}15`,
                           color: st.color,
@@ -2133,12 +2126,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         ))}
                       </select>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ color: C.text, fontSize: isMobile ? 14 : 14, fontWeight: 750, lineHeight: 1.35, overflowWrap: "anywhere" }}>{item.description}</div>
+                        <div style={{ color: C.text, fontSize: isMobile ? 14 : 14, fontWeight: 650, lineHeight: 1.35, overflowWrap: "anywhere" }}>{item.description}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 5 }}>
                           {/* "> 0" y no el largo a secas: supplier_components vale [] por defecto,
                               y {0 && ...} React lo dibuja como un "0" suelto en cada renglón. */}
                           {(item.supplier_description || item.supplier_code || item.supplier_components?.length > 0) && (
-                            <span title="Así se copia e imprime para el proveedor" style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>
+                            <span title="Así se copia e imprime para el proveedor" style={{ color: C.blue, fontSize: 11, fontWeight: 600 }}>
                               Para proveedor: {item.supplier_description || `${item.supplier_components.length} renglones desglosados`}{item.supplier_code ? ` · ${item.supplier_code}` : ""}
                             </span>
                           )}
@@ -2159,7 +2152,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               veía igual que una completa: solo cambiaba el estado. */}
                           {item.received_quantity && (
                             <span style={{
-                              color: st.color, fontSize: 10, fontWeight: 800, fontFamily: C.mono,
+                              color: st.color, fontSize: 10, fontWeight: 650, fontFamily: C.mono,
                               border: `1px solid ${st.color}44`, background: `${st.color}12`,
                               borderRadius: 999, padding: "1px 7px",
                             }}>
@@ -2220,7 +2213,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         background: C.panel2,
                       }}>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                             Nombre del ítem
                           </div>
                           <input value={editDescription} onChange={e => setEditDescription(e.target.value)}
@@ -2229,7 +2222,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         </div>
                         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
                           <div style={{ flex: 1 }}>
-                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                               Cantidad
                             </div>
                             <input value={editQuantity} onChange={e => setEditQuantity(e.target.value)}
@@ -2237,7 +2230,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                           </div>
                           <div style={{ width: isMobile ? "100%" : 150 }}>
-                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                               Unidad
                             </div>
                             <input value={editUnit} onChange={e => setEditUnit(e.target.value)}
@@ -2250,14 +2243,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 180px", gap: 8, padding: 9, border: `1px solid ${C.border}`, borderRadius: 8, background: C.bg }}>
                           <div>
-                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                               Nombre para el proveedor
                             </div>
                             <input value={editSupplierDescription} onChange={e => setEditSupplierDescription(e.target.value)} placeholder="Opcional; se usa al copiar e imprimir"
                               style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.text, fontSize: 13 }} />
                           </div>
                           <div>
-                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                               Código proveedor
                             </div>
                             <input value={editSupplierCode} onChange={e => setEditSupplierCode(e.target.value)} placeholder="Opcional"
@@ -2265,7 +2258,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           </div>
                         </div>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                             Enlace / Link
                           </div>
                           <input value={editLinkUrl} onChange={e => setEditLinkUrl(e.target.value)}
@@ -2273,7 +2266,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                         </div>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                             Foto del producto
                           </div>
                           <label style={{
@@ -2293,7 +2286,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           </label>
                         </div>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 600 }}>
                             Notas
                           </div>
                           <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
@@ -2338,7 +2331,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   }}>
                     <MessageSquare size={16} />
                   </div>
-                  <div style={{ color: C.muted, fontWeight: 700, fontSize: 13 }}>Sin mensajes todavía</div>
+                  <div style={{ color: C.muted, fontWeight: 600, fontSize: 13 }}>Sin mensajes todavía</div>
                   <div style={{ fontSize: 12, color: C.dim, maxWidth: 280 }}>
                     Pedile precisiones a compras o etiquetá con <span style={{ color: C.cyan, fontFamily: C.mono }}>@usuario</span> para sumar a alguien.
                   </div>
@@ -2367,12 +2360,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           display: "grid",
                           placeItems: "center",
                           fontSize: 10,
-                          fontWeight: 800,
+                          fontWeight: 650,
                           flexShrink: 0,
                         }}>
                           {usernameOf(comment.author).slice(0, 2).toUpperCase()}
                         </div>
-                        <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{usernameOf(comment.author)}</span>
+                        <span style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{usernameOf(comment.author)}</span>
                         <span style={{ color: C.dim, fontSize: 11, marginLeft: "auto" }}>{fmtDateTime(comment.created_at)}</span>
                         {(comment.mentions || []).length > 0 && (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.cyan, fontSize: 11 }}>
@@ -2453,7 +2446,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           <AttachmentTypeIcon attachment={item.file} size={18} />
                         </span>
                         <span style={{ minWidth: 0 }}>
-                          <span style={{ display: "block", color: C.text, fontSize: 11, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span style={{ display: "block", color: C.text, fontSize: 11, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.file.name}
                           </span>
                           <span style={{ display: "block", marginTop: 3, color: C.dim, fontSize: 10, textTransform: "uppercase" }}>
@@ -2562,7 +2555,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               borderTop: `1px solid ${C.border}`,
               background: C.topbarSoft,
               color: C.muted,
-              fontSize: 13, fontWeight: 700, fontFamily: C.sans,
+              fontSize: 13, fontWeight: 600, fontFamily: C.sans,
               cursor: "pointer",
             }}
           >
@@ -2590,7 +2583,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           )}
 
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 12, fontWeight: 750, marginBottom: 10, letterSpacing: 0.5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 12, fontWeight: 650, marginBottom: 10, letterSpacing: 0.5 }}>
               <Users size={13} /> Involucrados
             </div>
             <div style={{ display: "grid", gap: 7 }}>
@@ -2631,7 +2624,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     cursor: savingFollowerWa ? "default" : "pointer",
                     opacity: savingFollowerWa ? 0.65 : 1,
                     fontSize: 12,
-                    fontWeight: 800,
+                    fontWeight: 650,
                     fontFamily: C.sans,
                   }}
                 >
@@ -2652,7 +2645,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </div>
 
           <div style={{ padding: 10, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panel }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 12, fontWeight: 750, marginBottom: 9 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 12, fontWeight: 650, marginBottom: 9 }}>
               <UserPlus size={13} /> Agregar en copia
             </div>
             <div style={{ display: "grid", gap: 7 }}>
@@ -2674,7 +2667,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   padding: "8px 10px",
                   cursor: newFollowerId ? "pointer" : "default",
                   fontSize: 13,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   fontFamily: C.sans,
                   transition: "all .13s",
                 }}
@@ -2685,7 +2678,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </div>
 
           <div style={{ padding: 10, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panel, display: "grid", gap: 8 }}>
-            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 2 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650, marginBottom: 2 }}>
               Detalles
             </div>
             {/* Estado y prioridad no van acá: los dos están arriba como fila de
@@ -2693,12 +2686,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 hacía que este panel fuera mitad eco de la cabecera. */}
             {request.proveedor && (
               <MetaRow icon={<Users size={12} />} label="Proveedor">
-                <span style={{ color: C.blue, fontWeight: 700 }}>{request.proveedor}</span>
+                <span style={{ color: C.blue, fontWeight: 600 }}>{request.proveedor}</span>
               </MetaRow>
             )}
             {request.estimated_amount !== null && (
               <MetaRow icon={<Paperclip size={12} />} label="Cotizado">
-                <span style={{ color: C.cyan, fontWeight: 700, fontFamily: C.mono }}>
+                <span style={{ color: C.cyan, fontWeight: 600, fontFamily: C.mono }}>
                   ${Number(request.estimated_amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 </span>
               </MetaRow>
@@ -2707,7 +2700,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               <MetaRow icon={<Paperclip size={12} />} label="Real">
                 <span style={{
                   color: (request.estimated_amount !== null && request.actual_amount > request.estimated_amount) ? C.red : C.green,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   fontFamily: C.mono,
                 }}>
                   ${Number(request.actual_amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
@@ -2729,7 +2722,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
             {request.delivered_at && (
               <MetaRow icon={<CheckCircle2 size={12} />} label="Recibido">
-                <span style={{ color: C.green, fontWeight: 700, fontFamily: C.mono, fontSize: 12 }}>
+                <span style={{ color: C.green, fontWeight: 600, fontFamily: C.mono, fontSize: 12 }}>
                   {new Date(request.delivered_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                 </span>
               </MetaRow>

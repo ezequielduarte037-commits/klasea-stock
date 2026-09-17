@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import AjusteMaderasModal from "@/features/inventario/AjusteMaderasModal";
 import { C } from "@/theme";
@@ -44,9 +43,9 @@ function Btn({ onClick, children, variant = "outline", disabled = false, style =
     primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
     green:   { border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
     blue:    { border: "1px solid rgba(59,130,246,0.25)", background: "rgba(59,130,246,0.07)", color: "#93c5fd", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
-    amber:   { border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.07)", color: "#fbbf24", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
+    cian:    { border: "1px solid var(--cyan-border)", background: "var(--cyan-soft)", color: "var(--cyan)", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
     toggle:  (active) => active
-      ? { border: `1px solid ${C.b1}`, background: C.s1, color: C.t0, padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700 }
+      ? { border: `1px solid ${C.b1}`, background: C.s1, color: C.t0, padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600 }
       : { border: "1px solid var(--panel)", background: "transparent", color: C.t2, padding: "5px 14px", borderRadius: 6, fontSize: 12 },
   };
   const base = typeof V[variant] === "function" ? V[variant](style._active) : V[variant];
@@ -70,7 +69,7 @@ function Btn({ onClick, children, variant = "outline", disabled = false, style =
 function FieldRow({ label, children }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>
+      <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>
         {label}
       </label>
       {children}
@@ -78,7 +77,7 @@ function FieldRow({ label, children }) {
   );
 }
 
-export default function PanolScreen({ profile, signOut }) {
+export default function PanolScreen() {
   const { isMobile } = useResponsive();
   const [modo, setModo] = useState("EGRESO");
   const [materiales, setMateriales] = useState([]);
@@ -453,7 +452,7 @@ export default function PanolScreen({ profile, signOut }) {
     const s = num(sel.stock_actual);
     const m = num(sel.stock_minimo);
     if (s <= 0)   return { label: "Crítico",  color: C.red,   bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)"  };
-    if (s <= m)   return { label: "Atención", color: C.amber, bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" };
+    if (s <= m)   return { label: "Atención", color: C.cyan, bg: "rgba(34,211,238,0.1)",  border: "rgba(34,211,238,0.25)" };
     return              { label: "OK",        color: C.green, bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)" };
   }, [sel]);
 
@@ -492,34 +491,25 @@ export default function PanolScreen({ profile, signOut }) {
   const modoColor = modo === "EGRESO" ? C.red : C.green;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: var(--panel-solid); color: var(--muted); }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
           background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%);
         }
       `}</style>
       <div className="bg-glow" />
 
       <div style={{ display: "contents" }}>
-        <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: C.topbar, ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
@@ -527,9 +517,9 @@ export default function PanolScreen({ profile, signOut }) {
               <div style={{ width: 1, height: 14, background: C.b1 }} />
               <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1 }}>Maderas</div>
               {pedidosPendientes.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.amber, lineHeight: 1 }}>{pedidosPendientes.length}</span>
-                  <span style={{ fontSize: 10, color: C.amber, letterSpacing: 1.1, textTransform: "uppercase" }}>Pedidos pendientes</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)" }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: C.cyan, lineHeight: 1 }}>{pedidosPendientes.length}</span>
+                  <span style={{ fontSize: 10, color: C.cyan, letterSpacing: 1.1, textTransform: "uppercase" }}>Pedidos pendientes</span>
                 </div>
               )}
               {/* Toggles modo */}
@@ -540,14 +530,14 @@ export default function PanolScreen({ profile, signOut }) {
                     background: modo === m ? C.s1 : "transparent",
                     color: modo === m ? C.t0 : C.t2,
                     padding: "3px 12px", borderRadius: 6, cursor: "pointer",
-                    fontSize: 11, fontWeight: modo === m ? 700 : 400,
+                    fontSize: 11, fontWeight: modo === m ? 600 : 400,
                     letterSpacing: 1.1, textTransform: "uppercase", fontFamily: C.sans,
                   }}>{m}</button>
                 ))}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <Btn variant="amber" onClick={() => setShowAjuste(true)}>⊟ Ajuste inventario</Btn>
+              <Btn variant="cian" onClick={() => setShowAjuste(true)}>⊟ Ajuste inventario</Btn>
               <Btn variant="green" onClick={exportarStockMaderas}>↓ Stock CSV</Btn>
               <Btn variant="blue" onClick={exportarMovimientosMaderas} disabled={exportando}>
                 {exportando ? "Exportando…" : "↓ Movimientos CSV"}
@@ -561,7 +551,7 @@ export default function PanolScreen({ profile, signOut }) {
               {[
                 { label: "Ingresos hoy", value: movStats.ingresosHoy, sub: `${movStats.ingresos} recientes`, color: C.green },
                 { label: "Egresos hoy", value: movStats.egresosHoy, sub: `${movStats.egresos} recientes`, color: C.red },
-                { label: "Pedidos", value: pedidosPendientes.length, sub: "pendientes", color: C.amber },
+                { label: "Pedidos", value: pedidosPendientes.length, sub: "pendientes", color: C.cyan },
                 { label: "Movimientos", value: movStats.total, sub: "ultimos registros", color: C.primary },
               ].map(s => (
                 <div key={s.label} style={{
@@ -571,8 +561,8 @@ export default function PanolScreen({ profile, signOut }) {
                   padding: 13,
                   minHeight: 78,
                 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 800 }}>{s.label}</div>
-                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 850, color: s.color, lineHeight: 1, marginTop: 6 }}>{s.value}</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 650 }}>{s.label}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 700, color: s.color, lineHeight: 1, marginTop: 6 }}>{s.value}</div>
                   <div style={{ fontSize: 12, color: C.t2, marginTop: 5 }}>{s.sub}</div>
                 </div>
               ))}
@@ -583,12 +573,12 @@ export default function PanolScreen({ profile, signOut }) {
               <div style={{ background: C.s0, border: `1px solid ${quedaNegativo ? tint(C.red, 48) : C.b0}`, borderRadius: 14, overflow: "hidden", animation: "slideUp .3s ease" }}>
                 <div style={{ padding: 16, borderBottom: `1px solid ${C.b0}`, background: tint(modoColor, 7), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 850, color: C.t0 }}>Registrar {modo === "EGRESO" ? "egreso" : "ingreso"} de madera</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.t0 }}>Registrar {modo === "EGRESO" ? "egreso" : "ingreso"} de madera</div>
                     <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
                       {modo === "EGRESO" ? "Salida hacia obra, persona o destino." : "Entrada por proveedor o pedido recibido."}
                     </div>
                   </div>
-                  <div style={{ border: `1px solid ${tint(modoColor, 34)}`, background: tint(modoColor, 14), color: modoColor, borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 900, letterSpacing: 1.1 }}>
+                  <div style={{ border: `1px solid ${tint(modoColor, 34)}`, background: tint(modoColor, 14), color: modoColor, borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 700, letterSpacing: 1.1 }}>
                     {modo}
                   </div>
                 </div>
@@ -610,11 +600,11 @@ export default function PanolScreen({ profile, signOut }) {
                   {sel && (
                     <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 8, background: stockStatus?.bg, border: `1px solid ${stockStatus?.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>{sel.nombre}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.t0 }}>{sel.nombre}</div>
                         <div style={{ fontSize: 11, color: C.t1, marginTop: 1 }}>{sel.categoria} · {sel.unidad_medida}</div>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 700, color: stockStatus?.color, lineHeight: 1 }}>{num(sel.stock_actual)}</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 600, color: stockStatus?.color, lineHeight: 1 }}>{num(sel.stock_actual)}</div>
                         <div style={{ fontSize: 10, color: stockStatus?.color, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 2 }}>{stockStatus?.label}</div>
                       </div>
                     </div>
@@ -622,17 +612,17 @@ export default function PanolScreen({ profile, signOut }) {
                   {sel && (
                     <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       <div style={{ border: `1px solid ${C.b0}`, borderRadius: 9, padding: 9, background: C.s0 }}>
-                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>Actual</div>
-                        <div style={{ fontFamily: C.mono, fontWeight: 850, color: stockStatus?.color, marginTop: 3 }}>{stockActual}</div>
+                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650 }}>Actual</div>
+                        <div style={{ fontFamily: C.mono, fontWeight: 700, color: stockStatus?.color, marginTop: 3 }}>{stockActual}</div>
                       </div>
-                      <div style={{ border: `1px solid ${quedaNegativo ? tint(C.red, 42) : quedaBajoMinimo ? tint(C.amber, 42) : C.b0}`, borderRadius: 9, padding: 9, background: quedaNegativo ? tint(C.red, 7) : quedaBajoMinimo ? tint(C.amber, 7) : C.s0 }}>
-                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>Después</div>
-                        <div style={{ fontFamily: C.mono, fontWeight: 850, color: quedaNegativo ? C.red : quedaBajoMinimo ? C.amber : C.t0, marginTop: 3 }}>{stockDespues}</div>
+                      <div style={{ border: `1px solid ${quedaNegativo ? tint(C.red, 42) : quedaBajoMinimo ? tint(C.cyan, 42) : C.b0}`, borderRadius: 9, padding: 9, background: quedaNegativo ? tint(C.red, 7) : quedaBajoMinimo ? tint(C.cyan, 7) : C.s0 }}>
+                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650 }}>Después</div>
+                        <div style={{ fontFamily: C.mono, fontWeight: 700, color: quedaNegativo ? C.red : quedaBajoMinimo ? C.cyan : C.t0, marginTop: 3 }}>{stockDespues}</div>
                       </div>
                     </div>
                   )}
                   {sel && (quedaNegativo || quedaBajoMinimo) && (
-                    <div style={{ marginTop: 8, border: `1px solid ${quedaNegativo ? tint(C.red, 38) : tint(C.amber, 38)}`, background: quedaNegativo ? tint(C.red, 8) : tint(C.amber, 8), color: quedaNegativo ? C.red : C.amber, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 750, lineHeight: 1.35 }}>
+                    <div style={{ marginTop: 8, border: `1px solid ${quedaNegativo ? tint(C.red, 38) : tint(C.cyan, 38)}`, background: quedaNegativo ? tint(C.red, 8) : tint(C.cyan, 8), color: quedaNegativo ? C.red : C.cyan, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 650, lineHeight: 1.35 }}>
                       {quedaNegativo ? "La salida supera el stock actual. El sistema pedirá confirmación." : "La salida deja este material bajo el mínimo."}
                     </div>
                   )}
@@ -655,16 +645,16 @@ export default function PanolScreen({ profile, signOut }) {
                   <>
                     {/* Banner de detección de pedido pendiente */}
                     {matchingPedidos.length > 0 && (
-                      <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.07)", padding: "10px 14px" }}>
-                        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.amber, fontWeight: 700, marginBottom: 8 }}>
+                      <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(34,211,238,0.35)", background: "rgba(34,211,238,0.07)", padding: "10px 14px" }}>
+                        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.cyan, fontWeight: 600, marginBottom: 8 }}>
                           Este material tiene pedidos pendientes
                         </div>
                         {matchingPedidos.map(({ pedido, item }) => {
                           const isVinculado = pedidoVinculado?.item?.id === item.id;
                           return (
-                            <div key={pedido.id} style={{ marginBottom: 6, padding: "8px 10px", borderRadius: 8, background: isVinculado ? "rgba(245,158,11,0.15)" : "var(--panel)", border: `1px solid ${isVinculado ? "rgba(245,158,11,0.4)" : "var(--panel-2)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                            <div key={pedido.id} style={{ marginBottom: 6, padding: "8px 10px", borderRadius: 8, background: isVinculado ? "rgba(34,211,238,0.15)" : "var(--panel)", border: `1px solid ${isVinculado ? "rgba(34,211,238,0.4)" : "var(--panel-2)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                               <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>{pedido.nota || pedido.proveedor}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: C.t0 }}>{pedido.nota || pedido.proveedor}</div>
                                 <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
                                   Pedido: <span style={{ color: C.t1, fontFamily: C.mono }}>{item.cantidad} {item.unidad}</span>
                                   {item.nota_recepcion && <span style={{ color: C.green, marginLeft: 8 }}>· Ya recibido</span>}
@@ -672,14 +662,14 @@ export default function PanolScreen({ profile, signOut }) {
                               </div>
                               <button
                                 onClick={() => setPedidoVinculado(isVinculado ? null : { pedido, item })}
-                                style={{ border: `1px solid ${isVinculado ? C.amber : C.b0}`, background: isVinculado ? "rgba(245,158,11,0.2)" : C.s0, color: isVinculado ? C.amber : C.t1, padding: "4px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: isVinculado ? 700 : 400, whiteSpace: "nowrap" }}>
+                                style={{ border: `1px solid ${isVinculado ? C.cyan : C.b0}`, background: isVinculado ? "rgba(34,211,238,0.2)" : C.s0, color: isVinculado ? C.cyan : C.t1, padding: "4px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: isVinculado ? 600 : 400, whiteSpace: "nowrap" }}>
                                 {isVinculado ? "✓ Vinculado" : "Vincular"}
                               </button>
                             </div>
                           );
                         })}
                         {pedidoVinculado && (
-                          <div style={{ marginTop: 6, fontSize: 11, color: C.amber }}>
+                          <div style={{ marginTop: 6, fontSize: 11, color: C.cyan }}>
                             Al confirmar el ingreso se registrará la recepción en el pedido vinculado.
                           </div>
                         )}
@@ -708,13 +698,13 @@ export default function PanolScreen({ profile, signOut }) {
                       <button key={d} type="button" onClick={() => ajustarCantidad(d)} style={{
                         border: `1px solid ${C.b0}`, background: "transparent", color: C.t1,
                         padding: "7px 8px", borderRadius: 7, cursor: "pointer", fontSize: 12,
-                        fontFamily: C.mono, fontWeight: 700, minWidth: 36,
+                        fontFamily: C.mono, fontWeight: 600, minWidth: 36,
                       }}>{d > 0 ? "+" : ""}{d}</button>
                     ))}
                   </div>
                   {!cantidadRevisada && (
-                    <div style={{ marginTop: 5, fontSize: 11, color: C.amber, display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.amber, display: "inline-block" }} />
+                    <div style={{ marginTop: 5, fontSize: 11, color: C.cyan, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.cyan, display: "inline-block" }} />
                       Revisá la cantidad antes de confirmar
                     </div>
                   )}
@@ -733,7 +723,7 @@ export default function PanolScreen({ profile, signOut }) {
                       border: `1px solid ${tint(modoColor, 36)}`,
                       color: modoColor,
                       borderRadius: 9, cursor: "pointer", fontFamily: C.sans,
-                      fontSize: 14, fontWeight: 700, letterSpacing: 0.5,
+                      fontSize: 14, fontWeight: 600, letterSpacing: 0.5,
                     }}
                   >
                     Confirmar {modo === "EGRESO" ? "egreso" : "ingreso"}
@@ -751,10 +741,10 @@ export default function PanolScreen({ profile, signOut }) {
               {/* ── PEDIDOS PENDIENTES ── */}
               <div style={{ display: "grid", gap: 14 }}>
               {pedidosPendientes.length > 0 && (
-                <div style={{ background: C.s0, border: `1px solid rgba(245,158,11,0.25)`, borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ padding: "12px 16px", borderBottom: `1px solid rgba(245,158,11,0.15)`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(245,158,11,0.04)" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.amber }}>Pedidos pendientes</span>
-                    <span style={{ fontSize: 11, color: C.amber, fontFamily: C.mono, background: "rgba(245,158,11,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
+                <div style={{ background: C.s0, border: `1px solid rgba(34,211,238,0.25)`, borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "12px 16px", borderBottom: `1px solid rgba(34,211,238,0.15)`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(34,211,238,0.04)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.cyan }}>Pedidos pendientes</span>
+                    <span style={{ fontSize: 11, color: C.cyan, fontFamily: C.mono, background: "rgba(34,211,238,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
                   </div>
                   <div style={{ maxHeight: 480, overflowY: "auto" }}>
                     {pedidosPendientes.map(ped => {
@@ -763,7 +753,7 @@ export default function PanolScreen({ profile, signOut }) {
                       const total = items.length;
                       const todoRecibido = total > 0 && recibidos === total;
                       const parcial = recibidos > 0 && recibidos < total;
-                      const ESTADO_COLOR = { pedido: C.amber, transito: C.primary, parcial: "#8b5cf6" };
+                      const ESTADO_COLOR = { pedido: C.cyan, transito: C.primary, parcial: "#8b5cf6" };
                       const estadoColor = ESTADO_COLOR[ped.estado] ?? C.t2;
                       const isDeleting = deletingPedId === ped.id;
 
@@ -783,7 +773,7 @@ export default function PanolScreen({ profile, signOut }) {
                               )}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                              <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${estadoColor}18`, color: estadoColor, border: `1px solid ${estadoColor}35` }}>
+                              <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 600, padding: "2px 8px", borderRadius: 5, background: `${estadoColor}18`, color: estadoColor, border: `1px solid ${estadoColor}35` }}>
                                 {ped.estado}
                               </span>
                               {/* Botón borrar */}
@@ -800,7 +790,7 @@ export default function PanolScreen({ profile, signOut }) {
                                   <button
                                     disabled={actualizandoPed}
                                     onClick={() => eliminarPedido(ped.id)}
-                                    style={{ border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#f87171", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 700 }}>
+                                    style={{ border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#f87171", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>
                                     Sí
                                   </button>
                                   <button
@@ -837,7 +827,7 @@ export default function PanolScreen({ profile, signOut }) {
                                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: editandoParcial ? 8 : 0 }}>
                                     <span style={{ fontSize: 14, flexShrink: 0 }}>{yaRecibido ? "✅" : "⬜"}</span>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontSize: 12, fontWeight: 700, color: yaRecibido ? C.t2 : C.t0, textDecoration: yaRecibido ? "line-through" : "none", lineHeight: 1.3 }}>
+                                      <div style={{ fontSize: 12, fontWeight: 600, color: yaRecibido ? C.t2 : C.t0, textDecoration: yaRecibido ? "line-through" : "none", lineHeight: 1.3 }}>
                                         {it.descripcion}
                                       </div>
                                       <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono, marginTop: 1 }}>
@@ -858,7 +848,7 @@ export default function PanolScreen({ profile, signOut }) {
                                           <button
                                             disabled={actualizandoPed}
                                             onClick={() => marcarItemRecibido(it, "todo")}
-                                            style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
+                                            style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}>
                                             ✓ Llegó todo
                                           </button>
                                           <button
@@ -895,7 +885,7 @@ export default function PanolScreen({ profile, signOut }) {
                                       <button
                                         disabled={!itemParcialVal || actualizandoPed}
                                         onClick={() => marcarItemRecibido(it, "parcial", itemParcialVal)}
-                                        style={{ border: "1px solid rgba(139,92,246,0.4)", background: "rgba(139,92,246,0.12)", color: "#a78bfa", padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                        style={{ border: "1px solid rgba(139,92,246,0.4)", background: "rgba(139,92,246,0.12)", color: "#a78bfa", padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 600, whiteSpace: "nowrap" }}>
                                         Confirmar
                                       </button>
                                       <button
@@ -916,7 +906,7 @@ export default function PanolScreen({ profile, signOut }) {
                               <button
                                 disabled={actualizandoPed}
                                 onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
-                                style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
+                                style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}>
                                 ✓ Marcar pedido recibido
                               </button>
                             )}
@@ -932,7 +922,7 @@ export default function PanolScreen({ profile, signOut }) {
                               <button
                                 disabled={actualizandoPed}
                                 onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
-                                style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
+                                style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}>
                                 Confirmar recepción completa
                               </button>
                             )}
@@ -948,7 +938,7 @@ export default function PanolScreen({ profile, signOut }) {
               {/* ── MOVIMIENTOS RECIENTES ── */}
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden" }}>
                 <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>Últimos movimientos</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.t0 }}>Últimos movimientos</span>
                   <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{movs.length}</span>
                 </div>
                 <div style={{ padding: "0 0 4px" }}>
@@ -971,10 +961,10 @@ export default function PanolScreen({ profile, signOut }) {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, flex: 1, lineHeight: 1.3 }}>{m.material_nombre}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                            <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color }}>
+                            <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color }}>
                               {d >= 0 ? "+" : ""}{d}
                             </span>
-                            <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 99, fontWeight: 700, background: badgeBg, color, border: `1px solid ${badgeBorder}` }}>
+                            <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 99, fontWeight: 600, background: badgeBg, color, border: `1px solid ${badgeBorder}` }}>
                               {badge}
                             </span>
                           </div>

@@ -4,7 +4,6 @@ import {
   ArrowLeft, BadgeCheck, Camera, CreditCard, IdCard, Nfc,
   Loader2, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Wifi, WifiOff,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -52,7 +51,7 @@ function Avatar({ empleado, preview, size = 104 }) {
       width: size, height: size, borderRadius: 24, overflow: "hidden", flexShrink: 0,
       display: "grid", placeItems: "center", border: `1px solid ${C.border2}`,
       background: "linear-gradient(135deg,var(--blue-soft),var(--green-soft))",
-      color: C.blue, fontSize: 28, fontWeight: 950,
+      color: C.blue, fontSize: 28, fontWeight: 750,
     }}>
       {foto
         ? <img src={foto} alt={`Foto de ${empleado?.nombre || "empleado"}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -73,11 +72,11 @@ function Paso({ numero, titulo, listo, activo }) {
       <span style={{
         width: 25, height: 25, flexShrink: 0, display: "grid", placeItems: "center",
         borderRadius: 8, background: color, color: "#fff", fontFamily: C.mono,
-        fontSize: 11, fontWeight: 950,
+        fontSize: 11, fontWeight: 750,
       }}>
         {listo ? <BadgeCheck size={14} /> : numero}
       </span>
-      <span style={{ minWidth: 0, color, fontSize: 11.5, fontWeight: 850 }}>{titulo}</span>
+      <span style={{ minWidth: 0, color, fontSize: 11.5, fontWeight: 700 }}>{titulo}</span>
     </div>
   );
 }
@@ -88,7 +87,7 @@ function estadoBridge(nfc) {
   return { color: C.violet, bg: C.violetL, border: C.violetB, label: "Lector no detectado", Icon: WifiOff };
 }
 
-export default function TarjetasNfcScreen({ profile, signOut }) {
+export default function TarjetasNfcScreen() {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const [dni, setDni] = useState("");
@@ -234,7 +233,7 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
       <style>{`
         .nfc-card{transition:border-color .16s ease,box-shadow .16s ease}
         .nfc-card:focus-within{border-color:var(--blue-border)!important;box-shadow:0 0 0 3px var(--blue-soft)}
@@ -242,11 +241,10 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
         .nfc-btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.06)}
         @media(prefers-reduced-motion:reduce){.nfc-card,.nfc-btn{transition:none!important}}
       `}</style>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto minmax(0,1fr)", height: "100%" }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
         <main style={{ minWidth: 0, minHeight: 0, overflowY: "auto" }}>
           <header style={{
-            minHeight: 72, padding: isMobile ? "12px 12px 12px 58px" : "14px 22px",
+            minHeight: 72, padding: isMobile ? "12px 14px" : "14px 22px",
             borderBottom: `1px solid ${C.border}`, background: C.topbar,
             display: "flex", alignItems: "center", gap: 12,
           }}>
@@ -260,13 +258,13 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
               <Nfc size={20} />
             </span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 950, color: C.text }}>Asignar tarjeta NFC</h1>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 750, color: C.text }}>Asignar tarjeta NFC</h1>
               <div style={{ marginTop: 3, fontSize: 11.5, color: C.dim }}>Solo se pueden vincular personas existentes y activas en RRHH.</div>
             </div>
             <span style={{
               display: "inline-flex", alignItems: "center", gap: 6, minHeight: 30, padding: "0 10px",
               borderRadius: 999, border: `1px solid ${bridge.border}`, background: bridge.bg, color: bridge.color,
-              fontSize: 10.5, fontWeight: 850, whiteSpace: "nowrap",
+              fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap",
             }}>
               <bridge.Icon size={13} /> {bridge.label}
             </span>
@@ -284,12 +282,12 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                 <div style={{ padding: "14px 15px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, background: C.blueL, color: C.blue }}><IdCard size={16} /></span>
                   <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 900 }}>Identificar persona</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>Identificar persona</div>
                     <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>El DNI debe existir en la lista de empleados.</div>
                   </div>
                 </div>
                 <form onSubmit={buscar} style={{ padding: 15 }}>
-                  <label htmlFor="nfc-dni" style={{ display: "block", color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>DNI</label>
+                  <label htmlFor="nfc-dni" style={{ display: "block", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>DNI</label>
                   <div style={{ display: "flex", gap: 7 }}>
                     <input
                       id="nfc-dni"
@@ -322,14 +320,14 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                 }}>
                   <div style={{ textAlign: "center", maxWidth: 360 }}>
                     <UserRound size={34} style={{ color: C.dim }} />
-                    <div style={{ color: C.text, fontSize: 15, fontWeight: 900, marginTop: 10 }}>Buscá una persona para comenzar</div>
+                    <div style={{ color: C.text, fontSize: 15, fontWeight: 700, marginTop: 10 }}>Buscá una persona para comenzar</div>
                     <div style={{ color: C.dim, fontSize: 12.5, lineHeight: 1.55, marginTop: 5 }}>Si el DNI no está en RRHH, la tarjeta no se puede asignar.</div>
                   </div>
                 </section>
               ) : (
                 <section className="nfc-card" style={{ border: `1px solid ${completado ? C.greenB : C.border}`, background: C.panelSolid, borderRadius: 14, overflow: "hidden" }}>
                   {completado && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 15px", background: C.greenL, color: C.green, borderBottom: `1px solid ${C.greenB}`, fontSize: 12.5, fontWeight: 850 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 15px", background: C.greenL, color: C.green, borderBottom: `1px solid ${C.greenB}`, fontSize: 12.5, fontWeight: 700 }}>
                       <BadgeCheck size={17} /> Tarjeta lista para usar en egresos de Pañol.
                     </div>
                   )}
@@ -337,16 +335,16 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                   <div style={{ padding: 16, display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
                     <Avatar empleado={empleado} preview={fotoPreview} />
                     <div style={{ minWidth: 180, flex: 1 }}>
-                      <div style={{ fontSize: 17, fontWeight: 950, color: C.text }}>{empleado.nombre}</div>
+                      <div style={{ fontSize: 17, fontWeight: 750, color: C.text }}>{empleado.nombre}</div>
                       <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 7 }}>
                         <span style={{ border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 8px", color: C.muted, fontSize: 10.5, fontFamily: C.mono }}>DNI {empleado.dni}</span>
                         {empleado.sede && <span style={{ border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 8px", color: C.muted, fontSize: 10.5 }}>{empleado.sede}</span>}
-                        <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 999, padding: "3px 8px", color: C.green, fontSize: 10.5, fontWeight: 800 }}>Empleado activo</span>
+                        <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 999, padding: "3px 8px", color: C.green, fontSize: 10.5, fontWeight: 650 }}>Empleado activo</span>
                       </div>
                       <button type="button" onClick={() => setCamara(true)} className="nfc-btn" style={{
                         marginTop: 12, minHeight: 34, display: "inline-flex", alignItems: "center", gap: 7,
                         border: `1px solid ${C.blueB}`, borderRadius: 9, background: C.blueL,
-                        color: C.blue, padding: "0 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850,
+                        color: C.blue, padding: "0 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 700,
                       }}>
                         <Camera size={14} /> {empleado.foto_url || foto ? "Actualizar foto" : "Sacar foto"}
                       </button>
@@ -357,11 +355,11 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                       <span style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 10, background: C.violetL, color: C.violet }}><Nfc size={18} /></span>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 900 }}>Tarjeta NFC</div>
+                        <div style={{ fontSize: 13.5, fontWeight: 700 }}>Tarjeta NFC</div>
                         <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Apoyá la tarjeta sobre el lector ACR122U.</div>
                       </div>
                       {!nfc.connected && (
-                        <button type="button" onClick={nfc.reconnect} style={{ border: `1px solid ${bridge.border}`, background: bridge.bg, color: bridge.color, borderRadius: 8, padding: "6px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 850 }}>
+                        <button type="button" onClick={nfc.reconnect} style={{ border: `1px solid ${bridge.border}`, background: bridge.bg, color: bridge.color, borderRadius: 8, padding: "6px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}>
                           Reintentar
                         </button>
                       )}
@@ -385,7 +383,7 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                       <button type="button" onClick={() => procesarUid(uid)} disabled={!uidLimpio || validandoUid} className="nfc-btn" style={{
                         minWidth: 78, border: `1px solid ${C.border}`, borderRadius: 10,
                         background: C.panel, color: C.muted, cursor: uidLimpio && !validandoUid ? "pointer" : "default",
-                        fontSize: 11.5, fontWeight: 850,
+                        fontSize: 11.5, fontWeight: 700,
                       }}>
                         {validandoUid ? "Validando…" : "Validar"}
                       </button>
@@ -402,12 +400,12 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                       </div>
                     )}
                     {!conflicto && tarjetaNueva && (
-                      <div style={{ marginTop: 9, color: C.green, fontSize: 11.5, fontWeight: 800 }}>
+                      <div style={{ marginTop: 9, color: C.green, fontSize: 11.5, fontWeight: 650 }}>
                         <BadgeCheck size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Tarjeta disponible y lista para asignar.
                       </div>
                     )}
                     {!conflicto && tarjetaLista && uidActual === uidLimpio && (
-                      <div style={{ marginTop: 9, color: C.green, fontSize: 11.5, fontWeight: 800 }}>
+                      <div style={{ marginTop: 9, color: C.green, fontSize: 11.5, fontWeight: 650 }}>
                         <BadgeCheck size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Esta es la tarjeta actualmente vinculada.
                       </div>
                     )}
@@ -419,14 +417,14 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                         minHeight: 38, display: "inline-flex", alignItems: "center", gap: 6,
                         border: `1px solid ${C.redB}`, borderRadius: 9, background: C.redL,
                         color: C.red, padding: "0 11px", cursor: guardando ? "default" : "pointer",
-                        fontSize: 11.5, fontWeight: 850,
+                        fontSize: 11.5, fontWeight: 700,
                       }}>
                         <Trash2 size={13} /> Desvincular actual
                       </button>
                     )}
                     <div style={{ flex: 1 }} />
                     {completado && (
-                      <button type="button" onClick={() => { setDni(""); limpiarSeleccion(); }} style={{ minHeight: 38, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panelSolid, color: C.muted, padding: "0 12px", cursor: "pointer", fontSize: 12, fontWeight: 800 }}>
+                      <button type="button" onClick={() => { setDni(""); limpiarSeleccion(); }} style={{ minHeight: 38, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panelSolid, color: C.muted, padding: "0 12px", cursor: "pointer", fontSize: 12, fontWeight: 650 }}>
                         Cargar otra persona
                       </button>
                     )}
@@ -435,7 +433,7 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                       border: "none", borderRadius: 10, padding: "0 16px",
                       background: puedeGuardar ? "linear-gradient(135deg,var(--violet),var(--blue))" : C.panel2,
                       color: puedeGuardar ? "#fff" : C.dim, cursor: puedeGuardar ? "pointer" : "default",
-                      fontSize: 12.5, fontWeight: 900,
+                      fontSize: 12.5, fontWeight: 700,
                     }}>
                       {guardando ? <Loader2 size={15} className="spin" /> : <Nfc size={16} />}
                       {guardando
