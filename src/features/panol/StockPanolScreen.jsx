@@ -365,7 +365,7 @@ const TABS = [
   { key: "sobrantes", label: "Sobrantes de obra" },
 ];
 
-function StockPanolTabs({ tab, onTabChange, sobrantesCount, inventoryView, onInventoryView, isMobile, compact = false }) {
+function StockPanolTabs({ tab, onTabChange, sobrantesCount, inventoryView, onInventoryView, isMobile, compact = false, extra = null }) {
   return (
     <div className="stock-panol-tabs">
       <div className="ui-tabs" role="tablist" aria-label="Vistas de stock">
@@ -413,6 +413,7 @@ function StockPanolTabs({ tab, onTabChange, sobrantesCount, inventoryView, onInv
           })}
         </div>
       )}
+      {extra}
     </div>
   );
 }
@@ -1225,7 +1226,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     },
   };
   const refreshBtn = (
-    <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 8, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center", flexShrink: 0 }}>
+    <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={loading} title="Actualizar" aria-label="Actualizar">
       <RefreshCw size={15} />
     </button>
   );
@@ -1238,6 +1239,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             .stock-panol-tabs { display:flex; align-items:center; gap:10px; min-width:0; }
             .stock-panol-tabs .ui-tabs { flex:1; min-width:0; }
             .stock-panol-tabs .ui-tab { font-size:13px; }
+            .stock-panol-tabs .ui-btn-icono { flex-shrink:0; }
             @media (prefers-reduced-motion:reduce){.stock-workspace-content{animation:none!important}}
           `}</style>
 
@@ -1247,11 +1249,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               eyebrow="Pañol"
               title={screenTitle || "Stock de pañol"}
               subtitle={screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
-              actions={(
-                <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={loading} title="Actualizar">
-                  <RefreshCw size={15} />
-                </button>
-              )}
             >
               <StockPanolTabs
                 tab={tab}
@@ -1260,6 +1257,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 inventoryView={inventoryView}
                 onInventoryView={handleInventoryView}
                 isMobile={isMobile}
+                extra={refreshBtn}
               />
             </PageHeader>
           )}
@@ -1274,8 +1272,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 onInventoryView={handleInventoryView}
                 isMobile={isMobile}
                 compact
+                extra={refreshBtn}
               />
-              <div style={{ marginLeft: "auto", alignSelf: "center" }}>{refreshBtn}</div>
             </div>
           )}
 

@@ -1,10 +1,11 @@
 # Lote 02 · Pañol — Stock y egresos
 
-Estado: en curso
+Estado: listo
 
 ## Hecho
 
 - **Stock de pañol (`StockPanolScreen`)**: el encabezado estaba armado a mano (ícono de 27 px, título y bajada en la misma línea, bajada en mayúsculas monoespaciadas) → ahora usa `PageHeader` con eyebrow "Pañol", y las cuatro pestañas más el conmutador Lista/Mapa viven en su segunda fila. Las pestañas pasaron a `ui-tabs`/`ui-tab`; el bloque quedó en un solo componente (`StockPanolTabs`) que sirve tanto para la pantalla completa como para el modo embebido.
+- El botón Actualizar iba en `actions` de `PageHeader`: en el celular bajaba a un renglón solo. Pasó a la misma fila que las pestañas (junto a Lista/Mapa).
 - Degradados fijos de las tarjetas de línea y de obra (`#34d399`, `#10b981`, `#60a5fa`, `#3b82f6`, `#a78bfa`, `#f87171`) → tokens planos (`C.green`, `C.blue`, `C.violet`, `C.red`) y fondos con `var(--*-soft)`. En tema claro los degradés se leían lavados.
 - Chips de estado de obra: `${color}33` / `${color}11` → `color-mix` sobre el token, y peso 700 → 600.
 - El `<style>` de la pantalla tenía selectores sin ámbito (`.stock-primary-tab:focus-visible`, etc.) → todos bajo `.stock-panol-root`.
@@ -31,14 +32,16 @@ Estado: en curso
 
 - `node scripts/comparar-lint.mjs` con los 12 archivos del lote: "Sin errores nuevos respecto de HEAD".
 - `npm run build`: pasa. El primer intento falló por `panol/SelectorDestinosRemito.jsx` (lote 1, a mitad de un cambio de otro agente); al reintentar, compiló.
+- **1280 oscuro**: `/stock-panol` Inventario (filtros, detalle de Acc Springlift, carrito con Guardar/Vaciar/Confirmar, chips), Por obra (lista + stock de 52-26), Mapa (KPI, plano, chips de zona, sin pulso), Movimientos/Historial, Estandarización, Devoluciones, Sobrantes (lista). `/egresos-panol` con título "Egreso de materiales". `/consumibles-caja` con PageHeader, Sale/Entra y sin latido NFC. `/sobrantes-obra/:id` (43-29) con PageHeader. `/pantalla-egreso` fuera del shell, rótulos grandes. Escáner abierto desde Inventario (overlay, Usar, campo a mano).
+- **390**: Inventario, Por obra (selector a ancho completo) y consumibles. `documentElement.scrollWidth === clientWidth` (390) y `.ka-shell-content` igual. Las pestañas y los chips se deslizan; no hay scroll de página.
+- **Claro**: Inventario a 390 (tokens de fondo `#f4f5f7`, texto `#111827`) y consumibles a 390. El plano SVG sigue con paleta oscura (anotado abajo).
+- Tras probar el carrito se vació; el tema quedó en oscuro.
 
 ## Sin verificar
 
-- La revisión en pantalla a 1280 px y 390 px, en tema oscuro y claro, y la apertura de menús y modales en el celular. El navegador del asistente abre el login y la contraseña la pone el usuario. Falta:
-  - `/stock-panol`: las cuatro pestañas, Lista y Mapa, el carrito, el detalle de un producto, los filtros.
-  - `/egresos-panol`, `/consumibles-caja`, `/sobrantes-obra/:id`, `/pantalla-egreso`.
-  - La comprobación de scroll horizontal (`.ka-shell-content`).
-- `PantallaEgresoScreen` vive fuera del contenedor y se mira en un televisor; no se pudo probar en la TV.
+- `UbicacionPicker` no se abrió en esta pasada (el detalle del producto sí). El aspecto cambió en código; Recepción/Materiales todavía tienen que mirarlo.
+- `PantallaEgresoScreen` se vio en el navegador, no en el televisor del pañol.
+- Menús nativos del carrito (`window.prompt` / `window.confirm`) no se recorrieron.
 
 ## Para coordinar
 

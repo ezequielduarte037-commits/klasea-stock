@@ -357,11 +357,52 @@ function AttachmentTypeIcon({ attachment, size = 18 }) {
 }
 
 function AttachmentCard({ attachment, onOpenImage, compact = false }) {
+  const [downloading, setDownloading] = useState(false);
   if (!isHttpUrl(attachment?.url)) return null;
 
   const name = attachment.name || `Archivo.${attachmentExtension(attachment) || "adjunto"}`;
   const ext = attachmentExtension(attachment);
   const size = fmtFileSize(attachment.size);
+
+  async function downloadAttachment() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      // El atributo `download` se ignora en enlaces de otro dominio (el bucket
+      // de Supabase) y Windows termina usando el UUID del objeto. Bajamos el
+      // blob y generamos un enlace local para conservar el nombre del archivo
+      // con el que fue adjuntado al pedido.
+      let blob = null;
+      if (attachment.path) {
+        const { data, error } = await supabase.storage
+          .from("purchase-request-photos")
+          .download(attachment.path);
+        if (error) throw error;
+        blob = data;
+      } else {
+        const response = await fetch(attachment.url);
+        if (!response.ok) throw new Error("No se pudo descargar el archivo.");
+        blob = await response.blob();
+      }
+      if (!blob) throw new Error("El archivo descargado está vacío.");
+
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = name;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    } catch (error) {
+      // Mantiene una salida para adjuntos históricos cuya ruta ya no se puede
+      // leer con el SDK, sin bloquear el acceso al documento.
+      window.open(attachment.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   if (isImageAttachment(attachment)) {
     return (
@@ -411,12 +452,11 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
   }
 
   return (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noreferrer"
-      download={name}
-      title={`Abrir o descargar ${name}`}
+    <button
+      type="button"
+      onClick={downloadAttachment}
+      disabled={downloading}
+      title={`Descargar ${name}`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -427,7 +467,10 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
         borderRadius: 9,
         background: C.panel2,
         color: C.text,
-        textDecoration: "none",
+        cursor: downloading ? "default" : "pointer",
+        textAlign: "left",
+        fontFamily: C.sans,
+        width: "100%",
       }}
     >
       <span style={{
@@ -458,8 +501,8 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
           {[ext || "archivo", size].filter(Boolean).join(" · ")}
         </span>
       </span>
-      <ExternalLink size={14} style={{ color: C.dim, flexShrink: 0 }} />
-    </a>
+      <span style={{ color: C.dim, flexShrink: 0, fontSize: 9.5, fontWeight: 700 }}>{downloading ? "Bajando…" : "Descargar"}</span>
+    </button>
   );
 }
 

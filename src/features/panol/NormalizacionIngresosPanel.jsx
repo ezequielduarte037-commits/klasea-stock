@@ -3,7 +3,7 @@ import { CalendarDays, Check, ChevronDown, ChevronRight, CircleDotDashed, Extern
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
-import { fetchPanolNormalizationQueue, guardarNormalizacionPorLinea } from "@/features/panol/panolApi";
+import { buscarCatalogoParaEstandarizacion, fetchPanolNormalizationQueue, guardarNormalizacionPorLinea, vincularMovimientosAMaterial } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { fetchCategorias, fetchProveedores } from "@/features/materiales/api";
 import { norm } from "@/features/materiales/materialesParser";
@@ -128,6 +128,12 @@ function workStateLabel(state) {
   return labels[String(state || "").toLowerCase()] || "";
 }
 
+function matrixLabel(matrix) {
+  const line = String(matrix?.modelo || "").replace(/^K/i, "");
+  const quantity = qty(matrix?.cantidad, 0);
+  return `K${line || "—"}${quantity > 0 ? ` · ${fmtQty(quantity)} / barco` : ""}`;
+}
+
 function providerDraftsFor(material, providers) {
   const byId = new Map(providers.map((provider) => [provider.id, provider]));
   const byName = new Map(providers.map((provider) => [norm(provider.nombre), provider]));
@@ -178,6 +184,12 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
   const [catalogOptions, setCatalogOptions] = useState({ proveedores: [], categorias: [] });
   const [providerToAdd, setProviderToAdd] = useState("");
   const [confirmPuntual, setConfirmPuntual] = useState(false);
+  const [catalogLinkOpen, setCatalogLinkOpen] = useState(false);
+  const [catalogLinkScope, setCatalogLinkScope] = useState("todo");
+  const [catalogLinkQuery, setCatalogLinkQuery] = useState("");
+  const [catalogLinkResults, setCatalogLinkResults] = useState([]);
+  const [catalogLinkLoading, setCatalogLinkLoading] = useState(false);
+  const [linkingMaterialId, setLinkingMaterialId] = useState(null);
 
   const obraById = useMemo(() => new Map(obras.map((obra) => [obra.id, obra])), [obras]);
   const evidenceById = useMemo(() => {
@@ -268,6 +280,34 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
   const selectedWork = workFilter === "todas" ? null : obraById.get(workFilter) || null;
   const availableProviders = catalogOptions.proveedores.filter((provider) => !draft.proveedores.some((row) => row.proveedor_id === provider.id));
   const inheritedProviderNeedsMatch = !!selected?.proveedor && !draft.proveedores.some((row) => norm(row.nombre) === norm(selected.proveedor));
+  const catalogLinkVisibleResults = useMemo(() => catalogLinkResults.filter((row) => (
+    catalogLinkScope === "matriz" ? row.matrices?.length > 0 : true
+  )), [catalogLinkResults, catalogLinkScope]);
+
+  useEffect(() => {
+    const term = String(catalogLinkQuery || "").trim();
+    if (!catalogLinkOpen || !selected || term.length < 2) {
+      setCatalogLinkResults([]);
+      setCatalogLinkLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setCatalogLinkLoading(true);
+      try {
+        const results = await buscarCatalogoParaEstandarizacion(term);
+        if (!cancelled) setCatalogLinkResults(results.filter((row) => row.id !== selected.id));
+      } catch (searchError) {
+        if (!cancelled) {
+          setCatalogLinkResults([]);
+          toast.error(searchError?.message || "No se pudo buscar en el catálogo.");
+        }
+      } finally {
+        if (!cancelled) setCatalogLinkLoading(false);
+      }
+    }, 220);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [catalogLinkOpen, catalogLinkQuery, selected?.id, toast]);
 
   function changeLine(nextLine) {
     setLineFilter(nextLine); setWorkFilter("todas"); setSelectedId(null); setConfirmPuntual(false);
@@ -297,6 +337,9 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
     });
     setProviderToAdd("");
     setConfirmPuntual(false);
+    setCatalogLinkOpen(false);
+    setCatalogLinkQuery("");
+    setCatalogLinkResults([]);
   }
 
   function toggleFocusedLine() {
@@ -345,6 +388,30 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
       toast.error(err?.message || "No se pudo guardar la decisión.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function vincularIngresoAlCatalogo(candidate) {
+    if (!selected || candidate?.es_requisito || !candidate?.id || linkingMaterialId) return;
+    const snapshotIds = focusedEvidence.ingresos.map((entry) => entry.row?.id).filter(Boolean);
+    if (!snapshotIds.length) {
+      toast.error("No hay ingresos visibles para vincular en este enfoque.");
+      return;
+    }
+    setLinkingMaterialId(candidate.id);
+    try {
+      await vincularMovimientosAMaterial(snapshotIds, candidate.id);
+      setCatalogLinkOpen(false);
+      setCatalogLinkQuery("");
+      setCatalogLinkResults([]);
+      setSelectedId(null);
+      await recargar({ keepSelection: false });
+      await onSaved?.();
+      toast.success(`${snapshotIds.length} ingreso${snapshotIds.length === 1 ? "" : "s"} quedó vinculado a “${candidate.descripcion}”. El nombre original de Pañol se conserva en el movimiento.`);
+    } catch (linkError) {
+      toast.error(linkError?.message || "No se pudo vincular el ingreso al producto elegido.");
+    } finally {
+      setLinkingMaterialId(null);
     }
   }
 
@@ -456,6 +523,63 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                     <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Nombre claro del producto</span><input value={draft.descripcion} onChange={(event) => setDraft((current) => ({ ...current, descripcion: event.target.value }))} style={FIELD} /></label>
                     <label style={{ display: "grid", gap: 5 }}><span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Alias de búsqueda</span><input value={draft.alias} onChange={(event) => setDraft((current) => ({ ...current, alias: event.target.value }))} placeholder="Cómo lo llama el taller" style={FIELD} /></label>
                   </div>
+
+                  <section style={{ marginTop: 10, border: `1px solid ${catalogLinkOpen ? C.cyanB : C.border}`, background: catalogLinkOpen ? C.cyanL : C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
+                    <button type="button" onClick={() => setCatalogLinkOpen((current) => !current)} aria-expanded={catalogLinkOpen} style={{ width: "100%", minHeight: 42, padding: "8px 11px", border: "none", background: "transparent", color: C.text, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, textAlign: "left", fontFamily: C.sans }}>
+                      <span style={{ width: 25, height: 25, display: "grid", placeItems: "center", borderRadius: 7, color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, flexShrink: 0 }}><Search size={13} /></span>
+                      <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontSize: 11.5, fontWeight: 750 }}>Vincular con catálogo o lista matriz</span><span style={{ display: "block", color: C.dim, fontSize: 9.75, marginTop: 1 }}>Buscá el producto real aunque Pañol lo haya ingresado con otro nombre.</span></span>
+                      <ChevronDown size={13} style={{ color: C.cyan, transform: catalogLinkOpen ? "rotate(180deg)" : "none", transition: "transform 150ms ease" }} />
+                    </button>
+                    {catalogLinkOpen && (
+                      <div style={{ borderTop: `1px solid ${C.cyanB}`, padding: 10, display: "grid", gap: 8, background: C.panelSolid }}>
+                        <div style={{ color: C.dim, fontSize: 10, lineHeight: 1.45 }}>
+                          Pañol lo registró como <strong style={{ color: C.text }}>“{selected.descripcion}”</strong>. Al vincularlo, ese texto queda en el movimiento y el stock pasa a usar el producto elegido.
+                        </div>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                          {[ ["todo", "Catálogo completo"], ["matriz", "En listas matriz"] ].map(([value, label]) => {
+                            const active = catalogLinkScope === value;
+                            return <button key={value} type="button" onClick={() => setCatalogLinkScope(value)} aria-pressed={active} style={{ minHeight: 27, border: `1px solid ${active ? C.cyanB : C.border}`, background: active ? C.cyanL : C.panel2, color: active ? C.cyan : C.dim, borderRadius: 7, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 9.75, fontWeight: 700 }}>{label}</button>;
+                          })}
+                          <div style={{ flex: "1 1 200px", minWidth: 160, position: "relative" }}>
+                            <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
+                            <input autoFocus value={catalogLinkQuery} onChange={(event) => setCatalogLinkQuery(event.target.value)} placeholder="Buscar por nombre, alias o código…" style={{ ...FIELD, minHeight: 31, padding: "5px 9px 5px 28px", fontSize: 10.5 }} />
+                          </div>
+                        </div>
+                        {String(catalogLinkQuery || "").trim().length < 2 ? (
+                          <div style={{ padding: "9px 2px 2px", color: C.dim, fontSize: 10.25 }}>Escribí al menos dos letras para buscar entre todos los productos y las listas matriz.</div>
+                        ) : catalogLinkLoading ? (
+                          <div style={{ padding: "9px 2px 2px", color: C.dim, fontSize: 10.25 }}>Buscando equivalencias…</div>
+                        ) : catalogLinkVisibleResults.length === 0 ? (
+                          <div style={{ padding: "9px 2px 2px", color: C.dim, fontSize: 10.25 }}>No encontramos productos para esa búsqueda{catalogLinkScope === "matriz" ? " dentro de las listas matriz" : ""}.</div>
+                        ) : (
+                          <div style={{ display: "grid", gap: 5, maxHeight: 270, overflowY: "auto", paddingRight: 2 }}>
+                            {catalogLinkVisibleResults.map((candidate) => {
+                              const isRequirement = candidate.es_requisito === true;
+                              const isLinking = linkingMaterialId === candidate.id;
+                              return (
+                                <div key={candidate.id} style={{ border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 9, padding: "7px 8px", display: "grid", gap: 5 }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                      <span style={{ color: C.text, fontSize: 10.75, fontWeight: 750 }}>{candidate.descripcion || "Sin nombre"}</span>
+                                      {isRequirement && <span style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "1px 5px", fontSize: 8.5, fontWeight: 750 }}>REQUISITO</span>}
+                                      {!isRequirement && <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "1px 5px", fontSize: 8.5, fontWeight: 750 }}>PRODUCTO</span>}
+                                    </div>
+                                    <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2 }}>{[candidate.codigo, candidate.alias, candidate.proveedor].filter(Boolean).join(" · ") || "Sin código ni alias"}</div>
+                                  </div>
+                                  {candidate.matrices?.length > 0 && <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{candidate.matrices.slice(0, 5).map((matrix) => <span key={matrix.key} style={{ color: matrix.rol === "requisito" ? C.violet : C.blue, border: `1px solid ${matrix.rol === "requisito" ? C.violetB : C.blueB}`, background: matrix.rol === "requisito" ? C.violetL : C.blueL, borderRadius: 5, padding: "2px 5px", fontSize: 8.75, fontFamily: C.mono, fontWeight: 700 }}>{matrixLabel(matrix)}</span>)}</div>}
+                                  {isRequirement ? (
+                                    <span style={{ color: C.dim, fontSize: 9.5 }}>Es una necesidad de matriz; elegí un producto físico para vincular el stock.</span>
+                                  ) : (
+                                    <div style={{ display: "flex", justifyContent: "flex-end" }}><button type="button" onClick={() => vincularIngresoAlCatalogo(candidate)} disabled={!!linkingMaterialId} style={{ minHeight: 27, border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 7, padding: "4px 7px", cursor: linkingMaterialId ? "default" : "pointer", opacity: linkingMaterialId && !isLinking ? 0.55 : 1, fontFamily: C.sans, fontSize: 9.5, fontWeight: 750 }}>{isLinking ? "Vinculando…" : `Vincular ${focusedEvidence.ingresos.length} ingreso${focusedEvidence.ingresos.length === 1 ? "" : "s"}`}</button></div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </section>
 
                   <details style={{ marginTop: 10, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
                     <summary style={{ minHeight: 40, padding: "8px 11px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", listStyle: "none", color: C.text }}>

@@ -963,6 +963,73 @@ export async function fetchPanolCatalogFull({ force = false, includeAdditionalBa
   return rows;
 }
 
+/**
+ * Busca productos físicos para resolver un ingreso de Pañol y adjunta las
+ * líneas de matriz en las que cada resultado está usado. Las filas requisito
+ * también aparecen como referencia, pero no se pueden asignar al stock: una
+ * matriz describe una necesidad y el movimiento siempre debe apuntar a un
+ * producto concreto.
+ */
+export async function buscarCatalogoParaEstandarizacion(query, { limit = 60 } = {}) {
+  const term = normalizeSearch(query);
+  if (term.length < 2) return [];
+
+  const catalogo = await fetchPanolCatalogMini({ q: term, limit, includeAdditionalBarcodes: false });
+  const ids = catalogo.map((row) => row.id).filter(Boolean);
+  if (!ids.length) return [];
+
+  const buscarEnMatriz = async (column) => {
+    try {
+      return await enLotesDeIds(ids, async (lote) => {
+        const { data, error } = await supabase
+          .from("panol_material_modelo")
+          .select(column === "producto_predeterminado_id"
+            ? "material_id,modelo,cantidad,variante,producto_predeterminado_id"
+            : "material_id,modelo,cantidad,variante")
+          .in(column, lote);
+        if (error) throw error;
+        return data ?? [];
+      });
+    } catch (error) {
+      // La columna de producto predeterminado llegó después que la matriz. Si
+      // falta en una instalación vieja, la búsqueda de catálogo sigue sirviendo.
+      if (isMissingColumn(error) || isMissingTable(error)) return [];
+      throw error;
+    }
+  };
+
+  const [comoRequisito, comoProducto] = await Promise.all([
+    buscarEnMatriz("material_id"),
+    buscarEnMatriz("producto_predeterminado_id"),
+  ]);
+  const matricesPorMaterial = new Map();
+  const materialPorId = new Map(catalogo.map((material) => [material.id, material]));
+  const agregarMatriz = (materialId, row, rol) => {
+    if (!materialId || String(row.variante || "standard") !== "standard") return;
+    const list = matricesPorMaterial.get(materialId) ?? [];
+    const key = `${row.material_id}:${row.modelo}:${rol}`;
+    if (!list.some((entry) => entry.key === key)) {
+      list.push({
+        key,
+        modelo: String(row.modelo || "").replace(/^K/i, ""),
+        cantidad: numericValue(row.cantidad, 1),
+        rol,
+      });
+    }
+    matricesPorMaterial.set(materialId, list);
+  };
+  for (const row of comoRequisito) {
+    agregarMatriz(row.material_id, row, materialPorId.get(row.material_id)?.es_requisito === true ? "requisito" : "producto");
+  }
+  for (const row of comoProducto) agregarMatriz(row.producto_predeterminado_id, row, "producto");
+
+  return catalogo.map((material) => ({
+    ...material,
+    matrices: (matricesPorMaterial.get(material.id) ?? [])
+      .sort((a, b) => a.modelo.localeCompare(b.modelo, "es", { numeric: true })),
+  }));
+}
+
 // Llamar tras crear/editar un material para que el próximo fetch traiga los cambios.
 // Lectura puntual para la ficha del Catálogo Maestro. Mantenerla separada del
 // catálogo evita bajar e hidratar todo el ledger sólo para mostrar el impacto de
