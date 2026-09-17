@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 import { useBalanza, calidadCalibracion } from "@/hooks/useBalanza";
 import {
   actualizarConsumiblePanol,
@@ -59,9 +60,9 @@ const LABEL = {
   display: "block",
   marginBottom: 5,
   color: C.dim,
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: 0.8,
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
 };
 
@@ -153,7 +154,7 @@ function pesoRetiroGramos(row = {}) {
 function MiniButton({ children, onClick, disabled = false, tone = "neutral", title = "", type = "button" }) {
   const tones = {
     neutral: { bg: C.panel, border: C.border, color: C.text },
-    primary: { bg: C.blue, border: C.blue, color: "#fff" },
+    primary: { bg: C.blue, border: C.blue, color: "var(--inverse-text)" },
     green: { bg: C.greenL, border: C.greenB, color: C.green },
     red: { bg: C.redL, border: C.redB, color: C.red },
     violet: { bg: "var(--violet-soft)", border: "var(--violet-border)", color: C.violet },
@@ -177,9 +178,10 @@ function MiniButton({ children, onClick, disabled = false, tone = "neutral", tit
         justifyContent: "center",
         gap: 7,
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
+        minHeight: 38,
       }}
     >
       {children}
@@ -702,7 +704,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {loading ? (
-          <div style={{ padding: 32, color: C.dim, textAlign: "center", fontSize: 12, fontWeight: 700 }}>Cargando consumibles...</div>
+          <Cargando llenar texto="Cargando consumibles…" />
         ) : visibles.length === 0 ? (
           <div style={{ padding: 32, color: C.dim, textAlign: "center", fontSize: 13 }}>No hay consumibles para estos filtros.</div>
         ) : visibles.map((item) => {
@@ -1028,6 +1030,13 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style href="klasea-conp" precedence="default">{`
+        .conp-filtros { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0; }
+        @media (max-width: 899px) {
+          .conp-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+          .conp-filtros::-webkit-scrollbar { display: none; }
+        }
+      `}</style>
       {/* Encabezado compacto: título + acciones, y una fila de navegación con los
           números como chips clickeables (reemplaza a la tarjeta gigante de KPIs). */}
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, padding: isMobile ? "10px 12px" : "10px 18px", display: "grid", gap: 10 }}>
@@ -1060,7 +1069,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
             <SegTab active={panel === "movimientos"} onClick={() => setPanel("movimientos")}><Clock3 size={13} /> Movimientos ({consumibleMovimientosTodos.length})</SegTab>
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          <div className="conp-filtros" style={{ flex: 1 }}>
             <StatChip label="Consumibles" value={stats.consumibles} color={C.blue} active={panel === "operar" && filter === "todos"} onClick={() => { setPanel("operar"); setFilter("todos"); }} />
             <StatChip label="Stock total" value={fmtQty(stats.stock)} color={C.green} active={panel === "operar" && filter === "con_stock"} onClick={() => { setPanel("operar"); setFilter("con_stock"); }} />
             <StatChip label="Sin peso" value={stats.sinPeso} color={C.violet} active={panel === "operar" && filter === "sin_peso"} onClick={() => { setPanel("operar"); setFilter("sin_peso"); }} />
@@ -1093,7 +1102,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
               {catalogQ.trim().length >= 2 && (
                 <div style={{ display: "grid", gap: 6, maxHeight: 210, overflow: "auto" }}>
                   {catalogLoading ? (
-                    <div style={{ color: C.dim, fontSize: 12, padding: 8 }}>Buscando...</div>
+                    <div style={{ color: C.dim, fontSize: 12, padding: 8 }}><Cargando compacto texto="Buscando…" /></div>
                   ) : catalogResults.length ? catalogResults.map((material) => (
                     <button
                       key={material.id}

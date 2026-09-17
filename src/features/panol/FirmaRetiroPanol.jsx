@@ -230,10 +230,13 @@ export default function FirmaRetiroPanol({
           {bridgeTexto}
         </span>
         {!bridgeOk && (
+          // Con guantes y de pie, un texto de 11 px no es un blanco: va con el
+          // alto de botón del sistema (42 px en el celular).
           <button
             type="button"
             onClick={bridge.reconnect}
-            style={{ border: "none", background: "transparent", color: C.blue, fontSize: 11, fontWeight: 650, cursor: "pointer", padding: 0 }}
+            className="ui-btn ui-btn-fantasma"
+            style={{ padding: "0 10px", fontSize: 12.5, color: C.blue }}
           >
             Reintentar
           </button>

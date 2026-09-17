@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useNfcBridge from "@/features/panol/useNfcBridge";
@@ -138,7 +139,7 @@ function empleadoInitials(nombre) {
 function EmpleadoRetiroAvatar({ empleado, size = 44 }) {
   const foto = String(empleado?.foto_url ?? "").trim();
   return (
-    <div style={{ width: size, height: size, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(59,130,246,0.14))", color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 750 }}>
+    <div style={{ width: size, height: size, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: `linear-gradient(135deg, ${C.greenL}, ${C.blueL})`, color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 700 }}>
       {foto ? <img src={foto} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : empleadoInitials(empleado?.nombre)}
     </div>
   );
@@ -826,7 +827,7 @@ function SelectFilter({ label, value, onChange, options }) {
       border: `1px solid ${activo ? C.blueB : C.border}`,
       background: activo ? C.blueL : C.panelSolid,
     }}>
-      <span style={{ color: activo ? C.blue : C.dim, fontSize: 9, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
+      <span style={{ color: activo ? C.blue : C.dim, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
         {label}
       </span>
       <select
@@ -869,7 +870,7 @@ function KindChip({ tipo = "estandar" }) {
   // El resto (estándar / stock general) es simplemente stock disponible en pañol —
   // el estado "Disponible" ya lo indica el StateChip, así que no metemos ruido.
   if (tipo !== "adicional") return null;
-  const color = C.violet, background = "rgba(124,58,237,0.10)", border = "rgba(124,58,237,0.26)", label = "Adicional";
+  const color = C.violet, background = C.violetL, border = C.violetB, label = "Adicional";
   return (
     <span style={{
       color,
@@ -1621,7 +1622,7 @@ function LocationButton({ location, active, onClick, cierre }) {
         {location.porVariante?.length > 0 && (
           <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
             {location.porVariante.map((pv) => (
-              <span key={pv.variante} style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "1px 7px" }}>
+          <span key={pv.variante} style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "1px 7px" }}>
                 Opción · {pv.variante}: {fmtQty(pv.available)}{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
               </span>
             ))}
@@ -1751,7 +1752,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 10, display: "grid", gap: 8, alignContent: "start" }}>
         {loading ? (
-          <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 700 }}>Cargando movimientos...</div>
+          <div style={{ padding: 8 }}><Cargando texto="Cargando movimientos…" /></div>
         ) : rows.length ? rows.map((row) => {
           const detalle = detalleLabel(row);
           const qtyOut = rowEgresoQuantity(row);
@@ -3402,7 +3403,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                   <div style={{ color: group.negativo ? C.red : C.violet, fontFamily: C.mono, fontSize: 11, fontWeight: 700 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
                 </div>
                 {group.negativo && <button type="button" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key} style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, padding: "8px 10px", cursor: reconcilingKey === loc.key ? "default" : "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans, opacity: reconcilingKey === loc.key ? 0.65 : 1 }}>
-                  {reconcilingKey === loc.key ? "Cargando..." : "Cargar ingreso faltante"}
+                  {reconcilingKey === loc.key ? "Cargando…" : "Cargar ingreso faltante"}
                 </button>}
               </div>
             ))}
@@ -3933,23 +3934,23 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   return (
     <div style={{ position: "fixed", right: isMobile ? 8 : 16, bottom: isMobile ? 74 : 84, width: isMobile ? "calc(100vw - 16px)" : 470, maxHeight: "78vh", zIndex: 80, display: "flex", flexDirection: "column", borderRadius: 18, overflow: "hidden", border: `1px solid ${C.border}`, background: "var(--panel)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "0 30px 70px -18px rgba(0,0,0,0.55)" }}>
       {/* Header sólido: sobrio, sin gradiente */}
-      <div style={{ padding: "13px 16px", background: "#059669", display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(255,255,255,0.22)", color: "#fff", flexShrink: 0 }}>
+      <div style={{ padding: "13px 16px", background: C.greenL, borderBottom: `1px solid ${C.greenB}`, display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 11, display: "grid", placeItems: "center", background: C.green, color: "var(--inverse-text)", flexShrink: 0 }}>
           <ShoppingCart size={18} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: "#fff", fontSize: 15.5, fontWeight: 750, lineHeight: 1.1 }}>Carrito de pañol</div>
-          <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 11, marginTop: 2 }}>{cart.length} {cart.length === 1 ? "renglon" : "renglones"} · {fmtQty(totalUnidades)} unidades</div>
+          <div style={{ color: C.text, fontSize: 15.5, fontWeight: 700, lineHeight: 1.1 }}>Carrito de pañol</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{cart.length} {cart.length === 1 ? "renglón" : "renglones"} · {fmtQty(totalUnidades)} unidades</div>
         </div>
-        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 9px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" className="ui-btn" style={{ minHeight: 28, height: 28, padding: "0 9px", fontSize: 11 }}>
           <MonitorUp size={13} /> Pantalla
         </button>
         {cart.length > 0 && setSavedCarts && (
-          <button type="button" onClick={guardarCarrito} title="Guardar este carrito con nombre para retomarlo después" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+          <button type="button" onClick={guardarCarrito} title="Guardar este carrito con nombre para retomarlo después" className="ui-btn" style={{ minHeight: 28, height: 28, padding: "0 10px", fontSize: 11 }}>
             <Save size={13} /> Guardar
           </button>
         )}
-        <button type="button" onClick={onClose} title="Cerrar" style={{ border: "none", background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
+        <button type="button" onClick={onClose} title="Cerrar" className="ui-btn ui-btn-icono" style={{ width: 28, minHeight: 28, height: 28 }}>
           <X size={15} />
         </button>
       </div>
@@ -4123,9 +4124,9 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "11px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
           Vaciar
         </button>
-        <button type="button" onClick={submitBatch} disabled={disabled} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", background: disabled ? C.panel2 : (movementKind === "transferir" ? "#2563eb" : "#059669"), color: disabled ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", fontSize: 13.5, fontWeight: 750, cursor: disabled ? "default" : "pointer", fontFamily: C.sans, boxShadow: disabled ? "none" : "0 8px 20px -9px rgba(5,150,105,0.5)" }}>
+        <button type="button" onClick={submitBatch} disabled={disabled} className={disabled ? "ui-btn" : movementKind === "transferir" ? "ui-btn ui-btn-primario" : "ui-btn"} style={{ flex: 1, border: disabled ? undefined : movementKind === "transferir" ? undefined : `1px solid ${C.greenB}`, background: disabled ? undefined : movementKind === "transferir" ? undefined : C.green, color: disabled ? undefined : movementKind === "transferir" ? undefined : "var(--inverse-text)", borderRadius: 11, padding: "12px 14px", fontSize: 13.5, fontWeight: 700 }}>
           {movementKind === "transferir" ? <RefreshCw size={16} /> : <ArrowUpRight size={16} />}
-          {saving ? "Registrando..." : movementKind === "transferir" ? `Asignar todo (${cart.length})` : `Confirmar egreso (${cart.length})`}
+          {saving ? "Registrando…" : movementKind === "transferir" ? `Asignar todo (${cart.length})` : `Confirmar egreso (${cart.length})`}
         </button>
       </div>
     </div>
@@ -4852,10 +4853,20 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   return (
     <>
       <style>{`
-        .stock-wms-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-        .stock-product-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
-        .stock-minimum-input:not(.is-active):hover:not(:disabled){border-color:var(--border)!important;background:var(--panel-solid)!important}
+        .stock-wms-root .stock-wms-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+        .stock-wms-root .stock-product-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+        .stock-wms-root .stock-minimum-input:not(.is-active):hover:not(:disabled){border-color:var(--border)!important;background:var(--panel-solid)!important}
+        .stock-wms-chips { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; }
+        @media (max-width: 899px) {
+          .stock-wms-chips {
+            flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+          }
+          .stock-wms-chips::-webkit-scrollbar { display: none; }
+        }
       `}</style>
+      <div className="stock-wms-root" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "grid", gap: 7, flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 320 }}>
@@ -4995,7 +5006,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         )}
 
         {stockMaster && (
-          <div aria-label="Señales rápidas de inventario" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30 }}>
+          <div aria-label="Señales rápidas de inventario" className="stock-wms-chips" style={{ minHeight: 30 }}>
             {[
               ["existencia", "Con stock", kpis.productos, C.green, C.greenL, C.greenB],
               ["reponer", "Reponer", kpis.reponer || 0, C.cyan, C.cyanL, C.cyanB],
@@ -5064,7 +5075,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         {/* La banda histórica de niveles queda disponible para otros usos del
             panel, pero el Stock maestro trabaja con las cubetas operativas. */}
         {showCatalogInventory && !stockMaster && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 6 }}>
+          <div className="stock-wms-chips" style={{ rowGap: 6 }}>
             {[
               ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],
               ["alerta", "Bajos", stockLevelCounts.alerta, C.violet, C.violetL, C.violetB],
@@ -5336,6 +5347,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           setSavedCarts={setSavedCarts}
         />
       )}
+      </div>
     </>
   );
 }

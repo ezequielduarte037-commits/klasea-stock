@@ -22,6 +22,7 @@ import {
   MessageSquarePlus, PackageX, RotateCcw, Search, Send, User, Wrench, X,
 } from "lucide-react";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
 import {
   DESTINO_TIPO_META,
@@ -136,7 +137,7 @@ function Chip({ children, color = C.dim, soft = "transparent", borde = C.border,
       display: "inline-flex", alignItems: "center", gap: 4,
       padding: "2px 7px", borderRadius: 6,
       background: soft, border: `1px solid ${borde}`, color,
-      fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap",
+      fontSize: 10.5, fontWeight: 600, whiteSpace: "nowrap",
     }}>
       {Icon && <Icon size={10} style={{ flexShrink: 0 }} />}
       {children}
@@ -173,7 +174,7 @@ function ChipDestino({ fila }) {
 function Tile({ label, valor, detalle, color = C.text, soft = "transparent", borde = C.border, icon: Icon }) {
   return (
     <div style={{ flex: "1 1 170px", minWidth: 0, borderRadius: 12, border: `1px solid ${borde}`, background: soft, padding: "10px 12px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase" }}>
         {Icon && <Icon size={11} style={{ flexShrink: 0 }} />}
         {label}
       </div>
@@ -188,7 +189,7 @@ function Modal({ titulo, bajada, ancho = 460, onClose, children, pie }) {
   // Va por portal: el panel vive dentro de una pestaña con overflow y transform,
   // y ahí un position:fixed queda atrapado igual que un absolute.
   return createPortal(
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 95, background: "rgba(15,23,42,0.5)", display: "grid", placeItems: "center", padding: 16, overflow: "auto" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 95, background: "var(--overlay)", display: "grid", placeItems: "center", padding: 16, overflow: "auto" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: `min(${ancho}px, 100%)`, maxHeight: "92vh", display: "flex", flexDirection: "column", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", overflow: "hidden" }}>
         <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", gap: 10 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -213,7 +214,7 @@ const inputSt = {
   background: C.panel, border: `1px solid ${C.border}`, color: C.text,
   borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none",
 };
-const labelSt = { color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 };
+const labelSt = { color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase" };
 
 function Opciones({ valor, onChange, opciones }) {
   return (
@@ -361,7 +362,7 @@ function Ficha({ fila, onClose, onCambio, toast }) {
         </div>
 
         {cargando ? (
-          <div style={{ color: C.dim, fontSize: 11.5 }}>Cargando el seguimiento…</div>
+          <Cargando compacto texto="Cargando el seguimiento…" />
         ) : notas.length === 0 ? (
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45 }}>
             Sin anotaciones. Cada llamada que anotes acá es una llamada que nadie va a repetir.
@@ -572,7 +573,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
   }
 
   if (cargando) {
-    return <div style={{ color: C.dim, fontSize: 12.5, padding: "28px 0", textAlign: "center" }}>Cargando devoluciones…</div>;
+    return <Cargando texto="Cargando devoluciones…" />;
   }
 
   if (!filas.length) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, ChevronDown, ChevronRight, CircleDotDashed, ExternalLink, PackageCheck, PackageSearch, Plus, RefreshCw, Search, Sparkles, Trash2, X } from "lucide-react";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
 import { fetchPanolNormalizationQueue, guardarNormalizacionPorLinea } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
@@ -363,8 +364,15 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: C.bg }}>
-      <div style={{ minHeight: isMobile ? 44 : 40, padding: isMobile ? "6px 10px" : "5px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flexShrink: 0 }}>
+    <div className="norm-root" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: C.bg }}>
+      <style>{`
+        .norm-root .norm-toolbar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+        @media (max-width: 899px) {
+          .norm-root .norm-toolbar { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+          .norm-root .norm-toolbar::-webkit-scrollbar { display:none; }
+        }
+      `}</style>
+      <div className="norm-toolbar" style={{ minHeight: isMobile ? 44 : 40, padding: isMobile ? "6px 10px" : "5px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft }}>
         <div title="Estandarización por línea y obra" style={{ display: "inline-flex", alignItems: "center", gap: 7, paddingRight: 4, color: C.text, whiteSpace: "nowrap" }}>
           <span style={{ width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, flexShrink: 0 }}><Sparkles size={13} /></span>
           <span style={{ fontSize: 12, fontWeight: 750 }}>Estandarizar</span>
@@ -393,7 +401,7 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
         <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "minmax(330px, 38%) minmax(0, 1fr)", overflow: "hidden" }}>
           <div style={{ minHeight: 0, overflowY: "auto", padding: 9, borderRight: isMobile ? "none" : `1px solid ${C.border}`, display: isMobile && selected ? "none" : "grid", alignContent: "start", gap: 5 }}>
             {loading ? (
-              <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12 }}>Buscando ingresos para revisar…</div>
+              <Cargando texto="Buscando ingresos para revisar…" />
             ) : filtered.length === 0 ? (
               <div style={{ margin: 6, padding: "32px 18px", border: `1px dashed ${C.border}`, borderRadius: 12, textAlign: "center", color: C.dim }}>
                 <Check size={24} color={status === "pendiente" ? C.green : C.dim} />

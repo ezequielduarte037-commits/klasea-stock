@@ -41,7 +41,7 @@ export default function DestinosDeRemito({
       display: "grid",
       gap: 7,
     }}>
-      <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>
+      <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>
         {titulo}
       </div>
 

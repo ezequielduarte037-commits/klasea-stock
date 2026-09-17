@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Check, Home, Printer, QrCode } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 
@@ -55,7 +56,7 @@ export default function EtiquetasScreen() {
   const card = { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 };
 
   return (
-    <div className="et-root" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.text, fontFamily: "'Outfit',system-ui", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="et-root" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.text, fontFamily: C.sans, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @media screen { #labels-print { display: none; } }
         @media print {
@@ -82,24 +83,32 @@ export default function EtiquetasScreen() {
       `}</style>
 
       {/* Topbar */}
-      <div className="no-print" style={{ flexShrink: 0, height: 52, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-        <span style={{ fontWeight: 650, fontSize: 15 }}>Etiquetas QR · Materiales</span>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => window.print()} disabled={aImprimir.length === 0}
-            style={{ background: aImprimir.length ? C.blue : "#3a3a3f", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 600, cursor: "pointer" }}>
+      <div className="no-print" style={{ flexShrink: 0, minHeight: 56, background: C.topbar, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+          <span style={{ width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 10, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue }}>
+            <QrCode size={17} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: C.dim }}>Pañol</div>
+            <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: C.text }}>Etiquetas QR de materiales</h1>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={() => window.print()} disabled={aImprimir.length === 0} className="ui-btn ui-btn-primario">
+            <Printer size={15} />
             Imprimir {aImprimir.length} etiqueta{aImprimir.length !== 1 ? "s" : ""}
           </button>
-          <button onClick={() => nav("/")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 12px", cursor: "pointer" }}>Inicio</button>
+          <button onClick={() => nav("/")} className="ui-btn ui-btn-fantasma"><Home size={15} /> Inicio</button>
         </div>
       </div>
 
       {/* Cuerpo */}
-      <div className="no-print" style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+      <div className="no-print" style={{ flex: 1, overflowY: "auto", padding: 20 }}>
         <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar material…"
-            style={{ flex: 1, minWidth: 200, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, outline: "none" }} />
+            className="ui-input" style={{ flex: 1, minWidth: 200 }} />
           {seleccionados.length > 0 && (
-            <button onClick={() => setSel({})} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+            <button onClick={() => setSel({})} className="ui-btn">
               Quitar selección ({seleccionados.length})
             </button>
           )}
@@ -107,7 +116,7 @@ export default function EtiquetasScreen() {
             {seleccionados.length ? `${seleccionados.length} seleccionados` : `imprime los ${aImprimir.length} con código`}
           </span>
         </div>
-        {msg && <div style={{ marginBottom: 12, color: C.green, fontSize: 13 }}>{msg}</div>}
+        {msg && <div style={{ marginBottom: 12, color: C.green, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 12 }}>
           {filtrados.map(m => (
@@ -121,12 +130,15 @@ export default function EtiquetasScreen() {
                   ? <img src={qrUrl(m.codigo)} loading="lazy" alt={m.codigo} width={68} height={68} style={{ background: "#fff", borderRadius: 6, padding: 3, flexShrink: 0 }} />
                   : <div style={{ width: 68, height: 68, borderRadius: 6, border: `1px dashed ${C.border}`, display: "grid", placeItems: "center", color: C.dim, fontSize: 10, flexShrink: 0 }}>sin código</div>}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>Código</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: C.dim, marginBottom: 5 }}>Código</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <input value={edit[m.id] ?? m.codigo ?? ""} onChange={e => setEdit(p => ({ ...p, [m.id]: e.target.value }))}
-                      style={{ width: "100%", minWidth: 0, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, fontFamily: "monospace" }} />
+                      className="ui-input" style={{ minHeight: 36, padding: "0 9px", fontSize: 13, fontFamily: C.mono }} />
                     {(edit[m.id] != null && edit[m.id] !== (m.codigo ?? "")) && (
-                      <button onClick={() => guardarCodigo(m.id)} style={{ background: C.green, color: "#fff", border: "none", borderRadius: 8, padding: "0 10px", fontSize: 12, cursor: "pointer", flexShrink: 0 }}>✓</button>
+                      <button onClick={() => guardarCodigo(m.id)} title="Guardar el código"
+                        style={{ width: 36, minWidth: 36, flexShrink: 0, display: "grid", placeItems: "center", background: C.green, color: "var(--inverse-text)", border: "none", borderRadius: 10, cursor: "pointer" }}>
+                        <Check size={16} />
+                      </button>
                     )}
                   </div>
                 </div>

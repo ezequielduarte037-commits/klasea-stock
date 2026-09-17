@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { LogOut, PackageMinus, ShoppingCart } from "lucide-react";
 import { C } from "@/theme";
 import { esDispositivoTactil, usarPanelCompleto } from "@/lib/modoColector";
 
@@ -12,22 +13,27 @@ import { esDispositivoTactil, usarPanelCompleto } from "@/lib/modoColector";
  * layout simple (el colector corre un Chrome viejo, ver ScanEgresoScreen).
  */
 
+// Los emojis del sistema no son iguales en la PDA que en un celular nuevo (en
+// el Android viejo del colector salían en blanco y negro o como recuadro), así
+// que van los mismos íconos que el resto de la app.
 const opciones = [
   {
     to: "/scan",
     titulo: "Egresar maderas",
     detalle: "Escanear material que sale del pañol",
-    icono: "📤",
+    Icono: PackageMinus,
     color: C.blue,
-    fondo: "rgba(59,130,246,0.14)",
+    fondo: C.blueL,
+    borde: C.blueB,
   },
   {
     to: "/scan-pedido",
     titulo: "Pedir a compras",
     detalle: "Avisar lo que se está acabando",
-    icono: "🛒",
+    Icono: ShoppingCart,
     color: C.green,
-    fondo: "rgba(16,185,129,0.14)",
+    fondo: C.greenL,
+    borde: C.greenB,
   },
 ];
 
@@ -45,8 +51,13 @@ export default function ColectorHomeScreen({ profile, signOut }) {
         </div>
         <button
           onClick={signOut}
-          style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 11px", fontSize: 11.5 }}
+          style={{
+            display: "inline-block", minHeight: 40, background: "transparent", color: C.dim,
+            border: `1px solid ${C.border}`, borderRadius: 10, padding: "0 13px",
+            fontFamily: C.sans, fontSize: 12.5, fontWeight: 600,
+          }}
         >
+          <LogOut size={14} style={{ verticalAlign: -3, marginRight: 6 }} />
           Salir
         </button>
       </div>
@@ -58,11 +69,18 @@ export default function ColectorHomeScreen({ profile, signOut }) {
           onClick={() => nav(op.to)}
           style={{
             display: "block", width: "100%", textAlign: "left", boxSizing: "border-box",
-            background: op.fondo, border: `1px solid ${op.color}`, borderRadius: 14,
-            padding: "22px 18px", marginBottom: 14, color: C.text, fontFamily: C.sans,
+            background: op.fondo, border: `1px solid ${op.borde}`, borderRadius: 14,
+            padding: "20px 18px", marginBottom: 14, color: C.text, fontFamily: C.sans,
           }}
         >
-          <div style={{ fontSize: 34, marginBottom: 8, lineHeight: 1 }}>{op.icono}</div>
+          {/* Sin gap ni flex: el Chrome de la PDA no soporta gap en flex. */}
+          <div style={{
+            width: 46, height: 46, marginBottom: 10, borderRadius: 13,
+            display: "grid", placeItems: "center",
+            border: `1px solid ${op.borde}`, background: C.panelSolid, color: op.color,
+          }}>
+            <op.Icono size={24} />
+          </div>
           <div style={{ fontSize: 19, fontWeight: 700, color: op.color }}>{op.titulo}</div>
           <div style={{ fontSize: 13, color: C.dim, marginTop: 4 }}>{op.detalle}</div>
         </button>
@@ -83,7 +101,7 @@ export default function ColectorHomeScreen({ profile, signOut }) {
             onClick={usarPanelCompleto}
             style={{
               background: C.blue, color: "var(--inverse-text)", border: 0, borderRadius: 10,
-              padding: "11px 18px", fontSize: 14, fontWeight: 700, fontFamily: C.sans, cursor: "pointer",
+              padding: "12px 18px", fontSize: 14, fontWeight: 600, fontFamily: C.sans, cursor: "pointer",
             }}
           >
             Ir al panel completo de pañol

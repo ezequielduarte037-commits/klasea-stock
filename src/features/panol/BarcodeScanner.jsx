@@ -82,13 +82,13 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.72)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
     >
       <div style={{ width: "100%", maxWidth: 460, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 24px 48px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
           <ScanLine size={18} style={{ color: C.blue }} />
           <div style={{ fontSize: 15, fontWeight: 650, color: C.text, flex: 1 }}>Escanear código</div>
-          <button type="button" onClick={() => onClose?.()} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "grid", placeItems: "center" }}>
+          <button type="button" onClick={() => onClose?.()} className="ui-btn ui-btn-icono ui-btn-fantasma" aria-label="Cerrar">
             <X size={18} />
           </button>
         </div>
@@ -126,6 +126,7 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
                   submitCode(manual);
                 }
               }}
+              className="ui-input"
               placeholder="o escribí el código…"
               autoFocus={preferHardwareInput || !supported}
               style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none", minWidth: 0 }}
@@ -134,7 +135,7 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
               type="button"
               disabled={!manual.trim()}
               onClick={() => submitCode(manual)}
-              style={{ border: `1px solid ${C.blueB}`, background: manual.trim() ? C.blue : C.panel, color: manual.trim() ? "#fff" : C.dim, borderRadius: 9, padding: "10px 16px", cursor: manual.trim() ? "pointer" : "default", fontSize: 13, fontWeight: 700, fontFamily: C.sans }}
+              className="ui-btn ui-btn-primario"
             >
               Usar
             </button>

@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, BarChart3, ChevronDown, ChevronRight, DollarSign, Inbox, List, Map as MapIcon, Plus, RefreshCw, Search, ShipWheel, SlidersHorizontal, Warehouse, X } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
 import { C } from "@/theme";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
@@ -168,18 +170,18 @@ function GlobalKpiBar({ rows, consumidoUsd = 0, onSelectScope }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
       {[
-        ["existencia", "En stock", kpis.enStock, C.green],
-        ["reconciliar", "A reconciliar", kpis.negativos, kpis.negativos ? C.red : C.dim],
-      ].map(([scope, label, value, color]) => (
+        ["existencia", "En stock", kpis.enStock, C.green, C.greenL, C.greenB],
+        ["reconciliar", "A reconciliar", kpis.negativos, kpis.negativos ? C.red : C.dim, kpis.negativos ? C.redL : C.panelSolid, kpis.negativos ? C.redB : C.border],
+      ].map(([scope, label, value, color, background, border]) => (
         <button
           key={scope}
           type="button"
           onClick={() => onSelectScope?.(scope)}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
-            border: `1px solid ${color}44`, background: `${color}0d`, color,
+            border: `1px solid ${border}`, background, color,
             borderRadius: 999, padding: "5px 9px", cursor: "pointer",
-            fontSize: 10.5, fontWeight: 700, fontFamily: C.sans,
+            fontSize: 11, fontWeight: 600, fontFamily: C.sans,
           }}
         >
           <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
@@ -218,7 +220,7 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
         position: "relative", textAlign: "left", cursor: "pointer", padding: 0, overflow: "hidden",
         border: `1px solid ${hover ? C.blueB : hasNeg ? C.redB : C.border}`,
         borderRadius: 18,
-        background: `linear-gradient(140deg, ${accent}${hover ? "22" : "14"} 0%, transparent 52%), var(--panel)`,
+        background: `linear-gradient(140deg, ${hasNeg ? "var(--red-soft)" : "var(--blue-soft)"} 0%, transparent 52%), var(--panel)`,
         ...GLASS,
         display: "flex", flexDirection: "column",
         transform: hover ? "translateY(-4px)" : "none",
@@ -235,11 +237,11 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
       <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}22)` }} />
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 13, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", color: "#fff", fontWeight: 750, fontSize: 17, fontFamily: C.mono, flexShrink: 0, background: hasNeg ? "linear-gradient(135deg, #f87171, #ef4444)" : "linear-gradient(135deg, #60a5fa, #3b82f6)", boxShadow: hasNeg ? "0 4px 12px rgba(239,68,68,0.3)" : "0 4px 12px rgba(59,130,246,0.3)" }}>
+          <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", color: "var(--inverse-text)", fontWeight: 700, fontSize: 17, fontFamily: C.mono, flexShrink: 0, background: hasNeg ? "linear-gradient(135deg, var(--red), var(--red))" : "linear-gradient(135deg, var(--blue), var(--cyan))", boxShadow: hasNeg ? "0 4px 12px var(--red-soft)" : "0 4px 12px var(--blue-soft)" }}>
             {shortCode}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>{isExternal ? "Barcos externos · solo stock" : "Línea de producción"}</div>
+            <div style={{ fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase" }}>{isExternal ? "Barcos externos · solo stock" : "Línea de producción"}</div>
             <div style={{ fontFamily: C.mono, fontSize: 23, fontWeight: 750, color: C.text, lineHeight: 1.05 }}>{codigo}</div>
           </div>
           <div style={{ flex: 1 }} />
@@ -257,7 +259,7 @@ function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 
               <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 750, color: C.green }}>USD {fmtQty(stats.costoUsd)}</span>
             </div>
             <div style={{ height: 6, borderRadius: 999, background: "var(--panel-2, rgba(127,127,127,0.14))", overflow: "hidden" }}>
-              <div style={{ width: `${share * 100}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #34d399, #10b981)", transition: "width .4s ease" }} />
+              <div style={{ width: `${share * 100}%`, height: "100%", borderRadius: 999, background: C.green, transition: "width .4s ease" }} />
             </div>
           </div>
         ) : (
@@ -294,7 +296,7 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
         position: "relative", textAlign: "left", cursor: "pointer", overflow: "hidden",
         border: `1px solid ${hover ? C.blueB : hasNeg ? C.redB : C.border}`,
         borderRadius: 16,
-        background: `linear-gradient(140deg, ${accent}${hover ? "1e" : "10"} 0%, transparent 55%), var(--panel)`,
+        background: `linear-gradient(140deg, ${hasNeg ? "var(--red-soft)" : isActiva ? "var(--blue-soft)" : "var(--panel-2)"} 0%, transparent 55%), var(--panel)`,
         ...GLASS,
         padding: 0, display: "flex", flexDirection: "column",
         opacity: isActiva || hasNeg || hover ? 1 : 0.82,
@@ -315,7 +317,7 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
             <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{obra.linea_nombre || `Linea ${lineaLabel(lineaKeyFromObra(obra))}`}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 650, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: estadoColor, border: `1px solid color-mix(in srgb, ${estadoColor} 32%, transparent)`, background: `color-mix(in srgb, ${estadoColor} 10%, transparent)`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
               {obra.estado}
             </span>
             <ChevronRight size={14} style={{ color: hover ? C.blue : C.dim, transition: "color .18s, transform .18s", transform: hover ? "translateX(3px)" : "none" }} />
@@ -327,9 +329,9 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
             {/* Composición del stock: verde libre · azul asignado · violeta adicional */}
             {totalItems > 0 && (
               <div style={{ display: "flex", height: 7, borderRadius: 999, overflow: "hidden", background: "var(--panel-2, rgba(127,127,127,0.14))" }}>
-                {stats.itemsStock > 0 && <div style={{ width: seg(stats.itemsStock), background: "linear-gradient(90deg, #34d399, #10b981)" }} title={`Stock libre: ${stats.itemsStock}`} />}
-                {stats.itemsStd > 0 && <div style={{ width: seg(stats.itemsStd), background: "linear-gradient(90deg, #60a5fa, #3b82f6)" }} title={`Asignado: ${stats.itemsStd}`} />}
-                {stats.itemsAdd > 0 && <div style={{ width: seg(stats.itemsAdd), background: "linear-gradient(90deg, #a78bfa, #8b5cf6)" }} title={`Adicional: ${stats.itemsAdd}`} />}
+                {stats.itemsStock > 0 && <div style={{ width: seg(stats.itemsStock), background: C.green }} title={`Stock libre: ${stats.itemsStock}`} />}
+                {stats.itemsStd > 0 && <div style={{ width: seg(stats.itemsStd), background: C.blue }} title={`Asignado: ${stats.itemsStd}`} />}
+                {stats.itemsAdd > 0 && <div style={{ width: seg(stats.itemsAdd), background: C.violet }} title={`Adicional: ${stats.itemsAdd}`} />}
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
@@ -362,6 +364,58 @@ const TABS = [
   { key: "movimientos", label: "Movimientos" },
   { key: "sobrantes", label: "Sobrantes de obra" },
 ];
+
+function StockPanolTabs({ tab, onTabChange, sobrantesCount, inventoryView, onInventoryView, isMobile, compact = false }) {
+  return (
+    <div className="stock-panol-tabs">
+      <div className="ui-tabs" role="tablist" aria-label="Vistas de stock">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            className={`ui-tab stock-primary-tab${tab === t.key ? " is-activa" : ""}`}
+            aria-selected={tab === t.key}
+            onClick={() => onTabChange(t.key)}
+          >
+            {t.label}
+            {t.key === "sobrantes" && sobrantesCount > 0 && (
+              <span style={{
+                marginLeft: 6, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999,
+                background: "var(--cyan-soft)", border: "1px solid var(--cyan-border)", color: "var(--cyan)",
+                fontSize: 10, fontWeight: 700, display: "inline-grid", placeItems: "center", fontFamily: C.mono,
+              }}>
+                {sobrantesCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {tab === "maestro" && (
+        <div role="group" aria-label="Vista del inventario" style={{ display: "inline-flex", gap: 2, padding: 3, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 9, flexShrink: 0 }}>
+          {[
+            ["lista", List, "Lista"],
+            ["mapa", MapIcon, "Mapa"],
+          ].map(([key, Icon, label]) => {
+            const active = inventoryView === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                className="stock-view-toggle"
+                onClick={() => onInventoryView(key)}
+                aria-pressed={active}
+                style={{ minHeight: isMobile ? 44 : compact ? 30 : 32, minWidth: isMobile ? 44 : "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 600, fontFamily: C.sans, whiteSpace: "nowrap" }}
+              >
+                {createElement(Icon, { size: 13 })} {!isMobile && label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Panel de movimientos (historial general: ingresos y egresos) ──────────────
 const MOV_INP = { background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" };
@@ -862,7 +916,7 @@ function NuevaObraExternaModal({ onClose, onCreated }) {
     <div
       role="presentation"
       onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.48)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 16 }}
+      style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)", backdropFilter: "blur(5px)", display: "grid", placeItems: "center", padding: 16 }}
     >
       <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="nueva-obra-externa-titulo" style={{ width: "min(470px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", overflow: "hidden" }}>
         <div style={{ padding: "15px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", gap: 11 }}>
@@ -1177,100 +1231,53 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   );
 
   const body = (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        <div className="stock-panol-root" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
           <style>{`
             @keyframes stkNav{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-            .stock-primary-tab:focus-visible,.stock-view-toggle:focus-visible,.stock-workspace-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+            .stock-panol-root .stock-primary-tab:focus-visible,.stock-panol-root .stock-view-toggle:focus-visible,.stock-panol-root .stock-workspace-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+            .stock-panol-tabs { display:flex; align-items:center; gap:10px; min-width:0; }
+            .stock-panol-tabs .ui-tabs { flex:1; min-width:0; }
+            .stock-panol-tabs .ui-tab { font-size:13px; }
             @media (prefers-reduced-motion:reduce){.stock-workspace-content{animation:none!important}}
           `}</style>
 
-          {/* ── Header (solo pantalla completa) ── */}
           {!embedded && (
-          <div style={{
-            background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.border}`,
-            padding: isMobile ? "6px 10px" : "6px 14px",
-            display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
-          }}>
-            <div style={{ width: 27, height: 27, borderRadius: 8, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
-              <Warehouse size={14} />
-            </div>
-            {/* Título y bajada en la misma línea. La bajada explica de qué va la
-                pantalla: se lee una vez y después sólo ocupa alto útil. */}
-            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 15.5, fontWeight: 700, color: C.text, lineHeight: 1.1 }}>{screenTitle || "Stock de pañol"}</div>
-              <div style={{ fontSize: 9.5, color: C.dim, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 650 }}>
-                {screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={cargar}
-              disabled={loading}
-              title="Actualizar"
-              style={{ width: 29, height: 29, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: 0, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center", flexShrink: 0 }}
+            <PageHeader
+              icon={Warehouse}
+              eyebrow="Pañol"
+              title={screenTitle || "Stock de pañol"}
+              subtitle={screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
+              actions={(
+                <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={loading} title="Actualizar">
+                  <RefreshCw size={15} />
+                </button>
+              )}
             >
-              <RefreshCw size={13} />
-            </button>
-          </div>
+              <StockPanolTabs
+                tab={tab}
+                onTabChange={handleTabChange}
+                sobrantesCount={cierresByObra.size}
+                inventoryView={inventoryView}
+                onInventoryView={handleInventoryView}
+                isMobile={isMobile}
+              />
+            </PageHeader>
           )}
 
-          {/* ── Tabs ── */}
-          <div style={{ minHeight: 36, background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "0 8px" : "0 14px", display: "flex", alignItems: "stretch", gap: 2, flexShrink: 0, overflowX: "auto" }}>
-            {TABS.map(t => (
-              <button
-                key={t.key}
-                type="button"
-                className="stock-primary-tab"
-                onClick={() => handleTabChange(t.key)}
-                aria-current={tab === t.key ? "page" : undefined}
-                style={{
-                  minHeight: isMobile ? 40 : 35, padding: isMobile ? "7px 12px" : "5px 12px", cursor: "pointer", fontSize: 11.5, fontFamily: C.sans,
-                  fontWeight: tab === t.key ? 700 : 600,
-                  color: tab === t.key ? C.text : C.dim,
-                  background: "transparent", border: "none",
-                  borderBottom: `2px solid ${tab === t.key ? C.blue : "transparent"}`,
-                  marginBottom: -1, transition: "color .15s, border-color .15s",
-                  display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-                }}
-              >
-                {t.label}
-                {t.key === "sobrantes" && cierresByObra.size > 0 && (
-                  <span style={{
-                    minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999,
-                    background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan,
-                    fontSize: 10, fontWeight: 750, display: "inline-grid", placeItems: "center", fontFamily: C.mono,
-                  }}>
-                    {cierresByObra.size}
-                  </span>
-                )}
-              </button>
-            ))}
-            <div style={{ marginLeft: "auto", alignSelf: "center", display: "flex", alignItems: "center", gap: 8, paddingLeft: 12 }}>
-              {tab === "maestro" && (
-                <div role="group" aria-label="Vista del inventario" style={{ display: "inline-flex", gap: 2, padding: 3, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 9 }}>
-                  {[
-                    ["lista", List, "Lista"],
-                    ["mapa", MapIcon, "Mapa"],
-                  ].map(([key, Icon, label]) => {
-                    const active = inventoryView === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        className="stock-view-toggle"
-                        onClick={() => handleInventoryView(key)}
-                        aria-pressed={active}
-                        style={{ minHeight: isMobile ? 44 : 30, minWidth: isMobile ? 44 : "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.blue : C.dim, borderRadius: 7, padding: "4px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
-                      >
-                        {createElement(Icon, { size: 13 })} {!isMobile && label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {embedded && refreshBtn}
+          {embedded && (
+            <div style={{ minHeight: 36, background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "0 8px" : "0 14px", display: "flex", alignItems: "stretch", gap: 8, flexShrink: 0 }}>
+              <StockPanolTabs
+                tab={tab}
+                onTabChange={handleTabChange}
+                sobrantesCount={cierresByObra.size}
+                inventoryView={inventoryView}
+                onInventoryView={handleInventoryView}
+                isMobile={isMobile}
+                compact
+              />
+              <div style={{ marginLeft: "auto", alignSelf: "center" }}>{refreshBtn}</div>
             </div>
-          </div>
+          )}
 
           {/* ── Área de contenido ── */}
           <div className="stock-workspace-content" key={`nav-${tab}-${inventoryView}`} style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", animation: "stkNav .22s ease-out" }}>
@@ -1333,7 +1340,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
                   <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 7px 12px" }}>
                     {obrasLoading ? (
-                      <div style={{ padding: "28px 12px", textAlign: "center", color: C.dim, fontSize: 12 }}>Cargando obras…</div>
+                      <Cargando compacto texto="Cargando obras…" />
                     ) : obraGroupsVisibles.length === 0 ? (
                       <div style={{ margin: 5, padding: "24px 12px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 10, display: "grid", justifyItems: "center", gap: 8 }}>
                         <Inbox size={20} />
@@ -1414,7 +1421,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                           <div style={{ minWidth: 150 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                               <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 750, color: C.text }}>{selObra.codigo}</span>
-                              <span style={{ fontSize: 9.5, fontWeight: 700, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 6px", textTransform: "uppercase" }}>{selObra.estado}</span>
+                              <span style={{ fontSize: 9.5, fontWeight: 600, color: estadoColor, border: `1px solid color-mix(in srgb, ${estadoColor} 32%, transparent)`, background: `color-mix(in srgb, ${estadoColor} 10%, transparent)`, borderRadius: 6, padding: "2px 6px", textTransform: "uppercase" }}>{selObra.estado}</span>
                               {selObra.estado === "terminada" && cierresByObra.get(selObra.id) && (
                                 <Link
                                   to={`/sobrantes-obra/${cierresByObra.get(selObra.id).id}`}

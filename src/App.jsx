@@ -17,11 +17,11 @@ import {
   prefierePanelCompleto,
   tieneMarcaDeColector,
 } from "@/lib/modoColector";
-import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
 import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
 import { endTrackedAdminSession } from "@/features/configuracion/adminActivityApi";
-import GlobalSearch from "@/features/search/GlobalSearch";
+import BuscadorDiferido from "@/features/search/BuscadorDiferido";
+import { useDiferido } from "@/hooks/useDiferido";
 import PresentationPrivacyShield from "@/components/PresentationPrivacyShield";
 // El colector de pañol trabaja en un navegador viejo y es una pantalla crítica:
 // estas tres rutas viajan en el bundle inicial para no depender de descargar un
@@ -202,6 +202,21 @@ const SobrantesObraScreen = pantalla(() => import("@/features/panol/SobrantesObr
 // llega la primera pantalla interna ya está en caché.
 const importarContenedor = () => import("@/components/AppShell");
 const AppShell = pantalla(importarContenedor);
+
+// El widget de Compras sólo lo ve ese rol: no tiene por qué viajar en el bundle
+// inicial de todos. Se baja después de entrar (ver hooks/useDiferido).
+const importarComprasBicho = () => import("@/features/compras/ComprasBicho");
+const ComprasBicho = lazy(importarComprasBicho);
+
+function ComprasBichoDiferido({ profile }) {
+  const listo = useDiferido(importarComprasBicho);
+  if (!listo) return null;
+  return (
+    <Suspense fallback={null}>
+      <ComprasBicho profile={profile} />
+    </Suspense>
+  );
+}
 
 const STARTUP_TIMEOUT_MS = 12_000;
 
@@ -596,7 +611,7 @@ export default function App() {
             <AppVersionGuard />
             {!modoColector && <PresentationPrivacyShield active={!!profile?.is_demo} />}
             {!modoColector && session && profile && !profile.is_demo && <AdminActivityTracker profile={profile} />}
-            {!modoColector && session && profile && profile.role !== "cliente" && <GlobalSearch profile={profile} />}
+            {!modoColector && session && profile && profile.role !== "cliente" && <BuscadorDiferido profile={profile} />}
       <PantallaCaida>
       <Suspense fallback={<RouteLoader />}>
       <Routes>
@@ -690,7 +705,7 @@ export default function App() {
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />}
-      {!modoColector && session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
+      {!modoColector && session && profile?.role === "compras" && <ComprasBichoDiferido profile={profile} />}
       {/* Fuera del Suspense: si la pantalla de destino todavía está bajando su
           chunk, el fallback no tiene que esconder la intro que la tapa. */}
       {bienvenida && (

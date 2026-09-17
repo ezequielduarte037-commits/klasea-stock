@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Minus, Plus, X } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 
@@ -8,6 +9,7 @@ import { C } from "@/theme";
  *
  * Diseñado EXCLUSIVAMENTE para el colector (pantalla chica, Chrome viejo ~73):
  *   - Sin `inset` (no soportado < Chrome 87): se usan top/left/right/bottom.
+ *   - Sin `gap` en flex (llegó en Chrome 84): la separación va con márgenes.
  *   - Layout compacto, scroll propio confiable, barra de confirmar fija abajo.
  *   - Carrito multi-ítem: escanean varios productos, ponen obra/persona UNA vez,
  *     y "Confirmar" egresa todo junto (un movimiento por ítem, misma obra/persona).
@@ -124,7 +126,7 @@ export default function ScanEgresoScreen({ profile }) {
         okN++;
       }
       setHechos(h => h + okN);
-      setMsg({ ok: true, text: `✓ Egresados ${okN} ítem${okN !== 1 ? "s" : ""} → ${obra.trim()}` });
+      setMsg({ ok: true, text: `Egresados ${okN} ítem${okN !== 1 ? "s" : ""} para ${obra.trim()}` });
       setCart([]); setCode("");
       cargarMateriales();
       focusCode();
@@ -139,49 +141,51 @@ export default function ScanEgresoScreen({ profile }) {
     fontFamily: "'Outfit', system-ui, sans-serif", padding: 10 };
   const field = { width: "100%", boxSizing: "border-box", background: C.panel, color: C.text,
     border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px 12px", fontSize: 16, outline: "none" };
-  const lbl = { fontSize: 10.5, letterSpacing: 0.8, textTransform: "uppercase", color: C.dim, fontWeight: 600, margin: "0 0 4px" };
+  const lbl = { fontSize: 11, letterSpacing: "0.07em", textTransform: "uppercase", color: C.dim, fontWeight: 600, margin: "0 0 5px" };
   const qbtn = { width: 44, minWidth: 44, height: 40, border: `1px solid ${C.border}`, background: C.panel,
-    color: C.text, borderRadius: 8, fontSize: 22, fontWeight: 650, cursor: "pointer", lineHeight: 1 };
+    color: C.text, borderRadius: 8, cursor: "pointer", lineHeight: 1, padding: 0 };
+  const chico = { background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8,
+    minHeight: 32, padding: "0 10px", fontFamily: C.sans, fontSize: 12, fontWeight: 600 };
 
   return (
     <>
       <div style={scroll}>
         {/* Header compacto */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green }} />
-            <b style={{ fontSize: 14 }}>Egreso · Pañol</b>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span style={{ width: 8, height: 8, marginRight: 7, borderRadius: "50%", background: C.green }} />
+            <b style={{ fontSize: 14, fontWeight: 600 }}>Egreso · Pañol</b>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {hechos > 0 && <span style={{ fontSize: 11, color: C.green }}>{hechos} listos</span>}
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {hechos > 0 && <span style={{ marginRight: 8, fontSize: 11.5, color: C.green, fontWeight: 600 }}>{hechos} listos</span>}
             {/* Salto directo al otro flujo del colector: pedir reposición a compras. */}
-            <button onClick={() => nav("/scan-pedido")} style={{ background: "transparent", color: C.blue, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Pedir</button>
-            <button onClick={() => nav("/colector")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Menú</button>
+            <button onClick={() => nav("/scan-pedido")} style={{ ...chico, marginRight: 6, color: C.blue }}>Pedir</button>
+            <button onClick={() => nav("/colector")} style={{ ...chico, color: C.dim }}>Menú</button>
           </div>
         </div>
 
         {/* Banner */}
         {msg && (
-          <div style={{ padding: "8px 11px", borderRadius: 9, fontSize: 13.5, fontWeight: 600, marginBottom: 8,
-            background: msg.ok ? "rgba(16,185,129,0.16)" : "rgba(239,68,68,0.16)",
-            border: `1px solid ${msg.ok ? C.green : C.red}`, color: msg.ok ? C.green : C.red }}>{msg.text}</div>
+          <div style={{ padding: "9px 11px", borderRadius: 9, fontSize: 13.5, fontWeight: 600, marginBottom: 9,
+            background: msg.ok ? C.greenL : C.redL,
+            border: `1px solid ${msg.ok ? C.greenB : C.redB}`, color: msg.ok ? C.green : C.red }}>{msg.text}</div>
         )}
 
         {/* Escaneo */}
         <form onSubmit={onScan} style={{ marginBottom: 10 }}>
           <p style={lbl}>Escaneá el material (o escribí el código y OK)</p>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex" }}>
             <input ref={codeRef} defaultValue="" onChange={e => setCode(e.target.value)}
               autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="enter"
-              placeholder="Dispará el lector…" style={{ ...field, flex: 1, fontSize: 18 }} />
-            <button type="submit" style={{ ...qbtn, width: 64, fontSize: 14, fontWeight: 600, background: C.blue, color: "#fff", border: "none" }}>OK</button>
+              placeholder="Dispará el lector…" style={{ ...field, flex: 1, marginRight: 6, fontSize: 18 }} />
+            <button type="submit" style={{ ...qbtn, width: 64, fontSize: 14, fontWeight: 600, background: C.blue, color: "var(--inverse-text)", border: "none" }}>OK</button>
           </div>
           {sugerencias.length > 0 && (
-            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ marginTop: 6 }}>
               {sugerencias.map(s => (
                 <button key={s.id} type="button" onClick={() => addMaterial(s)}
-                  style={{ textAlign: "left", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", color: C.text }}>
-                  <b style={{ fontSize: 14 }}>{s.nombre}</b>
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", marginBottom: 4, textAlign: "left", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", color: C.text, fontFamily: C.sans }}>
+                  <b style={{ fontSize: 14, fontWeight: 600 }}>{s.nombre}</b>
                   <span style={{ float: "right", color: C.dim, fontSize: 11 }}>{s.codigo} · {num(s.stock_actual)}</span>
                 </button>
               ))}
@@ -196,24 +200,34 @@ export default function ScanEgresoScreen({ profile }) {
             Escaneá uno o varios materiales…
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+          <div style={{ marginBottom: 10 }}>
             {cart.map(it => (
-              <div key={it.id} style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 9px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
+              <div key={it.id} style={{ marginBottom: 6, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 9px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ minWidth: 0, flex: 1, marginRight: 6 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.nombre}</div>
                     <div style={{ color: it.qty > it.stock ? C.cyan : C.dim, fontSize: 11 }}>
-                      {it.codigo ? it.codigo + " · " : ""}stock {it.stock}{it.qty > it.stock ? " ⚠ supera stock" : ""}
+                      {it.codigo ? it.codigo + " · " : ""}stock {it.stock}
+                      {it.qty > it.stock && (
+                        <>
+                          {" · "}
+                          <AlertTriangle size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
+                          supera el stock
+                        </>
+                      )}
                     </div>
                   </div>
-                  <button onClick={() => quitar(it.id)} style={{ background: "none", border: "none", color: C.dim, fontSize: 20, padding: "0 4px", lineHeight: 1 }}>×</button>
+                  <button onClick={() => quitar(it.id)} aria-label={`Quitar ${it.nombre}`}
+                    style={{ width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", background: "none", border: "none", color: C.dim, padding: 0 }}>
+                    <X size={18} />
+                  </button>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
-                  <button onClick={() => setQty(it.id, it.qty - 1)} style={qbtn}>−</button>
+                <div style={{ display: "flex", alignItems: "center", marginTop: 7 }}>
+                  <button onClick={() => setQty(it.id, it.qty - 1)} aria-label="Uno menos" style={{ ...qbtn, marginRight: 6, display: "grid", placeItems: "center" }}><Minus size={18} /></button>
                   <input type="number" inputMode="numeric" value={it.qty}
                     onChange={e => setQty(it.id, num(e.target.value))}
-                    style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 650, padding: "7px 4px", flex: 1 }} />
-                  <button onClick={() => setQty(it.id, it.qty + 1)} style={qbtn}>+</button>
+                    style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 600, padding: "7px 4px", flex: 1, marginRight: 6 }} />
+                  <button onClick={() => setQty(it.id, it.qty + 1)} aria-label="Uno más" style={{ ...qbtn, marginRight: 6, display: "grid", placeItems: "center" }}><Plus size={18} /></button>
                   <span style={{ fontSize: 11, color: C.dim, width: 44, textAlign: "right" }}>{it.unidad || ""}</span>
                 </div>
               </div>
@@ -233,11 +247,13 @@ export default function ScanEgresoScreen({ profile }) {
             style={{ ...field, borderColor: cart.length > 0 && !retira.trim() ? C.red : undefined }} />
           <datalist id="scan-personas">{recientes.map(r => <option key={r} value={r} />)}</datalist>
           {recientes.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+            <div style={{ marginTop: 6 }}>
               {recientes.slice(0, 6).map(r => (
                 <button key={r} type="button" onClick={() => setRetira(r)}
-                  style={{ background: retira === r ? C.blue : C.panel, color: retira === r ? "#fff" : C.dim,
-                    border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 10px", fontSize: 12 }}>{r}</button>
+                  style={{ display: "inline-block", marginRight: 5, marginBottom: 5, minHeight: 34,
+                    background: retira === r ? C.blue : C.panel, color: retira === r ? "var(--inverse-text)" : C.dim,
+                    border: `1px solid ${retira === r ? "transparent" : C.border}`, borderRadius: 999,
+                    padding: "0 12px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600 }}>{r}</button>
               ))}
             </div>
           )}
@@ -246,16 +262,17 @@ export default function ScanEgresoScreen({ profile }) {
 
       {/* Barra fija de confirmar (siempre visible, sin depender del scroll) */}
       <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: 60, padding: 8,
-        background: C.panelSolid, borderTop: `1px solid ${C.border}`, display: "flex", gap: 8 }}>
+        background: C.panelSolid, borderTop: `1px solid ${C.border}`, display: "flex" }}>
         {cart.length > 0 && (
-          <button onClick={() => setCart([])} style={{ width: 90, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 13, fontWeight: 600 }}>Vaciar</button>
+          <button onClick={() => setCart([])} style={{ width: 90, marginRight: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontFamily: C.sans, fontSize: 13, fontWeight: 600 }}>Vaciar</button>
         )}
         {/* El botón dice qué falta en vez de rebotar recién al apretarlo: en el
             colector se trabaja parado y con guantes, y un error después del
             toque obliga a volver a buscar el campo. */}
         <button onClick={confirmar} disabled={busy || cart.length === 0 || !obra.trim() || !retira.trim()}
-          style={{ flex: 1, borderRadius: 12, border: "none", fontSize: 17, fontWeight: 650, color: "#fff",
-            background: cart.length === 0 || !obra.trim() || !retira.trim() ? "#3a3a3f" : C.green, opacity: busy ? 0.6 : 1 }}>
+          style={{ flex: 1, borderRadius: 12, border: "none", fontFamily: C.sans, fontSize: 17, fontWeight: 600,
+            color: cart.length === 0 || !obra.trim() || !retira.trim() ? C.dim : "var(--inverse-text)",
+            background: cart.length === 0 || !obra.trim() || !retira.trim() ? C.panel2 : C.green, opacity: busy ? 0.6 : 1 }}>
           {busy ? "Registrando…"
             : cart.length === 0 ? "Escaneá para empezar"
             : !obra.trim() ? "Falta la obra"

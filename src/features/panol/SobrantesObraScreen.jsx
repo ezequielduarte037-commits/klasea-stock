@@ -16,6 +16,8 @@ import {
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
 import { C } from "@/theme";
 import {
   CIERRE_ESTADOS,
@@ -59,9 +61,9 @@ function Chip({ meta, children }) {
       border: `1px solid ${meta.border || meta.color}`,
       background: meta.bg || `color-mix(in srgb, ${meta.color} 10%, transparent)`,
       color: meta.color,
-      fontSize: 10.5,
-      fontWeight: 700,
-      letterSpacing: 0.3,
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: ".06em",
       textTransform: "uppercase",
       whiteSpace: "nowrap",
     }}>
@@ -105,7 +107,12 @@ function ScreenStyles() {
       outline: 2px solid var(--blue); outline-offset: -2px;
     }
     .sob-detail { animation: sob-enter 160ms ease-out; }
+    .sob-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
     @keyframes sob-enter { from { opacity: .6; transform: translateX(6px); } to { opacity: 1; transform: translateX(0); } }
+    @media (max-width: 899px) {
+      .sob-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+      .sob-filtros::-webkit-scrollbar { display: none; }
+    }
     @media (prefers-reduced-motion: reduce) { .sob-detail { animation: none; } .sob-row { transition: none; } }
   `}</style>;
 }
@@ -462,38 +469,35 @@ function DetalleCierre({ cierreId, profile }) {
     <div className="sob-screen" style={{ display: "flex", height: "100%", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <ScreenStyles />
       <main style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <header style={{
-          padding: isMobile ? "10px 14px" : "12px 20px",
-          borderBottom: `1px solid ${C.border}`,
-          background: C.panelSolid,
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-            <button type="button" aria-label="Volver a sobrantes de obra" onClick={() => nav("/stock-panol?tab=sobrantes")} style={{ ...ghostBtn, width: 40, minHeight: 40, padding: 0, justifyContent: "center" }}><ArrowLeft size={18} /></button>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 21, fontWeight: 650 }}>Sobrantes · {cierre?.codigo || "Obra"}</h1>
-                {cierre?.modelo && <span style={{ color: C.dim, fontSize: 13 }}>{cierre.modelo}</span>}
-                <Chip meta={estadoMeta} />
-              </div>
-              <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>Materiales que quedaron en pañol y nunca se egresaron · obra terminada el {fmtCierreDate(cierre?.fecha_terminacion)}</div>
-            </div>
-          </div>
-          {!conciliada && <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" title="Actualizar con los últimos movimientos de pañol" onClick={async () => {
-              if (operationInFlight.current) return;
-              operationInFlight.current = true; setBusyAction(true);
-              try { await refrescarCierreItems(cierreId); await cargar(); }
-              catch (error) { toast.error(error.message || "No se pudo actualizar."); }
-              finally { operationInFlight.current = false; setBusyAction(false); }
-            }} disabled={!canOperate || loading || !!busyItem || busyAction} style={{ ...ghostBtn, color: C.dim }}><RefreshCw size={15} />{!isMobile && "Actualizar"}</button>
-            <button type="button" title={requisitos.length ? `Hay ${requisitos.length} producto(s) por identificar` : summary.pendientes ? `Todavía quedan ${summary.pendientes} materiales por revisar` : "Cerrar la revisión de materiales"} onClick={onConciliar}
-              disabled={!canOperate || loading || !!busyItem || !!busyRequirement || busyAction || summary.pendientes > 0 || requisitos.length > 0}
-              style={{ ...ghostBtn, background: summary.pendientes || requisitos.length ? C.panel : C.green, borderColor: summary.pendientes || requisitos.length ? C.border : C.green, color: summary.pendientes || requisitos.length ? C.dim : "#fff" }}>
-              <CheckCircle2 size={16} /> Finalizar revisión
-            </button>
-          </div>}
-        </header>
+        <PageHeader
+          icon={ClipboardCheck}
+          eyebrow="Pañol"
+          title={`Sobrantes · ${cierre?.codigo || "Obra"}`}
+          subtitle={`Materiales que quedaron en pañol y nunca se egresaron · obra terminada el ${fmtCierreDate(cierre?.fecha_terminacion)}`}
+          actions={(
+            <>
+              <button type="button" className="ui-btn ui-btn-icono" aria-label="Volver a sobrantes de obra" onClick={() => nav("/stock-panol?tab=sobrantes")}><ArrowLeft size={18} /></button>
+              {cierre?.modelo && <span style={{ color: C.dim, fontSize: 13, alignSelf: "center" }}>{cierre.modelo}</span>}
+              <Chip meta={estadoMeta} />
+              {!conciliada && (
+                <>
+                  <button type="button" className="ui-btn" title="Actualizar con los últimos movimientos de pañol" onClick={async () => {
+                    if (operationInFlight.current) return;
+                    operationInFlight.current = true; setBusyAction(true);
+                    try { await refrescarCierreItems(cierreId); await cargar(); }
+                    catch (error) { toast.error(error.message || "No se pudo actualizar."); }
+                    finally { operationInFlight.current = false; setBusyAction(false); }
+                  }} disabled={!canOperate || loading || !!busyItem || busyAction}><RefreshCw size={15} />{!isMobile && "Actualizar"}</button>
+                  <button type="button" className="ui-btn" title={requisitos.length ? `Hay ${requisitos.length} producto(s) por identificar` : summary.pendientes ? `Todavía quedan ${summary.pendientes} materiales por revisar` : "Cerrar la revisión de materiales"} onClick={onConciliar}
+                    disabled={!canOperate || loading || !!busyItem || !!busyRequirement || busyAction || summary.pendientes > 0 || requisitos.length > 0}
+                    style={{ background: summary.pendientes || requisitos.length ? undefined : C.green, borderColor: summary.pendientes || requisitos.length ? undefined : C.green, color: summary.pendientes || requisitos.length ? undefined : "var(--inverse-text)" }}>
+                    <CheckCircle2 size={16} /> Finalizar revisión
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        />
 
         <section style={{ padding: isMobile ? "10px 14px" : "11px 20px", borderBottom: `1px solid ${C.border}`, background: C.panel, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 300px" }}>
@@ -535,7 +539,7 @@ function DetalleCierre({ cierreId, profile }) {
             {!loading && !conciliada && <RequisitosSinProducto rows={requisitos} links={productosCompatibles} selections={productoSeleccionado}
               onSelect={(requisitoId, productoId) => setProductoSeleccionado((prev) => ({ ...prev, [requisitoId]: productoId }))}
               onIdentify={onIdentifyRequirement} busyId={busyRequirement} canOperate={canOperate && !busyAction && !busyItem && !busyRequirement} compact={isMobile} />}
-            {loading && <div style={{ color: C.dim, padding: 24 }}>Cargando materiales…</div>}
+            {loading && <Cargando texto="Cargando materiales…" />}
             {!loading && visibles.length === 0 && <div style={{ padding: 36, textAlign: "center", color: C.dim }}>{requisitos.length ? "Identificá los productos de arriba para continuar con los sobrantes." : items.length === 0 ? "Esta obra no tiene productos para revisar." : itemFilter === "pendientes" ? "No quedan productos pendientes." : "No hay resultados para esa búsqueda."}</div>}
             <div>
               {visibles.map((item) => {
@@ -651,7 +655,7 @@ export function ListaSobrantesObraPanel({ embedded = false }) {
               <Search size={15} style={{ position: "absolute", left: 12, top: 14, color: C.dim }} />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar código, modelo o responsable…" aria-label="Buscar obras" style={{ ...inputStyle, width: "100%", paddingLeft: 34 }} />
             </div>
-            <div role="tablist" aria-label="Estado de revisión" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div role="tablist" aria-label="Estado de revisión" className="sob-filtros">
               {[["abiertos", "Por revisar"], ["conciliada", "Cerradas"], ["todas", "Todas"]].map(([id, label]) => (
                 <button
                   key={id}
@@ -680,7 +684,7 @@ export function ListaSobrantesObraPanel({ embedded = false }) {
         </header>
 
         <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: isMobile ? 12 : 18 }}>
-          {loading && <div style={{ color: C.dim, padding: 24 }}>Cargando obras…</div>}
+          {loading && <Cargando texto="Cargando obras…" />}
           {!loading && visibles.length === 0 && (
             <div style={{ border: `1px dashed ${C.border}`, borderRadius: 14, padding: 36, textAlign: "center" }}>
               <Package size={28} color={C.dim} />

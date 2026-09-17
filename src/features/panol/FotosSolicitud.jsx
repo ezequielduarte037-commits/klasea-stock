@@ -4,7 +4,9 @@ import {
   AlertTriangle, Camera, Check, Loader2, RefreshCw, ScanText, Sparkles, Trash2, X,
 } from "lucide-react";
 import { C } from "@/theme";
-import { INPUT, LBL, num, tint } from "@/features/produccion/comprasTokens";
+import Cargando from "@/components/ui/Cargando";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { INPUT, LBL, num } from "@/features/produccion/comprasTokens";
 import { Cta, Ghost, IconBtn, Pill } from "@/features/produccion/comprasUI";
 import {
   borrarFoto, fetchFotos, leerFotoConIA, subirFoto, vincularConCatalogo,
@@ -28,6 +30,58 @@ const CONF = {
   baja: { label: "Baja", color: "var(--red)", soft: "var(--red-soft)", borde: "var(--red-border)" },
 };
 const confMeta = (c) => CONF[c] || CONF.baja;
+
+// La revisión va en un portal, así que su CSS lleva prefijo propio en vez de
+// colgar de la raíz de la pantalla. En el celular la foto pasa arriba del
+// borrador: al costado quedaban dos columnas de 190 px y no se leía ninguna.
+const CSS_REVISION = `
+  .fs-rev-fondo {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 220;
+    display: flex; justify-content: center; align-items: center;
+    padding: 4vh 16px;
+    background: var(--overlay);
+    -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+  }
+  .fs-rev {
+    width: min(1080px, 100%); max-height: 92vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--border-2); border-radius: 18px;
+    background: var(--panel-solid); box-shadow: var(--elev-2);
+    animation: fs-rev-entra .22s cubic-bezier(.22,1,.36,1);
+  }
+  .fs-rev-cuerpo { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+  .fs-rev-foto {
+    width: 38%; min-width: 240px; flex-shrink: 0;
+    border-right: 1px solid var(--border); overflow: auto;
+  }
+  .fs-rev-item {
+    display: grid; gap: 8px; align-items: center;
+    grid-template-columns: auto minmax(0, 1fr) 66px 54px auto;
+    padding: 8px 9px; border-radius: 10px;
+  }
+  @keyframes fs-rev-entra { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+  @keyframes fs-rev-sube { from { transform: translateY(100%); } }
+  @media (max-width: 899px) {
+    .fs-rev-fondo { align-items: flex-end; padding: 0; }
+    .fs-rev {
+      width: 100%; max-height: 94vh;
+      border-radius: 22px 22px 0 0; border-bottom: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      animation: fs-rev-sube .28s cubic-bezier(.22,1,.36,1);
+    }
+    .fs-rev-cuerpo { flex-direction: column; overflow-y: auto; }
+    .fs-rev-foto {
+      width: 100%; min-width: 0; max-height: 34vh;
+      border-right: 0; border-bottom: 1px solid var(--border);
+    }
+  }
+  @media (max-width: 640px) {
+    /* La confianza baja a su propio renglón: en 390 px las cuatro columnas
+       dejaban el nombre del ítem en 90 px. */
+    .fs-rev-item { grid-template-columns: auto minmax(0, 1fr) 62px 48px; }
+    .fs-rev-item > :last-child { grid-column: 2 / -1; justify-self: start; }
+  }
+`;
 
 const CAMPOS = [
   { key: "obra", label: "Obra / barco" },
@@ -133,17 +187,11 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
 
   return createPortal(
     <div
+      className="fs-rev-fondo"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 220, display: "flex", justifyContent: "center", alignItems: "center",
-        padding: "4vh 16px", background: "var(--overlay)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
-      }}
     >
-      <div style={{
-        width: "min(1080px, 100%)", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden",
-        background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 18,
-        boxShadow: "0 32px 70px -20px var(--shadow-strong)",
-      }}>
+      <style href="klasea-fs-revision" precedence="default">{CSS_REVISION}</style>
+      <div className="fs-rev">
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 12px 12px 16px", borderBottom: `1px solid ${C.border}` }}>
           <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 9, display: "grid", placeItems: "center", background: C.violetL, border: `1px solid ${C.violetB}`, color: C.violet }}>
             <Sparkles size={15} />
@@ -164,9 +212,9 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
           </div>
         )}
 
-        <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 0, overflow: "hidden" }}>
+        <div className="fs-rev-cuerpo">
           {/* la foto, para comparar mientras se corrige */}
-          <div style={{ width: "38%", minWidth: 240, flexShrink: 0, borderRight: `1px solid ${C.border}`, overflow: "auto", background: C.panel, padding: 10 }}>
+          <div className="fs-rev-foto" style={{ background: C.panel, padding: 10 }}>
             <a href={foto.url} target="_blank" rel="noreferrer" title="Abrir la foto en grande">
               <img src={foto.url} alt="Foto del papel" style={{ width: "100%", borderRadius: 10, border: `1px solid ${C.border}`, display: "block" }} />
             </a>
@@ -220,11 +268,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
                 )}
               </div>
 
-              {vinculando && (
-                <div style={{ display: "flex", alignItems: "center", gap: 9, color: C.dim, fontSize: 13, padding: 8 }}>
-                  <Loader2 size={15} className="spin" /> Buscando cada ítem en el catálogo…
-                </div>
-              )}
+              {vinculando && <Cargando compacto texto="Buscando cada ítem en el catálogo…" />}
 
               {!vinculando && !items.length && (
                 <div style={{ fontSize: 12.5, color: C.dim }}>La IA no leyó ningún ítem en esta foto.</div>
@@ -236,10 +280,9 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
                   return (
                     <div
                       key={idx}
+                      className="fs-rev-item"
                       style={{
-                        display: "grid", gridTemplateColumns: "auto minmax(0,1fr) 66px 54px auto", gap: 8, alignItems: "center",
-                        padding: "8px 9px", borderRadius: 10,
-                        border: `1px solid ${it.usar ? tint("#3b82f6", 32) : C.border}`,
+                        border: `1px solid ${it.usar ? C.blueB : C.border}`,
                         background: it.usar ? C.blueL : C.panel,
                       }}
                     >
@@ -316,6 +359,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
 
 /* ═══ Bloque de fotos ═════════════════════════════════════════════════════ */
 export default function FotosSolicitud({ solicitudId, obras = [], puedeEditar = true, onAplicado, toast }) {
+  const preguntar = useConfirm();
   const [fotos, setFotos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
@@ -365,7 +409,13 @@ export default function FotosSolicitud({ solicitudId, obras = [], puedeEditar = 
   }
 
   async function quitar(foto) {
-    if (!window.confirm("¿Borrar esta foto del pedido?")) return;
+    const ok = await preguntar({
+      title: "¿Borrar esta foto del pedido?",
+      message: "Los ítems que ya se aplicaron desde ella se mantienen.",
+      confirmLabel: "Borrar foto",
+      tone: "danger",
+    });
+    if (!ok) return;
     try { await borrarFoto(foto); await cargar(); }
     catch (err) { toast?.error(err.message); }
   }
@@ -386,11 +436,7 @@ export default function FotosSolicitud({ solicitudId, obras = [], puedeEditar = 
         )}
       </div>
 
-      {cargando && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.dim, fontSize: 12.5 }}>
-          <Loader2 size={14} className="spin" /> Cargando fotos…
-        </div>
-      )}
+      {cargando && <Cargando compacto texto="Cargando las fotos…" />}
 
       {!cargando && fotos.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 9 }}>

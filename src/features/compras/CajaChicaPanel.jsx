@@ -479,8 +479,16 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       const nextCierres = result.rows;
       setCierres(nextCierres);
       setMissingClosuresTable(Boolean(result.missingTable));
-      const stillExists = nextCierres.some((cierre) => cierre.id === preferredId);
-      setSelectedCierreId(stillExists ? preferredId : (nextCierres[0]?.id || ""));
+      // Al entrar, la caja de trabajo es siempre la abierta. Antes se tomaba
+      // simplemente el primer cierre ordenado por fecha y, si era una caja
+      // cerrada, quedaba seleccionada como principal aunque hubiera otra lista
+      // para seguir cargando movimientos.
+      const preferred = nextCierres.find((cierre) => cierre.id === preferredId);
+      const abierta = nextCierres.find((cierre) => cierre.estado !== "cerrado");
+      const siguiente = preferred?.estado !== "cerrado"
+        ? preferred
+        : (abierta || preferred || nextCierres[0]);
+      setSelectedCierreId(siguiente?.id || "");
     } catch (error) {
       toast.error(error?.message || "No se pudieron cargar los cierres.");
     } finally {

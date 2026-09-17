@@ -1,6 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, ClipboardCopy, ClipboardPaste, Eye, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search } from "lucide-react";
+import { Bot, ClipboardCopy, ClipboardPaste, Eye, Link2, MapPin, PackageSearch, RotateCcw, ScanLine, Search, X } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -173,10 +173,10 @@ const inp = (over) => ({
 
 const lbl = {
   color: C.t2,
-  fontSize: 10,
-  letterSpacing: 1.2,
+  fontSize: 11,
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
-  fontWeight: 650,
+  fontWeight: 600,
   marginBottom: 6,
   display: "block",
 };
@@ -437,7 +437,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
         </div>
       ) : null}
       <div style={{ display: "flex", gap: 9, alignItems: "center", minWidth: 0 }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Catalogo</span>
+        <span style={{ color: C.t2, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", minWidth: 72 }}>Catalogo</span>
         {selected ? (
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0, color: C.green, fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -533,7 +533,7 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
   return (
     <div style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 12, padding: 10, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Preview pañol</span>
+        <span style={{ color: C.t2, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Preview pañol</span>
         <span style={{ color: selectedLayout ? C.blue : C.t2, fontSize: 12, fontWeight: 700, fontFamily: C.mono }}>{selectedLayout ? code : "Sin estanteria"}</span>
       </div>
       <svg viewBox={`0 0 ${PANOL_ROOM_W} ${PANOL_ROOM_H}`} style={{ width: "100%", height: "auto", display: "block", maxHeight: 170 }}>
@@ -544,7 +544,7 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
         {shelves.map(([shelfCode, layout]) => {
           const active = shelfCode === code;
           const zone = shelfCode.charAt(0);
-          const color = zone === "A" ? "#3b82f6" : zone === "B" ? "#8b5cf6" : zone === "C" ? "#06b6d4" : zone === "D" ? "#10b981" : zone === "E" ? "#ec4899" : zone === "F" ? "#ec4899" : zone === "G" ? "#84cc16" : zone === "H" ? "#f97316" : zone === "I" ? "#14b8a6" : zone === "J" ? "#6366f1" : zone === "K" ? "#a855f7" : zone === "P" ? "#ef4444" : "#06b6d4";
+          const color = zone === "A" ? "#7eb3ff" : zone === "B" ? "#a78bfa" : zone === "C" ? "#67e8f9" : zone === "D" ? "#34d399" : zone === "E" ? "#a78bfa" : zone === "F" ? "#a78bfa" : zone === "G" ? "#5eead4" : zone === "H" ? "#fb923c" : zone === "I" ? "#5eead4" : zone === "J" ? "#a5b4fc" : zone === "K" ? "#a78bfa" : zone === "P" ? "#f87171" : "#67e8f9";
           return (
             <g key={shelfCode} onClick={() => onPick?.(shelfCode)} style={{ cursor: onPick ? "pointer" : "default" }}>
               <rect
@@ -589,7 +589,7 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
     const elegida = (dist || []).find((d) => d.obra_id && num(d.cantidad) > 0)?.obra_id || "";
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obra</span>
+        <span style={{ color: C.t2, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", minWidth: 72 }}>Obra</span>
         <select
           value={elegida}
           onChange={(e) => onChange({
@@ -608,7 +608,7 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
   if (!dist) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obras</span>
+        <span style={{ color: C.t2, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", minWidth: 72 }}>Obras</span>
         <button type="button" onClick={() => onChange({ distribucion: [{ obra_id: item.obra_id || "", cantidad: String(total) }] })}
           style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
           Repartir entre varias obras
@@ -648,7 +648,7 @@ function ItemObrasRow({ item, obras = [], multiObra = false, onChange }) {
   return (
     <div style={{ display: "grid", gap: 6, padding: "0 10px 10px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Reparto por obra</span>
+        <span style={{ color: C.t2, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Reparto por obra</span>
         <span style={{ color: okColor, fontSize: 11.5, fontWeight: 700 }}>
           asignado {asignado} / {total}
           {resto > 0 ? ` · resto ${resto} → ${item.obra_id ? "obra por defecto" : "stock general"}` : asignado > total ? " · te pasaste" : " ✓"}
@@ -712,7 +712,7 @@ function ItemLocationRow({ item, material = null, estanterias = [], onChange, is
   return (
     <div style={{ display: "grid", gap: 8, padding: "0 10px 10px 10px" }}>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "72px minmax(160px, 0.8fr) minmax(128px, 0.55fr) minmax(220px, 1fr) auto", gap: 9, alignItems: "center" }}>
-        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <span style={{ color: C.t2, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", display: "inline-flex", alignItems: "center", gap: 5 }}>
           <MapPin size={11} /> Ubic.
         </span>
         <select
@@ -2035,7 +2035,7 @@ export default function EnviarAPanolModal({
             </div>
           )}
           <div style={{ flex: 1 }} />
-          {!embedded && <button type="button" onClick={() => closeModal(false)} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 18, padding: 4 }}>x</button>}
+          {!embedded && <button type="button" onClick={() => closeModal(false)} aria-label="Cerrar" className="ui-btn ui-btn-fantasma ui-btn-icono"><X size={16} /></button>}
         </div>
 
         {borradorPrevio && (
@@ -2472,7 +2472,7 @@ export default function EnviarAPanolModal({
                 </div>
                 <div style={{ display: "grid", gap: 8, minWidth: 0, maxHeight: matchesListHeight, overflowY: "auto", paddingRight: 2 }}>
                 {avisosLoading ? (
-                  <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center" }}>Cargando avisos...</div>
+                  <Cargando compacto texto="Cargando avisos…" />
                 ) : avisosVisibles.length ? avisosVisibles.map((av) => {
                   const abierto = expandedAviso === av.key;
                   const pendientes = av.items.filter((m) => !avisoItemAdded(m));
@@ -2611,7 +2611,7 @@ export default function EnviarAPanolModal({
             {items.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                 {!isMobile && (
-                  <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, padding: "0 10px", fontSize: 9.5, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 650 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, padding: "0 10px", fontSize: 11, color: C.t2, letterSpacing: "0.07em", textTransform: "uppercase", fontWeight: 600 }}>
                     <span>Descripción</span><span>Cod. item</span><span>Cant.</span><span>Unidad</span>{isRemito && <span>Obra / stock</span>}{showPrices && <><span>Precio unit.</span><span>Moneda</span></>}<span />
                   </div>
                 )}

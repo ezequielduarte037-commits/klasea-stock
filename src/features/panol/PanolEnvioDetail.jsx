@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
 import { supabase } from "@/supabaseClient";
 import {
   fetchEnvio, fetchEventos, guardarUbicacionMaterial, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio,
@@ -171,24 +173,25 @@ function isScanComplete(item) {
 
 function StatusChip({ estado, compact = false }) {
   const meta = ITEM_ESTADO_META[estado] ?? ITEM_ESTADO_META.pendiente;
+  const tono = {
+    pendiente: { color: C.dim, bg: C.panel2, border: C.border },
+    recibido: { color: C.green, bg: C.greenL, border: C.greenB },
+    parcial: { color: C.violet, bg: C.violetL, border: C.violetB },
+    sin_info: { color: C.blue, bg: C.blueL, border: C.blueB },
+    falta_stock: { color: C.cyan, bg: C.cyanL, border: C.cyanB },
+    rechazado: { color: C.red, bg: C.redL, border: C.redB },
+  }[estado] || { color: meta.color, bg: meta.bg, border: meta.border };
   return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      color: meta.color,
-      background: meta.bg,
-      border: `1px solid ${meta.border}`,
-      borderRadius: 999,
+    <span className="ui-chip" style={{
+      color: tono.color,
+      background: tono.bg,
+      borderColor: tono.border,
       padding: compact ? "3px 8px" : "5px 10px",
-      fontSize: compact ? 10 : 11,
-      fontWeight: 700,
-      letterSpacing: 0.45,
+      fontSize: compact ? 10.5 : 11,
+      letterSpacing: "0.06em",
       textTransform: "uppercase",
-      whiteSpace: "nowrap",
     }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.color }} />
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: tono.color }} />
       {meta.label}
     </span>
   );
@@ -196,23 +199,24 @@ function StatusChip({ estado, compact = false }) {
 
 function EnvioStatusChip({ estado }) {
   const meta = ENVIO_ESTADO_META[estado] ?? { label: estado, color: C.dim };
+  const tono = {
+    borrador: { color: C.dim, bg: C.panel2, border: C.border },
+    enviado: { color: C.cyan, bg: C.cyanL, border: C.cyanB },
+    en_preparacion: { color: C.blue, bg: C.blueL, border: C.blueB },
+    parcial: { color: C.violet, bg: C.violetL, border: C.violetB },
+    recibido: { color: C.green, bg: C.greenL, border: C.greenB },
+    cerrado: { color: C.dim, bg: C.panel2, border: C.border },
+    cancelado: { color: C.red, bg: C.redL, border: C.redB },
+  }[estado] || { color: meta.color || C.dim, bg: C.panel2, border: C.border };
   return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      color: meta.color,
-      background: `${meta.color}14`,
-      border: `1px solid ${meta.color}3d`,
-      borderRadius: 999,
-      padding: "5px 11px",
-      fontSize: 11,
-      fontWeight: 700,
-      letterSpacing: 0.5,
+    <span className="ui-chip" style={{
+      color: tono.color,
+      background: tono.bg,
+      borderColor: tono.border,
+      letterSpacing: "0.06em",
       textTransform: "uppercase",
-      whiteSpace: "nowrap",
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: meta.color }} />
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: tono.color }} />
       {meta.label}
     </span>
   );
@@ -247,7 +251,7 @@ function ProgressBar({ resumen }) {
           <div
             key={estado}
             title={`${meta.label}: ${n}`}
-            style={{ width: `${(n / resumen.total) * 100}%`, minWidth: n ? 3 : 0, background: meta.color }}
+            style={{ width: `${(n / resumen.total) * 100}%`, minWidth: n ? 3 : 0, background: ({ pendiente: C.dim, recibido: C.green, parcial: C.violet, sin_info: C.blue, falta_stock: C.cyan, rechazado: C.red }[estado] || meta.color) }}
           />
         );
       })}
@@ -256,6 +260,11 @@ function ProgressBar({ resumen }) {
 }
 
 function HeaderStat({ icon: IconComponent, label, value, color }) {
+  const tono = color === C.green ? { bg: C.greenL, border: C.greenB }
+    : color === C.violet ? { bg: C.violetL, border: C.violetB }
+    : color === C.red ? { bg: C.redL, border: C.redB }
+    : color === C.blue ? { bg: C.blueL, border: C.blueB }
+    : { bg: C.panel2, border: C.border };
   const icon = IconComponent ? <IconComponent size={14} /> : null;
   return (
     <div style={{
@@ -274,16 +283,16 @@ function HeaderStat({ icon: IconComponent, label, value, color }) {
         borderRadius: 8,
         display: "grid",
         placeItems: "center",
-        background: `${color}14`,
+        background: tono.bg,
         color,
-        border: `1px solid ${color}35`,
+        border: `1px solid ${tono.border}`,
         flexShrink: 0,
       }}>
         {icon}
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ color, fontFamily: C.mono, fontWeight: 700, fontSize: 17, lineHeight: 1 }}>{value}</div>
-        <div style={{ color: C.dim, fontSize: 10, fontWeight: 650, letterSpacing: 0.9, textTransform: "uppercase", marginTop: 3 }}>{label}</div>
+        <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginTop: 3 }}>{label}</div>
       </div>
     </div>
   );
@@ -293,18 +302,14 @@ function FilterButton({ active, children, onClick }) {
   return (
     <button
       type="button"
+      className="ui-chip"
       onClick={onClick}
       style={{
-        border: `1px solid ${active ? C.border2 : C.border}`,
-        background: active ? C.panelSolid : "transparent",
-        color: active ? C.text : C.muted,
-        padding: "6px 10px",
-        borderRadius: 8,
+        minHeight: 34,
         cursor: "pointer",
-        fontSize: 12,
-        fontWeight: active ? 700 : 600,
-        fontFamily: C.sans,
-        whiteSpace: "nowrap",
+        borderColor: active ? C.blueB : C.border,
+        background: active ? C.blueL : "transparent",
+        color: active ? C.blue : C.muted,
       }}
     >
       {children}
@@ -1194,121 +1199,63 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           permiteSoloArchivar={false}
         />
       ) : null}
-      <div style={{
-        background: C.topbar,
-        borderBottom: `1px solid ${C.border}`,
-        padding: isMobile ? "10px 12px" : "12px 18px",
-        display: "grid",
-        gap: 12,
-        flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              border: `1px solid ${C.border}`,
-              background: C.panelSolid,
-              color: C.muted,
-              borderRadius: 9,
-              cursor: "pointer",
-              padding: "7px 10px",
-              fontSize: 13,
-              fontWeight: 650,
-              fontFamily: C.sans,
-              flexShrink: 0,
-            }}
-          >
-            <ArrowLeft size={15} />
-            {!isMobile && "Volver"}
-          </button>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {envio?.titulo ?? "Pedido"}
-            </div>
-            {envio && (
-              <div style={{ fontSize: 12, color: C.dim, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {envio.obra?.codigo ? `Obra ${envio.obra.codigo} · ` : ""}{envio.sede}{envio.destino ? ` · ${envio.destino}` : ""}{envio.origen === "compra" ? " · desde compras" : ""}
-              </div>
-            )}
-          </div>
-
-          {envio && <EnvioStatusChip estado={envio.estado} />}
-
-          {/* La accion principal de esta pantalla: que lo que llego quede como
-              stock. Antes habia que apretar "Recibir" renglon por renglon y nada
-              confirmaba que hubiera entrado al pañol. */}
-          {envio && canReceive && !cerrado && resumen.pendientes > 0 && (
-            <button
-              type="button"
-              onClick={ingresarTodoAPanol}
-              disabled={saving}
-              title="Marca todo lo pendiente como recibido y lo deja como stock del pañol"
-              style={{ border: "none", background: saving ? C.panelSolid : C.green, color: saving ? C.dim : "#04231a", borderRadius: 9, cursor: saving ? "default" : "pointer", padding: "8px 13px", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}
-            >
-              <PackageCheck size={15} />
-              {saving ? "Ingresando…" : `Ingresar todo a pañol (${resumen.pendientes})`}
+      <PageHeader
+        icon={PackageOpen}
+        eyebrow="Recepción"
+        title={envio?.titulo ?? "Pedido"}
+        subtitle={envio
+          ? `${envio.obra?.codigo ? `Obra ${envio.obra.codigo} · ` : ""}${envio.sede}${envio.destino ? ` · ${envio.destino}` : ""}${envio.origen === "compra" ? " · desde compras" : ""}`
+          : undefined}
+        actions={(
+          <>
+            <button type="button" className="ui-btn" onClick={onBack}>
+              <ArrowLeft size={15} />
+              {!isMobile && "Volver"}
             </button>
-          )}
-
-          {envio && (
-            <button
-              type="button"
-              onClick={imprimirEnvio}
-              title="Imprimir remito del pedido"
-              style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-            >
-              <Printer size={14} />
-              {!isMobile && "Imprimir"}
-            </button>
-          )}
-
-          {isManager && (
-            <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
-              {envio?.estado === "cancelado" && (
-                <button
-                  type="button"
-                  onClick={() => cambiarEstadoEnvio("enviado")}
-                  title="Vuelve el pedido a la lista de pañol, con sus ítems como estaban"
-                  style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
-                >
-                  Reactivar
-                </button>
-              )}
-              {!cerrado && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => cambiarEstadoEnvio("cerrado")}
-                    style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
-                  >
-                    Cerrar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cambiarEstadoEnvio("cancelado")}
-                    style={{ border: `1px solid ${C.redB}`, background: "var(--red-soft)", color: C.red, borderRadius: 9, cursor: "pointer", padding: "7px 11px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
-                  >
-                    Cancelar
-                  </button>
-                </>
-              )}
+            {envio && <EnvioStatusChip estado={envio.estado} />}
+            {envio && canReceive && !cerrado && resumen.pendientes > 0 && (
               <button
                 type="button"
-                onClick={borrarEnvio}
-                title="Borrar definitivamente"
-                style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}
+                className="ui-btn"
+                onClick={ingresarTodoAPanol}
+                disabled={saving}
+                title="Marca todo lo pendiente como recibido y lo deja como stock del pañol"
+                style={{ background: saving ? undefined : C.green, borderColor: "transparent", color: saving ? undefined : "var(--inverse-text)" }}
               >
+                <PackageCheck size={15} />
+                {saving ? "Ingresando…" : `Ingresar todo a pañol (${resumen.pendientes})`}
+              </button>
+            )}
+            {envio && (
+              <button type="button" className="ui-btn" onClick={imprimirEnvio} title="Imprimir remito del pedido">
+                <Printer size={14} />
+                {!isMobile && "Imprimir"}
+              </button>
+            )}
+            {isManager && envio?.estado === "cancelado" && (
+              <button type="button" className="ui-btn ui-btn-suave" onClick={() => cambiarEstadoEnvio("enviado")} title="Vuelve el pedido a la lista de pañol, con sus ítems como estaban">
+                Reactivar
+              </button>
+            )}
+            {isManager && !cerrado && (
+              <>
+                <button type="button" className="ui-btn" onClick={() => cambiarEstadoEnvio("cerrado")} style={{ color: C.green, background: C.greenL, borderColor: C.greenB }}>
+                  Cerrar
+                </button>
+                <button type="button" className="ui-btn ui-btn-peligro" onClick={() => cambiarEstadoEnvio("cancelado")}>
+                  Cancelar
+                </button>
+              </>
+            )}
+            {isManager && (
+              <button type="button" className="ui-btn ui-btn-peligro" onClick={borrarEnvio} title="Borrar definitivamente">
                 <Trash2 size={13} />
                 {!isMobile && "Borrar"}
               </button>
-            </div>
-          )}
-        </div>
+            )}
+          </>
+        )}
+      >
 
         {envio && (
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(150px, 1fr))", gap: 9 }}>
@@ -1317,7 +1264,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
             <HeaderStat icon={Clock3} label="Pendientes" value={resumen.pendientes} color={C.violet} />
             <HeaderStat icon={AlertTriangle} label="Problemas" value={resumen.problemas} color={C.red} />
             <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "10px 12px", display: "grid", alignContent: "center", gap: 7 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.9 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 <span>Avance</span>
                 <span style={{ color: C.text, fontFamily: C.mono }}>{resumen.pctRecibido}%</span>
               </div>
@@ -1325,7 +1272,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
             </div>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {canReceive && !cerrado && sel.size > 0 && (
         <div style={{
@@ -1400,7 +1347,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           background: C.bg,
         }}>
           {loading ? (
-            <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando pedido...</div>
+            <div style={{ padding: 40 }}><Cargando llenar texto="Cargando pedido…" /></div>
           ) : (
             <>
               <div style={{
@@ -1767,7 +1714,7 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
         gap: 7,
         alignItems: "center",
       }}>
-        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", display: "inline-flex", alignItems: "center", gap: 5 }}>
           <MapPin size={11} /> Ubic.
         </span>
         <select value={cod} onChange={(e) => setLocation(e.target.value, "")} disabled={saving} style={{ ...field, cursor: saving ? "default" : "pointer" }}>

@@ -209,6 +209,10 @@ Al modificar una pantalla:
 
 El repositorio combina CSS global con estilos cercanos a los componentes. Antes de introducir un patrón nuevo, buscá cómo se resolvió algo equivalente en una pantalla reciente.
 
+El sistema de diseño completo (colores sin ámbar, tipografía y pesos, piezas compartidas como `PageHeader`, `Portada` o `Cargando`, versión celular y límites de la PDA) está en [.claude/skills/klasea-ui-polish/SKILL.md](.claude/skills/klasea-ui-polish/SKILL.md). Leelo antes de tocar el aspecto de una pantalla. Para continuar la reforma visual pantalla por pantalla, usá [prompt-cursor-reforma-diseno.md](prompt-cursor-reforma-diseno.md); el reparto en lotes para trabajar con varios agentes a la vez está en [docs/reforma-diseno/lotes.md](docs/reforma-diseno/lotes.md).
+
+Para separar errores de lint nuevos de los que ya tenía el repositorio: `node scripts/comparar-lint.mjs <archivos modificados>`.
+
 ## Base de datos y Supabase
 
 Los cambios de esquema se hacen mediante migraciones nuevas y acotadas en `supabase/migrations`. No reescribas una migración que ya pudo haberse aplicado.

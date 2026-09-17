@@ -33,9 +33,10 @@ const ENQ = String.fromCharCode(5);
 const escaparCmd = (s) => s.split("\r").join("\\r").split("\n").join("\\n").split(ENQ).join("\\x05");
 const desescaparCmd = (s) => s.split("\\r").join("\r").split("\\n").join("\n").split("\\x05").join(ENQ);
 
-const CARD = { border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, padding: 14 };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
-const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" };
+const CARD = { border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, padding: 14, boxShadow: "var(--elev-1)" };
+const LBL = { fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 5, display: "block" };
+const INP = { width: "100%", boxSizing: "border-box", minHeight: 38, background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" };
+const CHIP = { borderRadius: 999, minHeight: 32, padding: "0 12px", fontSize: 12, fontWeight: 600, fontFamily: C.mono };
 
 export default function BalanzaDebugScreen() {
   const nav = useNavigate();
@@ -162,21 +163,22 @@ export default function BalanzaDebugScreen() {
       <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gap: 12 }}>
 
         {/* Cabecera */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button type="button" onClick={() => nav(-1)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "8px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 650 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          <button type="button" onClick={() => nav(-1)} className="ui-btn ui-btn-fantasma">
             <ArrowLeft size={15} /> Volver
           </button>
-          <div style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(59,130,246,0.10)", border: `1px solid ${C.blueB}`, color: C.blue }}>
+          <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 13, display: "grid", placeItems: "center", background: `linear-gradient(145deg, ${C.blueL}, ${C.cyanL})`, border: `1px solid ${C.blueB}`, color: C.blue }}>
             <Activity size={20} />
           </div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 750, color: C.text }}>Balanza — diagnóstico del puerto serie</div>
-            <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>Conectá la balanza y mirá qué manda. Con eso escribimos el parser definitivo.</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: C.dim }}>Pañol</div>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em", color: C.text }}>Balanza · diagnóstico del puerto serie</h1>
+            <div style={{ fontSize: 13, color: C.dim, marginTop: 3 }}>Conectá la balanza y mirá qué manda. Con eso escribimos el parser definitivo.</div>
           </div>
         </div>
 
         {!soportado && (
-          <div style={{ ...CARD, borderColor: C.redB, background: "rgba(239,68,68,0.08)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ ...CARD, borderColor: C.redB, background: C.redL, display: "flex", gap: 10, alignItems: "flex-start" }}>
             <AlertTriangle size={18} color={C.red} style={{ flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: 13, color: C.text }}>
               <b>Este navegador no soporta Web Serial.</b>
@@ -216,23 +218,24 @@ export default function BalanzaDebugScreen() {
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             {!conectado ? (
-              <button type="button" onClick={conectar} disabled={!soportado} style={{ border: "none", background: soportado ? C.green : C.panel2, color: soportado ? "#fff" : C.dim, borderRadius: 9, padding: "10px 16px", cursor: soportado ? "pointer" : "default", fontSize: 13.5, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <button type="button" onClick={conectar} disabled={!soportado}
+                style={{ border: "none", background: soportado ? C.green : C.panel2, color: soportado ? "var(--inverse-text)" : C.dim, borderRadius: 10, minHeight: 40, padding: "0 16px", cursor: soportado ? "pointer" : "default", fontFamily: C.sans, fontSize: 13.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 7 }}>
                 <Plug size={16} /> Conectar balanza
               </button>
             ) : (
-              <button type="button" onClick={desconectar} style={{ border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.10)", color: C.red, borderRadius: 9, padding: "10px 16px", cursor: "pointer", fontSize: 13.5, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <button type="button" onClick={desconectar} className="ui-btn ui-btn-peligro">
                 <PlugZap size={16} /> Desconectar
               </button>
             )}
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: conectado ? C.green : C.dim }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: conectado ? C.green : C.dim }}>
               <span style={{ width: 8, height: 8, borderRadius: 999, background: conectado ? C.green : C.dim }} />
               {conectado ? "Conectado" : "Sin conectar"}
-              {conectado && <span style={{ color: C.dim, fontFamily: C.mono, fontWeight: 600 }}>· {bytesTotal} bytes</span>}
+              {conectado && <span style={{ color: C.dim, fontFamily: C.mono }}>· {bytesTotal} bytes</span>}
             </span>
           </div>
 
           {error && (
-            <div style={{ marginTop: 10, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 9, padding: "8px 11px", color: C.red, fontSize: 12.5, fontWeight: 600 }}>
+            <div style={{ marginTop: 10, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 9, padding: "8px 11px", color: C.red, fontSize: 12.5, fontWeight: 600 }}>
               {error}
             </div>
           )}
@@ -240,10 +243,10 @@ export default function BalanzaDebugScreen() {
 
         {/* Peso detectado (best-effort, para confirmar que leemos bien) */}
         {ultimoPeso && (
-          <div style={{ ...CARD, borderColor: C.greenB, background: "rgba(34,197,94,0.07)", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ ...CARD, borderColor: C.greenB, background: C.greenL, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <Check size={20} color={C.green} />
             <div>
-              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase" }}>Peso detectado</div>
+              <div style={LBL}>Peso detectado</div>
               <div style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 700, color: C.green, lineHeight: 1.1 }}>
                 {ultimoPeso.valor} <span style={{ fontSize: 14, color: C.dim }}>{ultimoPeso.unidad}</span>
               </div>
@@ -264,11 +267,11 @@ export default function BalanzaDebugScreen() {
               return (
                 <button key={`${d}${r}`} type="button" onClick={() => aplicarSenales(d, r)} disabled={!conectado}
                   style={{
+                    ...CHIP,
                     border: `1px solid ${activo ? C.blueB : C.border}`,
-                    background: !conectado ? C.panel2 : activo ? "rgba(59,130,246,0.12)" : C.panel,
+                    background: !conectado ? C.panel2 : activo ? C.blueL : C.panel,
                     color: !conectado ? C.dim : activo ? C.blue : C.dim,
-                    borderRadius: 999, padding: "6px 12px", cursor: conectado ? "pointer" : "default",
-                    fontSize: 12, fontWeight: 700, fontFamily: C.mono,
+                    cursor: conectado ? "pointer" : "default",
                   }}>
                   DTR={d ? 1 : 0} RTS={r ? 1 : 0}
                 </button>
@@ -284,7 +287,7 @@ export default function BalanzaDebugScreen() {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 9 }}>
             {COMANDOS.map((c) => (
               <button key={c.label} type="button" onClick={() => { setCmd(c.value); enviar(c.value); }} disabled={!conectado} title={c.hint}
-                style={{ border: `1px solid ${C.border}`, background: conectado ? C.panel : C.panel2, color: conectado ? C.blue : C.dim, borderRadius: 999, padding: "6px 12px", cursor: conectado ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: C.mono }}>
+                style={{ ...CHIP, border: `1px solid ${C.border}`, background: conectado ? C.panel : C.panel2, color: conectado ? C.blue : C.dim, cursor: conectado ? "pointer" : "default" }}>
                 {c.label}
               </button>
             ))}
@@ -293,7 +296,7 @@ export default function BalanzaDebugScreen() {
             <input value={escaparCmd(cmd)}
               onChange={(e) => setCmd(desescaparCmd(e.target.value))}
               placeholder="Comando manual (usá \r \n \x05)" style={{ ...INP, flex: 1, fontFamily: C.mono }} />
-            <button type="button" onClick={() => enviar()} disabled={!conectado} style={{ border: `1px solid ${C.border}`, background: conectado ? C.panel : C.panel2, color: conectado ? C.blue : C.dim, borderRadius: 9, padding: "8px 14px", cursor: conectado ? "pointer" : "default", fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <button type="button" onClick={() => enviar()} disabled={!conectado} className="ui-btn" style={{ flexShrink: 0, color: conectado ? C.blue : C.dim }}>
               <Send size={14} /> Enviar
             </button>
           </div>
@@ -302,15 +305,15 @@ export default function BalanzaDebugScreen() {
         {/* Log crudo */}
         <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <b style={{ fontSize: 13, color: C.text }}>Lo que manda la balanza</b>
-            <span style={{ fontSize: 11.5, color: C.dim }}>{lineas.length} líneas</span>
-            <label style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.dim, cursor: "pointer", fontWeight: 600 }}>
+            <b style={{ fontSize: 13.5, fontWeight: 650, color: C.text }}>Lo que manda la balanza</b>
+            <span style={{ fontSize: 11.5, color: C.dim, fontFamily: C.mono }}>{lineas.length} líneas</span>
+            <label style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.dim, cursor: "pointer", fontWeight: 600 }}>
               <input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} /> Auto-scroll
             </label>
-            <button type="button" onClick={copiarLog} disabled={!lineas.length} style={{ border: `1px solid ${C.border}`, background: C.panel, color: lineas.length ? C.blue : C.dim, borderRadius: 8, padding: "6px 11px", cursor: lineas.length ? "pointer" : "default", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <button type="button" onClick={copiarLog} disabled={!lineas.length} className="ui-btn" style={{ minHeight: 32, padding: "0 11px", fontSize: 12, color: lineas.length ? C.blue : C.dim }}>
               <Copy size={13} /> Copiar
             </button>
-            <button type="button" onClick={() => { setLineas([]); setBytesTotal(0); bufferRef.current = ""; }} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <button type="button" onClick={() => { setLineas([]); setBytesTotal(0); bufferRef.current = ""; }} className="ui-btn" style={{ minHeight: 32, padding: "0 11px", fontSize: 12, color: C.dim }}>
               <Trash2 size={13} /> Limpiar
             </button>
           </div>

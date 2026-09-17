@@ -51,7 +51,7 @@ function Kpi({ icon, label, value, detail, color }) {
       </span>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", color, fontFamily: C.mono, fontSize: 17, fontWeight: 750, lineHeight: 1 }}>{value}</span>
-        <span style={{ display: "block", color: C.text, fontSize: 10.5, fontWeight: 700, marginTop: 3 }}>{label}</span>
+        <span style={{ display: "block", color: C.text, fontSize: 10.5, fontWeight: 600, marginTop: 3 }}>{label}</span>
         <span style={{ display: "block", color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</span>
       </span>
     </div>
@@ -148,7 +148,7 @@ export default function PanolRetirosDashboard({ rows = [], isMobile = false }) {
       <button type="button" onClick={() => setOpen((value) => !value)} style={{ width: "100%", border: "none", borderBottom: open ? `1px solid ${C.border}` : "none", background: C.panelSolid, color: C.text, padding: "10px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontFamily: C.sans, textAlign: "left" }}>
         <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><Activity size={15} /></span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 13, fontWeight: 750 }}>Pulso de retiros</span>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>Pulso de retiros</span>
           <span style={{ display: "block", color: C.dim, fontSize: 10, marginTop: 2 }}>Qué sale, quién lo retira y para qué obra · según los filtros activos</span>
         </span>
         {open ? <ChevronUp size={16} style={{ color: C.dim }} /> : <ChevronDown size={16} style={{ color: C.dim }} />}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FileText, LoaderCircle, ScanLine, X } from "lucide-react";
 import { C } from "@/theme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
 import { carpetaFisicaDeRemito, normalizarCarpetas } from "@/features/panol/carpetaRemitos";
 import { fetchProveedoresConocidos, hayColumnasDeRemito } from "@/features/panol/remitosArchivoApi";
@@ -57,6 +58,7 @@ export default function AntesDeEscanearModal({
   titulo: tituloVentana = "",
 }) {
   const guardando = modo === "guardar";
+  const { isMobile } = useResponsive();
   const encabezado = tituloVentana || (guardando ? "Datos de este remito" : "¿Qué vas a escanear?");
   const [obras, setObras] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -164,7 +166,7 @@ export default function AntesDeEscanearModal({
     });
   }
 
-  const etiqueta = { fontSize: 11, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 };
+  const etiqueta = { fontSize: 11, fontWeight: 600, color: C.dim, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 };
   const campo = {
     width: "100%", border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text,
     borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
@@ -173,19 +175,19 @@ export default function AntesDeEscanearModal({
   return (
     <div
       onClick={onCerrar}
-      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : 16, fontFamily: C.sans }}
     >
       <div
         onClick={(event) => event.stopPropagation()}
         style={{
           width: "min(460px, 100%)",
-          maxHeight: "calc(100vh - 32px)",
+          maxHeight: isMobile ? "96vh" : "calc(100vh - 32px)",
           display: "flex",
           flexDirection: "column",
           background: C.panelSolid,
           border: `1px solid ${C.border}`,
-          borderRadius: 14,
-          boxShadow: "0 18px 50px rgba(15,23,42,0.28)",
+          borderRadius: isMobile ? "14px 14px 0 0" : 14,
+          boxShadow: "0 18px 50px var(--shadow)",
           overflow: "hidden",
         }}
       >

@@ -176,7 +176,7 @@ function Button({ children, onClick, disabled = false, tone = "neutral", title =
         gap: 6,
         fontFamily: C.sans,
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         whiteSpace: "nowrap",

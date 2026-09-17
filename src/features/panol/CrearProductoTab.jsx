@@ -10,7 +10,7 @@ import { materialMatchScore, topMaterialMatches } from "@/features/panol/materia
 // Después compras/técnica decide si lo suben a la matriz como estándar.
 
 const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
+const LBL = { fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4, display: "block" };
 
 function norm(s) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
@@ -290,15 +290,15 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
               </div>
               <div style={{ color: C.dim, fontSize: 10.5 }}>El único bloqueo definitivo es un código completo o código de barras idéntico.</div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setDuplicateReview(null)} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>Volver a revisar</button>
-                <button type="button" onClick={() => crear(true)} disabled={saving} style={{ border: `1px solid ${C.violetB}`, background: C.violet, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? .6 : 1 }}><PackagePlus size={15} /> {saving ? "Creando..." : "Crear igualmente"}</button>
+                <button type="button" className="ui-btn" onClick={() => setDuplicateReview(null)} disabled={saving}>Volver a revisar</button>
+                <button type="button" className="ui-btn" onClick={() => crear(true)} disabled={saving} style={{ background: C.violet, borderColor: "transparent", color: "var(--inverse-text)" }}><PackagePlus size={15} /> {saving ? "Creando…" : "Crear igualmente"}</button>
               </div>
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <button type="button" onClick={limpiar} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "10px 16px", cursor: "pointer", fontSize: 13, fontWeight: 650 }}>Limpiar</button>
-              <button type="button" onClick={() => crear(false)} disabled={saving || !descripcion.trim() || !categoriaId} style={{ border: "none", background: saving || !descripcion.trim() || !categoriaId ? C.panel2 : C.green, color: saving || !descripcion.trim() || !categoriaId ? C.dim : "#fff", borderRadius: 9, padding: "10px 18px", cursor: saving ? "default" : "pointer", fontSize: 13.5, fontWeight: 750, display: "flex", alignItems: "center", gap: 7 }}>
-                <PackagePlus size={16} /> {saving ? "Creando..." : "Crear producto"}
+              <button type="button" className="ui-btn ui-btn-fantasma" onClick={limpiar}>Limpiar</button>
+              <button type="button" className="ui-btn" onClick={() => crear(false)} disabled={saving || !descripcion.trim() || !categoriaId} style={{ background: saving || !descripcion.trim() || !categoriaId ? undefined : C.green, borderColor: saving || !descripcion.trim() || !categoriaId ? undefined : "transparent", color: saving || !descripcion.trim() || !categoriaId ? undefined : "var(--inverse-text)" }}>
+                <PackagePlus size={16} /> {saving ? "Creando…" : "Crear producto"}
               </button>
             </div>
           )}
@@ -306,7 +306,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
 
         {ultimos.length > 0 && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontSize: 10.5, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Creados recién (ya podés ingresarlos)</div>
+            <div style={{ fontSize: 11, color: C.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Creados recién (ya podés ingresarlos)</div>
             <div style={{ display: "grid", gap: 5 }}>
               {ultimos.map((u) => (
                 <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.text, padding: "6px 9px", background: C.panelSolid, borderRadius: 8 }}>

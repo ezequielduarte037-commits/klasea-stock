@@ -7,6 +7,8 @@ import {
 import CapturaFotoModal from "@/components/CapturaFotoModal";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import PageHeader from "@/components/ui/PageHeader";
 import { C } from "@/theme";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import useNfcBridge from "@/features/panol/useNfcBridge";
@@ -22,7 +24,7 @@ import {
 const INPUT = {
   width: "100%",
   boxSizing: "border-box",
-  minHeight: 42,
+  minHeight: 44,
   border: `1px solid ${C.border}`,
   borderRadius: 10,
   background: C.panel,
@@ -31,6 +33,16 @@ const INPUT = {
   outline: "none",
   fontFamily: C.sans,
   fontSize: 13,
+};
+
+const LBL = {
+  display: "block",
+  marginBottom: 6,
+  color: C.dim,
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
 };
 
 function initials(nombre) {
@@ -71,8 +83,8 @@ function Paso({ numero, titulo, listo, activo }) {
     }}>
       <span style={{
         width: 25, height: 25, flexShrink: 0, display: "grid", placeItems: "center",
-        borderRadius: 8, background: color, color: "#fff", fontFamily: C.mono,
-        fontSize: 11, fontWeight: 750,
+        borderRadius: 8, background: color, color: "var(--inverse-text)", fontFamily: C.mono,
+        fontSize: 11, fontWeight: 700,
       }}>
         {listo ? <BadgeCheck size={14} /> : numero}
       </span>
@@ -90,6 +102,7 @@ function estadoBridge(nfc) {
 export default function TarjetasNfcScreen() {
   const { isMobile } = useResponsive();
   const toast = useToast();
+  const preguntar = useConfirm();
   const [dni, setDni] = useState("");
   const [empleado, setEmpleado] = useState(null);
   const [buscando, setBuscando] = useState(false);
@@ -217,7 +230,13 @@ export default function TarjetasNfcScreen() {
 
   async function desvincular() {
     if (!empleado?.nfc_uid) return;
-    if (!window.confirm(`¿Desvincular la tarjeta de ${empleado.nombre}?\n\nLa tarjeta quedará disponible para otra persona.`)) return;
+    const ok = await preguntar({
+      title: `¿Desvincular la tarjeta de ${empleado.nombre}?`,
+      message: "La tarjeta queda disponible para otra persona.",
+      confirmLabel: "Desvincular",
+      tone: "danger",
+    });
+    if (!ok) return;
     setGuardando(true);
     try {
       await desvincularTarjetaNfc(empleado.empleado_id);
@@ -233,44 +252,42 @@ export default function TarjetasNfcScreen() {
   }
 
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div className="nfc-root" style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
       <style>{`
-        .nfc-card{transition:border-color .16s ease,box-shadow .16s ease}
-        .nfc-card:focus-within{border-color:var(--blue-border)!important;box-shadow:0 0 0 3px var(--blue-soft)}
-        .nfc-btn{transition:transform .14s ease,filter .14s ease}
-        .nfc-btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.06)}
-        @media(prefers-reduced-motion:reduce){.nfc-card,.nfc-btn{transition:none!important}}
+        .nfc-root .nfc-card{transition:border-color .16s ease,box-shadow .16s ease}
+        .nfc-root .nfc-card:focus-within{border-color:var(--blue-border)!important;box-shadow:0 0 0 3px var(--blue-soft)}
+        .nfc-root .nfc-btn{transition:transform .14s ease,filter .14s ease}
+        .nfc-root .nfc-btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.06)}
+        /* El arco de espera antes usaba .spin, que esta pantalla nunca definió:
+           el ícono quedaba quieto mientras buscaba. */
+        .nfc-root .nfc-gira{animation:nfc-gira .8s linear infinite}
+        @keyframes nfc-gira{to{transform:rotate(360deg)}}
+        @media(prefers-reduced-motion:reduce){.nfc-root .nfc-card,.nfc-root .nfc-btn{transition:none!important}}
       `}</style>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
         <main style={{ minWidth: 0, minHeight: 0, overflowY: "auto" }}>
-          <header style={{
-            minHeight: 72, padding: isMobile ? "12px 14px" : "14px 22px",
-            borderBottom: `1px solid ${C.border}`, background: C.topbar,
-            display: "flex", alignItems: "center", gap: 12,
-          }}>
-            <Link to="/inicio-panol" aria-label="Volver al inicio de Pañol" style={{
-              width: 34, height: 34, display: "grid", placeItems: "center", flexShrink: 0,
-              borderRadius: 9, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim,
-            }}>
-              <ArrowLeft size={16} />
-            </Link>
-            <span style={{ width: 38, height: 38, borderRadius: 10, display: "grid", placeItems: "center", background: C.violetL, color: C.violet, border: `1px solid ${C.violetB}`, flexShrink: 0 }}>
-              <Nfc size={20} />
-            </span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 750, color: C.text }}>Asignar tarjeta NFC</h1>
-              <div style={{ marginTop: 3, fontSize: 11.5, color: C.dim }}>Solo se pueden vincular personas existentes y activas en RRHH.</div>
-            </div>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 6, minHeight: 30, padding: "0 10px",
-              borderRadius: 999, border: `1px solid ${bridge.border}`, background: bridge.bg, color: bridge.color,
-              fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap",
-            }}>
-              <bridge.Icon size={13} /> {bridge.label}
-            </span>
-          </header>
+          <PageHeader
+            icon={Nfc}
+            eyebrow="Pañol"
+            title="Asignar tarjeta NFC"
+            subtitle="Sólo se pueden vincular personas existentes y activas en RR. HH."
+            actions={
+              <>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, minHeight: 30, padding: "0 10px",
+                  borderRadius: 999, border: `1px solid ${bridge.border}`, background: bridge.bg, color: bridge.color,
+                  fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap",
+                }}>
+                  <bridge.Icon size={13} /> {bridge.label}
+                </span>
+                <Link to="/inicio-panol" className="ui-btn ui-btn-fantasma">
+                  <ArrowLeft size={15} /> Inicio de Pañol
+                </Link>
+              </>
+            }
+          />
 
-          <div style={{ width: "min(1080px,100%)", margin: "0 auto", padding: isMobile ? "14px 12px 36px" : "20px 22px 44px", boxSizing: "border-box" }}>
+          <div style={{ width: "min(1080px,100%)", margin: "0 auto", padding: isMobile ? "14px 16px 36px" : "20px 28px 44px", boxSizing: "border-box" }}>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 14 }}>
               <Paso numero="1" titulo="Buscar por DNI" listo={pasos.persona} activo={!pasos.persona} />
               <Paso numero="2" titulo="Leer tarjeta" listo={pasos.tarjeta} activo={pasos.persona && !pasos.tarjeta} />
@@ -287,7 +304,7 @@ export default function TarjetasNfcScreen() {
                   </div>
                 </div>
                 <form onSubmit={buscar} style={{ padding: 15 }}>
-                  <label htmlFor="nfc-dni" style={{ display: "block", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>DNI</label>
+                  <label htmlFor="nfc-dni" style={LBL}>DNI</label>
                   <div style={{ display: "flex", gap: 7 }}>
                     <input
                       id="nfc-dni"
@@ -298,12 +315,12 @@ export default function TarjetasNfcScreen() {
                       placeholder="Ej: 32123456"
                       style={{ ...INPUT, fontFamily: C.mono, fontSize: 15 }}
                     />
-                    <button type="submit" className="nfc-btn" disabled={buscando} style={{
-                      width: 44, display: "grid", placeItems: "center", border: "none", borderRadius: 10,
-                      background: buscando ? C.panel2 : C.blue, color: buscando ? C.dim : "#fff",
+                    <button type="submit" className="nfc-btn" disabled={buscando} aria-label="Buscar empleado" style={{
+                      width: 46, flexShrink: 0, display: "grid", placeItems: "center", border: "none", borderRadius: 10,
+                      background: buscando ? C.panel2 : C.blue, color: buscando ? C.dim : "var(--inverse-text)",
                       cursor: buscando ? "default" : "pointer",
                     }}>
-                      {buscando ? <Loader2 size={17} className="spin" /> : <Search size={17} />}
+                      {buscando ? <Loader2 size={17} className="nfc-gira" /> : <Search size={17} />}
                     </button>
                   </div>
                   <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 7, color: C.dim, fontSize: 11.5, lineHeight: 1.45 }}>
@@ -432,10 +449,10 @@ export default function TarjetasNfcScreen() {
                       minHeight: 40, display: "inline-flex", alignItems: "center", gap: 7,
                       border: "none", borderRadius: 10, padding: "0 16px",
                       background: puedeGuardar ? "linear-gradient(135deg,var(--violet),var(--blue))" : C.panel2,
-                      color: puedeGuardar ? "#fff" : C.dim, cursor: puedeGuardar ? "pointer" : "default",
-                      fontSize: 12.5, fontWeight: 700,
+                      color: puedeGuardar ? "var(--inverse-text)" : C.dim, cursor: puedeGuardar ? "pointer" : "default",
+                      fontSize: 12.5, fontWeight: 600,
                     }}>
-                      {guardando ? <Loader2 size={15} className="spin" /> : <Nfc size={16} />}
+                      {guardando ? <Loader2 size={15} className="nfc-gira" /> : <Nfc size={16} />}
                       {guardando
                         ? "Guardando…"
                         : cambiaTarjeta

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Building2, FolderPlus, Folder, Ship, X } from "lucide-react";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 import { CARPETA_PROVEEDORES, normalizarCarpeta } from "@/features/panol/carpetaRemitos";
 
 /**
@@ -348,7 +349,7 @@ export default function SelectorDestinosRemito({
 
         {carpetasSugeridas.length ? (
           <>
-            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>
               Carpetas
             </div>
             {carpetasSugeridas.map((nombre) => (
@@ -366,7 +367,7 @@ export default function SelectorDestinosRemito({
 
         {obrasSugeridas.length ? (
           <>
-            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>
+            <div style={{ padding: "6px 9px 3px", color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>
               Barcos
             </div>
             {obrasSugeridas.map((obra) => (
@@ -386,7 +387,7 @@ export default function SelectorDestinosRemito({
         {sinResultados ? (
           <div style={{ padding: "12px 9px", color: C.dim, fontSize: 11.5, fontWeight: 650, textAlign: "center" }}>
             {cargando
-              ? "Cargando…"
+              ? <Cargando compacto texto="Cargando barcos…" />
               : !permiteCarpetas && escrita
                 ? "Falta la migración de carpetas para poder crear una."
                 : consulta

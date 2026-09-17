@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, Check, ChevronRight, Layers, MapPin, Move, Package, PackageOpen, Pencil, Search, Warehouse, X } from "lucide-react";
 import { C } from "@/theme";
+import Cargando from "@/components/ui/Cargando";
 import { supabase } from "@/supabaseClient";
 import { enLotesDeIds, guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
 import { parseUbicacion } from "./ubicacionUtils";
@@ -370,26 +371,24 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+    <div className="mapa-panol-root" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <style>{`
-        @keyframes mapaPulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: 0.35; } }
-        .mapa-hit rect:first-of-type { animation: mapaPulse 1.2s ease-in-out infinite; }
-        .mapa-est { transition: opacity .18s ease; }
-        .mapa-est:hover rect:first-of-type { filter: brightness(1.25); }
+        .mapa-panol-root .mapa-hit rect:first-of-type { stroke-width: 8; }
+        .mapa-panol-root .mapa-est { transition: opacity .18s ease; }
+        .mapa-panol-root .mapa-est:hover rect:first-of-type { filter: brightness(1.25); }
 
-        /* El lugar donde está algo afuera del pañol es lo que nadie sabe: la
-           animación existe para llevar el ojo ahí, no para decorar. */
-        @keyframes afueraLatido { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
-        @keyframes afueraEntra { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-        .afuera-alerta { animation: afueraLatido 1.9s ease-in-out infinite; }
-        .afuera-grupo { transition: background .16s ease, border-color .16s ease; }
-        .afuera-grupo:hover { background: var(--panel-2); }
-        .afuera-chevron { transition: transform .22s cubic-bezier(.16,1,.3,1); }
-        .afuera-chevron[data-abierto="1"] { transform: rotate(90deg); }
-        .afuera-item { animation: afueraEntra .22s ease backwards; }
+        /* El lugar donde está algo afuera del pañol es lo que nadie sabe:
+           un acento cian fijo, sin latido infinito. */
+        @keyframes mapaAfueraEntra { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .mapa-panol-root .afuera-alerta { color: var(--cyan); }
+        .mapa-panol-root .afuera-grupo { transition: background .16s ease, border-color .16s ease; }
+        .mapa-panol-root .afuera-grupo:hover { background: var(--panel-2); }
+        .mapa-panol-root .afuera-chevron { transition: transform .22s cubic-bezier(.16,1,.3,1); }
+        .mapa-panol-root .afuera-chevron[data-abierto="1"] { transform: rotate(90deg); }
+        .mapa-panol-root .afuera-item { animation: mapaAfueraEntra .22s ease backwards; }
         @media (prefers-reduced-motion: reduce) {
-          .afuera-alerta, .afuera-item { animation: none; }
-          .afuera-chevron { transition: none; }
+          .mapa-panol-root .afuera-item { animation: none; }
+          .mapa-panol-root .afuera-chevron { transition: none; }
         }
       `}</style>
       <div style={{ padding: "14px 18px 34px", maxWidth: 1680, margin: "0 auto", display: "grid", gap: 12 }}>
@@ -441,7 +440,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile || !selEst ? "1fr" : "minmax(0, 1fr) minmax(340px, 380px)", alignItems: "start" }}>
           <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
             {loading ? (
-              <div style={{ padding: 50, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando el plano...</div>
+              <Cargando texto="Cargando el plano…" />
             ) : !estanterias.length ? (
               <div style={{ padding: "40px 20px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 14, fontSize: 13 }}>
                 No hay estanterías cargadas. Corré el SQL del mapa del pañol y recargá.
@@ -561,8 +560,8 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                         {/* Ocupadas: fill más saturado. Vacías: apenas un tinte → se
                             distingue de un vistazo dónde hay stock. */}
                         <rect x={est.x_cm} y={est.y_cm} width={est.w_cm} height={est.h_cm} rx={7}
-                          fill={isHit ? "rgba(34,211,238,0.5)" : nMats > 0 ? `${color}30` : `${color}0f`}
-                          stroke={isSel ? C.blue : isHit ? "#22d3ee" : color}
+                          fill={isHit ? "var(--cyan-soft)" : nMats > 0 ? `${color}30` : `${color}0f`}
+                          stroke={isSel ? C.blue : isHit ? "var(--cyan)" : color}
                           strokeWidth={isSel ? 9 : isHit ? 8 : 3.5}
                           strokeOpacity={nMats > 0 ? 1 : 0.5} />
                         {/* Canto superior (lip) — banda más saturada arriba = profundidad física */}
@@ -575,7 +574,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                         <rect x={est.x_cm + 6} y={est.y_cm + 6} width={Math.max(4, est.w_cm - 12)} height={Math.max(4, est.h_cm - 12)} rx={4} fill="none" stroke={color} strokeOpacity={nMats > 0 ? 0.28 : 0.12} strokeWidth={2} />
                         <text x={est.x_cm + est.w_cm / 2} y={est.y_cm + est.h_cm / 2 + (small ? 9 : 11)}
                           textAnchor="middle" fontSize={small ? 27 : 34} fontWeight={700}
-                          fill={isHit ? "#155e75" : color} fillOpacity={nMats > 0 ? 1 : 0.65} fontFamily={C.sans}>{est.codigo}</text>
+                          fill={isHit ? "var(--cyan)" : color} fillOpacity={nMats > 0 ? 1 : 0.65} fontFamily={C.sans}>{est.codigo}</text>
                         {/* Badge de cantidad tipo notificación en la esquina sup. derecha */}
                         {nMats > 0 && (() => {
                           const r = Math.max(9, Math.min(15, est.w_cm / 4, est.h_cm / 4));
@@ -583,7 +582,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                           const cy = est.y_cm + r + 4;
                           return (
                             <g style={{ pointerEvents: "none" }}>
-                              <circle cx={cx} cy={cy} r={r} fill={isHit ? "#0e7490" : color} stroke="#fff" strokeWidth={1.5} />
+                              <circle cx={cx} cy={cy} r={r} fill={isHit ? "var(--cyan)" : color} stroke="var(--panel-solid)" strokeWidth={1.5} />
                               <text x={cx} y={cy + r * 0.36} textAnchor="middle" fontSize={r * 1.15} fontWeight={700} fill="#fff" fontFamily={C.sans}>{nMats}</text>
                             </g>
                           );
@@ -1374,9 +1373,9 @@ function MaterialDetalleModal({ material, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", justifyContent: "flex-end" }}>
-      <div style={{ position: "absolute", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", animation: "fadeIn 0.2s ease" }} onClick={onClose} />
+      <div style={{ position: "absolute", inset: 0, background: "var(--overlay)", backdropFilter: "blur(4px)", animation: "mapaFadeIn 0.2s ease" }} onClick={onClose} />
       
-      <div style={{ position: "relative", width: 460, maxWidth: "100%", background: C.bg, borderLeft: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", boxShadow: "-20px 0 50px rgba(0,0,0,0.3)", animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+      <div style={{ position: "relative", width: 460, maxWidth: "100%", background: C.bg, borderLeft: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", boxShadow: "-20px 0 50px var(--shadow)", animation: "mapaSlideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.b0}`, background: C.s0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -1468,7 +1467,7 @@ function MaterialDetalleModal({ material, onClose }) {
 
                     {/* Separated Stock */}
                     {data.separados.map((o, i) => (
-                      <div key={i} style={{ position: "relative", padding: "16px", background: `${C.blue}08`, border: `1px solid ${C.blue}20`, borderRadius: 12, overflow: "hidden" }}>
+                      <div key={i} style={{ position: "relative", padding: "16px", background: "var(--blue-soft)", border: `1px solid ${C.blueB}`, borderRadius: 12, overflow: "hidden" }}>
                         <div style={{ position: "absolute", left: 0, bottom: 0, height: 4, background: C.blue, width: `${(o.cantidad / data.total) * 100}%`, transition: "width 0.5s ease-out" }} />
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <div>
@@ -1488,8 +1487,8 @@ function MaterialDetalleModal({ material, onClose }) {
 
               {/* Empty State */}
               {data.total === 0 && (
-                <div style={{ padding: "24px 20px", textAlign: "center", background: `#f59e0b10`, border: `1px dashed #f59e0b40`, borderRadius: 16 }}>
-                  <div style={{ width: 48, height: 48, margin: "0 auto 16px", background: `#f59e0b20`, color: `#0891b2`, borderRadius: "50%", display: "grid", placeItems: "center" }}>
+                <div style={{ padding: "24px 20px", textAlign: "center", background: "var(--cyan-soft)", border: "1px dashed var(--cyan-border)", borderRadius: 16 }}>
+                  <div style={{ width: 48, height: 48, margin: "0 auto 16px", background: "var(--cyan-soft)", color: "var(--cyan)", borderRadius: "50%", display: "grid", placeItems: "center" }}>
                     <Search size={24} strokeWidth={2.5} />
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 650, color: C.t0, marginBottom: 8 }}>¿Ves el material en el estante?</div>
@@ -1526,9 +1525,8 @@ function MaterialDetalleModal({ material, onClose }) {
         </div>
 
         <style>{`
-          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-          @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes mapaFadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes mapaSlideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         `}</style>
       </div>
     </div>

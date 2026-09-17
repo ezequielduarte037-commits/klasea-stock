@@ -356,7 +356,7 @@ export default function PantallaEgresoScreen() {
         .egreso-display-empty h1{font-size:clamp(31px,4.4vw,58px);letter-spacing:-1.6px;line-height:1.02;margin:8px 0 12px}
         .egreso-display-empty p{color:var(--dim);font-size:clamp(15px,1.5vw,20px);margin:0}
         .egreso-display-hint{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:650;border:1px solid var(--border);background:var(--panel-solid);border-radius:999px;padding:9px 13px}
-        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:750;letter-spacing:1.1px;text-transform:uppercase;color:var(--dim)}
+        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
         .egreso-display-layout{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.65fr);gap:18px;align-items:start}
         .egreso-display-panel{border:1px solid var(--border);background:var(--panel-solid);border-radius:20px;overflow:hidden;box-shadow:0 28px 70px -48px rgba(0,0,0,.7)}
         .egreso-display-panel-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
@@ -380,7 +380,7 @@ export default function PantallaEgresoScreen() {
         .egreso-display-summary{padding:18px;display:grid;gap:16px}
         .egreso-display-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
         .egreso-display-summary-card{border:1px solid var(--border);background:var(--panel);border-radius:13px;padding:13px}
-        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
+        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em}
         .egreso-display-summary-card strong{display:block;font-family:${C.mono};font-size:clamp(26px,2.5vw,34px);margin-top:6px}
         .egreso-display-destination{border-top:1px solid var(--border);padding-top:15px}
         /* La obra destino es EL dato de la pantalla: el que mira quiere saber

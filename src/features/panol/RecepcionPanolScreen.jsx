@@ -1,17 +1,19 @@
 import { C } from "@/theme";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
-  Clock3,
-  Inbox,
+  FileText,
   PackageCheck,
   PackageOpen,
+  PackagePlus,
   Printer,
   RefreshCw,
   RotateCcw,
+  Scale,
   ScanLine,
   Search,
   Trash2,
@@ -20,6 +22,9 @@ import {
 } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
+import { EmptyState } from "@/components/ui/motion";
 import {
   fetchEnvios, ENVIO_ESTADO_META, ITEM_ESTADO_META, resumenItems, SEDES_PANOL,
 } from "@/features/panol/panolApi";
@@ -56,6 +61,177 @@ const PRIO_FILTERS = [
 ];
 const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
 const PANOL_TABS = new Set(["recepcion", "scanner", "remitos", "ingresar", "consumibles", "crear"]);
+
+const TABS_PRINCIPALES = [
+  { key: "recepcion", label: "Recepción" },
+  { key: "scanner", label: "Remitos", Icon: ScanLine },
+];
+const TABS_MAS = [
+  { key: "remitos", label: "Archivo", hint: "Papeles guardados por barco, proveedor o carpeta", Icon: FileText },
+  { key: "ingresar", label: "Ingreso directo", hint: "Cargar materiales sin un pedido previo", Icon: PackageOpen },
+  { key: "consumibles", label: "Consumibles", hint: "Tornillos, lijas y el resto del fondo", Icon: Scale },
+  { key: "crear", label: "Crear producto", hint: "Alta rápida al catálogo, no a la matriz", Icon: PackagePlus },
+];
+const TAB_LABELS = Object.fromEntries([...TABS_PRINCIPALES, ...TABS_MAS].map((t) => [t.key, t.label]));
+
+const ENVIO_TONO = {
+  borrador: { color: C.dim, bg: C.panel2, border: C.border },
+  enviado: { color: C.cyan, bg: C.cyanL, border: C.cyanB },
+  en_preparacion: { color: C.blue, bg: C.blueL, border: C.blueB },
+  parcial: { color: C.violet, bg: C.violetL, border: C.violetB },
+  recibido: { color: C.green, bg: C.greenL, border: C.greenB },
+  cerrado: { color: C.dim, bg: C.panel2, border: C.border },
+  cancelado: { color: C.red, bg: C.redL, border: C.redB },
+};
+const ITEM_TONO = {
+  pendiente: C.dim,
+  recibido: C.green,
+  parcial: C.violet,
+  sin_info: C.blue,
+  falta_stock: C.cyan,
+  rechazado: C.red,
+};
+
+const CSS_RECEPCION = `
+  .rp-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .rp-tabs::-webkit-scrollbar { display: none; }
+  .rp-tab {
+    min-height: 34px; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+    padding: 0 12px; border: 1px solid transparent; border-radius: 9px;
+    background: transparent; color: var(--dim);
+    font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap;
+    transition: color .15s, background-color .15s, border-color .15s;
+  }
+  .rp-tab:hover { color: var(--text); background: var(--panel); }
+  .rp-tab.is-activa { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-border); font-weight: 600; }
+  .rp-tab-cuenta { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--cyan); }
+  .rp-menu {
+    position: fixed; z-index: 61; overflow-y: auto; padding: 6px;
+    border: 1px solid var(--border-2); border-radius: 14px;
+    background: var(--panel-solid); box-shadow: var(--elev-2);
+    animation: rp-menu-in .16s cubic-bezier(.22,1,.36,1);
+  }
+  .rp-menu-item {
+    width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 10px;
+    border: 0; border-radius: 10px; background: transparent; color: var(--text);
+    font: inherit; text-align: left; transition: background-color .12s;
+  }
+  .rp-menu-item:hover { background: var(--panel-2); }
+  .rp-menu-item svg { flex-shrink: 0; color: var(--dim); }
+  .rp-menu-item.is-activa { background: var(--blue-soft); color: var(--blue); }
+  .rp-menu-item.is-activa svg { color: var(--blue); }
+  .rp-menu-titulo { display: block; font-size: 13px; font-weight: 600; }
+  .rp-menu-ayuda { display: block; margin-top: 1px; color: var(--dim); font-size: 11.5px; line-height: 1.35; }
+  .rp-filtros { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+  .rp-chip-cuenta { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--dim); }
+  @keyframes rp-menu-in { from { opacity: 0; transform: translateY(-4px); } }
+  @media (max-width: 899px) {
+    .rp-tab { min-height: 38px; }
+    .rp-menu-item { padding: 11px 10px; }
+    .rp-filtros {
+      flex-wrap: nowrap; overflow-x: auto;
+      margin: 0 -12px; padding: 0 12px;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+    }
+    .rp-filtros::-webkit-scrollbar { display: none; }
+  }
+`;
+
+function RecepcionTabs({ tab, onTab, ingresarCount = 0 }) {
+  const [menu, setMenu] = useState(null);
+  const botonMas = useRef(null);
+  const enMenu = TABS_MAS.some((t) => t.key === tab);
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const cerrar = () => setMenu(null);
+    const alTeclear = (event) => { if (event.key === "Escape") cerrar(); };
+    window.addEventListener("keydown", alTeclear);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      window.removeEventListener("keydown", alTeclear);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [menu]);
+
+  const alternarMenu = () => {
+    if (menu) {
+      setMenu(null);
+      return;
+    }
+    const r = botonMas.current?.getBoundingClientRect();
+    if (!r) return;
+    const ancho = Math.min(300, window.innerWidth - 16);
+    setMenu({
+      top: r.bottom + 6,
+      left: Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8)),
+      ancho,
+      alto: Math.min(window.innerHeight * 0.7, Math.max(220, window.innerHeight - r.bottom - 18)),
+    });
+  };
+
+  return (
+    <div className="rp-tabs">
+      <style href="klasea-rp-tabs" precedence="default">{CSS_RECEPCION}</style>
+      {TABS_PRINCIPALES.map((t) => {
+        const activo = tab === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            className={`rp-tab${activo ? " is-activa" : ""}`}
+            aria-current={activo ? "page" : undefined}
+            onClick={() => onTab(t.key)}
+          >
+            {t.Icon ? <t.Icon size={14} /> : null} {t.label}
+          </button>
+        );
+      })}
+      <button
+        ref={botonMas}
+        type="button"
+        className={`rp-tab${enMenu ? " is-activa" : ""}`}
+        aria-haspopup="menu"
+        aria-expanded={Boolean(menu)}
+        onClick={alternarMenu}
+      >
+        {enMenu ? TAB_LABELS[tab] : "Más"}
+        {tab === "ingresar" && ingresarCount > 0 && <span className="rp-tab-cuenta">{ingresarCount}</span>}
+        <ChevronDown size={13} style={{ transform: menu ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {menu && (
+        <>
+          <div onClick={() => setMenu(null)} style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 60 }} />
+          <div className="rp-menu" role="menu" style={{ top: menu.top, left: menu.left, width: menu.ancho, maxHeight: menu.alto }}>
+            {TABS_MAS.map((t) => {
+              const activo = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="menuitem"
+                  className={`rp-menu-item${activo ? " is-activa" : ""}`}
+                  onClick={() => { onTab(t.key); setMenu(null); }}
+                >
+                  <t.Icon size={15} />
+                  <span style={{ minWidth: 0 }}>
+                    <span className="rp-menu-titulo">
+                      {t.label}
+                      {t.key === "ingresar" && ingresarCount > 0 ? ` (${ingresarCount})` : ""}
+                    </span>
+                    <span className="rp-menu-ayuda">{t.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function readStoredPanolTab(urlTab = "") {
   const requested = urlTab === "pendientes" ? "ingresar" : urlTab;
@@ -102,24 +278,6 @@ function rowSearchText(envio) {
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
-function softBgFor(color) {
-  if (color === C.blue) return C.blueL;
-  if (color === C.violet) return C.violetL;
-  if (color === C.green) return C.greenL;
-  if (color === C.red) return C.redL;
-  if (color === C.violet) return "var(--violet-soft)";
-  return String(color || "").startsWith("#") ? `${color}14` : C.panel2;
-}
-
-function softBorderFor(color) {
-  if (color === C.blue) return C.blueB;
-  if (color === C.violet) return C.violetB;
-  if (color === C.green) return C.greenB;
-  if (color === C.red) return C.redB;
-  if (color === C.violet) return "var(--violet-border)";
-  return String(color || "").startsWith("#") ? `${color}38` : C.border;
-}
-
 function actionResumen(envio) {
   const resumen = resumenItems(envio.items || []);
   const parciales = resumen.by?.parcial || 0;
@@ -147,44 +305,15 @@ function compareReceptionPriority(a, b) {
   return new Date(a.created_at || 0) - new Date(b.created_at || 0);
 }
 
-function iconBox(color, IconComponent) {
-  const icon = IconComponent ? <IconComponent size={15} /> : null;
-  return (
-    <div style={{
-      width: 30,
-      height: 30,
-      borderRadius: 9,
-      display: "grid",
-      placeItems: "center",
-      flexShrink: 0,
-      background: softBgFor(color),
-      border: `1px solid ${softBorderFor(color)}`,
-      color,
-    }}>
-      {icon}
-    </div>
-  );
-}
-
 function SelectFilter({ label, value, onChange, options }) {
   return (
     <label style={{ display: "grid", gap: 4, minWidth: 128 }}>
-      <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          border: `1px solid ${C.border}`,
-          background: C.panelSolid,
-          color: C.text,
-          padding: "8px 10px",
-          borderRadius: 9,
-          cursor: "pointer",
-          fontSize: 13,
-          fontWeight: 650,
-          fontFamily: C.sans,
-          outline: "none",
-        }}
+        className="ui-input"
+        style={{ minHeight: 36, padding: "0 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "auto" }}
       >
         {options.map(([v, text]) => <option key={v} value={v}>{text}</option>)}
       </select>
@@ -192,76 +321,18 @@ function SelectFilter({ label, value, onChange, options }) {
   );
 }
 
-function SmallButton({ children, onClick, title, disabled = false }) {
+function FilterChip({ active, onClick, children, tone }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      title={title}
-      disabled={disabled}
-      style={{
-        border: `1px solid ${C.border}`,
-        background: C.panelSolid,
-        color: C.muted,
-        borderRadius: 9,
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled ? 0.55 : 1,
-        height: 36,
-        minWidth: 36,
-        display: "grid",
-        placeItems: "center",
-        fontSize: 12,
-        fontFamily: C.sans,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function KpiCard({ icon: Icon, label, value, color, detail }) {
-  return (
-    <div style={{
-      border: `1px solid ${C.border}`,
-      background: C.panelSolid,
-      borderRadius: 12,
-      padding: 13,
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      minWidth: 0,
-    }}>
-      {iconBox(color, Icon)}
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color, fontFamily: C.mono, fontSize: 21, lineHeight: 1, fontWeight: 700 }}>
-          {value}
-        </div>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 650, marginTop: 4 }}>
-          {label}
-        </div>
-        {detail && <div style={{ color: C.dim, fontSize: 11, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{detail}</div>}
-      </div>
-    </div>
-  );
-}
-
-function TabButton({ active, onClick, children }) {
-  return (
-    <button
-      type="button"
+      className="ui-chip"
       onClick={onClick}
       style={{
-        border: "none",
-        background: active ? C.panelSolid : "transparent",
-        color: active ? C.text : C.dim,
-        borderRadius: 8,
-        padding: "7px 11px",
+        minHeight: 34,
         cursor: "pointer",
-        fontSize: 12,
-        fontWeight: 700,
-        fontFamily: C.sans,
-        boxShadow: active ? `inset 0 0 0 1px ${C.border}` : "none",
-        whiteSpace: "nowrap",
+        borderColor: active ? (tone?.border || C.blueB) : C.border,
+        background: active ? (tone?.bg || C.blueL) : "transparent",
+        color: active ? (tone?.color || C.blue) : C.muted,
       }}
     >
       {children}
@@ -290,7 +361,7 @@ function ProgressSegments({ resumen, height = 7 }) {
           <div
             key={estado}
             title={`${meta.label}: ${n}`}
-            style={{ width: `${(n / resumen.total) * 100}%`, background: meta.color, minWidth: n ? 3 : 0 }}
+            style={{ width: `${(n / resumen.total) * 100}%`, background: ITEM_TONO[estado] || meta.color, minWidth: n ? 3 : 0 }}
           />
         );
       })}
@@ -300,24 +371,17 @@ function ProgressSegments({ resumen, height = 7 }) {
 
 function StatusPill({ estado }) {
   const meta = ENVIO_ESTADO_META[estado] ?? { label: estado, color: C.dim };
+  const tono = ENVIO_TONO[estado] || { color: meta.color || C.dim, bg: C.panel2, border: C.border };
   return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      color: meta.color,
-      background: `${meta.color}14`,
-      border: `1px solid ${meta.color}3d`,
-      borderRadius: 999,
-      padding: "4px 9px",
-      fontSize: 10,
-      fontWeight: 700,
+    <span className="ui-chip" style={{
+      color: tono.color,
+      background: tono.bg,
+      borderColor: tono.border,
+      fontSize: 11,
+      letterSpacing: "0.06em",
       textTransform: "uppercase",
-      letterSpacing: 0.5,
-      whiteSpace: "nowrap",
     }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.color }} />
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: tono.color }} />
       {meta.label}
     </span>
   );
@@ -329,9 +393,9 @@ function PriorityPill({ prioridad }) {
     <span style={{
       color: meta.color,
       fontSize: 11,
-      fontWeight: 650,
+      fontWeight: 600,
+      letterSpacing: "0.06em",
       textTransform: "uppercase",
-      letterSpacing: 0.5,
       whiteSpace: "nowrap",
     }}>
       {meta.label}
@@ -376,7 +440,7 @@ function DesktopRow({ envio, onOpen }) {
             width: 7,
             height: 28,
             borderRadius: 99,
-            background: ENVIO_ESTADO_META[envio.estado]?.color || C.dim,
+            background: ENVIO_TONO[envio.estado]?.color || C.dim,
             flexShrink: 0,
           }} />
           <div style={{ minWidth: 0 }}>
@@ -391,7 +455,7 @@ function DesktopRow({ envio, onOpen }) {
       </div>
 
       <div style={{ display: "grid", gap: 4 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.8 }}>Sede</span>
+        <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>Sede</span>
         <span style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>{envio.sede}</span>
       </div>
 
@@ -430,7 +494,7 @@ function MobileCard({ envio, onOpen }) {
         cursor: "pointer",
         background: problemas ? "var(--red-soft)" : C.panelSolid,
         border: `1px solid ${problemas ? C.redB : C.border}`,
-        borderLeft: `4px solid ${ENVIO_ESTADO_META[envio.estado]?.color || C.dim}`,
+        borderLeft: `4px solid ${ENVIO_TONO[envio.estado]?.color || C.dim}`,
         borderRadius: 12,
         padding: 13,
         display: "grid",
@@ -570,7 +634,9 @@ export default function RecepcionPanolScreen({ profile }) {
       if (e.estado === "recibido" || r.completoPorItems) recibidos += 1;
     }
     const activos = envios.filter(needsReception).length;
-    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems };
+    const enviados = envios.filter((e) => e.estado === "enviado").length;
+    const parcialesEnvio = envios.filter((e) => e.estado === "parcial").length;
+    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems, enviados, parcialesEnvio };
   }, [envios]);
 
   // El aviso flotante de pendientes ahora vive en NotificacionesBell global.
@@ -605,94 +671,44 @@ export default function RecepcionPanolScreen({ profile }) {
     );
   }
 
+  const cuentaEstado = {
+    activos: kpis.activos,
+    enviado: kpis.enviados,
+    parcial: kpis.parcialesEnvio,
+    recibido: kpis.recibidos,
+    todos: kpis.total,
+  };
+
   return shell(
     <>
-      <div style={{
-        background: C.topbar,
-        ...GLASS,
-        borderBottom: `1px solid ${C.border}`,
-        padding: isMobile ? "12px 14px" : "16px 18px",
-        display: "grid",
-        gap: 14,
-        flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 0 }}>
-            {iconBox(C.blue, Warehouse)}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 19, fontWeight: 700, color: C.text, lineHeight: 1.1 }}>Recepción de materiales</div>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 650 }}>
-                {sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11, flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0 }}>
-            <TabButton active={tab === "recepcion"} onClick={() => setTab("recepcion")}>Recepción</TabButton>
-            <TabButton active={tab === "scanner"} onClick={() => setTab("scanner")}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ScanLine size={13} /> Remitos</span>
-            </TabButton>
-            <select
-              aria-label="Otras operaciones de ingreso"
-              value={tab === "recepcion" || tab === "scanner" ? "" : tab}
-              onChange={(event) => {
-                if (!event.target.value) return;
-                if (event.target.value === "ingresar") refreshPendientes();
-                setTab(event.target.value);
-              }}
-              style={{ border: "none", background: tab === "recepcion" || tab === "scanner" ? "transparent" : C.panelSolid, color: tab === "recepcion" || tab === "scanner" ? C.dim : C.text, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans, outline: "none" }}
-            >
-              <option value="">Más operaciones</option>
-              <option value="remitos">Remitos</option>
-              <option value="ingresar">Ingreso directo{pendientes.length > 0 ? ` (${pendientes.length})` : ""}</option>
-              <option value="consumibles">Consumibles</option>
-              <option value="crear">Crear producto</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSolicitudOpen(true)}
-            title="Imprimir solicitud manual para panol"
-            style={{
-              border: `1px solid ${C.blueB}`,
-              background: C.blueL,
-              color: C.blue,
-              borderRadius: 10,
-              padding: "9px 12px",
-              minHeight: 36,
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: C.sans,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <Printer size={15} />
-            Imprimible
-          </button>
-          {tab === "recepcion" && (
-            <SmallButton onClick={cargar} disabled={loading} title="Actualizar">
-              <RefreshCw size={15} />
-            </SmallButton>
-          )}
-        </div>
-
-        {tab === "recepcion" && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, minmax(130px, 1fr))",
-            gap: 10,
-          }}>
-            <KpiCard icon={Clock3} label="Por revisar" value={kpis.activos} color={C.violet} detail={`${kpis.accionItems} items abiertos`} />
-            <KpiCard icon={PackageOpen} label="Pendientes" value={kpis.pendientes} color={C.violet} detail="sin recibir" />
-            <KpiCard icon={AlertTriangle} label="Novedades" value={kpis.problemas} color={C.red} detail="faltantes / sin info" />
-            <KpiCard icon={Inbox} label="Pedidos" value={kpis.total} color={C.blue} detail={`${filtrados.length} visibles`} />
-            <KpiCard icon={PackageCheck} label="Completados" value={kpis.recibidos} color={C.green} detail="no molestan" />
-          </div>
+      <PageHeader
+        icon={Warehouse}
+        eyebrow="Pañol"
+        title="Recepción de materiales"
+        subtitle={sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
+        actions={(
+          <>
+            <button type="button" className="ui-btn ui-btn-suave" onClick={() => setSolicitudOpen(true)} title="Imprimir solicitud manual para pañol">
+              <Printer size={15} />
+              Imprimible
+            </button>
+            {tab === "recepcion" && (
+              <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={loading} title="Actualizar">
+                <RefreshCw size={15} />
+              </button>
+            )}
+          </>
         )}
-      </div>
+      >
+        <RecepcionTabs
+          tab={tab}
+          ingresarCount={pendientes.length}
+          onTab={(next) => {
+            if (next === "ingresar") refreshPendientes();
+            setTab(next);
+          }}
+        />
+      </PageHeader>
 
       {tab === "recepcion" ? (
         <>
@@ -707,83 +723,54 @@ export default function RecepcionPanolScreen({ profile }) {
       }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 260px", minWidth: isMobile ? "100%" : 260 }}>
-            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar pedido, obra, destino, sede..."
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                background: C.panelSolid,
-                border: `1px solid ${C.border}`,
-                color: C.text,
-                padding: "9px 34px",
-                borderRadius: 10,
-                fontSize: 13,
-                fontFamily: C.sans,
-                outline: "none",
-              }}
+              placeholder="Buscar pedido, obra, destino, sede…"
+              className="ui-input"
+              style={{ paddingLeft: 34, paddingRight: 34 }}
             />
             {q && (
               <button
                 type="button"
                 onClick={() => setQ("")}
                 title="Limpiar"
-                style={{
-                  position: "absolute",
-                  right: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  border: "none",
-                  background: "transparent",
-                  color: C.dim,
-                  cursor: "pointer",
-                  display: "grid",
-                  placeItems: "center",
-                  padding: 4,
-                }}
+                className="ui-btn ui-btn-fantasma ui-btn-icono"
+                style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", minHeight: 32, width: 32 }}
               >
                 <X size={14} />
               </button>
             )}
           </div>
-
-          <SelectFilter label="Estado" value={fEstado} onChange={setFEstado} options={STATE_FILTERS} />
           <SelectFilter label="Prioridad" value={fPrio} onChange={setFPrio} options={PRIO_FILTERS} />
-
           {!sedeLocked && (
             <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((s) => [s, s])]} />
           )}
         </div>
 
-        {!loading && kpis.activos > 0 && (
-          <button
-            type="button"
-            onClick={() => setFEstado("activos")}
-            style={{
-              width: "100%",
-              border: `1px solid ${C.violetB}`,
-              background: "var(--violet-soft)",
-              color: C.text,
-              borderRadius: 12,
-              padding: isMobile ? "10px 12px" : "9px 12px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              cursor: "pointer",
-              textAlign: "left",
-              fontFamily: C.sans,
-            }}
-          >
-            <AlertTriangle size={16} style={{ color: C.violet, flexShrink: 0 }} />
-            <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.muted }}>
-              Hay <strong style={{ color: C.text }}>{kpis.activos}</strong> pedido{kpis.activos === 1 ? "" : "s"} pendiente{kpis.activos === 1 ? "" : "s"} de recepción para revisar
-              {kpis.problemas > 0 && <span style={{ color: C.red, fontWeight: 700 }}> · {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}</span>}.
+        <div className="rp-filtros">
+          {STATE_FILTERS.map(([valor, texto]) => {
+            const activo = fEstado === valor;
+            const tono = valor === "activos" ? { color: C.violet, bg: C.violetL, border: C.violetB }
+              : valor === "recibido" ? { color: C.green, bg: C.greenL, border: C.greenB }
+              : valor === "parcial" ? { color: C.violet, bg: C.violetL, border: C.violetB }
+              : valor === "enviado" ? { color: C.cyan, bg: C.cyanL, border: C.cyanB }
+              : null;
+            return (
+              <FilterChip key={valor} active={activo} onClick={() => setFEstado(valor)} tone={tono}>
+                {texto}
+                <span className="rp-chip-cuenta">{cuentaEstado[valor] ?? 0}</span>
+              </FilterChip>
+            );
+          })}
+          {kpis.problemas > 0 && (
+            <span className="ui-chip" style={{ color: C.red, background: C.redL, borderColor: C.redB }}>
+              <AlertTriangle size={12} />
+              {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}
             </span>
-            {fEstado !== "activos" && <span style={{ color: C.violet, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Ver pendientes</span>}
-          </button>
-        )}
+          )}
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -796,9 +783,9 @@ export default function RecepcionPanolScreen({ profile }) {
             borderBottom: `1px solid ${C.border}`,
             background: C.bg,
             color: C.dim,
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: 1.1,
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.07em",
             textTransform: "uppercase",
             flexShrink: 0,
           }}>
@@ -814,30 +801,17 @@ export default function RecepcionPanolScreen({ profile }) {
 
         <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "12px 18px 18px" }}>
           {loading ? (
-            <div style={{ padding: 44, textAlign: "center", color: C.dim, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>
-              Cargando pedidos...
-            </div>
+            <Cargando llenar texto="Cargando pedidos…" />
           ) : filtrados.length === 0 ? (
-            <div style={{
-              margin: "18px auto",
-              maxWidth: 520,
-              border: `1px dashed ${C.border2}`,
-              borderRadius: 14,
-              padding: "42px 22px",
-              textAlign: "center",
-              color: C.dim,
-              background: C.panel,
-            }}>
-              <CheckCircle2 size={34} style={{ color: C.green, marginBottom: 10 }} />
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>
-                {fEstado === "activos" ? "Todo al día en recepción" : "No hay pedidos para este filtro"}
-              </div>
-              <div style={{ fontSize: 13, marginTop: 6 }}>
-                {fEstado === "activos"
-                  ? "Los pedidos ya recibidos quedan guardados en el filtro Recibidos."
-                  : isManager ? "Podes crear un pedido nuevo o cambiar los filtros." : "Cuando compras envie algo a tu pañol, aparece acá."}
-              </div>
-            </div>
+            <EmptyState
+              icon={CheckCircle2}
+              color={C.green}
+              title={fEstado === "activos" ? "Todo al día en recepción" : "No hay pedidos para este filtro"}
+              subtitle={fEstado === "activos"
+                ? "Los pedidos ya recibidos quedan guardados en el filtro Recibidos."
+                : isManager ? "Podés crear un pedido nuevo o cambiar los filtros." : "Cuando compras envíe algo a tu pañol, aparece acá."}
+              style={{ margin: "18px auto", maxWidth: 520, background: C.panel }}
+            />
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
               {filtrados.map((envio) => (
@@ -880,7 +854,7 @@ export default function RecepcionPanolScreen({ profile }) {
             <div style={{ borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, ...GLASS, flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "8px 12px" : "8px 18px", overflowX: "auto" }}>
                 {pendientes.length > 0 && (
-                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
                     Borradores ({pendientes.length}):
                   </span>
                 )}
@@ -902,7 +876,7 @@ export default function RecepcionPanolScreen({ profile }) {
                         {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
                       </button>
                       {esAviso && (
-                        <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>aviso</span>
+                        <span style={{ color: C.violet, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", flexShrink: 0 }}>aviso</span>
                       )}
                       <button type="button" title="Mandar a la papelera (se puede recuperar)"
                         onClick={() => {

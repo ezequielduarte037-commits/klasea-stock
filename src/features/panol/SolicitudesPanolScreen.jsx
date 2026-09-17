@@ -8,8 +8,11 @@ import {
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import Cargando from "@/components/ui/Cargando";
+import PageHeader from "@/components/ui/PageHeader";
 import MaterialPicker from "@/features/produccion/MaterialPicker";
-import { INPUT, LBL, GLOW_BLUE, GRAD_BLUE, num, tint } from "@/features/produccion/comprasTokens";
+import { INPUT, LBL, num, tint } from "@/features/produccion/comprasTokens";
 import { Cta, EmptyState, EstadoSelect, Ghost, IconBtn, Kpi, Pill, Progreso } from "@/features/produccion/comprasUI";
 import { fetchObras } from "@/features/produccion/comprasEtapasApi";
 import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
@@ -49,6 +52,38 @@ const fmtFecha = (iso) => {
 
 const nombreObra = (s) => s?.obra?.codigo || s?.obra?.descripcion || s?.obra_texto || "Sin obra";
 
+// El alta va en un portal, así que su CSS no puede colgar de la raíz de la
+// pantalla: se nombra con prefijo propio. En el celular sube como hoja desde
+// abajo, igual que ConfirmDialog, porque son diez campos para escribir con una
+// mano mientras se lee el papel.
+const CSS_HOJA = `
+  .sp-hoja-fondo {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 210;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 7vh 16px 16px;
+    background: var(--overlay);
+    -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+  }
+  .sp-hoja {
+    width: min(620px, 100%); max-height: 84vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--border-2); border-radius: 18px;
+    background: var(--panel-solid); box-shadow: var(--elev-2);
+    animation: sp-hoja-entra .22s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes sp-hoja-entra { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+  @keyframes sp-hoja-sube { from { transform: translateY(100%); } }
+  @media (max-width: 640px) {
+    .sp-hoja-fondo { align-items: flex-end; padding: 0; }
+    .sp-hoja {
+      width: 100%; max-height: 92vh;
+      border-radius: 22px 22px 0 0; border-bottom: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      animation: sp-hoja-sube .28s cubic-bezier(.22,1,.36,1);
+    }
+  }
+`;
+
 /* ═══════════════════════════════════════════════════════════════════════════
    ALTA: la cabecera del papel, en el mismo orden en que está impresa
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -81,20 +116,11 @@ function NuevaSolicitudModal({ obras, sedeDefault = "", onCrear, onClose }) {
 
   return createPortal(
     <div
+      className="sp-hoja-fondo"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 210, display: "flex", justifyContent: "center", alignItems: "flex-start",
-        padding: "7vh 16px 16px", background: "var(--overlay, rgba(8,8,12,.5))", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
-      }}
     >
-      <form
-        onSubmit={submit}
-        style={{
-          width: "min(620px, 100%)", maxHeight: "84vh", display: "flex", flexDirection: "column", overflow: "hidden",
-          background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 18,
-          boxShadow: "0 32px 70px -20px var(--shadow-strong)",
-        }}
-      >
+      <style href="klasea-sp-hoja" precedence="default">{CSS_HOJA}</style>
+      <form onSubmit={submit} className="sp-hoja">
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 12px 13px 16px", borderBottom: `1px solid ${C.border}` }}>
           <FileText size={17} color={C.blue} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -388,7 +414,7 @@ function SolicitudCard({ s, activa, onSelect }) {
         boxShadow: activa ? `0 4px 14px -7px ${tint(meta.color, 45)}` : "0 1px 2px var(--shadow)",
       }}
     >
-      <span style={{ width: 4, flexShrink: 0, background: urgente ? "#ef4444" : meta.color }} />
+      <span style={{ width: 4, flexShrink: 0, background: urgente ? C.red : meta.color }} />
       <span style={{ flex: 1, minWidth: 0, padding: "9px 11px 8px", display: "grid", gap: 4 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 750, fontFamily: C.mono, color: activa ? C.text : C.muted }}>
@@ -483,6 +509,7 @@ function ResumenSolicitud({ s }) {
    DETALLE
    ═══════════════════════════════════════════════════════════════════════════ */
 function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, onCambio, onBorrada, onVolver }) {
+  const preguntar = useConfirm();
   const [s, setS] = useState(null);
   const [items, setItems] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -564,13 +591,25 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
   }
 
   async function deshacerFirma() {
-    if (!window.confirm("¿Deshacer el retiro registrado?\n\nSólo hacelo si se cargó por error: el comprobante impreso deja de valer.")) return;
+    const ok = await preguntar({
+      title: "¿Deshacer el retiro registrado?",
+      message: "Sólo hacelo si se cargó por error: el comprobante impreso deja de valer.",
+      confirmLabel: "Deshacer retiro",
+      tone: "danger",
+    });
+    if (!ok) return;
     try { await anularRetiro(solicitudId); await recargar(); }
     catch (err) { toast?.error(err.message); }
   }
 
   async function borrar() {
-    if (!window.confirm(`¿Borrar la solicitud N° ${s.numero}?\n\nSe pierden sus ${items.length} ítems. El papel original no se toca.`)) return;
+    const ok = await preguntar({
+      title: `¿Borrar la solicitud N° ${s.numero}?`,
+      message: `Se pierden sus ${items.length} ítems. El papel original no se toca.`,
+      confirmLabel: "Borrar solicitud",
+      tone: "danger",
+    });
+    if (!ok) return;
     try { await borrarSolicitud(solicitudId); onBorrada?.(); }
     catch (err) { toast?.error(err.message); }
   }
@@ -580,7 +619,12 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
       toast?.error("Agregá al menos un material antes de mandarlo a pañol.");
       return;
     }
-    if (!window.confirm(`¿Mandar el pedido N° ${s.numero} a pañol?\n\nDespués de enviarlo no lo vas a poder editar.`)) return;
+    const ok = await preguntar({
+      title: `¿Mandar el pedido N° ${s.numero} a pañol?`,
+      message: "Después de enviarlo no lo vas a poder editar.",
+      confirmLabel: "Enviar a pañol",
+    });
+    if (!ok) return;
     try {
       await enviarSolicitud(solicitudId);
       toast?.success(`Pedido N° ${s.numero} enviado a pañol.`);
@@ -591,8 +635,8 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
 
   if (cargando && !s) {
     return (
-      <div className="sp-surface" style={{ padding: 22, display: "flex", alignItems: "center", gap: 9, color: C.dim, fontSize: 13 }}>
-        <Loader2 size={16} className="spin" /> Cargando solicitud…
+      <div className="sp-surface">
+        <Cargando texto="Cargando la solicitud…" />
       </div>
     );
   }
@@ -828,7 +872,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
                       key={h || i}
                       style={{
                         textAlign: i === 2 ? "right" : "left", padding: "8px 10px", borderBottom: `1px solid ${C.border}`,
-                        fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: C.dim,
+                        fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: C.dim,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1004,7 +1048,8 @@ export default function SolicitudesPanolScreen({ profile }) {
     } catch (err) { toast?.error(err.message || "No se pudo crear la solicitud."); }
   }
 
-  const pad = isMobile ? 14 : 24;
+  // Mismo margen lateral que PageHeader, así el encabezado y el trabajo quedan alineados.
+  const pad = isMobile ? 16 : 28;
   const seleccionar = (id) => {
     setSelId(id);
     const next = new URLSearchParams(searchParams);
@@ -1019,53 +1064,46 @@ export default function SolicitudesPanolScreen({ profile }) {
   };
 
   return (
-    <div style={{ position: "absolute", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
+    <div className="sp-root" style={{ position: "absolute", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        .spin{animation:spin 1s linear infinite}
-        @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes sp-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-        .sp-surface{background:var(--panel-solid);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow);animation:sp-fade .24s ease both}
-        .sp-card{transition:transform .16s cubic-bezier(.4,0,.2,1),box-shadow .16s ease,border-color .16s ease}
-        .sp-card:hover{transform:translateX(2px);border-color:var(--border-2);box-shadow:0 7px 18px -12px var(--shadow-strong)}
-        .sp-row{transition:background .14s ease}
-        .sp-row:hover{background:var(--panel)}
+        .sp-root .sp-surface{background:var(--panel-solid);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow);animation:sp-fade .24s ease both}
+        .sp-root .sp-card{transition:transform .16s cubic-bezier(.4,0,.2,1),box-shadow .16s ease,border-color .16s ease}
+        .sp-root .sp-card:hover{transform:translateX(2px);border-color:var(--border-2);box-shadow:0 7px 18px -12px var(--shadow-strong)}
+        .sp-root .sp-row{transition:background .14s ease}
+        .sp-root .sp-row:hover{background:var(--panel)}
         .sp-chip{transition:background .14s ease,border-color .14s ease,color .14s ease}
         .sp-chip:hover:not(:disabled){border-color:var(--border-2)}
-        .sp-seg{transition:all .18s cubic-bezier(.4,0,.2,1)}
-        .sp-seg:hover{color:var(--text)}
+        .sp-root .sp-seg{transition:color .18s ease,background-color .18s ease,border-color .18s ease}
+        .sp-root .sp-seg:hover{color:var(--text)}
+        /* .ce-cta y .ce-ghost son del kit de Compras por etapa, que no trae su
+           propio CSS: cada pantalla que lo usa define el hover. */
         .ce-cta{transition:transform .16s ease,filter .16s ease}
         .ce-cta:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
         .ce-ghost:hover:not(:disabled){background:var(--panel-2);color:var(--text)}
-        .sp-list-scroll{scrollbar-width:thin}
+        /* Los filtros de estado no se apilan en cuatro renglones: van en una
+           sola fila que se desliza. */
+        .sp-root .sp-filtros{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex-wrap:wrap}
+        .sp-root .sp-filtros::-webkit-scrollbar{display:none}
+        @media (max-width: 899px){
+          .sp-root .sp-filtros{flex-wrap:nowrap}
+        }
       `}</style>
 
 
       <main style={{ position: "relative", minWidth: 0, flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(1000px 300px at 18% -12%, ${tint("#3b82f6", 8)}, transparent 70%)` }} />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(1000px 300px at 18% -12%, var(--glow-a), transparent 70%)" }} />
 
-        <header style={{ position: "relative", padding: `${isMobile ? 13 : 16}px ${pad}px 0`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 12, display: "grid", placeItems: "center", background: GRAD_BLUE, color: "#fff", boxShadow: GLOW_BLUE }}>
-              <ClipboardList size={19} />
-            </div>
-            <div style={{ minWidth: 0, flex: isMobile ? "1 1 calc(100% - 50px)" : "0 1 auto" }}>
-              <h1 style={{ margin: 0, fontSize: 17, fontWeight: 750, color: C.text, letterSpacing: -0.2 }}>Solicitudes de pañol</h1>
-              <div style={{
-                fontSize: isMobile ? 11.5 : 12.5, color: C.dim, marginTop: 1,
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>
-                {esPanol
-                  ? "El papel que llega al mostrador, cargado, armado y firmado al retirar."
-                  : "Armá tu pedido de materiales y mandalo a pañol, sin pasar por papel."}
-              </div>
-            </div>
-
-            <div style={{
-              marginLeft: isMobile ? 0 : "auto",
-              width: isMobile ? "100%" : "auto",
-              display: "flex", alignItems: "center", justifyContent: isMobile ? "flex-end" : "initial",
-              gap: 7, flexWrap: "wrap",
-            }}>
+        <PageHeader
+          icon={ClipboardList}
+          eyebrow="Pañol"
+          title="Solicitudes de pañol"
+          subtitle={esPanol
+            ? "El papel que llega al mostrador, cargado, armado y firmado al retirar."
+            : "Armá tu pedido de materiales y mandalo a pañol, sin pasar por papel."}
+          style={{ background: "transparent", backdropFilter: "none", WebkitBackdropFilter: "none" }}
+          actions={
+            <>
               {!isMobile && estado !== "archivadas" && (
                 <>
                   <Kpi icon={ClipboardList} valor={abiertas} label="En curso" color="var(--violet)" soft="var(--violet-soft)" borde="var(--violet-border)" />
@@ -1080,9 +1118,9 @@ export default function SolicitudesPanolScreen({ profile }) {
               )}
               <Ghost icon={Printer} size="sm" onClick={() => setEnBlanco(true)} title="Imprimir la hoja vacía para completar a mano">{isMobile ? "Hoja" : "Hoja en blanco"}</Ghost>
               <Cta icon={Plus} size={isMobile ? "sm" : undefined} tono="azul" onClick={() => setNueva(true)}>{isMobile ? "Nuevo" : textoAlta}</Cta>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <div style={{ position: "relative", flex: 1, minHeight: 0, padding: `14px ${pad}px ${pad}px`, display: "flex", gap: 13, flexDirection: isMobile ? "column" : "row" }}>
           {/* lista */}
@@ -1107,7 +1145,7 @@ export default function SolicitudesPanolScreen({ profile }) {
 
               {/* Filtros siempre visibles; el listado es el único sector que
                   scrollea. Así las tarjetas nunca se comprimen para entrar. */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              <div className="sp-filtros">
                 {[
                   { value: "activas", label: "Activas", color: C.blue },
                   ...SOLICITUD_ESTADOS.filter((e) => ["enviada", "preparando", "listo"].includes(e.value)),
@@ -1122,8 +1160,9 @@ export default function SolicitudesPanolScreen({ profile }) {
                       onClick={() => setEstado(e.value)}
                       className="sp-seg"
                       style={{
-                        flex: "0 0 auto", padding: "5px 8px", borderRadius: 8, border: `1px solid ${on ? (e.color ? tint(e.color, 28) : C.border2) : "transparent"}`,
-                        cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
+                        flex: "0 0 auto", minHeight: 30, padding: "0 9px", borderRadius: 8,
+                        border: `1px solid ${on ? (e.color ? tint(e.color, 28) : C.border2) : "transparent"}`,
+                        cursor: "pointer", fontSize: 11.5, fontWeight: 600, fontFamily: C.sans, whiteSpace: "nowrap",
                         background: on ? (e.color ? tint(e.color, 9) : C.panel2) : "transparent",
                         color: on ? (e.color || C.text) : C.dim,
                       }}
@@ -1149,11 +1188,7 @@ export default function SolicitudesPanolScreen({ profile }) {
                 </div>
               )}
 
-              {cargando && !solicitudes.length && (
-                <div style={{ display: "flex", alignItems: "center", gap: 9, color: C.dim, fontSize: 13, padding: 6 }}>
-                  <Loader2 size={16} className="spin" /> Cargando…
-                </div>
-              )}
+              {cargando && !solicitudes.length && <Cargando compacto texto="Buscando solicitudes…" />}
 
               {!cargando && !solicitudes.length && (
                 <EmptyState

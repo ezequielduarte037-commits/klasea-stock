@@ -4,6 +4,8 @@ import { ArrowLeft, Check, Plug, Scale, Search, AlertTriangle, RotateCcw, Chevro
 import { C } from "@/theme";
 import { useBalanza, calidadCalibracion } from "@/hooks/useBalanza";
 import { borrarPesoUnitario, fetchConsumiblesPeso, guardarPesoUnitario } from "@/features/materiales/api";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
 
 /**
  * CalibrarPesosScreen — carga del peso por pieza de los consumibles. Ruta: /balanza/calibrar
@@ -17,8 +19,21 @@ import { borrarPesoUnitario, fetchConsumiblesPeso, guardarPesoUnitario } from "@
  */
 
 const CARD = { border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, padding: 14 };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
+const LBL = { fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4, display: "block" };
 const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" };
+
+const CSS = `
+  .calp-root { position: absolute; inset: 0; overflow: auto; background: var(--bg); font-family: 'Outfit', system-ui, sans-serif; }
+  .calp-cuerpo { max-width: 1080px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 12px; }
+  .calp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 12px; align-items: start; }
+  .calp-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 899px) {
+    .calp-cuerpo { padding: 12px 12px 24px; }
+    .calp-grid { grid-template-columns: 1fr; }
+    .calp-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .calp-filtros::-webkit-scrollbar { display: none; }
+  }
+`;
 
 const norm = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
@@ -58,7 +73,7 @@ export default function CalibrarPesosScreen({ toast }) {
       if (!term) return true;
       return norm(`${m.descripcion} ${m.codigo || ""}`).includes(term);
     });
-  }, [items, q, filtro, ]);
+  }, [items, q, filtro]);
 
   const sel = useMemo(() => items.find((m) => m.id === selId) || null, [items, selId]);
   const pendientes = useMemo(() => items.filter((m) => m.peso_unitario_g == null).length, [items]);
@@ -113,69 +128,77 @@ export default function CalibrarPesosScreen({ toast }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, padding: 16, fontFamily: C.sans }}>
-      <div style={{ maxWidth: 1080, margin: "0 auto", display: "grid", gap: 12 }}>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => nav(-1)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "8px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 650 }}>
-            <ArrowLeft size={15} /> Volver
-          </button>
-          <div style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.3)", color: C.violet }}>
-            <Scale size={20} />
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 16, fontWeight: 750, color: C.text }}>Calibrar peso por pieza</div>
-            <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>
-              {cargando ? "Cargando…" : `${items.length} consumibles · ${pendientes} sin calibrar`}
-            </div>
-          </div>
-          {/* Estado de la balanza */}
-          <button type="button" onClick={() => nav("/balanza")} title="Sniffer del puerto serie, para diagnosticar si la balanza no responde"
-            style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 999, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 650, whiteSpace: "nowrap" }}>
-            Diagnóstico
-          </button>
-          {bal.conectado ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: C.green, border: `1px solid ${C.greenB}`, background: "rgba(34,197,94,0.08)", borderRadius: 999, padding: "6px 12px" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green }} /> Balanza conectada
-            </span>
-          ) : (
-            <button type="button" onClick={bal.conectar} disabled={!bal.soportado} style={{ border: "none", background: bal.soportado ? C.green : C.panel2, color: bal.soportado ? "#fff" : C.dim, borderRadius: 9, padding: "9px 14px", cursor: bal.soportado ? "pointer" : "default", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
-              <Plug size={15} /> Conectar balanza
+    <div className="calp-root">
+      <style href="klasea-calp" precedence="default">{CSS}</style>
+      <PageHeader
+        icon={Scale}
+        eyebrow="Pañol"
+        title="Calibrar peso por pieza"
+        subtitle={cargando ? "Cargando consumibles…" : `${items.length} consumibles · ${pendientes} sin calibrar`}
+        actions={(
+          <>
+            <button type="button" className="ui-btn" onClick={() => nav(-1)}>
+              <ArrowLeft size={15} /> Volver
             </button>
-          )}
-        </div>
+            <button type="button" className="ui-btn" onClick={() => nav("/balanza")} title="Sniffer del puerto serie, para diagnosticar si la balanza no responde">
+              Diagnóstico
+            </button>
+            {bal.conectado ? (
+              <span className="ui-chip" style={{ color: C.green, background: C.greenL, borderColor: C.greenB }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: C.green }} /> Balanza conectada
+              </span>
+            ) : (
+              <button type="button" className="ui-btn ui-btn-primario" onClick={bal.conectar} disabled={!bal.soportado}>
+                <Plug size={15} /> Conectar balanza
+              </button>
+            )}
+          </>
+        )}
+      />
 
+      <div className="calp-cuerpo">
         {!bal.soportado && (
-          <div style={{ ...CARD, borderColor: C.redB, background: "rgba(239,68,68,0.08)", fontSize: 13, color: C.text }}>
+          <div style={{ ...CARD, borderColor: C.redB, background: C.redL, fontSize: 13, color: C.text }}>
             <b>Este navegador no soporta Web Serial.</b> Abrí esta pantalla en Chrome o Edge de escritorio.
           </div>
         )}
         {bal.error && (
-          <div style={{ ...CARD, borderColor: C.violetB, background: "rgba(34,211,238,0.08)", fontSize: 12.5, color: C.violet, fontWeight: 600, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ ...CARD, borderColor: C.violetB, background: C.violetL, fontSize: 12.5, color: C.violet, fontWeight: 600, display: "flex", gap: 8, alignItems: "flex-start" }}>
             <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} /> {bal.error}
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 380px)", gap: 12, alignItems: "start" }}>
-
-          {/* Lista de consumibles */}
+        <div className="calp-grid">
           <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: 12, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ padding: 12, borderBottom: `1px solid ${C.border}` }} className="calp-filtros">
               <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
-                <Search size={14} color={C.dim} style={{ position: "absolute", left: 10, top: 11 }} />
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar consumible…" style={{ ...INP, paddingLeft: 30 }} />
+                <Search size={14} color={C.dim} style={{ position: "absolute", left: 10, top: 13, pointerEvents: "none" }} />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar consumible…" className="ui-input" style={{ paddingLeft: 30 }} />
               </div>
               {[["sin", "Sin calibrar"], ["con", "Calibrados"], ["todos", "Todos"]].map(([k, label]) => (
-                <button key={k} type="button" onClick={() => setFiltro(k)}
-                  style={{ border: `1px solid ${filtro === k ? C.blueB : C.border}`, background: filtro === k ? "rgba(59,130,246,0.10)" : C.panel, color: filtro === k ? C.blue : C.dim, borderRadius: 999, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                <button
+                  key={k}
+                  type="button"
+                  className="ui-chip"
+                  onClick={() => setFiltro(k)}
+                  style={{
+                    minHeight: 34,
+                    cursor: "pointer",
+                    borderColor: filtro === k ? C.blueB : C.border,
+                    background: filtro === k ? C.blueL : "transparent",
+                    color: filtro === k ? C.blue : C.dim,
+                  }}
+                >
                   {label}
                 </button>
               ))}
             </div>
             <div style={{ maxHeight: 520, overflowY: "auto" }}>
-              {visibles.length === 0 ? (
+              {cargando ? (
+                <Cargando texto="Cargando consumibles…" />
+              ) : visibles.length === 0 ? (
                 <div style={{ padding: 24, textAlign: "center", color: C.dim, fontSize: 13 }}>
-                  {filtro === "sin" && !q ? "🎉 No queda ningún consumible sin calibrar." : "Sin resultados."}
+                  {filtro === "sin" && !q ? "No queda ningún consumible sin calibrar." : "Sin resultados."}
                 </div>
               ) : visibles.map((m) => {
                 const activo = m.id === selId;
@@ -186,8 +209,9 @@ export default function CalibrarPesosScreen({ toast }) {
                       width: "100%", textAlign: "left", border: "none", cursor: "pointer",
                       borderLeft: `3px solid ${activo ? C.violet : "transparent"}`,
                       borderBottom: `1px solid ${C.border}`,
-                      background: activo ? "rgba(139,92,246,0.07)" : "transparent",
+                      background: activo ? C.violetL : "transparent",
                       padding: "9px 12px", display: "flex", alignItems: "center", gap: 10,
+                      minHeight: 44,
                     }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 650, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</div>
@@ -199,12 +223,12 @@ export default function CalibrarPesosScreen({ toast }) {
                           {Number(m.peso_unitario_g).toFixed(2)} g
                         </span>
                         <span title="Recalibrar" onClick={(e) => { e.stopPropagation(); recalibrar(m); }}
-                          style={{ color: C.dim, display: "grid", placeItems: "center", padding: 3 }}>
+                          style={{ color: C.dim, display: "grid", placeItems: "center", padding: 6, minWidth: 32, minHeight: 32 }}>
                           <RotateCcw size={13} />
                         </span>
                       </>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: "rgba(34,211,238,0.10)", border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>PENDIENTE</span>
+                      <span className="ui-chip" style={{ color: C.violet, background: C.violetL, borderColor: C.violetB, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>Pendiente</span>
                     )}
                   </button>
                 );
@@ -212,7 +236,6 @@ export default function CalibrarPesosScreen({ toast }) {
             </div>
           </div>
 
-          {/* Panel de calibración */}
           <div style={{ ...CARD, position: "sticky", top: 16 }}>
             {!sel ? (
               <div style={{ color: C.dim, fontSize: 13, textAlign: "center", padding: "28px 8px" }}>
@@ -221,7 +244,7 @@ export default function CalibrarPesosScreen({ toast }) {
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase" }}>Calibrando</div>
+                  <div style={LBL}>Calibrando</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginTop: 3 }}>{sel.descripcion}</div>
                 </div>
 
@@ -236,8 +259,7 @@ export default function CalibrarPesosScreen({ toast }) {
                     placeholder="Ej: 200" style={{ ...INP, fontFamily: C.mono, fontSize: 16, fontWeight: 700 }} />
                 </div>
 
-                <button type="button" onClick={leer} disabled={!bal.conectado || bal.leyendo}
-                  style={{ border: "none", background: bal.conectado ? C.blue : C.panel2, color: bal.conectado ? "#fff" : C.dim, borderRadius: 10, padding: "11px 16px", cursor: bal.conectado ? "pointer" : "default", fontSize: 14, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <button type="button" className="ui-btn ui-btn-primario" onClick={leer} disabled={!bal.conectado || bal.leyendo} style={{ minHeight: 44 }}>
                   <Scale size={16} /> {bal.leyendo ? "Leyendo…" : "Leer balanza"}
                 </button>
 
@@ -274,8 +296,13 @@ export default function CalibrarPesosScreen({ toast }) {
                   </div>
                 )}
 
-                <button type="button" onClick={guardar} disabled={pesoUnit == null || guardando}
-                  style={{ border: "none", background: pesoUnit != null && !guardando ? C.green : C.panel2, color: pesoUnit != null && !guardando ? "#fff" : C.dim, borderRadius: 10, padding: "11px 16px", cursor: pesoUnit != null && !guardando ? "pointer" : "default", fontSize: 14, fontWeight: 750, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <button type="button" className="ui-btn" onClick={guardar} disabled={pesoUnit == null || guardando}
+                  style={{
+                    minHeight: 44,
+                    background: pesoUnit != null && !guardando ? C.green : undefined,
+                    borderColor: pesoUnit != null && !guardando ? "transparent" : undefined,
+                    color: pesoUnit != null && !guardando ? "var(--inverse-text)" : undefined,
+                  }}>
                   <Check size={16} /> {guardando ? "Guardando…" : "Guardar y siguiente"} <ChevronRight size={15} />
                 </button>
               </div>

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
+import Cargando from "@/components/ui/Cargando";
 import {
   fetchCarpetasUsadas,
   fetchProveedoresConocidos,
@@ -199,7 +200,7 @@ function EditorRemito({
     borderRadius: 9, padding: "9px 11px", fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
     boxSizing: "border-box",
   };
-  const etiqueta = { fontSize: 11, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 5 };
+  const etiqueta = { fontSize: 11, fontWeight: 600, color: C.dim, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
 
   const obrasElegidas = useMemo(() => {
     const porId = new Map(obras.map((obra) => [String(obra.id), obra]));
@@ -249,7 +250,7 @@ function EditorRemito({
   return (
     <div
       onClick={onCerrar}
-      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -587,11 +588,21 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
           onGuardado={() => cargar({ silencioso: true })}
         />
       ) : null}
-      <style>{`
+      <style href="klasea-panol-archivo" precedence="default">{`
         .panol-archivo-fila { transition: background .15s; }
         .panol-archivo-fila:hover { background: var(--panel-2); }
         .panol-archivo-carpeta { transition: border-color .15s, transform .15s, box-shadow .15s; }
-        .panol-archivo-carpeta:hover { border-color: var(--blue-border); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(15,23,42,0.08); }
+        .panol-archivo-carpeta:hover { border-color: var(--blue-border); transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow); }
+        .panol-archivo-filtros { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+        @media (max-width: 899px) {
+          .panol-archivo-filtros {
+            flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
+          }
+          .panol-archivo-filtros::-webkit-scrollbar { display: none; }
+          .panol-archivo-filtros button { min-height: 38px; }
+        }
       `}</style>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
@@ -623,7 +634,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       {/* Por donde entrar. El mismo remito esta en las tres: se elige la que
           coincide con lo que uno tiene en la cabeza cuando lo va a buscar
           -"el del 55-1", "los de Iriarte", "los de garantía"-. */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+      <div className="panol-archivo-filtros" style={{ marginBottom: 10 }}>
         {VISTAS.map((opcion) => {
           const { valor, etiqueta } = opcion;
           const Icono = opcion.Icono;
@@ -656,7 +667,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
 
       {/* Filtros. "Falta leer" es el que importa: son los papeles guardados que
           todavia no tienen renglones y por eso no se pueden ingresar al stock. */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+      <div className="panol-archivo-filtros" style={{ marginBottom: 12 }}>
         {FILTROS.map(([valor, etiqueta]) => {
           const activo = filtro === valor;
           const cuenta = valor === "sin_leer" ? totalSinLeer : null;
@@ -737,10 +748,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       ) : null}
 
       {cargando ? (
-        <div style={{ ...tarjeta, padding: 28, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
-          <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
-          <div>Buscando remitos…</div>
-        </div>
+        <Cargando texto="Buscando remitos…" />
       ) : !filtrados.length ? (
         <div style={{ ...tarjeta, padding: 28, textAlign: "center" }}>
           <FileText size={22} color={C.dim} style={{ marginBottom: 8 }} />

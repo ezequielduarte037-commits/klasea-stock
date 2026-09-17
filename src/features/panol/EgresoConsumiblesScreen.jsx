@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Check, ContactRound, LoaderCircle, Minus, Nfc, Plus, RotateCcw, ScanBarcode, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
@@ -234,54 +236,52 @@ export default function EgresoConsumiblesScreen({ profile }) {
 
   const panel = { background: "var(--panel-solid)", border: `1px solid ${C.border}`, borderRadius: 14, backdropFilter: "var(--glass-filter)", WebkitBackdropFilter: "var(--glass-filter)" };
   const campo = { width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`, background: "var(--panel-2)", color: C.text, borderRadius: 10, padding: "10px 12px", fontFamily: C.sans, fontSize: 14, fontWeight: 600, outline: "none" };
-  const etiqueta = { display: "block", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.dim, marginBottom: 5 };
+  const etiqueta = { display: "block", fontSize: 11, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: C.dim, marginBottom: 5 };
 
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div className="caja-root" style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
       <style>{`
-        .caja-item { transition: background .12s ease; }
-        .caja-item:hover { background: var(--panel-2); }
-        .caja-btn { transition: border-color .14s ease, color .14s ease; }
-        .caja-btn:hover { border-color: ${C.blueB}; color: ${C.blue}; }
-        @keyframes caja-entra { from { background: ${C.greenB}; } to { background: transparent; } }
-        .caja-nuevo { animation: caja-entra 1s ease-out; }
-        @keyframes caja-late { 0%,100% { opacity: .4; transform: scale(1) } 50% { opacity: 1; transform: scale(1.06) } }
-        .caja-late { animation: caja-late 1.9s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { .caja-nuevo, .caja-late { animation: none; } }
+        .caja-root .caja-item { transition: background .12s ease; }
+        .caja-root .caja-item:hover { background: var(--panel-2); }
+        .caja-root .caja-btn { transition: border-color .14s ease, color .14s ease; }
+        .caja-root .caja-btn:hover { border-color: var(--blue-border); color: var(--blue); }
+        @keyframes caja-entra { from { background: var(--green-border); } to { background: transparent; } }
+        @keyframes caja-giro { to { transform: rotate(360deg); } }
+        .caja-root .caja-nuevo { animation: caja-entra 1s ease-out; }
+        .caja-root .spin { animation: caja-giro .75s linear infinite; }
+        @media (prefers-reduced-motion: reduce) { .caja-root .caja-nuevo, .caja-root .spin { animation: none; } }
       `}</style>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
 
         <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <header style={{ minHeight: 54, display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "9px 12px" : "9px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbar, flexShrink: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center", color: tono, background: esEgreso ? C.redL : "var(--green-soft)", border: `1px solid ${esEgreso ? C.redB : C.greenB}` }}>
-              {esEgreso ? <ArrowUpFromLine size={17} /> : <ArrowDownToLine size={17} />}
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>{esEgreso ? "Egreso de consumibles" : "Ingreso de consumibles"}</div>
-              <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>
-                {esEgreso ? "Pasá los productos, después firmás con la tarjeta" : "Lo que entra al pañol, también por la pistola"}
-                {datos ? ` · ${datos.conCodigo} de ${datos.consumibles.length} con código` : ""}
-              </div>
-            </div>
-            {paso === "marcando" ? (
-              <div style={{ display: "inline-flex", padding: 2, gap: 2, borderRadius: 9, border: `1px solid ${C.border2}`, background: "var(--panel-2)" }}>
-                {[{ v: "egreso", t: "Sale" }, { v: "ingreso", t: "Entra" }].map((o) => (
-                  <button key={o.v} type="button" onClick={() => { setModo(o.v); setCarrito([]); }} aria-pressed={modo === o.v}
-                    style={{ border: "none", borderRadius: 7, padding: "6px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5,
-                      fontWeight: modo === o.v ? 700 : 600,
-                      background: modo === o.v ? (o.v === "egreso" ? C.redL : "var(--green-soft)") : "transparent",
-                      color: modo === o.v ? (o.v === "egreso" ? C.red : C.green) : C.dim }}>{o.t}</button>
-                ))}
-              </div>
-            ) : null}
-            <button type="button" onClick={cargar} disabled={cargando} aria-label="Actualizar"
-              style={{ border: `1px solid ${C.border2}`, background: "var(--panel-solid)", color: C.text, borderRadius: 9, padding: "8px 10px", cursor: "pointer" }}>
-              {cargando ? <LoaderCircle size={15} className="spin" /> : <RotateCcw size={15} />}
-            </button>
-          </header>
+          <PageHeader
+            icon={esEgreso ? ArrowUpFromLine : ArrowDownToLine}
+            eyebrow="Pañol"
+            title={esEgreso ? "Egreso de consumibles" : "Ingreso de consumibles"}
+            subtitle={esEgreso ? "Pasá los productos, después firmás con la tarjeta" : "Lo que entra al pañol, también por la pistola"}
+            actions={(
+              <>
+                {paso === "marcando" ? (
+                  <div style={{ display: "inline-flex", padding: 2, gap: 2, borderRadius: 9, border: `1px solid ${C.border2}`, background: "var(--panel-2)" }}>
+                    {[{ v: "egreso", t: "Sale" }, { v: "ingreso", t: "Entra" }].map((o) => (
+                      <button key={o.v} type="button" onClick={() => { setModo(o.v); setCarrito([]); }} aria-pressed={modo === o.v}
+                        style={{ border: "none", borderRadius: 7, padding: "6px 13px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5,
+                          fontWeight: modo === o.v ? 700 : 600,
+                          background: modo === o.v ? (o.v === "egreso" ? C.redL : "var(--green-soft)") : "transparent",
+                          color: modo === o.v ? (o.v === "egreso" ? C.red : C.green) : C.dim }}>{o.t}</button>
+                    ))}
+                  </div>
+                ) : null}
+                <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={cargando} aria-label="Actualizar">
+                  {cargando ? <LoaderCircle size={15} /> : <RotateCcw size={15} />}
+                </button>
+              </>
+            )}
+          />
 
           <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: isMobile ? 12 : 16, display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.35fr) minmax(0,1fr)", alignContent: "start" }}>
+            {cargando && !datos ? <div style={{ gridColumn: "1 / -1" }}><Cargando texto="Abriendo la caja…" /></div> : null}
             {error ? <div style={{ ...panel, gridColumn: "1 / -1", borderColor: C.redB, background: C.redL, padding: "12px 15px", color: C.red, fontSize: 13, fontWeight: 650 }}>{error}</div> : null}
 
             <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
@@ -454,7 +454,7 @@ export default function EgresoConsumiblesScreen({ profile }) {
               ) : (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "18px 18px", borderRadius: 12, border: `1px solid ${C.blueB}`, background: C.blueL }}>
-                    <Nfc size={32} color={C.blue} className={aMano ? "" : "caja-late"} style={{ flexShrink: 0 }} />
+                    <Nfc size={32} color={C.blue} style={{ flexShrink: 0 }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Apoyá la tarjeta para firmar</div>
                       <div style={{ color: C.dim, fontSize: 12, fontWeight: 650, marginTop: 2 }}>
