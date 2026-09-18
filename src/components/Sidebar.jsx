@@ -350,6 +350,12 @@ const CSS = `
   .sb-nav::-webkit-scrollbar { width: 6px; }
   .sb-nav::-webkit-scrollbar-track { background: transparent; }
   .sb-nav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+  /* Riel cerrado: sin barra de scroll. En Windows la barra ocupa ~11 px y
+     achicaba cada ítem de 10–58 a 10–47 px: el fondo del ítem activo quedaba
+     corrido a la izquierda del ícono y el contador de pendientes, cortado. Se
+     sigue scrolleando con la rueda, y al abrir el panel la barra vuelve. */
+  .sb-aside[data-abierto="false"] .sb-nav { scrollbar-width: none; }
+  .sb-aside[data-abierto="false"] .sb-nav::-webkit-scrollbar { display: none; }
 
   .sb-grupo { height: 30px; margin-top: 8px; display: flex; align-items: center; gap: 11px; padding-left: 31px; overflow: hidden; }
   .sb-grupo-punto { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; opacity: .9; }
@@ -379,7 +385,10 @@ const CSS = `
     font-family: 'JetBrains Mono', monospace; font-weight: 700; line-height: 1; box-sizing: border-box;
   }
   .sb-contador { min-width: 22px; height: 20px; padding: 0 6px; font-size: 10.5px; flex-shrink: 0; }
-  .sb-contador-mini { position: absolute; left: 30px; top: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 9px; }
+  /* left 26 y no 30: con dos dígitos el contador mide 21 px y desde 30 se pasaba
+     del borde del ítem (58 px en el riel), que lo cortaba. Queda anclado a la
+     izquierda para que no viaje mientras el panel se abre o se cierra. */
+  .sb-contador-mini { position: absolute; left: 26px; top: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 9px; }
 
   .sb-pie { flex-shrink: 0; display: grid; gap: 8px; padding: 10px 0 12px; border-top: 1px solid var(--border); overflow: hidden; }
   .sb-pie-fila { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 14px; }
