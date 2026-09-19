@@ -4195,9 +4195,25 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     opcionales: addons.filter((addon) => addon.tipo === "opcional").length,
   }), [addons]);
 
-  const baseRows = useMemo(() => (materiales ?? [])
-    .filter(materialActivo)
-    .filter((m) => materialQty(m, linea) > 0)
+  const baseRows = useMemo(() => {
+    const materialesDeLinea = (materiales ?? [])
+      .filter(materialActivo)
+      .filter((m) => materialQty(m, linea) > 0);
+    const productosDirectosEnLinea = new Set(materialesDeLinea.map((material) => material.id));
+
+    return materialesDeLinea
+    // Mientras se aplica la limpieza de matriz puede convivir el requisito y el
+    // mismo SKU que ya quedó cargado como material directo. Si ese SKU es el
+    // estándar del requisito, son la misma necesidad: se muestra una vez.
+    .filter((m) => {
+      const modeloConfig = (m.modelos ?? []).find((item) => (
+        String(item.modelo) === String(linea)
+        && String(item.variante || "standard") === "standard"
+      ));
+      return !(m.es_requisito === true
+        && modeloConfig?.producto_predeterminado_id
+        && productosDirectosEnLinea.has(modeloConfig.producto_predeterminado_id));
+    })
     .map((m) => {
       const modeloConfig = (m.modelos ?? []).find((item) => (
         String(item.modelo) === String(linea)
@@ -4220,8 +4236,11 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         especificacionesOrigen: modeloConfig ? "matriz_linea" : null,
         material: m,
         source: "matriz",
-        descripcion: m.descripcion,
-        codigo: m.codigo,
+        // La matriz conserva el requisito para cantidades y trazabilidad; la
+        // lista operativa, en cambio, debe decir qué producto se compra.
+        descripcion: producto?.descripcion || m.descripcion,
+        requisitoDescripcion: producto ? m.descripcion : "",
+        codigo: producto?.codigo || m.codigo,
         cantidad: materialQty(m, linea),
         unidad: m.unidad_medida || "unidad",
         proveedor: precio.proveedor || producto?.proveedor || m.proveedor || "Sin proveedor",
@@ -4240,7 +4259,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
-    }), [materiales, linea, categorias, opciones, materialById]);
+    });
+  }, [materiales, linea, categorias, opciones, materialById]);
 
   const requisitoIds = useMemo(
     () => baseRows.filter((row) => row.esRequisito).map((row) => row.requisitoMaterialId),
@@ -5915,29 +5935,56 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     setLineSnapshotsLoaded(false);
   }, [code]);
 
-  const primaryRows = useMemo(() => (materiales ?? [])
-    .filter(materialActivo)
-    .filter((m) => materialQty(m, code) > 0)
+  const primaryRows = useMemo(() => {
+    const materialesDeLinea = (materiales ?? [])
+      .filter(materialActivo)
+      .filter((m) => materialQty(m, code) > 0);
+    const productosDirectosEnLinea = new Set(materialesDeLinea.map((material) => material.id));
+    const materialPorId = new Map((materiales ?? []).map((material) => [material.id, material]));
+
+    return materialesDeLinea
+    .filter((m) => {
+      const modeloConfig = (m.modelos ?? []).find((item) => (
+        String(item.modelo) === String(code)
+        && String(item.variante || "standard") === "standard"
+      ));
+      return !(m.es_requisito === true
+        && modeloConfig?.producto_predeterminado_id
+        && productosDirectosEnLinea.has(modeloConfig.producto_predeterminado_id));
+    })
     .map((m) => {
-      const precio = priceInfo(m);
+      const modeloConfig = (m.modelos ?? []).find((item) => (
+        String(item.modelo) === String(code)
+        && String(item.variante || "standard") === "standard"
+      )) || null;
+      const producto = modeloConfig?.producto_predeterminado_id
+        ? materialPorId.get(modeloConfig.producto_predeterminado_id) || null
+        : null;
+      const materialOperativo = producto || m;
+      const precio = priceInfo(materialOperativo);
       const bucket = materialBucket(m, opciones, code);
-      const proveedor = precio.proveedor || m.proveedor || "Sin proveedor";
+      const proveedor = precio.proveedor || materialOperativo.proveedor || m.proveedor || "Sin proveedor";
       return {
         id: m.id,
-        materialId: m.id,
-        material: m,
-        descripcion: m.descripcion,
-        codigo: m.codigo,
+        materialId: materialOperativo.id,
+        requisitoMaterialId: m.id,
+        productoMaterialId: producto?.id || null,
+        material: materialOperativo,
+        requisito: m,
+        producto,
+        descripcion: materialOperativo.descripcion,
+        requisitoDescripcion: producto ? m.descripcion : "",
+        codigo: materialOperativo.codigo || m.codigo,
         cantidad: materialQty(m, code),
-        unidad: m.unidad_medida || "unidad",
+        unidad: materialOperativo.unidad_medida || m.unidad_medida || "unidad",
         proveedor,
         proveedorMeta: proveedorMeta(proveedor, proveedores),
-        rubro: rubroDeLista(categorias, m.categoria_id),
+        rubro: rubroDeLista(categorias, materialOperativo.categoria_id || m.categoria_id),
         precio,
         bucket,
-        obs: m.notas || "",
-        revisado: !!m.revisado,
-        review: reviewInfoForMaterial(m),
+        obs: materialOperativo.notas || m.notas || "",
+        revisado: !!materialOperativo.revisado,
+        review: reviewInfoForMaterial(materialOperativo),
       };
     })
     .sort((a, b) => {
@@ -5945,7 +5992,8 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
-    }), [materiales, code, categorias, opciones, proveedores]);
+    });
+  }, [materiales, code, categorias, opciones, proveedores]);
 
   const secondaryRows = useMemo(() => (secondaryState.rows ?? [])
     .filter((row) => row.circuito !== "maderas" || !row.referenciaMaderasCodigo || Number(row.cantidadReferencia || 0) > 0)

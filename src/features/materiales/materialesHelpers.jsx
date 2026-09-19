@@ -156,7 +156,9 @@ function qtyText(value, unidad = "") {
 }
 
 function stockLibreKeyForRow(row) {
-  const materialId = row?.materialId || row?.material_id || row?.material?.id || "";
+  // Cuando la fila nace de un requisito genérico, el stock se consulta por el
+  // SKU elegido, no por el requisito (que no tiene existencias físicas).
+  const materialId = row?.productoMaterialId || row?.producto_material_id || row?.materialId || row?.material_id || row?.material?.id || "";
   if (materialId) return `material:${materialId}`;
   const textKey = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
   return textKey ? `text:${textKey}` : "";

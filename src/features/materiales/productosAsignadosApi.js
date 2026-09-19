@@ -112,6 +112,49 @@ export async function marcarMaterialComoRequisito(materialId, esRequisito = true
   return data;
 }
 
+export async function vincularProductoARequisito({
+  requisitoMaterialId,
+  productoMaterialId,
+  origen = "manual",
+} = {}) {
+  if (!requisitoMaterialId || !productoMaterialId) {
+    throw new Error("Elegí el requisito y el producto que lo cumple.");
+  }
+  if (requisitoMaterialId === productoMaterialId) {
+    throw new Error("El requisito y el producto no pueden ser el mismo ítem.");
+  }
+
+  const { data, error } = await supabase
+    .from("panol_requisito_productos")
+    .upsert({
+      requisito_material_id: requisitoMaterialId,
+      producto_material_id: productoMaterialId,
+      origen,
+      activo: true,
+    }, { onConflict: "requisito_material_id,producto_material_id" })
+    .select("id,requisito_material_id,producto_material_id,variante_legacy,origen,activo,created_at")
+    .single();
+
+  if (error) {
+    if (schemaMissing(error)) throw new Error("Falta aplicar la migración de requisitos y productos.");
+    throw error;
+  }
+  return data;
+}
+
+export async function desvincularProductoDeRequisito({ requisitoMaterialId, productoMaterialId } = {}) {
+  if (!requisitoMaterialId || !productoMaterialId) return;
+  const { error } = await supabase
+    .from("panol_requisito_productos")
+    .update({ activo: false })
+    .eq("requisito_material_id", requisitoMaterialId)
+    .eq("producto_material_id", productoMaterialId);
+  if (error) {
+    if (schemaMissing(error)) throw new Error("Falta aplicar la migración de requisitos y productos.");
+    throw error;
+  }
+}
+
 export async function fetchEstadoMigracionProductos() {
   const { data, error } = await supabase
     .from("panol_requisitos_migracion_estado")

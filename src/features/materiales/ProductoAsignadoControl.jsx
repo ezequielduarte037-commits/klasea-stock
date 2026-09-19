@@ -140,6 +140,14 @@ export default function ProductoAsignadoControl({
       })
       .slice(0, query.trim() ? 80 : 30);
   }, [compatibleIds, materiales, query, requirementId]);
+  const recommendedProducts = useMemo(
+    () => products.filter((product) => compatibleIds.has(product.id)),
+    [compatibleIds, products],
+  );
+  const otherProducts = useMemo(
+    () => products.filter((product) => !compatibleIds.has(product.id)),
+    [compatibleIds, products],
+  );
 
   function openModal() {
     setSelectedProductId(specOnly ? "" : currentSelectedId || "");
@@ -259,13 +267,31 @@ export default function ProductoAsignadoControl({
                   <Search size={15} color={C.t2} />
                   <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar descripción, marca, modelo, código, proveedor u observación…" style={{ width: "100%", border: "none", outline: "none", background: "transparent", color: C.t0, padding: "10px 0", fontFamily: C.sans, fontSize: 12.5 }} />
                 </label>
-                <div style={{ color: C.t2, fontSize: 10.5 }}>Los compatibles aparecen primero, pero podés elegir cualquier producto concreto del catálogo.</div>
+                <div style={{ color: C.t2, fontSize: 10.5 }}>Los recomendados son productos ya vinculados a este requisito. También podés elegir cualquier producto concreto del catálogo.</div>
                 <button type="button" onClick={() => setSelectedProductId("")} style={{ border: `1px solid ${!selectedProductId ? C.cyanB : C.b0}`, background: !selectedProductId ? C.cyanL : C.bg, color: !selectedProductId ? C.cyan : C.t2, borderRadius: 10, padding: "9px 11px", textAlign: "left", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
                   Dejar producto pendiente
                 </button>
                 <div style={{ display: "grid", gap: 7 }}>
-                  {products.map((product) => (
-                    <ProductRow key={product.id} product={product} linked={compatibleIds.has(product.id)} selected={selectedProductId === product.id} busy={busy} onSelect={(item) => setSelectedProductId(item.id)} />
+                  {recommendedProducts.length > 0 && (
+                    <div style={{ color: C.blue, fontSize: 10, fontWeight: 800, letterSpacing: .7, textTransform: "uppercase", padding: "4px 2px 0" }}>
+                      Recomendados para este requisito
+                    </div>
+                  )}
+                  {recommendedProducts.map((product) => (
+                    <ProductRow key={product.id} product={product} linked selected={selectedProductId === product.id} busy={busy} onSelect={(item) => setSelectedProductId(item.id)} />
+                  ))}
+                  {!query.trim() && !recommendedProducts.length && (
+                    <div style={{ border: `1px dashed ${C.cyanB}`, background: C.cyanL, color: C.t1, borderRadius: 10, padding: "9px 11px", fontSize: 10.8, lineHeight: 1.45 }}>
+                      Todavía no hay productos recomendados. Vinculalos desde <strong>Catálogo completo → Requisitos y productos</strong>.
+                    </div>
+                  )}
+                  {otherProducts.length > 0 && (
+                    <div style={{ color: C.t2, fontSize: 10, fontWeight: 800, letterSpacing: .7, textTransform: "uppercase", padding: "7px 2px 0" }}>
+                      {recommendedProducts.length ? "Otros productos del catálogo" : "Productos del catálogo"}
+                    </div>
+                  )}
+                  {otherProducts.map((product) => (
+                    <ProductRow key={product.id} product={product} selected={selectedProductId === product.id} busy={busy} onSelect={(item) => setSelectedProductId(item.id)} />
                   ))}
                   {!products.length && <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 12.5 }}>No encontramos productos con esa búsqueda. Crealo primero en el catálogo completo.</div>}
                 </div>

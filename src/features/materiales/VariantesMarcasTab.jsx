@@ -1,9 +1,14 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Link2, PackageCheck, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Link2, PackageCheck, Plus, RefreshCw, Search, X } from "lucide-react";
 import { C } from "@/theme";
 import { INP } from "@/features/rrhh/ui";
 import { norm } from "./materialesParser";
-import { fetchEstadoMigracionProductos, fetchRequisitoProductos } from "./productosAsignadosApi";
+import {
+  desvincularProductoDeRequisito,
+  fetchEstadoMigracionProductos,
+  fetchRequisitoProductos,
+  vincularProductoARequisito,
+} from "./productosAsignadosApi";
 
 function legacyVariants(value) {
   const raw = Array.isArray(value) ? value : [];
@@ -17,6 +22,9 @@ export default function VariantesMarcasTab({ materiales = [] }) {
   const [status, setStatus] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editingRequirementId, setEditingRequirementId] = useState("");
+  const [productQuery, setProductQuery] = useState("");
+  const [busyKey, setBusyKey] = useState("");
 
   const materialById = useMemo(
     () => new Map((materiales || []).map((material) => [material.id, material])),
@@ -108,6 +116,50 @@ export default function VariantesMarcasTab({ materiales = [] }) {
     pending: status.reduce((sum, row) => sum + Number(row.obras_pendientes || 0), 0),
   }), [links, requirementIds.length, status]);
 
+  const productOptions = useMemo(() => {
+    const term = norm(productQuery);
+    return (materiales || [])
+      .filter((material) => material.activo !== false && material.es_requisito !== true)
+      .filter((material) => !term || norm([
+        material.descripcion,
+        material.codigo,
+        material.alias,
+        material.proveedor,
+      ].filter(Boolean).join(" ")).includes(term))
+      .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }))
+      .slice(0, 12);
+  }, [materiales, productQuery]);
+
+  async function linkProduct(requirement, product) {
+    const key = `link:${requirement.id}:${product.id}`;
+    setBusyKey(key);
+    setError("");
+    try {
+      await vincularProductoARequisito({ requisitoMaterialId: requirement.id, productoMaterialId: product.id });
+      setProductQuery("");
+      setEditingRequirementId("");
+      await reload();
+    } catch (nextError) {
+      setError(nextError?.message || "No se pudo vincular el producto.");
+    } finally {
+      setBusyKey("");
+    }
+  }
+
+  async function unlinkProduct(requirement, product) {
+    const key = `unlink:${requirement.id}:${product.id}`;
+    setBusyKey(key);
+    setError("");
+    try {
+      await desvincularProductoDeRequisito({ requisitoMaterialId: requirement.id, productoMaterialId: product.id });
+      await reload();
+    } catch (nextError) {
+      setError(nextError?.message || "No se pudo desvincular el producto.");
+    } finally {
+      setBusyKey("");
+    }
+  }
+
   return (
     <div style={{ display: "grid", gap: 14, maxWidth: 1180 }}>
       <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 16, padding: 16, display: "grid", gap: 13 }}>
@@ -166,14 +218,39 @@ export default function VariantesMarcasTab({ materiales = [] }) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {products.map(({ product, link }) => (
-                  <span key={product.id} title={link.variante_legacy ? `Migrado desde: ${link.variante_legacy}` : "Producto compatible"} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t1, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", fontSize: 10.8, fontWeight: 700 }}>
-                    <PackageCheck size={11} color={C.green} /> {product.descripcion}
-                  </span>
-                ))}
-                {!products.length && <span style={{ color: C.cyan, fontSize: 11.5, fontWeight: 650 }}>Todavía no tiene productos compatibles.</span>}
-              </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  {products.map(({ product, link }) => (
+                    <span key={product.id} title={link.variante_legacy ? `Migrado desde: ${link.variante_legacy}` : "Producto recomendado"} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t1, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 5px 3px 9px", fontSize: 10.8, fontWeight: 700 }}>
+                      <PackageCheck size={11} color={C.green} /> {product.descripcion}
+                      <button type="button" disabled={!!busyKey} aria-label={`Quitar ${product.descripcion} de ${requirement.descripcion}`} title="Quitar recomendación" onClick={() => unlinkProduct(requirement, product)} style={{ width: 20, height: 20, border: "none", display: "grid", placeItems: "center", color: C.t3, background: "transparent", cursor: busyKey ? "default" : "pointer", borderRadius: 999 }}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                  {!products.length && <span style={{ color: C.cyan, fontSize: 11.5, fontWeight: 650 }}>Todavía no tiene productos compatibles.</span>}
+                  <button type="button" onClick={() => { setEditingRequirementId((current) => current === requirement.id ? "" : requirement.id); setProductQuery(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: editingRequirementId === requirement.id ? C.blueL : C.bg, color: C.blue, borderRadius: 999, padding: "4px 9px", fontFamily: C.sans, fontSize: 10.5, fontWeight: 750, cursor: "pointer" }}>
+                    <Plus size={12} /> Vincular producto
+                  </button>
+                </div>
+
+                {editingRequirementId === requirement.id && (
+                  <div style={{ display: "grid", gap: 8, padding: 10, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 8, padding: "0 9px" }}>
+                      <Search size={13} color={C.t2} />
+                      <input autoFocus value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto físico por nombre, código o proveedor…" style={{ minWidth: 0, width: "100%", border: "none", outline: "none", background: "transparent", color: C.t0, padding: "8px 0", fontFamily: C.sans, fontSize: 11.5 }} />
+                    </label>
+                    <div style={{ display: "grid", gap: 5 }}>
+                      {productOptions.filter((product) => product.id !== requirement.id && !products.some((item) => item.product.id === product.id)).map((product) => {
+                        const key = `link:${requirement.id}:${product.id}`;
+                        return <button key={product.id} type="button" disabled={!!busyKey} onClick={() => linkProduct(requirement, product)} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 10, textAlign: "left", border: `1px solid ${C.b0}`, background: C.bg, color: C.t0, borderRadius: 8, padding: "7px 9px", fontFamily: C.sans, cursor: busyKey ? "default" : "pointer" }}>
+                          <span style={{ minWidth: 0 }}><strong style={{ fontSize: 11.5 }}>{product.descripcion}</strong><span style={{ display: "block", color: C.t2, fontSize: 10, marginTop: 2 }}>{[product.codigo, product.proveedor].filter(Boolean).join(" · ") || "sin código"}</span></span>
+                          <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 750 }}>{busyKey === key ? "Vinculando…" : "Vincular"}</span>
+                        </button>;
+                      })}
+                      {!productOptions.filter((product) => product.id !== requirement.id && !products.some((item) => item.product.id === product.id)).length && <span style={{ color: C.t2, fontSize: 11 }}>No hay otro producto que coincida con esa búsqueda.</span>}
+                    </div>
+                  </div>
+                )}
 
               {legacy.length > 0 && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 8 }}>
