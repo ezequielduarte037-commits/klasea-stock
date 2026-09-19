@@ -58,7 +58,6 @@ import {
   fetchRequisitoProductos,
   guardarConfiguracionProductoLinea,
   guardarConfiguracionProductoObra,
-  reconciliarProductoSnapshotConRequisito,
 } from "./productosAsignadosApi";
 import {
   normalizeProductSpecs,
@@ -161,6 +160,13 @@ const CATALOG_RENDER_BATCH = 30;
 const LINEA_RENDER_BATCH = 36;
 const CATALOG_INITIAL_RENDER = 18;
 const LINEA_INITIAL_RENDER = 24;
+
+function productoSeDefinePorObra(material) {
+  if (material?.producto_por_obra === true) return true;
+  // Respaldo para que Caja de piso siga pendiente por barco aun antes de que
+  // se despliegue la columna nueva en una base ya existente.
+  return material?.es_requisito === true && norm(material?.descripcion) === "caja de piso";
+}
 
 function limitGroupedRows(groups = [], limit = LINEA_RENDER_BATCH) {
   let remaining = Math.max(0, limit);
@@ -4215,27 +4221,15 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     const materialesDeLinea = (materiales ?? [])
       .filter(materialActivo)
       .filter((m) => materialQty(m, linea) > 0);
-    const productosDirectosEnLinea = new Set(materialesDeLinea.map((material) => material.id));
-
-    return materialesDeLinea
-    // Mientras se aplica la limpieza de matriz puede convivir el requisito y el
-    // mismo SKU que ya quedó cargado como material directo. Si ese SKU es el
-    // estándar del requisito, son la misma necesidad: se muestra una vez.
-    .filter((m) => {
-      const modeloConfig = (m.modelos ?? []).find((item) => (
-        String(item.modelo) === String(linea)
-        && String(item.variante || "standard") === "standard"
-      ));
-      return !(m.es_requisito === true
-        && modeloConfig?.producto_predeterminado_id
-        && productosDirectosEnLinea.has(modeloConfig.producto_predeterminado_id));
-    })
-    .map((m) => {
+    return materialesDeLinea.map((m) => {
       const modeloConfig = (m.modelos ?? []).find((item) => (
         String(item.modelo) === String(linea)
         && String(item.variante || "standard") === "standard"
       )) || null;
-      const producto = modeloConfig?.producto_predeterminado_id
+      // Los requisitos definidos por obra (pisos, terminaciones, etc.) nunca
+      // heredan un SKU aunque haya quedado un valor viejo en la matriz.
+      const productoPorObra = productoSeDefinePorObra(m);
+      const producto = !productoPorObra && modeloConfig?.producto_predeterminado_id
         ? materialById.get(modeloConfig.producto_predeterminado_id) || null
         : null;
       const precio = priceInfo(producto || m);
@@ -4247,7 +4241,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         productoMaterialId: producto?.id || null,
         producto,
         productoEstandar: !!producto,
-        productoPorObra: m.producto_por_obra === true,
+        productoPorObra,
         esRequisito: m.es_requisito === true || materialVariants(m).length > 0 || !!producto,
         especificaciones: normalizeProductSpecs(modeloConfig?.especificaciones_defecto),
         especificacionesOrigen: modeloConfig ? "matriz_linea" : null,
@@ -4925,32 +4919,6 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           ].filter(Boolean).join(" "),
         });
         return;
-      }
-
-      const requisitoMaterialId = row.requisitoMaterialId || row.materialId;
-      // Si Pañol ya entregó este producto a ESTA obra como una fila fuera de
-      // matriz, no se crea otra fila pendiente. Se le da la identidad del
-      // requisito de matriz y la entrega pasa a verse sobre la misma línea.
-      const entregasCandidatas = productoMaterialId
-        ? snapshot.filter((item) => (
-          item?.material_id === productoMaterialId
-          && (!item?.requisito_material_id || item.requisito_material_id === item.material_id)
-          && !isLedgerOnlySnapshot({ source: item.source, snapshot_tipo: item.tipo, bucket: { key: item.tipo } })
-        ))
-        : [];
-      if (entregasCandidatas.length === 1) {
-        await reconciliarProductoSnapshotConRequisito({
-          snapshotId: entregasCandidatas[0].id,
-          requisitoMaterialId,
-        });
-        await cargarSnapshot();
-        await cargarProductosCompatibles();
-        const producto = materiales.find((material) => material.id === productoMaterialId);
-        setFlowMsg({ type: "ok", text: `${producto?.descripcion || "El producto"} quedó asociado a ${row.requisitoDescripcion || row.descripcion} solo para ${obra?.codigo || "esta obra"}.` });
-        return;
-      }
-      if (entregasCandidatas.length > 1) {
-        throw new Error("Hay más de una entrega de ese producto en esta obra. Revisalas antes de vincularlo al requisito.");
       }
 
       const saved = await ensureSnapshotForFlow();
@@ -5982,25 +5950,15 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     const materialesDeLinea = (materiales ?? [])
       .filter(materialActivo)
       .filter((m) => materialQty(m, code) > 0);
-    const productosDirectosEnLinea = new Set(materialesDeLinea.map((material) => material.id));
     const materialPorId = new Map((materiales ?? []).map((material) => [material.id, material]));
 
-    return materialesDeLinea
-    .filter((m) => {
-      const modeloConfig = (m.modelos ?? []).find((item) => (
-        String(item.modelo) === String(code)
-        && String(item.variante || "standard") === "standard"
-      ));
-      return !(m.es_requisito === true
-        && modeloConfig?.producto_predeterminado_id
-        && productosDirectosEnLinea.has(modeloConfig.producto_predeterminado_id));
-    })
-    .map((m) => {
+    return materialesDeLinea.map((m) => {
       const modeloConfig = (m.modelos ?? []).find((item) => (
         String(item.modelo) === String(code)
         && String(item.variante || "standard") === "standard"
       )) || null;
-      const producto = modeloConfig?.producto_predeterminado_id
+      const productoPorObra = productoSeDefinePorObra(m);
+      const producto = !productoPorObra && modeloConfig?.producto_predeterminado_id
         ? materialPorId.get(modeloConfig.producto_predeterminado_id) || null
         : null;
       const materialOperativo = producto || m;
@@ -7649,19 +7607,12 @@ function mergeSnapshotIntoLive(live, snapshot) {
     snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),
     descripcion: remitoDeAddon
       ? live.descripcion || snapshot.descripcion
-      : snapshotDefineProducto && snapshot.producto?.descripcion
-        ? snapshot.producto.descripcion
-        : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
-    requisitoDescripcion: snapshotDefineProducto && snapshot.producto?.descripcion
-      ? live.requisitoDescripcion || live.descripcion
-      : live.requisitoDescripcion || "",
+      : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
     snapshotDescripcion: snapshot.snapshotDescripcion || snapshot.descripcion,
     descripcionOriginal: snapshot.descripcionOriginal || "",
     codigo: remitoDeAddon
       ? live.codigo || snapshot.codigo
-      : snapshotDefineProducto && snapshot.producto?.codigo
-        ? snapshot.producto.codigo
-        : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
+      : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
     // El adicional conserva la cantidad planificada; el detalle recibido queda
     // en recepcion_cantidad_recibida. Antes la cantidad de un remito parcial
     // reemplazaba la necesidad original y daba la impresiÃ³n de dos Ã­tems.

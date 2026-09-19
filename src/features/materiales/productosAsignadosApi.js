@@ -71,22 +71,6 @@ export async function guardarConfiguracionProductoObra({
   return data;
 }
 
-export async function reconciliarProductoSnapshotConRequisito({
-  snapshotId,
-  requisitoMaterialId,
-} = {}) {
-  if (!snapshotId || !requisitoMaterialId) throw new Error("Falta el producto entregado o el requisito de matriz.");
-  const { data, error } = await supabase.rpc("panol_reconciliar_snapshot_con_requisito", {
-    p_snapshot_id: snapshotId,
-    p_requisito_material_id: requisitoMaterialId,
-  });
-  if (error) {
-    if (schemaMissing(error)) throw new Error("Falta aplicar la migración de conciliación por obra.");
-    throw error;
-  }
-  return data;
-}
-
 export async function guardarConfiguracionProductoLinea({
   requisitoMaterialId,
   modelo,
