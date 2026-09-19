@@ -63,9 +63,9 @@ async function fetchPaged(table, select, orderColumn = "id") {
 
 async function fetchMaterialesCatalogo() {
   const baseSelect =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
+    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, es_requisito, producto_por_obra, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
   const baseSelectNoLinks =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, es_requisito, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
+    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, es_requisito, producto_por_obra, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
   try {
     return (
       await fetchPaged(
@@ -109,6 +109,7 @@ async function fetchMaterialesCatalogo() {
         stock_minimo: null,
         es_consumible: row.es_consumible ?? false,
         es_requisito: false,
+        producto_por_obra: false,
       }));
     }
   }
@@ -2156,6 +2157,9 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     ...(material.es_requisito !== undefined
       ? { es_requisito: !!material.es_requisito }
       : {}),
+    ...(material.producto_por_obra !== undefined
+      ? { producto_por_obra: !!material.producto_por_obra }
+      : {}),
     // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
     ...(material.es_consumible !== undefined
       ? { es_consumible: !!material.es_consumible }
@@ -2174,6 +2178,7 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     delete fallbackPatch.links;
     delete fallbackPatch.alias;
     delete fallbackPatch.es_requisito;
+    delete fallbackPatch.producto_por_obra;
     const retry = await supabase
       .from("panol_materiales")
       .update(fallbackPatch)
@@ -2212,6 +2217,9 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
     ...(material.es_requisito !== undefined
       ? { es_requisito: !!material.es_requisito }
       : {}),
+    ...(material.producto_por_obra !== undefined
+      ? { producto_por_obra: !!material.producto_por_obra }
+      : {}),
     // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
     ...(material.es_consumible !== undefined
       ? { es_consumible: !!material.es_consumible }
@@ -2230,6 +2238,7 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
     delete fallbackPatch.links;
     delete fallbackPatch.alias;
     delete fallbackPatch.es_requisito;
+    delete fallbackPatch.producto_por_obra;
     const retry = await supabase
       .from("panol_materiales")
       .update(fallbackPatch)
@@ -2306,6 +2315,7 @@ export async function crearMaterial(material, cantidades = {}) {
       activo: true,
       es_consumible: !!material.es_consumible,
       es_requisito: !!material.es_requisito,
+      producto_por_obra: !!material.producto_por_obra,
     })
     .select("id")
     .single();

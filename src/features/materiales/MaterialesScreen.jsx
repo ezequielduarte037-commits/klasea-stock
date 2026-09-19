@@ -754,6 +754,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
     notas: "",
     revisado: true,
     es_requisito: false,
+    producto_por_obra: false,
   }), [selectedId]);
   const [draft, setDraft] = useState(() => emptyDraft());
   const [cantidades, setCantidades] = useState({ 37: "", 52: "", 55: "" });
@@ -838,6 +839,13 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
           <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>Ej.: “TV 32 pulgadas”. Los modelos Samsung, LG o Noblex se crean como productos separados y se asignan en cada obra.</span>
         </span>
       </label>
+      {draft.es_requisito && <label style={{ display: "flex", alignItems: "flex-start", gap: 9, border: `1px solid ${draft.producto_por_obra ? C.violetB : C.b0}`, background: draft.producto_por_obra ? C.violetL : C.bg, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
+        <input type="checkbox" checked={!!draft.producto_por_obra} onChange={(e) => setDraft((current) => ({ ...current, producto_por_obra: e.target.checked }))} style={{ marginTop: 2 }} />
+        <span>
+          <span style={{ display: "block", color: draft.producto_por_obra ? C.violet : C.t0, fontSize: 12.5, fontWeight: 700 }}>El producto se define por cada obra</span>
+          <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No se propone un estándar de línea. Usalo para pisos, terminaciones o elecciones que cambian según el barco.</span>
+        </span>
+      </label>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
         <input placeholder="Precio" type="number" step="any" value={draft.precio_unitario} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={INP} />
         <select value={draft.moneda} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={INP}>
@@ -1740,6 +1748,13 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No suma stock por marca/modelo. En cada obra se le asigna un producto concreto del catálogo.</span>
             </span>
           </label>
+          {draft.es_requisito && <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer", border: `1px solid ${draft.producto_por_obra ? C.violetB : C.b0}`, background: draft.producto_por_obra ? C.violetL : C.bg, borderRadius: 10, padding: "9px 11px" }}>
+            <input type="checkbox" checked={!!draft.producto_por_obra} onChange={(e) => setDraft((d) => ({ ...d, producto_por_obra: e.target.checked }))} style={{ marginTop: 2 }} />
+            <span>
+              <span style={{ display: "block", color: draft.producto_por_obra ? C.violet : C.t0, fontSize: 12, fontWeight: 700 }}>Producto específico por obra</span>
+              <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No permite establecer un producto estándar para toda la línea.</span>
+            </span>
+          </label>}
           <div className="material-editor-pair" style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
             <div>
               <span style={lbl}>Alias / nombre corto</span>
@@ -4231,6 +4246,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         productoMaterialId: producto?.id || null,
         producto,
         productoEstandar: !!producto,
+        productoPorObra: m.producto_por_obra === true,
         esRequisito: m.es_requisito === true || materialVariants(m).length > 0 || !!producto,
         especificaciones: normalizeProductSpecs(modeloConfig?.especificaciones_defecto),
         especificacionesOrigen: modeloConfig ? "matriz_linea" : null,
@@ -5372,7 +5388,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
       {!!row.condicionantes?.length && <div style={{ display: "grid", gap: 5 }}><strong>Condicionantes</strong>{row.condicionantes.map((item) => <span key={`${item.id}-${item.condicionante}`} style={{ color: item.delta < 0 ? C.red : C.violet }}>{item.condicionante}: {item.label}</span>)}</div>}
       {productSpecEntries(row.especificaciones).map((item) => <div key={item.key}><span style={{ color: C.muted }}>{item.label}: </span>{item.value}</div>)}
-      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
+      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
       <RecepcionDetalle row={row} />
     </div>;
     if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
