@@ -58,6 +58,7 @@ import {
   fetchRequisitoProductos,
   guardarConfiguracionProductoLinea,
   guardarConfiguracionProductoObra,
+  reconciliarProductoSnapshotConRequisito,
 } from "./productosAsignadosApi";
 import {
   normalizeProductSpecs,
@@ -4926,6 +4927,32 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         return;
       }
 
+      const requisitoMaterialId = row.requisitoMaterialId || row.materialId;
+      // Si Pañol ya entregó este producto a ESTA obra como una fila fuera de
+      // matriz, no se crea otra fila pendiente. Se le da la identidad del
+      // requisito de matriz y la entrega pasa a verse sobre la misma línea.
+      const entregasCandidatas = productoMaterialId
+        ? snapshot.filter((item) => (
+          item?.material_id === productoMaterialId
+          && (!item?.requisito_material_id || item.requisito_material_id === item.material_id)
+          && !isLedgerOnlySnapshot({ source: item.source, snapshot_tipo: item.tipo, bucket: { key: item.tipo } })
+        ))
+        : [];
+      if (entregasCandidatas.length === 1) {
+        await reconciliarProductoSnapshotConRequisito({
+          snapshotId: entregasCandidatas[0].id,
+          requisitoMaterialId,
+        });
+        await cargarSnapshot();
+        await cargarProductosCompatibles();
+        const producto = materiales.find((material) => material.id === productoMaterialId);
+        setFlowMsg({ type: "ok", text: `${producto?.descripcion || "El producto"} quedó asociado a ${row.requisitoDescripcion || row.descripcion} solo para ${obra?.codigo || "esta obra"}.` });
+        return;
+      }
+      if (entregasCandidatas.length > 1) {
+        throw new Error("Hay más de una entrega de ese producto en esta obra. Revisalas antes de vincularlo al requisito.");
+      }
+
       const saved = await ensureSnapshotForFlow();
       let snapIds = snapshotIdsForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
       if (!snapIds.length && obra?.id) {
@@ -7622,12 +7649,19 @@ function mergeSnapshotIntoLive(live, snapshot) {
     snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),
     descripcion: remitoDeAddon
       ? live.descripcion || snapshot.descripcion
-      : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+      : snapshotDefineProducto && snapshot.producto?.descripcion
+        ? snapshot.producto.descripcion
+        : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+    requisitoDescripcion: snapshotDefineProducto && snapshot.producto?.descripcion
+      ? live.requisitoDescripcion || live.descripcion
+      : live.requisitoDescripcion || "",
     snapshotDescripcion: snapshot.snapshotDescripcion || snapshot.descripcion,
     descripcionOriginal: snapshot.descripcionOriginal || "",
     codigo: remitoDeAddon
       ? live.codigo || snapshot.codigo
-      : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
+      : snapshotDefineProducto && snapshot.producto?.codigo
+        ? snapshot.producto.codigo
+        : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
     // El adicional conserva la cantidad planificada; el detalle recibido queda
     // en recepcion_cantidad_recibida. Antes la cantidad de un remito parcial
     // reemplazaba la necesidad original y daba la impresiÃ³n de dos Ã­tems.
