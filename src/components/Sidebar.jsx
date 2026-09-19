@@ -134,6 +134,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M8 8v6" {...p}/>
       <path d="M4.5 6.2l6-3" {...p}/>
     </>,
+    "/motores-y-grupos": <>
+      <rect x="2" y="5.5" width="9.5" height="7" rx="1.5" {...p}/>
+      <path d="M4.5 5.5V3.5h4.5v2" {...p}/>
+      <path d="M11.5 7.5h2.5v3h-2.5M2 9H.8" {...p}/>
+      <path d="M7.3 7l-1.6 2.2h2.1L6.2 11.4" {...p}/>
+    </>,
     "/stock-panol?tab=sobrantes": <>
       <path d="M3 3h10v10H3z" {...p}/>
       <path d="M6 3v10M3 7h10" {...p}/>
@@ -816,6 +822,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {item("/catalogo-maestro", "Catálogo maestro", SC.movimientos, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
           {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.movimientos, true, 140, "Plano de estanterías y productos ubicados.")}
           {item("/stock-panol?tab=movimientos", "Movimientos", SC.movimientos, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
+          {item("/motores-y-grupos", "Motores y grupos", SC.movimientos, true, 155, "Motores y grupos electrógenos por barco, en el galpón y entregados, con su número de serie.")}
           {item("/compras", "Pedidos a compras", SC.compras, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
 
           {divider("panol-apoyo")}
@@ -869,6 +876,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
           {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
           {item("/stock-panol", "Stock", SC.panol_catalogo, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
+          {item("/motores-y-grupos", "Motores y grupos", SC.panol_catalogo, true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
         </>}
 
         {puedeVerCatalogo && !esPanol && <>

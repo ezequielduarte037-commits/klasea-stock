@@ -10,7 +10,7 @@
  * memoria no menciona, campos que la plantilla de la línea no tiene).
  *
  * Beta: los vínculos se sugieren por nombre (memoriaViva.js). La migración
- * 20260917130000_memoria_viva.sql agrega las tablas para confirmarlos.
+ * 20260917140000_memoria_viva.sql agrega las tablas para confirmarlos.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";

@@ -649,10 +649,8 @@ export default function PedirAComprasModal({
           <button
             type="button"
             onClick={() => onClose()}
-            style={{
-              border: "none", background: "transparent",
-              color: C.dim, cursor: "pointer", padding: 4,
-            }}
+            className="ui-btn ui-btn-icono"
+            aria-label="Cerrar"
           >
             <X size={17} />
           </button>
@@ -742,7 +740,7 @@ export default function PedirAComprasModal({
               border: `1px dashed ${C.border2}`,
               borderRadius: 9,
               padding: 11,
-              background: "rgba(52,211,153,0.05)",
+              background: C.greenL,
               display: "grid",
               gap: 8,
             }}>
@@ -767,7 +765,7 @@ export default function PedirAComprasModal({
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 5,
                     background: plantillaObra && !loadingPlantilla ? C.teal : C.panel2,
-                    color: plantillaObra && !loadingPlantilla ? "#04201a" : C.dim,
+                    color: plantillaObra && !loadingPlantilla ? "var(--inverse-text)" : C.dim,
                     border: "none",
                     borderRadius: 7,
                     padding: "7px 14px",
@@ -935,7 +933,7 @@ export default function PedirAComprasModal({
               border: `1px dashed ${C.border2}`,
               borderRadius: 9,
               padding: 11,
-              background: "rgba(96,165,250,0.04)",
+              background: C.blueL,
               display: "grid",
               gap: 8,
             }}
@@ -1007,7 +1005,7 @@ export default function PedirAComprasModal({
                 justifySelf: "start",
                 display: "inline-flex", alignItems: "center", gap: 5,
                 background: newDesc.trim() ? C.blue : C.panel2,
-                color: newDesc.trim() ? "#fff" : C.dim,
+                color: newDesc.trim() ? "var(--inverse-text)" : C.dim,
                 border: "none",
                 borderRadius: 7,
                 padding: "6px 12px",
@@ -1123,7 +1121,7 @@ export default function PedirAComprasModal({
             style={{
               border: "none",
               background: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.panel2 : C.blue,
-              color: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.dim : "#fff",
+              color: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.dim : "var(--inverse-text)",
               borderRadius: 7,
               padding: "9px 16px",
               cursor: saving || !title.trim() || items.length === 0 || !tipoPedido ? "default" : "pointer",
@@ -1144,10 +1142,10 @@ export default function PedirAComprasModal({
 
 const labelStyle = {
   color: "var(--dim)",
-  fontSize: 10,
-  letterSpacing: 1.2,
+  fontSize: 11,
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
-  fontWeight: 650,
+  fontWeight: 600,
   marginBottom: 6,
 };
 

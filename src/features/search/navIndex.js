@@ -133,6 +133,12 @@ export const NAV_SECTIONS = [
     roles: PANOL,
   },
   {
+    id: "motores-y-grupos", label: "Motores y grupos", modulo: "Pañol", path: "/motores-y-grupos", Icon: Cog,
+    hint: "Motores y grupos electrógenos por barco: qué llegó, qué falta y su número de serie.",
+    keywords: "motor motores grupo grupos electrogeno generador iveco fpt volvo mercury kohler onan numero serie sala maquinas",
+    roles: PANOL_COMPRAS,
+  },
+  {
     id: "stock-mapa", label: "Mapa del pañol", modulo: "Pañol", path: "/stock-panol?tab=mapa", Icon: LayoutGrid,
     hint: "Plano de estanterías y dónde está ubicado cada producto.",
     keywords: "mapa plano estanteria estante ubicacion donde esta rack posicion",

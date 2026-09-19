@@ -179,8 +179,8 @@ export default function ComprasBicho({ profile }) {
   return (
     <>
       <style>{`
-        .bicho-launcher { position: fixed; right: 22px; bottom: 78px; z-index: 120; display: flex; align-items: center; gap: 9px; border: 1px solid var(--bicho-color); border-radius: 18px; padding: 7px 12px 7px 7px; background: color-mix(in srgb, var(--panel-solid) 90%, var(--bicho-color)); color: var(--text); box-shadow: 0 12px 32px rgba(15,23,42,.18); cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
-        .bicho-launcher:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(15,23,42,.23); }
+        .bicho-launcher { position: fixed; right: 22px; bottom: 78px; z-index: 120; display: flex; align-items: center; gap: 9px; border: 1px solid var(--bicho-color); border-radius: 18px; padding: 7px 12px 7px 7px; background: color-mix(in srgb, var(--panel-solid) 90%, var(--bicho-color)); color: var(--text); box-shadow: 0 12px 32px var(--shadow); cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+        .bicho-launcher:hover { transform: translateY(-2px); box-shadow: 0 16px 36px var(--shadow-strong); }
         .bicho-launcher:focus-visible, .bicho-panel button:focus-visible, .bicho-panel input:focus-visible { outline: 3px solid color-mix(in srgb, var(--bicho-color) 30%, transparent); outline-offset: 2px; }
         .bicho-copy { display: grid; gap: 1px; text-align: left; }
         .bicho-copy strong { font-size: 12px; letter-spacing: .02em; }
@@ -196,7 +196,7 @@ export default function ComprasBicho({ profile }) {
         .bicho-whisker { position: absolute; top: 17px; width: 9px; height: 1px; background: var(--bicho-color); opacity: .7; } .bicho-whisker-left { left: -7px; transform: rotate(10deg); } .bicho-whisker-right { right: -7px; transform: rotate(-10deg); }
         .bicho-collar { position: absolute; left: 12px; bottom: 2px; width: 14px; height: 4px; border-radius: 8px; background: var(--bicho-color); }
         .bicho-cat-alerta .bicho-mouth, .bicho-cat-atento .bicho-mouth { transform: rotate(180deg); top: 20px; }
-        .bicho-panel { position: fixed; right: 22px; bottom: 132px; z-index: 121; width: min(390px, calc(100vw - 28px)); max-height: min(650px, calc(100vh - 160px)); display: grid; grid-template-rows: auto 1fr auto auto; overflow: hidden; border: 1px solid color-mix(in srgb, var(--bicho-color) 30%, var(--border)); border-radius: 18px; background: color-mix(in srgb, var(--panel-solid) 96%, var(--bicho-color)); color: var(--text); box-shadow: 0 24px 70px rgba(15,23,42,.28); }
+        .bicho-panel { position: fixed; right: 22px; bottom: 132px; z-index: 121; width: min(390px, calc(100vw - 28px)); max-height: min(650px, calc(100vh - 160px)); display: grid; grid-template-rows: auto 1fr auto auto; overflow: hidden; border: 1px solid color-mix(in srgb, var(--bicho-color) 30%, var(--border)); border-radius: 18px; background: color-mix(in srgb, var(--panel-solid) 96%, var(--bicho-color)); color: var(--text); box-shadow: 0 24px 70px var(--shadow-strong); }
         .bicho-panel-head { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bicho-color) 8%, var(--panel-solid)); }
         .bicho-close { margin-left: auto; border: 0; background: transparent; color: var(--dim); cursor: pointer; padding: 5px; border-radius: 8px; }
         .bicho-close:hover { background: var(--panel-2); color: var(--text); }
@@ -209,7 +209,7 @@ export default function ComprasBicho({ profile }) {
         .bicho-quick button:hover { border-color: var(--bicho-color); }
         .bicho-compose { display: flex; gap: 7px; padding: 11px 13px 13px; border-top: 1px solid var(--border); }
         .bicho-compose input { min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; }
-        .bicho-compose button { width: 35px; border: 0; border-radius: 10px; background: var(--bicho-color); color: #fff; cursor: pointer; }
+        .bicho-compose button { width: 35px; border: 0; border-radius: 10px; background: var(--bicho-color); color: var(--inverse-text); cursor: pointer; }
         .bicho-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 13px 12px; }
         .bicho-stat { padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
         .bicho-stat strong { display: block; font: 650 16px var(--mono); color: var(--bicho-color); } .bicho-stat span { color: var(--dim); font-size: 9px; font-weight: 650; }

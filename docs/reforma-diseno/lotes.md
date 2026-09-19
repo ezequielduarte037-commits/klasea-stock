@@ -138,6 +138,7 @@ Rutas de archivos relativas a `src/features/`. Una carpeta terminada en `/` incl
 | Configuración e instrucciones | `package.json`, `package-lock.json`, `vite.config.js`, `CURSOR.md`, `.claude/skills/klasea-ui-polish/SKILL.md`, `prompt-cursor-reforma-diseno.md`, este archivo, `scripts/` |
 | Terminadas | `features/login/`, `features/home/`, `obras/ObrasHome.jsx`, `panol/PanolOperativoHome.jsx` |
 | Otra identidad | `features/cliente/` (panel para clientes) |
+| En construcción (Claude) | `features/memorias/` (Memoria viva), `features/equipos/` (Motores y grupos, `/motores-y-grupos`) |
 | Para imprimir | `panol/SolicitudPanolPrintable.jsx`, `compras/printPurchaseRequest.js`, `muebles/printFaltantes.js` |
 | Parecen sin uso (ninguna ruta las abre) | `inventario/PanolScreen.jsx`, `inventario/MovimientosScreen.jsx`, `inventario/StockChartsPanel.jsx`, `compras/RadarProfeta.jsx`, `obras/PlanificacionView.jsx`, `obras/AvisosCompraView.jsx` |
 

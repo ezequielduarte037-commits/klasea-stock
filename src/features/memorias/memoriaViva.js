@@ -11,7 +11,7 @@
 //
 // Todo este archivo es lógica pura (sin React ni Supabase) para poder probarlo
 // contra datos reales. Mientras no existan memoria_reglas y memoria_vinculos
-// (ver supabase/migrations/20260917130000_memoria_viva.sql), el vínculo entre un
+// (ver supabase/migrations/20260917140000_memoria_viva.sql), el vínculo entre un
 // campo de la memoria y un material se SUGIERE por palabras clave y por el
 // propio valor cargado ("Dekton Entzo" encuentra la mesada Dekton Entzo).
 

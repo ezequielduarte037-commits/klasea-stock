@@ -4,15 +4,16 @@ import { CheckCircle2, Clock, FileUp, MessageSquare, Package, RefreshCw } from "
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 import logoK from "@/assets/logos/logo-k.png";
+import Cargando from "@/components/ui/Cargando";
 
 // Portal público para proveedores (acceso por link con token, sin cuenta).
 // Todo pasa por la edge function portal-proveedor; acá no se consulta ninguna tabla.
 
-const STATUS_LABEL = {
-  nuevo: ["Nuevo", "#a1a1aa"],
-  en_revision: ["En revisión", "#a1a1aa"],
-  cotizando: ["Cotizando", "#22d3ee"],
-  comprado: ["Comprado · esperando entrega", "#3b82f6"],
+const STATUS_META = {
+  nuevo: { label: "Nuevo", color: C.dim, bg: C.panel2, border: C.border },
+  en_revision: { label: "En revisión", color: C.dim, bg: C.panel2, border: C.border },
+  cotizando: { label: "Cotizando", color: C.cyan, bg: C.cyanL, border: C.cyanB },
+  comprado: { label: "Comprado · esperando entrega", color: C.blue, bg: C.blueL, border: C.blueB },
 };
 
 async function callPortal(body) {
@@ -38,7 +39,7 @@ function PedidoCard({ pedido, token, onDone }) {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const [statusLabel, statusColor] = STATUS_LABEL[pedido.status] || [pedido.status, C.dim];
+  const status = STATUS_META[pedido.status] || { label: pedido.status, color: C.dim, bg: C.panel2, border: C.border };
   const confirmado = (pedido.eventos || []).find((e) => e.tipo === "entrega_confirmada");
   const facturas = (pedido.eventos || []).filter((e) => e.tipo === "factura");
 
@@ -88,11 +89,11 @@ function PedidoCard({ pedido, token, onDone }) {
   };
 
   return (
-    <div className="portal-card" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 10px 30px -18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.05)" }}>
+    <div className="portal-card" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 10px 30px -18px var(--shadow)" }}>
       <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text, flex: "1 1 200px", minWidth: 0 }}>{pedido.title}</div>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: statusColor, border: `1px solid ${statusColor}44`, background: `${statusColor}14`, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>{statusLabel}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: status.color, border: `1px solid ${status.border}`, background: status.bg, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>{status.label}</span>
         </div>
         <div style={{ fontSize: 11.5, color: C.dim, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
           {pedido.obra && <span>Obra {pedido.obra}</span>}
@@ -143,7 +144,7 @@ function PedidoCard({ pedido, token, onDone }) {
         {accion === "confirmar" && (
           <div style={{ display: "grid", gap: 8 }}>
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 10.5, color: C.dim, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.8 }}>Fecha estimada de entrega (opcional)</span>
+              <span style={{ fontSize: 11, color: C.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Fecha estimada de entrega (opcional)</span>
               <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inp} />
             </label>
             <input value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Nota (opcional): transporte, horario, parcial..." style={inp} />
@@ -159,8 +160,8 @@ function PedidoCard({ pedido, token, onDone }) {
           <textarea value={mensaje} onChange={(e) => setMensaje(e.target.value)} rows={3} placeholder="Mensaje para compras..." style={{ ...inp, resize: "vertical" }} />
         )}
         {accion && (
-          <button type="button" onClick={enviar} disabled={busy} style={{ padding: "11px 14px", borderRadius: 10, border: "none", cursor: busy ? "default" : "pointer", background: busy ? C.panel : C.blue, color: busy ? C.dim : "#fff", fontSize: 13.5, fontWeight: 700, fontFamily: C.sans }}>
-            {busy ? "Enviando..." : "Enviar"}
+          <button type="button" onClick={enviar} disabled={busy} className="ui-btn ui-btn-primario" style={{ width: "100%", opacity: busy ? 0.6 : 1 }}>
+            {busy ? "Enviando…" : "Enviar"}
           </button>
         )}
         {feedback && <div style={{ fontSize: 12.5, color: feedback.includes("¡") || feedback.includes("enviado") ? C.green : C.red, fontWeight: 600 }}>{feedback}</div>}
@@ -190,10 +191,10 @@ export default function PortalProveedorScreen() {
   useEffect(() => { cargar(); }, [cargar]);
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, padding: "0 0 60px", position: "relative", overflow: "hidden" }}>
+    <div className="portal-root" style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, padding: "0 0 60px", position: "relative", overflow: "hidden" }}>
       <style>{`
         @keyframes portalRise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-        .portal-card { animation: portalRise .38s cubic-bezier(.22,1,.36,1) both; }
+        .portal-root .portal-card { animation: portalRise .38s cubic-bezier(.22,1,.36,1) both; }
       `}</style>
 
       {/* Glow + grilla de fondo (mismo lenguaje visual que el login) */}
@@ -202,18 +203,18 @@ export default function PortalProveedorScreen() {
 
       {/* Hero con logo */}
       <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "38px 18px 8px" }}>
-        <div style={{ width: 64, height: 64, borderRadius: 17, background: "#0d1526", border: "1px solid rgba(148,163,184,0.22)", display: "grid", placeItems: "center", margin: "0 auto 13px", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+        <div style={{ width: 64, height: 64, borderRadius: 17, background: C.panelSolid, border: `1px solid ${C.border}`, display: "grid", placeItems: "center", margin: "0 auto 13px", boxShadow: "0 10px 26px -10px var(--shadow)" }}>
           <img src={logoK} alt="Klase A" style={{ width: 38, height: 38, objectFit: "contain", display: "block" }} />
         </div>
         <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: "0.14em", color: C.text }}>KLASE A</div>
         <div style={{ marginTop: 5, fontSize: 10.5, letterSpacing: "0.14em", color: C.dim, textTransform: "uppercase", fontWeight: 650 }}>Portal de proveedores</div>
-        <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ position: "absolute", right: 14, top: 14, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 9, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center" }}>
+        <button type="button" onClick={cargar} disabled={loading} title="Actualizar" aria-label="Actualizar" className="ui-btn ui-btn-icono" style={{ position: "absolute", right: 14, top: 14 }}>
           <RefreshCw size={15} />
         </button>
       </div>
 
       <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto", padding: "18px 14px", display: "grid", gap: 12 }}>
-        {loading && <div style={{ padding: 50, textAlign: "center", color: C.dim }}>Cargando pedidos...</div>}
+        {loading && <Cargando texto="Cargando pedidos…" />}
         {!loading && error && (
           <div style={{ padding: "30px 20px", textAlign: "center", color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 14, fontSize: 13.5 }}>{error}</div>
         )}

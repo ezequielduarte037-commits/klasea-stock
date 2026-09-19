@@ -60,6 +60,7 @@ import {
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { CardSkeleton, RowSkeleton, Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
+import Cargando from "@/components/ui/Cargando";
 import AdditionalPurchasesPanel from "@/features/compras/AdditionalPurchasesPanel";
 import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
 import CadeteRutaScreen from "@/features/cadete/CadeteRutaScreen";
@@ -155,7 +156,7 @@ const statusIcons = {
 const priorityColors = {
   baja: C.dim,
   media: C.blue,
-  alta: C.orange,
+  alta: C.violet,
   urgente: C.red,
 };
 
@@ -299,7 +300,7 @@ function RequestCard({ request, onClick, isUnread }) {
           }}>
             {request.title}
           </span>
-          {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
+          {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0 }} />}
           <span style={{ marginLeft: "auto", flexShrink: 0 }}>
             <Chip color={priorityColors[request.priority]} size="xs">
               {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
@@ -345,10 +346,10 @@ function RequestCard({ request, onClick, isUnread }) {
 }
 
 const SOURCE_COLORS = {
-  laminacion: "#2dd4bf",
-  madera: "var(--cyan)",
-  inventario: "#8b5cf6",
-  adicionales: "#34d399",
+  laminacion: C.teal,
+  madera: C.cyan,
+  inventario: C.violet,
+  adicionales: C.green,
 };
 const SOURCE_LABELS = {
   laminacion: "Laminación",
@@ -395,7 +396,7 @@ function RequestRow({ request, onClick, isUnread }) {
           }}>
             {request.title}
           </span>
-          {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
+          {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0 }} />}
           {srcColor && (
             <span style={{ fontSize: 10, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
               {SOURCE_LABELS[request.source] || request.source}
@@ -707,13 +708,13 @@ function ComprasCompanionV2({ requests, onOpenNew }) {
   const label = vencidos > 0 ? `${vencidos} vencido${vencidos === 1 ? "" : "s"}` : urgentes > 0 ? `${urgentes} urgente${urgentes === 1 ? "" : "s"}` : nuevos > 0 ? `${nuevos} nuevo${nuevos === 1 ? "" : "s"}` : "Bandeja al día";
 
   return (
-    <button type="button" className="compras-companion compras-companion-v2" onClick={() => onOpenNew("nuevo")} title="Abrir resumen de Compras" aria-label={`${label}. Abrir resumen de Compras`} style={{ borderColor: `${color}38`, background: `${color}10` }}>
+    <button type="button" className="compras-companion compras-companion-v2" onClick={() => onOpenNew("nuevo")} title="Abrir resumen de Compras" aria-label={`${label}. Abrir resumen de Compras`} style={{ borderColor: `color-mix(in srgb, ${color} 28%, var(--border))`, background: `color-mix(in srgb, ${color} 12%, transparent)` }}>
       <span className={`compras-bot compras-bot-${mood}`} style={{ "--bot-color": color }}>
         <span className="compras-bot-antenna" />
         <span className="compras-bot-face"><span className="compras-bot-eye" /><span className="compras-bot-eye" /><span className="compras-bot-mouth" /></span>
       </span>
       <span className="compras-companion-copy">
-        <span style={{ color, fontSize: 9, letterSpacing: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Comprín</span>
+        <span style={{ color, fontSize: 11, letterSpacing: "0.07em", fontWeight: 600, textTransform: "uppercase" }}>Comprín</span>
         <strong>{label}</strong>
         <small>{nuevos} nuevos · {revision} revisión · {cotizando} cotizando</small>
         <small>{comprados} por recibir{urgentes ? ` · ${urgentes} urgentes` : ""}</small>
@@ -1401,26 +1402,25 @@ export default function PurchaseRequestsScreen({ profile }) {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .purchase-card, .purchase-row {
+        .compras-root .purchase-card, .compras-root .purchase-row {
           animation: pr-card-in .22s cubic-bezier(.22,1,.36,1) both;
         }
-        .purchase-card:hover {
+        .compras-root .purchase-card:hover {
           background: var(--panel-2) !important;
           border-color: var(--border-2) !important;
           transform: translateY(-2px);
           box-shadow: 0 8px 24px var(--shadow);
         }
-        .purchase-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease !important; }
-        .purchase-card:active { transform: translateY(0); transition-duration: .05s !important; }
-        .purchase-row:hover {
+        .compras-root .purchase-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease !important; }
+        .compras-root .purchase-card:active { transform: translateY(0); transition-duration: .05s !important; }
+        .compras-root .purchase-row:hover {
           background: var(--panel-2) !important;
           border-color: var(--border-2) !important;
         }
-        .purchase-row { transition: background .14s ease, border-color .14s ease; }
-        .purchase-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
-        .purchase-scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
-        .stat-chip { transition: opacity .14s ease, background .14s ease, color .14s ease; }
-        .stat-chip:hover { opacity: .85; }
+        .compras-root .purchase-row { transition: background .14s ease, border-color .14s ease; }
+        .compras-root .purchase-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+        .compras-root .purchase-scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+        .compras-root .stat-chip { transition: background .14s ease, color .14s ease, border-color .14s ease; }
         .compras-companion { transition: transform .16s ease, box-shadow .16s ease, filter .16s ease; }
         .compras-companion:hover { transform: translateY(-1px); box-shadow: 0 7px 18px var(--shadow); filter: saturate(1.08); }
         .compras-companion:active { transform: translateY(0); }
@@ -1440,114 +1440,112 @@ export default function PurchaseRequestsScreen({ profile }) {
         .compras-bot-alerta .compras-bot-eye { height: 3px; border-radius: 0; transform: rotate(35deg); }
         .compras-root input[type="date"]::-webkit-calendar-picker-indicator { opacity: .75; }
         
-        /* Ajustes para ReactQuill */
-        .ql-toolbar.ql-snow {
+        /* Ajustes para ReactQuill — con ámbito para no pintar el resto de la app */
+        .compras-root .ql-toolbar.ql-snow {
           border: none !important;
           border-bottom: 1px solid var(--border) !important;
           background: var(--panel) !important;
           padding: 8px 12px !important;
         }
-        .ql-container.ql-snow {
+        .compras-root .ql-container.ql-snow {
           border: none !important;
           font-family: 'Outfit', sans-serif !important;
           font-size: 14px !important;
           color: var(--text) !important;
         }
-        .ql-editor {
-          min-height: 180px !important; /* Más alto para mayor comodidad */
+        .compras-root .ql-editor {
+          min-height: 180px !important;
           padding: 14px !important;
         }
-        .ql-editor.ql-blank::before {
+        .compras-root .ql-editor.ql-blank::before {
           color: var(--dim) !important; /* Placeholder oscuro */
           font-style: normal !important;
         }
-        .ql-snow .ql-stroke { stroke: var(--muted) !important; }
-        .ql-snow .ql-fill, .ql-snow .ql-stroke.ql-fill { fill: var(--muted) !important; }
-        .ql-snow.ql-toolbar button:hover .ql-stroke { stroke: var(--text) !important; }
-        .ql-snow.ql-toolbar button:hover .ql-fill { fill: var(--text) !important; }
-        .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: var(--blue) !important; }
-        .ql-snow.ql-toolbar button.ql-active .ql-fill { fill: var(--blue) !important; }
-        /* Dropdowns de color */
-        .ql-snow .ql-picker { color: var(--muted) !important; }
-        .ql-snow .ql-picker-options { background-color: var(--panel-solid-2) !important; border: 1px solid var(--border) !important; }
-        /* Tooltip de links */
-        .ql-snow .ql-tooltip {
+        .compras-root .ql-snow .ql-stroke { stroke: var(--muted) !important; }
+        .compras-root .ql-snow .ql-fill, .compras-root .ql-snow .ql-stroke.ql-fill { fill: var(--muted) !important; }
+        .compras-root .ql-snow.ql-toolbar button:hover .ql-stroke { stroke: var(--text) !important; }
+        .compras-root .ql-snow.ql-toolbar button:hover .ql-fill { fill: var(--text) !important; }
+        .compras-root .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: var(--blue) !important; }
+        .compras-root .ql-snow.ql-toolbar button.ql-active .ql-fill { fill: var(--blue) !important; }
+        .compras-root .ql-snow .ql-picker { color: var(--muted) !important; }
+        .compras-root .ql-snow .ql-picker-options { background-color: var(--panel-solid-2) !important; border: 1px solid var(--border) !important; }
+        .compras-root .ql-snow .ql-tooltip {
           background-color: var(--panel-solid-2) !important;
           border: 1px solid var(--border) !important;
           color: var(--text) !important;
           box-shadow: 0 4px 12px var(--shadow) !important;
         }
-        .ql-snow .ql-tooltip input[type="text"] {
+        .compras-root .ql-snow .ql-tooltip input[type="text"] {
           background-color: var(--panel) !important;
           border: 1px solid var(--border) !important;
           color: var(--text) !important;
         }
-        .ql-snow .ql-tooltip a { color: var(--blue) !important; }
-        [data-theme="light"] .ql-snow .ql-stroke { stroke: #27272a !important; }
-        [data-theme="light"] .ql-snow .ql-fill,
-        [data-theme="light"] .ql-snow .ql-stroke.ql-fill { fill: #27272a !important; }
-        [data-theme="hc"] .ql-toolbar.ql-snow,
-        [data-theme="hc"] .ql-container.ql-snow {
-          background: #000 !important;
+        .compras-root .ql-snow .ql-tooltip a { color: var(--blue) !important; }
+        [data-theme="light"] .compras-root .ql-snow .ql-stroke { stroke: var(--text) !important; }
+        [data-theme="light"] .compras-root .ql-snow .ql-fill,
+        [data-theme="light"] .compras-root .ql-snow .ql-stroke.ql-fill { fill: var(--text) !important; }
+        [data-theme="hc"] .compras-root .ql-toolbar.ql-snow,
+        [data-theme="hc"] .compras-root .ql-container.ql-snow {
+          background: var(--panel-solid) !important;
           border-color: var(--border-2) !important;
         }
-        .purchase-tabs { display: flex; align-items: center; gap: 2px; margin-left: 8px; min-width: 0; }
-        .purchase-tab {
+        .compras-root .purchase-tabs { display: flex; align-items: center; gap: 2px; margin-left: 8px; min-width: 0; }
+        .compras-root .purchase-tab {
           min-height: 32px; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
           padding: 0 11px; border: 1px solid transparent; border-radius: 9px;
           background: transparent; color: var(--dim);
           font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap;
           transition: color .15s, background-color .15s, border-color .15s;
         }
-        .purchase-tab:hover { color: var(--text); background: var(--panel); }
-        .purchase-tab.is-activa { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-border); font-weight: 600; }
-        .purchase-tab-cuenta { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--cyan); }
-        .purchase-tab.is-activa .purchase-tab-cuenta { color: var(--blue); }
-        .purchase-menu {
+        .compras-root .purchase-tab:hover { color: var(--text); background: var(--panel); }
+        .compras-root .purchase-tab.is-activa { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-border); font-weight: 600; }
+        .compras-root .purchase-tab-cuenta { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--cyan); }
+        .compras-root .purchase-tab.is-activa .purchase-tab-cuenta { color: var(--blue); }
+        .compras-root .purchase-menu {
           position: fixed; z-index: 61; overflow-y: auto; padding: 6px;
           border: 1px solid var(--border-2); border-radius: 14px;
           background: var(--panel-solid); box-shadow: var(--elev-2);
           animation: purchase-menu-in .16s cubic-bezier(.22,1,.36,1);
         }
-        .purchase-menu-grupo + .purchase-menu-grupo { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
-        .purchase-menu-grupo-titulo { padding: 7px 10px 4px; color: var(--dim); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-        .purchase-menu-item {
+        .compras-root .purchase-menu-grupo + .purchase-menu-grupo { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+        .compras-root .purchase-menu-grupo-titulo { padding: 7px 10px 4px; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+        .compras-root .purchase-menu-item {
           width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 10px;
           border: 0; border-radius: 10px; background: transparent; color: var(--text);
           font: inherit; text-align: left; transition: background-color .12s;
         }
-        .purchase-menu-item:hover { background: var(--panel-2); }
-        .purchase-menu-item svg { flex-shrink: 0; color: var(--dim); }
-        .purchase-menu-item.is-activa { background: var(--blue-soft); color: var(--blue); }
-        .purchase-menu-item.is-activa svg { color: var(--blue); }
-        .purchase-menu-titulo { display: block; font-size: 13px; font-weight: 600; }
-        .purchase-menu-ayuda { display: block; margin-top: 1px; color: var(--dim); font-size: 11.5px; line-height: 1.35; }
+        .compras-root .purchase-menu-item:hover { background: var(--panel-2); }
+        .compras-root .purchase-menu-item svg { flex-shrink: 0; color: var(--dim); }
+        .compras-root .purchase-menu-item.is-activa { background: var(--blue-soft); color: var(--blue); }
+        .compras-root .purchase-menu-item.is-activa svg { color: var(--blue); }
+        .compras-root .purchase-menu-titulo { display: block; font-size: 13px; font-weight: 600; }
+        .compras-root .purchase-menu-ayuda { display: block; margin-top: 1px; color: var(--dim); font-size: 11.5px; line-height: 1.35; }
         @keyframes purchase-menu-in { from { opacity: 0; transform: translateY(-4px); } }
         @media (max-width: 900px) {
-          .purchase-topbar {
+          .compras-root .purchase-topbar {
             height: auto !important;
             min-height: 50px !important;
             flex-wrap: wrap !important;
             padding-top: 8px !important;
             padding-bottom: 8px !important;
           }
-          .purchase-tabs {
+          .compras-root .purchase-tabs {
             order: 3;
             width: 100%;
             margin-left: 0;
             overflow-x: auto;
             scrollbar-width: none;
           }
-          .purchase-tabs::-webkit-scrollbar { display: none; }
-          .purchase-tab { min-height: 38px; }
-          .purchase-menu-item { padding: 11px 10px; }
-          .purchase-card:hover {
+          .compras-root .purchase-tabs::-webkit-scrollbar { display: none; }
+          .compras-root .purchase-tab { min-height: 38px; }
+          .compras-root .purchase-menu-item { padding: 11px 10px; }
+          .compras-root .purchase-card:hover {
             transform: none !important;
           }
-          .purchase-scroll {
+          .compras-root .purchase-scroll {
             -webkit-overflow-scrolling: touch;
           }
-          .ql-editor {
+          .compras-root .ql-editor {
             min-height: 140px !important;
           }
         }
@@ -1598,8 +1596,8 @@ export default function PurchaseRequestsScreen({ profile }) {
               {!manager && (
                 <button type="button" onClick={() => setShowNew((v) => !v)} style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
-                  border: `1px solid ${showNew ? C.blue + "55" : C.border2}`,
-                  background: showNew ? "rgba(96,165,250,0.1)" : C.panel2,
+                  border: `1px solid ${showNew ? C.blueB : C.border2}`,
+                  background: showNew ? C.blueL : C.panel2,
                   color: showNew ? C.blue : C.text,
                   borderRadius: 7, padding: "7px 11px", cursor: "pointer",
                   fontSize: 12, fontWeight: 650,
@@ -1804,14 +1802,14 @@ export default function PurchaseRequestsScreen({ profile }) {
                   <div>
                     <div style={labelStyle}>Descripción</div>
                     <div style={{
-                      background: "rgba(255,255,255,0.02)",
+                      background: C.panel,
                       border: `1px solid ${C.border}`,
                       borderRadius: 8,
                       overflow: "hidden"
                     }}>
                       <Suspense fallback={
-                        <div style={{ padding: 14, color: C.dim, fontSize: 13 }}>
-                          Cargando editor…
+                        <div style={{ padding: 14 }}>
+                          <Cargando compacto texto="Cargando editor…" />
                         </div>
                       }>
                         <ReactQuill
@@ -2046,7 +2044,7 @@ export default function PurchaseRequestsScreen({ profile }) {
                               padding: "6px 7px",
                               borderRadius: 7,
                               cursor: "pointer",
-                              background: ccUserIds.includes(user.id) ? "rgba(96,165,250,0.1)" : "transparent",
+                              background: ccUserIds.includes(user.id) ? C.blueL : "transparent",
                               transition: "background .1s",
                             }}>
                               <input type="checkbox" checked={ccUserIds.includes(user.id)} onChange={() => {
@@ -2065,7 +2063,7 @@ export default function PurchaseRequestsScreen({ profile }) {
                   </div>
 
                   {error && (
-                    <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 9, borderRadius: 8, fontSize: 13 }}>
+                    <div style={{ color: C.red, background: C.redL, border: `1px solid ${C.redB}`, padding: 9, borderRadius: 8, fontSize: 13 }}>
                       {error}
                     </div>
                   )}
@@ -2312,7 +2310,7 @@ export default function PurchaseRequestsScreen({ profile }) {
                         )}
                       </>
                     ) : error && !showNew ? (
-                      <div style={{ color: "#fca5a5", padding: 18 }}>{error}</div>
+                      <div style={{ color: C.red, padding: 18 }}>{error}</div>
                     ) : visibleList.length === 0 ? (
                       <div style={{
                         minHeight: 240,
@@ -2321,7 +2319,7 @@ export default function PurchaseRequestsScreen({ profile }) {
                         border: `1px dashed ${C.border}`,
                         borderRadius: 12,
                         color: C.dim,
-                        background: "rgba(255,255,255,0.012)",
+                        background: C.panel,
                         fontSize: 13,
                         textAlign: "center",
                         padding: 28,
@@ -2412,9 +2410,10 @@ export default function PurchaseRequestsScreen({ profile }) {
         </main>
       </div>
 
+      {/* @keyframes spin queda acá a propósito: las solapas del lote 5 (faltantes,
+          adicionales, planilla) lo usan mientras esta pantalla está montada. */}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.75); } }
       `}</style>
     </div>
   );
@@ -2663,7 +2662,7 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
 
       {foco !== "avisos" && (
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginTop: -4 }}>
-          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" }}>Agrupar por</span>
+          <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>Agrupar por</span>
           {/* Falta "por proveedor", que sería lo más útil para salir a comprar:
               `purchase_requests.proveedor` está vacío en las 390 filas de la
               tabla, así que agrupar por ahí devuelve un solo montón llamado
@@ -3212,7 +3211,7 @@ function smallActionButton(color, solid = false) {
     gap: 6,
     border: `1px solid ${color}44`,
     background: solid ? color : `${color}10`,
-    color: solid ? "#08080a" : color,
+    color: solid ? "var(--inverse-text)" : color,
     borderRadius: 8,
     padding: "7px 11px",
     cursor: "pointer",
@@ -3226,7 +3225,7 @@ function smallActionButton(color, solid = false) {
 const DASHBOARD_PRIORITY_COLORS = {
   baja: C.dim,
   media: C.blue,
-  alta: C.orange,
+  alta: C.violet,
   urgente: C.red,
 };
 

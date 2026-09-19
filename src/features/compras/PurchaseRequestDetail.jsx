@@ -481,8 +481,8 @@ function AttachmentCard({ attachment, onOpenImage, compact = false }) {
         display: "grid",
         placeItems: "center",
         color: C.blue,
-        background: "rgba(96,165,250,0.1)",
-        border: "1px solid rgba(96,165,250,0.22)",
+        background: C.blueL,
+        border: `1px solid ${C.blueB}`,
       }}>
         <AttachmentTypeIcon attachment={attachment} size={compact ? 16 : 18} />
       </span>
@@ -527,7 +527,7 @@ function ChatImageViewer({ attachment, onClose }) {
         position: "fixed",
         inset: 0,
         zIndex: 10000,
-        background: "rgba(3,7,18,0.88)",
+        background: "var(--overlay-strong)",
         backdropFilter: "blur(8px)",
         display: "grid",
         placeItems: "center",
@@ -546,9 +546,9 @@ function ChatImageViewer({ attachment, onClose }) {
           width: 40,
           height: 40,
           borderRadius: 9,
-          border: "1px solid rgba(255,255,255,0.2)",
-          background: "rgba(15,23,42,0.78)",
-          color: "#fff",
+          border: "1px solid var(--border-2)",
+          background: "var(--panel-solid)",
+          color: "var(--text)",
           display: "grid",
           placeItems: "center",
           cursor: "pointer",
@@ -560,9 +560,9 @@ function ChatImageViewer({ attachment, onClose }) {
         <img
           src={attachment.url}
           alt={attachment.name || "Imagen adjunta"}
-          style={{ maxWidth: "94vw", maxHeight: "86vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 24px 80px rgba(0,0,0,0.45)" }}
+          style={{ maxWidth: "94vw", maxHeight: "86vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 24px 80px var(--shadow-strong)" }}
         />
-        <div style={{ color: "rgba(255,255,255,0.78)", fontSize: 12 }}>{attachment.name || "Imagen adjunta"}</div>
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>{attachment.name || "Imagen adjunta"}</div>
       </div>
     </div>
   );
@@ -1321,7 +1321,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const followers = request?.followers || [];
 
   return (
-    <div style={{
+    <div className="prd-root" style={{
       height: "100%",
       display: "grid",
       gridTemplateRows: "auto 1fr",
@@ -1331,37 +1331,35 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       overflow: "hidden",
     }}>
       <style>{`
-        .pr-chat-scroll::-webkit-scrollbar { width: 4px; }
-        .pr-chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-        .pr-main-scroll { scrollbar-gutter: stable; overscroll-behavior: contain; }
-        .pr-main-scroll::-webkit-scrollbar { width: 7px; }
-        .pr-main-scroll::-webkit-scrollbar-track { background: transparent; }
-        .pr-main-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-        .pr-aside::-webkit-scrollbar { width: 4px; }
-        .pr-aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .prd-root .pr-chat-scroll::-webkit-scrollbar { width: 4px; }
+        .prd-root .pr-chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        .prd-root .pr-main-scroll { scrollbar-gutter: stable; overscroll-behavior: contain; }
+        .prd-root .pr-main-scroll::-webkit-scrollbar { width: 7px; }
+        .prd-root .pr-main-scroll::-webkit-scrollbar-track { background: transparent; }
+        .prd-root .pr-main-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        .prd-root .pr-aside::-webkit-scrollbar { width: 4px; }
+        .prd-root .pr-aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        @keyframes pr-spin { to { transform: rotate(360deg); } }
         @keyframes pr-msg-in {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0);   }
         }
-        .pr-message { animation: pr-msg-in .22s ease-out both; }
-        .icon-btn:hover { background: var(--panel-2) !important; color: var(--text) !important; }
-        .pr-item-card:hover {
-          border-color: rgba(96,165,250,0.24) !important;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        .prd-root .pr-message { animation: pr-msg-in .22s ease-out both; }
+        .prd-root .icon-btn:hover { background: var(--panel-2) !important; color: var(--text) !important; }
+        .prd-root .pr-item-card:hover {
+          border-color: var(--blue-border) !important;
+          box-shadow: 0 8px 24px var(--shadow);
           transform: translateY(-1px);
         }
-        .pr-item-action:hover { background: var(--panel-2) !important; color: var(--text) !important; }
-        .pr-item-action:focus-visible, .pr-description-toggle:focus-visible {
-          outline: 2px solid rgba(96,165,250,0.55);
+        .prd-root .pr-item-action:hover { background: var(--panel-2) !important; color: var(--text) !important; }
+        .prd-root .pr-item-action:focus-visible, .prd-root .pr-description-toggle:focus-visible {
+          outline: 2px solid var(--blue);
           outline-offset: 2px;
         }
-
-        /* Estilos para renderizar el HTML enriquecido que viene de Quill */
-        .quill-content ul, .quill-content ol { padding-left: 20px; margin: 6px 0; }
-        .quill-content p { margin: 0 0 6px 0; }
-        .quill-content p:last-child { margin: 0; }
-        .quill-content a { color: #60a5fa; text-decoration: underline; }
+        .prd-root .quill-content ul, .prd-root .quill-content ol { padding-left: 20px; margin: 6px 0; }
+        .prd-root .quill-content p { margin: 0 0 6px 0; }
+        .prd-root .quill-content p:last-child { margin: 0; }
+        .prd-root .quill-content a { color: var(--blue); text-decoration: underline; }
       `}</style>
 
       <header style={{
@@ -1553,7 +1551,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             gap: 10,
             flexWrap: "wrap",
             borderTop: `1px solid ${C.border}`,
-            background: "rgba(255,255,255,0.012)",
+            background: C.panel,
           }}>
             <span style={{
               color: C.dim,
@@ -1713,11 +1711,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 fontSize: 12,
                 fontWeight: 600,
                 background: request.actual_amount <= request.estimated_amount
-                  ? "rgba(16,185,129,0.1)"
-                  : "rgba(239,68,68,0.1)",
+                  ? C.greenL
+                  : C.redL,
                 border: `1px solid ${request.actual_amount <= request.estimated_amount
-                  ? "rgba(16,185,129,0.25)"
-                  : "rgba(239,68,68,0.25)"}`,
+                  ? C.greenB
+                  : C.redB}`,
                 color: request.actual_amount <= request.estimated_amount ? C.green : C.red,
                 alignSelf: "flex-start",
               }}>
@@ -1823,8 +1821,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       alignItems: "center",
                       gap: 6,
                       color: C.blue,
-                      background: "rgba(96,165,250,0.08)",
-                      border: `1px solid rgba(96,165,250,0.2)`,
+                      background: C.blueL,
+                      border: `1px solid ${C.blueB}`,
                       borderRadius: 6,
                       padding: "6px 10px",
                       fontSize: 13,
@@ -1995,7 +1993,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     <div style={{ flex: 1, color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 650 }}>Estado en Pañol</div>
                     {canSendToPanol && (
                       <button type="button" onClick={() => setPanolModal(true)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 7, border: "1px solid rgba(96,165,250,0.35)", background: "rgba(96,165,250,0.12)", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>
                         <Send size={12} /> Enviar a Pañol
                       </button>
                     )}
@@ -2123,7 +2121,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   <div style={{ display: "flex", gap: 4 }}>
                     <button type="submit" style={{
                       padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 12,
-                      border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600,
+                      border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 600,
                     }}>Agregar</button>
                     <button type="button" onClick={() => { setShowAddItem(false); setNewItemDesc(""); setNewItemQty(""); }}
                       style={{ padding: "6px 8px", borderRadius: 5, cursor: "pointer", fontSize: 12,
@@ -2140,7 +2138,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     display: "grid", gap: isEditing ? 12 : 8,
                     padding: isMobile ? "12px" : "13px 14px", marginBottom: 8,
                     borderRadius: 10, border: `1px solid ${isEditing ? C.blue + "66" : C.border}`,
-                    background: isEditing ? "rgba(59,130,246,0.04)" : C.panel,
+                    background: isEditing ? C.blueL : C.panel,
                     transition: "border-color .16s ease, box-shadow .16s ease, transform .16s ease",
                   }}>
                     <div style={{
@@ -2340,7 +2338,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                           <button type="submit" style={{
                             padding: "5px 12px", borderRadius: 5, cursor: "pointer", fontSize: 12,
-                            border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600,
+                            border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 600,
                           }}>Guardar</button>
                         </div>
                       </form>
@@ -2359,7 +2357,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 color: C.dim,
                 border: `1px dashed ${C.border}`,
                 borderRadius: 10,
-                background: "rgba(255,255,255,0.012)",
+                background: C.panel,
                 fontSize: 13,
                 padding: 24,
                 textAlign: "center",
@@ -2368,8 +2366,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   <div style={{
                     width: 38, height: 38, borderRadius: 10,
                     display: "grid", placeItems: "center",
-                    background: "rgba(96,165,250,0.08)",
-                    border: "1px solid rgba(96,165,250,0.18)",
+                    background: C.blueL,
+                    border: `1px solid ${C.blueB}`,
                     color: C.blue,
                   }}>
                     <MessageSquare size={16} />
@@ -2389,8 +2387,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     <div style={{
                       width: "min(640px, 86%)",
                       borderRadius: 10,
-                      border: `1px solid ${isMine ? "rgba(96,165,250,0.22)" : C.border}`,
-                      background: isMine ? "rgba(96,165,250,0.07)" : C.panel,
+                      border: `1px solid ${isMine ? C.blueB : C.border}`,
+                      background: isMine ? C.blueL : C.panel,
                       padding: "10px 13px",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -2398,7 +2396,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           width: 22,
                           height: 22,
                           borderRadius: 6,
-                          background: isMine ? "rgba(96,165,250,0.2)" : C.panel2,
+                          background: isMine ? C.blueL : C.panel2,
                           color: isMine ? C.blue : C.muted,
                           display: "grid",
                           placeItems: "center",
@@ -2510,9 +2508,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         width: 24,
                         height: 24,
                         borderRadius: 7,
-                        border: "1px solid rgba(255,255,255,0.3)",
-                        background: "rgba(3,7,18,0.78)",
-                        color: "#fff",
+                        border: "1px solid var(--border-2)",
+                        background: "var(--overlay-strong)",
+                        color: "var(--text)",
                         display: "grid",
                         placeItems: "center",
                         cursor: "pointer",
@@ -2620,7 +2618,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           borderTop: isMobile ? `1px solid ${C.border}` : "none",
         }}>
           {error && (
-            <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 10, borderRadius: 8, fontSize: 13 }}>
+            <div style={{ color: C.red, background: C.redL, border: `1px solid ${C.redB}`, padding: 10, borderRadius: 8, fontSize: 13 }}>
               {error}
             </div>
           )}

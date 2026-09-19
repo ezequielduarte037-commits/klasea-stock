@@ -168,20 +168,14 @@ export function SearchInput({ value, onChange, placeholder = "Buscar…", Icon }
     <div style={{ position: "relative", flex: "1 1 240px", minWidth: 160 }}>
       {Icon && <Icon size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />}
       <input
+        className="ui-input"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         style={{
           width: "100%",
           minHeight: 36,
-          background: C.bg,
-          border: `1px solid ${C.border}`,
-          color: C.text,
-          borderRadius: 10,
           padding: Icon ? "0 10px 0 32px" : "0 10px",
-          outline: "none",
-          fontFamily: C.sans,
-          fontSize: 13.5,
         }}
       />
     </div>

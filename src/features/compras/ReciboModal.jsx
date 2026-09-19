@@ -240,18 +240,19 @@ export default function ReciboModal({
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, zIndex: 95, background: "rgba(15,23,42,0.55)", display: "grid", placeItems: "center", padding: 16, overflowY: "auto" }}
+      style={{ position: "fixed", inset: 0, zIndex: 95, background: "var(--overlay)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : 16, overflowY: "auto" }}
     >
       <div
         onClick={(event) => event.stopPropagation()}
         style={{
           width: "min(620px, 100%)",
-          maxHeight: "92vh",
+          maxHeight: isMobile ? "94vh" : "92vh",
           overflowY: "auto",
           border: `1px solid ${C.border}`,
           background: C.panelSolid,
-          borderRadius: 15,
-          boxShadow: "0 28px 80px rgba(15,23,42,0.32)",
+          borderRadius: isMobile ? "16px 16px 0 0" : 15,
+          boxShadow: "0 28px 80px var(--shadow-strong)",
+          paddingBottom: isMobile ? "env(safe-area-inset-bottom)" : 0,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
@@ -260,7 +261,7 @@ export default function ReciboModal({
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Recibo de caja chica</span>
+              <span style={{ color: C.text, fontSize: 15, fontWeight: 700 }}>Recibo de caja chica</span>
               <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11, fontWeight: 650 }}>{numero}</span>
             </div>
             <div style={{ color: initial.estado === "borrador" ? C.blue : C.dim, fontSize: 11.5, marginTop: 2, fontWeight: initial.estado === "borrador" ? 650 : 600 }}>
@@ -269,7 +270,7 @@ export default function ReciboModal({
                 : "Sale impreso con todo completo. A mano quedan sólo la firma y la aclaración."}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={iconBtn()} title="Cerrar">
+          <button type="button" onClick={onClose} className="ui-btn ui-btn-icono" title="Cerrar" aria-label="Cerrar">
             <X size={15} />
           </button>
         </div>
@@ -341,16 +342,16 @@ export default function ReciboModal({
           {/* El importe en letras es lo que hace que el papel no se pueda
               retocar después. Se muestra antes de imprimir para poder leerlo. */}
           <div style={{ border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 11, padding: "11px 13px", display: "grid", gap: 4 }}>
-            <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Así sale en el recibo</div>
+            <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Así sale en el recibo</div>
             <div style={{ color: C.text, fontSize: 12.5, fontWeight: 650, lineHeight: 1.35 }}>{enLetras}</div>
-            <div style={{ color: importe > 0 ? C.text : C.dim, fontFamily: C.mono, fontSize: 21, fontWeight: 750 }}>
+            <div style={{ color: importe > 0 ? C.text : C.dim, fontFamily: C.mono, fontSize: 21, fontWeight: 700 }}>
               Son {fmtMoney(importe, form.moneda)}
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Copias</span>
+              <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Copias</span>
               {[2, 1].map((n) => (
                 <button
                   key={n}
@@ -396,7 +397,7 @@ export default function ReciboModal({
               {registrar && (
                 cajas.length ? (
                   <label style={{ display: "grid", gap: 5 }}>
-                    <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Caja</span>
+                    <span style={{ color: C.dim, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>Caja</span>
                     <select value={cajaId} onChange={(e) => setCajaId(e.target.value)} style={inputStyle()}>
                       {cajas.map((caja) => (
                         <option key={caja.id} value={caja.id}>{caja.nombre}</option>
@@ -462,7 +463,7 @@ export default function ReciboModal({
 function Field({ label, children }) {
   return (
     <label style={{ display: "grid", gap: 5 }}>
-      <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>{label}</span>
+      <span style={{ color: C.dim, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>{label}</span>
       {children}
     </label>
   );
@@ -515,19 +516,5 @@ function ghostBtn(disabled = false) {
     fontWeight: 650,
     cursor: disabled ? "not-allowed" : "pointer",
     fontFamily: C.sans,
-  };
-}
-
-function iconBtn() {
-  return {
-    width: 30,
-    height: 30,
-    display: "inline-grid",
-    placeItems: "center",
-    borderRadius: 8,
-    border: `1px solid ${C.border}`,
-    background: C.panel2,
-    color: C.muted,
-    cursor: "pointer",
   };
 }

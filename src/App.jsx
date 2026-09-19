@@ -191,6 +191,7 @@ const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/Port
 const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
 const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
 const MemoriaVivaScreen = pantalla(() => import("@/features/memorias/MemoriaVivaScreen"));
+const EquiposScreen = pantalla(() => import("@/features/equipos/EquiposScreen"));
 const SemaforoScreen = pantalla(() => import("@/features/semaforo/SemaforoScreen"));
 const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScreen"));
 const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScreen"));
@@ -667,6 +668,7 @@ export default function App() {
           <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/motores-y-grupos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><EquiposScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/sobrantes-obra/:cierreId" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/sobrantes-obra" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/consumibles-caja" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><EgresoConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
