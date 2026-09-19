@@ -206,7 +206,7 @@ export default function ProductoAsignadoControl({
       type="button"
       disabled={busy}
       onClick={openModal}
-      aria-label={`Buscar en el catálogo un producto para ${row?.descripcion || "el requisito"}`}
+      aria-label={`Buscar en el catálogo un producto para ${row?.requisitoDescripcion || row?.descripcion || "el requisito"}`}
       style={{
         width: "fit-content",
         minHeight: 25,
@@ -253,7 +253,7 @@ export default function ProductoAsignadoControl({
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>{specOnly ? "Especificaciones de la obra" : "Producto y especificaciones"}</div>
                 <div style={{ color: C.t2, fontSize: 11.5, marginTop: 3 }}>
-                  Requisito: <strong style={{ color: C.t1 }}>{row?.descripcion || "Material de matriz"}</strong>
+                  Requisito: <strong style={{ color: C.t1 }}>{row?.requisitoDescripcion || row?.descripcion || "Material de matriz"}</strong>
                 </div>
               </div>
               <button type="button" disabled={busy} onClick={() => setOpen(false)} aria-label="Cerrar selector de producto" style={{ width: 32, height: 32, display: "grid", placeItems: "center", border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, borderRadius: 9, cursor: "pointer" }}>

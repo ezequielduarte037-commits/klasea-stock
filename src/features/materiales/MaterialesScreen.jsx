@@ -4453,6 +4453,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         row.recepcion_estado || "",
         row.recepcion_nota || "",
         ...materialSearchFields(row.material),
+        // Se encuentra tanto por el requisito como por el producto elegido
+        // (alias, código o notas del producto).
+        ...(row.producto ? materialSearchFields(row.producto) : []),
       ))
       .map((row) => {
         if (etapaFilter === "todos" || etapaFilter === "sin_asignar") return row;
@@ -4577,7 +4580,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         source: r.source,
         bucketKey: r.bucket.key,
         descripcion: r.producto?.descripcion || r.descripcion,
-        requisitoDescripcion: r.descripcion,
+        // La fila ya puede estar mostrando el producto: el requisito viene aparte.
+        requisitoDescripcion: r.requisitoDescripcion || r.descripcion,
         codigo: r.producto?.codigo || r.codigo,
         cantidad: r.cantidad,
         baseCantidad: r.baseCantidad,
@@ -4590,7 +4594,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         rubro: r.rubro,
         tipo: r.bucket.label,
         precio: r.precio,
-        obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.descripcion}` : "", productSpecsNote(r.especificaciones), r.obs].filter(Boolean).join(" · "),
+        obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.requisitoDescripcion || r.descripcion}` : "", productSpecsNote(r.especificaciones), r.obs].filter(Boolean).join(" · "),
       };
     });
   }, [visibleRows, selected]);
@@ -4943,8 +4947,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       setFlowMsg({
         type: "ok",
         text: producto
-          ? `${row.descripcion}: producto asignado ${producto.descripcion} para ${obra?.codigo || "esta obra"}.`
-          : `${row.descripcion}: producto concreto pendiente para ${obra?.codigo || "esta obra"}.`,
+          ? `${row.requisitoDescripcion || row.descripcion}: producto asignado ${producto.descripcion} para ${obra?.codigo || "esta obra"}.`
+          : `${row.requisitoDescripcion || row.descripcion}: producto concreto pendiente para ${obra?.codigo || "esta obra"}.`,
       });
     } catch (e) {
       setFlowMsg({ type: "err", text: e?.message || "No se pudo guardar la configuración del ítem." });
@@ -5344,13 +5348,21 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     const material = row.material || materialById.get(row.materialId);
     const rowImageUrl = row.producto?.imagen_url || materialVariantImageUrl(material, row.variante) || String(row.imagen_url || material?.imagen_url || material?.imagenes?.[0]?.url || "").trim();
     const action = accionDeFila(row);
+    // Si la fila muestra el producto elegido, abajo va el requisito de matriz
+    // que cubre ("Caja de piso Urben Alamo" / Requisito: Caja de piso).
+    const requisito = row.requisitoDescripcion && norm(row.requisitoDescripcion) !== norm(row.descripcion)
+      ? row.requisitoDescripcion
+      : "";
     return {
-      status, cant,
+      status, cant, requisito,
       needed: qtyText(row.cantidad, row.unidad), received: fmtQtyCorto(cant.panol), delivered: fmtQtyCorto(cant.entregado),
       quantityTitle: `Necesario ${fmtQtyCorto(cant.necesita)} · recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`,
       imageMaterial: { ...(row.producto || material || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion },
       uploadMaterial: row.producto?.id ? row.producto : material,
-      origin: row.bucket?.key === "addon" ? "Adicional" : snapshotOnlyForRow(row) ? "Fuera de matriz" : "",
+      origin: [
+        row.bucket?.key === "addon" ? "Adicional" : snapshotOnlyForRow(row) ? "Fuera de matriz" : "",
+        requisito ? `Requisito: ${requisito}` : "",
+      ].filter(Boolean).join(" · "),
       issue: action.trabado ? action.texto : row.review?.flag ? "A revisar" : "",
     };
   }
@@ -5368,7 +5380,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     const miniBtn = { ...obraButton, minHeight: isMobile ? 44 : 32 };
     const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
     if (tab === "resumen") return <div style={{ display: "grid", gap: 14, fontSize: 12 }}>
-      {[["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
+      {[...(view.requisito ? [["Requisito", view.requisito]] : []), ["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
       <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
         <strong style={{ fontWeight: 600 }}>Cantidades</strong>
@@ -7589,6 +7601,14 @@ function mergeSnapshotIntoLive(live, snapshot) {
     : "";
   const snapshotDefineProducto = !!snapshot.productoConfiguracionOrigen || !!snapshot.productoMaterialId;
   const snapshotDefineEspecificaciones = !!snapshot.especificacionesOrigen;
+  // El producto que lleva esta obra: el elegido para la obra (ninguno, si se
+  // dejó pendiente a propósito) o, si no se eligió, el estándar de la línea.
+  // Cuando hay uno, la lista muestra ese producto y el requisito queda de
+  // referencia: antes decía "Caja de piso" aunque la obra ya tuviera elegida
+  // la caja, y el producto sólo se veía en el detalle.
+  const productoObra = remitoDeAddon ? null : snapshotDefineProducto ? (snapshot.producto || null) : (live.producto || null);
+  const requisitoLive = live.material || snapshot.material || null;
+  const vuelveAlRequisito = !remitoDeAddon && snapshotDefineProducto && !productoObra && !!requisitoLive;
   return {
     ...live,
     ...snapshot,
@@ -7610,12 +7630,23 @@ function mergeSnapshotIntoLive(live, snapshot) {
     snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),
     descripcion: remitoDeAddon
       ? live.descripcion || snapshot.descripcion
-      : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+      : productoObra?.descripcion
+        ? productoObra.descripcion
+        : vuelveAlRequisito
+          ? requisitoLive.descripcion || live.descripcion
+          : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+    requisitoDescripcion: productoObra?.descripcion
+      ? live.requisitoDescripcion || requisitoLive?.descripcion || live.descripcion
+      : "",
     snapshotDescripcion: snapshot.snapshotDescripcion || snapshot.descripcion,
     descripcionOriginal: snapshot.descripcionOriginal || "",
     codigo: remitoDeAddon
       ? live.codigo || snapshot.codigo
-      : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
+      : productoObra
+        ? productoObra.codigo || null
+        : vuelveAlRequisito
+          ? requisitoLive.codigo || null
+          : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
     // El adicional conserva la cantidad planificada; el detalle recibido queda
     // en recepcion_cantidad_recibida. Antes la cantidad de un remito parcial
     // reemplazaba la necesidad original y daba la impresiÃ³n de dos Ã­tems.
@@ -7623,13 +7654,19 @@ function mergeSnapshotIntoLive(live, snapshot) {
       ? cantidadPlanificada
       : cantidadConCondicionantes ?? cantidadFijada ?? toNum(live.cantidad) ?? 0,
     unidad: remitoDeAddon ? live.unidad || snapshot.unidad : snapshot.unidad || live.unidad,
-    proveedor: linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
+    proveedor: productoObra?.proveedor
+      ? productoObra.proveedor
+      : vuelveAlRequisito && requisitoLive.proveedor
+        ? requisitoLive.proveedor
+        : linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
     // A diferencia de descripción y proveedor, acá no se prefiere el texto del
     // snapshot: el rubro es una clasificación y vale la del catálogo de hoy.
     rubro: live.rubro || snapshot.rubro || "Sin rubro",
     precio: snapshot.productoMaterialId
       ? snapshot.precio
-      : linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
+      : vuelveAlRequisito
+        ? priceInfo(requisitoLive)
+        : linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
     bucket: live.bucket || snapshot.bucket,
     obs: mergeNotes(mergeNotes(live.obs, snapshot.obs), notaRecepcion),
     variante: snapshot.variante || live.variante || "",
