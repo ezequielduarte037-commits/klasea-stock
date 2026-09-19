@@ -6770,7 +6770,10 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                           <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.b0}`, background: "var(--panel-2)" }}>
                             <MaterialFila
                               key={`${row.id}-editor`}
-                              material={row.material}
+                              // La fila de un requisito muestra su producto
+                              // estándar, pero en la matriz está el requisito:
+                              // editar el producto lo cargaba como ítem directo.
+                              material={row.requisito || row.material}
                               categorias={categorias}
                               ums={ums}
                               proveedores={proveedores}

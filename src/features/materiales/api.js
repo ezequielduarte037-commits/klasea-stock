@@ -61,58 +61,105 @@ async function fetchPaged(table, select, orderColumn = "id") {
   return out;
 }
 
+// Nombre de la columna que la base no tiene, si el error lo dice: "column
+// panol_materiales.x does not exist" al leer, "Could not find the 'x' column"
+// al escribir.
+function columnaFaltante(error) {
+  const msg = String(error?.message ?? "");
+  return msg.match(/column\s+(?:\w+\.)?(\w+)\s+does not exist/i)?.[1]
+    || msg.match(/could not find the '(\w+)' column/i)?.[1]
+    || null;
+}
+
+// Una escritura que menciona una columna que la base todavía no tiene se
+// reintenta sin esa sola columna: lo demás se guarda igual.
+async function sinColumnasFaltantes(escribir, fila) {
+  let actual = fila;
+  let resultado = await escribir(actual);
+  for (let intento = 0; intento < 8 && resultado.error && isMissingColumn(resultado.error); intento += 1) {
+    const columna = columnaFaltante(resultado.error);
+    if (!columna || !(columna in actual)) break;
+    actual = { ...actual };
+    delete actual[columna];
+    resultado = await escribir(actual);
+  }
+  return resultado;
+}
+
+const MATERIAL_COLUMNAS = [
+  "id", "categoria_id", "proveedor_id", "codigo", "descripcion", "alias", "proveedor", "unidad_medida",
+  "precio_unitario", "moneda", "imagen_url", "links", "revisado", "origen", "notas", "activo",
+  "es_consumible", "es_requisito", "producto_por_obra", "batch_id", "created_at", "codigo_barra",
+  "ubicacion", "ubicacion_obs", "stock_minimo", "variantes", "variantes_precios",
+];
+
+// Columnas que llegaron con migraciones y el valor que toman si la base
+// todavía no las tiene. Si falta una, se consulta sin esa sola. Antes una
+// columna nueva sin migrar hacía caer a la consulta mínima y todo el catálogo
+// perdía requisitos, variantes, alias y ubicaciones: así dejó de poder
+// elegirse el producto de un requisito en cada obra cuando llegó
+// producto_por_obra (20260919112000) sin aplicar.
+const MATERIAL_COLUMNAS_OPCIONALES = {
+  alias: null,
+  links: [],
+  es_consumible: false,
+  es_requisito: false,
+  producto_por_obra: false,
+  ubicacion: null,
+  ubicacion_obs: null,
+  stock_minimo: null,
+  variantes: [],
+  variantes_precios: {},
+};
+
+function valorPorDefecto(columna) {
+  const valor = MATERIAL_COLUMNAS_OPCIONALES[columna];
+  if (Array.isArray(valor)) return [];
+  if (valor && typeof valor === "object") return {};
+  return valor;
+}
+
 async function fetchMaterialesCatalogo() {
-  const baseSelect =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, es_requisito, producto_por_obra, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
-  const baseSelectNoLinks =
-    "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, es_requisito, producto_por_obra, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs, stock_minimo";
-  try {
-    return (
-      await fetchPaged(
-        "panol_materiales",
-        `${baseSelect}, variantes, variantes_precios`,
-        "descripcion",
-      )
-    ).map((row) => ({
-      ...row,
-      variantes_precios: row.variantes_precios ?? {},
-    }));
-  } catch (error) {
-    if (!isMissingColumn(error)) throw error;
+  let columnas = MATERIAL_COLUMNAS;
+  for (;;) {
     try {
-      return (
-        await fetchPaged(
-          "panol_materiales",
-          `${baseSelectNoLinks}, variantes`,
-          "descripcion",
-        )
-      ).map((row) => ({
-        ...row,
-        links: row.links ?? [],
-        variantes: row.variantes ?? [],
-        variantes_precios: row.variantes_precios ?? {},
-      }));
-    } catch (error2) {
-      if (!isMissingColumn(error2)) throw error2;
-      const fallbackSelect =
-        "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra";
-      return (
-        await fetchPaged("panol_materiales", fallbackSelect, "descripcion")
-      ).map((row) => ({
-        ...row,
-        alias: null,
-        links: [],
-        variantes: [],
-        variantes_precios: {},
-        ubicacion: null,
-        ubicacion_obs: null,
-        stock_minimo: null,
-        es_consumible: row.es_consumible ?? false,
-        es_requisito: false,
-        producto_por_obra: false,
-      }));
+      const filas = await fetchPaged("panol_materiales", columnas.join(", "), "descripcion");
+      const omitidas = Object.keys(MATERIAL_COLUMNAS_OPCIONALES).filter((columna) => !columnas.includes(columna));
+      return filas.map((row) => {
+        const material = { ...row, variantes_precios: row.variantes_precios ?? {} };
+        for (const columna of omitidas) material[columna] = valorPorDefecto(columna);
+        return material;
+      });
+    } catch (error) {
+      if (!isMissingColumn(error)) throw error;
+      const columna = columnaFaltante(error);
+      if (!columna || !(columna in MATERIAL_COLUMNAS_OPCIONALES) || !columnas.includes(columna)) {
+        return fetchMaterialesCatalogoMinimo();
+      }
+      columnas = columnas.filter((item) => item !== columna);
     }
   }
+}
+
+// Último recurso para una base muy vieja cuyo error no dice qué columna falta.
+async function fetchMaterialesCatalogoMinimo() {
+  const fallbackSelect =
+    "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra";
+  return (
+    await fetchPaged("panol_materiales", fallbackSelect, "descripcion")
+  ).map((row) => ({
+    ...row,
+    alias: null,
+    links: [],
+    variantes: [],
+    variantes_precios: {},
+    ubicacion: null,
+    ubicacion_obs: null,
+    stock_minimo: null,
+    es_consumible: row.es_consumible ?? false,
+    es_requisito: false,
+    producto_por_obra: false,
+  }));
 }
 
 async function fetchMaterialCodigosBarraRows() {
@@ -2167,10 +2214,10 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
   };
   if (revisado != null) patch.revisado = revisado;
 
-  let { error } = await supabase
-    .from("panol_materiales")
-    .update(patch)
-    .eq("id", material.id);
+  let { error } = await sinColumnasFaltantes(
+    (fila) => supabase.from("panol_materiales").update(fila).eq("id", material.id),
+    patch,
+  );
   if (error && isMissingColumn(error)) {
     const fallbackPatch = { ...patch };
     delete fallbackPatch.variantes;
@@ -2227,10 +2274,10 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
   };
   if (revisado != null) patch.revisado = revisado;
 
-  let { error } = await supabase
-    .from("panol_materiales")
-    .update(patch)
-    .eq("id", material.id);
+  let { error } = await sinColumnasFaltantes(
+    (fila) => supabase.from("panol_materiales").update(fila).eq("id", material.id),
+    patch,
+  );
   if (error && isMissingColumn(error)) {
     const fallbackPatch = { ...patch };
     delete fallbackPatch.variantes;
@@ -2286,9 +2333,9 @@ export async function guardarVariantesMaterial(
 }
 
 export async function crearMaterial(material, cantidades = {}) {
-  let { data, error } = await supabase
-    .from("panol_materiales")
-    .insert({
+  let { data, error } = await sinColumnasFaltantes(
+    (fila) => supabase.from("panol_materiales").insert(fila).select("id").single(),
+    {
       categoria_id: material.categoria_id,
       proveedor_id: material.proveedor_id || null,
       codigo: material.codigo || null,
@@ -2316,9 +2363,8 @@ export async function crearMaterial(material, cantidades = {}) {
       es_consumible: !!material.es_consumible,
       es_requisito: !!material.es_requisito,
       producto_por_obra: !!material.producto_por_obra,
-    })
-    .select("id")
-    .single();
+    },
+  );
   if (error && isMissingColumn(error)) {
     const retry = await supabase
       .from("panol_materiales")
