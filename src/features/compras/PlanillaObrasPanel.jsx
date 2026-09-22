@@ -63,6 +63,7 @@ const ORIGENES = [
 
 const ORIGEN_TONOS = {
   matriz: { color: C.blue, fondo: C.blueL, borde: C.blueB, texto: "Matriz", icono: Layers3 },
+  producto: { color: C.green, fondo: "var(--green-soft)", borde: C.greenB, texto: "Producto definido", icono: PackageCheck },
   opcional: { color: C.violet, fondo: C.violetL, borde: C.violetB, texto: "Config.", icono: Sparkles },
   adicional: { color: C.teal, fondo: C.tealL, borde: C.tealB, texto: "Adicional", icono: PlusCircle },
   panol: { color: C.cyan, fondo: C.cyanL, borde: C.cyanB, texto: "Pañol", icono: Warehouse },
@@ -759,17 +760,20 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           continue;
         }
 
+        const productoId = celda.productoMaterialId || fila.id;
+        const producto = catalogoPorId.get(productoId) || null;
         items.push({
-          descripcion: fila.descripcion,
-          codigo: fila.codigo || "",
+          descripcion: producto?.descripcion || fila.descripcion,
+          codigo: producto?.codigo || fila.codigo || "",
           cantidad,
-          unidad: fila.unidad || "unidad",
-          material_id: fila.id,
+          cantidadMaxima: cantidad,
+          unidad: producto?.unidad_medida || fila.unidad || "unidad",
+          material_id: productoId,
           requisito_material_id: celda.requisitoId || fila.requisitoId || fila.id,
           obra_snapshot_item_id: celda.snapshotId || null,
           obra_id: obra.id,
           obra_codigo: obra.codigo,
-          proveedor: fila.proveedor || "",
+          proveedor: producto?.proveedor || fila.proveedor || "",
           rubro: fila.rubro || "",
           es_adicional: celda.desdeMatriz === false,
         });
@@ -797,12 +801,42 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     });
   }
 
+  function cambiarCantidadAviso(indice, valor) {
+    setAvisoPreparacion((current) => {
+      if (!current) return current;
+      const items = current.items.map((item, itemIndex) => (
+        itemIndex === indice ? { ...item, cantidad: valor } : item
+      ));
+      return { ...current, items };
+    });
+  }
+
   function continuarAvisoPanol() {
     if (!avisoPreparacion?.titulo?.trim()) {
       toast.info("Escribí un título para identificar el aviso.");
       return;
     }
-    const [obraPrincipal, ...obrasExtra] = avisoPreparacion.obras;
+    const cantidadesInvalidas = avisoPreparacion.items.some((item) => {
+      const cantidad = Number(item.cantidad);
+      return !Number.isFinite(cantidad) || cantidad < 0 || cantidad > Number(item.cantidadMaxima || 0);
+    });
+    if (cantidadesInvalidas) {
+      toast.info("Revisá las cantidades: no pueden superar lo pendiente de cada obra.");
+      return;
+    }
+    const items = avisoPreparacion.items
+      .filter((item) => Number(item.cantidad) > 0)
+      .map((item) => {
+        const itemFinal = { ...item, cantidad: redondear(Number(item.cantidad)) };
+        delete itemFinal.cantidadMaxima;
+        return itemFinal;
+      });
+    if (!items.length) {
+      toast.info("Indicá al menos una unidad para crear el aviso.");
+      return;
+    }
+    const obrasConItems = new Set(items.map((item) => item.obra_id).filter(Boolean));
+    const [obraPrincipal, ...obrasExtra] = avisoPreparacion.obras.filter((obra) => obrasConItems.has(obra.id));
     setPanolPrefill({
       titulo: avisoPreparacion.titulo.trim(),
       sede: "",
@@ -811,7 +845,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       prioridad: "media",
       observaciones: avisoPreparacion.observaciones.trim(),
       origen: "obra_matriz",
-      items: avisoPreparacion.items,
+      items,
     });
     setAvisoPreparacion(null);
   }
@@ -1419,13 +1453,19 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   const puesto = elegidos.has(fila.id);
                   const celdaFoco = obraSeleccionada ? fila.porObra[obraSeleccionada.id] : null;
                   const aComprar = cantidadComprar(fila);
-                  const origenesFila = celdaFoco?.origenes?.length ? celdaFoco.origenes : (fila.origenes || ["fuera_matriz"]);
-                  const origenPrincipal = ["secundario", "matriz", "opcional", "adicional", "panol", "fuera_matriz"].find((origen) => origenesFila.includes(origen)) || "fuera_matriz";
-                  const origenTono = ORIGEN_TONOS[origenPrincipal];
                   const requisitoMaterial = celdaFoco ? catalogoPorId.get(celdaFoco.requisitoId) || null : null;
                   const productoMaterial = celdaFoco?.productoMaterialId ? catalogoPorId.get(celdaFoco.productoMaterialId) || null : null;
-                  const nombreVisible = requisitoMaterial?.descripcion || fila.descripcion;
-                  const codigoVisible = requisitoMaterial?.codigo || fila.codigo;
+                  const origenesBase = celdaFoco?.origenes?.length ? celdaFoco.origenes : (fila.origenes || ["fuera_matriz"]);
+                  // En la vista general se conserva el requisito de matriz. Al
+                  // entrar a una obra ya definida, la fila representa el SKU
+                  // concreto y deja de rotularse como "Matriz".
+                  const origenesFila = celdaFoco?.productoDefinido
+                    ? ["producto", ...origenesBase.filter((origen) => origen !== "matriz")]
+                    : origenesBase;
+                  const origenPrincipal = ["secundario", "producto", "matriz", "opcional", "adicional", "panol", "fuera_matriz"].find((origen) => origenesFila.includes(origen)) || "fuera_matriz";
+                  const origenTono = ORIGEN_TONOS[origenPrincipal];
+                  const nombreVisible = productoMaterial?.descripcion || requisitoMaterial?.descripcion || fila.descripcion;
+                  const codigoVisible = productoMaterial?.codigo || requisitoMaterial?.codigo || fila.codigo;
                   const configuracionRow = celdaFoco ? {
                     id: `${obraSeleccionada?.id || "obra"}:${celdaFoco.requisitoId || fila.id}`,
                     requisitoMaterialId: celdaFoco.requisitoId || fila.requisitoId || fila.id,
@@ -1832,6 +1872,52 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                 {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? " No se duplicarán en este aviso." : ""}
               </div>
             ) : null}
+
+            <section style={{ display: "grid", gap: 8 }}>
+              <div>
+                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>Cantidad que va a ingresar</div>
+                <div style={{ marginTop: 2, color: C.dim, fontSize: 10.5, fontWeight: 600, lineHeight: 1.4 }}>
+                  Ajustala por producto y por obra. Si dejás una fila en 0, no se incluye en el aviso.
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 7, maxHeight: 280, overflowY: "auto", paddingRight: 3 }}>
+                {avisoPreparacion.items.map((item, indice) => (
+                  <div key={`${item.obra_id}-${item.material_id}-${indice}`} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 88px" : "minmax(0,1fr) 118px", gap: 10, alignItems: "center", border: `1px solid ${C.border}`, background: "var(--panel-2)", borderRadius: 10, padding: "9px 10px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4, color: C.dim, fontSize: 10.5, fontWeight: 650 }}>
+                        <span style={{ color: C.green }}>{item.obra_codigo}</span>
+                        {item.codigo ? <span style={{ fontFamily: C.mono }}>{item.codigo}</span> : null}
+                        <span>máx. {mostrarNumero(item.cantidadMaxima)} {item.unidad}</span>
+                      </div>
+                    </div>
+                    <label style={{ display: "grid", gap: 3 }}>
+                      <span style={{ color: C.dim, fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: .55 }}>Ingresa</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.greenB}`, background: "var(--panel-solid)", borderRadius: 8, padding: "0 7px" }}>
+                        <input
+                          type="number"
+                          min="0"
+                          max={item.cantidadMaxima}
+                          step="any"
+                          value={item.cantidad}
+                          onChange={(event) => cambiarCantidadAviso(indice, event.target.value)}
+                          onBlur={(event) => {
+                            const valor = Number(event.target.value);
+                            const ajustado = Number.isFinite(valor)
+                              ? Math.min(Number(item.cantidadMaxima || 0), Math.max(0, valor))
+                              : 0;
+                            cambiarCantidadAviso(indice, redondear(ajustado));
+                          }}
+                          aria-label={`Cantidad de ${item.descripcion} para ${item.obra_codigo}`}
+                          style={{ width: "100%", minWidth: 0, border: "none", outline: "none", background: "transparent", color: C.green, padding: "8px 0", fontFamily: C.mono, fontSize: 12.5, fontWeight: 750 }}
+                        />
+                        <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, whiteSpace: "nowrap" }}>{item.unidad}</span>
+                      </div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </section>
 
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>Título del aviso *</span>

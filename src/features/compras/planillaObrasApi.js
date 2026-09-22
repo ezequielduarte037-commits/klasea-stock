@@ -505,7 +505,14 @@ async function construirPlanillaDeLinea(linea) {
   const filas = new Map();
   for (const [clave, celdaRaw] of celdas) {
     const [materialId, obraId] = clave.split("|");
-    const material = porMaterial.get(materialId) || porMaterial.get(celdaRaw.requisitoId);
+    // En la vista general una familia debe ocupar un solo renglón: el requisito
+    // de matriz. El producto concreto pertenece a la celda de cada obra. Antes
+    // se usaba el producto como clave y terminaban apareciendo, al mismo tiempo,
+    // el requisito "TV de 32 pulgadas" y su Samsung como dos necesidades.
+    const filaId = celdaRaw.desdeMatriz && celdaRaw.requisitoId
+      ? celdaRaw.requisitoId
+      : materialId;
+    const material = porMaterial.get(filaId) || porMaterial.get(materialId) || porMaterial.get(celdaRaw.requisitoId);
     if (!material) continue;
     // Los consumibles no son materiales de barco: son insumos de taller -trapo,
     // lija, guantes, cinta- que aparecian con "comprar 1" cada uno y solo
@@ -533,19 +540,19 @@ async function construirPlanillaDeLinea(linea) {
       configuraciones: celdaRaw.configuraciones || [],
     };
 
-    if (!filas.has(materialId)) {
-      filas.set(materialId, {
-        id: materialId,
+    if (!filas.has(filaId)) {
+      filas.set(filaId, {
+        id: filaId,
         requisitoId: celda.requisitoId,
         ...materialMeta(material, rubros, imagenes),
-        enPanolLibre: redondear(Math.max(0, stockLibre.get(materialId) || 0)),
-        reservado: redondear(Math.max(0, stockReservado.get(materialId) || 0)),
+        enPanolLibre: redondear(Math.max(0, stockLibre.get(filaId) || 0)),
+        reservado: redondear(Math.max(0, stockReservado.get(filaId) || 0)),
         porObra: {},
         origenes: [],
         totales: { requerido: 0, egresado: 0, enPanol: 0, pendiente: 0 },
       });
     }
-    const fila = filas.get(materialId);
+    const fila = filas.get(filaId);
     fila.porObra[obraId] = celda;
     fila.origenes = [...new Set([...(fila.origenes || []), ...(celda.origenes || [])])];
     for (const campo of ["requerido", "egresado", "enPanol", "pendiente"]) {
