@@ -106,6 +106,73 @@ const mostrarNumero = (value) => {
   return n ? String(n).replace(".", ",") : "—";
 };
 
+const CONCEPTOS_AVISO = [
+  { patron: /\b(tv|televisor(?:es)?|smart\s*tv)\b/i, singular: "TV", plural: "TVs" },
+  { patron: /\bpist[oó]n(?:es)?\b/i, singular: "Pistón", plural: "Pistones" },
+  { patron: /\bgrupo(?:s)?\s+electr[oó]geno(?:s)?\b/i, singular: "Grupo electrógeno", plural: "Grupos electrógenos" },
+  { patron: /\bmotor(?:es)?\b/i, singular: "Motor", plural: "Motores" },
+  { patron: /\bcaja(?:s)?\s+de\s+piso\b/i, singular: "Caja de piso", plural: "Cajas de piso" },
+  { patron: /\bbater[ií]a(?:s)?\b/i, singular: "Batería", plural: "Baterías" },
+  { patron: /\bh[eé]lice(?:s)?\b/i, singular: "Hélice", plural: "Hélices" },
+  { patron: /\bbomba(?:s)?\b/i, singular: "Bomba", plural: "Bombas" },
+  { patron: /\bventana(?:s)?\b/i, singular: "Ventana", plural: "Ventanas" },
+  { patron: /\bpuerta(?:s)?\b/i, singular: "Puerta", plural: "Puertas" },
+  { patron: /\btanque(?:s)?\b/i, singular: "Tanque", plural: "Tanques" },
+  { patron: /\binodoro(?:s)?\b/i, singular: "Inodoro", plural: "Inodoros" },
+  { patron: /\bheladera(?:s)?\b/i, singular: "Heladera", plural: "Heladeras" },
+  { patron: /\banafe(?:s)?\b/i, singular: "Anafe", plural: "Anafes" },
+  { patron: /\bcable(?:s|ado)?\b/i, singular: "Cable", plural: "Cables" },
+];
+
+function capitalizarTitulo(value) {
+  const texto = String(value || "").trim();
+  if (!texto) return "Materiales";
+  return texto.charAt(0).toLocaleUpperCase("es") + texto.slice(1);
+}
+
+function conceptoAviso(items = []) {
+  const activos = items.filter((item) => Number(item.cantidad) > 0);
+  const descripciones = activos.map((item) => String(item.descripcion || "").trim()).filter(Boolean);
+  const cantidadTotal = activos.reduce((total, item) => total + (Number(item.cantidad) || 0), 0);
+  const plural = cantidadTotal > 1 || activos.length > 1;
+
+  const conceptoConocido = CONCEPTOS_AVISO.find(({ patron }) => (
+    descripciones.length > 0 && descripciones.every((descripcion) => patron.test(descripcion))
+  ));
+  if (conceptoConocido) return plural ? conceptoConocido.plural : conceptoConocido.singular;
+
+  const rubros = [...new Set(activos.map((item) => String(item.rubro || "").trim()).filter((rubro) => rubro && rubro !== "Sin rubro"))];
+  if (activos.length > 1 && rubros.length === 1) return capitalizarTitulo(rubros[0]);
+
+  if (descripciones.length === 1) {
+    const resumen = descripciones[0]
+      .replace(/\([^)]*\)/g, " ")
+      .split(/\s+[·|–—-]\s+|\s{2,}/)[0]
+      .replace(/\s+/g, " ")
+      .trim();
+    return capitalizarTitulo(resumen.split(" ").slice(0, 5).join(" "));
+  }
+
+  const cantidadItems = activos.length || items.length;
+  return `${cantidadItems} ${cantidadItems === 1 ? "producto" : "productos"}`;
+}
+
+function tituloAvisoSugerido(items = [], obras = []) {
+  const activos = items.filter((item) => Number(item.cantidad) > 0);
+  const concepto = conceptoAviso(activos.length ? activos : items);
+  const codigos = [...new Set(
+    (activos.length ? activos : items)
+      .map((item) => item.obra_codigo)
+      .filter(Boolean),
+  )];
+  const codigosFallback = obras.map((obra) => obra.codigo).filter(Boolean);
+  const obrasTitulo = codigos.length ? codigos : codigosFallback;
+  const resumenObras = obrasTitulo.length <= 3
+    ? obrasTitulo.join(" + ")
+    : `${obrasTitulo.slice(0, 3).join(" + ")} +${obrasTitulo.length - 3}`;
+  return [concepto, resumenObras].filter(Boolean).join(" · ");
+}
+
 
 /**
  * El color comunica estado, no volumen: cualquier faltante requiere la misma
@@ -788,11 +855,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     }
 
     const codigos = obrasAvisoSeleccionadas.map((obra) => obra.codigo);
-    const resumenObras = codigos.length <= 3
-      ? codigos.join(" + ")
-      : `${codigos.slice(0, 3).join(" + ")} +${codigos.length - 3}`;
     setAvisoPreparacion({
-      titulo: `Recepción ${resumenObras} · ${items.length} renglón${items.length === 1 ? "" : "es"}`,
+      titulo: tituloAvisoSugerido(items, obrasAvisoSeleccionadas),
+      tituloManual: false,
       observaciones: `Material ya comprado para ${codigos.join(", ")}. Aviso creado desde la planilla de ${linea}.`,
       items,
       obras: obrasAvisoSeleccionadas,
@@ -807,7 +872,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       const items = current.items.map((item, itemIndex) => (
         itemIndex === indice ? { ...item, cantidad: valor } : item
       ));
-      return { ...current, items };
+      return {
+        ...current,
+        items,
+        titulo: current.tituloManual ? current.titulo : tituloAvisoSugerido(items, current.obras),
+      };
     });
   }
 
@@ -1919,16 +1988,30 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               </div>
             </section>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>Título del aviso *</span>
+            <div style={{ display: "grid", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>
+                <span>Título del aviso *</span>
+                <button
+                  type="button"
+                  onClick={() => setAvisoPreparacion((current) => current ? ({
+                    ...current,
+                    titulo: tituloAvisoSugerido(current.items, current.obras),
+                    tituloManual: false,
+                  }) : current)}
+                  title="Volver a generar el título según los productos y cantidades"
+                  style={{ border: "none", background: "transparent", color: C.violet, padding: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontFamily: C.sans, fontSize: 10.5, fontWeight: 750, letterSpacing: 0, textTransform: "none" }}
+                >
+                  <Sparkles size={12} /> Sugerir título
+                </button>
+              </span>
               <input
                 autoFocus
                 value={avisoPreparacion.titulo}
-                onChange={(event) => setAvisoPreparacion((current) => ({ ...current, titulo: event.target.value }))}
+                onChange={(event) => setAvisoPreparacion((current) => ({ ...current, titulo: event.target.value, tituloManual: true }))}
                 placeholder="Ej: Griferías para 37-34 y 37-44"
                 style={{ ...control, cursor: "text", width: "100%", boxSizing: "border-box", padding: "10px 11px", fontSize: 13 }}
               />
-            </label>
+            </div>
 
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>Observaciones</span>
