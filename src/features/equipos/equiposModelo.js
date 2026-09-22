@@ -17,11 +17,14 @@
 
 import { GRUPOS_SEED, MOTORES_SEED } from "./equiposSeed";
 
+// Cada estado dice dónde está el equipo: así no se confunden "pedido" (la orden
+// al proveedor) con "comprado" (ya está, en el proveedor, falta retirarlo), ni
+// el que está libre en el galpón con el que está ahí pero asignado a un barco.
 export const ESTADOS = {
-  comprado: { label: "Para retirar", tono: "violeta" },
-  pedido: { label: "Pendiente de recepción", tono: "violeta" },
-  en_galpon: { label: "En galpón", tono: "azul" },
-  asignado: { label: "Reservado", tono: "cian" },
+  comprado: { label: "En proveedor", tono: "violeta" },
+  pedido: { label: "Pedido", tono: "violeta" },
+  en_galpon: { label: "En galpón · libre", tono: "azul" },
+  asignado: { label: "En galpón · asignado", tono: "cian" },
   instalado: { label: "Instalado", tono: "verde" },
   entregado: { label: "Entregado", tono: "neutro" },
 };
@@ -115,8 +118,24 @@ function coincide(equipo, termino) {
 //     a "entregado".
 //   · obrasActivas: los barcos en producción, tengan o no datos de motor.
 //   · memoria: qué motor y qué grupo dice la memoria de cada barco.
+// Un equipo guardado para un barco no es stock: si quedó "en galpón" con barco
+// (pasaba al cargarlo, porque ése es el estado que viene puesto), se lee como
+// reservado. Lo mismo hace la base desde la migración
+// 20260922120000_equipos_reserva_no_es_stock.sql; acá se corrige lo ya cargado.
+function reservaCoherente(equipo) {
+  return equipo.obra && equipo.estado === "en_galpon" ? { ...equipo, estado: "asignado" } : equipo;
+}
+
 export function aplicarBase(datos, base) {
-  if (!base) return { ...datos, obrasActivas: null, memoria: new Map() };
+  if (!base) {
+    return {
+      ...datos,
+      motores: datos.motores.map(reservaCoherente),
+      grupos: datos.grupos.map(reservaCoherente),
+      obrasActivas: null,
+      memoria: new Map(),
+    };
+  }
 
   const obraPorClave = new Map(base.obras.map((obra) => [claveObra(obra.codigo), obra]));
   const obrasActivas = base.obras.filter((obra) => obra.estado === "activa").map((obra) => claveObra(obra.codigo));
@@ -134,11 +153,12 @@ export function aplicarBase(datos, base) {
     const numero = numeroDeCodigo(clave);
     return primero != null && numero != null && numero < primero;
   };
-  const alDia = (equipo) => (
-    equipo.obra && (equipo.estado === "asignado" || equipo.estado === "instalado") && yaEntregado(equipo.obra)
+  const alDia = (original) => {
+    const equipo = reservaCoherente(original);
+    return equipo.obra && (equipo.estado === "asignado" || equipo.estado === "instalado") && yaEntregado(equipo.obra)
       ? { ...equipo, estado: "entregado", entregadoSegunBase: true }
-      : equipo
-  );
+      : equipo;
+  };
 
   const memoria = new Map();
   for (const fila of base.memorias || []) {
@@ -319,21 +339,22 @@ const SIN_MARCA = "Sin marca";
 const SIN_BARCO = "Sin barco";
 
 const ESTADOS_MOTOR = {
-  comprado: "Comprado · pendiente de retiro",
-  pedido: "Pendiente de recepción",
+  comprado: "En proveedor",
+  pedido: "Pedido",
   urgente: "Urgente",
-  asignado: "Reservado",
+  en_galpon: "En galpón · libre",
+  asignado: "En galpón · asignado",
   instalado: "Instalado",
-  sin_cargar: "Pendiente de registro",
+  sin_cargar: "Sin registrar",
   revisar: "Marca a revisar",
 };
 
 const ESTADOS_GRUPO = {
-  comprado: "Comprado · para retirar",
-  asignado: "Reservado",
-  en_galpon: "Sin barco",
+  comprado: "En proveedor",
+  en_galpon: "En galpón · libre",
+  asignado: "En galpón · asignado",
   instalado: "Instalado",
-  sin_cargar: "Pendiente de registro",
+  sin_cargar: "Sin registrar",
   sin_grupo: "Sin grupo",
 };
 

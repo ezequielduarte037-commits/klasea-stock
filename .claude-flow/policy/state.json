@@ -3736,6 +3736,47 @@
         "policyHash": "sha256:00b63b2f746eb8b9095bbd5e1dbae4ddd74fd92a6740b72f59f4069fbfda4737"
       },
       "hash": "sha256:546adf033d878ab3c805df645982d73a3d7bdb4afb1c1d1a1c23b88ebd410183"
+    },
+    {
+      "payload": {
+        "receiptId": "sha256:201070d000d7af58b25e5a5939670233e47853024b71d03477c491ee4dd629de",
+        "previousReceiptHash": "sha256:546adf033d878ab3c805df645982d73a3d7bdb4afb1c1d1a1c23b88ebd410183",
+        "sequence": 93,
+        "issuedAt": 1790077656702,
+        "request": {
+          "identity": {
+            "id": "legacy-cli",
+            "type": "legacy"
+          },
+          "action": {
+            "type": "memory.read",
+            "resource": "memory_search",
+            "tool": "memory_search",
+            "server": "ruflo",
+            "namespace": "klasea-stock",
+            "network": false,
+            "destructive": false
+          },
+          "context": {
+            "metadata": {
+              "inputDigest": "sha256:539327d375e199fdf02deb1cd9637562c542b616361ceaa4701aa81b191c6bb6"
+            },
+            "now": 1790077656702
+          },
+          "requestId": "43edd03c-2bf8-47d2-86ff-c9f50795247a"
+        },
+        "decision": {
+          "requestId": "43edd03c-2bf8-47d2-86ff-c9f50795247a",
+          "outcome": "allowed",
+          "enforcedOutcome": "allowed",
+          "mode": "legacy",
+          "reason": "legacy-default-allow",
+          "matchedRules": [],
+          "obligations": []
+        },
+        "policyHash": "sha256:00b63b2f746eb8b9095bbd5e1dbae4ddd74fd92a6740b72f59f4069fbfda4737"
+      },
+      "hash": "sha256:65ce2dbd789a18365ef4a055d7deb81e91b5190f098f74b33a348e5c95c16e2a"
     }
   ],
   "migratedAt": 1786546403269,

@@ -61,7 +61,8 @@ import {
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
-import { supplierPurchaseLines } from "@/features/materiales/proveedorPedido";
+import { ordenLineasDesdePedido, supplierPurchaseLines } from "@/features/materiales/proveedorPedido";
+import CopiarOcProveedor from "@/components/CopiarOcProveedor";
 import logoK from "@/assets/logos/logo-k.png";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -642,6 +643,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const itemsParaPanol = useMemo(
     () => items.filter((it) => !["en_panol", "recibido", "cancelado"].includes(it.status)),
     [items]
+  );
+  // Renglones para la OC que se le manda al proveedor: van con su denominación
+  // y su código, sin nada del circuito interno.
+  const lineasOcProveedor = useMemo(
+    () => ordenLineasDesdePedido(items, { proveedorPorDefecto: request?.proveedor || "" }),
+    [items, request?.proveedor],
   );
   const canSendToPanol = manager && request?.status === "comprado" && itemsParaPanol.length > 0;
   const panolPrefill = useMemo(() => {
@@ -2069,7 +2076,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   }}>{items.length}</span>
                 )}
                 <span style={{ flex: 1 }} />
-                <button type="button" onClick={handleCopyPurchaseText} title="Copiar pedido para mail o mensaje" style={{
+                <CopiarOcProveedor
+                  lineas={lineasOcProveedor}
+                  necesarioPara={request.needed_at}
+                  label="Copiar OC proveedor"
+                  iconSize={12}
+                  style={{ color: C.blue, borderColor: C.blueB, background: C.blueL }}
+                />
+                <button type="button" onClick={handleCopyPurchaseText} title="Copiar pedido completo para uso interno" style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 5,

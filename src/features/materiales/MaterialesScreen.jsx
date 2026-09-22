@@ -16,9 +16,11 @@ import {
   fetchCatalogo,
   fetchBatches,
   fetchComprobantes,
+  fetchConjuntos,
   fetchMaterialDuplicateDecisions,
   fetchMaterialAudit,
   fetchObrasAvance,
+  guardarPrecioConjunto,
   guardarMaterial,
   guardarVariantesMaterial,
   eliminarCodigoBarraMaterial,
@@ -92,7 +94,8 @@ import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorMeta, PROVEEDOR_TIPOS } from "./proveedorMeta";
 import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
-import { supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
+import { ordenLineasDesdeMatriz, supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
+import CopiarOcProveedor from "@/components/CopiarOcProveedor";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
@@ -2015,6 +2018,11 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
               <option value="rubro" style={OPT_ST}>Rubro</option>
               <option value="tipo" style={OPT_ST}>Tipo</option>
             </select>
+            <CopiarOcProveedor
+              lineas={ordenLineasDesdeMatriz(orderRows)}
+              label="Copiar OC proveedor"
+              style={{ padding: "8px 13px", fontSize: 12, color: C.blue, borderColor: C.blueB, background: C.blueL }}
+            />
             <button type="button" onClick={copiarTodo} style={{ ...BTN_GREEN, padding: "8px 13px" }}>
               <Copy size={13} /> {copied ? "Copiado" : "Copiar orden"}
             </button>
@@ -3786,61 +3794,296 @@ function ResumenTab({ categorias, materiales }) {
 }
 
 // Costo de un material para un modelo: cantidad (BOM del modelo) × precio vigente.
-function costoMaterialModelo(m, modelo, opciones = []) {
+function costoMaterialModelo(m, modelo, opciones = [], conjuntoDe = null) {
   const cant = Number(toBomMap(m)[modelo]);
   const tieneCant = Number.isFinite(cant) && cant > 0;
   const price = precioVigente(m);
   const pu = price?.precio_unitario != null && price.precio_unitario !== "" ? Number(price.precio_unitario) : null;
   const tienePrecio = pu != null && Number.isFinite(pu) && pu > 0;
   const bucket = materialBucket(m, opciones, modelo);
+  // Lo que entra en un conjunto no suma ni falta acá: su plata está en el
+  // conjunto. Si contara las dos veces, el modelo saldría el doble de caro.
+  const conjunto = conjuntoDe?.get(m.id) ?? null;
   return {
     tieneCant,
+    conjunto,
     moneda: price?.moneda === "USD" ? "USD" : "ARS",
-    costo: tieneCant && tienePrecio ? cant * pu : 0,
-    faltaPrecio: tieneCant && !tienePrecio,
+    costo: !conjunto && tieneCant && tienePrecio ? cant * pu : 0,
+    faltaPrecio: !conjunto && tieneCant && !tienePrecio,
     bucket,
   };
 }
 
+/**
+ * Lee un monto escrito como se escribe acá: "2.214.000", "850.000", "1500,50".
+ *
+ * El punto es separador de miles salvo que separe decimales, y se decide por lo
+ * que viene después: tres dígitos son miles, uno o dos son centavos. No es
+ * infalible ("2.214" puede ser cualquiera de las dos cosas), pero el número
+ * queda formateado al guardar y el error se ve enseguida.
+ */
+function montoDesdeTexto(valor) {
+  const limpio = String(valor ?? "").replace(/[^\d,.]/g, "").trim();
+  if (!limpio) return null;
+  let normal = limpio;
+  if (limpio.includes(",")) normal = limpio.replace(/\./g, "").replace(",", ".");
+  else {
+    const puntos = limpio.match(/\./g) ?? [];
+    const ultimo = limpio.slice(limpio.lastIndexOf(".") + 1);
+    if (puntos.length > 1 || (puntos.length === 1 && ultimo.length === 3)) normal = limpio.replace(/\./g, "");
+  }
+  const numero = Number(normal);
+  return Number.isFinite(numero) && numero >= 0 ? numero : null;
+}
+
+function ConjuntoFila({ conjunto, modelo, materialPorId, abierto, onAbrir, onGuardado }) {
+  const [precio, setPrecio] = useState(conjunto.precio != null ? String(conjunto.precio) : "");
+  const [moneda, setMoneda] = useState(conjunto.moneda === "USD" ? "USD" : "ARS");
+  const [fuente, setFuente] = useState(conjunto.fuente ?? "");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState(null);
+
+  const cubiertos = useMemo(
+    () => (conjunto.materiales ?? [])
+      .map((id) => materialPorId.get(id))
+      .filter((m) => m && Number(toBomMap(m)[modelo]) > 0),
+    [conjunto.materiales, materialPorId, modelo],
+  );
+
+  const monto = montoDesdeTexto(precio);
+  const sucio = String(conjunto.precio ?? "") !== String(monto ?? "")
+    || (conjunto.moneda ?? "ARS") !== moneda
+    || (conjunto.fuente ?? "") !== fuente;
+
+  const guardar = async () => {
+    setGuardando(true);
+    setError(null);
+    try {
+      await guardarPrecioConjunto(conjunto.id, { precio: monto, moneda, fuente });
+      onGuardado?.();
+    } catch (e) {
+      setError(e?.message || "No se pudo guardar.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div style={{ borderTop: `1px solid ${C.b0}`, padding: "12px 14px" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <div style={{ fontWeight: 600 }}>{conjunto.nombre}</div>
+          <div style={{ color: C.t2, fontSize: 11.5, lineHeight: 1.5 }}>
+            {conjunto.proveedor ? `${conjunto.proveedor} · ` : ""}
+            <button
+              type="button"
+              onClick={() => onAbrir(abierto ? null : conjunto.id)}
+              style={{ ...BTN, border: 0, background: "transparent", padding: 0, color: C.cyan, fontSize: 11.5 }}
+            >
+              {cubiertos.length} {cubiertos.length === 1 ? "material" : "materiales"}
+            </button>
+            {conjunto.fecha ? ` · precio del ${conjunto.fecha}` : ""}
+          </div>
+          {conjunto.notas ? (
+            <div style={{ color: C.t2, fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>{conjunto.notas}</div>
+          ) : null}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            value={precio}
+            onChange={(event) => setPrecio(event.target.value)}
+            placeholder="Precio total"
+            inputMode="decimal"
+            style={{ ...INP, width: 140, textAlign: "right", fontFamily: C.mono }}
+          />
+          <select value={moneda} onChange={(event) => setMoneda(event.target.value)} style={{ ...INP, width: 78 }}>
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+          <input
+            value={fuente}
+            onChange={(event) => setFuente(event.target.value)}
+            placeholder="De dónde salió"
+            style={{ ...INP, width: 200 }}
+          />
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={!sucio || guardando}
+            style={{ ...(sucio ? BTN_PRIMARY : BTN), opacity: sucio && !guardando ? 1 : 0.55 }}
+          >
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+      {precio.trim() && monto == null ? (
+        <div style={{ color: C.red, fontSize: 11.5, marginTop: 6 }}>Ese número no se entiende. Escribilo como 2.214.000.</div>
+      ) : null}
+      {error ? <div style={{ color: C.red, fontSize: 11.5, marginTop: 6 }}>{error}</div> : null}
+      {abierto ? (
+        <ul style={{ margin: "10px 0 0", paddingLeft: 18, color: C.t2, fontSize: 11.5, lineHeight: 1.7, columns: cubiertos.length > 8 ? 2 : 1 }}>
+          {cubiertos.map((m) => <li key={m.id}>{m.descripcion}</li>)}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function ConjuntosPanel({ conjuntos, modelo, materialPorId, onGuardado }) {
+  const [abierto, setAbierto] = useState(null);
+  return (
+    <div style={{ marginTop: 18, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", background: C.s0 }}>
+      <div style={{ padding: "12px 14px" }}>
+        <div style={{ fontWeight: 600 }}>Precios por conjunto · K{modelo}</div>
+        <div style={{ color: C.t2, fontSize: 11.5, marginTop: 3, lineHeight: 1.5 }}>
+          Proveedores que cobran el trabajo entero y no pieza por pieza. El número va una sola vez acá;
+          los materiales que cubre dejan de contar como “sin precio” y no se les inventa un unitario.
+        </div>
+      </div>
+      {conjuntos.map((conjunto) => (
+        <ConjuntoFila
+          key={conjunto.id}
+          conjunto={conjunto}
+          modelo={modelo}
+          materialPorId={materialPorId}
+          abierto={abierto === conjunto.id}
+          onAbrir={setAbierto}
+          onGuardado={onGuardado}
+        />
+      ))}
+    </div>
+  );
+}
+
 function CostoObraTab({ categorias, materiales, opciones = [] }) {
   const [modelo, setModelo] = useState(MODELOS[0]);
+  const [mostrarDetalle, setMostrarDetalle] = useState(false);
+  const [soloSinPrecio, setSoloSinPrecio] = useState(true);
+  const [busquedaDetalle, setBusquedaDetalle] = useState("");
+  const [conjuntos, setConjuntos] = useState([]);
   const activos = useMemo(() => (materiales ?? []).filter(materialActivo), [materiales]);
+  const activoPorId = useMemo(() => new Map(activos.map((m) => [m.id, m])), [activos]);
+
+  const cargarConjuntos = useCallback(() => {
+    fetchConjuntos().then(setConjuntos).catch(() => setConjuntos([]));
+  }, []);
+  useEffect(() => { cargarConjuntos(); }, [cargarConjuntos]);
+
+  // Un conjunto sin modelo sirve para cualquiera.
+  const conjuntosModelo = useMemo(
+    () => conjuntos.filter((c) => !c.modelo || String(c.modelo) === String(modelo)),
+    [conjuntos, modelo],
+  );
+  const conjuntoDe = useMemo(() => {
+    const mapa = new Map();
+    for (const conjunto of conjuntosModelo) {
+      for (const id of conjunto.materiales ?? []) mapa.set(id, conjunto);
+    }
+    return mapa;
+  }, [conjuntosModelo]);
 
   const aggScope = useCallback((scope) => {
-    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0 };
+    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0, enConjunto: 0 };
     for (const m of activos) {
       if (!materialEnScope(m, scope)) continue;
-      const c = costoMaterialModelo(m, modelo, opciones);
+      const c = costoMaterialModelo(m, modelo, opciones, conjuntoDe);
       if (!c.tieneCant) continue;
       acc.items += 1;
+      if (c.conjunto) { acc.enConjunto += 1; continue; }
       if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
       if (c.bucket.key === "linea_eje") {
         if (c.moneda === "USD") acc.ejeUsd += c.costo; else acc.ejeArs += c.costo;
       } else if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
     }
     return acc;
-  }, [activos, modelo, opciones]);
+  }, [activos, conjuntoDe, modelo, opciones]);
+
+  // La plata de los conjuntos va una sola vez, aparte de los sectores: sus
+  // materiales cruzan varios y repartirla sería inventar de dónde sale cada peso.
+  const totalConjuntos = useMemo(() => {
+    const acc = { usd: 0, ars: 0, cotizados: 0, sinCotizar: 0, materiales: 0 };
+    for (const conjunto of conjuntosModelo) {
+      const cubre = (conjunto.materiales ?? []).filter((id) => {
+        const material = activoPorId.get(id);
+        return material && Number(toBomMap(material)[modelo]) > 0;
+      }).length;
+      if (!cubre) continue;
+      acc.materiales += cubre;
+      const monto = Number(conjunto.precio);
+      if (Number.isFinite(monto) && monto > 0) {
+        acc.cotizados += 1;
+        if (conjunto.moneda === "USD") acc.usd += monto; else acc.ars += monto;
+      } else {
+        acc.sinCotizar += 1;
+      }
+    }
+    return acc;
+  }, [activoPorId, conjuntosModelo, modelo]);
 
   // Total global: cada material cuenta una sola vez (no infla por multi-área).
   const total = useMemo(() => {
-    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0 };
+    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0, enConjunto: 0 };
     for (const m of activos) {
-      const c = costoMaterialModelo(m, modelo, opciones);
+      const c = costoMaterialModelo(m, modelo, opciones, conjuntoDe);
       if (!c.tieneCant) continue;
       acc.items += 1;
+      if (c.conjunto) { acc.enConjunto += 1; continue; }
       if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
       if (c.bucket.key === "linea_eje") {
         if (c.moneda === "USD") acc.ejeUsd += c.costo; else acc.ejeArs += c.costo;
       } else if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
     }
+    acc.usd += totalConjuntos.usd;
+    acc.ars += totalConjuntos.ars;
     return acc;
-  }, [activos, modelo, opciones]);
+  }, [activos, conjuntoDe, modelo, opciones, totalConjuntos]);
 
   const filas = useMemo(() => categorias.filter(esRaiz).map((r) => ({
     cat: r,
     agg: aggScope(idsScope(categorias, r.id)),
     subs: hijosDe(categorias, r.id).map((s) => ({ cat: s, agg: aggScope(new Set([s.id])) })),
   })), [categorias, aggScope]);
+
+  const detalle = useMemo(() => activos
+    .map((material) => {
+      const cantidad = Number(toBomMap(material)[modelo]);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) return null;
+      const precio = precioVigente(material);
+      const unitario = precio?.precio_unitario != null && precio.precio_unitario !== ""
+        ? Number(precio.precio_unitario)
+        : null;
+      const tienePrecio = Number.isFinite(unitario) && unitario > 0;
+      const conjunto = conjuntoDe.get(material.id) ?? null;
+      return {
+        material,
+        cantidad,
+        precio,
+        conjunto,
+        unitario: tienePrecio ? unitario : null,
+        total: tienePrecio ? cantidad * unitario : null,
+        moneda: precio?.moneda === "USD" ? "USD" : "ARS",
+        sector: categoriaNombre(categorias, material.categoria_id),
+      };
+    })
+    .filter(Boolean)
+    .filter((row) => !soloSinPrecio || (row.unitario == null && !row.conjunto))
+    .filter((row) => {
+      const q = norm(busquedaDetalle);
+      if (!q) return true;
+      return norm([
+        row.material.descripcion,
+        row.material.codigo,
+        row.material.proveedor,
+        row.sector,
+        row.precio?.fuente,
+        row.conjunto?.nombre,
+      ].filter(Boolean).join(" ")).includes(q);
+    })
+    .sort((a, b) => {
+      if ((a.unitario == null) !== (b.unitario == null)) return a.unitario == null ? -1 : 1;
+      return String(a.sector).localeCompare(String(b.sector), "es")
+        || String(a.material.descripcion).localeCompare(String(b.material.descripcion), "es");
+    }), [activos, busquedaDetalle, categorias, conjuntoDe, modelo, soloSinPrecio]);
 
   const money = (v, mon) => (v ? fmtMoney(v, mon) : "—");
 
@@ -3898,6 +4141,23 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
                 </tr>
               )),
             ])}
+            {(totalConjuntos.cotizados || totalConjuntos.sinCotizar) ? (
+              <tr style={{ borderTop: `1px solid ${C.b0}` }}>
+                <Td>
+                  <span style={{ color: C.violet }}>Precios por conjunto</span>
+                  <div style={{ color: C.t2, fontSize: 11 }}>
+                    {totalConjuntos.sinCotizar
+                      ? `${totalConjuntos.sinCotizar} sin cotizar`
+                      : "cobrados por trabajo, no por pieza"}
+                  </div>
+                </Td>
+                <Td right mono color={C.t2}>{totalConjuntos.materiales || "—"}</Td>
+                <Td right mono color={totalConjuntos.sinCotizar ? C.violet : C.t2}>{totalConjuntos.sinCotizar || "—"}</Td>
+                <Td right mono>{money(totalConjuntos.usd, "USD")}</Td>
+                <Td right mono color={C.t2}>—</Td>
+                <Td right mono>{money(totalConjuntos.ars, "ARS")}</Td>
+              </tr>
+            ) : null}
           </tbody>
           <tfoot>
             <tr style={{ borderTop: `2px solid ${C.b1}` }}>
@@ -3913,7 +4173,81 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
       </div>
 
       <div style={{ fontSize: 11, color: C.t2, marginTop: 10, lineHeight: 1.6 }}>
-        USD y ARS van por separado (no se convierten). Un material en varios sectores suma en cada uno, así que la suma por sector puede superar el total (el total cuenta cada material una vez). “Sin precio” = ítems con cantidad en K{modelo} pero sin precio vigente; cargá la cotización del proveedor en <strong>Comprobantes</strong> y el costo se completa solo.
+        USD y ARS van por separado (no se convierten). Un material en varios sectores suma en cada uno, así que la suma por sector puede superar el total (el total cuenta cada material una vez). “Sin precio” = ítems con cantidad en K{modelo} pero sin precio vigente; cargá la cotización del proveedor en <strong>Comprobantes</strong> y el costo se completa solo. Los conjuntos van aparte: su plata no se reparte entre los sectores.
+      </div>
+
+      {conjuntosModelo.length ? (
+        <ConjuntosPanel
+          conjuntos={conjuntosModelo}
+          modelo={modelo}
+          materialPorId={activoPorId}
+          onGuardado={cargarConjuntos}
+        />
+      ) : null}
+
+      <div style={{ marginTop: 18, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", background: C.s0 }}>
+        <button
+          type="button"
+          onClick={() => setMostrarDetalle((value) => !value)}
+          style={{ ...BTN, width: "100%", border: 0, borderRadius: 0, justifyContent: "space-between", padding: "12px 14px", background: "transparent" }}
+        >
+          <span>Detalle auditable · K{modelo}</span>
+          <span style={{ color: C.t2 }}>{mostrarDetalle ? "Ocultar" : `Ver ${total.items} ítems`}</span>
+        </button>
+        {mostrarDetalle && (
+          <div style={{ borderTop: `1px solid ${C.b0}` }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: 12 }}>
+              <input
+                value={busquedaDetalle}
+                onChange={(event) => setBusquedaDetalle(event.target.value)}
+                placeholder="Buscar material, proveedor, código o sector"
+                style={{ ...INP, flex: "1 1 320px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setSoloSinPrecio((value) => !value)}
+                style={{ ...BTN, color: soloSinPrecio ? C.cyan : C.t1 }}
+              >
+                {soloSinPrecio ? `Sin precio · ${total.sinPrecio}` : "Todos los ítems"}
+              </button>
+              <span style={{ color: C.t2, fontSize: 12 }}>{detalle.length} visibles</span>
+            </div>
+            <div style={{ maxHeight: 560, overflow: "auto", borderTop: `1px solid ${C.b0}` }}>
+              <table data-cost-detail-table style={{ width: "100%", minWidth: 980, borderCollapse: "collapse" }}>
+                <thead style={{ position: "sticky", top: 0, zIndex: 1, background: C.s1 }}>
+                  <tr>
+                    <Th>Material</Th>
+                    <Th>Sector</Th>
+                    <Th>Proveedor</Th>
+                    <Th right>Cantidad</Th>
+                    <Th right>Precio unit.</Th>
+                    <Th right>Total</Th>
+                    <Th>Origen</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detalle.map((row) => (
+                    <tr key={row.material.id} data-material-id={row.material.id} data-missing-price={row.unitario == null && !row.conjunto ? "true" : "false"}>
+                      <Td><strong>{row.material.descripcion}</strong>{row.material.codigo ? <div style={{ color: C.t2, fontFamily: C.mono, fontSize: 11 }}>{row.material.codigo}</div> : null}</Td>
+                      <Td color={C.t2}>{row.sector}</Td>
+                      <Td>{row.precio?.proveedor || row.material.proveedor || "Sin proveedor"}</Td>
+                      <Td right mono>{qtyText(row.cantidad, row.material.unidad_medida)}</Td>
+                      <Td right mono color={row.conjunto ? C.violet : row.unitario == null ? C.cyan : C.t1}>
+                        {row.conjunto ? "En conjunto" : row.unitario == null ? "Sin precio" : fmtMoney(row.unitario, row.moneda)}
+                      </Td>
+                      <Td right mono>{row.conjunto || row.total == null ? "—" : fmtMoney(row.total, row.moneda)}</Td>
+                      <Td color={C.t2}>
+                        {row.conjunto
+                          ? `Incluido en ${row.conjunto.nombre}`
+                          : `${row.precio?.fuente || (row.unitario != null ? "Catálogo" : "Pendiente")}${row.precio?.fecha ? ` · ${row.precio.fecha}` : ""}`}
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5821,6 +6155,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           <span style={{ flex: "1 1 180px", fontSize: 12, color: C.text }}>{selected.size ? `${orderRows.length} seleccionados en el filtro` : `${orderRows.length} ${orderRows.length === 1 ? "ítem" : "ítems"} del filtro`}{selected.size > orderRows.length ? ` · ${selected.size - orderRows.length} fuera del filtro` : ""}</span>
           {!!selected.size && <button type="button" onClick={() => setSelected(new Set())} style={obraButton}>Limpiar selección</button>}
           <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
+          <CopiarOcProveedor lineas={ordenLineasDesdeMatriz(orderRows)} label="Copiar OC proveedor" style={{ ...obraButton, color: C.blue, borderColor: C.blueB, background: C.blueL }} />
           <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
           <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>
           <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
@@ -6434,6 +6769,12 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             <button type="button" onClick={() => setShowAddItem((v) => !v)} style={{ ...BTN_GREEN, height: 32, padding: "0 11px" }}>
               <Plus size={14} /> Agregar item
             </button>
+            <CopiarOcProveedor
+              lineas={ordenLineasDesdeMatriz(orderRows)}
+              label="Copiar OC proveedor"
+              iconSize={14}
+              style={{ ...BTN, height: 32, padding: "0 11px", color: C.blue, borderColor: C.blueB, background: C.blueL }}
+            />
             <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 32, padding: "0 11px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
               <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
             </button>

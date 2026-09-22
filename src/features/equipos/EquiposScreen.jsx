@@ -29,6 +29,7 @@ import {
   TIPO_POR_VISTA,
   agruparPorLinea,
   aplicarBase,
+  claveObra,
   barcosEnProduccion,
   barcosEntregados,
   equiposEnGalpon,
@@ -250,7 +251,7 @@ export default function EquiposScreen() {
       ];
       setDatos((actual) => integrarEquipos(actual, [actualizado]));
       const nombre = actualizado.tipo === "motor" ? nombreMotor(actualizado) : nombreGrupo(actualizado);
-      setMensaje(`${nombre} quedó ${ESTADOS[actualizado.estado]?.label?.toLowerCase() || "actualizado"}.`);
+      setMensaje(`${nombre}: ${ESTADOS[actualizado.estado]?.label || "actualizado"}.`);
       setEquipoGestion(null);
       elegirPestana(actualizado.estado === "instalado" ? "barcos" : "galpon");
     } catch (error) {
@@ -315,10 +316,14 @@ export default function EquiposScreen() {
 
   const galpon = filtrados.galpon;
   const pendientesRetiro = galpon.filter((equipo) => equipo.estado === "comprado");
-  const motoresDisponibles = galpon.filter((equipo) => equipo.tipo === "motor" && equipo.estado === "en_galpon");
-  const motoresReservados = galpon.filter((equipo) => equipo.tipo === "motor" && equipo.estado === "asignado");
-  const gruposReservados = galpon.filter((equipo) => equipo.tipo === "generador" && equipo.estado === "asignado");
-  const gruposLibres = galpon.filter((equipo) => equipo.tipo === "generador" && equipo.estado === "en_galpon");
+  // Lo que tiene barco va a "reservados" aunque haya quedado guardado como
+  // stock: si no, el mismo motor figuraba libre y en el barco a la vez.
+  const enStock = (equipo) => equipo.estado === "en_galpon" && !equipo.obra;
+  const reservado = (equipo) => equipo.estado === "asignado" || (equipo.estado === "en_galpon" && !!equipo.obra);
+  const motoresDisponibles = galpon.filter((equipo) => equipo.tipo === "motor" && enStock(equipo));
+  const motoresReservados = galpon.filter((equipo) => equipo.tipo === "motor" && reservado(equipo));
+  const gruposReservados = galpon.filter((equipo) => equipo.tipo === "generador" && reservado(equipo));
+  const gruposLibres = galpon.filter((equipo) => equipo.tipo === "generador" && enStock(equipo));
   const vacio = (
     <Vacio
       texto={filtrando ? "Nada coincide con la búsqueda y los filtros." : "No hay nada para mostrar."}
@@ -447,7 +452,7 @@ export default function EquiposScreen() {
           galpon.length ? (
             <div className="eq-listas">
               {pendientesRetiro.length > 0 && (
-                <Lista titulo="Comprados · pendientes de retiro" icono={PackageOpen} vacio="No hay compras pendientes de retiro.">
+                <Lista titulo="En proveedor · a retirar" icono={PackageOpen} vacio="No hay compras pendientes de retiro.">
                   {pendientesRetiro.map((equipo) => (
                     <li key={equipo.id} className="eq-fila">
                       <span className="eq-fila-codigo">{equipo.obra || "Stock"}</span>
@@ -463,7 +468,7 @@ export default function EquiposScreen() {
                 </Lista>
               )}
               {(motoresDisponibles.length > 0 || !filtrando) && (
-                <Lista titulo="Motores disponibles en el galpón" icono={Cog} vacio="No hay motores libres en el galpón.">
+                <Lista titulo="Motores libres en galpón" icono={Cog} vacio="No hay motores libres en el galpón.">
                   {motoresDisponibles.map((motor) => (
                     <li key={motor.id} className="eq-fila">
                       <span className="eq-fila-codigo is-libre">Stock</span>
@@ -476,7 +481,7 @@ export default function EquiposScreen() {
                 </Lista>
               )}
               {(motoresReservados.length > 0 || !filtrando) && (
-                <Lista titulo="Motores reservados para un barco" icono={Cog} vacio="No hay motores esperando instalación.">
+                <Lista titulo="Motores asignados a un barco" icono={Cog} vacio="No hay motores asignados.">
                   {motoresReservados.map((motor) => (
                     <li key={motor.id} className="eq-fila">
                       <span className="eq-fila-codigo">{motor.obra}</span>
@@ -489,7 +494,7 @@ export default function EquiposScreen() {
                 </Lista>
               )}
               {(gruposReservados.length > 0 || !filtrando) && (
-                <Lista titulo="Grupos reservados" icono={Zap} vacio="No hay grupos reservados.">
+                <Lista titulo="Grupos asignados a un barco" icono={Zap} vacio="No hay grupos asignados.">
                   {gruposReservados.map((grupo) => (
                     <li key={grupo.id} className="eq-fila">
                       <span className="eq-fila-codigo">{grupo.obra}</span>
@@ -502,7 +507,7 @@ export default function EquiposScreen() {
                 </Lista>
               )}
               {(gruposLibres.length > 0 || !filtrando) && (
-                <Lista titulo="Disponibles en el galpón" icono={Zap} vacio="No hay grupos libres en el galpón.">
+                <Lista titulo="Grupos libres en galpón" icono={Zap} vacio="No hay grupos libres en el galpón.">
                   {gruposLibres.map((grupo) => (
                     <li key={grupo.id} className="eq-fila">
                       <span className="eq-fila-codigo is-libre">Stock</span>
@@ -552,7 +557,7 @@ export default function EquiposScreen() {
           ) : vacio
         )}
       </main>
-      {cargandoEquipo && <EquipoModal onCerrar={() => setCargandoEquipo(false)} onGuardar={guardarEquipo} />}
+      {cargandoEquipo && <EquipoModal obras={(base?.obras || []).filter((obra) => obra.estado === "activa")} onCerrar={() => setCargandoEquipo(false)} onGuardar={guardarEquipo} />}
       {equipoGestion && (
         <GestionEquipoModal
           equipo={equipoGestion}
@@ -568,21 +573,21 @@ export default function EquiposScreen() {
 
 const ESTADOS_FORM = {
   motor: [
-    ["comprado", "Comprado · pendiente de retiro"],
-    ["pedido", "Pedido · pendiente de recepción"],
-    ["en_galpon", "Disponible en galpón"],
-    ["asignado", "Reservado para un barco"],
+    ["pedido", "Pedido al proveedor"],
+    ["comprado", "En proveedor · a retirar"],
+    ["en_galpon", "En galpón · libre"],
+    ["asignado", "En galpón · asignado"],
     ["instalado", "Instalado"],
   ],
   generador: [
-    ["comprado", "Comprado · falta retirar"],
-    ["en_galpon", "Disponible en galpón"],
-    ["asignado", "Reservado para un barco"],
+    ["comprado", "En proveedor · a retirar"],
+    ["en_galpon", "En galpón · libre"],
+    ["asignado", "En galpón · asignado"],
     ["instalado", "Instalado"],
   ],
 };
 
-function EquipoModal({ onCerrar, onGuardar }) {
+function EquipoModal({ obras = [], onCerrar, onGuardar }) {
   const [draft, setDraft] = useState({
     tipo: "motor", marca: "", modelo: "", potencia: "", transmision: "", numero_serie: "",
     proveedor: "", obra_codigo: "", posicion: "", estado: "en_galpon", fecha: "", notas: "", urgente: false,
@@ -597,6 +602,21 @@ function EquipoModal({ onCerrar, onGuardar }) {
   }, [guardando, onCerrar]);
 
   const cambiar = (key, value) => setDraft((actual) => ({ ...actual, [key]: value }));
+  // Un equipo con barco no es stock: si se elige el barco, queda reservado. Y
+  // si se elige "stock en galpón", se limpia el barco. Así no se puede guardar
+  // un motor que diga a la vez "es de este barco" y "está libre".
+  const cambiarObra = (value) => setDraft((actual) => ({
+    ...actual,
+    obra_codigo: value,
+    estado: value.trim() && actual.estado === "en_galpon" ? "asignado" : actual.estado,
+  }));
+  // Comprado y pedido sí pueden tener barco ("comprado para el 52-25"); el
+  // único que no puede es el stock.
+  const cambiarEstado = (estado) => setDraft((actual) => ({
+    ...actual,
+    estado,
+    obra_codigo: estado === "en_galpon" ? "" : actual.obra_codigo,
+  }));
   const cambiarTipo = (tipo) => setDraft((actual) => ({
     ...actual,
     tipo,
@@ -614,10 +634,15 @@ function EquipoModal({ onCerrar, onGuardar }) {
       return;
     }
     if ((draft.estado === "asignado" || draft.estado === "instalado") && !draft.obra_codigo.trim()) {
-      setError("Indicá el barco para un equipo reservado o instalado.");
+      setError("Indicá el barco para un equipo asignado o instalado.");
+      return;
+    }
+    if (draft.estado === "en_galpon" && draft.obra_codigo.trim()) {
+      setError("Un equipo con barco no puede quedar libre: elegí «En galpón · asignado» o dejá el barco vacío.");
       return;
     }
     setGuardando(true);
+    const obra = obras.find((item) => claveObra(item.codigo) === claveObra(draft.obra_codigo));
     const payload = {
       tipo: draft.tipo,
       marca: draft.marca.trim(),
@@ -626,7 +651,10 @@ function EquipoModal({ onCerrar, onGuardar }) {
       transmision: draft.transmision || null,
       numero_serie: draft.numero_serie.trim() || null,
       proveedor: draft.proveedor.trim() || null,
-      obra_codigo: draft.obra_codigo.trim() || null,
+      // Con el barco de la lista queda el vínculo real; escrito a mano, al
+      // menos el código (la base completa el resto desde la obra).
+      obra_id: obra?.id || null,
+      obra_codigo: obra?.codigo || draft.obra_codigo.trim() || null,
       posicion: draft.posicion || null,
       estado: draft.estado,
       fecha_compra: draft.estado === "comprado" && draft.fecha ? draft.fecha : null,
@@ -662,14 +690,27 @@ function EquipoModal({ onCerrar, onGuardar }) {
           </div>
 
           <div className="eq-form-grid">
-            <label className="eq-campo"><span>Estado</span><select className="ui-input" value={draft.estado} onChange={(e) => cambiar("estado", e.target.value)}>{ESTADOS_FORM[draft.tipo].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="eq-campo"><span>Estado</span><select className="ui-input" value={draft.estado} onChange={(e) => cambiarEstado(e.target.value)}>{ESTADOS_FORM[draft.tipo].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <label className="eq-campo"><span>{fechaLabel}</span><input className="ui-input" type="date" value={draft.fecha} onChange={(e) => cambiar("fecha", e.target.value)} /></label>
             <label className="eq-campo"><span>Marca *</span><input className="ui-input" autoFocus value={draft.marca} onChange={(e) => cambiar("marca", e.target.value)} placeholder={draft.tipo === "motor" ? "FPT Iveco, Volvo, Mercury…" : "Kohler, Onan, Sleeper…"} /></label>
             <label className="eq-campo"><span>Modelo *</span><input className="ui-input" value={draft.modelo} onChange={(e) => cambiar("modelo", e.target.value)} placeholder={draft.tipo === "motor" ? "570 Angular" : "9 kVA"} /></label>
             <label className="eq-campo"><span>{draft.tipo === "motor" ? "Potencia (HP)" : "Potencia (kVA)"}</span><input className="ui-input" type="number" step="0.1" value={draft.potencia} onChange={(e) => cambiar("potencia", e.target.value)} /></label>
             <label className="eq-campo"><span>Número de serie</span><input className="ui-input" value={draft.numero_serie} onChange={(e) => cambiar("numero_serie", e.target.value)} placeholder="Se puede completar después" /></label>
             <label className="eq-campo"><span>Proveedor</span><input className="ui-input" value={draft.proveedor} onChange={(e) => cambiar("proveedor", e.target.value)} placeholder="Proveedor o compra del cliente" /></label>
-            <label className="eq-campo"><span>Barco</span><input className="ui-input" value={draft.obra_codigo} onChange={(e) => cambiar("obra_codigo", e.target.value)} placeholder="Ej. 52-25" /></label>
+            <label className="eq-campo">
+              <span>Barco</span>
+              <input
+                className="ui-input"
+                list="eq-obras-activas"
+                value={draft.obra_codigo}
+                onChange={(e) => cambiarObra(e.target.value)}
+                placeholder="Ej. 52-25"
+              />
+              <datalist id="eq-obras-activas">
+                {obras.map((obra) => <option key={obra.id} value={obra.codigo} />)}
+              </datalist>
+              <small className="eq-campo-ayuda">Con barco queda asignado; sin barco, libre en galpón.</small>
+            </label>
             {draft.tipo === "motor" && <label className="eq-campo"><span>Transmisión</span><select className="ui-input" value={draft.transmision} onChange={(e) => cambiar("transmision", e.target.value)}><option value="">Sin definir</option><option value="Angular">Angular</option><option value="V-drive">V-drive</option><option value="Pata">Pata</option></select></label>}
             {draft.tipo === "motor" && <label className="eq-campo"><span>Posición</span><select className="ui-input" value={draft.posicion} onChange={(e) => cambiar("posicion", e.target.value)}><option value="">Sin definir</option><option value="babor">Babor</option><option value="estribor">Estribor</option><option value="centro">Centro</option></select></label>}
           </div>
@@ -869,17 +910,17 @@ function GestionEquipoModal({ equipo, obras, onCerrar, onMover, onEliminar }) {
           <div>
             <span className="eq-modal-eyebrow">Mover o corregir</span>
             <h2 id="eq-gestion-titulo">{nombre}</h2>
-            <p>{equipo.obra ? `Actualmente en ${equipo.obra}` : equipo.estado === "comprado" ? "Pendiente de retiro" : "Actualmente en stock"}{equipo.numero_serie ? ` · Serie ${equipo.numero_serie}` : ""}</p>
+            <p>{equipo.obra ? `Actualmente en ${equipo.obra}` : equipo.estado === "comprado" ? "En proveedor, a retirar" : "Libre en galpón"}{equipo.numero_serie ? ` · Serie ${equipo.numero_serie}` : ""}</p>
           </div>
           <button type="button" className="eq-modal-cerrar" onClick={onCerrar} disabled={guardando} aria-label="Cerrar"><X size={18} /></button>
         </header>
 
         <form className="eq-form" onSubmit={guardar}>
           <div className="eq-destinos" role="group" aria-label="Nuevo destino">
-            <button type="button" className={estado === "comprado" ? "is-activo" : ""} onClick={() => cambiarEstado("comprado")}><PackageOpen size={15} /><span><strong>Pendiente de retiro</strong><small>Comprado al proveedor</small></span></button>
-            <button type="button" className={estado === "pedido" ? "is-activo" : ""} onClick={() => cambiarEstado("pedido")}><History size={15} /><span><strong>Pendiente de recepción</strong><small>Entrega del proveedor</small></span></button>
-            <button type="button" className={estado === "en_galpon" ? "is-activo" : ""} onClick={() => cambiarEstado("en_galpon")}><Warehouse size={15} /><span><strong>Stock</strong><small>Disponible en galpón</small></span></button>
-            <button type="button" className={estado === "asignado" ? "is-activo" : ""} onClick={() => cambiarEstado("asignado")}><Ship size={15} /><span><strong>Reservado</strong><small>Asignado a un barco</small></span></button>
+            <button type="button" className={estado === "comprado" ? "is-activo" : ""} onClick={() => cambiarEstado("comprado")}><PackageOpen size={15} /><span><strong>En proveedor</strong><small>Comprado, falta retirarlo</small></span></button>
+            <button type="button" className={estado === "pedido" ? "is-activo" : ""} onClick={() => cambiarEstado("pedido")}><History size={15} /><span><strong>Pedido</strong><small>Sin entrega del proveedor</small></span></button>
+            <button type="button" className={estado === "en_galpon" ? "is-activo" : ""} onClick={() => cambiarEstado("en_galpon")}><Warehouse size={15} /><span><strong>En galpón · libre</strong><small>Sin asignar</small></span></button>
+            <button type="button" className={estado === "asignado" ? "is-activo" : ""} onClick={() => cambiarEstado("asignado")}><Ship size={15} /><span><strong>En galpón · asignado</strong><small>Reservado para un barco</small></span></button>
             <button type="button" className={estado === "instalado" ? "is-activo" : ""} onClick={() => cambiarEstado("instalado")}><Cog size={15} /><span><strong>Instalado</strong><small>Montado en el barco</small></span></button>
             <button type="button" className={estado === "entregado" ? "is-activo" : ""} onClick={() => cambiarEstado("entregado")}><PackageCheck size={15} /><span><strong>Entregado</strong><small>Sale de producción</small></span></button>
           </div>
@@ -961,7 +1002,7 @@ function TarjetaBarco({ barco, indice, foco, onGestionar }) {
               {barco.memoria.motores}
               <span className="eq-renglon-extra">Definido en la ficha técnica · pendiente de identificación</span>
             </span>
-            <span className="eq-estado" style={{ "--c": TONOS.neutro }}>Pendiente de registro</span>
+            <span className="eq-estado" style={{ "--c": TONOS.neutro }}>Sin registrar</span>
           </div>
         ) : barco.sinDatos ? (
           <p className="eq-sin-datos">Motorización pendiente de definir.</p>
@@ -1001,7 +1042,7 @@ function TarjetaBarco({ barco, indice, foco, onGestionar }) {
                 {barco.memoria.grupo}
                 <span className="eq-renglon-extra">Definido en la ficha técnica · pendiente de registrar</span>
               </span>
-              <span className="eq-estado" style={{ "--c": TONOS.neutro }}>Pendiente de registro</span>
+              <span className="eq-estado" style={{ "--c": TONOS.neutro }}>Sin registrar</span>
             </>
           ) : (
             <span className="eq-renglon-texto is-vacio">Grupo pendiente de definir</span>
@@ -1289,6 +1330,7 @@ const CSS = `
   .eq-tipo button.is-activo { border-color: var(--blue-border); background: var(--blue-soft); color: var(--blue); }
   .eq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .eq-campo { min-width: 0; display: grid; gap: 6px; }
+  .eq-campo-ayuda { font-size: 11.5px; line-height: 1.4; color: var(--dim); }
   .eq-campo > span { color: var(--muted); font-size: 11.5px; font-weight: 600; }
   .eq-campo .ui-input { width: 100%; }
   .eq-textarea { min-height: 74px; padding-top: 10px; resize: vertical; }

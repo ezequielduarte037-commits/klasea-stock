@@ -588,8 +588,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   );
   const quedanFilas = cantidadRenderizada < filasVisibles.length;
   const seleccionados = useMemo(
-    () => filasVisibles.filter((fila) => elegidos.has(fila.id)),
-    [filasVisibles, elegidos],
+    // La selección pertenece al aviso, no al filtro visual. Así, al enfocar un
+    // requisito para resolverlo no desaparecen los otros materiales elegidos.
+    () => (datos?.filas ?? []).filter((fila) => elegidos.has(fila.id)),
+    [datos, elegidos],
   );
 
   const resumenFoco = useMemo(() => {
@@ -685,11 +687,19 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     return { renglones, cubiertos };
   }
 
-  function opcionesPendientesPara(obrasObjetivo = []) {
+  function opcionesPendientesPara(obrasObjetivo = [], soloLoQueEntraAlAviso = false) {
     const pendientes = [];
     for (const fila of seleccionados) {
+      let stockLibreRestante = Number(fila.enPanolLibreFamilia ?? fila.enPanolLibre) || 0;
       for (const obra of obrasObjetivo) {
         const celda = fila.porObra[obra.id];
+        if (soloLoQueEntraAlAviso) {
+          const pendiente = Number(celda?.pendiente || 0);
+          if (!(pendiente > 0) || celda?.avisoPendiente) continue;
+          const cubiertoConStock = Math.min(stockLibreRestante, pendiente);
+          stockLibreRestante = redondear(Math.max(0, stockLibreRestante - cubiertoConStock));
+          if (!(pendiente - cubiertoConStock > 0)) continue;
+        }
         if (celda?.requiereProductoConcreto && !celda.productoDefinido) {
           pendientes.push({ fila, obra });
         }
@@ -698,12 +708,26 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     return pendientes;
   }
 
-  function validarOpcionesPara(obrasObjetivo, accion) {
-    const pendientes = opcionesPendientesPara(obrasObjetivo);
+  function validarOpcionesPara(obrasObjetivo, accion, soloLoQueEntraAlAviso = false) {
+    const pendientes = opcionesPendientesPara(obrasObjetivo, soloLoQueEntraAlAviso);
     if (!pendientes.length) return true;
-    const obras = [...new Set(pendientes.map((item) => item.obra.codigo))];
-    if (obraSeleccionada) setSoloSinOpcion(true);
-    toast.error(`${pendientes.length} ítem${pendientes.length === 1 ? "" : "s"} matriz todavía no ${pendientes.length === 1 ? "tiene" : "tienen"} producto concreto en ${obras.join(", ")}. Resolvelo antes de ${accion}.`);
+    const primero = pendientes[0];
+    const nombres = pendientes.slice(0, 3).map(({ fila, obra }) => `${fila.descripcion} (${obra.codigo})`);
+    const restantes = pendientes.length - nombres.length;
+
+    // Lleva al operario exactamente al requisito que falta. No usamos
+    // cambiarObra porque ese flujo limpia la selección; acá debe conservarse.
+    setObraFoco(primero.obra.id);
+    setBusqueda(primero.fila.descripcion);
+    setOrigenFiltro("todos");
+    setSoloPendientes(false);
+    setSoloSinOpcion(true);
+    setGruposCerrados(new Set());
+    setDetalle(null);
+    setSelectorObrasAvisoAbierto(false);
+    setTimeout(() => buscadorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }), 0);
+
+    toast.error(`Falta definir: ${nombres.join(" · ")}${restantes > 0 ? ` · +${restantes} más` : ""}. Te lo mostramos en pantalla; tu selección sigue guardada para ${accion}.`);
     return false;
   }
 
@@ -798,7 +822,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       toast.info("Elegí una o varias obras para el aviso a pañol.");
       return;
     }
-    if (!validarOpcionesPara(obrasAvisoSeleccionadas, "avisar a pañol")) return;
+    if (!validarOpcionesPara(obrasAvisoSeleccionadas, "avisar a pañol", true)) return;
 
     let yaAvisados = 0;
     let cubiertos = 0;

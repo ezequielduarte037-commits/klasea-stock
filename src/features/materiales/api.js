@@ -638,6 +638,63 @@ export function precioDesactualizado(material) {
   return date < sixMonthsAgo;
 }
 
+/**
+ * Los precios que el proveedor pasa por conjunto y no por pieza.
+ *
+ * Merniez arma los mazos de cables y las cajas del barco entero y cobra un solo
+ * número; Maxi Herrero hace lo mismo con la herrería; los tanques se cotizan
+ * por modelo. Repartir ese número entre las piezas sería inventar unitarios que
+ * después alguien cita como si fueran reales, así que el precio vive en el
+ * conjunto y los materiales que cubre dejan de contarse como faltantes.
+ *
+ * Un conjunto sin precio no es lo mismo que un material sin precio: es una
+ * cotización que hay que pedir, y se ve como una sola línea en vez de como
+ * veintitrés renglones sueltos.
+ *
+ * Devuelve [] si la tabla todavía no existe, para que la pantalla de costos
+ * siga andando en una base sin la migración aplicada.
+ */
+export async function fetchConjuntos() {
+  const { data, error } = await supabase
+    .from("panol_conjuntos")
+    .select(
+      "id, nombre, proveedor, proveedor_id, modelo, precio, moneda, fecha, fuente, notas, activo, panol_conjunto_items(material_id)",
+    )
+    .eq("activo", true)
+    .order("nombre");
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((row) => ({
+    ...row,
+    materiales: (row.panol_conjunto_items ?? [])
+      .map((item) => item.material_id)
+      .filter(Boolean),
+  }));
+}
+
+/** El número que pasó el proveedor, con la fecha y de dónde salió. */
+export async function guardarPrecioConjunto(id, { precio, moneda, fecha, fuente }) {
+  if (!id) throw new Error("Falta el conjunto.");
+  const monto = toNullableNumber(precio);
+  const { data, error } = await supabase
+    .from("panol_conjuntos")
+    .update({
+      precio: monto,
+      moneda: moneda === "USD" ? "USD" : "ARS",
+      // Sin fecha no se sabe si el precio envejeció, así que se pone la de hoy.
+      fecha: monto == null ? null : (fecha || new Date().toISOString().slice(0, 10)),
+      fuente: fuente?.trim() ? fuente.trim() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("id, precio, moneda, fecha, fuente")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export const RUBRO_CONSUMIBLES = "Consumibles";
 
 /**

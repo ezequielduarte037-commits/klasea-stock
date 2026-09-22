@@ -1179,6 +1179,9 @@ export default function EnviarAPanolModal({
       toast.warning("Cargá una descripción.");
       return;
     }
+    const distribucionInicial = obrasDelAviso.length > 1
+      ? obrasDelAviso.map((id) => ({ obra_id: id, cantidad: "" }))
+      : null;
     setItems((prev) => [...prev, {
       descripcion,
       codigo: (nCode || base?.codigo || "").trim().toUpperCase(),
@@ -1196,6 +1199,7 @@ export default function EnviarAPanolModal({
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
+      distribucion: distribucionInicial,
     }]);
     resetQuickAdd();
   }
@@ -1206,9 +1210,17 @@ export default function EnviarAPanolModal({
       .map(parsePanolLine)
       .filter(Boolean);
     if (!parsed.length) return;
+    // Si el encabezado ya incluye varias obras, los renglones nuevos también
+    // tienen que nacer listos para repartir. Antes sólo se preparaban los que
+    // ya existían al sumar la segunda obra; todo lo pegado después quedaba
+    // imputado silenciosamente a la obra principal.
+    const distribucionInicial = obrasDelAviso.length > 1
+      ? obrasDelAviso.map((id) => ({ obra_id: id, cantidad: "" }))
+      : null;
     const next = parsed.map((item) => ({
       ...item,
       obra_id: obraId || "",
+      distribucion: distribucionInicial?.map((row) => ({ ...row })) || null,
       variante: "",
       recepcion_estado: isRemito ? "recibido" : null,
     }));
