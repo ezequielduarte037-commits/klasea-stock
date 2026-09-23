@@ -751,7 +751,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
         .sort((a, b) => b.available - a.available || a.nombre.localeCompare(b.nombre, "es", { numeric: true })),
       tipoPedido: groupTipoFromStock(group),
       locations,
-      egresado: group.hasEgreso && !hasPositiveStock && group.transitQty <= 0,
+      egresado: group.hasEgreso && Math.abs(group.total) <= 0.0001 && !hasPositiveStock && group.transitQty <= 0,
       negativo: group.total < -0.0001,
       locationImbalance: group.total >= -0.0001 && locations.some((loc) => loc.available < -0.0001),
       inTransit: group.transitQty > 0,
@@ -843,9 +843,9 @@ function SelectFilter({ label, value, onChange, options }) {
 
 function StateChip({ negative, imbalance = false, catalogOnly = false, transit = false, egresado = false, compact = false }) {
   if (compact && !egresado && !transit && !catalogOnly && !negative && !imbalance) return null;
-  const color = egresado ? C.red : transit ? C.violet : catalogOnly ? C.violet : negative ? C.red : imbalance ? C.violet : C.green;
-  const border = egresado ? C.redB : transit ? C.violetB : catalogOnly ? C.violetB : negative ? C.redB : imbalance ? C.violetB : C.greenB;
-  const background = egresado ? C.redL : transit ? C.violetL : catalogOnly ? C.violetL : negative ? C.redL : imbalance ? C.violetL : C.greenL;
+  const color = egresado ? C.violet : transit ? C.violet : catalogOnly ? C.violet : negative ? C.red : imbalance ? C.violet : C.green;
+  const border = egresado ? C.violetB : transit ? C.violetB : catalogOnly ? C.violetB : negative ? C.redB : imbalance ? C.violetB : C.greenB;
+  const background = egresado ? C.violetL : transit ? C.violetL : catalogOnly ? C.violetL : negative ? C.redL : imbalance ? C.violetL : C.greenL;
   const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : imbalance ? "Ubicación a revisar" : "Disponible";
   return (
     <span style={{
@@ -1173,7 +1173,7 @@ function ArchiveMatrixAction({ group, onArchive, compact = false }) {
   );
 }
 
-const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, onArchivarMatriz, primaryAction, inCart = false, dense = false }) {
+const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, onArchivarMatriz, primaryAction, inCart = false, dense = false, obraView = false }) {
   const [cartHover, setCartHover] = useState(false);
   const [hover, setHover] = useState(false);
   const breakdown = group.locations
@@ -1188,7 +1188,8 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
     .join(" - ");
   const stockDetail = breakdown || (transitBreakdown ? `Por recibir ${transitBreakdown}` : group.egresado ? "Egresado - sin saldo" : "Sin stock cargado");
   const level = stockLevel(group);
-  const qtyColor = group.egresado ? C.red : level.configured || group.negativo ? level.color : group.total > 0 ? C.green : C.dim;
+  const visualLevel = obraView ? { color: group.egresado ? C.violet : group.negativo ? C.red : group.total > 0 ? C.green : C.dim, border: C.border, key: "ok" } : level;
+  const qtyColor = obraView ? visualLevel.color : group.egresado ? C.violet : level.configured || group.negativo ? level.color : group.total > 0 ? C.green : C.dim;
   const sinUbicacion = !group.ubicacion;
   const barcode = group.codigo_barra || materialBarcodeList(group.material)[0]?.codigo || group.codigos_barra?.[0]?.codigo || "";
   const codeLabel = group.codigo
@@ -1198,7 +1199,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
   // ── Variante DENSA (lista angosta con detalle abierto): 2 líneas, micro-chips ──
   if (dense) {
     const asigs = groupAsignaciones(group);
-    const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.locationImbalance ? ["REVISAR UBIC.", C.violet] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
+    const estadoMini = group.egresado ? ["EGRESADO", C.violet] : group.negativo ? ["NEGATIVO", C.red] : group.locationImbalance ? ["REVISAR UBIC.", C.violet] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
     const micro = (label, color) => (
       <span style={{ fontSize: 8.5, fontWeight: 750, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
     );
@@ -1208,7 +1209,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         onClick={() => onOpen(group.key)}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, borderStyle: "solid", borderTopColor: active || hover ? C.blueB : level.border, borderRightColor: active || hover ? C.blueB : level.border, borderBottomColor: active || hover ? C.blueB : level.border, borderLeftColor: level.color, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderLeftWidth: 3, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transition: "border-color .12s, background .12s" }}
+        style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, borderStyle: "solid", borderTopColor: active || hover ? C.blueB : visualLevel.border, borderRightColor: active || hover ? C.blueB : visualLevel.border, borderBottomColor: active || hover ? C.blueB : visualLevel.border, borderLeftColor: visualLevel.color, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderLeftWidth: 3, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transition: "border-color .12s, background .12s" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, minWidth: 0 }}>
           <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
@@ -1224,7 +1225,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
           {estadoMini && micro(estadoMini[0], estadoMini[1])}
-          <StockLevelChip group={group} compact hideUnset />
+          {!obraView && <StockLevelChip group={group} compact hideUnset />}
           {asigs.length > 0 && micro(asigs.length === 1 ? asigs[0].label : `${asigs.length} OBRAS`, C.blue)}
           {group.tipoPedido === "adicional" && micro("ADIC", C.violet)}
           <span style={{ flex: 1, minWidth: 0, color: C.dim, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1264,15 +1265,15 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         flexDirection: "column",
         gap: 7,
         borderStyle: "solid",
-        borderTopColor: active || hover ? C.blueB : level.border,
-        borderRightColor: active || hover ? C.blueB : level.border,
-        borderBottomColor: active || hover ? C.blueB : level.border,
+        borderTopColor: active || hover ? C.blueB : visualLevel.border,
+        borderRightColor: active || hover ? C.blueB : visualLevel.border,
+        borderBottomColor: active || hover ? C.blueB : visualLevel.border,
         borderTopWidth: 1,
         borderRightWidth: 1,
         borderBottomWidth: 1,
         borderLeftWidth: 3,
-        borderLeftColor: level.color,
-        background: active ? C.blueL : level.key === "critico" ? C.redL : level.key === "alerta" ? C.violetL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
+        borderLeftColor: visualLevel.color,
+        background: active ? C.blueL : visualLevel.key === "critico" ? C.redL : visualLevel.key === "alerta" ? C.violetL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
         borderRadius: 11,
         padding: "9px 10px",
         cursor: "pointer",
@@ -1304,7 +1305,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
           <span title="Requisito de matriz: es genérico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 750, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
         )}
         <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} />
-        <StockLevelChip group={group} hideUnset />
+        {!obraView && <StockLevelChip group={group} hideUnset />}
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
         <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} imbalance={group.locationImbalance} compact />
         {sinUbicacion ? (
@@ -1352,7 +1353,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
       {/* Fila 4: depósito / obra */}
       {active && <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7, flexShrink: 0 }}>Depósito/obra</span>
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 600, color: group.egresado || group.negativo ? C.red : C.t1 }}>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 600, color: group.egresado ? C.violet : group.negativo ? C.red : C.t1 }}>
           {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
         </span>
       </div>}
@@ -1366,6 +1367,10 @@ const STOCK_ROW_COLS = "48px minmax(250px,2.35fr) minmax(100px,.85fr) 76px 112px
 const STOCK_ROW_MIN = 1135;
 const STOCK_ROW_COMPACT_COLS = "44px minmax(190px,2fr) 68px 88px minmax(105px,1fr) 96px";
 const STOCK_ROW_COMPACT_MIN = 620;
+const OBRA_ROW_COLS = "48px minmax(250px,2.35fr) minmax(100px,.85fr) 100px minmax(125px,1fr) 112px 116px";
+const OBRA_ROW_MIN = 950;
+const OBRA_ROW_COMPACT_COLS = "44px minmax(190px,2fr) 75px minmax(105px,1fr) 112px 96px";
+const OBRA_ROW_COMPACT_MIN = 690;
 
 const VERIF_META = {
   ok: { label: "Revisado", Icon: CheckCircle2, color: C.green, bg: C.greenL, border: C.greenB },
@@ -1391,14 +1396,22 @@ function VerificacionChip({ estado, compact = false }) {
 
 // En la tabla mostramos una sola señal operativa. El resto de los datos de
 // control sigue disponible en la ficha, sin competir con la lectura del stock.
-function ProductTableStatus({ group }) {
+function ProductTableStatus({ group, obraView = false }) {
   const level = stockLevel(group);
   let meta;
-  if (group.verificacion === "problema") {
+  if (group.negativo || group.locationImbalance) {
+    meta = { label: "A reconciliar", color: C.red, bg: C.redL, border: C.redB };
+  } else if (group.egresado) {
+    meta = { label: "Egresado", color: C.violet, bg: C.violetL, border: C.violetB };
+  } else if (group.verificacion === "problema") {
     meta = { label: "A revisar", color: C.red, bg: C.redL, border: C.redB };
   } else if (group.inTransit) {
     meta = { label: "En camino", color: C.blue, bg: C.blueL, border: C.blueB };
-  } else if (group.negativo || level.key === "critico") {
+  } else if (obraView) {
+    meta = qty(group.total, 0) > 0
+      ? { label: "Con saldo", color: C.green, bg: C.greenL, border: C.greenB }
+      : { label: "Sin saldo", color: C.dim, bg: C.panel2, border: C.border };
+  } else if (level.key === "critico") {
     meta = { label: "Crítico", color: C.red, bg: C.redL, border: C.redB };
   } else if (level.key === "alerta") {
     meta = { label: "Stock bajo", color: C.violet, bg: C.violetL, border: C.violetB };
@@ -1451,7 +1464,7 @@ function productListVariantIdentity(group) {
   return { displayLabel: group.label, variantsMeta: "" };
 }
 
-const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction, compact = false }) {
+const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction, compact = false, obraView = false }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
   const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
@@ -1477,9 +1490,9 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        minWidth: compact ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN,
+        minWidth: obraView ? (compact ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compact ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN),
         display: "grid",
-        gridTemplateColumns: compact ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS,
+        gridTemplateColumns: obraView ? (compact ? OBRA_ROW_COMPACT_COLS : OBRA_ROW_COLS) : (compact ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS),
         alignItems: "center",
         gap: 12,
         padding: "7px 12px",
@@ -1534,12 +1547,12 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
       )}
 
       <div style={{ textAlign: "right", paddingRight: 4 }}>
-        <div style={{ color: level.key === "critico" ? level.color : C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+        <div style={{ color: !obraView && level.key === "critico" ? level.color : C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
           {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
         </div>
       </div>
 
-      {compact ? (
+      {obraView ? null : compact ? (
         <div title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
           {level.faltante > 0 ? `−${fmtQty(level.faltante)}` : "—"}
         </div>
@@ -1568,8 +1581,8 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
         )}
       </div>
 
-      {!compact && <div style={{ minWidth: 0, display: "grid", justifyItems: "start", gap: 4 }}>
-        <ProductTableStatus group={group} />
+      {(!compact || obraView) && <div style={{ minWidth: 0, display: "grid", justifyItems: "start", gap: 4 }}>
+        <ProductTableStatus group={group} obraView={obraView} />
         {group.esRequisito && (
           <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 750, letterSpacing: 0.5 }}>MATRIZ</span>
         )}
@@ -4153,10 +4166,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fCategoria, setFCategoria] = useState("todos");
   const [fProveedor, setFProveedor] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
-  const [scope, setScope] = useState(stockMaster && initialScope === "todos" ? "existencia" : initialScope);
+  const [scope, setScope] = useState(stockMaster && initialScope === "todos" ? "existencia" : tableWorkspace && initialFObra !== "todas" && initialScope === "todos" ? "con_saldo" : initialScope);
   const [verifScope, setVerifScope] = useState("todos");
   const [verArchivados, setVerArchivados] = useState(false);
-  const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster || tableWorkspace ? "estado" : "default");
+  const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
   const [stockView, setStockView] = useState(() => stockMaster || tableWorkspace ? "lista" : readStoredStockView());
   const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
@@ -4516,6 +4529,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       .filter((group) => fCategoria === "todos" || group.categorias.has(fCategoria));
     return [...stockGroups, ...catalogOnly];
   }, [allKindGroups, catalogRows, fCategoria, fObra, fProveedor, fSede, focusedMaterialId, kindScope, q, replenishmentCatalog, rows, searchedRows, sedeLocked, showCatalogInventory, stockMaster]);
+  const obraViewCounts = useMemo(() => {
+    const groups = verArchivados ? productGroupsBase : productGroupsBase.filter((group) => !esMatrizArchivada(group));
+    return {
+      con_saldo: groups.filter((group) => group.total > 0.0001).length,
+      egresados: groups.filter((group) => group.egresado).length,
+      negativos: groups.filter((group) => group.negativo).length,
+      todos: groups.length,
+    };
+  }, [productGroupsBase, verArchivados]);
   const stockLevelCounts = useMemo(() => {
     const counts = { critico: 0, alerta: 0, ok: 0, sin_minimo: 0 };
     productGroupsBase.forEach((group) => { counts[stockLevel(group).key] += 1; });
@@ -4619,6 +4641,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     if (stockMaster && ["existencia", "reponer", "en_camino", "sin_ubicacion", "reconciliar"].includes(scope)) {
       return sortProductGroups(base.filter((group) => group.buckets?.has(scope)), orderBy);
     }
+    if (tableWorkspace && scope === "con_saldo") return sortProductGroups(base.filter((group) => group.total > 0.0001), orderBy);
+    if (tableWorkspace && scope === "egresados") return sortProductGroups(base.filter((group) => group.egresado), orderBy);
     if (scope === "sin_ubicacion") return sortProductGroups(base.filter((group) => !group.ubicacion), orderBy);
     if (scope === "negativos") {
       const negatives = base.filter((group) => group.negativo || (stockMaster && group.needsConcreteProduct));
@@ -4631,7 +4655,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return sortProductGroups(base.filter((group) => stockLevel(group).key === scope), orderBy);
     }
     return sortProductGroups(base, orderBy);
-  }, [draftGroup, obraScoped, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, verArchivados, verifScope]);
+  }, [draftGroup, obraScoped, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, tableWorkspace, verArchivados, verifScope]);
 
   // Renderizar cientos de tarjetas a la vez bloqueaba el hilo principal varios
   // segundos. Los cálculos y contadores siguen usando el conjunto completo;
@@ -4835,7 +4859,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     onScan: applyScanCode,
   });
 
-  const defaultOrder = showCatalogInventory || stockMaster || tableWorkspace ? "estado" : "default";
+  const defaultOrder = showCatalogInventory || stockMaster ? "estado" : "default";
   const advancedFilterCount = [
     verifScope !== "todos",
     orderBy !== defaultOrder,
@@ -4993,8 +5017,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ]} />
           )}
           <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
-            ...(stockManagement ? [["estado", "Estado de stock"], ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
-            ["default", "Stock primero"],
+            ...(stockManagement ? [...(!tableWorkspace ? [["estado", "Estado de stock"]] : []), ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
+            ["default", tableWorkspace ? "Mayor saldo primero" : "Stock primero"],
             ["recientes", "Más recientes"],
           ]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
@@ -5082,6 +5106,22 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
         {/* La banda histórica de niveles queda disponible para otros usos del
             panel, pero el Stock maestro trabaja con las cubetas operativas. */}
+        {tableWorkspace && (
+          <div aria-label="Ver stock o egresos de la obra" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {[
+              ["con_saldo", "Con saldo", obraViewCounts.con_saldo, C.green, C.greenL, C.greenB],
+              ["egresados", "Egresados", obraViewCounts.egresados, C.violet, C.violetL, C.violetB],
+              ...(obraViewCounts.negativos ? [["negativos", "A reconciliar", obraViewCounts.negativos, C.red, C.redL, C.redB]] : []),
+              ["todos", "Todos", obraViewCounts.todos, C.blue, C.blueL, C.blueB],
+            ].map(([key, label, count, color, background, border]) => (
+              <button key={key} type="button" aria-pressed={scope === key} onClick={() => { setScope(key); setSelectedKey(null); }} style={{ minHeight: isMobile ? 36 : 30, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color: scope === key ? color : C.dim, borderRadius: 999, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                {label} <span style={{ fontFamily: C.mono }}>{count}</span>
+              </button>
+            ))}
+            <span style={{ color: C.dim, fontSize: 10.5 }}>Los egresados no cuentan como stock disponible.</span>
+          </div>
+        )}
+
         {showCatalogInventory && !stockMaster && (
           <div className="stock-wms-chips" style={{ rowGap: 6 }}>
             {[
@@ -5183,9 +5223,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               algo que se aprende la primera vez que hacés click. */}
           <div style={{ padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750 }}>{mode === "egreso" ? "Elegir material para egresar" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750 }}>{mode === "egreso" ? "Elegir material para egresar" : tableWorkspace && scope === "egresados" ? "Egresados de la obra" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
               <div style={{ color: C.dim, fontSize: 11 }}>
-                {productGroups.length} resultados{hiddenProductCount ? ` · ${renderedProductGroups.length} visibles, el resto carga al bajar` : ""} · {stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
+                {productGroups.length} resultados{hiddenProductCount ? ` · ${renderedProductGroups.length} visibles, el resto carga al bajar` : ""} · {tableWorkspace ? (scope === "egresados" ? "productos que salieron de esta obra" : "saldo de esta obra") : stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
               </div>
             </div>
             {obraScoped && matrizArchivadas > 0 && (
@@ -5219,12 +5259,18 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </div>
           <div ref={productListRef} style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
             {stockManagement && stockView === "lista" && !loading && productGroups.length > 0 && (
-              <div style={{ minWidth: compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS, gap: 12, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.15 }}>
+              <div style={{ minWidth: tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN), position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_COLS : OBRA_ROW_COLS) : (compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS), gap: 12, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.15 }}>
                 <span />
                 <span>Producto</span>
                 {!compactStockTable && <span>Rubro</span>}
-                <span style={{ textAlign: "right", paddingRight: 4 }}>Stock</span>
-                {compactStockTable ? (
+                <span style={{ textAlign: "right", paddingRight: 4 }}>{tableWorkspace ? "Saldo en obra" : "Stock"}</span>
+                {tableWorkspace ? (
+                  <>
+                    <span>Ubicación</span>
+                    <span>Estado</span>
+                    <span>Acción</span>
+                  </>
+                ) : compactStockTable ? (
                   <>
                     <span>Faltante</span>
                     <span>Ubicación</span>
@@ -5259,8 +5305,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {renderedProductGroups.map((group) => {
                   const primaryAction = primaryActionFor(group);
                   return stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} />
-                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />;
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} obraView={tableWorkspace} />
+                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} obraView={tableWorkspace} />;
                 })}
                 {hiddenProductCount > 0 && (
                   <button
@@ -5269,7 +5315,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                     onClick={() => setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length))}
                     style={{
                       gridColumn: "1 / -1",
-                      minWidth: stockManagement && stockView === "lista" ? (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN) : 0,
+                      minWidth: stockManagement && stockView === "lista" ? (tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN)) : 0,
                       border: `1px solid ${C.blueB}`,
                       background: C.blueL,
                       color: C.blue,
@@ -5288,7 +5334,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ) : (
               <div style={{ padding: "26px 18px", border: `1px dashed ${C.border}`, borderRadius: 10, textAlign: "center", display: "grid", justifyItems: "center", gap: 8 }}>
                 <Warehouse size={26} style={{ color: C.dim, opacity: 0.7 }} />
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>No hay stock para estos filtros</div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{tableWorkspace && scope === "egresados" ? "No hay egresos para estos filtros" : "No hay stock para estos filtros"}</div>
                 <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, maxWidth: 250 }}>
                   {q.trim() ? (stockMaster ? "Probá con menos palabras o abrí el Catálogo maestro desde el menú." : "Probá con menos palabras, o buscalo abajo en el catálogo completo.") : "Cambiá los filtros de tipo, obra o categoría para ver más productos."}
                 </div>
