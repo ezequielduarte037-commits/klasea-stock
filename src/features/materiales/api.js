@@ -457,6 +457,9 @@ export function proveedorGuardadoId(material, indice) {
   return (llave && indice?.get(llave)) || null;
 }
 
+// Clave de la fila que junta los precios del historial que no dicen de quién son.
+const SIN_PROVEEDOR_PRECIO = "__sin_proveedor__";
+
 /**
  * TODOS los proveedores de un material, sin jerarquía, del precio más nuevo al
  * más viejo. Los que todavía no cotizaron van al final, sin importe.
@@ -494,7 +497,10 @@ export function proveedoresDeMaterial(material) {
       || (nombre && porNombre.get(nombre))
       || fila.proveedorId
       || nombre
-      || null;
+      // Un precio del historial que no dice de quién es (el de lista de una
+      // web, uno estimado) sigue siendo un precio. Entra una sola vez, sin
+      // proveedor: si se descartaba, el costo del barco lo perdía.
+      || (fila.sinProveedor ? SIN_PROVEEDOR_PRECIO : null);
     if (!llave) return;
 
     const previo = porClave.get(llave);
@@ -534,14 +540,16 @@ export function proveedoresDeMaterial(material) {
   for (const row of material?.precio_historial || []) {
     const precio = Number(row?.precio_unitario);
     if (!Number.isFinite(precio) || precio <= 0) continue;
+    const proveedor = String(row.proveedor || "").trim() || null;
     sumar({
       proveedorId: row.proveedor_id || null,
-      proveedor: String(row.proveedor || "").trim() || null,
+      proveedor,
       precio,
       moneda: row.moneda === "USD" ? "USD" : "ARS",
       fecha: row.fecha || (row.created_at ? String(row.created_at).slice(0, 10) : null),
       fuente: row.fuente || null,
       sinCotizar: false,
+      sinProveedor: !row.proveedor_id && !proveedor,
     });
   }
 

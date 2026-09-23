@@ -335,9 +335,9 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
                   <Chip color={estado.color()} soft={estado.soft()} border={estado.borde()}>{estado.label}</Chip>
                 ) : null}
               </div>
-              {fila.motivo || fila.conjunto || fila.origen || fila.material.codigo ? (
+              {fila.motivo || fila.conjunto || fila.origen || fila.material.codigo || fila.precio != null ? (
                 <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 600, marginTop: 2 }}>
-                  {fila.motivo || (fila.conjunto ? fila.conjunto.nombre : null) || [fila.material.codigo, fila.origen].filter(Boolean).join(" · ")}
+                  {fila.motivo || (fila.conjunto ? fila.conjunto.nombre : null) || [fila.material.codigo, fila.origen || (fila.precio != null ? "sin proveedor" : null)].filter(Boolean).join(" · ")}
                 </div>
               ) : null}
             </div>

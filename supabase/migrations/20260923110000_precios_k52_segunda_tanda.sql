@@ -16,33 +16,22 @@
 -- Se cotiza uno solo de cada par: el otro hay que marcarlo como incluido o
 -- sacarlo de la matriz, si no el barco lo paga dos veces.
 
+-- (23/09) Se sacaron 14 renglones que ahora tienen precio de Trimer (ver
+-- 20260923140000_precios_k52_trimer.sql) y 1 de Famiq, la placa de 230x350
+-- (ver 20260923160000_precios_k52_famiq.sql).
+
 begin;
 
 insert into public.panol_precios (material_id, precio_unitario, moneda, fecha, proveedor, proveedor_id, fuente) values
   ('0ca36882-c0d6-46b5-b0d0-e9bbedae7164', 30000, 'ARS', '2026-09-23', 'Lista de obra', null, 'Lista de la obra 52-23 · IVA sin confirmar, cargado tal cual'),  -- Luces cuadradas techo blanco calido
-  ('9821b887-9f3c-447e-b161-e19e3b54c053', 2662, 'USD', '2026-09-23', 'Lista de obra', null, 'Lista de la obra 37-40'),  -- Fabricadora de hielo
   ('f59d1862-9828-4a20-9f16-aa636e431d54', 301652.89, 'ARS', '2026-09-02', 'Baron', '6794d0d7-fa22-4be5-87f9-e1f36b94b07a', 'Remito Baron 02/09 (C42005 cierre Perko s/llave 75mm), aplicado en la obra H-175 · con IVA era 365.000 · sin IVA'),  -- levantapiso perko 75mm
   ('1be5810e-0c5c-4f85-902b-b45d51ff8ebb', 26.68, 'USD', '2026-09-23', 'Lista de obra', null, 'Listas de las obras 37-39, 37-40 y 37-41 (mismo precio en las tres)'),  -- Brida 120mm ext x 50mm int, chapa 3/8" inox 316
   ('a320d678-ae28-4c52-9386-79a6f011e16e', 276640, 'ARS', '2026-09-23', 'Aceros Fitzner', 'dca97f48-7e22-46d7-b552-d5e0ff13d483', 'Listas de las obras 52-25, 55-3 y 55-4 (mismo precio en las tres) · IVA sin confirmar, cargado tal cual'),  -- Caño schedule 80, 3 1/2" nominal, L = 285 mm Inox 
   ('2e94aa22-fe15-46b5-a546-f15690305955', 4887.45, 'ARS', '2026-08-25', 'Casa Iriarte', '39d9cb3e-9c99-473d-9908-7cb3d5e63b9e', 'Presupuesto Casa Iriarte 33116 (CODO HEMBRA HEMBRA 1/2 FUNDIDO), usado en 37-39/40/41'),  -- CODO HH 1/2
-  ('e622a42d-03f6-47b8-af8b-ffcdce2df700', 130, 'USD', '2026-09-23', 'Famiq', '0d87c851-0a3f-4828-b17c-d7486ba41f7a', 'Listas de las obras 37-39, 37-40 y 37-42 (mismo precio en las tres)'),  -- Corte 230x350mm chapa 1/2" 316 inox.
   ('46dcd31e-2d2c-4fef-b822-2095856b39ba', 255000, 'ARS', '2026-09-23', 'Lista de obra', null, 'Lista de la obra 55-2 · IVA sin confirmar, cargado tal cual'),  -- Bacha cocina acero Inox. Negra Hausar 60 x 45 BP-C
   ('357e9ba0-a9e6-4820-a4f9-2315e40e48bc', 906000, 'ARS', '2026-09-23', 'Lista de obra', null, 'Listas de las obras H-175 y 37-41 · IVA sin confirmar, cargado tal cual'),  -- Inodoro con bidet SEAFLO Sfmte1-07 12v
   ('fb26bbe0-e1a0-4a2e-b0ea-815715860597', 351446.28, 'ARS', '2026-09-04', 'Flojumar', '042b959b-4354-4173-91ce-6fe8be953d0b', 'Presupuesto Flojumar 0001-00005534 04/09 (BOCINA DOBLE 12V ELECTRICA TROMPETA MARINCO) · con IVA era 425.250 · sin IVA'),  -- Bocina Marinco doble INOX electrica 12v
-  ('3e09b5e5-b8e0-43dc-addb-84e84a5b73b9', 3881.64, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Side-Power SE80/185T-12V, precio de venta EE.UU. (rango 3.882-4.694) · 2026-09-23'),  -- Bowthruster 96Kg 12v SE80
-  ('146c111a-ea7a-4795-932d-0495ff74d284', 3881.64, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Side-Power SE80/185T-12V, precio de venta EE.UU. (rango 3.882-4.694) · 2026-09-23'),  -- Sternthruster 96kg 12v
-  ('910a60e0-61a0-458f-988e-758798199eb0', 580.5, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Side-Power túnel de popa compuesto 185mm (SM90052i), venta EE.UU. (lista 645) · 2026-09-23'),  -- Tunel Stern 185mm
-  ('4e3ccdd5-91e1-4269-a0e5-438d2307daa3', 1824, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Maxwell RC8-8 12V 1000W cadena 8mm, BOE Marine (rango 1.654-2.305) · 2026-09-23'),  -- MALACATE 1000W CAD 8MM MAXWELL
-  ('114634e7-f49b-4509-a876-a7b3b08d2d35', 1163.7, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Vitrifrigo D30A, precio de venta (lista 1.293) · 2026-09-23'),  -- Heladera cajon Vitrifrigo D30A
   ('1299d8bc-76d1-49cb-a670-fa8b21f52839', 245, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Airmar P319 50/200kHz, P2 Marine · 2026-09-23'),  -- ECOSONDA P319
-  ('ec117514-7f5f-42e8-8cb8-e32533e9a05b', 13730, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Opacmare 5220 800kg 24V inox, precio de venta (lista 17.163) · 2026-09-23'),  -- Tender lift OPACMARE OPACMARE 5220_90_09
-  ('39e6dbda-c7b5-428d-ac8f-e39ad762151e', 898, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Lista oficial PSS 2026, sello tipo A eje 2½" tubo 3½" · 2026-09-23'),  -- Sello PSS para eje 2 1/2", tubo 3 1/2"
-  ('d553e65c-1370-4101-a848-e71d52f864e5', 75.53, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Rule 37A SuperSwitch, Fisheries Supply · 2026-09-23'),  -- Switch automático Rule 37A P/Bomba de achique (Roj
-  ('3542b7d9-0271-479a-89fe-e0cfd774d83a', 70.49, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Jabsco 44411-2045 cromado 45psi (lista 86,61) · 2026-09-23'),  -- Regulador de presion cromado jabsco
-  ('279aa38d-e417-4176-a759-d0305626001b', 1775, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Webasto FCF Classic 12000 BTU 230V, Flagship Marine (lista 2.816) · 2026-09-23'),  -- AIRE ACONDICIONADO 12000 FCF12 COMUN
-  ('589ba7bb-da68-4c38-a128-4f5248f1b2e4', 1129, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Victron MultiPlus 12/2000/80-32 230V, €1.045 en Europa (≈ USD 1.129; en EE.UU. figura USD 2.607) · 2026-09-23'),  -- INVER/CARG.MUL.2000W,12V-80A
-  ('4252bbcd-315f-4a58-a310-a3bcf66ddb29', 82.04, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Maxwell P102938 control up/down, Fisheries Supply · 2026-09-23'),  -- Control Malacate MAXWELL P102938
-  ('c78ef8fb-f67f-423b-b667-3fa426fa4c6e', 205, 'USD', '2026-09-23', 'Referencia web', null, 'Referencia web · Bomba de agua de mar para aire acondicionado 500 GPH 230V: equivalentes SeaFlo/KoolAir USD 200-210 (la March no publica precio) · 2026-09-23'),  -- Bomba aire acondicionado 220v 500gph
   ('e596e2bf-99b4-43c7-941b-74217faf330b', 452464.46, 'ARS', '2026-09-23', 'Referencia web', null, 'Referencia web · FV Epuyén 0411.04/L2 cromo, Materiales Nuciari (rango 547.482-648.750) · con IVA era 547.482 · sin IVA · 2026-09-23'),  -- Epuyén Juego monocomando para mesada de cocina 041
   ('02646402-69fa-4d8a-8db8-8c621473630d', 486180.99, 'ARS', '2026-09-23', 'Referencia web', null, 'Referencia web · FV Epuyén 0106/L2-CR, Cortes · con IVA era 588.279 · sin IVA · 2026-09-23'),  -- Juego monocomando para bañera y ducha Epuyén 0106/
   ('d3a7e58e-7f9a-4568-b70e-281cb1665fbd', 220785.12, 'ARS', '2026-09-23', 'Referencia web', null, 'Referencia web · FV Epuyén 0206/L2-CR, Grupo Anacleto (la misma tienda lo da sin IVA: 220.785,12) · con IVA era 267.150 · sin IVA · 2026-09-23'),  -- Juego monocomando para lavatorio Epuyén 0206/L2
