@@ -1204,6 +1204,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     sharedTransitRows: transitRows,
     sharedReplenishmentCatalog: replenishmentCatalog,
     sharedLoading: loading,
+    onStockChange: cargar,
     onReceiveStock: (group) => {
       const transitRow = (group?.rows || []).find((row) => rowIsTransit(row));
       const params = new URLSearchParams({ tab: "recepcion" });

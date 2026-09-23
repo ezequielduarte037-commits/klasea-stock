@@ -2061,6 +2061,11 @@ export async function ingresarStockGeneral({ material = null, cantidad, sede = n
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegí un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Cargá una cantidad válida.");
+  // Un ajuste hecho desde una obra debe quedar en esa obra. La RPC de stock
+  // general guarda siempre obra_id = null; el conteo físico sí admite obra_id.
+  if (obraId) {
+    return registrarConteoFisico({ material, cantidad: qty, sede, obraId, nota, movimiento: "ingreso", variante });
+  }
   const base = {
     p_material_id: material.id || null,
     p_descripcion: String(material.descripcion || "").trim(),
@@ -2070,12 +2075,12 @@ export async function ingresarStockGeneral({ material = null, cantidad, sede = n
     p_sede: sede || null,
     p_nota: String(nota || "").trim() || null,
     p_es_adicional: !!esAdicional,
-    p_obra_id: obraId || null,
   };
   const varClean = String(variante || "").trim() || null;
-  let { data, error } = await supabase.rpc("panol_ingresar_stock_general", { ...base, p_variante: varClean });
-  // Si el RPC todavía no tiene el parámetro p_variante, reintenta sin él (transición).
-  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+  let { data, error } = await supabase.rpc("panol_ingresar_stock_general", varClean ? { ...base, p_variante: varClean } : base);
+  // La firma de producción no tiene p_variante. No se envía p_obra_id: tampoco
+  // forma parte de esa RPC y provocaba PGRST202 aun en el segundo intento.
+  if (varClean && error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
     ({ data, error } = await supabase.rpc("panol_ingresar_stock_general", base));
   }
   if (error) throw error;

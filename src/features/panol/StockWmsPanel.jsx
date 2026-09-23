@@ -2551,7 +2551,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           toast.success(originIsObra ? "Stock reasignado a la otra obra." : "Stock asignado a la obra (sigue en el pañol hasta el egreso).");
         }
       } else {
-        await ingresarStockGeneral({ material: group.material, cantidad, sede: sedeLocked || sede, nota: ingresoNota, esAdicional: group.esAdicional });
+        await ingresarStockGeneral({ material: group.material, cantidad, sede: sedeLocked || sede, obraId: selectedLocation?.obraId || null, nota: ingresoNota, esAdicional: group.esAdicional });
         toast.success("Ingreso de ajuste registrado.");
       }
       setDestinoObraId("");
@@ -2574,6 +2574,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
     <div style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 11 }}>
       <div>
         <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : "Asignar stock"}</div>
+        {action === "ingresar" && <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>Destino: {selectedLocation?.obraId ? selectedLocation.label : `Stock ${sedeLocked || sede}`}</div>}
         <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
       </div>
       {isCatalogOnly && (
@@ -4133,7 +4134,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const productListRef = useRef(null);
   const loadMoreRef = useRef(null);
@@ -4383,6 +4384,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       setLoading(false);
     }
   }, [fSede, sedeLocked, sharedLoading, sharedObras, sharedReplenishmentCatalog, sharedRows, sharedTransitRows, showCatalogInventory, toast]);
+
+  const refreshAfterMovement = useCallback(async () => {
+    // La vista por obra, sus contadores y Movimientos viven en el componente
+    // padre. Refrescar sólo este panel deja allí el ledger anterior.
+    await Promise.all([cargar({ force: true }), onStockChange?.()]);
+  }, [cargar, onStockChange]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -5321,7 +5328,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             sedeLocked={sedeLocked}
             canReceive={canReceive}
             mode={mode}
-            onDone={cargar}
+            onDone={refreshAfterMovement}
             toast={toast}
             setSelectedKey={setSelectedKey}
             cart={cart}
@@ -5340,7 +5347,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           setCart={setCart}
           obras={obras}
           canReceive={canReceive}
-          onDone={async () => { setCartOpen(false); await cargar({ force: true }); }}
+          onDone={async () => { setCartOpen(false); await refreshAfterMovement(); }}
           toast={toast}
           isMobile={isMobile}
           onClose={() => setCartOpen(false)}
