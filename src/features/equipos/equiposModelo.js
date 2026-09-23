@@ -175,20 +175,21 @@ export function aplicarBase(datos, base) {
 }
 
 
-// Barcos en producción con sus motores y su grupo. Son los que tienen motores
-// que no están entregados, más (si hay base) las obras activas: así aparecen
-// también los barcos de los que no hay ningún dato cargado.
+// Barcos en producción con sus motores y grupos. Se incluyen los que tienen
+// motores sin entregar y, si hay base, las obras activas sin equipos cargados.
+// Un grupo del Excel, por sí solo, no prueba que un barco viejo siga activo.
 export function barcosEnProduccion(datos, { termino = "" } = {}) {
   const { motores, grupos, obrasActivas = null, memoria = new Map() } = datos;
   const activas = new Set(obrasActivas || []);
   const entregados = new Set(motores.filter((m) => m.estado === "entregado").map((m) => m.obra));
-  const codigos = new Set(motores.filter((m) => m.obra && m.estado !== "entregado").map((m) => m.obra));
+  const codigos = new Set(motores.filter((motor) => motor.obra && motor.estado !== "entregado").map((motor) => motor.obra));
   for (const codigo of activas) codigos.add(codigo);
 
   return [...codigos]
     .filter((codigo) => !entregados.has(codigo) || activas.has(codigo))
     .map((codigo) => {
       const suyos = motores.filter((m) => m.obra === codigo && m.estado !== "entregado");
+      const gruposDelBarco = grupos.filter((g) => g.obra === codigo && g.estado !== "entregado");
       const faltan = suyos.filter((m) => m.estado === "pedido");
       const fechaEstimada = faltan.find((m) => m.fecha_estimada)?.fecha_estimada || null;
       const segunMemoria = memoria.get(codigo) || null;
@@ -196,6 +197,7 @@ export function barcosEnProduccion(datos, { termino = "" } = {}) {
         codigo,
         linea: lineaDeCodigo(codigo),
         motores: suyos,
+        grupos: gruposDelBarco,
         // El grupo vigente es el último que llegó a ese barco (los que se pasaron
         // a otro barco dejan de contar acá y quedan como movimiento).
         grupo: grupoVigente(grupos, codigo),
@@ -227,7 +229,7 @@ function barcoCoincide(barco, termino) {
   if (!termino) return true;
   return barco.codigo.toLowerCase().includes(termino)
     || barco.motores.some((m) => coincide(m, termino))
-    || (barco.grupo && coincide(barco.grupo, termino))
+    || barco.grupos?.some((grupo) => coincide(grupo, termino))
     || [barco.memoria?.motores, barco.memoria?.grupo].some((texto) => String(texto || "").toLowerCase().includes(termino));
 }
 
@@ -237,20 +239,22 @@ export function equiposEnGalpon({ motores, grupos, comprasGrupos = [] }, termino
   const porObra = (a, b) => ordenCodigo(a.obra || "", b.obra || "");
   return [
     ...comprasGrupos.filter((g) => g.estado === "comprado").sort(porObra),
+    ...motores.filter((m) => m.estado === "pedido").sort(porObra),
+    ...grupos.filter((g) => g.estado === "pedido").sort(porObra),
     ...motores.filter((m) => m.stock_confirmado && (m.estado === "en_galpon" || m.estado === "asignado")).sort(porObra),
     ...grupos.filter((g) => g.stock_confirmado && g.estado === "asignado").sort(porObra),
     ...grupos.filter((g) => g.estado === "en_galpon" && g.stock_confirmado),
   ].filter((equipo) => coincide(equipo, termino));
 }
 
-// Barcos entregados con los números de sus motores y su grupo (para
+// Barcos entregados con los números de sus motores y grupos (para
 // postventa). Entran por sus motores entregados y, si hay base, también los
 // que sólo figuran en el Excel de grupos.
 export function barcosEntregados({ motores, grupos, memoria = new Map() }, termino = "") {
   const porBarco = new Map();
   const barcoDe = (codigo) => {
     if (!porBarco.has(codigo)) {
-      porBarco.set(codigo, { codigo, linea: lineaDeCodigo(codigo) || "Otros", motores: [], grupo: null, memoria: memoria.get(codigo) || null });
+      porBarco.set(codigo, { codigo, linea: lineaDeCodigo(codigo) || "Otros", motores: [], grupos: [], grupo: null, memoria: memoria.get(codigo) || null });
     }
     return porBarco.get(codigo);
   };
@@ -261,6 +265,7 @@ export function barcosEntregados({ motores, grupos, memoria = new Map() }, termi
   for (const grupo of grupos) {
     if (!grupo.obra || (grupo.estado !== "entregado" && !conMotores.has(grupo.obra))) continue;
     const barco = barcoDe(grupo.obra);
+    barco.grupos.push(grupo);
     if (!barco.grupo || String(grupo.fecha_entrega || "") > String(barco.grupo.fecha_entrega || "")) barco.grupo = grupo;
   }
   return [...porBarco.values()]
@@ -351,6 +356,7 @@ const ESTADOS_MOTOR = {
 
 const ESTADOS_GRUPO = {
   comprado: "En proveedor",
+  pedido: "Pedido",
   en_galpon: "En galpón · libre",
   asignado: "En galpón · asignado",
   instalado: "Instalado",

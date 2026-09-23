@@ -20,7 +20,6 @@ import {
   fetchMaterialDuplicateDecisions,
   fetchMaterialAudit,
   fetchObrasAvance,
-  guardarPrecioConjunto,
   guardarMaterial,
   guardarVariantesMaterial,
   eliminarCodigoBarraMaterial,
@@ -97,10 +96,13 @@ import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
 import { ordenLineasDesdeMatriz, supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
 import CopiarOcProveedor from "@/components/CopiarOcProveedor";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
+import CostoObraPanel from "./CostoObraPanel";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
+import { AnimatedNumber, FadeIn } from "@/components/ui/motion";
+import { dolarGuardado, fetchDolarOficial } from "@/lib/dolarOficial";
 
 import {
   TABS_MAIN,
@@ -3788,466 +3790,6 @@ function ResumenTab({ categorias, materiales }) {
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-}
-
-// Costo de un material para un modelo: cantidad (BOM del modelo) × precio vigente.
-function costoMaterialModelo(m, modelo, opciones = [], conjuntoDe = null) {
-  const cant = Number(toBomMap(m)[modelo]);
-  const tieneCant = Number.isFinite(cant) && cant > 0;
-  const price = precioVigente(m);
-  const pu = price?.precio_unitario != null && price.precio_unitario !== "" ? Number(price.precio_unitario) : null;
-  const tienePrecio = pu != null && Number.isFinite(pu) && pu > 0;
-  const bucket = materialBucket(m, opciones, modelo);
-  // Lo que entra en un conjunto no suma ni falta acá: su plata está en el
-  // conjunto. Si contara las dos veces, el modelo saldría el doble de caro.
-  const conjunto = conjuntoDe?.get(m.id) ?? null;
-  return {
-    tieneCant,
-    conjunto,
-    moneda: price?.moneda === "USD" ? "USD" : "ARS",
-    costo: !conjunto && tieneCant && tienePrecio ? cant * pu : 0,
-    faltaPrecio: !conjunto && tieneCant && !tienePrecio,
-    bucket,
-  };
-}
-
-/**
- * Lee un monto escrito como se escribe acá: "2.214.000", "850.000", "1500,50".
- *
- * El punto es separador de miles salvo que separe decimales, y se decide por lo
- * que viene después: tres dígitos son miles, uno o dos son centavos. No es
- * infalible ("2.214" puede ser cualquiera de las dos cosas), pero el número
- * queda formateado al guardar y el error se ve enseguida.
- */
-function montoDesdeTexto(valor) {
-  const limpio = String(valor ?? "").replace(/[^\d,.]/g, "").trim();
-  if (!limpio) return null;
-  let normal = limpio;
-  if (limpio.includes(",")) normal = limpio.replace(/\./g, "").replace(",", ".");
-  else {
-    const puntos = limpio.match(/\./g) ?? [];
-    const ultimo = limpio.slice(limpio.lastIndexOf(".") + 1);
-    if (puntos.length > 1 || (puntos.length === 1 && ultimo.length === 3)) normal = limpio.replace(/\./g, "");
-  }
-  const numero = Number(normal);
-  return Number.isFinite(numero) && numero >= 0 ? numero : null;
-}
-
-function ConjuntoFila({ conjunto, modelo, materialPorId, abierto, onAbrir, onGuardado }) {
-  const [precio, setPrecio] = useState(conjunto.precio != null ? String(conjunto.precio) : "");
-  const [moneda, setMoneda] = useState(conjunto.moneda === "USD" ? "USD" : "ARS");
-  const [fuente, setFuente] = useState(conjunto.fuente ?? "");
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState(null);
-
-  const cubiertos = useMemo(
-    () => (conjunto.materiales ?? [])
-      .map((id) => materialPorId.get(id))
-      .filter((m) => m && Number(toBomMap(m)[modelo]) > 0),
-    [conjunto.materiales, materialPorId, modelo],
-  );
-
-  const monto = montoDesdeTexto(precio);
-  const sucio = String(conjunto.precio ?? "") !== String(monto ?? "")
-    || (conjunto.moneda ?? "ARS") !== moneda
-    || (conjunto.fuente ?? "") !== fuente;
-
-  const guardar = async () => {
-    setGuardando(true);
-    setError(null);
-    try {
-      await guardarPrecioConjunto(conjunto.id, { precio: monto, moneda, fuente });
-      onGuardado?.();
-    } catch (e) {
-      setError(e?.message || "No se pudo guardar.");
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  return (
-    <div style={{ borderTop: `1px solid ${C.b0}`, padding: "12px 14px" }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-          <div style={{ fontWeight: 600 }}>{conjunto.nombre}</div>
-          <div style={{ color: C.t2, fontSize: 11.5, lineHeight: 1.5 }}>
-            {conjunto.proveedor ? `${conjunto.proveedor} · ` : ""}
-            <button
-              type="button"
-              onClick={() => onAbrir(abierto ? null : conjunto.id)}
-              style={{ ...BTN, border: 0, background: "transparent", padding: 0, color: C.cyan, fontSize: 11.5 }}
-            >
-              {cubiertos.length} {cubiertos.length === 1 ? "material" : "materiales"}
-            </button>
-            {conjunto.fecha ? ` · precio del ${conjunto.fecha}` : ""}
-          </div>
-          {conjunto.notas ? (
-            <div style={{ color: C.t2, fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>{conjunto.notas}</div>
-          ) : null}
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            value={precio}
-            onChange={(event) => setPrecio(event.target.value)}
-            placeholder="Precio total"
-            inputMode="decimal"
-            style={{ ...INP, width: 140, textAlign: "right", fontFamily: C.mono }}
-          />
-          <select value={moneda} onChange={(event) => setMoneda(event.target.value)} style={{ ...INP, width: 78 }}>
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
-          </select>
-          <input
-            value={fuente}
-            onChange={(event) => setFuente(event.target.value)}
-            placeholder="De dónde salió"
-            style={{ ...INP, width: 200 }}
-          />
-          <button
-            type="button"
-            onClick={guardar}
-            disabled={!sucio || guardando}
-            style={{ ...(sucio ? BTN_PRIMARY : BTN), opacity: sucio && !guardando ? 1 : 0.55 }}
-          >
-            {guardando ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
-      </div>
-      {precio.trim() && monto == null ? (
-        <div style={{ color: C.red, fontSize: 11.5, marginTop: 6 }}>Ese número no se entiende. Escribilo como 2.214.000.</div>
-      ) : null}
-      {error ? <div style={{ color: C.red, fontSize: 11.5, marginTop: 6 }}>{error}</div> : null}
-      {abierto ? (
-        <ul style={{ margin: "10px 0 0", paddingLeft: 18, color: C.t2, fontSize: 11.5, lineHeight: 1.7, columns: cubiertos.length > 8 ? 2 : 1 }}>
-          {cubiertos.map((m) => <li key={m.id}>{m.descripcion}</li>)}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function ConjuntosPanel({ conjuntos, modelo, materialPorId, onGuardado }) {
-  const [abierto, setAbierto] = useState(null);
-  return (
-    <div style={{ marginTop: 18, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", background: C.s0 }}>
-      <div style={{ padding: "12px 14px" }}>
-        <div style={{ fontWeight: 600 }}>Precios por conjunto · K{modelo}</div>
-        <div style={{ color: C.t2, fontSize: 11.5, marginTop: 3, lineHeight: 1.5 }}>
-          Proveedores que cobran el trabajo entero y no pieza por pieza. El número va una sola vez acá;
-          los materiales que cubre dejan de contar como “sin precio” y no se les inventa un unitario.
-        </div>
-      </div>
-      {conjuntos.map((conjunto) => (
-        <ConjuntoFila
-          key={conjunto.id}
-          conjunto={conjunto}
-          modelo={modelo}
-          materialPorId={materialPorId}
-          abierto={abierto === conjunto.id}
-          onAbrir={setAbierto}
-          onGuardado={onGuardado}
-        />
-      ))}
-    </div>
-  );
-}
-
-function CostoObraTab({ categorias, materiales, opciones = [] }) {
-  const [modelo, setModelo] = useState(MODELOS[0]);
-  const [mostrarDetalle, setMostrarDetalle] = useState(false);
-  const [soloSinPrecio, setSoloSinPrecio] = useState(true);
-  const [busquedaDetalle, setBusquedaDetalle] = useState("");
-  const [conjuntos, setConjuntos] = useState([]);
-  const activos = useMemo(() => (materiales ?? []).filter(materialActivo), [materiales]);
-  const activoPorId = useMemo(() => new Map(activos.map((m) => [m.id, m])), [activos]);
-
-  const cargarConjuntos = useCallback(() => {
-    fetchConjuntos().then(setConjuntos).catch(() => setConjuntos([]));
-  }, []);
-  useEffect(() => { cargarConjuntos(); }, [cargarConjuntos]);
-
-  // Un conjunto sin modelo sirve para cualquiera.
-  const conjuntosModelo = useMemo(
-    () => conjuntos.filter((c) => !c.modelo || String(c.modelo) === String(modelo)),
-    [conjuntos, modelo],
-  );
-  const conjuntoDe = useMemo(() => {
-    const mapa = new Map();
-    for (const conjunto of conjuntosModelo) {
-      for (const id of conjunto.materiales ?? []) mapa.set(id, conjunto);
-    }
-    return mapa;
-  }, [conjuntosModelo]);
-
-  const aggScope = useCallback((scope) => {
-    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0, enConjunto: 0 };
-    for (const m of activos) {
-      if (!materialEnScope(m, scope)) continue;
-      const c = costoMaterialModelo(m, modelo, opciones, conjuntoDe);
-      if (!c.tieneCant) continue;
-      acc.items += 1;
-      if (c.conjunto) { acc.enConjunto += 1; continue; }
-      if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
-      if (c.bucket.key === "linea_eje") {
-        if (c.moneda === "USD") acc.ejeUsd += c.costo; else acc.ejeArs += c.costo;
-      } else if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
-    }
-    return acc;
-  }, [activos, conjuntoDe, modelo, opciones]);
-
-  // La plata de los conjuntos va una sola vez, aparte de los sectores: sus
-  // materiales cruzan varios y repartirla sería inventar de dónde sale cada peso.
-  const totalConjuntos = useMemo(() => {
-    const acc = { usd: 0, ars: 0, cotizados: 0, sinCotizar: 0, materiales: 0 };
-    for (const conjunto of conjuntosModelo) {
-      const cubre = (conjunto.materiales ?? []).filter((id) => {
-        const material = activoPorId.get(id);
-        return material && Number(toBomMap(material)[modelo]) > 0;
-      }).length;
-      if (!cubre) continue;
-      acc.materiales += cubre;
-      const monto = Number(conjunto.precio);
-      if (Number.isFinite(monto) && monto > 0) {
-        acc.cotizados += 1;
-        if (conjunto.moneda === "USD") acc.usd += monto; else acc.ars += monto;
-      } else {
-        acc.sinCotizar += 1;
-      }
-    }
-    return acc;
-  }, [activoPorId, conjuntosModelo, modelo]);
-
-  // Total global: cada material cuenta una sola vez (no infla por multi-área).
-  const total = useMemo(() => {
-    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0, enConjunto: 0 };
-    for (const m of activos) {
-      const c = costoMaterialModelo(m, modelo, opciones, conjuntoDe);
-      if (!c.tieneCant) continue;
-      acc.items += 1;
-      if (c.conjunto) { acc.enConjunto += 1; continue; }
-      if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
-      if (c.bucket.key === "linea_eje") {
-        if (c.moneda === "USD") acc.ejeUsd += c.costo; else acc.ejeArs += c.costo;
-      } else if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
-    }
-    acc.usd += totalConjuntos.usd;
-    acc.ars += totalConjuntos.ars;
-    return acc;
-  }, [activos, conjuntoDe, modelo, opciones, totalConjuntos]);
-
-  const filas = useMemo(() => categorias.filter(esRaiz).map((r) => ({
-    cat: r,
-    agg: aggScope(idsScope(categorias, r.id)),
-    subs: hijosDe(categorias, r.id).map((s) => ({ cat: s, agg: aggScope(new Set([s.id])) })),
-  })), [categorias, aggScope]);
-
-  const detalle = useMemo(() => activos
-    .map((material) => {
-      const cantidad = Number(toBomMap(material)[modelo]);
-      if (!Number.isFinite(cantidad) || cantidad <= 0) return null;
-      const precio = precioVigente(material);
-      const unitario = precio?.precio_unitario != null && precio.precio_unitario !== ""
-        ? Number(precio.precio_unitario)
-        : null;
-      const tienePrecio = Number.isFinite(unitario) && unitario > 0;
-      const conjunto = conjuntoDe.get(material.id) ?? null;
-      return {
-        material,
-        cantidad,
-        precio,
-        conjunto,
-        unitario: tienePrecio ? unitario : null,
-        total: tienePrecio ? cantidad * unitario : null,
-        moneda: precio?.moneda === "USD" ? "USD" : "ARS",
-        sector: categoriaNombre(categorias, material.categoria_id),
-      };
-    })
-    .filter(Boolean)
-    .filter((row) => !soloSinPrecio || (row.unitario == null && !row.conjunto))
-    .filter((row) => {
-      const q = norm(busquedaDetalle);
-      if (!q) return true;
-      return norm([
-        row.material.descripcion,
-        row.material.codigo,
-        row.material.proveedor,
-        row.sector,
-        row.precio?.fuente,
-        row.conjunto?.nombre,
-      ].filter(Boolean).join(" ")).includes(q);
-    })
-    .sort((a, b) => {
-      if ((a.unitario == null) !== (b.unitario == null)) return a.unitario == null ? -1 : 1;
-      return String(a.sector).localeCompare(String(b.sector), "es")
-        || String(a.material.descripcion).localeCompare(String(b.material.descripcion), "es");
-    }), [activos, busquedaDetalle, categorias, conjuntoDe, modelo, soloSinPrecio]);
-
-  const money = (v, mon) => (v ? fmtMoney(v, mon) : "—");
-
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: C.t2 }}>Modelo de barco:</span>
-        <div style={{ display: "flex", gap: 4, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
-          {MODELOS.map((mod) => (
-            <button key={mod} type="button" onClick={() => setModelo(mod)} style={{ ...BTN, border: "none", background: modelo === mod ? C.s2 : "transparent", color: modelo === mod ? C.t0 : C.t2, padding: "6px 16px", fontWeight: modelo === mod ? 600 : 500 }}>
-              K{mod}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
-        <KpiCard label={`Base estimada USD · K${modelo}`} value={fmtMoney(total.usd, "USD")} sub="Sin línea de eje" color={C.green} />
-        <KpiCard label="Línea de eje USD" value={fmtMoney(total.ejeUsd, "USD")} sub="Sólo si aplica a la obra" color={C.violet} />
-        <KpiCard label={`Base estimada ARS · K${modelo}`} value={fmtMoney(total.ars, "ARS")} color={C.t0} />
-        <KpiCard label="Ítems con cantidad" value={total.items} color={C.t1} />
-        <KpiCard label="Sin precio (faltan cotizar)" value={total.sinPrecio} color={total.sinPrecio ? C.cyan : C.green} />
-      </div>
-
-      <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
-        <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <Th>Sector</Th>
-              <Th right>Ítems</Th>
-              <Th right>Sin precio</Th>
-              <Th right>Base USD</Th>
-              <Th right>Línea eje USD</Th>
-              <Th right>Base ARS</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.flatMap((f) => [
-              <tr key={f.cat.id}>
-                <Td>{f.cat.nombre}</Td>
-                <Td right mono>{f.agg.items || "—"}</Td>
-                <Td right mono color={f.agg.sinPrecio ? C.cyan : C.t2}>{f.agg.sinPrecio || "—"}</Td>
-                <Td right mono>{money(f.agg.usd, "USD")}</Td>
-                <Td right mono color={f.agg.ejeUsd ? C.violet : C.t2}>{money(f.agg.ejeUsd, "USD")}</Td>
-                <Td right mono>{money(f.agg.ars, "ARS")}</Td>
-              </tr>,
-              ...f.subs.map((s) => (
-                <tr key={s.cat.id} style={{ background: C.s0 }}>
-                  <Td><span style={{ paddingLeft: 18, color: C.t2 }}>? {s.cat.nombre}</span></Td>
-                  <Td right mono color={C.t2}>{s.agg.items || "—"}</Td>
-                  <Td right mono color={s.agg.sinPrecio ? C.cyan : C.t2}>{s.agg.sinPrecio || "—"}</Td>
-                  <Td right mono color={C.t2}>{money(s.agg.usd, "USD")}</Td>
-                  <Td right mono color={s.agg.ejeUsd ? C.violet : C.t2}>{money(s.agg.ejeUsd, "USD")}</Td>
-                  <Td right mono color={C.t2}>{money(s.agg.ars, "ARS")}</Td>
-                </tr>
-              )),
-            ])}
-            {(totalConjuntos.cotizados || totalConjuntos.sinCotizar) ? (
-              <tr style={{ borderTop: `1px solid ${C.b0}` }}>
-                <Td>
-                  <span style={{ color: C.violet }}>Precios por conjunto</span>
-                  <div style={{ color: C.t2, fontSize: 11 }}>
-                    {totalConjuntos.sinCotizar
-                      ? `${totalConjuntos.sinCotizar} sin cotizar`
-                      : "cobrados por trabajo, no por pieza"}
-                  </div>
-                </Td>
-                <Td right mono color={C.t2}>{totalConjuntos.materiales || "—"}</Td>
-                <Td right mono color={totalConjuntos.sinCotizar ? C.violet : C.t2}>{totalConjuntos.sinCotizar || "—"}</Td>
-                <Td right mono>{money(totalConjuntos.usd, "USD")}</Td>
-                <Td right mono color={C.t2}>—</Td>
-                <Td right mono>{money(totalConjuntos.ars, "ARS")}</Td>
-              </tr>
-            ) : null}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop: `2px solid ${C.b1}` }}>
-              <Td><strong>Total obra K{modelo}</strong></Td>
-              <Td right mono><strong>{total.items}</strong></Td>
-              <Td right mono color={total.sinPrecio ? C.cyan : C.t2}><strong>{total.sinPrecio || "—"}</strong></Td>
-              <Td right mono><strong>{fmtMoney(total.usd, "USD")}</strong></Td>
-              <Td right mono color={total.ejeUsd ? C.violet : C.t2}><strong>{fmtMoney(total.ejeUsd, "USD")}</strong></Td>
-              <Td right mono><strong>{fmtMoney(total.ars, "ARS")}</strong></Td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div style={{ fontSize: 11, color: C.t2, marginTop: 10, lineHeight: 1.6 }}>
-        USD y ARS van por separado (no se convierten). Un material en varios sectores suma en cada uno, así que la suma por sector puede superar el total (el total cuenta cada material una vez). “Sin precio” = ítems con cantidad en K{modelo} pero sin precio vigente; cargá la cotización del proveedor en <strong>Comprobantes</strong> y el costo se completa solo. Los conjuntos van aparte: su plata no se reparte entre los sectores.
-      </div>
-
-      {conjuntosModelo.length ? (
-        <ConjuntosPanel
-          conjuntos={conjuntosModelo}
-          modelo={modelo}
-          materialPorId={activoPorId}
-          onGuardado={cargarConjuntos}
-        />
-      ) : null}
-
-      <div style={{ marginTop: 18, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", background: C.s0 }}>
-        <button
-          type="button"
-          onClick={() => setMostrarDetalle((value) => !value)}
-          style={{ ...BTN, width: "100%", border: 0, borderRadius: 0, justifyContent: "space-between", padding: "12px 14px", background: "transparent" }}
-        >
-          <span>Detalle auditable · K{modelo}</span>
-          <span style={{ color: C.t2 }}>{mostrarDetalle ? "Ocultar" : `Ver ${total.items} ítems`}</span>
-        </button>
-        {mostrarDetalle && (
-          <div style={{ borderTop: `1px solid ${C.b0}` }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: 12 }}>
-              <input
-                value={busquedaDetalle}
-                onChange={(event) => setBusquedaDetalle(event.target.value)}
-                placeholder="Buscar material, proveedor, código o sector"
-                style={{ ...INP, flex: "1 1 320px" }}
-              />
-              <button
-                type="button"
-                onClick={() => setSoloSinPrecio((value) => !value)}
-                style={{ ...BTN, color: soloSinPrecio ? C.cyan : C.t1 }}
-              >
-                {soloSinPrecio ? `Sin precio · ${total.sinPrecio}` : "Todos los ítems"}
-              </button>
-              <span style={{ color: C.t2, fontSize: 12 }}>{detalle.length} visibles</span>
-            </div>
-            <div style={{ maxHeight: 560, overflow: "auto", borderTop: `1px solid ${C.b0}` }}>
-              <table data-cost-detail-table style={{ width: "100%", minWidth: 980, borderCollapse: "collapse" }}>
-                <thead style={{ position: "sticky", top: 0, zIndex: 1, background: C.s1 }}>
-                  <tr>
-                    <Th>Material</Th>
-                    <Th>Sector</Th>
-                    <Th>Proveedor</Th>
-                    <Th right>Cantidad</Th>
-                    <Th right>Precio unit.</Th>
-                    <Th right>Total</Th>
-                    <Th>Origen</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detalle.map((row) => (
-                    <tr key={row.material.id} data-material-id={row.material.id} data-missing-price={row.unitario == null && !row.conjunto ? "true" : "false"}>
-                      <Td><strong>{row.material.descripcion}</strong>{row.material.codigo ? <div style={{ color: C.t2, fontFamily: C.mono, fontSize: 11 }}>{row.material.codigo}</div> : null}</Td>
-                      <Td color={C.t2}>{row.sector}</Td>
-                      <Td>{row.precio?.proveedor || row.material.proveedor || "Sin proveedor"}</Td>
-                      <Td right mono>{qtyText(row.cantidad, row.material.unidad_medida)}</Td>
-                      <Td right mono color={row.conjunto ? C.violet : row.unitario == null ? C.cyan : C.t1}>
-                        {row.conjunto ? "En conjunto" : row.unitario == null ? "Sin precio" : fmtMoney(row.unitario, row.moneda)}
-                      </Td>
-                      <Td right mono>{row.conjunto || row.total == null ? "—" : fmtMoney(row.total, row.moneda)}</Td>
-                      <Td color={C.t2}>
-                        {row.conjunto
-                          ? `Incluido en ${row.conjunto.nombre}`
-                          : `${row.precio?.fuente || (row.unitario != null ? "Catálogo" : "Pendiente")}${row.precio?.fecha ? ` · ${row.precio.fecha}` : ""}`}
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -8265,12 +7807,150 @@ function ResolverFueraDeMatrizModal({
   );
 }
 
+/**
+ * La tarjeta de una línea: cuánto sale el barco y cuánto de eso se sabe.
+ *
+ * La versión anterior mostraba nueve números —dos totales, tres desgloses, tres
+ * contadores y un porcentaje— y ninguno mandaba. Acá hay UNO solo grande: la
+ * plata unificada al dólar del día, que es la pregunta con la que se entra. El
+ * resto baja de categoría: la composición en pesos y dólares queda como
+ * renglón chico, y las obras, proveedores y rubros se van al pie.
+ *
+ * La barra dejó de ser un porcentaje suelto: es el costo mismo. La parte llena
+ * es lo que ya tiene precio y la rayada lo que falta, así se ve de un vistazo
+ * cuánto puede crecer el número antes de ser el definitivo.
+ *
+ * Sin cotización del dólar no se inventa nada: se muestran los dos importes
+ * separados, como antes.
+ */
+function TarjetaLinea({ linea, dolar, indice, onAbrir }) {
+  const unificado = dolar > 0 ? linea.ars + linea.usd * dolar : null;
+  const cubierto = Math.max(0, Math.min(100, linea.progreso));
+  const colorCobertura = cubierto >= 80 ? C.green : cubierto >= 50 ? C.blue : C.cyan;
+  const composicion = [
+    linea.ars > 0 ? fmtMoney(linea.ars, "ARS") : null,
+    linea.usd > 0 ? fmtMoney(linea.usd, "USD") : null,
+  ].filter(Boolean);
+
+  return (
+    <FadeIn delay={indice * 60} duration={320}>
+      <button
+        type="button"
+        onClick={() => onAbrir(linea.codigo)}
+        className="linea-premium-card"
+        style={{
+          textAlign: "left",
+          cursor: "pointer",
+          padding: 22,
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          minHeight: 236,
+          border: `1px solid ${C.b0}`,
+          borderRadius: 24,
+          background: "radial-gradient(circle at 18% 0%, var(--glow-a), transparent 36%), var(--panel)",
+          boxShadow: "var(--elev-1)",
+          transition: "transform .3s ease, box-shadow .3s ease, border-color .3s ease",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <span style={{ position: "absolute", inset: "0 0 auto 0", height: 1, background: "var(--brand-grad)", opacity: 0.4 }} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 999, background: "var(--blue-soft)", border: `1px solid ${C.blueB}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.blue, fontFamily: C.mono, fontWeight: 700, fontSize: 17, flexShrink: 0 }}>
+              {linea.nombre?.replace(/^K/i, "") || linea.codigo}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: C.t0, letterSpacing: "-0.4px", lineHeight: 1.1 }}>{linea.nombre || `K${linea.codigo}`}</div>
+              <div style={{ fontSize: 11.5, color: C.t2, fontWeight: 600, marginTop: 2 }}>{linea.obras.length} obras activas</div>
+            </div>
+          </div>
+          <div className="linea-arrow" style={{ width: 32, height: 32, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, flexShrink: 0, transition: "transform .3s ease, color .3s ease, background .3s ease, border-color .3s ease" }}>
+            <span style={{ fontSize: 20, transform: "translateY(-1px)" }}>›</span>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Material por barco</div>
+          {unificado != null ? (
+            <>
+              <div style={{ fontFamily: C.mono, fontSize: 31, fontWeight: 750, color: C.t0, letterSpacing: "-1px", lineHeight: 1.1, marginTop: 6 }}>
+                <span style={{ fontSize: 21, color: C.t2, marginRight: 3, letterSpacing: 0 }}>$</span>
+                <AnimatedNumber value={unificado} />
+              </div>
+              <div style={{ fontSize: 11, color: C.t2, fontWeight: 600, marginTop: 5 }}>
+                {composicion.join("  +  ")}
+                {linea.usd > 0 ? <span style={{ opacity: 0.7 }}> · al dólar {Math.round(dolar).toLocaleString("es-AR")}</span> : null}
+              </div>
+            </>
+          ) : (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap", marginTop: 6 }}>
+              {composicion.length ? composicion.map((texto, i) => (
+                <Fragment key={texto}>
+                  {i > 0 ? <span style={{ fontFamily: C.mono, fontSize: 18, color: C.t2 }}>+</span> : null}
+                  <span style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 750, color: C.t0, letterSpacing: "-0.6px" }}>{texto}</span>
+                </Fragment>
+              )) : <span style={{ fontSize: 14, color: C.t2, fontWeight: 600 }}>Todavía sin precios</span>}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: "auto", display: "grid", gap: 8 }}>
+          <div className="linea-barra" style={{ height: 9, borderRadius: 999, background: "var(--panel-3)", border: `1px solid ${C.b0}`, overflow: "hidden", display: "flex" }}>
+            <span style={{ width: `${cubierto}%`, background: "var(--brand-grad)", borderRadius: 999 }} />
+            <span className="linea-barra-falta" style={{ flex: 1 }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, fontWeight: 650 }}>
+            <span style={{ color: colorCobertura }}>{cubierto}% costeado</span>
+            {linea.secundariosLoading ? (
+              <span style={{ color: C.violet }}>sumando producción…</span>
+            ) : linea.secundariosError ? (
+              <span style={{ color: C.red }}>producción sin calcular</span>
+            ) : linea.sinPrecio ? (
+              <span style={{ color: C.t2 }}>faltan <span style={{ fontFamily: C.mono, color: C.t1 }}>{linea.sinPrecio}</span> de {linea.items} ítems</span>
+            ) : (
+              <span style={{ color: C.green }}>los {linea.items} ítems tienen precio</span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.t2, fontWeight: 600, flexWrap: "wrap", paddingTop: 2, borderTop: `1px solid ${C.b0}`, marginTop: 2 }}>
+            <span style={{ paddingTop: 8 }}>{linea.matrizItems} matriz</span>
+            {!linea.secundariosLoading && linea.laminacionItems ? <span style={{ paddingTop: 8, color: C.violet }}>· {linea.laminacionItems} laminación</span> : null}
+            {!linea.secundariosLoading && linea.maderasItems ? <span style={{ paddingTop: 8, color: C.cyan }}>· {linea.maderasItems} maderas</span> : null}
+            <span style={{ paddingTop: 8, marginLeft: "auto" }}>{linea.proveedores} proveedores · {linea.rubros} rubros</span>
+          </div>
+        </div>
+      </button>
+    </FadeIn>
+  );
+}
+
 function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged }) {
   const [sel, setSel] = useState("");
   const [selObra, setSelObra] = useState(null);
   const [q, setQ] = useState("");
   const [secondaryByLine, setSecondaryByLine] = useState({});
   const [, startRouteTransition] = useTransition();
+
+  // El dólar va por su lado: si la API no contesta, la tarjeta muestra los dos
+  // importes separados en vez de un total unificado. Nunca se queda sin pintar.
+  const [cotizacion, setCotizacion] = useState(() => dolarGuardado());
+  useEffect(() => {
+    let vivo = true;
+    fetchDolarOficial().then((valor) => { if (vivo && valor) setCotizacion(valor); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const dolar = Number(cotizacion?.venta) || 0;
+
+  const [conjuntos, setConjuntos] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    fetchConjuntos().then((filas) => { if (vivo) setConjuntos(filas); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const ums = useMemo(
     () => buildUnidadOptions(materiales),
@@ -8310,15 +7990,39 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     let baseUsd = 0;
     let baseArs = 0;
     let baseSinPrecio = 0;
+    // Mismas reglas que Costo de obra y Costo del barco, para que las tres
+    // pantallas den el mismo número: lo que va en un conjunto suma una vez con
+    // el precio del conjunto, y lo especificado no suma ni falta.
+    const conjuntoDe = new Map();
+    for (const conjunto of conjuntos) {
+      if (conjunto.modelo && String(conjunto.modelo) !== String(linea.codigo)) continue;
+      for (const id of conjunto.materiales || []) conjuntoDe.set(id, conjunto);
+    }
+    const conjuntosUsados = new Set();
     mats.forEach((m) => {
       const precio = priceInfo(m);
       const qty = materialQty(m, linea.codigo) || 1;
       if (precio.proveedor || m.proveedor) proveedoresSet.add(precio.proveedor || m.proveedor);
       rubrosSet.add(categoriaNombre(categorias, m.categoria_id));
-      if (!precio.amount) baseSinPrecio += 1;
-      else if (precio.moneda === "USD") baseUsd += precio.amount * qty;
+      const conjunto = conjuntoDe.get(m.id);
+      if (conjunto) {
+        conjuntosUsados.add(conjunto);
+        if (!(Number(conjunto.precio) > 0)) baseSinPrecio += 1;
+        return;
+      }
+      if (!precio.amount) {
+        if (!m.sin_precio_motivo) baseSinPrecio += 1;
+        return;
+      }
+      if (precio.moneda === "USD") baseUsd += precio.amount * qty;
       else baseArs += precio.amount * qty;
     });
+    for (const conjunto of conjuntosUsados) {
+      const monto = Number(conjunto.precio);
+      if (!(monto > 0)) continue;
+      if (conjunto.moneda === "USD") baseUsd += monto;
+      else baseArs += monto;
+    }
     const secondaryState = secondaryByLine[linea.codigo] || {};
     const supportsSecondaries = ["52", "55"].includes(String(linea.codigo));
     const laminacionRows = (secondaryState.rows || []).filter((row) => row.circuito === "laminacion");
@@ -8377,7 +8081,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
       progreso: items ? Math.round((conPrecio / items) * 100) : 0,
       obras: (obras ?? []).filter((o) => String(o.modelo) === String(linea.codigo)),
     };
-  }), [listaLineas, materiales, categorias, obras, secondaryByLine]);
+  }), [listaLineas, materiales, categorias, obras, secondaryByLine, conjuntos]);
 
   const visibles = useMemo(() => {
     const terms = norm(q).split(/\s+/).filter(Boolean);
@@ -8510,117 +8214,8 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
       </div>
 
       <div className="lineas-grid">
-        {visibles.map((linea) => (
-          <button type="button" key={linea.codigo} onClick={() => abrirLinea(linea.codigo)}
-            className="linea-premium-card"
-            style={{
-              textAlign: "left",
-              cursor: "pointer",
-              padding: 22,
-              display: "flex",
-              flexDirection: "column",
-              gap: 17,
-              minHeight: 232,
-              border: `1px solid color-mix(in srgb, ${C.b0} 84%, rgba(96,165,250,0.22))`,
-              borderRadius: 24,
-              background: "radial-gradient(circle at 18% 0%, rgba(59,130,246,0.10), transparent 36%), linear-gradient(145deg, color-mix(in srgb, var(--panel) 96%, white 8%), color-mix(in srgb, var(--panel-2) 78%, transparent))",
-              boxShadow: "0 24px 64px -48px rgba(15,23,42,0.95), inset 0 1px 0 rgba(255,255,255,0.045)",
-              transition: "transform .3s ease, box-shadow .3s ease, border-color .3s ease, background .3s ease",
-              position: "relative",
-              overflow: "hidden",
-            }}>
-            <span style={{ position: "absolute", inset: "0 0 auto 0", height: 1, background: "linear-gradient(90deg, transparent, rgba(96,165,250,0.42), transparent)", opacity: 0.8 }} />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 999,
-                  background: "linear-gradient(145deg, rgba(255,255,255,0.88), rgba(148,163,184,0.18) 44%, rgba(37,99,235,0.16))",
-                  border: "1px solid rgba(148,163,184,0.28)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: C.blue,
-                  fontWeight: 750,
-                  fontSize: 18,
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 12px 24px -18px rgba(37,99,235,0.85)",
-                }}>
-                  {linea.nombre?.replace("K", "") || linea.codigo}
-                </div>
-                <div>
-                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 750, color: C.t0, letterSpacing: "-0.4px" }}>{linea.nombre || `K${linea.codigo}`}</div>
-                  <div style={{ fontSize: 11.5, color: C.t2, fontWeight: 650 }}>{linea.obras.length} obras activas</div>
-                </div>
-              </div>
-              <div className="linea-arrow" style={{ width: 34, height: 34, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, transition: "transform .3s ease, color .3s ease, background .3s ease" }}>
-                <span style={{ fontSize: 21, transform: "translateY(-1px)" }}>›</span>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontSize: 11, color: C.t2, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>Cobertura de precio</span>
-                <span style={{ fontFamily: C.mono, fontSize: 12, color: linea.progreso > 80 ? C.green : C.blue, fontWeight: 750 }}>{linea.progreso}%</span>
-              </div>
-              <div style={{ height: 10, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, overflow: "hidden", position: "relative" }}>
-                <div style={{ width: `${linea.progreso}%`, height: "100%", background: "linear-gradient(90deg, #1d4ed8, #06b6d4)", borderRadius: 999, transition: "width .5s ease-out", position: "relative", boxShadow: "0 0 16px rgba(6,182,212,0.28)" }}>
-                  <span className="progress-glint" style={{ position: "absolute", right: -4, top: -2, width: 14, height: 14, borderRadius: 999, background: "#e0f2fe", boxShadow: "0 0 14px rgba(14,165,233,0.85)", opacity: 0.72, transition: "opacity .3s ease" }} />
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.t2, fontWeight: 600, flexWrap: "wrap" }}>
-                <span>{linea.matrizItems} matriz</span>
-                {linea.secundariosLoading ? (
-                  <>
-                    <span style={{ opacity: 0.5 }}>+</span>
-                    <span style={{ color: C.violet }}>sumando producción…</span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ opacity: 0.5 }}>+</span>
-                    <span style={{ color: C.violet }}>{linea.laminacionItems} laminación</span>
-                    {linea.maderasItems ? (
-                      <>
-                        <span style={{ opacity: 0.5 }}>+</span>
-                        <span style={{ color: C.cyan }}>{linea.maderasItems} maderas · ref. {linea.maderasReferenciaCodigo}</span>
-                      </>
-                    ) : null}
-                  </>
-                )}
-                <span style={{ opacity: 0.5 }}>·</span>
-                <span style={{ color: linea.progreso > 80 ? C.green : C.blue }}>{linea.progreso}% costeado</span>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, padding: "2px 0 0" }}>
-              {[
-                ["Obras", linea.obras.length],
-                ["Prov.", linea.proveedores],
-                ["Rubros", linea.rubros],
-              ].map(([label, value]) => (
-                <div key={label} style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: C.mono, fontSize: 25, lineHeight: 1, color: C.t0, fontWeight: 750, letterSpacing: "-0.5px" }}>{value}</div>
-                  <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 700, letterSpacing: 0.25, marginTop: 5 }}>{label}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "grid", gap: 8, marginTop: "auto", paddingTop: 4 }}>
-              {!linea.secundariosLoading && !linea.secundariosError && (linea.laminacionUsd || linea.laminacionArs || linea.maderasUsd || linea.maderasArs) ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", fontSize: 10.5, color: C.t2, fontWeight: 650 }}>
-                  <span style={{ textTransform: "uppercase", letterSpacing: 0.55 }}>Costo por barco</span>
-                  {(linea.baseUsd || linea.laminacionUsd || linea.maderasUsd) ? <span><strong style={{ color: C.t1 }}>USD:</strong> Matriz {fmtMoney(linea.baseUsd, "USD")}{linea.laminacionUsd ? <> + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionUsd, "USD")}</strong></> : null}{linea.maderasUsd ? <> + <strong style={{ color: C.cyan }}>Maderas {linea.maderasReferenciaCodigo} {fmtMoney(linea.maderasUsd, "USD")}</strong></> : null}</span> : null}
-                  {(linea.baseArs || linea.laminacionArs || linea.maderasArs) ? <span><strong style={{ color: C.t1 }}>ARS:</strong> Matriz {fmtMoney(linea.baseArs, "ARS")}{linea.laminacionArs ? <> + <strong style={{ color: C.violet }}>Laminación {fmtMoney(linea.laminacionArs, "ARS")}</strong></> : null}{linea.maderasArs ? <> + <strong style={{ color: C.cyan }}>Maderas {linea.maderasReferenciaCodigo} {fmtMoney(linea.maderasArs, "ARS")}</strong></> : null}</span> : null}
-                </div>
-              ) : null}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {linea.usd ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 12, color: C.blue, border: `1px solid ${C.blueB}`, background: "color-mix(in srgb, var(--panel) 82%, transparent)", borderRadius: 999, padding: "5px 10px", fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.blue }} />TOTAL {fmtMoney(linea.usd, "USD")}</span> : null}
-                {linea.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 999, padding: "5px 10px", fontWeight: 700 }}>TOTAL {fmtMoney(linea.ars, "ARS")}</span> : null}
-                {linea.sinPrecio ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.cyan, border: "1px solid rgba(34,211,238,0.24)", background: "rgba(34,211,238,0.045)", borderRadius: 999, padding: "5px 10px", fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.cyan }} />{linea.sinPrecio} sin precio</span> : null}
-                {linea.secundariosError ? <span style={{ fontSize: 11, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 999, padding: "5px 9px", fontWeight: 700 }}>Producción sin calcular</span> : null}
-              </div>
-            </div>
-          </button>
+        {visibles.map((linea, indice) => (
+          <TarjetaLinea key={linea.codigo} linea={linea} dolar={dolar} indice={indice} onAbrir={abrirLinea} />
         ))}
         {!visibles.length && (
           <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 15, background: C.s0, border: `1px dashed ${C.b0}`, borderRadius: 20, gridColumn: "1 / -1" }}>
@@ -9989,23 +9584,36 @@ export default function MaterialesScreen({ profile }) {
           animation: spin .75s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .lineas-search:focus {
-          outline: none;
-          border-color: rgba(59,130,246,0.65) !important;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.18), 0 14px 28px -24px rgba(37,99,235,0.75);
-        }
+        /* El foco de los inputs ya está en index.css y no se repite acá. */
         .linea-premium-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 28px 58px -40px rgba(37,99,235,0.7), 0 18px 36px -30px rgba(15,23,42,0.85);
-          border-color: rgba(96,165,250,0.42) !important;
+          transform: translateY(-4px);
+          box-shadow: var(--elev-2, 0 18px 36px -30px rgba(15,23,42,0.85));
+          border-color: var(--blue-border) !important;
         }
         .linea-premium-card:hover .linea-arrow {
           transform: translateX(3px);
-          color: #2563eb;
-          background: rgba(37,99,235,0.10);
+          color: var(--blue);
+          background: var(--blue-soft);
+          border-color: var(--blue-border);
         }
-        .linea-premium-card:hover .progress-glint {
-          opacity: 1;
+        /* La barra es el costo, no un porcentaje: lo lleno es lo que ya tiene
+           precio y lo rayado lo que falta. Llega a su largo al aparecer la
+           tarjeta y después se queda quieta; nada que lata todo el día. */
+        .linea-barra > span:first-child {
+          transform-origin: left center;
+          animation: lineaBarra .55s cubic-bezier(.22,1,.36,1) both;
+        }
+        @keyframes lineaBarra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        .linea-barra-falta {
+          background-image: repeating-linear-gradient(
+            -45deg,
+            var(--border-2) 0 1px,
+            transparent 1px 6px
+          );
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .linea-premium-card:hover { transform: none; }
+          .linea-barra > span:first-child { animation: none; }
         }
       `}</style>
 
@@ -10075,7 +9683,7 @@ export default function MaterialesScreen({ profile }) {
                 {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
                 {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
                 {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
-                {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
+                {tab === "costos" && <CostoObraPanel categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
                 {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
                 {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
               </div>

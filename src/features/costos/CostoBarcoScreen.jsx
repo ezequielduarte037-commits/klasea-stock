@@ -23,6 +23,8 @@ import {
   agregarProveedorAMateriales,
   aplicarPrecioMaterial,
   fetchCatalogo,
+  fetchConjuntos,
+  guardarPrecioConjunto,
   guardarProveedor,
   proveedoresDeMaterial,
   quitarProveedorMasivo,
@@ -90,8 +92,17 @@ const ESTADOS = {
   firme: { label: "al día", color: () => C.green, soft: () => C.greenL, borde: () => C.greenB },
   viejo: { label: "+6 meses", color: () => C.blue, soft: () => C.blueL, borde: () => C.blueB },
   recuperable: { label: "en un remito", color: () => C.violet, soft: () => C.violetL, borde: () => C.violetB },
+  // Los dos que no suman plata propia pero tampoco faltan. Antes no estaban en
+  // esta tabla y caían al default: las piezas de Merniez se veían con el chip
+  // rojo de "sin precio" aunque el conjunto estuviera cotizado.
+  conjunto: { label: "en un conjunto", color: () => C.teal, soft: () => C.tealL, borde: () => C.tealB },
+  especificado: { label: "no lleva precio", color: () => C.muted, soft: () => C.panel2, borde: () => C.border },
   falta: { label: "sin precio", color: () => C.red, soft: () => C.redL, borde: () => C.redB },
 };
+
+// Estados cuyo renglón no tiene importe propio: se muestran con una raya, no
+// con "$ 0", que se leería como si el material fuera gratis.
+const SIN_IMPORTE = new Set(["falta", "conjunto", "especificado"]);
 
 function Chip({ children, color = C.dim, soft = C.panel2, border = C.border, title = "" }) {
   return (
@@ -163,6 +174,127 @@ function CampoPrecio({ fila, grupo, cargado, ocupado, onGuardar }) {
 }
 
 /**
+ * Los precios que el proveedor pasa por el trabajo entero.
+ *
+ * Merniez arma los veintitrés mazos y cajas del K52 y cobra un solo número.
+ * Maxi Herrero hace lo mismo con la herrería. Pedirle un unitario por el mazo
+ * "C" no lleva a ningún lado, y repartir el total entre las piezas sería
+ * inventar veintitrés precios que después alguien cita como si fueran reales.
+ *
+ * Así que el número va acá una vez. Mientras falte, esas piezas no figuran como
+ * veintitrés faltantes sueltos: figuran como una cotización que hay que pedir.
+ */
+function ConjuntosCosto({ conjuntos, filas, modelo, ocupado, onGuardar }) {
+  const [abierto, setAbierto] = useState(null);
+  const sinCotizar = conjuntos.filter((conjunto) => !conjunto.cotizado).length;
+
+  return (
+    <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 13, overflow: "hidden" }}>
+      <div style={{ padding: "11px 16px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+            Precios por conjunto · K{modelo}
+          </span>
+          {sinCotizar ? (
+            <span style={{ color: C.cyan, fontSize: 11.5, fontWeight: 700 }}>{sinCotizar} sin cotizar</span>
+          ) : (
+            <span style={{ color: C.green, fontSize: 11.5, fontWeight: 700 }}>todos cotizados</span>
+          )}
+        </div>
+        <div style={{ color: C.muted, fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+          Proveedores que cobran el trabajo entero y no pieza por pieza. El total va una sola vez acá.
+        </div>
+      </div>
+
+      {conjuntos.map((conjunto) => {
+        const piezas = filas.filter((fila) => fila.conjunto?.id === conjunto.id);
+        const desplegado = abierto === conjunto.id;
+        return (
+          <div key={conjunto.id} style={{ padding: "11px 16px", borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{conjunto.nombre}</div>
+                <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>
+                  {conjunto.proveedor ? `${conjunto.proveedor} · ` : ""}
+                  <button
+                    type="button"
+                    onClick={() => setAbierto(desplegado ? null : conjunto.id)}
+                    style={{ border: 0, background: "transparent", color: C.blue, cursor: "pointer", padding: 0, font: "inherit" }}
+                  >
+                    {conjunto.cubre} {conjunto.cubre === 1 ? "pieza" : "piezas"}
+                  </button>
+                  {conjunto.fecha ? ` · precio del ${conjunto.fecha}` : ""}
+                </div>
+              </div>
+              <CampoPrecioConjunto conjunto={conjunto} ocupado={ocupado === `conjunto-${conjunto.id}`} onGuardar={onGuardar} />
+            </div>
+            {conjunto.notas && !conjunto.cotizado ? (
+              <div style={{ color: C.muted, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{conjunto.notas}</div>
+            ) : null}
+            {desplegado ? (
+              <ul style={{ margin: "9px 0 0", paddingLeft: 18, color: C.muted, fontSize: 11.5, lineHeight: 1.75, columns: piezas.length > 8 ? 2 : 1 }}>
+                {piezas.map((fila) => (
+                  <li key={fila.material.id}>{fila.material.descripcion}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+/** El total del conjunto. Se guarda al salir del campo, como el resto de la pantalla. */
+function CampoPrecioConjunto({ conjunto, ocupado, onGuardar }) {
+  const [texto, setTexto] = useState(conjunto.precio != null ? String(conjunto.precio) : "");
+  const [moneda, setMoneda] = useState(conjunto.moneda === "USD" ? "USD" : "ARS");
+
+  const guardar = () => {
+    const limpio = texto.trim();
+    const mismo = String(conjunto.precio ?? "") === limpio && (conjunto.moneda ?? "ARS") === moneda;
+    if (mismo) return;
+    onGuardar(conjunto, limpio, moneda);
+  };
+
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+      {conjunto.cotizado ? <Check size={13} style={{ color: C.green }} /> : null}
+      <input
+        value={texto}
+        onChange={(evento) => setTexto(evento.target.value)}
+        onBlur={guardar}
+        onKeyDown={(evento) => { if (evento.key === "Enter") { evento.preventDefault(); evento.currentTarget.blur(); } }}
+        disabled={ocupado}
+        placeholder="precio total"
+        inputMode="decimal"
+        aria-label={`Precio total de ${conjunto.nombre}`}
+        style={{
+          width: 124, border: `1px solid ${conjunto.cotizado ? C.border2 : C.cyanB}`, background: C.panelSolid, color: C.text,
+          borderRadius: 7, padding: "6px 8px", fontFamily: C.mono, fontSize: 12, outline: "none",
+          textAlign: "right", boxSizing: "border-box",
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => setMoneda((actual) => (actual === "ARS" ? "USD" : "ARS"))}
+        title="Cambiar moneda"
+        style={{
+          border: `1px solid ${moneda === "USD" ? C.blueB : C.border2}`,
+          background: moneda === "USD" ? C.blueL : C.panel,
+          color: moneda === "USD" ? C.blue : C.dim,
+          borderRadius: 7, padding: "6px 7px", cursor: "pointer",
+          fontFamily: C.mono, fontSize: 10.5, fontWeight: 700, minWidth: 38,
+        }}
+      >
+        {moneda === "USD" ? "US$" : "$"}
+      </button>
+      {ocupado ? <LoaderCircle size={13} className="spin" style={{ color: C.dim }} /> : null}
+    </div>
+  );
+}
+
+/**
  * Los materiales de un rubro, del más caro al más barato.
  *
  * Es la pregunta que la tabla de rubros dejaba sin contestar. Saber que
@@ -203,9 +335,9 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
                   <Chip color={estado.color()} soft={estado.soft()} border={estado.borde()}>{estado.label}</Chip>
                 ) : null}
               </div>
-              {fila.origen || fila.material.codigo ? (
+              {fila.motivo || fila.conjunto || fila.origen || fila.material.codigo ? (
                 <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 600, marginTop: 2 }}>
-                  {[fila.material.codigo, fila.origen].filter(Boolean).join(" · ")}
+                  {fila.motivo || (fila.conjunto ? fila.conjunto.nombre : null) || [fila.material.codigo, fila.origen].filter(Boolean).join(" · ")}
                 </div>
               ) : null}
             </div>
@@ -218,8 +350,8 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
               // en el total de arriba: es lo que valdría al aplicar el remito.
               // En negro, al lado de los que sí suman, se leería como plata ya
               // contada.
-              <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, color: fila.estado === "falta" ? C.dim : fila.estado === "recuperable" ? C.violet : C.text }}>
-                {fila.estado === "falta" ? "—" : fmt(fila.costo, fila.moneda)}
+              <div style={{ textAlign: "right", fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, color: fila.estado === "recuperable" ? C.violet : SIN_IMPORTE.has(fila.estado) ? C.dim : C.text }}>
+                {SIN_IMPORTE.has(fila.estado) ? "—" : fmt(fila.costo, fila.moneda)}
               </div>
             ) : null}
             {!isMobile ? (
@@ -337,6 +469,9 @@ function BarraCobertura({ total }) {
     { clave: "firme", n: total.firme, color: C.green, label: "con precio al día" },
     { clave: "viejo", n: total.viejo, color: C.blue, label: "precio de más de 6 meses" },
     { clave: "recuperable", n: total.recuperable, color: C.violet, label: "el precio ya está en un remito" },
+    { clave: "conjunto", n: total.conjuntoCotizado, color: C.teal, label: "cubiertas por un conjunto" },
+    { clave: "conjuntoFalta", n: total.conjunto - total.conjuntoCotizado, color: C.cyan, label: "esperan la cotización de un conjunto" },
+    { clave: "especificado", n: total.especificado, color: C.muted, label: "no llevan precio propio" },
     { clave: "falta", n: total.falta, color: C.red, label: "hay que pedirlo" },
   ].filter((parte) => parte.n > 0);
   const suma = total.items || 1;
@@ -368,6 +503,7 @@ export default function CostoBarcoScreen() {
   const [tab, setTab] = useState("costo");
   const [catalogo, setCatalogo] = useState({ materiales: [], categorias: [], proveedores: [] });
   const [recuperables, setRecuperables] = useState(new Map());
+  const [conjuntos, setConjuntos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState("");
@@ -439,9 +575,10 @@ export default function CostoBarcoScreen() {
     setCargando(true);
     setError("");
     try {
-      const [datos, precios] = await Promise.all([
+      const [datos, precios, grupos] = await Promise.all([
         fetchCatalogo({ force, includeExtras: false, includeDetails: true }),
         fetchPreciosDeRemitos(),
+        fetchConjuntos(),
       ]);
       setCatalogo({
         materiales: datos.materiales || [],
@@ -449,6 +586,7 @@ export default function CostoBarcoScreen() {
         proveedores: datos.proveedores || [],
       });
       setRecuperables(precios);
+      setConjuntos(grupos);
     } catch (e) {
       setError(e?.message || "No se pudo cargar el catálogo.");
     } finally {
@@ -467,9 +605,10 @@ export default function CostoBarcoScreen() {
   }, []);
 
   const resumen = useMemo(
-    () => resumenDeModelo(catalogo.materiales, modelo, { recuperables, categorias: catalogo.categorias, criterio }),
-    [catalogo.materiales, catalogo.categorias, modelo, recuperables, criterio],
+    () => resumenDeModelo(catalogo.materiales, modelo, { recuperables, categorias: catalogo.categorias, criterio, conjuntos }),
+    [catalogo.materiales, catalogo.categorias, modelo, recuperables, criterio, conjuntos],
   );
+  const conjuntosSinCotizar = resumen.conjuntos.filter((conjunto) => !conjunto.cotizado).length;
   // Sólo los que siguen vivos. `fetchCatalogo` trae todos -inactivos incluidos,
   // porque otras pantallas necesitan mostrar el proveedor viejo de un material-
   // así que el filtro va acá: un desplegable para ASIGNAR no puede ofrecer un
@@ -611,6 +750,39 @@ export default function CostoBarcoScreen() {
   }
 
   /**
+   * El número que el proveedor pasa por el conjunto entero.
+   *
+   * Mismo camino que el precio de un material: se guarda con su fecha y el
+   * total de arriba se mueve en el acto. Dejar el campo vacío lo borra, que es
+   * la forma de deshacer un número mal puesto sin ir a la base.
+   */
+  async function guardarConjunto(conjunto, textoPrecio, moneda) {
+    const limpio = String(textoPrecio ?? "").trim();
+    const precio = limpio ? Number(limpio.replace(/\./g, "").replace(",", ".")) : null;
+    if (limpio && !(precio > 0)) {
+      toast.warning("Poné un número mayor que cero.");
+      return;
+    }
+
+    setOcupado(`conjunto-${conjunto.id}`);
+    try {
+      const guardado = await guardarPrecioConjunto(conjunto.id, { precio, moneda, fuente: conjunto.fuente });
+      setConjuntos((actual) => actual.map((row) => (
+        row.id === conjunto.id
+          ? { ...row, precio: guardado?.precio ?? precio, moneda, fecha: guardado?.fecha ?? null }
+          : row
+      )));
+      toast.success(precio == null
+        ? `${conjunto.nombre}: precio borrado.`
+        : `${conjunto.nombre}: ${fmt(precio, moneda)}.`);
+    } catch (e) {
+      toast.error(e?.message || "No se pudo guardar el precio del conjunto.");
+    } finally {
+      setOcupado("");
+    }
+  }
+
+  /**
    * Asigna un proveedor a todo lo tildado, de una.
    *
    * Es la diferencia entre clasificar cuarenta materiales y no clasificarlos:
@@ -731,7 +903,7 @@ export default function CostoBarcoScreen() {
   }
 
   function exportarTodo() {
-    const etiqueta = { firme: "con precio", viejo: "precio viejo", recuperable: "está en un remito", falta: "falta" };
+    const etiqueta = { firme: "con precio", viejo: "precio viejo", recuperable: "está en un remito", conjunto: "en un conjunto", especificado: "no lleva precio", falta: "falta" };
     descargarXlsx(`costo-K${modelo}.xlsx`, [
       {
         nombre: "Por rubro",
@@ -991,11 +1163,14 @@ export default function CostoBarcoScreen() {
                     padding: isMobile ? "10px 14px" : "11px 18px",
                     color: C.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.55,
                   }}>
-                    {total.falta || total.recuperable ? (
+                    {total.falta || total.recuperable || conjuntosSinCotizar ? (
                       <>
                         Es un <b style={{ color: C.text }}>piso</b>: faltan {total.falta + total.recuperable} de {total.items} materiales por valorizar
                         {unificadoConRecuperables != null && total.recuperable
                           ? <> y, sólo con aplicar los precios que ya están en los remitos, sube a <b style={{ color: C.text }}>{fmt(unificadoConRecuperables)}</b></>
+                          : null}
+                        {conjuntosSinCotizar
+                          ? <>, y {conjuntosSinCotizar === 1 ? "queda" : "quedan"} <b style={{ color: C.text }}>{conjuntosSinCotizar}</b> {conjuntosSinCotizar === 1 ? "conjunto" : "conjuntos"} por cotizar, que {conjuntosSinCotizar === 1 ? "cubre" : "cubren"} {total.conjunto - total.conjuntoCotizado} piezas más</>
                           : null}.
                       </>
                     ) : (
@@ -1003,6 +1178,16 @@ export default function CostoBarcoScreen() {
                     )}
                   </div>
                 </section>
+
+                {resumen.conjuntos.length ? (
+                  <ConjuntosCosto
+                    conjuntos={resumen.conjuntos}
+                    filas={resumen.filas}
+                    modelo={modelo}
+                    ocupado={ocupado}
+                    onGuardar={guardarConjunto}
+                  />
+                ) : null}
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {TABS.map((opcion) => {

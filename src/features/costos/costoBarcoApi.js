@@ -73,7 +73,7 @@ function textoLimpio(valor) {
  * conocido del material, sea de quien sea.
  */
 export function preciosDeMaterial(material) {
-  return proveedoresDeMaterial(material)
+  const precios = proveedoresDeMaterial(material)
     .filter((row) => row.precio != null)
     .map((row) => ({
       proveedorId: row.proveedorId,
@@ -82,6 +82,20 @@ export function preciosDeMaterial(material) {
       moneda: row.moneda,
       fecha: row.fecha,
     }));
+  if (precios.length) return precios;
+  // Un precio en la ficha sin proveedor queda afuera de proveedoresDeMaterial,
+  // que descarta lo que no dice de quién es. Es la hélice del K52: tiene
+  // precio y figuraba como faltante, y esta pantalla daba otro total que la
+  // tarjeta de la línea. Entra sin proveedor y sin fecha -o sea, como viejo-.
+  const ficha = Number(material?.precio_unitario);
+  if (!(Number.isFinite(ficha) && ficha > 0)) return precios;
+  return [{
+    proveedorId: null,
+    proveedor: null,
+    precio: ficha,
+    moneda: material.moneda === "USD" ? "USD" : "ARS",
+    fecha: null,
+  }];
 }
 
 /**
@@ -93,9 +107,35 @@ export function preciosDeMaterial(material) {
  * barato se busca SÓLO entre los que están en la moneda del último precio.
  * Decir que 12 dólares es más barato que 15.000 pesos sería inventar un dato.
  */
-export function evaluarMaterial(material, modelo, recuperables = new Map(), criterio = "ultimo") {
+export function evaluarMaterial(material, modelo, recuperables = new Map(), criterio = "ultimo", conjuntoDe = null) {
   const cantidad = cantidadDeModelo(material, modelo);
   if (cantidad == null) return null;
+
+  // Una pieza que el proveedor no cotiza suelta no tiene precio propio y
+  // tampoco falta: su plata está en el conjunto y se suma una sola vez allá.
+  // Pedirle un unitario a Merniez por el mazo "C" no lleva a ningún lado.
+  const conjunto = conjuntoDe?.get(material.id) ?? null;
+  if (conjunto) {
+    const cotizado = Number(conjunto.precio) > 0;
+    return {
+      material,
+      cantidad,
+      estado: "conjunto",
+      conjunto,
+      conjuntoCotizado: cotizado,
+      precio: null,
+      moneda: conjunto.moneda === "USD" ? "USD" : "ARS",
+      fecha: conjunto.fecha || null,
+      origen: conjunto.proveedor || null,
+      costo: 0,
+      precios: [],
+      ultimo: null,
+      barato: null,
+      ahorro: 0,
+      ahorroMoneda: "ARS",
+      deRemito: null,
+    };
+  }
 
   const precios = preciosDeMaterial(material);
   const ultimo = precios[0] || null;
@@ -125,6 +165,11 @@ export function evaluarMaterial(material, modelo, recuperables = new Map(), crit
       moneda: deRemito.moneda === "USD" ? "USD" : "ARS",
       fecha: deRemito.fecha || null,
     };
+  } else if (material.sin_precio_motivo) {
+    // No lleva precio propio y alguien dejó dicho por qué (se fabrica acá, lo
+    // trae el cliente...). No suma plata, pero tampoco hay que pedírselo a
+    // nadie: cuenta como resuelto.
+    estado = "especificado";
   }
 
   // Cuánto se ahorraría comprándole al más barato en vez de al último que
@@ -138,6 +183,7 @@ export function evaluarMaterial(material, modelo, recuperables = new Map(), crit
     material,
     cantidad,
     estado,
+    motivo: estado === "especificado" ? material.sin_precio_motivo : null,
     precio: usado?.precio ?? null,
     moneda: usado?.moneda || "ARS",
     fecha: usado?.fecha || null,
@@ -187,6 +233,9 @@ function acumuladorVacio() {
     firme: 0,
     viejo: 0,
     recuperable: 0,
+    conjunto: 0,
+    conjuntoCotizado: 0,
+    especificado: 0,
     falta: 0,
     conVarios: 0,
   };
@@ -195,6 +244,12 @@ function acumuladorVacio() {
 function sumar(acc, fila) {
   acc.items += 1;
   acc[fila.estado] += 1;
+  if (fila.estado === "conjunto") {
+    // El importe del conjunto entra una vez en el resumen, no por pieza.
+    if (fila.conjuntoCotizado) acc.conjuntoCotizado += 1;
+    return;
+  }
+  if (fila.estado === "especificado") return;
   if ((fila.precios?.length || 0) > 1) acc.conVarios += 1;
   if (fila.ahorro > 0) {
     if (fila.ahorroMoneda === "USD") acc.ahorroUsd += fila.ahorro;
@@ -218,10 +273,19 @@ function sumar(acc, fila) {
  * desglose no cerraba con el total, que es justo lo que hace que nadie confíe
  * en una planilla de costos.
  */
-export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), categorias = [], criterio = "ultimo" } = {}) {
+export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), categorias = [], criterio = "ultimo", conjuntos = [] } = {}) {
   const indice = {
     porId: new Map((categorias || []).map((categoria) => [categoria.id, categoria])),
   };
+
+  // Un conjunto sin modelo vale para cualquiera.
+  const delModelo = (conjuntos || []).filter(
+    (conjunto) => !conjunto.modelo || String(conjunto.modelo) === String(modelo),
+  );
+  const conjuntoDe = new Map();
+  for (const conjunto of delModelo) {
+    for (const id of conjunto.materiales || []) conjuntoDe.set(id, conjunto);
+  }
 
   const filas = [];
   const total = acumuladorVacio();
@@ -229,7 +293,7 @@ export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), 
 
   for (const material of materiales || []) {
     if (material?.activo === false) continue;
-    const fila = evaluarMaterial(material, modelo, recuperables, criterio);
+    const fila = evaluarMaterial(material, modelo, recuperables, criterio, conjuntoDe);
     if (!fila) continue;
 
     const rubro = rubroDeMaterial(material, indice);
@@ -245,10 +309,36 @@ export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), 
     sumar(porRubro.get(claveRubro), fila);
   }
 
-  const conPrecio = total.firme + total.viejo;
+  // Cada conjunto que toca al menos una pieza de este barco, con cuántas toca.
+  // Los que no tocan ninguna no se muestran: son de otro modelo o de piezas que
+  // todavía no están en la matriz.
+  const cuenta = new Map();
+  for (const fila of filas) {
+    if (fila.estado !== "conjunto") continue;
+    cuenta.set(fila.conjunto.id, (cuenta.get(fila.conjunto.id) ?? 0) + 1);
+  }
+  const resumenConjuntos = delModelo
+    .filter((conjunto) => cuenta.has(conjunto.id))
+    .map((conjunto) => ({
+      ...conjunto,
+      cubre: cuenta.get(conjunto.id),
+      cotizado: Number(conjunto.precio) > 0,
+    }))
+    .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"));
+
+  for (const conjunto of resumenConjuntos) {
+    if (!conjunto.cotizado) continue;
+    if (conjunto.moneda === "USD") total.usd += Number(conjunto.precio);
+    else total.ars += Number(conjunto.precio);
+  }
+
+  // Un conjunto cotizado cubre sus piezas igual que un precio propio: lo que
+  // falta pedir no es cada pieza, es el número del conjunto.
+  const conPrecio = total.firme + total.viejo + total.conjuntoCotizado + total.especificado;
   return {
     filas,
     total,
+    conjuntos: resumenConjuntos,
     cobertura: total.items ? conPrecio / total.items : 0,
     rubros: [...porRubro.values()].sort((a, b) => (b.ars + b.usd * 1000) - (a.ars + a.usd * 1000)),
   };

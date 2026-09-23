@@ -91,6 +91,7 @@ const MATERIAL_COLUMNAS = [
   "precio_unitario", "moneda", "imagen_url", "links", "revisado", "origen", "notas", "activo",
   "es_consumible", "es_requisito", "producto_por_obra", "batch_id", "created_at", "codigo_barra",
   "ubicacion", "ubicacion_obs", "stock_minimo", "variantes", "variantes_precios",
+  "sin_precio_motivo", "sin_precio_at",
 ];
 
 // Columnas que llegaron con migraciones y el valor que toman si la base
@@ -110,6 +111,8 @@ const MATERIAL_COLUMNAS_OPCIONALES = {
   stock_minimo: null,
   variantes: [],
   variantes_precios: {},
+  sin_precio_motivo: null,
+  sin_precio_at: null,
 };
 
 function valorPorDefecto(columna) {
@@ -159,6 +162,8 @@ async function fetchMaterialesCatalogoMinimo() {
     es_consumible: row.es_consumible ?? false,
     es_requisito: false,
     producto_por_obra: false,
+    sin_precio_motivo: null,
+    sin_precio_at: null,
   }));
 }
 
@@ -693,6 +698,41 @@ export async function guardarPrecioConjunto(id, { precio, moneda, fecha, fuente 
     .single();
   if (error) throw error;
   return data;
+}
+
+/**
+ * Los motivos para que un material no lleve precio propio.
+ *
+ * Son los casos que aparecen al costear un barco y que no son "falta pedir el
+ * precio": la pieza se fabrica acá, la trae el cliente, o ya está pagada
+ * adentro de otro ítem. Se ofrecen como botones para no tener que escribirlos;
+ * cualquier otro motivo se escribe a mano.
+ */
+export const MOTIVOS_SIN_PRECIO = [
+  "Se fabrica en el astillero",
+  "Lo provee el cliente",
+  "Viene incluido en otro ítem",
+];
+
+/**
+ * Marca un material como "especificado": no lleva precio propio, por el
+ * motivo que se indica. Con motivo vacío lo vuelve a dejar como faltante.
+ *
+ * Quién y cuándo lo pone la base con un trigger, no esta función.
+ */
+export async function marcarSinPrecio(materialId, motivo) {
+  if (!materialId) throw new Error("Falta el material.");
+  const limpio = String(motivo ?? "").trim() || null;
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ sin_precio_motivo: limpio })
+    .eq("id", materialId);
+  if (error) {
+    if (isMissingColumn(error)) {
+      throw new Error("Falta aplicar la migración 20260923100000_materiales_sin_precio_motivo.");
+    }
+    throw error;
+  }
 }
 
 export const RUBRO_CONSUMIBLES = "Consumibles";

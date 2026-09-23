@@ -114,6 +114,10 @@ function payloadEquipo(equipo) {
   payload.urgente = Boolean(equipo.urgente);
   payload.compra_cliente = Boolean(equipo.compra_cliente);
   payload.marca = payload.marca || "Sin marca";
+  if (payload.fecha_estimada && !/^\d{4}-\d{2}-\d{2}$/.test(String(payload.fecha_estimada))) {
+    payload.notas = [payload.notas, `Recepción estimada en planilla: ${payload.fecha_estimada}`].filter(Boolean).join("\n");
+    payload.fecha_estimada = null;
+  }
   return payload;
 }
 
@@ -197,6 +201,9 @@ export default function EquiposScreen() {
   const guardarEquipo = async (payload) => {
     const { data, error } = await supabase.from("equipos").insert(payload).select("*").single();
     if (error) {
+      if (error.code === "23505" && /numero_serie|serie/i.test(error.message || "")) {
+        throw new Error("Ese número de serie ya está cargado en otro equipo. Revisalo antes de guardar.");
+      }
       if (/does not exist|schema cache/i.test(error.message || "")) {
         throw new Error("El guardado de equipos todavía no está habilitado. Contactá a administración.");
       }
@@ -212,7 +219,8 @@ export default function EquiposScreen() {
   const materializarEquipo = async (equipo) => {
     if (!String(equipo.id).startsWith("eq-")) return equipo;
     if (equipo.origen) {
-      const { data: existente } = await supabase.from("equipos").select("*").eq("origen", equipo.origen).maybeSingle();
+      const { data: existente, error: buscarError } = await supabase.from("equipos").select("*").eq("origen", equipo.origen).maybeSingle();
+      if (buscarError) throw buscarError;
       if (existente) return equipoDesdeBase(existente);
     }
     const { data, error } = await supabase.from("equipos").insert(payloadEquipo(equipo)).select("*").single();
@@ -224,18 +232,38 @@ export default function EquiposScreen() {
     let persistido;
     try {
       persistido = await materializarEquipo(equipo);
-      const { data, error } = await supabase.rpc("equipo_mover", {
-        p_equipo: persistido.id,
-        p_estado: destino.estado,
-        p_obra: destino.obraId || null,
-        p_obra_codigo: destino.obraCodigo || null,
-        p_nota: destino.nota || null,
-      });
+      const serieAnterior = String(persistido.numero_serie || "").trim();
+      const serieNueva = String(destino.numeroSerie || "").trim();
+      const cambioSerie = serieAnterior !== serieNueva;
+      let data;
+      let error;
+      if (cambioSerie) {
+        // Serie y destino se guardan juntos: una serie duplicada no debe dejar
+        // el motor marcado como recibido o movido a otro barco.
+        const constancia = `${new Date().toISOString().slice(0, 10)} · Serie: ${serieAnterior || "sin número"} → ${serieNueva || "sin número"}${destino.nota ? ` · ${destino.nota}` : ""}`;
+        const notas = [persistido.notas, constancia].filter(Boolean).join("\n");
+        ({ data, error } = await supabase.from("equipos").update({
+          estado: destino.estado,
+          obra_id: destino.obraId || null,
+          obra_codigo: destino.obraCodigo || null,
+          numero_serie: serieNueva || null,
+          notas,
+        }).eq("id", persistido.id).select("*").single());
+      } else {
+        ({ data, error } = await supabase.rpc("equipo_mover", {
+          p_equipo: persistido.id,
+          p_estado: destino.estado,
+          p_obra: destino.obraId || null,
+          p_obra_codigo: destino.obraCodigo || null,
+          p_nota: destino.nota || null,
+        }));
+      }
       if (error) throw error;
       const actualizado = equipoDesdeBase(Array.isArray(data) ? data[0] : data);
+      const cambioDestino = persistido.estado !== actualizado.estado || claveObra(persistido.obra) !== claveObra(actualizado.obra);
       actualizado.movimientos = [
         ...(persistido.movimientos || []),
-        {
+        ...(cambioDestino ? [{
           tipo: persistido.obra && actualizado.obra && persistido.obra !== actualizado.obra ? "cambio_barco"
             : persistido.obra && !actualizado.obra ? "devuelto"
               : actualizado.estado === "instalado" ? "instalacion"
@@ -244,35 +272,45 @@ export default function EquiposScreen() {
           desde: persistido.obra,
           hacia: actualizado.obra,
           fecha: new Date().toISOString().slice(0, 10),
-          nota: destino.nota || null,
+          nota: cambioSerie ? null : destino.nota || null,
           estado_anterior: persistido.estado,
           estado_nuevo: actualizado.estado,
-        },
+        }] : []),
       ];
       setDatos((actual) => integrarEquipos(actual, [actualizado]));
       const nombre = actualizado.tipo === "motor" ? nombreMotor(actualizado) : nombreGrupo(actualizado);
-      setMensaje(`${nombre}: ${ESTADOS[actualizado.estado]?.label || "actualizado"}.`);
+      setMensaje(`${nombre}: ${ESTADOS[actualizado.estado]?.label || "actualizado"}${cambioSerie ? ` · serie ${serieNueva || "sin número"}` : ""}.`);
       setEquipoGestion(null);
-      elegirPestana(actualizado.estado === "instalado" ? "barcos" : "galpon");
+      elegirPestana(actualizado.estado === "entregado" ? "entregados" : actualizado.estado === "instalado" ? "barcos" : "galpon");
     } catch (error) {
+      if (error.code === "23505" && /numero_serie|serie/i.test(error.message || "")) {
+        throw new Error("Ese número de serie ya está cargado en otro equipo. Revisalo antes de guardar.");
+      }
       if (/does not exist|schema cache/i.test(error.message || "")) throw new Error("La gestión de equipos todavía no está habilitada. Contactá a administración.");
       throw error;
     }
   };
 
   const eliminarEquipo = async (equipo) => {
-    const persistido = await materializarEquipo(equipo);
-    const { data, error } = await supabase.rpc("equipo_mover", {
-      p_equipo: persistido.id,
-      p_estado: "baja",
-      p_obra: null,
-      p_obra_codigo: null,
-      p_nota: "Retirado del inventario por corrección de stock",
-    });
+    const esInicial = String(equipo.id).startsWith("eq-");
+    let persistido = equipo;
+    if (esInicial && equipo.origen) {
+      const { data, error } = await supabase.from("equipos").select("*").eq("origen", equipo.origen).maybeSingle();
+      if (error) throw error;
+      persistido = data || null;
+    }
+
+    const constancia = `Carga errónea eliminada del control${equipo.numero_serie ? ` · serie original: ${equipo.numero_serie}` : ""}`;
+    const notas = [persistido?.notas || equipo.notas, constancia].filter(Boolean).join("\n");
+    const cambios = { estado: "baja", obra_id: null, obra_codigo: null, numero_serie: null, notas };
+    const consulta = persistido
+      ? supabase.from("equipos").update(cambios).eq("id", persistido.id)
+      : supabase.from("equipos").insert({ ...payloadEquipo(equipo), ...cambios });
+    const { data, error } = await consulta.select("*").single();
     if (error) throw error;
-    const baja = equipoDesdeBase(Array.isArray(data) ? data[0] : data);
-    setDatos((actual) => integrarEquipos(actual, [baja]));
-    setMensaje("El equipo fue retirado del inventario.");
+
+    setDatos((actual) => integrarEquipos(actual, [data]));
+    setMensaje(`${equipo.tipo === "motor" ? "El motor" : "El grupo"} se eliminó del control.${equipo.numero_serie ? " Su número de serie quedó disponible para cargarlo correctamente." : ""}`);
     setEquipoGestion(null);
   };
 
@@ -316,6 +354,7 @@ export default function EquiposScreen() {
 
   const galpon = filtrados.galpon;
   const pendientesRetiro = galpon.filter((equipo) => equipo.estado === "comprado");
+  const pendientesRecepcion = galpon.filter((equipo) => equipo.estado === "pedido");
   // Lo que tiene barco va a "reservados" aunque haya quedado guardado como
   // stock: si no, el mismo motor figuraba libre y en el barco a la vez.
   const enStock = (equipo) => equipo.estado === "en_galpon" && !equipo.obra;
@@ -460,8 +499,21 @@ export default function EquiposScreen() {
                         <strong>{equipo.tipo === "motor" ? nombreMotor(equipo) : nombreGrupo(equipo)}{equipo.proveedor ? ` · ${equipo.proveedor}` : ""}</strong>
                         <small>{equipo.obra_detalle ? `Compra para ${equipo.obra_detalle}` : "Compra sin barco asignado"}</small>
                       </span>
-                      <span className="eq-serie is-vacia">retiro sin registrar</span>
+                      <span className={`eq-serie${equipo.numero_serie ? "" : " is-vacia"}`}>{equipo.numero_serie || "retiro sin registrar"}</span>
                       <EstadoChip estado="comprado" />
+                      <GestionarButton onClick={() => setEquipoGestion(equipo)} />
+                    </li>
+                  ))}
+                </Lista>
+              )}
+              {pendientesRecepcion.length > 0 && (
+                <Lista titulo="Pedidos · pendientes de recepción" icono={History}>
+                  {pendientesRecepcion.map((equipo) => (
+                    <li key={equipo.id} className="eq-fila">
+                      <span className="eq-fila-codigo">{equipo.obra || "Sin barco"}</span>
+                      <span className="eq-fila-texto">{equipo.tipo === "motor" ? nombreMotor(equipo) : nombreGrupo(equipo)}</span>
+                      <span className={`eq-serie${equipo.numero_serie ? "" : " is-vacia"}`}>{equipo.numero_serie || "sin número"}</span>
+                      <EstadoChip estado={equipo.estado} urgente={equipo.urgente} />
                       <GestionarButton onClick={() => setEquipoGestion(equipo)} />
                     </li>
                   ))}
@@ -486,7 +538,7 @@ export default function EquiposScreen() {
                     <li key={motor.id} className="eq-fila">
                       <span className="eq-fila-codigo">{motor.obra}</span>
                       <span className="eq-fila-texto">{nombreMotor(motor)}{motor.cajas ? ` · ${motor.cajas}` : ""}</span>
-                      <span className="eq-serie">{motor.numero_serie}</span>
+                      <span className={`eq-serie${motor.numero_serie ? "" : " is-vacia"}`}>{motor.numero_serie || "sin número"}</span>
                       <EstadoChip estado={motor.estado} />
                       <GestionarButton onClick={() => setEquipoGestion(motor)} />
                     </li>
@@ -499,7 +551,7 @@ export default function EquiposScreen() {
                     <li key={grupo.id} className="eq-fila">
                       <span className="eq-fila-codigo">{grupo.obra}</span>
                       <span className="eq-fila-texto">{nombreGrupo(grupo)} · {grupo.proveedor}</span>
-                      <span className="eq-serie is-vacia">sin número</span>
+                      <span className={`eq-serie${grupo.numero_serie ? "" : " is-vacia"}`}>{grupo.numero_serie || "sin número"}</span>
                       <EstadoChip estado={grupo.estado} />
                       <GestionarButton onClick={() => setEquipoGestion(grupo)} />
                     </li>
@@ -512,7 +564,7 @@ export default function EquiposScreen() {
                     <li key={grupo.id} className="eq-fila">
                       <span className="eq-fila-codigo is-libre">Stock</span>
                       <span className="eq-fila-texto">{nombreGrupo(grupo)} · {grupo.proveedor}{grupo.obra_origen ? ` · volvió de ${grupo.obra_origen}` : ""}</span>
-                      <span className="eq-serie is-vacia">sin número</span>
+                      <span className={`eq-serie${grupo.numero_serie ? "" : " is-vacia"}`}>{grupo.numero_serie || "sin número"}</span>
                       <EstadoChip estado={grupo.estado} />
                       <GestionarButton onClick={() => setEquipoGestion(grupo)} />
                     </li>
@@ -528,7 +580,7 @@ export default function EquiposScreen() {
             <div className="eq-listas">
               {agruparPorLinea(filtrados.entregados).map((grupoLinea) => (
                 <Lista key={grupoLinea.linea} titulo={grupoLinea.linea} icono={Ship} cuenta={grupoLinea.barcos.length}>
-                  {grupoLinea.barcos.map((barco) => <FilaEntregado key={barco.codigo} barco={barco} foco={foco} />)}
+                  {grupoLinea.barcos.map((barco) => <FilaEntregado key={barco.codigo} barco={barco} foco={foco} onGestionar={setEquipoGestion} />)}
                 </Lista>
               ))}
             </div>
@@ -851,12 +903,12 @@ function GestionarButton({ onClick, compacto = false }) {
 function GestionEquipoModal({ equipo, obras, onCerrar, onMover, onEliminar }) {
   const [estado, setEstado] = useState(equipo.estado === "baja" ? "en_galpon" : equipo.estado);
   const [obraCodigo, setObraCodigo] = useState(equipo.obra || "");
+  const [numeroSerie, setNumeroSerie] = useState(equipo.numero_serie || "");
   const [nota, setNota] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [confirmarBaja, setConfirmarBaja] = useState(false);
   const [error, setError] = useState("");
   const necesitaBarco = estado === "asignado" || estado === "instalado" || estado === "entregado";
-  const puedeEliminar = equipo.estado === "en_galpon" || equipo.estado === "comprado";
   const nombre = equipo.tipo === "motor" ? nombreMotor(equipo) : nombreGrupo(equipo);
 
   useEffect(() => {
@@ -880,7 +932,7 @@ function GestionEquipoModal({ equipo, obras, onCerrar, onMover, onEliminar }) {
     setGuardando(true);
     try {
       const obra = obras.find((item) => item.codigo === obraCodigo);
-      await onMover(equipo, { estado, obraId: obra?.id || null, obraCodigo: obraCodigo || null, nota });
+      await onMover(equipo, { estado, obraId: obra?.id || null, obraCodigo: obraCodigo || null, numeroSerie, nota });
     } catch (err) {
       setError(err.message || "No se pudo actualizar el equipo.");
       setGuardando(false);
@@ -910,7 +962,7 @@ function GestionEquipoModal({ equipo, obras, onCerrar, onMover, onEliminar }) {
           <div>
             <span className="eq-modal-eyebrow">Mover o corregir</span>
             <h2 id="eq-gestion-titulo">{nombre}</h2>
-            <p>{equipo.obra ? `Actualmente en ${equipo.obra}` : equipo.estado === "comprado" ? "En proveedor, a retirar" : "Libre en galpón"}{equipo.numero_serie ? ` · Serie ${equipo.numero_serie}` : ""}</p>
+            <p>{equipo.obra ? `${ESTADOS[equipo.estado]?.label || "Asignado"} · ${equipo.obra}` : ESTADOS[equipo.estado]?.label || "Sin destino"}{equipo.numero_serie ? ` · Serie ${equipo.numero_serie}` : ""}</p>
           </div>
           <button type="button" className="eq-modal-cerrar" onClick={onCerrar} disabled={guardando} aria-label="Cerrar"><X size={18} /></button>
         </header>
@@ -935,25 +987,34 @@ function GestionEquipoModal({ equipo, obras, onCerrar, onMover, onEliminar }) {
               </select>
             </label>
           )}
+          <label className="eq-campo">
+            <span>Número de serie</span>
+            <input className="ui-input" value={numeroSerie} onChange={(evento) => setNumeroSerie(evento.target.value)} placeholder="Cargar al recibir el equipo" autoComplete="off" />
+            <small className="eq-campo-ayuda">Se puede completar o corregir ahora, junto con el estado y el barco.</small>
+          </label>
           <label className="eq-campo"><span>Motivo o referencia</span><textarea className="ui-input eq-textarea" value={nota} onChange={(evento) => setNota(evento.target.value)} placeholder="Ej. Se reasigna al 52-26 por cambio de configuración…" /></label>
           {error && <p className="eq-form-error" role="alert">{error}</p>}
 
           <footer className="eq-modal-pie eq-modal-pie-gestion">
-            {puedeEliminar && (
-              <button type="button" className={`eq-btn-baja${confirmarBaja ? " is-confirmando" : ""}`} onClick={eliminar} disabled={guardando}>
-                <Trash2 size={14} /> {confirmarBaja ? "Confirmar eliminación" : "Eliminar del stock"}
-              </button>
-            )}
+            <button type="button" className={`eq-btn-baja${confirmarBaja ? " is-confirmando" : ""}`} onClick={eliminar} disabled={guardando}>
+              <Trash2 size={14} /> {confirmarBaja ? "Confirmar eliminación" : "Eliminar registro erróneo"}
+            </button>
             <button type="button" className="ui-btn" onClick={onCerrar} disabled={guardando}>Cancelar</button>
-            <button type="submit" className="ui-btn ui-btn-primario" disabled={guardando}>{guardando ? "Guardando…" : "Aplicar movimiento"}</button>
+            <button type="submit" className="ui-btn ui-btn-primario" disabled={guardando}>{guardando ? "Guardando…" : "Guardar cambios"}</button>
           </footer>
+          {confirmarBaja && (
+            <p className="eq-eliminar-aviso" role="alert">
+              Se quitará {nombre} de las vistas{equipo.numero_serie ? ` y se liberará la serie ${equipo.numero_serie}` : ""}. La corrección quedará registrada.
+              <button type="button" onClick={() => setConfirmarBaja(false)} disabled={guardando}>Volver</button>
+            </p>
+          )}
         </form>
       </section>
     </div>
   );
 }
 
-function FilaEntregado({ barco, foco }) {
+function FilaEntregado({ barco, foco, onGestionar }) {
   const cajas = barco.motores.find((motor) => motor.cajas)?.cajas;
   const motor = barco.motores[0] ? nombreMotor(barco.motores[0]) : barco.memoria?.motores;
   return (
@@ -963,14 +1024,19 @@ function FilaEntregado({ barco, foco }) {
         <span className={`eq-fila-linea${foco.motores ? " is-foco" : ""}`}>
           {motor || "Motorización pendiente"}{cajas ? ` · ${cajas}` : ""}
         </span>
-        <span className={`eq-fila-linea eq-fila-grupo${foco.grupo ? " is-foco" : ""}`}>
-          <Zap size={12} aria-hidden="true" />
-          {barco.grupo ? `${nombreGrupo(barco.grupo)}${barco.grupo.proveedor ? ` · ${barco.grupo.proveedor}` : ""}` : "Grupo pendiente"}
-        </span>
+        {barco.grupos?.length ? barco.grupos.map((grupo) => (
+          <span key={grupo.id} className={`eq-fila-linea eq-fila-grupo${foco.grupo ? " is-foco" : ""}`}>
+            <Zap size={12} aria-hidden="true" />
+            <span className="eq-entregado-grupo-texto">{nombreGrupo(grupo)}{grupo.numero_serie ? ` · serie ${grupo.numero_serie}` : ""}{grupo.proveedor ? ` · ${grupo.proveedor}` : ""}</span>
+            <GestionarButton compacto onClick={() => onGestionar(grupo)} />
+          </span>
+        )) : (
+          <span className="eq-fila-linea eq-fila-grupo"><Zap size={12} aria-hidden="true" />Grupo pendiente</span>
+        )}
       </span>
       <span className="eq-series">
         {barco.motores.length
-          ? barco.motores.map((m) => <span key={m.id} className="eq-serie">{m.numero_serie || "—"}</span>)
+          ? barco.motores.map((m) => <span key={m.id} className="eq-serie-accion"><span className="eq-serie">{m.numero_serie || "—"}</span><GestionarButton compacto onClick={() => onGestionar(m)} /></span>)
           : <span className="eq-serie is-vacia">sin número</span>}
       </span>
     </li>
@@ -979,11 +1045,11 @@ function FilaEntregado({ barco, foco }) {
 
 function TarjetaBarco({ barco, indice, foco, onGestionar }) {
   const [resaltado, setResaltado] = useState(null);
-  const motores = barco.motores.slice(0, 2);
+  const motores = barco.motores;
   const claseMotor = `eq-renglon${foco.motores ? " is-foco" : ""}`;
   return (
     <article className={`eq-barco${barco.urgente ? " is-urgente" : ""}${barco.sinDatos ? " is-sin-datos" : ""}`} style={{ "--i": Math.min(indice, 16) }}>
-      <PlantaBarco motores={motores} grupo={barco.grupo} resaltado={resaltado} />
+      <PlantaBarco motores={motores.slice(0, 2)} grupo={barco.grupo} resaltado={resaltado} />
       <div className="eq-barco-cuerpo">
         <header className="eq-barco-cabeza">
           <h3>{barco.codigo}</h3>
@@ -1020,34 +1086,38 @@ function TarjetaBarco({ barco, indice, foco, onGestionar }) {
           ))
         )}
 
-        <div className={`eq-renglon${foco.grupo ? " is-foco" : ""}`} onMouseEnter={() => setResaltado("grupo")} onMouseLeave={() => setResaltado(null)}>
-          <Zap size={14} />
-          {barco.grupo ? (
-            <>
-              <span className="eq-renglon-texto">
-                {nombreGrupo(barco.grupo)}
-                <span className="eq-renglon-extra">
-                  {barco.grupo.proveedor}
-                  {barco.grupo.fecha_entrega ? ` · ${formatearFecha(barco.grupo.fecha_entrega)}` : ""}
-                  {barco.grupo.obra_origen && barco.grupo.obra_origen !== barco.codigo ? ` · vino de ${barco.grupo.obra_origen}` : ""}
-                  {barco.grupo.compra_cliente ? " · compra del cliente" : ""}
+        {barco.grupos?.length ? barco.grupos.map((grupo) => (
+          <div key={grupo.id} className={`eq-renglon${foco.grupo ? " is-foco" : ""}`} onMouseEnter={() => setResaltado("grupo")} onMouseLeave={() => setResaltado(null)}>
+            <Zap size={14} />
+            <span className="eq-renglon-texto">
+              {nombreGrupo(grupo)}
+              <span className="eq-renglon-extra">
+                {grupo.proveedor}
+                {grupo.numero_serie ? ` · serie ${grupo.numero_serie}` : ""}
+                {grupo.fecha_entrega ? ` · ${formatearFecha(grupo.fecha_entrega)}` : ""}
+                {grupo.obra_origen && grupo.obra_origen !== barco.codigo ? ` · vino de ${grupo.obra_origen}` : ""}
+                {grupo.compra_cliente ? " · compra del cliente" : ""}
+              </span>
+            </span>
+            <EstadoChip estado={grupo.estado} />
+            <GestionarButton compacto onClick={() => onGestionar(grupo)} />
+          </div>
+        )) : (
+          <div className={`eq-renglon${foco.grupo ? " is-foco" : ""}`} onMouseEnter={() => setResaltado("grupo")} onMouseLeave={() => setResaltado(null)}>
+            <Zap size={14} />
+            {barco.memoria?.grupo ? (
+              <>
+                <span className="eq-renglon-texto">
+                  {barco.memoria.grupo}
+                  <span className="eq-renglon-extra">Definido en la ficha técnica · pendiente de registrar</span>
                 </span>
-              </span>
-              <EstadoChip estado={barco.grupo.estado} />
-              <GestionarButton compacto onClick={() => onGestionar(barco.grupo)} />
-            </>
-          ) : barco.memoria?.grupo ? (
-            <>
-              <span className="eq-renglon-texto">
-                {barco.memoria.grupo}
-                <span className="eq-renglon-extra">Definido en la ficha técnica · pendiente de registrar</span>
-              </span>
-              <span className="eq-estado" style={{ "--c": TONOS.neutro }}>Sin registrar</span>
-            </>
-          ) : (
-            <span className="eq-renglon-texto is-vacio">Grupo pendiente de definir</span>
-          )}
-        </div>
+                <span className="eq-estado" style={{ "--c": TONOS.neutro }}>Sin registrar</span>
+              </>
+            ) : (
+              <span className="eq-renglon-texto is-vacio">Grupo pendiente de definir</span>
+            )}
+          </div>
+        )}
 
         {barco.marcaDistinta && (
           <p className="eq-nota is-alerta">Revisar motorización: la ficha técnica indica «{barco.memoria.motores}».</p>
@@ -1282,8 +1352,11 @@ const CSS = `
   .eq-fila-linea { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 6px; }
   .eq-fila-grupo { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--dim); }
   .eq-fila-grupo svg { flex-shrink: 0; }
+  .eq-entregado-grupo-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .eq-fila-grupo .eq-gestionar { flex: 0 0 auto; margin-left: 4px; }
   .eq-fila-linea.is-foco { color: var(--blue); }
-  .eq-series { display: flex; gap: 12px; }
+  .eq-series { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+  .eq-serie-accion { display: inline-flex; align-items: center; gap: 4px; }
   .eq-gestionar {
     display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; padding: 0 8px;
     border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--dim); cursor: pointer;
@@ -1357,6 +1430,8 @@ const CSS = `
     font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .eq-btn-baja.is-confirmando { background: var(--red-soft); }
+  .eq-eliminar-aviso { display: flex; align-items: center; gap: 10px; margin: -6px 0 0; padding: 10px 12px; border: 1px solid var(--red-border); border-radius: 9px; background: var(--red-soft); color: var(--text); font-size: 12px; }
+  .eq-eliminar-aviso button { flex: 0 0 auto; margin-left: auto; padding: 4px 8px; border: 0; background: transparent; color: var(--red); font: inherit; font-weight: 650; cursor: pointer; }
 
   @keyframes eq-sube { from { opacity: 0; transform: translateY(10px); } }
   @keyframes eq-fondo { from { opacity: 0; } }
@@ -1398,6 +1473,7 @@ const CSS = `
     .eq-fila > .eq-gestionar { grid-column: 3; grid-row: 2; }
     .eq-fila-entregado { grid-template-columns: 64px minmax(0, 1fr); }
     .eq-fila-entregado .eq-series { grid-column: 2; }
+    .eq-eliminar-aviso { flex-wrap: wrap; }
     .eq-historia li { grid-template-columns: 1fr; gap: 4px; }
     .eq-modal-fondo { align-items: end; padding: 0; }
     .eq-modal { width: 100%; max-height: 92vh; border-radius: 18px 18px 0 0; }
