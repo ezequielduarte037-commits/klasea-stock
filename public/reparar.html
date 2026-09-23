@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>Reparando Klase A</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0e1015; color: #eef1f6; font: 16px system-ui, sans-serif; }
+      main { max-width: 360px; padding: 24px; text-align: center; }
+      p { color: #a8b0bf; line-height: 1.5; }
+      a { color: #8bb8ff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Reparando Klase A…</h1>
+      <p>Estamos quitando archivos viejos de esta app. Tu sesión y tus datos permanecen guardados.</p>
+      <p id="alternativa" hidden>Si no volvés automáticamente, <a href="/?_v=reparar">abrí Klase A</a>.</p>
+    </main>
+    <script>
+      (async function () {
+        var alternativa = document.getElementById('alternativa');
+        var fin = new Promise(function (resolve) { setTimeout(resolve, 5000); });
+        var limpieza = (async function () {
+          try {
+            if ('serviceWorker' in navigator) {
+              var registros = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(registros.map(function (registro) { return registro.unregister(); }));
+            }
+            if ('caches' in window) {
+              var claves = await caches.keys();
+              await Promise.all(claves.map(function (clave) { return caches.delete(clave); }));
+            }
+            for (var i = sessionStorage.length - 1; i >= 0; i--) {
+              var clave = sessionStorage.key(i);
+              if (clave && clave.indexOf('klasea.chunk-recargado') === 0) sessionStorage.removeItem(clave);
+            }
+          } catch (_) {
+            // Incluso sin permiso para limpiar, una URL nueva fuerza el index actual.
+          }
+        })();
+        await Promise.race([limpieza, fin]);
+        alternativa.hidden = false;
+        window.location.replace('/?_v=' + Date.now());
+      })();
+    </script>
+  </body>
+</html>

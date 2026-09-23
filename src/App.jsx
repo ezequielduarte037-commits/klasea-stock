@@ -41,7 +41,9 @@ import BrandLoader from "@/components/ui/BrandLoader";
 // import falla dejando la pantalla en negro —que es exactamente lo que pasó en
 // el deploy del 18/08—. Recargar una sola vez trae el index nuevo y se resuelve
 // solo, sin que nadie tenga que saber qué es un chunk.
-const RECARGA_HECHA = "klasea.chunk-recargado";
+// El intento pertenece al build que está ejecutando esta pestaña. Nunca se
+// libera por cargar otro módulo: AppShell puede cargar bien mientras Home falla.
+const RECARGA_HECHA = `klasea.chunk-recargado:${import.meta.env.VITE_KLASEA_BUILD_ID || "local"}`;
 const PARAM_RECARGA = "_v";
 
 // reload() a secas puede volver a servir el index.html cacheado —el mismo que
@@ -55,6 +57,21 @@ function recargarSalteandoCache() {
     window.location.replace(url.toString());
   } catch {
     window.location.reload();
+  }
+}
+
+async function limpiarCachesAntiguas() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const registros = await navigator.serviceWorker.getRegistrations?.();
+      await Promise.all((registros || []).map((registro) => registro.unregister()));
+    }
+    if ("caches" in window) {
+      const claves = await window.caches.keys();
+      await Promise.all(claves.map((clave) => window.caches.delete(clave)));
+    }
+  } catch {
+    // La recarga con URL nueva sigue siendo posible si Chrome no deja limpiar.
   }
 }
 
@@ -105,10 +122,11 @@ class PantallaCaida extends React.Component {
           </p>
           <button
             type="button"
-            onClick={() => {
-              // Se limpia la marca para que la recarga automatica vuelva a tener
-              // su intento; si no, el que apreta el boton cae de nuevo acá.
-              try { sessionStorage.removeItem(RECARGA_HECHA); } catch { /* modo privado */ }
+            onClick={async () => {
+              // La reparación manual conserva la marca para que, si vuelve a
+              // fallar un chunk, no entre otra vez en una recarga infinita.
+              try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
+              await limpiarCachesAntiguas();
               recargarSalteandoCache();
             }}
             style={{
@@ -116,7 +134,7 @@ class PantallaCaida extends React.Component {
               minHeight: 44, padding: "0 24px", fontSize: 14.5, fontWeight: 600, cursor: "pointer",
             }}
           >
-            Recargar
+            Reparar y recargar
           </button>
         </div>
       </div>
@@ -127,9 +145,8 @@ class PantallaCaida extends React.Component {
 function pantalla(importar) {
   return lazy(() => importar()
     .then((modulo) => {
-      // Cargó bien: se limpia la marca para que un problema futuro también
-      // tenga derecho a su recarga.
-      try { sessionStorage.removeItem(RECARGA_HECHA); } catch { /* modo privado */ }
+      // No borrar la marca aquí: puede haber cargado AppShell pero fallar el
+      // chunk de la pantalla siguiente en el mismo arranque.
       limpiarParametroDeRecarga();
       return modulo;
     })
