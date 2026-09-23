@@ -219,6 +219,7 @@ export function gravedadAviso(row = {}) {
 }
 
 export function gravedadRecepcion(envio = {}) {
+  if (envio.prioridad === "urgente") return "critical";
   if (envio.estado === "parcial") return "warning";
   return "warning"; // recepción abierta = acción pendiente
 }
@@ -247,12 +248,9 @@ export function requiereAccionDirecta(notif) {
   return notif.requiereAccion === true;
 }
 
-/** Toast emergente: critical siempre; warning sólo si pide acción directa. */
+/** Los eventos nuevos de la audiencia del usuario aparecen también en pantalla. */
 export function debeMostrarToast(notif) {
-  if (!notif || notif.leida) return false;
-  if (notif.gravedad === "critical") return true;
-  if (notif.gravedad === "warning" && (notif.requiereAccion || requiereAccionDirecta(notif))) return true;
-  return false;
+  return !!notif && !notif.leida && !!notif.clave;
 }
 
 export const PRIORIDAD_LABEL = {

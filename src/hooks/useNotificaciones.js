@@ -250,7 +250,7 @@ export default function useNotificaciones(profile) {
     try {
       let query = supabase
         .from("panol_envios")
-        .select("id,titulo,sede,destino,origen,estado,created_by,created_at,updated_at")
+        .select("id,titulo,sede,destino,origen,estado,prioridad,created_by,created_at,updated_at")
         .not("estado", "in", `("${CLOSED_ENVIO_STATES.join('","')}")`)
         .order("created_at", { ascending: false });
 
@@ -460,6 +460,8 @@ export default function useNotificaciones(profile) {
     if (verCompras) {
       const channel = supabase.channel(`rt-notif-compras-${yo || "anon"}-${instancia}`);
       channel.on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests" }, () => schedule(cargarCompras));
+      channel.on("postgres_changes", { event: "*", schema: "public", table: "purchase_request_items" }, () => schedule(cargarCompras));
+      channel.on("postgres_changes", { event: "*", schema: "public", table: "request_comments" }, () => schedule(cargarCompras));
       channel.on("postgres_changes", { event: "*", schema: "public", table: "request_followers" }, () => schedule(cargarCompras));
       if (colaCompras || profile?.is_admin || role === "admin") {
         channel.on("postgres_changes", { event: "*", schema: "public", table: "compras_avisos" }, () => schedule(cargarAvisos));
@@ -662,7 +664,9 @@ export default function useNotificaciones(profile) {
       if (n.leida) return false;
       const prev = knownKeysRef.current.get(n.clave);
       if (prev == null) {
-        return new Date(n.fecha || 0).getTime() > readyAtRef.current;
+        // Una novedad puede llegar por realtime unos segundos después de que
+        // la base le asignó la fecha; ese retraso no la vuelve histórica.
+        return new Date(n.fecha || 0).getTime() >= readyAtRef.current - 30_000;
       }
       return new Date(n.fecha || 0) > new Date(prev || 0);
     });

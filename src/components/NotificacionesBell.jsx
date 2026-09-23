@@ -37,7 +37,7 @@ const GRAVITY_UI = {
   info: { color: C.blue, soft: C.blueL, border: C.blueB, label: PRIORIDAD_LABEL.info },
 };
 
-const TOAST_MS = 7000;
+const TOAST_MS = 9000;
 const MAX_TOASTS = 2;
 
 function fmtFecha(ts) {
@@ -79,9 +79,12 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
   const [badgePulse, setBadgePulse] = useState(false);
   const [panelEnter, setPanelEnter] = useState(false);
   const ref = useRef(null);
+  const attentionRef = useRef(null);
+  const attentionAnchorRef = useRef(false);
   const panelRef = useRef(null);
   const prevUnreadRef = useRef(0);
   const toastSeenRef = useRef(new Set());
+  const originalTitleRef = useRef(null);
   const navigate = useNavigate();
   const isAdmin = hasAdminAccess(profile);
   const {
@@ -95,6 +98,22 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
     markTodoLeido,
     resolverAlerta,
   } = useNotificaciones(profile);
+  const urgentesSinLeer = lista.filter((item) => !item.leida && item.gravedad === "critical").length;
+  const hayUrgentes = urgentesSinLeer > 0;
+
+  useEffect(() => {
+    originalTitleRef.current = document.title || "Klase A";
+    return () => { document.title = originalTitleRef.current || "Klase A"; };
+  }, []);
+
+  useEffect(() => {
+    const base = originalTitleRef.current || "Klase A";
+    document.title = hayUrgentes
+      ? `🔴 ${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer · ${base}`
+      : unreadCount > 0
+        ? `(${unreadCount}) Notificaciones sin leer · ${base}`
+        : base;
+  }, [hayUrgentes, unreadCount, urgentesSinLeer]);
 
   const filtered = useMemo(
     () => (filter === "todos" ? lista : lista.filter((item) => item.tipo === filter)),
@@ -111,28 +130,23 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       else if (sec === "novedades") novedades.push(item);
       else anteriores.push(item);
     }
-    const showSections = accion.length + novedades.length > 0 && anteriores.length > 0
-      || (accion.length > 0 && novedades.length > 0);
-    return { accion, novedades, anteriores, showSections };
+    return { accion, novedades, anteriores };
   }, [filtered]);
 
   const visibleGroups = useMemo(() => {
-    if (!sections.showSections) {
-      return [{ key: "todas", label: null, items: filtered.slice(0, 30) }];
-    }
     const groups = [];
-    if (sections.accion.length) groups.push({ key: "accion", label: "Requieren acción", items: sections.accion.slice(0, 20) });
-    if (sections.novedades.length) groups.push({ key: "novedades", label: "Novedades", items: sections.novedades.slice(0, 15) });
-    if (sections.anteriores.length) groups.push({ key: "anteriores", label: "Anteriores", items: sections.anteriores.slice(0, 12) });
+    if (sections.accion.length) groups.push({ key: "accion", label: "Necesitan atención", items: sections.accion });
+    if (sections.novedades.length) groups.push({ key: "novedades", label: "Novedades para vos", items: sections.novedades });
+    if (sections.anteriores.length) groups.push({ key: "anteriores", label: "Ya leídas", items: sections.anteriores });
     return groups;
-  }, [filtered, sections]);
+  }, [sections]);
 
   const ubicar = useCallback(() => {
-    const boton = ref.current;
+    const boton = (attentionAnchorRef.current && attentionRef.current) || ref.current;
     if (!boton) return;
     const r = boton.getBoundingClientRect();
     const margen = 12;
-    const ancho = Math.min(400, window.innerWidth - margen * 2);
+    const ancho = Math.min(480, window.innerWidth - margen * 2);
     const left = Math.max(margen, Math.min(r.left, window.innerWidth - ancho - margen));
     const arriba = r.top > window.innerHeight / 2;
     const libre = arriba ? r.top - margen * 2 : window.innerHeight - r.bottom - margen * 2;
@@ -140,15 +154,16 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       ancho,
       left,
       ...(arriba ? { bottom: window.innerHeight - r.top + 8 } : { top: r.bottom + 8 }),
-      maxHeight: Math.max(240, Math.min(640, libre)),
+      maxHeight: Math.max(160, Math.min(720, libre)),
     });
   }, []);
 
   useEffect(() => {
     function handleClick(event) {
       const fueraDelBoton = ref.current && !ref.current.contains(event.target);
+      const fueraDelAviso = !attentionRef.current || !attentionRef.current.contains(event.target);
       const fueraDelPanel = !panelRef.current || !panelRef.current.contains(event.target);
-      if (fueraDelBoton && fueraDelPanel) setOpen(false);
+      if (fueraDelBoton && fueraDelAviso && fueraDelPanel) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -210,8 +225,8 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
     }
 
     setToasts((prev) => {
-      let keep = prev.filter((t) => t.kind !== "summary").slice(-MAX_TOASTS);
-      if (candidates.length && keep.length >= MAX_TOASTS) keep = keep.slice(1);
+      // Un lote nuevo siempre deja lugar para al menos un aviso concreto.
+      const keep = candidates.length > 1 ? [] : prev.filter((t) => t.kind !== "summary").slice(-1);
       const room = Math.max(0, MAX_TOASTS - keep.length);
       const needsSummary = candidates.length > room;
       const itemRoom = needsSummary ? Math.max(0, room - 1) : room;
@@ -232,7 +247,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
           gravedad: item.gravedad,
           tipo: item.tipo,
           ruta: item.ruta,
-          expires: Date.now() + TOAST_MS,
+          expires: Date.now() + (item.gravedad === "critical" ? 12_000 : TOAST_MS),
           raw: item,
         })),
       ];
@@ -241,8 +256,8 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
         next.push({
           kind: "summary",
           id: `summary-${Date.now()}`,
-          titulo: `${rest} aviso${rest === 1 ? "" : "s"} más`,
-          detalle: "Abrí la campana para verlos",
+          titulo: `${rest} notificación${rest === 1 ? "" : "es"} nueva${rest === 1 ? "" : "s"}`,
+          detalle: "Abrí la campana para verlas",
           gravedad: "info",
           expires: Date.now() + TOAST_MS,
         });
@@ -307,6 +322,12 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       transition: "color .2s, border-color .2s, background .2s",
       padding: 0,
       ...(estiloBoton || {}),
+      ...(hayUrgentes ? {
+        background: C.redL,
+        border: `1px solid ${C.redB}`,
+        color: C.red,
+        boxShadow: `0 0 0 3px ${C.redL}`,
+      } : {}),
       ...(bellPulse && !reducedMotion ? { animation: "notifBellNudge .7s ease-out" } : {}),
     },
     badge: {
@@ -334,14 +355,14 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
       zIndex: 9000,
       left: pos?.left ?? 0,
       ...(pos && "bottom" in pos ? { bottom: pos.bottom } : { top: pos?.top ?? 0 }),
-      width: pos?.ancho ?? 400,
-      maxHeight: pos?.maxHeight ?? 640,
+      width: pos?.ancho ?? 480,
+      maxHeight: pos?.maxHeight ?? 720,
       overflow: "hidden",
       background: C.panelSolid,
       backdropFilter: "var(--glass-filter)",
       WebkitBackdropFilter: "var(--glass-filter)",
       border: `1px solid ${C.border}`,
-      borderRadius: 14,
+      borderRadius: 16,
       boxShadow: "0 18px 48px var(--shadow-strong)",
       color: C.text,
       display: "flex",
@@ -361,21 +382,29 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
           55% { transform: rotate(10deg); }
           100% { transform: rotate(0); }
         }
+        @keyframes notifUrgentRing {
+          0%, 70%, 100% { transform: rotate(0) scale(1); }
+          76% { transform: rotate(-9deg) scale(1.1); }
+          83% { transform: rotate(8deg) scale(1.1); }
+          90% { transform: rotate(-5deg) scale(1.06); }
+          96% { transform: rotate(0) scale(1); }
+        }
+        .notif-bell-urgent { animation: notifUrgentRing 3.6s ease-in-out infinite; }
         @keyframes notifBadgePop {
           0% { transform: scale(.6); opacity: .4; }
           40% { transform: scale(1.15); opacity: 1; }
           100% { transform: scale(1); opacity: 1; }
         }
         @keyframes notifToastIn {
-          from { opacity: 0; transform: translateY(-8px); }
+          from { opacity: 0; transform: translateY(-12px) scale(.98); }
           to { opacity: 1; transform: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .notif-toast, .notif-bell-anim { animation: none !important; }
+          .notif-toast, .notif-bell-anim, .notif-bell-urgent { animation: none !important; }
         }
         .notif-filter:hover { background: var(--panel-2) !important; }
         .notif-row:hover { background: var(--panel-2) !important; }
-        .notif-filter:focus-visible, .notif-row:focus-visible, .notif-toast-action:focus-visible, .notif-toast-close:focus-visible {
+        .notif-filter:focus-visible, .notif-row-open:focus-visible, .notif-resolve:focus-visible, .notif-toast-action:focus-visible, .notif-toast-close:focus-visible {
           outline: 2px solid var(--blue);
           outline-offset: -2px;
         }
@@ -383,11 +412,14 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
 
       <button
         type="button"
-        className={bellPulse ? "notif-bell-anim" : undefined}
+        className={hayUrgentes ? "notif-bell-urgent" : bellPulse ? "notif-bell-anim" : undefined}
         style={S.bell}
-        onClick={() => setOpen((value) => !value)}
-        title="Notificaciones"
-        aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : "Notificaciones"}
+        onClick={() => {
+          attentionAnchorRef.current = false;
+          setOpen((value) => !value);
+        }}
+        title={hayUrgentes ? `${urgentesSinLeer} notificación${urgentesSinLeer === 1 ? "" : "es"} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer` : "Notificaciones"}
+        aria-label={hayUrgentes ? `Notificaciones, ${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} y ${unreadCount} sin leer` : unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
@@ -395,10 +427,54 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
         {unreadCount > 0 && <span style={S.badge}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
 
+      {unreadCount > 0 && createPortal(
+        <button
+          ref={attentionRef}
+          type="button"
+          onClick={() => {
+            attentionAnchorRef.current = true;
+            ubicar();
+            setOpen(true);
+          }}
+          aria-label={hayUrgentes
+            ? `Abrir notificaciones: ${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer`
+            : `Abrir notificaciones: ${unreadCount} sin leer`}
+          style={{
+            position: "fixed",
+            top: size >= 40 ? "calc(66px + env(safe-area-inset-top))" : "max(14px, env(safe-area-inset-top))",
+            right: "max(14px, env(safe-area-inset-right))",
+            zIndex: 8999,
+            maxWidth: "calc(100vw - 28px)",
+            minHeight: 44,
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            padding: "8px 12px",
+            borderRadius: 12,
+            border: `1px solid ${hayUrgentes ? C.redB : C.blueB}`,
+            background: C.panelSolid,
+            color: hayUrgentes ? C.red : C.blue,
+            boxShadow: "0 10px 28px var(--shadow-strong)",
+            cursor: "pointer",
+            fontFamily: C.sans,
+            fontSize: 12,
+            fontWeight: 750,
+            textAlign: "left",
+          }}
+        >
+          <Bell size={17} aria-hidden="true" />
+          <span>{hayUrgentes
+            ? `${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer`
+            : `${unreadCount} notificación${unreadCount === 1 ? "" : "es"} sin leer`}</span>
+          <span style={{ color: C.text, whiteSpace: "nowrap", fontWeight: 700 }}>Abrir campana ›</span>
+        </button>,
+        document.body,
+      )}
+
       {open && pos && createPortal(
         <div ref={panelRef} role="dialog" aria-label="Panel de notificaciones" style={S.panel}>
           <div style={{
-            padding: "12px 14px 10px",
+            padding: "16px 18px 14px",
             borderBottom: `1px solid ${C.border}`,
             display: "flex",
             justifyContent: "space-between",
@@ -407,27 +483,29 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             flexShrink: 0,
           }}>
             <div>
-              <div style={{ color: C.text, fontFamily: C.sans, fontWeight: 750, fontSize: 14, letterSpacing: 0.2 }}>
+              <div style={{ color: C.text, fontFamily: C.sans, fontWeight: 750, fontSize: 16, letterSpacing: 0.1 }}>
                 Notificaciones
               </div>
-              <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-                {loading ? "Actualizando…" : unreadCount ? `${unreadCount} sin leer` : "Estás al día"}
+              <div style={{ color: hayUrgentes ? C.red : C.dim, fontSize: 12, marginTop: 3 }}>
+                {loading ? "Actualizando…" : hayUrgentes ? `${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer · ${unreadCount} en total` : unreadCount ? `Tenés ${unreadCount} notificación${unreadCount === 1 ? "" : "es"} sin leer` : "Estás al día"}
               </div>
             </div>
             <button
               type="button"
               onClick={markTodoLeido}
               disabled={!unreadCount}
+              title="Marcar todas las notificaciones como leídas"
+              aria-label="Marcar todas las notificaciones como leídas"
               style={{
                 border: `1px solid ${C.border}`,
                 background: C.panel,
                 color: C.dim,
                 borderRadius: 8,
-                padding: "8px 10px",
+                padding: "8px 11px",
                 minHeight: 36,
                 cursor: unreadCount ? "pointer" : "default",
                 opacity: unreadCount ? 1 : 0.45,
-                fontSize: 11,
+                fontSize: 11.5,
                 fontWeight: 700,
                 fontFamily: C.sans,
                 display: "inline-flex",
@@ -436,12 +514,12 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
               }}
             >
               <CheckCheck size={14} />
-              Leídas
+              Marcar todas
             </button>
           </div>
 
           <div style={{
-            padding: "8px 10px",
+            padding: "10px 16px",
             borderBottom: `1px solid ${C.border}`,
             display: "flex",
             gap: 6,
@@ -449,7 +527,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             flexShrink: 0,
           }}>
             <FilterTab active={filter === "todos"} color={C.blue} soft={C.blueL} border={C.blueB} onClick={() => setFilter("todos")}>
-              Todas{counts.todos ? ` (${counts.todos})` : ""}
+              Todas
             </FilterTab>
             {Object.entries(TYPE_UI).map(([key, cfg]) => (
               hayDelTipo[key] && (
@@ -478,9 +556,9 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                 <div key={group.key}>
                   {group.label && (
                     <div style={{
-                      padding: "8px 14px 4px",
+                      padding: "11px 18px 7px",
                       color: C.dim,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: 700,
                       letterSpacing: 0.6,
                       textTransform: "uppercase",
@@ -489,7 +567,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                       background: C.panelSolid,
                       zIndex: 1,
                     }}>
-                      {group.label}
+                      {group.label} · {group.items.length}
                     </div>
                   )}
                   {group.items.map((item) => (
@@ -517,13 +595,15 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
           aria-live="polite"
           style={{
             position: "fixed",
-            top: "max(12px, env(safe-area-inset-top))",
+            top: unreadCount > 0
+              ? size >= 40 ? "calc(120px + env(safe-area-inset-top))" : "68px"
+              : size >= 40 ? "calc(68px + env(safe-area-inset-top))" : "max(16px, env(safe-area-inset-top))",
             right: "max(12px, env(safe-area-inset-right))",
             zIndex: 9500,
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            width: "min(360px, calc(100vw - 24px))",
+            width: "min(390px, calc(100vw - 24px))",
             pointerEvents: "none",
           }}
         >
@@ -541,12 +621,13 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                   gridTemplateColumns: "32px minmax(0, 1fr) auto",
                   gap: 10,
                   alignItems: "start",
-                  padding: "12px 12px",
+                  padding: "13px 12px",
                   borderRadius: 12,
                   background: C.panelSolid,
                   border: `1px solid ${g.border}`,
+                  borderLeft: `3px solid ${g.color}`,
                   boxShadow: "0 12px 32px var(--shadow-strong)",
-                  animation: reducedMotion ? "none" : "notifToastIn .2s ease-out",
+                  animation: reducedMotion ? "none" : "notifToastIn .26s cubic-bezier(.22,1,.36,1)",
                 }}
               >
                 <span style={{
@@ -556,6 +637,9 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                   <Icon size={15} />
                 </span>
                 <div style={{ minWidth: 0 }}>
+                  <div style={{ color: g.color, fontSize: 9.5, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 3 }}>
+                    {toast.kind === "summary" ? "Notificaciones nuevas" : "Nueva notificación"}
+                  </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 750, fontSize: 13, color: C.text }}>{toast.titulo}</span>
                     {(toast.gravedad === "critical" || toast.gravedad === "warning") && (
@@ -635,98 +719,27 @@ function NotifRow({ item, isAdmin, onOpen, onResolve }) {
   const Icon = cfg.icon;
   const g = GRAVITY_UI[item.gravedad] || GRAVITY_UI.info;
   const unread = !item.leida;
+  const canResolve = isAdmin && item.tipo === "produccion" && unread;
 
   return (
-    <button
-      type="button"
-      className="notif-row"
-      onClick={onOpen}
-      style={{
-        width: "100%",
-        border: "none",
-        borderBottom: `1px solid ${C.border}`,
-        borderLeft: unread ? `3px solid ${g.color}` : "3px solid transparent",
-        background: unread ? g.soft : "transparent",
-        color: C.text,
-        cursor: "pointer",
-        display: "grid",
-        gridTemplateColumns: "32px minmax(0, 1fr)",
-        gap: 10,
-        textAlign: "left",
-        padding: "12px 14px",
-        minHeight: 64,
-        fontFamily: C.sans,
-      }}
-    >
-      <span style={{
-        width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center",
-        color: g.color, background: g.soft, border: `1px solid ${g.border}`,
-      }}>
-        <Icon size={15} />
-      </span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ color: C.text, fontSize: 13, fontWeight: unread ? 750 : 650 }}>{item.titulo}</span>
-          {["critical", "warning", "success"].includes(item.gravedad) && (
-            <span style={{
-              fontSize: 9.5, fontWeight: 700, color: g.color,
-              border: `1px solid ${g.border}`, borderRadius: 999, padding: "1px 6px",
-            }}>
-              {g.label}
-            </span>
-          )}
-          <span style={{
-            fontSize: 9.5, fontWeight: 650, color: cfg.color,
-            background: cfg.soft, borderRadius: 999, padding: "1px 6px",
-          }}>
-            {cfg.label}
+    <div className="notif-row" style={{ borderBottom: `1px solid ${C.border}`, borderLeft: unread ? `3px solid ${g.color}` : "3px solid transparent", background: unread ? g.soft : "transparent" }}>
+      <button type="button" onClick={onOpen} className="notif-row-open" style={{ width: "100%", border: 0, background: "transparent", color: C.text, cursor: "pointer", display: "grid", gridTemplateColumns: "36px minmax(0, 1fr)", gap: 11, textAlign: "left", padding: "13px 16px 12px", fontFamily: C.sans }}>
+        <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", color: g.color, background: g.soft, border: `1px solid ${g.border}` }}><Icon size={17} /></span>
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ color: cfg.color, background: cfg.soft, border: `1px solid ${cfg.border}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, fontWeight: 750 }}>{cfg.label}</span>
+            {["critical", "warning"].includes(item.gravedad) && <span style={{ color: g.color, fontSize: 10, fontWeight: 750 }}>{g.label}</span>}
+            {unread && <span style={{ color: g.color, fontSize: 10, fontWeight: 750 }}>Sin leer</span>}
+            <span style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, fontFamily: C.mono, whiteSpace: "nowrap" }}>{fmtFecha(item.fecha)}</span>
+          </span>
+          <span style={{ display: "block", color: C.text, fontSize: 14, fontWeight: unread ? 750 : 650, lineHeight: 1.3, marginTop: 7 }}>{item.titulo}</span>
+          <span style={{ display: "block", color: C.dim, fontSize: 12.5, lineHeight: 1.45, marginTop: 3, overflowWrap: "anywhere" }}>{item.detalle}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.blue, fontSize: 11.5, fontWeight: 750, marginTop: 9 }}>
+            {actionLabel(item)} <ChevronRight size={14} />
           </span>
         </span>
-        <span style={{ display: "block", color: C.dim, fontSize: 12, lineHeight: 1.35, marginTop: 4 }}>
-          {item.detalle}
-        </span>
-        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7 }}>
-          <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>
-            {fmtFecha(item.fecha)}{item.actor ? ` · ${item.actor}` : ""}
-          </span>
-          {isAdmin && item.tipo === "produccion" && unread ? (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={async (event) => {
-                event.stopPropagation();
-                await onResolve?.();
-              }}
-              onKeyDown={async (event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                event.stopPropagation();
-                await onResolve?.();
-              }}
-              style={{
-                color: C.green, border: `1px solid ${C.greenB}`, borderRadius: 7,
-                padding: "6px 8px", minHeight: 32, fontSize: 10.5, fontWeight: 700,
-                display: "inline-flex", alignItems: "center",
-              }}
-            >
-              Resolver
-            </span>
-          ) : (
-            <span style={{
-              color: C.blue,
-              fontSize: 10.5,
-              fontWeight: 700,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 3,
-              whiteSpace: "nowrap",
-            }}>
-              {actionLabel(item)}
-              <ChevronRight size={13} />
-            </span>
-          )}
-        </span>
-      </span>
-    </button>
+      </button>
+      {canResolve && <div style={{ padding: "0 16px 12px 63px" }}><button type="button" onClick={onResolve} className="notif-resolve" style={{ minHeight: 32, padding: "6px 10px", border: `1px solid ${C.greenB}`, borderRadius: 8, background: C.greenL, color: C.green, cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}>Resolver alerta</button></div>}
+    </div>
   );
 }
