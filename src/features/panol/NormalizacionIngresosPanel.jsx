@@ -17,7 +17,14 @@ const FIELD = {
 const STATUS_META = {
   pendiente: { label: "Pendientes", singular: "Pendiente", color: C.cyan, bg: C.cyanL, border: C.cyanB },
   estandar: { label: "Estándar", singular: "Estándar", color: C.blue, bg: C.blueL, border: C.blueB },
-  puntual: { label: "Puntuales", singular: "Puntual", color: C.violet, bg: C.violetL, border: C.violetB },
+  puntual: { label: "No estándar", singular: "No es estándar", color: C.violet, bg: C.violetL, border: C.violetB },
+};
+
+const MOTIVOS_NO_ESTANDAR = {
+  adicional: "Adicional de obra",
+  condicionante: "Condicionante",
+  compra_puntual: "Compra puntual",
+  otro: "Otro motivo",
 };
 
 function qty(value, fallback = 0) {
@@ -50,7 +57,7 @@ function estadoEnLinea(material, modelo) {
   if (esEstandarEnLinea(material, modelo)) return "estandar";
   // Compatibilidad con decisiones puntuales de la primera versión, que eran
   // globales y no guardaban una fila por modelo.
-  if (material?.revisado === true && !(material.modelos_estandar || []).length) return "puntual";
+  if (material?.revisado === true && !(material.modelos_estandar || []).length && !(material.normalizaciones || []).length) return "puntual";
   return "pendiente";
 }
 
@@ -180,7 +187,7 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
   const [lineFilter, setLineFilter] = useState("");
   const [workFilter, setWorkFilter] = useState("todas");
   const [selectedId, setSelectedId] = useState(null);
-  const [draft, setDraft] = useState({ descripcion: "", alias: "", codigo: "", codigo_barra: "", unidad_medida: "unidad", categoria_id: "", notas: "", proveedores: [], cantidadVerificada: false, lineas: {} });
+  const [draft, setDraft] = useState({ descripcion: "", alias: "", codigo: "", codigo_barra: "", unidad_medida: "unidad", categoria_id: "", notas: "", proveedores: [], cantidadVerificada: false, lineas: {}, motivoNoEstandar: "", observacionNoEstandar: "" });
   const [catalogOptions, setCatalogOptions] = useState({ proveedores: [], categorias: [] });
   const [providerToAdd, setProviderToAdd] = useState("");
   const [confirmPuntual, setConfirmPuntual] = useState(false);
@@ -334,6 +341,8 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
       proveedores: providerDraftsFor(item, catalogOptions.proveedores),
       cantidadVerificada: decision?.decision === "estandar" && decision?.cantidad_verificada === true,
       lineas,
+      motivoNoEstandar: decision?.motivo_no_estandar || "",
+      observacionNoEstandar: decision?.observacion_no_estandar || "",
     });
     setProviderToAdd("");
     setConfirmPuntual(false);
@@ -360,6 +369,9 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
     if (decision === "estandar" && (!selectedLineActive || lineQuantity <= 0)) {
       toast.error(`Activá K${lineFilter} e indicá la cantidad por barco.`); return;
     }
+    if (decision === "puntual" && (!draft.motivoNoEstandar || !draft.observacionNoEstandar.trim())) {
+      toast.error("Para marcarlo como no estándar, elegí el motivo y escribí una observación."); return;
+    }
     if (decision === "puntual" && selectedLineActive && !confirmPuntual) {
       setConfirmPuntual(true); return;
     }
@@ -379,11 +391,13 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
         notas: draft.notas,
         proveedores: draft.proveedores,
         cantidadVerificada: draft.cantidadVerificada,
+        motivoNoEstandar: decision === "puntual" ? draft.motivoNoEstandar : null,
+        observacionNoEstandar: decision === "puntual" ? draft.observacionNoEstandar.trim() : null,
       });
       setStatus(decision);
       await recargar();
       await onSaved?.();
-      toast.success(decision === "estandar" ? `Producto aprobado como estándar en K${lineFilter}.` : `Producto marcado como puntual en K${lineFilter}.`);
+      toast.success(decision === "estandar" ? `Producto aprobado como estándar en K${lineFilter}.` : `Producto registrado como no estándar en K${lineFilter}.`);
     } catch (err) {
       toast.error(err?.message || "No se pudo guardar la decisión.");
     } finally {
@@ -491,6 +505,7 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                       <span style={{ color: C.blue, fontWeight: 700 }}>K{lineFilter}</span>
                       <span>{evidence.ingresos.length} ingreso{evidence.ingresos.length === 1 ? "" : "s"}</span>
                       {last && <><span style={{ color: C.text, fontFamily: C.mono, fontWeight: 700 }}>{last.obraCodigo || "Stock general"}</span><span>{fmtDate(last.fecha)}</span></>}
+                      {status === "puntual" && <span style={{ color: C.violet, fontWeight: 700 }}>{MOTIVOS_NO_ESTANDAR[normalizacionEnLinea(item, lineFilter)?.motivo_no_estandar] || "Motivo sin registrar"}</span>}
                     </span>
                   </span>
                   <ChevronRight size={13} style={{ color: selectedRow ? C.blue : C.dim }} />
@@ -654,9 +669,11 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                   </section>
 
                   {selectedDecision && (
-                    <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.25 }}>
+                    <div style={{ marginTop: 9, display: "flex", alignItems: "flex-start", gap: 7, color: C.dim, fontSize: 10.25 }}>
                       <Check size={12} color={STATUS_META[selectedDecision.decision]?.color || C.green} />
-                      Última decisión: {fmtDate(selectedDecision.revisado_at)}{selectedDecisionWork?.codigo ? ` · referencia ${selectedDecisionWork.codigo}` : ""}
+                      <span>Última decisión: {fmtDate(selectedDecision.revisado_at)}{selectedDecisionWork?.codigo ? ` · referencia ${selectedDecisionWork.codigo}` : ""}
+                        {selectedDecision.decision === "puntual" && <span style={{ display: "block", marginTop: 3, color: C.violet }}>{MOTIVOS_NO_ESTANDAR[selectedDecision.motivo_no_estandar] || "Motivo sin registrar"}{selectedDecision.observacion_no_estandar ? ` · ${selectedDecision.observacion_no_estandar}` : ""}</span>}
+                      </span>
                     </div>
                   )}
 
@@ -674,18 +691,28 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                       </div>
                     )}
                   </section>
+                  <section style={{ marginTop: 12, padding: 11, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 11, display: "grid", gap: 8 }}>
+                    <div style={{ color: C.text, fontSize: 11.5, fontWeight: 750 }}>Si no es estándar en K{lineFilter}</div>
+                    <div style={{ color: C.dim, fontSize: 10.25, lineHeight: 1.45 }}>Elegí por qué se compró o ingresó. La decisión queda registrada para esta línea y no agrega el producto a la matriz base.</div>
+                    <select aria-label="Motivo por el que no es estándar" value={draft.motivoNoEstandar} onChange={(event) => setDraft((current) => ({ ...current, motivoNoEstandar: event.target.value }))} style={FIELD}>
+                      <option value="">Elegir motivo…</option>
+                      {Object.entries(MOTIVOS_NO_ESTANDAR).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                    <textarea aria-label="Observación de no estándar" value={draft.observacionNoEstandar} onChange={(event) => setDraft((current) => ({ ...current, observacionNoEstandar: event.target.value }))} placeholder="Ej. Adicional solicitado para 52-23; no se usa en todos los K52." rows={2} style={{ ...FIELD, resize: "vertical" }} />
+                    {draft.motivoNoEstandar === "condicionante" && <div style={{ color: C.violet, fontSize: 10.25, lineHeight: 1.45 }}>La clasificación documenta el caso. Si debe aparecer automáticamente según una configuración, cargá además la regla en <a href="/materiales?tab=condicionantes" style={{ color: C.violet, fontWeight: 750 }}>Condicionantes de matriz</a>.</div>}
+                  </section>
                 </div>
 
                 <div style={{ padding: isMobile ? 11 : "10px 18px", borderTop: `1px solid ${confirmPuntual ? C.cyanB : C.border}`, background: confirmPuntual ? C.cyanL : C.topbarSoft, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 7, flexWrap: "wrap", flexShrink: 0 }}>
                   {confirmPuntual ? (
                     <>
-                      <span style={{ color: C.cyan, fontSize: 11, fontWeight: 700, marginRight: "auto" }}>Se quitará de K{lineFilter}. Las demás líneas no cambian.</span>
+                      <span style={{ color: C.cyan, fontSize: 11, fontWeight: 700, marginRight: "auto" }}>No será parte de la matriz base de K{lineFilter}. El motivo y la observación quedarán guardados; las demás líneas no cambian.</span>
                       <button type="button" onClick={() => setConfirmPuntual(false)} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>Cancelar</button>
-                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.cyanB}`, background: C.cyan, color: "#fff", borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>{saving ? "Guardando…" : `Confirmar puntual en K${lineFilter}`}</button>
+                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.cyanB}`, background: C.cyan, color: "#fff", borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>{saving ? "Guardando…" : `Confirmar no estándar en K${lineFilter}`}</button>
                     </>
                   ) : (
                     <>
-                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>Dejar puntual en K{lineFilter}</button>
+                      <button type="button" onClick={() => guardar("puntual")} disabled={saving} style={{ minHeight: 34, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 9, padding: "7px 11px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>No es estándar en K{lineFilter}</button>
                       <button type="button" onClick={() => guardar("estandar")} disabled={saving || !selectedLineActive} style={{ minHeight: 34, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "7px 12px", cursor: saving || !selectedLineActive ? "default" : "pointer", opacity: saving || !selectedLineActive ? 0.5 : 1, fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 }}><PackageCheck size={13} /> {saving ? "Guardando…" : `Guardar K${lineFilter} como estándar`}</button>
                     </>
                   )}

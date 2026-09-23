@@ -1409,7 +1409,7 @@ export async function fetchPanolNormalizationQueue({ limit = 2000 } = {}) {
   const normalizacionesPromise = enLotesDeIds(materialIds, async (ids) => {
     let { data, error } = await supabase
       .from("panol_material_normalizaciones")
-      .select("id,material_id,modelo,decision,cantidad,cantidad_verificada,evidencia_obra_id,evidencia_movimiento_id,revisado_at,revisado_por")
+      .select("id,material_id,modelo,decision,cantidad,cantidad_verificada,motivo_no_estandar,observacion_no_estandar,evidencia_obra_id,evidencia_movimiento_id,revisado_at,revisado_por")
       .in("material_id", ids);
     if (error && isMissingColumn(error)) {
       const retry = await supabase
@@ -1486,6 +1486,8 @@ export async function guardarNormalizacionPorLinea({
   notas = "",
   proveedores = [],
   cantidadVerificada = false,
+  motivoNoEstandar = null,
+  observacionNoEstandar = null,
 } = {}) {
   if (!materialId) throw new Error("Falta el producto a normalizar.");
   const cleanDescription = String(descripcion || "").trim();
@@ -1493,8 +1495,13 @@ export async function guardarNormalizacionPorLinea({
   const cleanQuantity = numericValue(cantidad, 0);
   if (!cleanDescription) throw new Error("El nombre del producto es obligatorio.");
   if (!cleanModel) throw new Error("Elegí la línea que querés revisar.");
-  if (!["estandar", "puntual"].includes(decision)) throw new Error("Elegí si el producto es estándar o puntual.");
+  if (!["estandar", "puntual"].includes(decision)) throw new Error("Elegí si el producto es estándar o no es estándar.");
   if (decision === "estandar" && cleanQuantity <= 0) throw new Error("Indicá la cantidad necesaria por barco.");
+  const cleanMotivo = String(motivoNoEstandar || "").trim();
+  const cleanObservacion = String(observacionNoEstandar || "").trim();
+  if (decision === "puntual" && (!["adicional", "condicionante", "compra_puntual", "otro"].includes(cleanMotivo) || !cleanObservacion)) {
+    throw new Error("Elegí el motivo y escribí una observación para el producto no estándar.");
+  }
 
   const cleanProviders = (proveedores || []).map((row) => ({
     proveedor_id: row.proveedor_id || null,
@@ -1505,7 +1512,7 @@ export async function guardarNormalizacionPorLinea({
     componentes_pedido: Array.isArray(row.componentes_pedido) ? row.componentes_pedido : [],
   })).filter((row) => row.proveedor_id);
 
-  const { data, error } = await supabase.rpc("panol_normalizar_material_detallado_por_linea", {
+  const rpcArgs = {
     p_material_id: materialId,
     p_descripcion: cleanDescription,
     p_alias: String(alias || "").trim() || null,
@@ -1521,11 +1528,20 @@ export async function guardarNormalizacionPorLinea({
     p_notas: String(notas || "").trim() || null,
     p_proveedores: cleanProviders,
     p_cantidad_verificada: decision === "estandar" && cantidadVerificada === true,
-  });
+    p_motivo_no_estandar: decision === "puntual" ? cleanMotivo : null,
+    p_observacion_no_estandar: decision === "puntual" ? cleanObservacion : null,
+  };
+  let { data, error } = await supabase.rpc("panol_normalizar_material_clasificado_por_linea", rpcArgs);
+  if (error && decision === "estandar" && (error.code === "PGRST202" || /schema cache|could not find/i.test(error.message || ""))) {
+    const legacyArgs = { ...rpcArgs };
+    delete legacyArgs.p_motivo_no_estandar;
+    delete legacyArgs.p_observacion_no_estandar;
+    ({ data, error } = await supabase.rpc("panol_normalizar_material_detallado_por_linea", legacyArgs));
+  }
   if (error) {
     const message = String(error.message || "");
     if (error.code === "PGRST202" || message.toLowerCase().includes("schema cache") || message.toLowerCase().includes("could not find")) {
-      throw new Error("Falta aplicar la migración de detalle de Estandarización.");
+      throw new Error("Falta aplicar la migración de motivos de Estandarización.");
     }
     throw error;
   }

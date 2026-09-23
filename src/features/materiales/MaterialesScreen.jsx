@@ -5743,7 +5743,18 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 // varios renglones, que es justo lo que se quería sacar.
 const MATRIZ_COLS = "38px minmax(230px,1.7fr) minmax(104px,.5fr) minmax(140px,.7fr) 104px 104px 100px 72px";
 
-function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiales, proveedores = [], opciones = [], ums, onChanged, onBack, onSelectObra, onSelectLinea }) {
+/**
+ * Un renglón de la matriz que falta cotizar de verdad. Lo que va en un
+ * conjunto (Merniez, Maxi) y lo especificado ("se fabrica en el astillero"...)
+ * no tiene precio propio pero tampoco falta: contarlo como "sin precio" era lo
+ * que hacía que las 23 piezas de Merniez aparecieran en rojo acá aunque el
+ * conjunto ya estuviera cotizado.
+ */
+function faltaPrecioLinea(row) {
+  return !row.precio?.amount && !row.conjunto && !row.especificado;
+}
+
+function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiales, proveedores = [], opciones = [], conjuntos = [], ums, onChanged, onBack, onSelectObra, onSelectLinea }) {
   // La tabla necesita alto propio: un contenedor con overflow-x crea su propio
   // scrollport y sin alto el encabezado sticky no se pega a nada.
   const listaRef = useRef(null);
@@ -5840,6 +5851,11 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       .filter(materialActivo)
       .filter((m) => materialQty(m, code) > 0);
     const materialPorId = new Map((materiales ?? []).map((material) => [material.id, material]));
+    const conjuntoDe = new Map();
+    for (const conjunto of conjuntos) {
+      if (conjunto.modelo && String(conjunto.modelo) !== String(code)) continue;
+      for (const id of conjunto.materiales || []) conjuntoDe.set(id, conjunto);
+    }
 
     return materialesDeLinea.map((m) => {
       const modeloConfig = (m.modelos ?? []).find((item) => (
@@ -5871,6 +5887,8 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         proveedorMeta: proveedorMeta(proveedor, proveedores),
         rubro: rubroDeLista(categorias, materialOperativo.categoria_id || m.categoria_id),
         precio,
+        conjunto: conjuntoDe.get(m.id) || null,
+        especificado: !precio.amount ? (m.sin_precio_motivo || materialOperativo.sin_precio_motivo || null) : null,
         bucket,
         obs: materialOperativo.notas || m.notas || "",
         revisado: !!materialOperativo.revisado,
@@ -5883,7 +5901,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
     });
-  }, [materiales, code, categorias, opciones, proveedores]);
+  }, [materiales, code, categorias, opciones, proveedores, conjuntos]);
 
   const secondaryRows = useMemo(() => (secondaryState.rows ?? [])
     .filter((row) => row.circuito !== "maderas" || !row.referenciaMaderasCodigo || Number(row.cantidadReferencia || 0) > 0)
@@ -6006,7 +6024,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       // no se fabrica. Se ve con el filtro "Línea eje", que ya estaba.
       .filter((row) => (tipoFilter === "todos"
         ? row.bucket.key !== "linea_eje"
-        : tipoFilter === "sin_precio" ? !row.precio.amount
+        : tipoFilter === "sin_precio" ? faltaPrecioLinea(row)
           : tipoFilter === "revisar" ? row.review?.flag
             : row.bucket.key === tipoFilter))
       .filter((row) => matchesFlexibleSearch(
@@ -6060,7 +6078,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       if (row.precio.amount) {
         if (row.precio.moneda === "USD") group.usd += row.precio.amount * qty;
         else group.ars += row.precio.amount * qty;
-      } else {
+      } else if (faltaPrecioLinea(row)) {
         group.sinPrecio += 1;
       }
     });
@@ -6075,22 +6093,34 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   );
   const hiddenRowCount = Math.max(0, visibleRows.length - Math.min(effectiveRenderLimit, visibleRows.length));
 
-  const kpis = useMemo(() => rows.reduce((acc, row) => {
-    const qty = toNum(row.cantidad) || 1;
-    acc.items += 1;
-    if (row.secundario) acc.secundarios += 1;
-    if (row.proveedor) acc.proveedores.add(row.proveedor);
-    if (row.rubro) acc.rubros.add(row.rubro);
-    if (row.review?.flag) acc.revisar += 1;
-    if (!row.precio.amount) acc.sinPrecio += 1;
-    else if (row.precio.moneda === "USD") {
-      if (row.bucket.key === "linea_eje") acc.ejeUsd += row.precio.amount * qty;
-      else acc.usd += row.precio.amount * qty;
-    } else {
-      acc.ars += row.precio.amount * qty;
+  const kpis = useMemo(() => {
+    const acc = rows.reduce((suma, row) => {
+      const qty = toNum(row.cantidad) || 1;
+      suma.items += 1;
+      if (row.secundario) suma.secundarios += 1;
+      if (row.proveedor) suma.proveedores.add(row.proveedor);
+      if (row.rubro) suma.rubros.add(row.rubro);
+      if (row.review?.flag) suma.revisar += 1;
+      if (row.conjunto) suma.conjuntos.add(row.conjunto);
+      if (!row.precio.amount) {
+        if (faltaPrecioLinea(row)) suma.sinPrecio += 1;
+      } else if (row.precio.moneda === "USD") {
+        if (row.bucket.key === "linea_eje") suma.ejeUsd += row.precio.amount * qty;
+        else suma.usd += row.precio.amount * qty;
+      } else {
+        suma.ars += row.precio.amount * qty;
+      }
+      return suma;
+    }, { items: 0, secundarios: 0, proveedores: new Set(), rubros: new Set(), conjuntos: new Set(), sinPrecio: 0, revisar: 0, usd: 0, ars: 0, ejeUsd: 0 });
+    // Cada conjunto suma su precio una sola vez, no por pieza.
+    for (const conjunto of acc.conjuntos) {
+      const monto = Number(conjunto.precio);
+      if (!(monto > 0)) continue;
+      if (conjunto.moneda === "USD") acc.usd += monto;
+      else acc.ars += monto;
     }
     return acc;
-  }, { items: 0, secundarios: 0, proveedores: new Set(), rubros: new Set(), sinPrecio: 0, revisar: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+  }, [rows]);
 
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
@@ -6250,14 +6280,23 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   ].filter(Boolean).length;
   const lineOptions = lineas.length ? lineas : [linea].filter(Boolean);
   const visibleObras = lineObras;
-  const totalLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
+  // Los dos importes. Antes, si había dólares, mostraba sólo los dólares y se
+  // comía la parte en pesos entera: en el K52 eran más de 50 millones que no
+  // aparecían en ningún lado del encabezado.
+  const millones = (n) => `$ ${(n / 1e6).toLocaleString("es-AR", { maximumFractionDigits: n >= 1e8 ? 0 : 1 })} M`;
+  const partesTotal = [
+    kpis.usd ? fmtMoney(kpis.usd, "USD") : null,
+    kpis.ars ? (kpis.ars >= 1e6 ? millones(kpis.ars) : fmtMoney(kpis.ars, "ARS")) : null,
+  ].filter(Boolean);
+  const totalLabel = partesTotal.length ? partesTotal.join(" + ") : "Sin precios";
+  const totalTitulo = [kpis.usd ? fmtMoney(kpis.usd, "USD") : null, kpis.ars ? fmtMoney(kpis.ars, "ARS") : null].filter(Boolean).join(" + ");
 
   return (
     <div className="linea-workspace">
       {/* Una banda de una línea, no una tarjeta con gradiente. La anterior medía
           349px de alto y dejaba dos materiales en pantalla. El camino completo ya
           está arriba, en el encabezado de la página: acá no hace falta repetirlo. */}
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: "9px 13px", marginBottom: 10 }}>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 12, background: "var(--panel)", padding: "7px 11px", marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
           <button type="button" onClick={onBack} title="Volver a las líneas de producción" style={{ ...BTN, height: 32, padding: "0 10px 0 7px", color: C.blue }}>
             <ChevronLeft size={14} /> Líneas
@@ -6276,7 +6315,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
           {/* El selector de al lado ya dice K37: repetirlo de título no agrega nada. */}
           {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 650, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" }}>{kpis.sinPrecio} sin precio</span> : null}
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" }}>
-            <span title="Presupuesto base estimado" style={{ display: "inline-flex", alignItems: "baseline", gap: 7, marginRight: 3 }}>
+            <span title={`Presupuesto base estimado: ${totalTitulo || "sin precios"}. Pesos y dólares van separados.`} style={{ display: "inline-flex", alignItems: "baseline", gap: 7, marginRight: 3 }}>
               <span style={{ fontSize: 10, color: C.t2, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.6 }}>Presupuesto</span>
               <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</span>
             </span>
@@ -6345,7 +6384,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             Cada una muestra su avance con una barra en vez de un texto: de un
             vistazo se ve cuál está arrancando y cuál está por terminar. */}
         {visibleObras.length > 0 && (
-          <div style={{ marginTop: 8, borderTop: `1px solid ${C.b0}`, paddingTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ marginTop: 6, borderTop: `1px solid ${C.b0}`, paddingTop: 6, display: "flex", gap: 5, flexWrap: "wrap" }}>
             {visibleObras.map((obra) => {
               const r = obra.materiales_recepcion || {};
               const total = Number(r.total || 0);
@@ -6359,7 +6398,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                   onClick={() => onSelectObra?.(obra)}
                   className="obra-linea-card"
                   title={`Abrir la lista de ${obra.codigo} · ${total ? obraRecepcionResumenLabel(r) : "sin lista"}`}
-                  style={{ border: `1px solid ${C.b0}`, borderRadius: 8, background: C.panelSolid, color: C.t1, fontFamily: C.sans, padding: "0 8px 0 9px", height: 30, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.b0}`, borderRadius: 7, background: C.panelSolid, color: C.t1, fontFamily: C.sans, padding: "0 7px 0 8px", height: 26, display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer" }}
                 >
                   <span style={{ color: C.t0, fontWeight: 650, fontSize: 12.5, letterSpacing: -0.2 }}>{obra.codigo}</span>
                   {/* La barra dice el avance sin que haya que leer el número. */}
@@ -6440,27 +6479,17 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         ) : null}
       </div>
 
-      {(secondaryState.loading || secondaryRows.length > 0 || secondaryState.error) && (
-        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", border: `1px solid ${secondaryState.error ? C.redB : `${C.violet}44`}`, background: secondaryState.error ? "rgba(239,68,68,0.07)" : "color-mix(in srgb, var(--panel) 90%, #8b5cf6 7%)", borderRadius: 14, padding: "9px 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: secondaryState.error ? C.red : C.violet, boxShadow: `0 0 0 4px ${secondaryState.error ? C.red : C.violet}18`, flexShrink: 0 }} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: secondaryState.error ? C.red : C.t0, fontSize: 12.5, fontWeight: 750 }}>
-                {secondaryState.loading ? "Cargando materiales de producción…" : secondaryState.error ? "No se pudieron cargar los materiales de producción" : `${secondaryRows.length} materiales de producción incluidos en K${code}`}
-              </div>
-              <div style={{ color: C.t2, fontSize: 10.5, marginTop: 2 }}>
-                Laminación muestra el plan por barco. Maderas suma el consumo de {lineObras.length} {lineObras.length === 1 ? "obra activa" : "obras activas"} de la línea.
-              </div>
-            </div>
-          </div>
-          {!secondaryState.loading && !secondaryState.error && (
-            <span style={{ color: C.violet, border: `1px solid ${C.violet}44`, background: "var(--violet-soft)", borderRadius: 999, padding: "4px 9px", fontSize: 10.5, fontWeight: 700 }}>
-              No genera OC de Pañol
-            </span>
-          )}
-          {secondaryState.error && <span style={{ color: C.t2, fontSize: 10.5 }}>{secondaryState.error}</span>}
+      {/* El aviso violeta de "N materiales de producción incluidos" era una
+          tarjeta entera de 60px para un dato que se usa al filtrar. Ahora vive
+          en el botón "Producción" del filtro: la cuenta en el botón, la
+          explicación al pasar el mouse. Sólo el error queda a la vista, porque
+          ése sí hay que verlo. */}
+      {secondaryState.error ? (
+        <div role="alert" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 10, padding: "6px 10px", fontSize: 11.5, color: C.red, fontWeight: 650 }}>
+          <AlertTriangle size={13} /> No se pudieron cargar los materiales de producción
+          <span style={{ color: C.t2, fontWeight: 500 }}>{secondaryState.error}</span>
         </div>
-      )}
+      ) : null}
 
       {outOfMatrixResolver ? (
         <ResolverFueraDeMatrizModal
@@ -6495,23 +6524,24 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         </div>
       )}
 
-      <div style={{ position: "sticky", top: 0, zIndex: 24, border: `1px solid ${C.b0}`, borderRadius: 12, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(14px)", padding: 7, marginBottom: 10, display: "grid", gap: 7 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 24, border: `1px solid ${C.b0}`, borderRadius: 11, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(14px)", padding: 5, marginBottom: 8, display: "grid", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 320px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 34, height: 34, borderRadius: 9 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 34, height: 32, borderRadius: 8 }} />
           </div>
           {[
-            ["todos", "Todo", C.blue],
-            ["sin_precio", "Sin precio", C.red],
-            ["revisar", "A revisar", C.teal],
-            ["secundario", "Producción", C.violet],
-          ].map(([key, label, color]) => (
-            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+            ["todos", "Todo", C.blue, null],
+            ["sin_precio", "Sin precio", C.red, null],
+            ["revisar", "A revisar", C.teal, null],
+            ["secundario", secondaryState.loading ? "Producción…" : `Producción${secondaryRows.length ? ` · ${secondaryRows.length}` : ""}`, C.violet,
+              `${secondaryRows.length} materiales de producción incluidos en K${code}. Laminación muestra el plan por barco; maderas suma el consumo de ${lineObras.length} ${lineObras.length === 1 ? "obra activa" : "obras activas"} de la línea. No generan OC de Pañol.`],
+          ].map(([key, label, color, ayuda]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} title={ayuda || undefined} style={{ ...filterPillStyle(tipoFilter === key, color), padding: "6px 10px" }}>
               {label}
             </button>
           ))}
-          <button type="button" onClick={() => setFiltersOpen((v) => !v)} style={{ ...BTN, height: 40, padding: "0 12px", color: filtersOpen || activeFilterCount ? C.blue : C.t1, borderColor: filtersOpen || activeFilterCount ? C.blueB : C.b0, background: filtersOpen || activeFilterCount ? C.blueL : C.s0 }}>
+          <button type="button" onClick={() => setFiltersOpen((v) => !v)} style={{ ...BTN, height: 32, padding: "0 11px", color: filtersOpen || activeFilterCount ? C.blue : C.t1, borderColor: filtersOpen || activeFilterCount ? C.blueB : C.b0, background: filtersOpen || activeFilterCount ? C.blueL : C.s0 }}>
             <SlidersHorizontal size={14} /> Filtros{activeFilterCount ? ` (${activeFilterCount})` : ""}
           </button>
         </div>
@@ -6558,7 +6588,9 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         <div ref={listaRef} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, overflow: "clip", background: "var(--panel)" }}>
           <div style={{ overflow: "auto", height: listaAlto, minHeight: 320, scrollbarWidth: "thin", scrollbarColor: "var(--border) transparent" }}>
             <div style={{ minWidth: 940, fontSize: 12.5 }}>
-              <div role="row" style={{ display: "grid", gridTemplateColumns: MATRIZ_COLS, alignItems: "center", minHeight: 42, position: "sticky", top: 0, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.b1}`, color: C.t2, fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {/* 34px exactos: los títulos de grupo se pegan en top: 34. Con 42,
+                  al scrollear cada título se metía 8px por debajo de este. */}
+              <div role="row" style={{ display: "grid", gridTemplateColumns: MATRIZ_COLS, alignItems: "center", height: 34, position: "sticky", top: 0, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.b1}`, color: C.t2, fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, boxSizing: "border-box" }}>
                 <span />
                 <span style={{ padding: "0 12px" }}>Material</span>
                 <ObraColumnFilter label="Rubro" options={opcionesColumna.rubros} selected={rubrosSel} onChange={setRubrosSel} />
@@ -6572,7 +6604,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                 <Fragment key={group.label}>
                   {/* Fondo sólido, no var(--panel-2): al quedar fijo, un fondo
                       con transparencia deja ver la fila que pasa por debajo. */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 42, padding: "0 14px", background: C.panelSolid2, borderBottom: `1px solid ${C.b0}`, boxShadow: `inset 3px 0 0 ${group.color || C.blue}`, position: "sticky", top: 34, zIndex: 2 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 36, padding: "0 14px", background: C.panelSolid2, borderBottom: `1px solid ${C.b0}`, boxShadow: `inset 3px 0 0 ${group.color || C.blue}`, position: "sticky", top: 34, zIndex: 2 }}>
                     <strong style={{ fontSize: 13, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{group.label}</strong>
                     <span style={{ fontSize: 11, color: C.t2, background: C.panel2, borderRadius: 6, padding: "2px 7px", fontWeight: 600, whiteSpace: "nowrap" }}>{group.totalRows ?? group.rows.length}</span>
                     {group.sinPrecio ? <span style={{ fontSize: 11, color: C.red, whiteSpace: "nowrap" }}>{group.sinPrecio} sin precio</span> : null}
@@ -6643,8 +6675,18 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
                               : null}
                             {!row.secundario && <DesgloseCantidad row={row} />}
                           </div>
-                          {/* Sin precio va en rojo: es lo que traba una compra, no un aviso. */}
-                          <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: row.precio.amount ? 13 : 11.5, fontWeight: 650, color: row.precio.amount ? C.t0 : C.red }}>{row.precio.amount ? row.precio.text : "Sin precio"}</div>
+                          {/* Sin precio va en rojo: es lo que traba una compra, no un aviso.
+                              Lo que va en un conjunto o está especificado no falta: se
+                              dice qué es, sin el rojo. */}
+                          {row.precio.amount ? (
+                            <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 13, fontWeight: 650, color: C.t0 }}>{row.precio.text}</div>
+                          ) : row.conjunto ? (
+                            <div title={`${row.conjunto.nombre}${Number(row.conjunto.precio) > 0 ? "" : " · falta cotizar el conjunto"}`} style={{ padding: "0 12px", textAlign: "right", fontSize: 11.5, fontWeight: 650, color: Number(row.conjunto.precio) > 0 ? C.teal : C.cyan }}>En conjunto</div>
+                          ) : row.especificado ? (
+                            <div title={row.especificado} style={{ padding: "0 12px", textAlign: "right", fontSize: 11.5, fontWeight: 600, color: C.t2 }}>No lleva</div>
+                          ) : (
+                            <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 11.5, fontWeight: 650, color: C.red }}>Sin precio</div>
+                          )}
                           <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{total ? fmtMoney(total, row.precio.moneda) : ""}</div>
                           <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", paddingRight: 10 }}>
                             {row.secundario ? (
@@ -8137,6 +8179,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         materiales={materiales}
         proveedores={proveedores}
         opciones={opciones}
+        conjuntos={conjuntos}
         ums={ums}
         onChanged={onChanged}
         onBack={() => setSel("")}
@@ -9507,10 +9550,11 @@ export default function MaterialesScreen({ profile }) {
           filter: saturate(1.04);
           box-shadow: 0 18px 38px -28px rgba(37,99,235,0.85);
         }
-        .materiales-page-body:has(.linea-workspace) { padding: 12px 24px 18px !important; }
-        .materiales-page-body:has(.linea-workspace) .materiales-page-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px !important; }
-        .materiales-page-body:has(.linea-workspace) .materiales-page-heading h1 { font-size: 20px !important; line-height: 1.2; }
-        .materiales-page-body:has(.linea-workspace) .materiales-page-heading > div { font-size: 11px !important; margin-top: 0 !important; }
+        .materiales-page-body:has(.linea-workspace) { padding: 10px 24px 14px !important; }
+        /* Adentro de una línea el título de la página y el recorrido "Líneas >
+           Base matriz > Órdenes" no suman: las pestañas y la banda de la línea
+           ya dicen dónde se está. Son 40px más de lista. */
+        .materiales-page-body:has(.linea-workspace) .materiales-page-heading { display: none; }
         .materiales-page-body:has(.linea-workspace) .materiales-page-tabs { margin-bottom: 8px !important; }
         .materiales-page-body:has(.linea-workspace) .materiales-tabbar { padding: 3px; }
         .materiales-page-body:has(.linea-workspace) .materiales-tab { min-height: 30px; padding: 0 12px; font-size: 12px; }
@@ -9621,7 +9665,10 @@ export default function MaterialesScreen({ profile }) {
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div className="materiales-page-body" style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
           <div className="materiales-page-heading" style={{ marginBottom: 28 }}>
-            <h1 style={{ fontSize: 32, fontWeight: 700, background: "linear-gradient(135deg, var(--t0) 0%, var(--t2) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
+            {/* --text y --dim: el degradé usaba --t0 y --t2, que no existen en la
+                paleta. El fondo quedaba vacío y el texto transparente, así que el
+                título no se veía pero seguía ocupando lugar. */}
+            <h1 style={{ fontSize: 32, fontWeight: 700, background: "linear-gradient(135deg, var(--text) 0%, var(--dim) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
             <div style={{ fontSize: 14, color: C.t2, marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 600 }}>Líneas de producción</span>
               <span style={{ opacity: 0.5 }}>›</span>

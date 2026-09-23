@@ -533,7 +533,7 @@ export default function EquiposScreen() {
                 </Lista>
               )}
               {(motoresReservados.length > 0 || !filtrando) && (
-                <Lista titulo="Motores asignados a un barco" icono={Cog} vacio="No hay motores asignados.">
+                <Lista titulo="Motores reservados para barco" icono={Cog} vacio="No hay motores reservados.">
                   {motoresReservados.map((motor) => (
                     <li key={motor.id} className="eq-fila">
                       <span className="eq-fila-codigo">{motor.obra}</span>
@@ -546,7 +546,7 @@ export default function EquiposScreen() {
                 </Lista>
               )}
               {(gruposReservados.length > 0 || !filtrando) && (
-                <Lista titulo="Grupos asignados a un barco" icono={Zap} vacio="No hay grupos asignados.">
+                <Lista titulo="Grupos reservados para barco" icono={Zap} vacio="No hay grupos reservados.">
                   {gruposReservados.map((grupo) => (
                     <li key={grupo.id} className="eq-fila">
                       <span className="eq-fila-codigo">{grupo.obra}</span>
@@ -628,13 +628,13 @@ const ESTADOS_FORM = {
     ["pedido", "Pedido al proveedor"],
     ["comprado", "En proveedor · a retirar"],
     ["en_galpon", "En galpón · libre"],
-    ["asignado", "En galpón · asignado"],
+    ["asignado", "Reservado para barco"],
     ["instalado", "Instalado"],
   ],
   generador: [
     ["comprado", "En proveedor · a retirar"],
     ["en_galpon", "En galpón · libre"],
-    ["asignado", "En galpón · asignado"],
+    ["asignado", "Reservado para barco"],
     ["instalado", "Instalado"],
   ],
 };
@@ -686,11 +686,11 @@ function EquipoModal({ obras = [], onCerrar, onGuardar }) {
       return;
     }
     if ((draft.estado === "asignado" || draft.estado === "instalado") && !draft.obra_codigo.trim()) {
-      setError("Indicá el barco para un equipo asignado o instalado.");
+      setError("Indicá el barco para un equipo reservado o instalado.");
       return;
     }
     if (draft.estado === "en_galpon" && draft.obra_codigo.trim()) {
-      setError("Un equipo con barco no puede quedar libre: elegí «En galpón · asignado» o dejá el barco vacío.");
+      setError("Un equipo con barco no puede quedar libre: elegí «Reservado para barco» o dejá el barco vacío.");
       return;
     }
     setGuardando(true);
@@ -761,7 +761,7 @@ function EquipoModal({ obras = [], onCerrar, onGuardar }) {
               <datalist id="eq-obras-activas">
                 {obras.map((obra) => <option key={obra.id} value={obra.codigo} />)}
               </datalist>
-              <small className="eq-campo-ayuda">Con barco queda asignado; sin barco, libre en galpón.</small>
+              <small className="eq-campo-ayuda">Con barco queda reservado; sin barco, libre en galpón.</small>
             </label>
             {draft.tipo === "motor" && <label className="eq-campo"><span>Transmisión</span><select className="ui-input" value={draft.transmision} onChange={(e) => cambiar("transmision", e.target.value)}><option value="">Sin definir</option><option value="Angular">Angular</option><option value="V-drive">V-drive</option><option value="Pata">Pata</option></select></label>}
             {draft.tipo === "motor" && <label className="eq-campo"><span>Posición</span><select className="ui-input" value={draft.posicion} onChange={(e) => cambiar("posicion", e.target.value)}><option value="">Sin definir</option><option value="babor">Babor</option><option value="estribor">Estribor</option><option value="centro">Centro</option></select></label>}
@@ -972,7 +972,7 @@ function GestionEquipoModal({ equipo, obras, onCerrar, onMover, onEliminar }) {
             <button type="button" className={estado === "comprado" ? "is-activo" : ""} onClick={() => cambiarEstado("comprado")}><PackageOpen size={15} /><span><strong>En proveedor</strong><small>Comprado, falta retirarlo</small></span></button>
             <button type="button" className={estado === "pedido" ? "is-activo" : ""} onClick={() => cambiarEstado("pedido")}><History size={15} /><span><strong>Pedido</strong><small>Sin entrega del proveedor</small></span></button>
             <button type="button" className={estado === "en_galpon" ? "is-activo" : ""} onClick={() => cambiarEstado("en_galpon")}><Warehouse size={15} /><span><strong>En galpón · libre</strong><small>Sin asignar</small></span></button>
-            <button type="button" className={estado === "asignado" ? "is-activo" : ""} onClick={() => cambiarEstado("asignado")}><Ship size={15} /><span><strong>En galpón · asignado</strong><small>Reservado para un barco</small></span></button>
+            <button type="button" className={estado === "asignado" ? "is-activo" : ""} onClick={() => cambiarEstado("asignado")}><Ship size={15} /><span><strong>Reservado para barco</strong><small>En el galpón, destinado a un barco</small></span></button>
             <button type="button" className={estado === "instalado" ? "is-activo" : ""} onClick={() => cambiarEstado("instalado")}><Cog size={15} /><span><strong>Instalado</strong><small>Montado en el barco</small></span></button>
             <button type="button" className={estado === "entregado" ? "is-activo" : ""} onClick={() => cambiarEstado("entregado")}><PackageCheck size={15} /><span><strong>Entregado</strong><small>Sale de producción</small></span></button>
           </div>
