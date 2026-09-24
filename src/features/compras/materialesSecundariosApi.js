@@ -2,8 +2,31 @@ import { supabase } from "@/supabaseClient";
 
 const redondear = (value) => Math.round(Number(value || 0) * 10000) / 10000;
 
+/**
+ * Casco cuyo consumo real de Maderas se toma como estándar de la línea.
+ *
+ * `hasta` congela ese consumo en una fecha: lo que el casco saque después no
+ * cambia el estándar. `sinContar` deja afuera la madera de obra, que va en la
+ * matriz de la línea porque se compra por barco; si no, se contaría dos veces.
+ */
 const REFERENCIA_MADERAS_POR_LINEA = Object.freeze({
-  K55: "55-1",
+  K52: {
+    obra: "52-23",
+    hasta: "2026-09-24",
+    sinContar: [
+      "16b3a341-11dd-44dc-b76e-8072cf8949af", // HoneyComb
+      "54a2dc77-e2ab-4981-837a-bdbf5d53b28d", // Tablón Okumé
+      "feb2447c-6a2c-420b-96ce-e639fed0b882", // PVC 20mm
+      "b347aaeb-1e69-493b-91d2-eb56dc5a99a7", // Tablón de teca
+    ],
+  },
+  K55: {
+    obra: "55-1",
+    sinContar: [
+      "16b3a341-11dd-44dc-b76e-8072cf8949af", // HoneyComb: la matriz del K55 lleva 22 placas
+      "54a2dc77-e2ab-4981-837a-bdbf5d53b28d", // Tablón Okumé: la matriz del K55 lleva 300 pies
+    ],
+  },
 });
 
 export function normalizarCodigoObra(value) {
@@ -66,14 +89,14 @@ async function traerMovimientosMadera(obras) {
   if (obraIds.length) {
     consultas.push(supabase
       .from("movimientos")
-      .select("id,material_id,delta,obra,produccion_obra_id")
+      .select("id,material_id,delta,obra,produccion_obra_id,created_at")
       .lt("delta", 0)
       .in("produccion_obra_id", obraIds));
   }
   if (codigos.length) {
     consultas.push(supabase
       .from("movimientos")
-      .select("id,material_id,delta,obra,produccion_obra_id")
+      .select("id,material_id,delta,obra,produccion_obra_id,created_at")
       .lt("delta", 0)
       .in("obra", codigos));
   }
@@ -84,6 +107,20 @@ async function traerMovimientosMadera(obras) {
     for (const row of resultado.data || []) filas.set(row.id, row);
   }
   return [...filas.values()];
+}
+
+/**
+ * El casco de referencia puede estar terminado y no venir entre las obras
+ * activas de la línea: se busca aparte para que la línea no pierda su estándar.
+ */
+async function traerObraPorCodigo(codigo) {
+  const { data, error } = await supabase
+    .from("produccion_obras")
+    .select("id,codigo")
+    .eq("codigo", codigo)
+    .limit(1);
+  if (error) return null;
+  return data?.[0] || null;
 }
 
 function costoVacio() {
@@ -114,10 +151,22 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
   const codigos = obras.map((obra) => String(obra.codigo || "").trim()).filter(Boolean);
   const obraPorCodigo = new Map(obras.map((obra) => [normalizarCodigoObra(obra.codigo), obra]));
   const obraPorId = new Map(obras.map((obra) => [obra.id, obra]));
-  const referenciaMaderasCodigo = REFERENCIA_MADERAS_POR_LINEA[codigoLinea] || "";
-  const referenciaMaderasObra = referenciaMaderasCodigo
+  const referencia = REFERENCIA_MADERAS_POR_LINEA[codigoLinea] || null;
+  const referenciaMaderasCodigo = referencia?.obra || "";
+  const referenciaSinContar = new Set(referencia?.sinContar || []);
+  let referenciaMaderasObra = referenciaMaderasCodigo
     ? obraPorCodigo.get(normalizarCodigoObra(referenciaMaderasCodigo)) || null
     : null;
+  if (referenciaMaderasCodigo && !referenciaMaderasObra) {
+    referenciaMaderasObra = await traerObraPorCodigo(referenciaMaderasCodigo);
+    if (referenciaMaderasObra) {
+      obraPorCodigo.set(normalizarCodigoObra(referenciaMaderasObra.codigo), referenciaMaderasObra);
+      obraPorId.set(referenciaMaderasObra.id, referenciaMaderasObra);
+    }
+  }
+  const obrasConReferencia = referenciaMaderasObra && !obras.some((obra) => obra.id === referenciaMaderasObra.id)
+    ? [...obras, referenciaMaderasObra]
+    : obras;
 
   const [{ data: plantillas, error: plantillaError }, precios] = await Promise.all([
     supabase.from("linea_plantillas").select("id,linea,nombre").eq("linea", codigoLinea).eq("activa", true).order("created_at", { ascending: false }).limit(1),
@@ -131,7 +180,7 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
       ? supabase.from("linea_plantilla_items").select("material_id,cantidad,orden").eq("plantilla_id", plantilla.id).order("orden")
       : Promise.resolve({ data: [], error: null }),
     traerMovimientosLaminacion(codigos),
-    traerMovimientosMadera(obras),
+    traerMovimientosMadera(obrasConReferencia),
   ]);
   if (itemsRes.error) throw itemsRes.error;
 
@@ -206,12 +255,17 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
   }).filter(Boolean);
 
   const consumoMadera = new Map();
+  const consumoReferencia = new Map();
   for (const movimiento of movimientosMadera || []) {
     const obra = obraPorId.get(movimiento.produccion_obra_id)
       || obraPorCodigo.get(normalizarCodigoObra(movimiento.obra));
     if (!obra) continue;
+    const cantidad = Math.abs(Number(movimiento.delta || 0));
     const clave = `${movimiento.material_id}|${obra.id}`;
-    consumoMadera.set(clave, redondear((consumoMadera.get(clave) || 0) + Math.abs(Number(movimiento.delta || 0))));
+    consumoMadera.set(clave, redondear((consumoMadera.get(clave) || 0) + cantidad));
+    if (obra.id !== referenciaMaderasObra?.id) continue;
+    if (referencia?.hasta && String(movimiento.created_at || "").slice(0, 10) > referencia.hasta) continue;
+    consumoReferencia.set(movimiento.material_id, redondear((consumoReferencia.get(movimiento.material_id) || 0) + cantidad));
   }
 
   const filasMadera = maderaIds.map((materialId) => {
@@ -239,7 +293,7 @@ export async function fetchMaterialesSecundariosPlanilla({ linea, obras }) {
       };
     }
     const cantidadReferencia = referenciaMaderasObra
-      ? redondear(consumoMadera.get(`${material.id}|${referenciaMaderasObra.id}`) || 0)
+      ? (referenciaSinContar.has(material.id) ? 0 : consumoReferencia.get(material.id) || 0)
       : null;
     sumarCosto(costos, { precio, planificado: 0, consumido: consumidoTotal });
     return {

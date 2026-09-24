@@ -1,0 +1,27 @@
+{
+  "patterns": {},
+  "memories": [],
+  "trajectories": [],
+  "errors": {},
+  "file_sequences": [],
+  "agents": {},
+  "edges": [],
+  "stats": {
+    "total_patterns": 0,
+    "total_memories": 0,
+    "total_trajectories": 0,
+    "total_errors": 0,
+    "session_count": 0,
+    "last_session": 0
+  },
+  "activeTrajectories": {
+    "traj_1790251932443_9ewdsz9ky": {
+      "id": "traj_1790251932443_9ewdsz9ky",
+      "context": "20260924121210-comprobar-disponibilidad-actual-: Comprobar disponibilidad actual de publicaciones de componentes de robot",
+      "agent": "browser-session",
+      "file": null,
+      "steps": [],
+      "startTime": 1790251932443
+    }
+  }
+}
