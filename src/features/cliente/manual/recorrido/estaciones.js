@@ -5,21 +5,10 @@
    referencia: u = 0 popa … 1 proa, lado = −1 babor … +1 estribor
    (fracción de la manga en ese punto), alto en puntales sobre cubierta.
 
-   sistemas: qué volúmenes del interior se resaltan.
    interior: si la estación se ve con el casco transparente.
    cam: dónde se para la cámara (az en grados alrededor del barco,
    el en grados de elevación, dist en esloras).
 ═══════════════════════════════════════════════════════════════ */
-
-export const SISTEMAS = [
-  // largo en esloras, ancho en fracción de la manga local, alto en puntales
-  { id: "motores",   t: "Motores",               u: 0.2,  lado: 0.32,  alto: -0.42, largo: 0.12,  ancho: 0.26, h: 0.5, doble: true },
-  { id: "grupo",     t: "Grupo electrógeno",     u: 0.08, lado: -0.5,  alto: -0.4,  largo: 0.06,  ancho: 0.22, h: 0.4 },
-  { id: "baterias",  t: "Baterías",              u: 0.32, lado: 0.6,   alto: -0.42, largo: 0.05,  ancho: 0.2,  h: 0.3 },
-  { id: "gasoil",    t: "Tanque de gasoil",      u: 0.35, lado: 0,     alto: -0.62, largo: 0.1,   ancho: 0.55, h: 0.28 },
-  { id: "agua",      t: "Tanques de agua",       u: 0.64, lado: 0,     alto: -0.58, largo: 0.08,  ancho: 0.55, h: 0.26 },
-  { id: "tableros",  t: "Tableros 12 V y 220 V", u: 0.5,  lado: 0,     alto: 0.22,  largo: 0.015, ancho: 0.9,  h: 0.4 },
-];
 
 export const ESTACIONES = [
   {

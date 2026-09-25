@@ -328,14 +328,36 @@ for (const [id, c] of Object.entries(cajasAncla)) {
 }
 console.error("anclas:", Object.keys(cajasAncla).join(", ") || "ninguna");
 const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5], fondo: [0.15, 0.15, 0.15, 1], teca: [0.55, 0.4, 0.27, 1], cromo: [0.8, 0.8, 0.8, 1], tapizado: [0.9, 0.88, 0.84, 1], negro: [0.05, 0.05, 0.05, 1] };
-for (const [nombre, g] of Object.entries(grupos)) {
-  if (!g.idx.length) continue;
+// UV por caja: cada triángulo se proyecta según hacia dónde mira (pisos desde
+// arriba, paredes de frente o de costado). Así la veta y las tablas no se
+// estiran en las caras verticales. Sólo en los grupos que llevan textura.
+const CON_TEXTURA = new Set(["teca", "madera", "piso", "tela", "piedra"]);
+function uvCaja(g) {
+  const pos = [], nor = [], uv = [];
+  for (let i = 0; i < g.idx.length; i += 3) {
+    const ids = [g.idx[i], g.idx[i + 1], g.idx[i + 2]];
+    const p = ids.map(k => [g.pos[k * 3], g.pos[k * 3 + 1], g.pos[k * 3 + 2]]);
+    const n = cross(sub(p[1], p[0]), sub(p[2], p[0])).map(Math.abs);
+    const eje = n[0] >= n[1] && n[0] >= n[2] ? 0 : n[1] >= n[2] ? 1 : 2;
+    ids.forEach((k, j) => {
+      const q = p[j];
+      pos.push(...q);
+      nor.push(g.nor[k * 3], g.nor[k * 3 + 1], g.nor[k * 3 + 2]);
+      uv.push(...(eje === 0 ? [q[2], q[1]] : eje === 1 ? [q[0], q[2]] : [q[0], q[1]]));
+    });
+  }
+  return { pos, nor, uv, idx: Array.from({ length: pos.length / 3 }, (_, i) => i) };
+}
+for (const [nombre, g0] of Object.entries(grupos)) {
+  if (!g0.idx.length) continue;
+  const g = CON_TEXTURA.has(nombre) ? uvCaja(g0) : g0;
   const prim = gdoc.createPrimitive()
     .setAttribute("POSITION", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.pos)).setBuffer(buf))
     .setAttribute("NORMAL", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.nor)).setBuffer(buf))
     .setIndices(gdoc.createAccessor().setType("SCALAR").setArray(new Uint32Array(g.idx)).setBuffer(buf))
-    .setAttribute("TEXCOORD_0", gdoc.createAccessor().setType("VEC2").setArray(new Float32Array(g.pos.length / 3 * 2).map((_, i) => g.pos[Math.floor(i / 2) * 3 + (i % 2 ? 2 : 0)])).setBuffer(buf))
+
     .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[nombre] || [0.8, 0.8, 0.8, 1]).setDoubleSided(true));
+  if (g.uv) prim.setAttribute("TEXCOORD_0", gdoc.createAccessor().setType("VEC2").setArray(new Float32Array(g.uv)).setBuffer(buf));
   const mesh = gdoc.createMesh(nombre).addPrimitive(prim);
   escena.addChild(gdoc.createNode(nombre).setMesh(mesh));
   console.error(`${nombre}: ${g.pos.length / 3} vértices, ${g.idx.length / 3} triángulos`);
@@ -357,7 +379,8 @@ for (const mesh of gdoc.getRoot().listMeshes()) {
     if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : 0.03, lockBorder: false });
   }
 }
-await gdoc.transform(prune({ keepLeaves: true }), quantize());
+// Las UV quedan en float: están en metros (fuera de 0..1) y la cuantización las recortaría.
+await gdoc.transform(prune({ keepLeaves: true, keepAttributes: true }), quantize({ pattern: /^(POSITION|NORMAL)$/ }));
 gdoc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
 await io.write(salidaGlb, gdoc);

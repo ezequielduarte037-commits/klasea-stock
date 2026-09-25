@@ -13,8 +13,8 @@ import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { planoDe, modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca, texturaInterior, INTERIOR } from "./barco";
-import { ESTACIONES, SISTEMAS } from "./estaciones";
+import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca, texturaFoto, INTERIOR } from "./barco";
+import { ESTACIONES } from "./estaciones";
 
 const VISTOS_KEY = "ka_recorrido_vistos";
 const pad = n => String(n).padStart(2, "0");
@@ -202,11 +202,12 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
       <color attach="background" args={[pal.fondo]} />
       <fog attach="fog" args={[pal.fondo, LARGO * 1.6, LARGO * 4]} />
       <ambientLight intensity={pal === PALETAS.noche ? 0.55 : 0.85} />
+      <hemisphereLight args={["#ffffff", "#cfd4d6", 0.55]} />
       <directionalLight position={[6, 12, 8]} intensity={1.15} />
       <directionalLight position={[-8, 5, -6]} intensity={0.35} />
       {geo.real
         ? <BarcoReal modelo={geo} pal={pal} interior={interior} />
-        : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} activos={est.sistemas} />}
+        : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} />}
       <Agua pal={pal} />
       <Estudio />
       {puntosDe(est, geo).map((p, i) => (
@@ -214,16 +215,16 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
       ))}
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08}
         minDistance={LARGO * 0.35} maxDistance={LARGO * 2.4} maxPolarAngle={Math.PI / 2 - 0.04} />
-      <Camara geo={geo} est={est} />
+      <Camara geo={geo} est={est} interior={interior} />
     </>
   );
 }
 
-function BarcoPlano({ geo, plano, pal, interior, activos }) {
+function BarcoPlano({ geo, plano, pal, interior }) {
   const textura = useMemo(() => texturaPlano(plano, pal.plano), [plano, pal.plano]);
   useEffect(() => () => textura.dispose(), [textura]);
   useEffect(() => () => { geo.casco.dispose(); geo.cubierta.dispose(); }, [geo]);
-  return <Barco geo={geo} textura={textura} pal={pal} interior={interior} activos={activos} />;
+  return <Barco geo={geo} textura={textura} pal={pal} interior={interior} />;
 }
 
 /* Luz de estudio para los reflejos (sin descargar ningún HDR). */
@@ -243,25 +244,26 @@ function Estudio() {
 /* Modelo real exportado de Rhino. Cada pieza trae el nombre de su acabado
    (casco, fondo, cubierta, teca, cromo, negro, vidrios, tapizado, detalle,
    interior). */
+// tex: textura de color; relieve: mapa de normales (foto); m: metros por imagen.
 const ACABADOS = {
-  casco:    { color: "#f7f7f5", roughness: 0.28, clearcoat: 0.55, clearcoatRoughness: 0.18 },
-  cubierta: { color: "#f1f1ee", roughness: 0.6 },
+  casco:    { color: "#ffffff", roughness: 0.3, clearcoat: 0.5, clearcoatRoughness: 0.2 },
+  cubierta: { color: "#f6f6f3", roughness: 0.6 },
   fondo:    { color: "#2a2c2e", roughness: 0.85 },
-  teca:     { color: "#ffffff", roughness: 0.7, tex: "teca", adelante: true },
+  teca:     { color: "#ffffff", roughness: 0.72, tex: "teca", relieve: "oak_veneer_01", m: 1, adelante: true },
   cromo:    { color: "#e4e4e4", metalness: 1, roughness: 0.16 },
   negro:    { color: "#2f3235", roughness: 0.32, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 },
   vidrios:  { color: "#1a2025", metalness: 0.6, roughness: 0.06 },
-  tapizado: { color: "#ffffff", roughness: 0.8, tex: "cuero", relieve: 0.004 },
+  tapizado: { color: "#c49a6c", roughness: 0.62, sheen: 0.4 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
-  // Interior (según los renders): roble claro rosado, piso de tablas arena,
-  // ropa de cama de lino crema, cielorraso blanco, mesada de piedra y loza.
-  madera:   { color: "#ffffff", roughness: 0.55, tex: "madera", relieve: 0.002 },
-  piso:     { color: "#ffffff", roughness: 0.6, tex: "piso", adelante: true },
-  tela:     { color: "#ffffff", roughness: 0.95, tex: "tela", relieve: 0.003 },
-  techo:    { color: "#f4f2ee", roughness: 0.8 },
-  piedra:   { color: "#ffffff", roughness: 0.35, tex: "piedra", clearcoat: 0.3 },
-  loza:     { color: "#f6f6f4", roughness: 0.15, clearcoat: 0.6 },
-  interior: { color: "#e8e6e1", roughness: 0.75 },
+  // Interior (según los renders): roble gris rosado, piso de tablas claras,
+  // camas y sillones crema, cielorraso blanco, mesada de piedra y loza.
+  madera:   { color: "#ffffff", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
+  piso:     { color: "#ffffff", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
+  tela:     { color: "#eee8de", roughness: 0.9, relieve: "leather_white", m: 0.3, sheen: 0.6 },
+  techo:    { color: "#f6f4f0", roughness: 0.8 },
+  piedra:   { color: "#ffffff", roughness: 0.3, tex: "marble_01", relieve: "marble_01", m: 1.2, clearcoat: 0.3 },
+  loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
+  interior: { color: "#ebe8e3", roughness: 0.75 },
 };
 
 /* Modelo real. En la vista interior no se vuelve transparente: se corta como
@@ -270,18 +272,25 @@ const ACABADOS = {
 function BarcoReal({ modelo, pal, interior }) {
   const noche = pal === PALETAS.noche;
   const mats = useMemo(() => {
-    const texturas = { teca: texturaTeca() };
-    ["madera", "piso", "tela", "cuero", "piedra"].forEach(t => { texturas[t] = texturaInterior(t); });
+    const texturas = {};
+    const tex = (clave, crear) => (texturas[clave] ||= crear());
     const plano = new THREE.Plane(new THREE.Vector3(0, -1, 0), 100);
-    const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => [nombre, new THREE.MeshPhysicalMaterial({
-      color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
-      clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
-      map: a.tex ? texturas[a.tex] : null,
-      bumpMap: a.relieve ? texturas[a.tex] : null, bumpScale: a.relieve ?? 0,
-      side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
-      // La teca va apoyada sobre la cubierta: se adelanta para que no titile.
-      polygonOffset: true, polygonOffsetFactor: a.adelante ? -4 : 1, polygonOffsetUnits: a.adelante ? -4 : 1,
-    })]));
+    const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => {
+      const m = a.m ?? 1;
+      const mapa = a.tex === "teca" ? tex("teca", texturaTeca)
+        : a.tex ? tex(`${a.tex}-c-${m}`, () => texturaFoto(`${a.tex}_diff`, m)) : null;
+      const normales = a.relieve ? tex(`${a.relieve}-n-${m}`, () => texturaFoto(`${a.relieve}_nor`, m, { color: false })) : null;
+      return [nombre, new THREE.MeshPhysicalMaterial({
+        color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
+        clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
+        sheen: a.sheen ?? 0, sheenRoughness: 0.8, sheenColor: new THREE.Color("#ffffff"),
+        map: mapa, normalMap: normales, normalScale: new THREE.Vector2(0.6, 0.6),
+        side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
+        // Teca y piso van apoyados sobre otra superficie: se adelantan apenas
+        // (de más, atravesaban el casco y se veían como líneas en el costado).
+        polygonOffset: true, polygonOffsetFactor: a.adelante ? -1 : 1, polygonOffsetUnits: a.adelante ? -1 : 1,
+      })];
+    }));
     const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, clippingPlanes: [plano] });
     return { lista, linea, texturas, plano };
   }, []);
@@ -334,7 +343,7 @@ function BarcoReal({ modelo, pal, interior }) {
   );
 }
 
-function Barco({ geo, textura, pal, interior, activos }) {
+function Barco({ geo, textura, pal, interior }) {
   const cascoMat = useRef(null);
   const cubiertaMat = useRef(null);
   // El casco se desvanece (no salta) al pasar a la vista interior.
@@ -373,29 +382,10 @@ function Barco({ geo, textura, pal, interior, activos }) {
         <Edges color={pal.linea} />
       </mesh>
 
-      {interior && SISTEMAS.map(sis => (
-        <Sistema key={sis.id} geo={geo} sis={sis} pal={pal} activo={activos.includes(sis.id)} />
-      ))}
     </group>
   );
 }
 
-function Sistema({ geo, sis, pal, activo }) {
-  const s = geo.enU(sis.u);
-  const w = LARGO * sis.largo;
-  const h = geo.D * sis.h;
-  const y = s.cubierta + sis.alto * geo.D;
-  const piezas = sis.doble
-    ? [s.zc + sis.lado * s.media, s.zc - sis.lado * s.media]
-    : [s.zc + sis.lado * s.media];
-  return piezas.map((z, i) => (
-    <mesh key={i} position={[s.x, y, z]}>
-      <boxGeometry args={[w, h, s.media * sis.ancho]} />
-      <meshStandardMaterial color={activo ? pal.linea : pal.casco} transparent opacity={activo ? 0.9 : 0.25} depthWrite={false} />
-      <Edges color={activo ? pal.linea : pal.suave} />
-    </mesh>
-  ));
-}
 
 /* Agua: espejo mate que refleja el casco (el barco "flota") y se pierde en
    la niebla. Tapa lo sumergido, así la obra viva no se ve. */
@@ -439,7 +429,7 @@ function Punto({ n, pos, p, abierto, onClick }) {
 }
 
 /* La cámara viaja a cada estación y después queda libre para girar. */
-function Camara({ geo, est }) {
+function Camara({ geo, est, interior }) {
   const get = useThree(st => st.get);
   const ancho = useThree(st => st.size.width);
   const viaje = useRef(null);
@@ -455,10 +445,13 @@ function Camara({ geo, est }) {
 
   useEffect(() => {
     const { camera, controls } = get();
-    const foco = est.foco ? new THREE.Vector3(...ubicar(geo, est.foco)) : new THREE.Vector3(0, geo.D * 0.6, 0);
+    // Vista interior en un modelo real: arriba de los camarotes, mirando hacia abajo.
+    const planta = interior && geo.centroInterior;
+    const foco = planta ? new THREE.Vector3(...geo.centroInterior)
+      : est.foco ? new THREE.Vector3(...ubicar(geo, est.foco)) : new THREE.Vector3(0, geo.D * 0.6, 0);
     // Si el foco es un equipo del modelo real, la cámara se acerca a él.
     const anclado = est.foco?.ancla && geo.anclas?.[est.foco.ancla];
-    const { az, el, dist } = anclado && est.camAncla ? est.camAncla : est.cam;
+    const { az, el, dist } = planta ? { az: est.cam.az, el: 62, dist: 0.78 } : anclado && est.camAncla ? est.camAncla : est.cam;
     // En pantallas angostas el campo horizontal es chico: alejar la cámara.
     const r = dist * LARGO * Math.max(1, 1.3 / camera.aspect);
     const a = THREE.MathUtils.degToRad(az);
@@ -470,7 +463,7 @@ function Camara({ geo, est }) {
       desdeT: desdeTarget, hastaT: foco,
       t: leerMovimientoReducido() ? 1 : 0,
     };
-  }, [est, geo, get]);
+  }, [est, geo, get, interior]);
 
   useFrame(({ camera, controls }, dt) => {
     const v = viaje.current;
