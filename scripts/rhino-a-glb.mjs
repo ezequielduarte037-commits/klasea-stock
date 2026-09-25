@@ -382,13 +382,13 @@ for (const mesh of gdoc.getRoot().listMeshes()) {
 }
 await gdoc.transform(weld());
 // Tope de triángulos por grupo: lo que más se ve (casco, cubierta) conserva detalle.
-const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 45000, almohadon: 15000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
+const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 110000, almohadon: 40000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
 for (const mesh of gdoc.getRoot().listMeshes()) {
   for (const prim of mesh.listPrimitives()) {
     const n = prim.getIndices().getCount() / 3;
     const tope = TOPE[mesh.getName()] ?? 20000;
     const ratio = Math.min(1, tope / n);
-    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : ["tapizado", "almohadon"].includes(mesh.getName()) ? 0.01 : 0.03, lockBorder: false });
+    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : ["tapizado", "almohadon"].includes(mesh.getName()) ? 0.003 : 0.03, lockBorder: false });
   }
 }
 // UV por caja después de simplificar (antes, cada triángulo con vértices

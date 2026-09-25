@@ -208,13 +208,16 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
       {geo.real
         ? <BarcoReal modelo={geo} pal={pal} interior={interior} />
         : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} />}
-      <Agua pal={pal} />
+      {/* En la vista interior el agua se desmonta (no alcanza con ocultarla: el
+          reflejo sigue recortando todo lo que está bajo la flotación, y ahí está
+          el camarote de popa). */}
+      {!interior && <Agua pal={pal} />}
       <Estudio />
       {puntosDe(est, geo).map((p, i) => (
         <Punto key={`${est.id}-${p.t}`} n={i + 1} pos={ubicar(geo, p)} p={p} abierto={abierto === i} onClick={() => onPunto(abierto === i ? null : i)} />
       ))}
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08}
-        minDistance={LARGO * 0.35} maxDistance={LARGO * 2.4} maxPolarAngle={Math.PI / 2 - 0.04} />
+        minDistance={LARGO * 0.12} maxDistance={LARGO * 2.4} maxPolarAngle={Math.PI / 2 - 0.04} />
       <Camara geo={geo} est={est} interior={interior} />
     </>
   );
@@ -252,16 +255,17 @@ const ACABADOS = {
   teca:     { color: "#ffffff", roughness: 0.72, tex: "teca", relieve: "oak_veneer_01", m: 1, adelante: true },
   cromo:    { color: "#e4e4e4", metalness: 1, roughness: 0.16 },
   negro:    { color: "#2f3235", roughness: 0.32, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 },
-  vidrios:  { color: "#1a2025", metalness: 0.6, roughness: 0.06 },
+  // Vidrio y acrílico: transmisión real, ahumado como en los renders.
+  vidrios:  { color: "#b7c0c6", roughness: 0.03, transmission: 0.9, thickness: 0.03, ior: 1.5, atenuacion: "#0e1316", clearcoat: 1, clearcoatRoughness: 0.03 },
   // Cuero caramelo afuera (como en el render), lana espigada gris topo adentro.
   tapizado: { color: "#efe4d8", roughness: 0.55, tex: "fabric_leather_02", relieve: "fabric_leather_02", m: 0.8, clearcoat: 0.15, clearcoatRoughness: 0.5 },
   almohadon: { color: "#f2eee7", roughness: 0.95, relieve: "poly_wool_herringbone", m: 0.25, sheen: 0.6 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
   // Interior (según los renders): roble gris rosado, piso de tablas claras,
   // camas y sillones crema, cielorraso blanco, mesada de piedra y loza.
-  madera:   { color: "#ffffff", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
-  piso:     { color: "#ffffff", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
-  tela:     { color: "#ffffff", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5 },
+  madera:   { color: "#eadacd", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
+  piso:     { color: "#d8c2aa", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
+  tela:     { color: "#a9a298", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5 },
   techo:    { color: "#f6f4f0", roughness: 0.8 },
   piedra:   { color: "#ffffff", roughness: 0.3, tex: "marble_01", relieve: "marble_01", m: 1.2, clearcoat: 0.3 },
   loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
@@ -286,6 +290,8 @@ function BarcoReal({ modelo, pal, interior }) {
         color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
         clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
         sheen: a.sheen ?? 0, sheenRoughness: 0.8, sheenColor: new THREE.Color("#ffffff"),
+        transmission: a.transmission ?? 0, thickness: a.thickness ?? 0, ior: a.ior ?? 1.5,
+        attenuationColor: new THREE.Color(a.atenuacion ?? "#ffffff"), attenuationDistance: a.atenuacion ? 0.012 : Infinity,
         map: mapa, normalMap: normales, normalScale: new THREE.Vector2(0.6, 0.6),
         side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
         // Teca y piso van apoyados sobre otra superficie: se adelantan apenas
@@ -294,11 +300,13 @@ function BarcoReal({ modelo, pal, interior }) {
       })];
     }));
     const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, clippingPlanes: [plano] });
-    return { lista, linea, texturas, plano };
+    const lineaDentro = new THREE.LineBasicMaterial({ color: "#3b332c", transparent: true, opacity: 0.45, clippingPlanes: [plano] });
+    return { lista, linea, lineaDentro, texturas, plano };
   }, []);
   useEffect(() => () => {
     Object.values(mats.lista).forEach(m => m.dispose());
     mats.linea.dispose();
+    mats.lineaDentro.dispose();
     Object.values(mats.texturas).forEach(t => t.dispose());
   }, [mats]);
 
@@ -306,8 +314,11 @@ function BarcoReal({ modelo, pal, interior }) {
     const extras = [];
     Object.entries(modelo.piezas).forEach(([nombre, m]) => {
       m.material = mats.lista[nombre] || mats.lista.detalle;
-      if (!modelo.lineas || nombre === "vidrios") return;
-      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, INTERIOR.includes(nombre) ? 40 : 32), mats.linea);
+      const dentro = INTERIOR.includes(nombre);
+      // El interior lleva contornos finos siempre: en la vista en corte separan
+      // camas, muebles y pisos como en un plano.
+      if ((!modelo.lineas && !dentro) || nombre === "vidrios") return;
+      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, dentro ? 35 : 32), dentro ? mats.lineaDentro : mats.linea);
       m.add(bordes);
       extras.push(bordes);
     });
@@ -453,7 +464,7 @@ function Camara({ geo, est, interior }) {
       : est.foco ? new THREE.Vector3(...ubicar(geo, est.foco)) : new THREE.Vector3(0, geo.D * 0.6, 0);
     // Si el foco es un equipo del modelo real, la cámara se acerca a él.
     const anclado = est.foco?.ancla && geo.anclas?.[est.foco.ancla];
-    const { az, el, dist } = planta ? { az: est.cam.az, el: 62, dist: 0.78 } : anclado && est.camAncla ? est.camAncla : est.cam;
+    const { az, el, dist } = planta ? { az: 90, el: 72, dist: 1.3 } : anclado && est.camAncla ? est.camAncla : est.cam;
     // En pantallas angostas el campo horizontal es chico: alejar la cámara.
     const r = dist * LARGO * Math.max(1, 1.3 / camera.aspect);
     const a = THREE.MathUtils.degToRad(az);
