@@ -421,11 +421,21 @@ export default function App() {
           "Carga del perfil",
         );
         if (pErr && ["must_change_password", "is_demo", "activo"].some((field) => String(pErr.message || "").includes(field))) {
-          const retry = await withStartupTimeout(supabase
+          // Si falta una columna opcional, conservar is_demo siempre que exista.
+          // El fallback anterior la descartaba junto con la columna faltante y
+          // podía abrir la cuenta de presentación sin su protección visual.
+          let retry = await withStartupTimeout(supabase
             .from("profiles")
-            .select("id,username,role,is_admin,sede")
+            .select("id,username,role,is_admin,is_demo,sede")
             .eq("id", s.user.id)
             .maybeSingle(), "Carga del perfil");
+          if (retry.error && String(retry.error.message || "").includes("is_demo")) {
+            retry = await withStartupTimeout(supabase
+              .from("profiles")
+              .select("id,username,role,is_admin,sede")
+              .eq("id", s.user.id)
+              .maybeSingle(), "Carga del perfil");
+          }
           pData = retry.data;
           pErr = retry.error;
         }
