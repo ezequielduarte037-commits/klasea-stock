@@ -186,6 +186,22 @@ export const CSS_MANUAL = `
   position: relative; min-height: 100svh; display: flex; flex-direction: column;
   padding: calc(var(--kx-bar) + 40px) var(--kx-gut) 32px; overflow: hidden;
 }
+.kx .kx-hero > * { position: relative; }
+.kx .kx-hero > .kx-hero-fondo { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #000; }
+.kx .kx-hero-fondo img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center 45%;
+  animation: kx-foto 1.8s var(--kx-ez) both;
+}
+.kx .kx-hero-fondo::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 48%, rgba(0,0,0,.78) 100%),
+    linear-gradient(90deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 55%);
+}
+@keyframes kx-foto { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: none; } }
+.kx .kx-hero-espacio { flex: 1; }
+.kx .kx-hero[data-foto] .kx-hero-saludo span { color: rgba(242, 242, 240, .72) !important; }
+.kx .kx-hero[data-foto] .kx-eyebrow { color: rgba(242, 242, 240, .78); }
 .kx .kx-hero-top { max-width: var(--kx-max); width: 100%; margin: 0 auto; display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 .kx .kx-hero-top > * { animation: kx-fade .8s .2s var(--kx-ez) both; }
 .kx .kx-hero-modelo {

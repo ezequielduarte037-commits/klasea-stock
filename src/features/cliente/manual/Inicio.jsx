@@ -12,9 +12,18 @@ export default function Inicio({ cliente, onIr, onRecorrido }) {
   const plano = planoDe(cliente?.modelo_barco);
   const { base, sufijo } = partesModelo(cliente?.modelo_barco);
   const nombre = primerNombre(cliente?.nombre_completo);
+  const [fotoRota, setFotoRota] = useState(false);
+  // La foto de la unidad se carga en Configuración (clientes.imagen_unidad).
+  // Si está, es la portada; si no, o si no carga, queda el plano del modelo.
+  const foto = !fotoRota && cliente?.imagen_unidad ? cliente.imagen_unidad : null;
   return (
     <>
-      <header className="kx-hero kx-ink">
+      <header className="kx-hero kx-ink" data-foto={foto ? "1" : undefined}>
+        {foto && (
+          <div className="kx-hero-fondo" aria-hidden>
+            <img src={foto} alt="" fetchPriority="high" onError={() => setFotoRota(true)} />
+          </div>
+        )}
         <div className="kx-hero-top">
           <span className="kx-eyebrow">Manual del propietario</span>
           <span className="kx-eyebrow">{[cliente?.nombre_barco, sufijo].filter(Boolean).join(" · ") || "Klase A"}</span>
@@ -22,10 +31,12 @@ export default function Inicio({ cliente, onIr, onRecorrido }) {
         <h1 className="kx-hero-modelo" aria-label={cliente?.modelo_barco || "Klase A"}>
           <Mascara texto={base} />
         </h1>
-        <div className="kx-hero-plano" aria-hidden>
-          <img src={plano.src} data-espejo={plano.espejo ? "1" : "0"} alt="" />
-          <span className="kx-telon" />
-        </div>
+        {foto ? <div className="kx-hero-espacio" /> : (
+          <div className="kx-hero-plano" aria-hidden>
+            <img src={plano.src} data-espejo={plano.espejo ? "1" : "0"} alt="" />
+            <span className="kx-telon" />
+          </div>
+        )}
         <div className="kx-hero-pie">
           <div className="kx-hero-saludo" style={{ "--i": 0 }}>
             {saludoSegunHora()}{nombre ? `, ${nombre}` : ""}.<br />
@@ -67,12 +78,6 @@ export default function Inicio({ cliente, onIr, onRecorrido }) {
           </div>
         </div>
       </section>
-
-      {cliente?.imagen_unidad && (
-        <Reveal className="kx-foto" fade>
-          <img src={cliente.imagen_unidad} alt={cliente?.nombre_barco || cliente?.modelo_barco || "Tu unidad"} loading="lazy" />
-        </Reveal>
-      )}
 
       <section className="kx-bloque">
         <div className="kx-wrap">
