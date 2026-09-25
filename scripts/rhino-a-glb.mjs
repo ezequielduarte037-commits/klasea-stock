@@ -17,7 +17,7 @@ import poly2tri from "poly2tri";
 import fs from "node:fs";
 import { Document, NodeIO } from "@gltf-transform/core";
 import { EXTMeshoptCompression, ALL_EXTENSIONS } from "@gltf-transform/extensions";
-import { weld, simplify, quantize, dedup, prune } from "@gltf-transform/functions";
+import { weld, simplifyPrimitive, quantize, dedup, prune } from "@gltf-transform/functions";
 import { MeshoptSimplifier, MeshoptEncoder, MeshoptDecoder } from "meshoptimizer";
 
 const [,, entrada, salidaGlb, pasoArg = "70"] = process.argv;
@@ -26,14 +26,40 @@ const rh = await rhino3dm();
 const doc = rh.File3dm.fromByteArray(new Uint8Array(fs.readFileSync(entrada)));
 const objs = doc.objects(), capas = doc.layers();
 
-const SALTEAR = [/HERRAJES/i, /Picaportes/i];
-const grupoDe = c =>
-  /^CASCO/.test(c) ? "casco" :
-  /^CUBIERTA|BAJO PARABRISAS/.test(c) ? "cubierta" :
-  /VIDRIOS/.test(c) ? "vidrios" :
-  /CONSOLA|ACERO/.test(c) ? "detalle" : "interior";
+// Capas que no suman a la vista y pesan mucho (equipos con miles de piezas).
+const SALTEAR = [/HERRAJES/i, /Picaportes/i, /ICEMAKER/i, /^Default$/i, /ENGINE DISPLAY/i];
+// Grupo por capa: cada grupo es un material en la web. El orden importa.
+const REGLAS = [
+  [/amtifouling|antifouling/i, "fondo"],
+  [/GLASS|VIDRIO/i, "vidrios"],
+  [/TEAK|WOODEN PARTS|TECA/i, "teca"],
+  [/CHROME|INOX|ACERO|SEASMART|STEERING/i, "cromo"],
+  [/CUSHION|PILOT SEAT|LEATHER|ALMOHAD/i, "tapizado"],
+  [/^INTERIOR|COMPANIONWAY|COUNTERTOP|^BLACK-PAINT$|^LEATHER$|MOBILIARIO|LINERS|MAMPAROS|CONTRA TECHOS|ESTRUCTURA/i, "interior"],
+  [/HULL|^CASCO/i, "casco"],
+  [/DECK|CUBIERTA|BAJO PARABRISAS/i, "cubierta"],
+  [/BLACK|CONSOLE|CONSOLA|MAST|speakr|MOBILIARIO/i, "negro"],
+];
+const grupoDe = c => (REGLAS.find(([r]) => r.test(c)) || [null, "detalle"])[1];
 const grupos = {};
 const G = n => (grupos[n] ||= { pos: [], nor: [], idx: [] });
+
+// Malla de render guardada por Rhino (si el archivo la trae): mejor que mallar de nuevo.
+function agregarMalla(mesh, grupo) {
+  const g = G(grupo), base = g.pos.length / 3;
+  const vs = mesh.vertices(), fs_ = mesh.faces(), ns = mesh.normals();
+  const conNormales = ns.count === vs.count;
+  for (let k = 0; k < vs.count; k++) {
+    g.pos.push(...T(vs.get(k)));
+    g.nor.push(...(conNormales ? TN(ns.get(k)) : [0, 1, 0]));
+  }
+  for (let k = 0; k < fs_.count; k++) {
+    const [a, b, c, d] = fs_.get(k);
+    g.idx.push(base + a, base + b, base + c);
+    if (c !== d) g.idx.push(base + a, base + c, base + d);
+  }
+  return vs.count;
+}
 
 // Rhino (x adelante, y babor, z arriba, mm) → three (x proa, y arriba, z estribor, m)
 const T = p => [p[0] / 1000, p[2] / 1000, -p[1] / 1000];
@@ -228,24 +254,21 @@ function mallarCara(brep, face, grupo, caja) {
 const t0 = Date.now();
 for (let i = 0; i < objs.count; i++) {
   const o = objs.get(i), geo = o.geometry(), tipo = geo.constructor.name;
-  if (tipo !== "Brep" && tipo !== "Mesh") continue;
+  if (tipo !== "Brep" && tipo !== "Mesh" && tipo !== "Extrusion") continue;
   const capa = capas.get(o.attributes().layerIndex).fullPath;
   if (SALTEAR.some(r => r.test(capa))) continue;
   const grupo = grupoDe(capa);
-  if (tipo === "Mesh") {
-    const g = G(grupo), base = g.pos.length / 3;
-    const vs = geo.vertices(), fs_ = geo.faces();
-    for (let k = 0; k < vs.count; k++) g.pos.push(...T(vs.get(k)));
-    geo.normals().count === vs.count
-      ? [...Array(vs.count).keys()].forEach(k => g.nor.push(...TN(geo.normals().get(k))))
-      : [...Array(vs.count).keys()].forEach(() => g.nor.push(0, 1, 0));
-    for (let k = 0; k < fs_.count; k++) {
-      const [a, b, c, d] = fs_.get(k);
-      g.idx.push(base + a, base + b, base + c);
-      if (c !== d) g.idx.push(base + a, base + c, base + d);
-    }
+  if (tipo === "Mesh") { agregarMalla(geo, grupo); continue; }
+  if (tipo === "Extrusion") {
+    const m = geo.getMesh(rh.MeshType.Any);
+    if (m) agregarMalla(m, grupo);
     continue;
   }
+  // Brep con mallas de render guardadas: se usan tal cual.
+  const caraMallas = [];
+  const fl0 = geo.faces();
+  for (let k = 0; k < fl0.count; k++) { const m = fl0.get(k).getMesh(rh.MeshType.Any); if (m) caraMallas.push(m); }
+  if (caraMallas.length === fl0.count && caraMallas.length) { caraMallas.forEach(m => agregarMalla(m, grupo)); caras += caraMallas.length; continue; }
   const fl = geo.faces();
   const bb = geo.getBoundingBox();
   const caja = { min: bb.min, max: bb.max };
@@ -261,13 +284,14 @@ console.error(`\ndescartados ${descartados} · caras ${caras} · planas ${planas
 const gdoc = new Document();
 const buf = gdoc.createBuffer();
 const escena = gdoc.createScene("barco");
-const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5] };
+const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5], fondo: [0.15, 0.15, 0.15, 1], teca: [0.55, 0.4, 0.27, 1], cromo: [0.8, 0.8, 0.8, 1], tapizado: [0.9, 0.88, 0.84, 1], negro: [0.05, 0.05, 0.05, 1] };
 for (const [nombre, g] of Object.entries(grupos)) {
   if (!g.idx.length) continue;
   const prim = gdoc.createPrimitive()
     .setAttribute("POSITION", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.pos)).setBuffer(buf))
     .setAttribute("NORMAL", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.nor)).setBuffer(buf))
     .setIndices(gdoc.createAccessor().setType("SCALAR").setArray(new Uint32Array(g.idx)).setBuffer(buf))
+    .setAttribute("TEXCOORD_0", gdoc.createAccessor().setType("VEC2").setArray(new Float32Array(g.pos.length / 3 * 2).map((_, i) => g.pos[Math.floor(i / 2) * 3 + (i % 2 ? 2 : 0)])).setBuffer(buf))
     .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[nombre]).setDoubleSided(true));
   const mesh = gdoc.createMesh(nombre).addPrimitive(prim);
   escena.addChild(gdoc.createNode(nombre).setMesh(mesh));
@@ -279,10 +303,18 @@ await MeshoptDecoder.ready;
 await gdoc.transform(
   dedup(),
   weld(),
-  simplify({ simplifier: MeshoptSimplifier, ratio: 0.35, error: 0.0008 }),
-  prune(),
-  quantize(),
 );
+// Tope de triángulos por grupo: lo que más se ve (casco, cubierta) conserva detalle.
+const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 30000, interior: 55000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000 };
+for (const mesh of gdoc.getRoot().listMeshes()) {
+  for (const prim of mesh.listPrimitives()) {
+    const n = prim.getIndices().getCount() / 3;
+    const tope = TOPE[mesh.getName()] ?? 20000;
+    const ratio = Math.min(1, tope / n);
+    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : 0.03, lockBorder: false });
+  }
+}
+await gdoc.transform(prune(), quantize());
 gdoc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
 await io.write(salidaGlb, gdoc);

@@ -21,8 +21,10 @@ const PLANOS = {
 
 /* Modelos 3D exportados desde Rhino (public/models). Los que no están acá
    usan el casco armado con el plano. */
+// lineas: dibujar contornos (modelos sin materiales ni detalle, como el K64).
 const MODELOS_3D = {
-  64: "/models/k64.glb",
+  43: { url: "/models/k43.glb", lineas: false },
+  64: { url: "/models/k64.glb", lineas: true },
 };
 
 export function modelo3dDe(modelo) {

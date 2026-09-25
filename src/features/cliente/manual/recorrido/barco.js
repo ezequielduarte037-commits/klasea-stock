@@ -196,7 +196,7 @@ export function armarCasco(plano) {
    Exportados desde Rhino a .glb (ver scripts/rhino-a-glb.mjs). Vienen en
    metros, proa +x, estribor +z. Se escalan a LARGO y se arma el mismo
    perfil (enU) que el casco generado, así estaciones y puntos no cambian. */
-export async function cargarModelo(url) {
+export async function cargarModelo({ url, lineas = false }) {
   const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
     import("three/examples/jsm/loaders/GLTFLoader.js"),
     import("three/examples/jsm/libs/meshopt_decoder.module.js"),
@@ -241,5 +241,42 @@ export async function cargarModelo(url) {
     const k = Math.min(N, Math.max(0, Math.round((1 - u) * N)));
     return { x: LARGO / 2 - (1 - u) * LARGO, cubierta: borda[k], media: Math.max(0.05, media[k]), zc: 0 };
   };
-  return { raiz, piezas, D, manga: Math.max(...media), enU, real: true };
+  return { raiz, piezas, D, manga: Math.max(...media), enU, real: true, lineas };
+}
+
+/* Teca: tablas a lo largo de la eslora con sus juntas negras y veta.
+   Las UV del .glb vienen en metros (proyección desde arriba): 1 textura = 1 m. */
+export function texturaTeca() {
+  const T = 1024;
+  const c = document.createElement("canvas");
+  c.width = c.height = T;
+  const ctx = c.getContext("2d");
+  const tabla = T / 10;            // 10 cm
+  const junta = 5;                 // ~5 mm de calafateo
+  let semilla = 7;
+  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
+  for (let f = 0; f < 10; f++) {
+    const y = f * tabla;
+    const tono = 0.85 + azar() * 0.25;
+    ctx.fillStyle = `rgb(${Math.round(150 * tono)}, ${Math.round(106 * tono)}, ${Math.round(66 * tono)})`;
+    ctx.fillRect(0, y, T, tabla);
+    for (let v = 0; v < 70; v++) {  // veta
+      const vy = y + azar() * tabla;
+      ctx.strokeStyle = `rgba(${azar() > 0.5 ? "60,36,18" : "205,160,110"}, ${0.08 + azar() * 0.14})`;
+      ctx.lineWidth = 0.6 + azar() * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(0, vy);
+      for (let x = 0; x <= T; x += 64) ctx.lineTo(x, vy + Math.sin(x / (90 + azar() * 60) + v) * 2.2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#1a1714";      // juntas
+    ctx.fillRect(0, y, T, junta);
+    const corte = azar() * T;       // empalme de tablas
+    ctx.fillRect(corte, y, junta, tabla);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  return tex;
 }
