@@ -10,9 +10,9 @@ import { Edges, Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
-import { planoDe } from "../unidad";
+import { planoDe, modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, leerPlano, armarCasco, texturaPlano } from "./barco";
+import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo } from "./barco";
 import { ESTACIONES, SISTEMAS } from "./estaciones";
 
 const VISTOS_KEY = "ka_recorrido_vistos";
@@ -61,7 +61,13 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
     if (error) return undefined;
     let vivo = true;
     const { src, espejo } = planoDe(modelo);
-    leerPlano(src, espejo).then(p => { if (vivo) setPlano(p); }).catch(() => { if (vivo) setError("plano"); });
+    const conPlano = () => leerPlano(src, espejo)
+      .then(p => { if (vivo) setPlano({ tipo: "plano", plano: p }); })
+      .catch(() => { if (vivo) setError("plano"); });
+    // Si la línea tiene modelo 3D real se usa ese; si falla, el casco del plano.
+    const url = modelo3dDe(modelo);
+    if (url) cargarModelo(url).then(m => { if (vivo) setPlano({ tipo: "real", modelo: m }); }).catch(conPlano);
+    else conPlano();
     return () => { vivo = false; };
   }, [modelo, error]);
 
@@ -176,11 +182,8 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
 }
 
 /* ─────────────── Escena ─────────────── */
-function Escena({ plano, pal, est, interior, abierto, onPunto }) {
-  const geo = useMemo(() => armarCasco(plano), [plano]);
-  const textura = useMemo(() => texturaPlano(plano, pal.plano), [plano, pal.plano]);
-  useEffect(() => () => textura.dispose(), [textura]);
-  useEffect(() => () => { geo.casco.dispose(); geo.cubierta.dispose(); }, [geo]);
+function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
+  const geo = useMemo(() => (fuente.tipo === "real" ? fuente.modelo : armarCasco(fuente.plano)), [fuente]);
 
   return (
     <>
@@ -189,7 +192,9 @@ function Escena({ plano, pal, est, interior, abierto, onPunto }) {
       <ambientLight intensity={pal === PALETAS.noche ? 0.55 : 0.85} />
       <directionalLight position={[6, 12, 8]} intensity={1.15} />
       <directionalLight position={[-8, 5, -6]} intensity={0.35} />
-      <Barco geo={geo} textura={textura} pal={pal} interior={interior} activos={est.sistemas} />
+      {geo.real
+        ? <BarcoReal modelo={geo} pal={pal} interior={interior} activos={est.sistemas} />
+        : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} activos={est.sistemas} />}
       <Agua pal={pal} />
       {est.puntos.map((p, i) => (
         <Punto key={`${est.id}-${p.t}`} n={i + 1} pos={ubicar(geo, p)} p={p} abierto={abierto === i} onClick={() => onPunto(abierto === i ? null : i)} />
@@ -198,6 +203,79 @@ function Escena({ plano, pal, est, interior, abierto, onPunto }) {
         minDistance={LARGO * 0.35} maxDistance={LARGO * 2.4} maxPolarAngle={Math.PI / 2 - 0.04} />
       <Camara geo={geo} est={est} />
     </>
+  );
+}
+
+function BarcoPlano({ geo, plano, pal, interior, activos }) {
+  const textura = useMemo(() => texturaPlano(plano, pal.plano), [plano, pal.plano]);
+  useEffect(() => () => textura.dispose(), [textura]);
+  useEffect(() => () => { geo.casco.dispose(); geo.cubierta.dispose(); }, [geo]);
+  return <Barco geo={geo} textura={textura} pal={pal} interior={interior} activos={activos} />;
+}
+
+/* Modelo real exportado de Rhino: piezas casco, cubierta, detalle, vidrios
+   e interior. Por fuera se ve blanco con sus contornos; en la vista interior
+   la piel se vuelve casi transparente y aparecen camarotes, mamparos y muebles. */
+const PIEL = ["casco", "cubierta", "detalle"];
+function BarcoReal({ modelo, pal, interior, activos }) {
+  const mats = useMemo(() => {
+    const piel = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.05, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1 });
+    const vidrio = new THREE.MeshStandardMaterial({ roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+    const dentro = new THREE.MeshStandardMaterial({ roughness: 0.7, transparent: true, opacity: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1 });
+    const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 });
+    const lineaDentro = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.35 });
+    return { piel, vidrio, dentro, linea, lineaDentro };
+  }, []);
+  useEffect(() => () => Object.values(mats).forEach(m => m.dispose()), [mats]);
+
+  // Materiales y contornos se arman una vez por modelo.
+  useEffect(() => {
+    const extras = [];
+    Object.entries(modelo.piezas).forEach(([nombre, m]) => {
+      const esDentro = nombre === "interior";
+      m.material = nombre === "vidrios" ? mats.vidrio : esDentro ? mats.dentro : mats.piel;
+      m.renderOrder = esDentro ? 0 : 1;
+      if (nombre === "vidrios") return;
+      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, esDentro ? 40 : 32), esDentro ? mats.lineaDentro : mats.linea);
+      bordes.name = `${nombre}-bordes`;
+      m.add(bordes);
+      extras.push(bordes);
+    });
+    return () => extras.forEach(b => { b.removeFromParent(); b.geometry.dispose(); });
+  }, [modelo, mats]);
+
+  useEffect(() => {
+    mats.piel.color.set(pal.casco);
+    mats.dentro.color.set(pal === PALETAS.noche ? "#2a2a2a" : "#e6e6e2");
+    mats.vidrio.color.set(pal === PALETAS.noche ? "#3a3a3a" : "#1a1a1a");
+    mats.linea.color.set(pal.linea);
+    mats.lineaDentro.color.set(pal.linea);
+  }, [pal, mats]);
+
+  // useFrame lee por ref: los materiales se animan fuera del render de React.
+  const vivo = useRef(null);
+  useEffect(() => { vivo.current = { mats, piezas: modelo.piezas, interior }; }, [mats, modelo, interior]);
+
+  useFrame((_, dt) => {
+    if (!vivo.current) return;
+    const { mats, piezas, interior } = vivo.current;
+    const k = Math.min(1, dt * 6);
+    const meta = interior ? 0.08 : 1;
+    mats.piel.opacity += (meta - mats.piel.opacity) * k;
+    mats.piel.depthWrite = mats.piel.opacity > 0.95;
+    mats.vidrio.opacity += ((interior ? 0.1 : 0.85) - mats.vidrio.opacity) * k;
+    mats.linea.opacity += ((interior ? 0.28 : 0.55) - mats.linea.opacity) * k;
+    const dentro = piezas.interior;
+    if (dentro) dentro.visible = interior || mats.piel.opacity < 0.97;
+  });
+
+  return (
+    <group>
+      <primitive object={modelo.raiz} />
+      {interior && SISTEMAS.filter(s => activos.includes(s.id)).map(sis => (
+        <Sistema key={sis.id} geo={modelo} sis={sis} pal={pal} activo />
+      ))}
+    </group>
   );
 }
 
