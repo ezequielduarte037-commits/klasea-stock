@@ -1,0 +1,342 @@
+/* ═══════════════════════════════════════════════════════════════
+   Recorrido 3D · pantalla
+   Once estaciones con la cámara que viaja por el barco, números sobre
+   cada punto y una vista interior (casco transparente) para lo que
+   está bajo cubierta. Blanco y negro, en el tono del manual.
+═══════════════════════════════════════════════════════════════ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Edges, Html, OrbitControls } from "@react-three/drei";
+import * as THREE from "three";
+import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
+import { planoDe } from "../unidad";
+import { leerJson, guardarJson } from "../almacen";
+import { LARGO, leerPlano, armarCasco, texturaPlano } from "./barco";
+import { ESTACIONES, SISTEMAS } from "./estaciones";
+
+const VISTOS_KEY = "ka_recorrido_vistos";
+const pad = n => String(n).padStart(2, "0");
+
+const PALETAS = {
+  dia:   { fondo: "#f4f4f2", casco: "#ffffff", linea: "#0b0b0b", plano: "#0b0b0b", suave: "#c9c9c4", agua: "#f4f4f2" },
+  noche: { fondo: "#0b0b0b", casco: "#1b1b1b", linea: "#e9e9e6", plano: "#f2f2f0", suave: "#3a3a3a", agua: "#0b0b0b" },
+};
+
+function hayWebGL() {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+/* Anota la estación como vista (en este dispositivo). */
+function marcar(vistos, id) {
+  if (vistos.has(id)) return vistos;
+  const n = new Set(vistos).add(id);
+  guardarJson(VISTOS_KEY, [...n]);
+  return n;
+}
+
+/* Punto del barco en coordenadas de mundo. */
+function ubicar(geo, { u, lado = 0, alto = 0 }) {
+  const s = geo.enU(u);
+  return [s.x, s.cubierta + alto * geo.D, s.zc + lado * s.media];
+}
+
+export default function Recorrido3D({ modelo, tono, onCerrar }) {
+  const [idx, setIdx] = useState(0);
+  const [interiorManual, setInteriorManual] = useState(null);
+  const [abierto, setAbierto] = useState(null);
+  const [plano, setPlano] = useState(null);
+  const [error, setError] = useState(() => (hayWebGL() ? null : "webgl"));
+  const [vistos, setVistos] = useState(() => marcar(new Set(leerJson(VISTOS_KEY, [])), ESTACIONES[0].id));
+  const est = ESTACIONES[idx];
+  const interior = interiorManual ?? est.interior;
+  const pal = PALETAS[tono === "noche" ? "noche" : "dia"];
+
+  useEffect(() => {
+    if (error) return undefined;
+    let vivo = true;
+    const { src, espejo } = planoDe(modelo);
+    leerPlano(src, espejo).then(p => { if (vivo) setPlano(p); }).catch(() => { if (vivo) setError("plano"); });
+    return () => { vivo = false; };
+  }, [modelo, error]);
+
+  const ir = (n) => {
+    const i = Math.max(0, Math.min(ESTACIONES.length - 1, n));
+    setIdx(i);
+    setVistos(prev => marcar(prev, ESTACIONES[i].id));
+    setAbierto(null);
+    setInteriorManual(null);
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onCerrar();
+      if (e.key === "ArrowRight") ir(idx + 1);
+      if (e.key === "ArrowLeft") ir(idx - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const ultima = idx === ESTACIONES.length - 1;
+
+  return (
+    <div className="kx-rec" role="dialog" aria-modal="true" aria-label="Recorrido 3D">
+      <div className="kx-rec-lienzo">
+        {error ? (
+          <div className="kx-rec-aviso">
+            <p className="kx-p">{error === "webgl"
+              ? "Este dispositivo no puede mostrar gráficos 3D. El recorrido se puede leer igual, estación por estación."
+              : "No pudimos cargar el plano de tu modelo. El recorrido se puede leer igual, estación por estación."}</p>
+          </div>
+        ) : !plano ? (
+          <div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el modelo</span><i className="kx-rec-carga" /></div>
+        ) : (
+          <Canvas dpr={[1, 1.75]} camera={{ fov: 30, near: 0.1, far: 200, position: [9, 5, 9] }} gl={{ antialias: true }}>
+            <Escena plano={plano} pal={pal} est={est} interior={interior} abierto={abierto} onPunto={setAbierto} />
+          </Canvas>
+        )}
+      </div>
+
+      <header className="kx-rec-top">
+        <span className="kx-marca-k">KLASE A</span>
+        <span className="kx-eyebrow kx-solo-ancho" style={{ marginLeft: 18 }}>Recorrido 3D · {modelo || "Klase A"}</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {!error && (
+            <button type="button" className="kx-rec-interruptor" role="switch" aria-checked={interior} onClick={() => setInteriorManual(!interior)}>
+              <i aria-hidden />Vista interior
+            </button>
+          )}
+          <button type="button" className="kx-redondo" aria-label="Cerrar recorrido" onClick={onCerrar}><X size={18} strokeWidth={1.5} /></button>
+        </div>
+      </header>
+
+      <aside className="kx-rec-panel" key={est.id}>
+        <div className="kx-eyebrow">Estación {pad(idx + 1)} / {pad(ESTACIONES.length)}</div>
+        <h2 className="kx-rec-t">{est.titulo}</h2>
+        <p className="kx-p">{est.bajada}</p>
+        <ol className="kx-rec-pasos">
+          {est.pasos.map((p, i) => (
+            <li key={p} style={{ "--i": i }}>
+              <span className="kx-mono">{pad(i + 1)}</span>
+              <span>{p}</span>
+            </li>
+          ))}
+        </ol>
+        {est.puntos.length > 0 && (
+          <div className="kx-rec-refs">
+            <div className="kx-eyebrow" style={{ marginBottom: 8 }}>En el barco</div>
+            {est.puntos.map((p, i) => (
+              <div key={p.t}>
+                <button type="button" className="kx-rec-ref" aria-pressed={abierto === i} onClick={() => setAbierto(abierto === i ? null : i)}>
+                  <b>{i + 1}</b>{p.t}
+                </button>
+                {abierto === i && <p className="kx-rec-ref-d">{p.d}</p>}
+              </div>
+            ))}
+            <p className="kx-ayuda" style={{ marginTop: 12 }}>Las ubicaciones son de referencia y pueden variar según la unidad.</p>
+          </div>
+        )}
+      </aside>
+
+      <nav className="kx-rec-pie" aria-label="Estaciones">
+        <button type="button" className="kx-redondo" aria-label="Estación anterior" disabled={idx === 0} onClick={() => ir(idx - 1)}>
+          <ArrowLeft size={18} strokeWidth={1.5} />
+        </button>
+        <ol className="kx-rec-chips">
+          {ESTACIONES.map((e, i) => (
+            <li key={e.id}>
+              <button type="button" aria-current={i === idx ? "step" : undefined} data-visto={vistos.has(e.id) ? "1" : "0"} onClick={() => ir(i)}>
+                <span className="kx-mono">{pad(i + 1)}</span>{e.nav}
+              </button>
+            </li>
+          ))}
+        </ol>
+        {ultima ? (
+          <button type="button" className="kx-btn kx-btn-chico" onClick={onCerrar}><Check size={15} strokeWidth={1.5} /> Terminar</button>
+        ) : (
+          <button type="button" className="kx-redondo" aria-label="Estación siguiente" onClick={() => ir(idx + 1)} style={{ background: "var(--kx-fg)", color: "var(--kx-bg)" }}>
+            <ArrowRight size={18} strokeWidth={1.5} />
+          </button>
+        )}
+      </nav>
+    </div>
+  );
+}
+
+/* ─────────────── Escena ─────────────── */
+function Escena({ plano, pal, est, interior, abierto, onPunto }) {
+  const geo = useMemo(() => armarCasco(plano), [plano]);
+  const textura = useMemo(() => texturaPlano(plano, pal.plano), [plano, pal.plano]);
+  useEffect(() => () => textura.dispose(), [textura]);
+  useEffect(() => () => { geo.casco.dispose(); geo.cubierta.dispose(); }, [geo]);
+
+  return (
+    <>
+      <color attach="background" args={[pal.fondo]} />
+      <fog attach="fog" args={[pal.fondo, LARGO * 1.6, LARGO * 4]} />
+      <ambientLight intensity={pal === PALETAS.noche ? 0.55 : 0.85} />
+      <directionalLight position={[6, 12, 8]} intensity={1.15} />
+      <directionalLight position={[-8, 5, -6]} intensity={0.35} />
+      <Barco geo={geo} textura={textura} pal={pal} interior={interior} activos={est.sistemas} />
+      <Agua pal={pal} />
+      {est.puntos.map((p, i) => (
+        <Punto key={`${est.id}-${p.t}`} n={i + 1} pos={ubicar(geo, p)} p={p} abierto={abierto === i} onClick={() => onPunto(abierto === i ? null : i)} />
+      ))}
+      <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08}
+        minDistance={LARGO * 0.35} maxDistance={LARGO * 2.4} maxPolarAngle={Math.PI / 2 - 0.04} />
+      <Camara geo={geo} est={est} />
+    </>
+  );
+}
+
+function Barco({ geo, textura, pal, interior, activos }) {
+  const cascoMat = useRef(null);
+  const cubiertaMat = useRef(null);
+  // El casco se desvanece (no salta) al pasar a la vista interior.
+  useFrame((_, dt) => {
+    const meta = interior ? 0.1 : 1;
+    [cascoMat.current, cubiertaMat.current].forEach(m => {
+      if (!m) return;
+      m.opacity += (meta - m.opacity) * Math.min(1, dt * 6);
+      m.depthWrite = m.opacity > 0.95;
+    });
+  });
+  const cabina = geo.enU(0.51);
+  const techo = geo.enU(0.43);
+  return (
+    <group>
+      <mesh geometry={geo.casco}>
+        <meshStandardMaterial ref={cascoMat} color={pal.casco} roughness={0.42} metalness={0.05} transparent side={THREE.DoubleSide} />
+        <Edges threshold={22} color={pal.linea} />
+      </mesh>
+      <mesh geometry={geo.cubierta}>
+        <meshStandardMaterial ref={cubiertaMat} color={pal.casco} roughness={0.6} transparent side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={geo.cubierta} renderOrder={2}>
+        <meshBasicMaterial map={textura} transparent opacity={0.8} depthWrite={false} polygonOffset polygonOffsetFactor={-2} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Volúmenes de referencia: cabina de vidrio y hardtop */}
+      <mesh position={[cabina.x, cabina.cubierta + geo.D * 0.36, cabina.zc]}>
+        <boxGeometry args={[LARGO * 0.26, geo.D * 0.72, cabina.media * 1.5]} />
+        <meshStandardMaterial color={pal.casco} transparent opacity={0.1} depthWrite={false} />
+        <Edges color={pal.linea} />
+      </mesh>
+      <mesh position={[techo.x, techo.cubierta + geo.D * 1.2, techo.zc]}>
+        <boxGeometry args={[LARGO * 0.24, geo.D * 0.06, techo.media * 1.8]} />
+        <meshStandardMaterial color={pal.casco} roughness={0.5} transparent opacity={interior ? 0.15 : 1} depthWrite={!interior} />
+        <Edges color={pal.linea} />
+      </mesh>
+
+      {interior && SISTEMAS.map(sis => (
+        <Sistema key={sis.id} geo={geo} sis={sis} pal={pal} activo={activos.includes(sis.id)} />
+      ))}
+    </group>
+  );
+}
+
+function Sistema({ geo, sis, pal, activo }) {
+  const s = geo.enU(sis.u);
+  const w = LARGO * sis.largo;
+  const h = geo.D * sis.h;
+  const y = s.cubierta + sis.alto * geo.D;
+  const piezas = sis.doble
+    ? [s.zc + sis.lado * s.media, s.zc - sis.lado * s.media]
+    : [s.zc + sis.lado * s.media];
+  return piezas.map((z, i) => (
+    <mesh key={i} position={[s.x, y, z]}>
+      <boxGeometry args={[w, h, s.media * sis.ancho]} />
+      <meshStandardMaterial color={activo ? pal.linea : pal.casco} transparent opacity={activo ? 0.9 : 0.25} depthWrite={false} />
+      <Edges color={activo ? pal.linea : pal.suave} />
+    </mesh>
+  ));
+}
+
+/* Agua: plano apenas translúcido (lo sumergido se ve atenuado) y una
+   retícula fina que se pierde en la niebla. */
+function Agua({ pal }) {
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} renderOrder={1}>
+        <planeGeometry args={[LARGO * 8, LARGO * 8]} />
+        <meshBasicMaterial color={pal.agua} transparent opacity={0.72} depthWrite={false} />
+      </mesh>
+      <gridHelper args={[LARGO * 8, 40, pal.suave, pal.suave]} position={[0, 0.002, 0]}>
+        <lineBasicMaterial attach="material" color={pal.suave} transparent opacity={0.45} />
+      </gridHelper>
+    </group>
+  );
+}
+
+function Punto({ n, pos, p, abierto, onClick }) {
+  return (
+    <Html position={pos} center zIndexRange={[30, 0]}>
+      <div className="kx-rec-punto-w">
+        <button type="button" className="kx-rec-punto" aria-expanded={abierto} aria-label={p.t} onClick={onClick}>{n}</button>
+        {abierto && (
+          <div className="kx-rec-tip" role="note">
+            <strong>{p.t}</strong>
+            <span>{p.d}</span>
+          </div>
+        )}
+      </div>
+    </Html>
+  );
+}
+
+/* La cámara viaja a cada estación y después queda libre para girar. */
+function Camara({ geo, est }) {
+  const get = useThree(st => st.get);
+  const ancho = useThree(st => st.size.width);
+  const viaje = useRef(null);
+
+  // En escritorio el panel ocupa la izquierda: se corre el centro óptico
+  // para que el barco quede en el espacio libre de la derecha.
+  useEffect(() => {
+    const cam = get().camera;
+    const panel = ancho > 900 ? Math.min(420, ancho * 0.38) + 40 : 0;
+    cam.filmOffset = -(panel / 2 / ancho) * cam.getFilmWidth();
+    cam.updateProjectionMatrix();
+  }, [get, ancho]);
+
+  useEffect(() => {
+    const { camera, controls } = get();
+    const foco = est.foco ? new THREE.Vector3(...ubicar(geo, est.foco)) : new THREE.Vector3(0, geo.D * 0.6, 0);
+    const { az, el, dist } = est.cam;
+    // En pantallas angostas el campo horizontal es chico: alejar la cámara.
+    const r = dist * LARGO * Math.max(1, 1.3 / camera.aspect);
+    const a = THREE.MathUtils.degToRad(az);
+    const e = THREE.MathUtils.degToRad(el);
+    const destino = foco.clone().add(new THREE.Vector3(r * Math.cos(e) * Math.cos(a), r * Math.sin(e), r * Math.cos(e) * Math.sin(a)));
+    const desdeTarget = controls?.target?.clone() ?? new THREE.Vector3();
+    viaje.current = {
+      desde: camera.position.clone(), hasta: destino,
+      desdeT: desdeTarget, hastaT: foco,
+      t: leerMovimientoReducido() ? 1 : 0,
+    };
+  }, [est, geo, get]);
+
+  useFrame(({ camera, controls }, dt) => {
+    const v = viaje.current;
+    if (!v || !controls) return;
+    v.t = Math.min(1, v.t + dt / 1.6);
+    const k = 1 - Math.pow(1 - v.t, 3);
+    camera.position.lerpVectors(v.desde, v.hasta, k);
+    controls.target.lerpVectors(v.desdeT, v.hastaT, k);
+    controls.update();
+    if (v.t >= 1) viaje.current = null;
+  });
+  return null;
+}
