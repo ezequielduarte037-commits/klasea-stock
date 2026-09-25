@@ -13,7 +13,7 @@ import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { planoDe, modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca } from "./barco";
+import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca, texturaInterior, INTERIOR } from "./barco";
 import { ESTACIONES, SISTEMAS } from "./estaciones";
 
 const VISTOS_KEY = "ka_recorrido_vistos";
@@ -205,7 +205,7 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
       <directionalLight position={[6, 12, 8]} intensity={1.15} />
       <directionalLight position={[-8, 5, -6]} intensity={0.35} />
       {geo.real
-        ? <BarcoReal modelo={geo} pal={pal} interior={interior} activos={est.sistemas} />
+        ? <BarcoReal modelo={geo} pal={pal} interior={interior} />
         : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} activos={est.sistemas} />}
       <Agua pal={pal} />
       <Estudio />
@@ -247,37 +247,48 @@ const ACABADOS = {
   casco:    { color: "#f7f7f5", roughness: 0.28, clearcoat: 0.55, clearcoatRoughness: 0.18 },
   cubierta: { color: "#f1f1ee", roughness: 0.6 },
   fondo:    { color: "#2a2c2e", roughness: 0.85 },
-  teca:     { color: "#ffffff", roughness: 0.7, teca: true, adelante: true },
+  teca:     { color: "#ffffff", roughness: 0.7, tex: "teca", adelante: true },
   cromo:    { color: "#e4e4e4", metalness: 1, roughness: 0.16 },
   negro:    { color: "#2f3235", roughness: 0.32, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 },
   vidrios:  { color: "#1a2025", metalness: 0.6, roughness: 0.06 },
-  tapizado: { color: "#c2a078", roughness: 0.9 },
+  tapizado: { color: "#ffffff", roughness: 0.8, tex: "cuero", relieve: 0.004 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
+  // Interior (según los renders): roble claro rosado, piso de tablas arena,
+  // ropa de cama de lino crema, cielorraso blanco, mesada de piedra y loza.
+  madera:   { color: "#ffffff", roughness: 0.55, tex: "madera", relieve: 0.002 },
+  piso:     { color: "#ffffff", roughness: 0.6, tex: "piso", adelante: true },
+  tela:     { color: "#ffffff", roughness: 0.95, tex: "tela", relieve: 0.003 },
+  techo:    { color: "#f4f2ee", roughness: 0.8 },
+  piedra:   { color: "#ffffff", roughness: 0.35, tex: "piedra", clearcoat: 0.3 },
+  loza:     { color: "#f6f6f4", roughness: 0.15, clearcoat: 0.6 },
   interior: { color: "#e8e6e1", roughness: 0.75 },
 };
 
 /* Modelo real. En la vista interior no se vuelve transparente: se corta como
    un plano de arquitectura (todo lo que está arriba de los camarotes se va),
    con una transición que baja el corte de a poco. */
-function BarcoReal({ modelo, pal, interior, activos }) {
+function BarcoReal({ modelo, pal, interior }) {
   const noche = pal === PALETAS.noche;
   const mats = useMemo(() => {
-    const teca = texturaTeca();
+    const texturas = { teca: texturaTeca() };
+    ["madera", "piso", "tela", "cuero", "piedra"].forEach(t => { texturas[t] = texturaInterior(t); });
     const plano = new THREE.Plane(new THREE.Vector3(0, -1, 0), 100);
     const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => [nombre, new THREE.MeshPhysicalMaterial({
       color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
       clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
-      map: a.teca ? teca : null, side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
+      map: a.tex ? texturas[a.tex] : null,
+      bumpMap: a.relieve ? texturas[a.tex] : null, bumpScale: a.relieve ?? 0,
+      side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
       // La teca va apoyada sobre la cubierta: se adelanta para que no titile.
       polygonOffset: true, polygonOffsetFactor: a.adelante ? -4 : 1, polygonOffsetUnits: a.adelante ? -4 : 1,
     })]));
     const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, clippingPlanes: [plano] });
-    return { lista, linea, teca, plano };
+    return { lista, linea, texturas, plano };
   }, []);
   useEffect(() => () => {
     Object.values(mats.lista).forEach(m => m.dispose());
     mats.linea.dispose();
-    mats.teca.dispose();
+    Object.values(mats.texturas).forEach(t => t.dispose());
   }, [mats]);
 
   useEffect(() => {
@@ -285,7 +296,7 @@ function BarcoReal({ modelo, pal, interior, activos }) {
     Object.entries(modelo.piezas).forEach(([nombre, m]) => {
       m.material = mats.lista[nombre] || mats.lista.detalle;
       if (!modelo.lineas || nombre === "vidrios") return;
-      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, nombre === "interior" ? 40 : 32), mats.linea);
+      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, INTERIOR.includes(nombre) ? 40 : 32), mats.linea);
       m.add(bordes);
       extras.push(bordes);
     });
@@ -310,16 +321,15 @@ function BarcoReal({ modelo, pal, interior, activos }) {
     const meta = interior && modelo.corte != null ? modelo.corte : tope;
     const actual = Math.min(mats.plano.constant, tope);
     mats.plano.constant = actual + (meta - actual) * Math.min(1, dt * 4);
-    const dentro = modelo.piezas.interior;
-    if (dentro) dentro.visible = mats.plano.constant < tope * 0.98;
+    const verDentro = mats.plano.constant < tope * 0.98;
+    INTERIOR.forEach(n => { if (modelo.piezas[n]) modelo.piezas[n].visible = verDentro; });
   });
 
   return (
     <group>
+      {/* Sin volúmenes de referencia: en el modelo real caerían sobre los
+          camarotes. Cuando el .3dm traiga motores y tanques, aparecen solos. */}
       <primitive object={modelo.raiz} />
-      {interior && SISTEMAS.filter(s => activos.includes(s.id)).map(sis => (
-        <Sistema key={sis.id} geo={modelo} sis={sis} pal={pal} activo encima />
-      ))}
     </group>
   );
 }
@@ -370,7 +380,7 @@ function Barco({ geo, textura, pal, interior, activos }) {
   );
 }
 
-function Sistema({ geo, sis, pal, activo, encima = false }) {
+function Sistema({ geo, sis, pal, activo }) {
   const s = geo.enU(sis.u);
   const w = LARGO * sis.largo;
   const h = geo.D * sis.h;
@@ -379,12 +389,10 @@ function Sistema({ geo, sis, pal, activo, encima = false }) {
     ? [s.zc + sis.lado * s.media, s.zc - sis.lado * s.media]
     : [s.zc + sis.lado * s.media];
   return piezas.map((z, i) => (
-    <mesh key={i} position={[s.x, y, z]} renderOrder={encima ? 10 : 0}>
+    <mesh key={i} position={[s.x, y, z]}>
       <boxGeometry args={[w, h, s.media * sis.ancho]} />
-      <meshStandardMaterial color={activo ? pal.linea : pal.casco} transparent opacity={activo ? (encima ? 0.35 : 0.9) : 0.25} depthWrite={false} depthTest={!encima} />
-      <Edges color={activo ? pal.linea : pal.suave} renderOrder={encima ? 11 : 0}>
-        <lineBasicMaterial color={activo ? pal.linea : pal.suave} depthTest={!encima} transparent opacity={0.9} />
-      </Edges>
+      <meshStandardMaterial color={activo ? pal.linea : pal.casco} transparent opacity={activo ? 0.9 : 0.25} depthWrite={false} />
+      <Edges color={activo ? pal.linea : pal.suave} />
     </mesh>
   ));
 }
