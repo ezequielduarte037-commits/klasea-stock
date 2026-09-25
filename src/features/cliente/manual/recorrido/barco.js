@@ -216,7 +216,14 @@ export async function cargarModelo({ url, lineas = false }) {
   raiz.updateMatrixWorld(true);
 
   const piezas = {};
-  raiz.traverse(o => { if (o.isMesh) piezas[o.name || o.parent?.name] = o; });
+  const anclas = {};
+  raiz.traverse(o => {
+    if (o.isMesh) piezas[o.name || o.parent?.name] = o;
+    else if (o.name?.startsWith("ancla:")) anclas[o.name.slice(6)] = o.getWorldPosition(new THREE.Vector3()).toArray();
+  });
+  // Altura del corte de la vista interior: por encima de camarotes y salón.
+  const cajaInterior = piezas.interior ? new THREE.Box3().setFromObject(piezas.interior) : null;
+  const corte = cajaInterior ? cajaInterior.min.y + (cajaInterior.max.y - cajaInterior.min.y) * 0.74 : null;
 
   // Perfil: por franja de eslora, manga (máx |z|) y altura de borda (máx y del casco).
   const N = 60;
@@ -241,7 +248,7 @@ export async function cargarModelo({ url, lineas = false }) {
     const k = Math.min(N, Math.max(0, Math.round((1 - u) * N)));
     return { x: LARGO / 2 - (1 - u) * LARGO, cubierta: borda[k], media: Math.max(0.05, media[k]), zc: 0 };
   };
-  return { raiz, piezas, D, manga: Math.max(...media), enU, real: true, lineas };
+  return { raiz, piezas, anclas, corte, D, manga: Math.max(...media), enU, real: true, lineas };
 }
 
 /* Teca: tablas a lo largo de la eslora con sus juntas negras y veta.
@@ -257,8 +264,8 @@ export function texturaTeca() {
   const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
   for (let f = 0; f < 10; f++) {
     const y = f * tabla;
-    const tono = 0.85 + azar() * 0.25;
-    ctx.fillStyle = `rgb(${Math.round(150 * tono)}, ${Math.round(106 * tono)}, ${Math.round(66 * tono)})`;
+    const tono = 0.9 + azar() * 0.16;
+    ctx.fillStyle = `rgb(${Math.round(176 * tono)}, ${Math.round(132 * tono)}, ${Math.round(92 * tono)})`;
     ctx.fillRect(0, y, T, tabla);
     for (let v = 0; v < 70; v++) {  // veta
       const vy = y + azar() * tabla;
@@ -269,7 +276,7 @@ export function texturaTeca() {
       for (let x = 0; x <= T; x += 64) ctx.lineTo(x, vy + Math.sin(x / (90 + azar() * 60) + v) * 2.2);
       ctx.stroke();
     }
-    ctx.fillStyle = "#1a1714";      // juntas
+    ctx.fillStyle = "#2a2522";      // juntas
     ctx.fillRect(0, y, T, junta);
     const corte = azar() * T;       // empalme de tablas
     ctx.fillRect(corte, y, junta, tabla);
