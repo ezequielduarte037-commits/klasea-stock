@@ -199,15 +199,32 @@ export function armarCasco(plano) {
 /* Piezas que sólo se ven en la vista interior. */
 export const INTERIOR = ["interior", "madera", "piso", "tela", "techo", "piedra", "loza"];
 
-export async function cargarModelo({ url, lineas = false, corte: corteM = null }) {
+async function leerGlb(url) {
   const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
     import("three/examples/jsm/loaders/GLTFLoader.js"),
     import("three/examples/jsm/libs/meshopt_decoder.module.js"),
   ]);
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const gltf = await loader.loadAsync(url);
-  const raiz = gltf.scene;
+  return (await loader.loadAsync(url)).scene;
+}
+
+/* Mallas por nombre de acabado; los tapizados vienen sin normales y el
+   sombreado suave se calcula acá. */
+function piezasDe(raiz) {
+  const piezas = {};
+  raiz.traverse(o => {
+    if (!o.isMesh) return;
+    piezas[o.name || o.parent?.name] = o;
+    if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+  });
+  return piezas;
+}
+
+/* interior: .glb aparte con el interior solo (mismas coordenadas del .3dm).
+   La vista interior pasa a ese modelo en lugar de cortar el exterior. */
+export async function cargarModelo({ url, lineas = false, corte: corteM = null, interior: urlInterior = null }) {
+  const [raiz, raizInterior] = await Promise.all([leerGlb(url), urlInterior ? leerGlb(urlInterior).catch(() => null) : null]);
   raiz.updateMatrixWorld(true);
   const caja = new THREE.Box3().setFromObject(raiz);
   const tam = caja.getSize(new THREE.Vector3());
@@ -218,16 +235,24 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null }
   raiz.position.set(-(caja.min.x + tam.x / 2) * escala, -flotacion * escala, 0);
   raiz.updateMatrixWorld(true);
 
-  const piezas = {};
+  const piezas = piezasDe(raiz);
   const anclas = {};
   raiz.traverse(o => {
-    if (o.isMesh) {
-      piezas[o.name || o.parent?.name] = o;
-      // Tapizados vienen sin normales: sombreado suave calculado acá.
-      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
-    }
-    else if (o.name?.startsWith("ancla:")) anclas[o.name.slice(6)] = o.getWorldPosition(new THREE.Vector3()).toArray();
+    if (o.name?.startsWith("ancla:")) anclas[o.name.slice(6)] = o.getWorldPosition(new THREE.Vector3()).toArray();
   });
+  let aparte = null;
+  if (raizInterior) {
+    raizInterior.scale.copy(raiz.scale);
+    raizInterior.position.copy(raiz.position);
+    raizInterior.updateMatrixWorld(true);
+    raizInterior.visible = false;
+    // Equipos del interior (baño, cocina, bajada): sus anclas vienen en este modelo.
+    raizInterior.traverse(o => {
+      if (o.name?.startsWith("ancla:")) anclas[o.name.slice(6)] ??= o.getWorldPosition(new THREE.Vector3()).toArray();
+    });
+    const c = new THREE.Box3().setFromObject(raizInterior);
+    aparte = { raiz: raizInterior, piezas: piezasDe(raizInterior), centro: c.getCenter(new THREE.Vector3()).toArray() };
+  }
   // Altura del corte de la vista interior. Por orden: la que indique el modelo
   // (metros sobre la base del .3dm), 60 cm sobre el piso de los camarotes, o
   // tres cuartos de la altura del interior.
@@ -266,8 +291,8 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null }
     const k = Math.min(N, Math.max(0, Math.round((1 - u) * N)));
     return { x: LARGO / 2 - (1 - u) * LARGO, cubierta: borda[k], media: Math.max(0.05, media[k]), zc: 0 };
   };
-  const centroInterior = cajaInterior ? cajaInterior.getCenter(new THREE.Vector3()).toArray() : null;
-  return { raiz, piezas, anclas, corte, centroInterior, D, manga: Math.max(...media), enU, real: true, lineas };
+  const centroInterior = aparte?.centro ?? (cajaInterior ? cajaInterior.getCenter(new THREE.Vector3()).toArray() : null);
+  return { raiz, piezas, anclas, corte, centroInterior, D, manga: Math.max(...media), enU, real: true, lineas, aparte };
 }
 
 /* Texturas fotográficas (Poly Haven, CC0) en public/textures/recorrido.

@@ -638,6 +638,8 @@ export const CSS_MANUAL = `
 /* ── Recorrido 3D ─────────────────────────────────────────── */
 .kx .kx-rec { position: fixed; inset: 0; z-index: 85; background: var(--kx-bg); color: var(--kx-fg); animation: kx-fade .4s var(--kx-ez) both; overflow: hidden; }
 .kx .kx-rec-lienzo { position: absolute; inset: 0; }
+.kx .kx-rec-velo { position: absolute; inset: 0; background: var(--kx-bg); opacity: 0; pointer-events: none; transition: opacity .8s var(--kx-ease, ease); }
+.kx .kx-rec-velo[data-activo="true"] { opacity: 1; transition-duration: .34s; }
 .kx .kx-rec-aviso { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 0 var(--kx-gut); text-align: center; }
 .kx .kx-rec-aviso .kx-p { max-width: 420px; }
 .kx .kx-rec-carga { width: 120px; height: 1px; background: var(--kx-fg); animation: kx-load 1.6s cubic-bezier(.65,0,.35,1) infinite; }

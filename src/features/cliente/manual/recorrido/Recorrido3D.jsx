@@ -65,6 +65,19 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
   const [vistos, setVistos] = useState(() => marcar(new Set(leerJson(VISTOS_KEY, [])), ESTACIONES[0].id));
   const est = ESTACIONES[idx];
   const interior = interiorManual ?? est.interior;
+  // Con un modelo interior aparte, el cambio de vista pasa por un fundido:
+  // la pantalla se vela, se cambia de modelo y se revela.
+  const [vista, setVista] = useState(interior);
+  const [velo, setVelo] = useState(false);
+  const conVelo = plano?.tipo === "real" && !!plano.modelo.aparte;
+  useEffect(() => {
+    if (!conVelo || vista === interior) return undefined;
+    const quieto = leerMovimientoReducido();
+    const a = setTimeout(() => setVelo(true), 0);
+    const b = setTimeout(() => { setVista(interior); setVelo(false); }, quieto ? 0 : 340);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [conVelo, interior, vista]);
+  const enEscena = conVelo ? vista : interior;
   const pal = PALETAS[tono === "noche" ? "noche" : "dia"];
 
   useEffect(() => {
@@ -122,9 +135,10 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
         ) : (
           <Canvas dpr={[1, 1.75]} camera={{ fov: 30, near: 0.1, far: 200, position: [9, 5, 9] }} gl={{ antialias: true }}
             onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.05; gl.localClippingEnabled = true; }}>
-            <Escena plano={plano} pal={pal} est={est} interior={interior} abierto={abierto} onPunto={setAbierto} />
+            <Escena plano={plano} pal={pal} est={est} interior={enEscena} abierto={abierto} onPunto={setAbierto} />
           </Canvas>
         )}
+        {conVelo && <div className="kx-rec-velo" data-activo={velo} aria-hidden />}
       </div>
 
       <header className="kx-rec-top">
@@ -260,16 +274,21 @@ const ACABADOS = {
   // Cuero caramelo afuera (como en el render), lana espigada gris topo adentro.
   tapizado: { color: "#efe4d8", roughness: 0.55, tex: "fabric_leather_02", relieve: "fabric_leather_02", m: 0.8, clearcoat: 0.15, clearcoatRoughness: 0.5 },
   almohadon: { color: "#f2eee7", roughness: 0.95, relieve: "poly_wool_herringbone", m: 0.25, sheen: 0.6 },
+  // Posavasos: acrílico gris humo, pulido.
+  acrilico: { color: "#8e959a", roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.04 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
   // Interior (según los renders): roble gris rosado, piso de tablas claras,
   // camas y sillones crema, cielorraso blanco, mesada de piedra y loza.
-  madera:   { color: "#eadacd", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
+  madera:   { color: "#e2dcd4", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
   piso:     { color: "#d8c2aa", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
   tela:     { color: "#a9a298", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5 },
   techo:    { color: "#f6f4f0", roughness: 0.8 },
-  piedra:   { color: "#ffffff", roughness: 0.3, tex: "marble_01", relieve: "marble_01", m: 1.2, clearcoat: 0.3 },
+  // Mesada: cuarzo blanco liso (la foto de mármol se repetía como baldosas).
+  piedra:   { color: "#f2f0ec", roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.1 },
   loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
   interior: { color: "#ebe8e3", roughness: 0.75 },
+  // Forro del casco en el modelo interior: tapizado claro, liso.
+  forro:    { color: "#efece7", roughness: 0.9 },
 };
 
 /* Modelo real. En la vista interior no se vuelve transparente: se corta como
@@ -312,9 +331,12 @@ function BarcoReal({ modelo, pal, interior }) {
 
   useEffect(() => {
     const extras = [];
-    Object.entries(modelo.piezas).forEach(([nombre, m]) => {
+    const todas = [
+      ...Object.entries(modelo.piezas).map(([nombre, m]) => [nombre, m, INTERIOR.includes(nombre)]),
+      ...Object.entries(modelo.aparte?.piezas ?? {}).map(([nombre, m]) => [nombre, m, true]),
+    ];
+    todas.forEach(([nombre, m, dentro]) => {
       m.material = mats.lista[nombre] || mats.lista.detalle;
-      const dentro = INTERIOR.includes(nombre);
       // El interior lleva contornos finos siempre: en la vista en corte separan
       // camas, muebles y pisos como en un plano.
       if ((!modelo.lineas && !dentro) || nombre === "vidrios") return;
@@ -340,6 +362,15 @@ function BarcoReal({ modelo, pal, interior }) {
     if (!vivo.current) return;
     const { mats, modelo, interior } = vivo.current;
     const tope = modelo.D * 8;
+    // Con interior aparte no hay corte: se muestra un modelo u otro (el
+    // cambio lo tapa el fundido de la pantalla).
+    if (modelo.aparte) {
+      mats.plano.constant = tope;
+      modelo.raiz.visible = !interior;
+      modelo.aparte.raiz.visible = interior;
+      INTERIOR.forEach(n => { if (modelo.piezas[n]) modelo.piezas[n].visible = false; });
+      return;
+    }
     const meta = interior && modelo.corte != null ? modelo.corte : tope;
     const actual = Math.min(mats.plano.constant, tope);
     mats.plano.constant = actual + (meta - actual) * Math.min(1, dt * 4);
@@ -352,6 +383,7 @@ function BarcoReal({ modelo, pal, interior }) {
       {/* Sin volúmenes de referencia: en el modelo real caerían sobre los
           camarotes. Cuando el .3dm traiga motores y tanques, aparecen solos. */}
       <primitive object={modelo.raiz} />
+      {modelo.aparte && <primitive object={modelo.aparte.raiz} />}
     </group>
   );
 }
