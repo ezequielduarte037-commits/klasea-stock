@@ -262,132 +262,60 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null }
     const k = Math.min(N, Math.max(0, Math.round((1 - u) * N)));
     return { x: LARGO / 2 - (1 - u) * LARGO, cubierta: borda[k], media: Math.max(0.05, media[k]), zc: 0 };
   };
-  return { raiz, piezas, anclas, corte, D, manga: Math.max(...media), enU, real: true, lineas };
+  const centroInterior = cajaInterior ? cajaInterior.getCenter(new THREE.Vector3()).toArray() : null;
+  return { raiz, piezas, anclas, corte, centroInterior, D, manga: Math.max(...media), enU, real: true, lineas };
 }
 
-/* Teca: tablas a lo largo de la eslora con sus juntas negras y veta.
-   Las UV del .glb vienen en metros (proyección desde arriba): 1 textura = 1 m. */
+/* Texturas fotográficas (Poly Haven, CC0) en public/textures/recorrido.
+   Las UV del .glb vienen en metros, proyectadas por caja: "metros" es cuánto
+   mide de lado la imagen en el barco. */
+const RUTA_TEX = "/textures/recorrido/";
+export function texturaFoto(nombre, metros, { color = true } = {}) {
+  const tex = new THREE.TextureLoader().load(`${RUTA_TEX}${nombre}.jpg`);
+  if (color) tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1 / metros, 1 / metros);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/* Teca de cubierta: la veta real del roble cortada en tablas de 10 cm, cada
+   una con su tono, y las juntas negras de calafateo. 1 textura = 1 m. */
 export function texturaTeca() {
   const T = 1024;
   const c = document.createElement("canvas");
   c.width = c.height = T;
   const ctx = c.getContext("2d");
-  const tabla = T / 10;            // 10 cm
-  const junta = 5;                 // ~5 mm de calafateo
-  let semilla = 7;
-  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
-  for (let f = 0; f < 10; f++) {
-    const y = f * tabla;
-    const tono = 0.9 + azar() * 0.16;
-    ctx.fillStyle = `rgb(${Math.round(176 * tono)}, ${Math.round(132 * tono)}, ${Math.round(92 * tono)})`;
-    ctx.fillRect(0, y, T, tabla);
-    for (let v = 0; v < 70; v++) {  // veta
-      const vy = y + azar() * tabla;
-      ctx.strokeStyle = `rgba(${azar() > 0.5 ? "60,36,18" : "205,160,110"}, ${0.08 + azar() * 0.14})`;
-      ctx.lineWidth = 0.6 + azar() * 1.6;
-      ctx.beginPath();
-      ctx.moveTo(0, vy);
-      for (let x = 0; x <= T; x += 64) ctx.lineTo(x, vy + Math.sin(x / (90 + azar() * 60) + v) * 2.2);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#2a2522";      // juntas
-    ctx.fillRect(0, y, T, junta);
-    const corte = azar() * T;       // empalme de tablas
-    ctx.fillRect(corte, y, junta, tabla);
-  }
+  ctx.fillStyle = "#b8895c";
+  ctx.fillRect(0, 0, T, T);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 8;
-  return tex;
-}
-
-/* Texturas del interior, generadas en el navegador (no pesan nada).
-   Las UV vienen en metros proyectadas desde arriba: en paredes y frentes de
-   muebles eso da veta vertical, que es como se ve la madera en los renders. */
-function lienzo(T, pintar, repetir = 1) {
-  const c = document.createElement("canvas");
-  c.width = c.height = T;
-  const ctx = c.getContext("2d");
-  let semilla = 11;
-  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
-  pintar(ctx, T, azar);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(repetir, repetir);
-  tex.anisotropy = 8;
-  return tex;
-}
-
-export function texturaInterior(tipo) {
-  if (tipo === "madera") {
-    // Roble claro con un tono rosado, como los revestimientos del render.
-    return lienzo(512, (ctx, T, azar) => {
-      ctx.fillStyle = "#dcc0ad";
-      ctx.fillRect(0, 0, T, T);
-      for (let i = 0; i < 260; i++) {
-        const x = azar() * T;
-        ctx.strokeStyle = `rgba(${azar() > 0.5 ? "120,82,62" : "236,210,194"}, ${0.05 + azar() * 0.12})`;
-        ctx.lineWidth = 0.5 + azar() * 2.2;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        for (let y = 0; y <= T; y += 32) ctx.lineTo(x + Math.sin(y / (70 + azar() * 40) + i) * 3, y);
-        ctx.stroke();
-      }
-    }, 1.5);
-  }
-  if (tipo === "piso") {
-    // Tablas claras gris arena.
-    return lienzo(1024, (ctx, T, azar) => {
-      const tabla = T / 6;
-      for (let f = 0; f < 6; f++) {
-        const t = 0.94 + azar() * 0.1;
-        ctx.fillStyle = `rgb(${Math.round(214 * t)}, ${Math.round(204 * t)}, ${Math.round(190 * t)})`;
-        ctx.fillRect(0, f * tabla, T, tabla);
-        for (let v = 0; v < 40; v++) {
-          const y = f * tabla + azar() * tabla;
-          ctx.strokeStyle = `rgba(150,138,122,${0.05 + azar() * 0.1})`;
-          ctx.lineWidth = 0.6 + azar();
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(T, y + (azar() - 0.5) * 4); ctx.stroke();
-        }
-        ctx.fillStyle = "rgba(120,110,98,0.55)";
-        ctx.fillRect(0, f * tabla, T, 2);
-        ctx.fillRect(azar() * T, f * tabla, 2, tabla);
-      }
-    }, 1);
-  }
-  if (tipo === "tela") {
-    // Trama fina de lino crema.
-    return lienzo(256, (ctx, T, azar) => {
-      ctx.fillStyle = "#ece6dc";
-      ctx.fillRect(0, 0, T, T);
-      for (let i = 0; i < T; i += 2) {
-        ctx.fillStyle = `rgba(160,148,130,${0.05 + azar() * 0.08})`;
-        ctx.fillRect(i, 0, 1, T);
-        ctx.fillStyle = `rgba(255,255,255,${0.05 + azar() * 0.1})`;
-        ctx.fillRect(0, i, T, 1);
-      }
-    }, 8);
-  }
-  if (tipo === "cuero") {
-    // Cuero suela con puntos de poro, para el tapizado exterior.
-    return lienzo(256, (ctx, T, azar) => {
-      ctx.fillStyle = "#c29f78";
-      ctx.fillRect(0, 0, T, T);
-      for (let i = 0; i < 2600; i++) {
-        ctx.fillStyle = `rgba(${azar() > 0.5 ? "90,62,40" : "240,215,185"},${0.05 + azar() * 0.08})`;
-        ctx.fillRect(azar() * T, azar() * T, 1 + azar() * 2, 1 + azar() * 2);
-      }
-    }, 6);
-  }
-  // piedra: mesada beige con grano
-  return lienzo(512, (ctx, T, azar) => {
-    ctx.fillStyle = "#d9d2c6";
-    ctx.fillRect(0, 0, T, T);
-    for (let i = 0; i < 9000; i++) {
-      ctx.fillStyle = `rgba(${azar() > 0.6 ? "120,112,100" : "250,248,244"},${0.1 + azar() * 0.25})`;
-      ctx.fillRect(azar() * T, azar() * T, 1 + azar() * 2, 1 + azar() * 2);
+  const img = new Image();
+  img.onload = () => {
+    // La veta de la foto es vertical: se gira para que corra a lo largo de la tabla.
+    const rot = document.createElement("canvas");
+    rot.width = rot.height = T;
+    const r = rot.getContext("2d");
+    r.translate(T, 0);
+    r.rotate(Math.PI / 2);
+    r.drawImage(img, 0, 0, T, T);
+    let semilla = 5;
+    const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
+    const tabla = T / 10;
+    for (let f = 0; f < 10; f++) {
+      const y = f * tabla;
+      const desde = Math.floor(azar() * (T - tabla));
+      ctx.drawImage(rot, 0, desde, T, tabla, 0, y, T, tabla);
+      ctx.fillStyle = `rgba(${azar() > 0.5 ? "120,70,30" : "255,225,180"},${0.06 + azar() * 0.1})`;
+      ctx.fillRect(0, y, T, tabla);
+      ctx.fillStyle = "#23201d";
+      ctx.fillRect(0, y, T, 6);
+      ctx.fillRect(Math.floor(azar() * T), y, 6, tabla);
     }
-  }, 2);
+    tex.needsUpdate = true;
+  };
+  img.src = `${RUTA_TEX}oak_veneer_01_diff.jpg`;
+  return tex;
 }
