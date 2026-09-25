@@ -19,6 +19,17 @@ const PLANOS = {
   85: { src: k85, espejo: true },
 };
 
+/* Modelos 3D exportados desde Rhino (public/models). Los que no están acá
+   usan el casco armado con el plano. */
+const MODELOS_3D = {
+  64: "/models/k64.glb",
+};
+
+export function modelo3dDe(modelo) {
+  const m = String(modelo || "").match(/(\d{2})/);
+  return MODELOS_3D[m?.[1]] || null;
+}
+
 export function planoDe(modelo) {
   const m = String(modelo || "").match(/(\d{2})/);
   return PLANOS[m?.[1]] || PLANOS[52];

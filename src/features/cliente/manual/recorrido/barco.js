@@ -191,3 +191,55 @@ export function armarCasco(plano) {
 
   return { casco, cubierta, D, manga: mangaMax, enU };
 }
+
+/* ── Modelos 3D reales ──────────────────────────────────────────
+   Exportados desde Rhino a .glb (ver scripts/rhino-a-glb.mjs). Vienen en
+   metros, proa +x, estribor +z. Se escalan a LARGO y se arma el mismo
+   perfil (enU) que el casco generado, así estaciones y puntos no cambian. */
+export async function cargarModelo(url) {
+  const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
+    import("three/examples/jsm/loaders/GLTFLoader.js"),
+    import("three/examples/jsm/libs/meshopt_decoder.module.js"),
+  ]);
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  const gltf = await loader.loadAsync(url);
+  const raiz = gltf.scene;
+  raiz.updateMatrixWorld(true);
+  const caja = new THREE.Box3().setFromObject(raiz);
+  const tam = caja.getSize(new THREE.Vector3());
+  const escala = LARGO / tam.x;
+  // Flotación aproximada: el casco se sumerge ~0,9 m desde el punto más bajo.
+  const flotacion = caja.min.y + 0.9;
+  raiz.scale.setScalar(escala);
+  raiz.position.set(-(caja.min.x + tam.x / 2) * escala, -flotacion * escala, 0);
+  raiz.updateMatrixWorld(true);
+
+  const piezas = {};
+  raiz.traverse(o => { if (o.isMesh) piezas[o.name || o.parent?.name] = o; });
+
+  // Perfil: por franja de eslora, manga (máx |z|) y altura de borda (máx y del casco).
+  const N = 60;
+  const media = new Array(N + 1).fill(0);
+  const borda = new Array(N + 1).fill(-Infinity);
+  const v = new THREE.Vector3();
+  ["casco", "cubierta"].forEach(nombre => {
+    const m = piezas[nombre];
+    if (!m) return;
+    const pos = m.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      const k = Math.round(((LARGO / 2 - v.x) / LARGO) * N);
+      if (k < 0 || k > N) continue;
+      media[k] = Math.max(media[k], Math.abs(v.z));
+      if (nombre === "casco") borda[k] = Math.max(borda[k], v.y);
+    }
+  });
+  for (let k = 0; k <= N; k++) if (!Number.isFinite(borda[k])) borda[k] = borda[k - 1] ?? 0;
+  const D = Math.max(0.2, borda.reduce((a, b) => a + b, 0) / (N + 1));
+  const enU = (u) => {
+    const k = Math.min(N, Math.max(0, Math.round((1 - u) * N)));
+    return { x: LARGO / 2 - (1 - u) * LARGO, cubierta: borda[k], media: Math.max(0.05, media[k]), zc: 0 };
+  };
+  return { raiz, piezas, D, manga: Math.max(...media), enU, real: true };
+}
