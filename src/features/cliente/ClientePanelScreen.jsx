@@ -22,7 +22,7 @@ import {
 } from "@/features/cliente/manual/capitulos";
 
 // El recorrido 3D arrastra three.js (~660 kB): sólo se baja si lo piden.
-const OnboardingExperience = lazy(() => import("@/features/cliente/OnboardingExperience"));
+const Recorrido3D = lazy(() => import("@/features/cliente/manual/recorrido/Recorrido3D"));
 
 const TONO_KEY = "ka_manual_tono";
 
@@ -118,21 +118,6 @@ export default function ClientePanelScreen({ session, onSignOut }) {
     );
   }
 
-  if (recorrido) {
-    return (
-      <Suspense fallback={<div className="kx-carga"><style href="klasea-manual" precedence="default">{CSS_MANUAL}</style><span>KLASE A</span><i /></div>}>
-        <OnboardingExperience
-          open
-          userId={session?.user?.id}
-          vesselName={cliente?.nombre_barco || cliente?.modelo_barco || "Klase A"}
-          onClose={() => setRecorrido(false)}
-          onGoTo={(target) => { setRecorrido(false); ir(target === "soporte" ? "postventa" : target); }}
-          onEmergency={() => { setRecorrido(false); setSos("incendio"); }}
-        />
-      </Suspense>
-    );
-  }
-
   const idx = cap ? CAPITULOS.findIndex(c => c.id === cap.id) : -1;
   const siguiente = cap ? CAPITULOS[idx + 1] || null : null;
   const abrirRecorrido = () => { setMenu(false); setRecorrido(true); };
@@ -195,6 +180,11 @@ export default function ClientePanelScreen({ session, onSignOut }) {
             ir(r.cap, { ancla: r.ancla });
           }}
         />
+      )}
+      {recorrido && (
+        <Suspense fallback={<div className="kx-rec"><div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el recorrido</span><i className="kx-rec-carga" /></div></div>}>
+          <Recorrido3D modelo={cliente?.modelo_barco} tono={tono} onCerrar={() => setRecorrido(false)} />
+        </Suspense>
       )}
       {sos && <ModoEmergencia inicial={sos} nombreBarco={cliente?.nombre_barco} onCerrar={() => setSos(null)} />}
     </div>
