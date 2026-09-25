@@ -3,14 +3,13 @@
 
 import { arrancaEnModoColector } from "@/lib/modoColector";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
-import { hasCompletedOnboarding } from "@/features/cliente/onboardingStorage";
 
 /**
  * Si al entrar corresponde la intro "Klase A · Marcando tendencia".
  *
  * No en el colector del pañol: es un Android viejo, se usa con guantes y se
- * entra varias veces por turno. Tampoco para el cliente que todavía no vio su
- * onboarding, que ya arranca con una experiencia de pantalla completa.
+ * entra varias veces por turno. El cliente sí la ve: su manual ya no abre el
+ * recorrido 3D solo, así que la intro de marca es su bienvenida.
  */
 export function debeMostrarIntro(perfil) {
   if (!perfil || leerMovimientoReducido()) return false;
@@ -18,6 +17,5 @@ export function debeMostrarIntro(perfil) {
   try {
     if (perfil.role === "panol" && window.localStorage.getItem("klasea.panol.modo-liviano") === "true") return false;
   } catch { /* storage bloqueado: se decide con lo demás */ }
-  if (perfil.role === "cliente" && !hasCompletedOnboarding(perfil.id)) return false;
   return true;
 }
