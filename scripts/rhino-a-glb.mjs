@@ -27,18 +27,28 @@ const doc = rh.File3dm.fromByteArray(new Uint8Array(fs.readFileSync(entrada)));
 const objs = doc.objects(), capas = doc.layers();
 
 // Capas que no suman a la vista y pesan mucho (equipos con miles de piezas).
-const SALTEAR = [/HERRAJES/i, /Picaportes/i, /ICEMAKER/i, /^Default$/i, /ENGINE DISPLAY/i];
+// Los mamparos estructurales vienen como planchas sin recortar: atraviesan el
+// casco y sobresalen, así que no se exportan (los tabiques de madera sí).
+const SALTEAR = [/HERRAJES/i, /Picaportes/i, /ICEMAKER/i, /^Default$/i, /ENGINE DISPLAY/i, /BULKHEADS/i, /MAMAPAROS ESTR TRANSV/i];
 // Grupo por capa: cada grupo es un material en la web. El orden importa.
 const REGLAS = [
   [/amtifouling|antifouling/i, "fondo"],
+  // Interior, por material (cada uno lleva su textura en la web)
+  [/INTERIOR::FLOOR|PISO/i, "piso"],
+  [/INTERIOR::CIELING|CONTRA TECHOS|ceeling/i, "techo"],
+  [/COUNTERTOP|MESADA/i, "piedra"],
+  [/::WC$|SYSTEMS::SINK|SHOWER PAINI/i, "loza"],
+  [/^LEATHER$|LOOSE FURNITURE|BLINDFOLDS|almohadon/i, "tela"],
   [/GLASS|VIDRIO/i, "vidrios"],
   [/TEAK|WOODEN PARTS|TECA/i, "teca"],
   [/CHROME|INOX|ACERO|SEASMART|STEERING/i, "cromo"],
-  [/CUSHION|PILOT SEAT|LEATHER|ALMOHAD/i, "tapizado"],
-  [/^INTERIOR|COMPANIONWAY|COUNTERTOP|^BLACK-PAINT$|^LEATHER$|MOBILIARIO|LINERS|MAMPAROS|CONTRA TECHOS|ESTRUCTURA/i, "interior"],
+  [/CUSHION|PILOT SEAT|Wosse/i, "tapizado"],
+  [/WOOD-FURNITURE|BULKHEADS|HULL-OFFSET|COMPANIONWAY|MOBILIARIO|LINERS|MAMPAROS/i, "madera"],
+  [/^BLACK-PAINT$/i, "negro"],
+  [/^INTERIOR|ESTRUCTURA/i, "interior"],
   [/HULL|^CASCO/i, "casco"],
   [/DECK|CUBIERTA|BAJO PARABRISAS/i, "cubierta"],
-  [/BLACK|CONSOLE|CONSOLA|MAST|speakr|MOBILIARIO/i, "negro"],
+  [/BLACK|CONSOLE|CONSOLA|MAST|speakr/i, "negro"],
 ];
 const grupoDe = c => (REGLAS.find(([r]) => r.test(c)) || [null, "detalle"])[1];
 
@@ -325,7 +335,7 @@ for (const [nombre, g] of Object.entries(grupos)) {
     .setAttribute("NORMAL", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.nor)).setBuffer(buf))
     .setIndices(gdoc.createAccessor().setType("SCALAR").setArray(new Uint32Array(g.idx)).setBuffer(buf))
     .setAttribute("TEXCOORD_0", gdoc.createAccessor().setType("VEC2").setArray(new Float32Array(g.pos.length / 3 * 2).map((_, i) => g.pos[Math.floor(i / 2) * 3 + (i % 2 ? 2 : 0)])).setBuffer(buf))
-    .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[nombre]).setDoubleSided(true));
+    .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[nombre] || [0.8, 0.8, 0.8, 1]).setDoubleSided(true));
   const mesh = gdoc.createMesh(nombre).addPrimitive(prim);
   escena.addChild(gdoc.createNode(nombre).setMesh(mesh));
   console.error(`${nombre}: ${g.pos.length / 3} vértices, ${g.idx.length / 3} triángulos`);
@@ -338,7 +348,7 @@ await gdoc.transform(
   weld(),
 );
 // Tope de triángulos por grupo: lo que más se ve (casco, cubierta) conserva detalle.
-const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 30000, interior: 55000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000 };
+const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 30000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
 for (const mesh of gdoc.getRoot().listMeshes()) {
   for (const prim of mesh.listPrimitives()) {
     const n = prim.getIndices().getCount() / 3;

@@ -196,7 +196,10 @@ export function armarCasco(plano) {
    Exportados desde Rhino a .glb (ver scripts/rhino-a-glb.mjs). Vienen en
    metros, proa +x, estribor +z. Se escalan a LARGO y se arma el mismo
    perfil (enU) que el casco generado, así estaciones y puntos no cambian. */
-export async function cargarModelo({ url, lineas = false }) {
+/* Piezas que sólo se ven en la vista interior. */
+export const INTERIOR = ["interior", "madera", "piso", "tela", "techo", "piedra", "loza"];
+
+export async function cargarModelo({ url, lineas = false, corte: corteM = null }) {
   const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
     import("three/examples/jsm/loaders/GLTFLoader.js"),
     import("three/examples/jsm/libs/meshopt_decoder.module.js"),
@@ -221,9 +224,20 @@ export async function cargarModelo({ url, lineas = false }) {
     if (o.isMesh) piezas[o.name || o.parent?.name] = o;
     else if (o.name?.startsWith("ancla:")) anclas[o.name.slice(6)] = o.getWorldPosition(new THREE.Vector3()).toArray();
   });
-  // Altura del corte de la vista interior: por encima de camarotes y salón.
-  const cajaInterior = piezas.interior ? new THREE.Box3().setFromObject(piezas.interior) : null;
-  const corte = cajaInterior ? cajaInterior.min.y + (cajaInterior.max.y - cajaInterior.min.y) * 0.74 : null;
+  // Altura del corte de la vista interior. Por orden: la que indique el modelo
+  // (metros sobre la base del .3dm), 60 cm sobre el piso de los camarotes, o
+  // tres cuartos de la altura del interior.
+  const cajaDe = nombres => {
+    const c = new THREE.Box3();
+    nombres.forEach(n => { if (piezas[n]) c.expandByObject(piezas[n]); });
+    return c.isEmpty() ? null : c;
+  };
+  const cajaInterior = cajaDe(INTERIOR);
+  const cajaPiso = cajaDe(["piso"]);
+  const corte = corteM != null
+    ? (corteM - flotacion) * escala
+    : cajaPiso ? cajaPiso.max.y + 0.6 * escala
+    : cajaInterior ? cajaInterior.min.y + (cajaInterior.max.y - cajaInterior.min.y) * 0.74 : null;
 
   // Perfil: por franja de eslora, manga (máx |z|) y altura de borda (máx y del casco).
   const N = 60;
@@ -286,4 +300,94 @@ export function texturaTeca() {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 8;
   return tex;
+}
+
+/* Texturas del interior, generadas en el navegador (no pesan nada).
+   Las UV vienen en metros proyectadas desde arriba: en paredes y frentes de
+   muebles eso da veta vertical, que es como se ve la madera en los renders. */
+function lienzo(T, pintar, repetir = 1) {
+  const c = document.createElement("canvas");
+  c.width = c.height = T;
+  const ctx = c.getContext("2d");
+  let semilla = 11;
+  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
+  pintar(ctx, T, azar);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repetir, repetir);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+export function texturaInterior(tipo) {
+  if (tipo === "madera") {
+    // Roble claro con un tono rosado, como los revestimientos del render.
+    return lienzo(512, (ctx, T, azar) => {
+      ctx.fillStyle = "#dcc0ad";
+      ctx.fillRect(0, 0, T, T);
+      for (let i = 0; i < 260; i++) {
+        const x = azar() * T;
+        ctx.strokeStyle = `rgba(${azar() > 0.5 ? "120,82,62" : "236,210,194"}, ${0.05 + azar() * 0.12})`;
+        ctx.lineWidth = 0.5 + azar() * 2.2;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        for (let y = 0; y <= T; y += 32) ctx.lineTo(x + Math.sin(y / (70 + azar() * 40) + i) * 3, y);
+        ctx.stroke();
+      }
+    }, 1.5);
+  }
+  if (tipo === "piso") {
+    // Tablas claras gris arena.
+    return lienzo(1024, (ctx, T, azar) => {
+      const tabla = T / 6;
+      for (let f = 0; f < 6; f++) {
+        const t = 0.94 + azar() * 0.1;
+        ctx.fillStyle = `rgb(${Math.round(214 * t)}, ${Math.round(204 * t)}, ${Math.round(190 * t)})`;
+        ctx.fillRect(0, f * tabla, T, tabla);
+        for (let v = 0; v < 40; v++) {
+          const y = f * tabla + azar() * tabla;
+          ctx.strokeStyle = `rgba(150,138,122,${0.05 + azar() * 0.1})`;
+          ctx.lineWidth = 0.6 + azar();
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(T, y + (azar() - 0.5) * 4); ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(120,110,98,0.55)";
+        ctx.fillRect(0, f * tabla, T, 2);
+        ctx.fillRect(azar() * T, f * tabla, 2, tabla);
+      }
+    }, 1);
+  }
+  if (tipo === "tela") {
+    // Trama fina de lino crema.
+    return lienzo(256, (ctx, T, azar) => {
+      ctx.fillStyle = "#ece6dc";
+      ctx.fillRect(0, 0, T, T);
+      for (let i = 0; i < T; i += 2) {
+        ctx.fillStyle = `rgba(160,148,130,${0.05 + azar() * 0.08})`;
+        ctx.fillRect(i, 0, 1, T);
+        ctx.fillStyle = `rgba(255,255,255,${0.05 + azar() * 0.1})`;
+        ctx.fillRect(0, i, T, 1);
+      }
+    }, 8);
+  }
+  if (tipo === "cuero") {
+    // Cuero suela con puntos de poro, para el tapizado exterior.
+    return lienzo(256, (ctx, T, azar) => {
+      ctx.fillStyle = "#c29f78";
+      ctx.fillRect(0, 0, T, T);
+      for (let i = 0; i < 2600; i++) {
+        ctx.fillStyle = `rgba(${azar() > 0.5 ? "90,62,40" : "240,215,185"},${0.05 + azar() * 0.08})`;
+        ctx.fillRect(azar() * T, azar() * T, 1 + azar() * 2, 1 + azar() * 2);
+      }
+    }, 6);
+  }
+  // piedra: mesada beige con grano
+  return lienzo(512, (ctx, T, azar) => {
+    ctx.fillStyle = "#d9d2c6";
+    ctx.fillRect(0, 0, T, T);
+    for (let i = 0; i < 9000; i++) {
+      ctx.fillStyle = `rgba(${azar() > 0.6 ? "120,112,100" : "250,248,244"},${0.1 + azar() * 0.25})`;
+      ctx.fillRect(azar() * T, azar() * T, 1 + azar() * 2, 1 + azar() * 2);
+    }
+  }, 2);
 }
