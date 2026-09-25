@@ -6,13 +6,14 @@
 ═══════════════════════════════════════════════════════════════ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Edges, Html, OrbitControls } from "@react-three/drei";
+import { ContactShadows, Edges, Html, OrbitControls } from "@react-three/drei";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import * as THREE from "three";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { planoDe, modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo } from "./barco";
+import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca } from "./barco";
 import { ESTACIONES, SISTEMAS } from "./estaciones";
 
 const VISTOS_KEY = "ka_recorrido_vistos";
@@ -65,8 +66,8 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
       .then(p => { if (vivo) setPlano({ tipo: "plano", plano: p }); })
       .catch(() => { if (vivo) setError("plano"); });
     // Si la línea tiene modelo 3D real se usa ese; si falla, el casco del plano.
-    const url = modelo3dDe(modelo);
-    if (url) cargarModelo(url).then(m => { if (vivo) setPlano({ tipo: "real", modelo: m }); }).catch(conPlano);
+    const cfg = modelo3dDe(modelo);
+    if (cfg) cargarModelo(cfg).then(m => { if (vivo) setPlano({ tipo: "real", modelo: m }); }).catch(conPlano);
     else conPlano();
     return () => { vivo = false; };
   }, [modelo, error]);
@@ -109,7 +110,8 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
         ) : !plano ? (
           <div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el modelo</span><i className="kx-rec-carga" /></div>
         ) : (
-          <Canvas dpr={[1, 1.75]} camera={{ fov: 30, near: 0.1, far: 200, position: [9, 5, 9] }} gl={{ antialias: true }}>
+          <Canvas dpr={[1, 1.75]} camera={{ fov: 30, near: 0.1, far: 200, position: [9, 5, 9] }} gl={{ antialias: true }}
+            onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.05; }}>
             <Escena plano={plano} pal={pal} est={est} interior={interior} abierto={abierto} onPunto={setAbierto} />
           </Canvas>
         )}
@@ -196,6 +198,8 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
         ? <BarcoReal modelo={geo} pal={pal} interior={interior} activos={est.sistemas} />
         : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} activos={est.sistemas} />}
       <Agua pal={pal} />
+      <Estudio />
+      <ContactShadows position={[0, 0.02, 0]} scale={LARGO * 1.8} far={geo.D * 3} blur={2.6} opacity={pal === PALETAS.noche ? 0.6 : 0.32} resolution={512} frames={1} />
       {est.puntos.map((p, i) => (
         <Punto key={`${est.id}-${p.t}`} n={i + 1} pos={ubicar(geo, p)} p={p} abierto={abierto === i} onClick={() => onPunto(abierto === i ? null : i)} />
       ))}
@@ -213,31 +217,67 @@ function BarcoPlano({ geo, plano, pal, interior, activos }) {
   return <Barco geo={geo} textura={textura} pal={pal} interior={interior} activos={activos} />;
 }
 
-/* Modelo real exportado de Rhino: piezas casco, cubierta, detalle, vidrios
-   e interior. Por fuera se ve blanco con sus contornos; en la vista interior
-   la piel se vuelve casi transparente y aparecen camarotes, mamparos y muebles. */
-const PIEL = ["casco", "cubierta", "detalle"];
-function BarcoReal({ modelo, pal, interior, activos }) {
-  const mats = useMemo(() => {
-    const piel = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.05, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1 });
-    const vidrio = new THREE.MeshStandardMaterial({ roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
-    const dentro = new THREE.MeshStandardMaterial({ roughness: 0.7, transparent: true, opacity: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1 });
-    const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 });
-    const lineaDentro = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.35 });
-    return { piel, vidrio, dentro, linea, lineaDentro };
-  }, []);
-  useEffect(() => () => Object.values(mats).forEach(m => m.dispose()), [mats]);
+/* Luz de estudio para los reflejos (sin descargar ningún HDR). */
+function Estudio() {
+  const get = useThree(st => st.get);
+  useEffect(() => {
+    const { gl, scene: escena } = get();
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    escena.environment = env;
+    escena.environmentIntensity = 0.55;
+    return () => { escena.environment = null; env.dispose(); pmrem.dispose(); };
+  }, [get]);
+  return null;
+}
 
-  // Materiales y contornos se arman una vez por modelo.
+/* Modelo real exportado de Rhino. Cada pieza trae el nombre de su acabado
+   (casco, fondo, cubierta, teca, cromo, negro, vidrios, tapizado, detalle,
+   interior). En la vista interior la piel se vuelve casi transparente y
+   aparecen camarotes, mamparos y muebles. */
+const ACABADOS = {
+  casco:    { color: "#f8f8f6", roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.06 },
+  cubierta: { color: "#f0f0ec", roughness: 0.55 },
+  fondo:    { color: "#242424", roughness: 0.85 },
+  teca:     { color: "#ffffff", roughness: 0.72, teca: true },
+  cromo:    { color: "#e2e2e2", metalness: 1, roughness: 0.14 },
+  negro:    { color: "#0d0d0d", roughness: 0.22, clearcoat: 0.8, clearcoatRoughness: 0.1 },
+  vidrios:  { color: "#12161a", metalness: 0.5, roughness: 0.04, opacidad: 0.8 },
+  tapizado: { color: "#ece8e0", roughness: 0.92 },
+  detalle:  { color: "#3a3a3a", roughness: 0.4 },
+  interior: { color: "#e4e4e0", roughness: 0.7, opacidad: 0.92 },
+};
+
+function BarcoReal({ modelo, pal, interior, activos }) {
+  const noche = pal === PALETAS.noche;
+  const mats = useMemo(() => {
+    const teca = texturaTeca();
+    const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => {
+      const m = new THREE.MeshPhysicalMaterial({
+        color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
+        clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
+        map: a.teca ? teca : null, transparent: true, opacity: a.opacidad ?? 1,
+        side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: nombre === "interior" ? 2 : 1,
+      });
+      m.userData.base = a.opacidad ?? 1;
+      return [nombre, m];
+    }));
+    const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 });
+    return { lista, linea, teca };
+  }, []);
+  useEffect(() => () => {
+    Object.values(mats.lista).forEach(m => m.dispose());
+    mats.linea.dispose();
+    mats.teca.dispose();
+  }, [mats]);
+
   useEffect(() => {
     const extras = [];
     Object.entries(modelo.piezas).forEach(([nombre, m]) => {
-      const esDentro = nombre === "interior";
-      m.material = nombre === "vidrios" ? mats.vidrio : esDentro ? mats.dentro : mats.piel;
-      m.renderOrder = esDentro ? 0 : 1;
-      if (nombre === "vidrios") return;
-      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, esDentro ? 40 : 32), esDentro ? mats.lineaDentro : mats.linea);
-      bordes.name = `${nombre}-bordes`;
+      m.material = mats.lista[nombre] || mats.lista.detalle;
+      m.renderOrder = nombre === "interior" ? 0 : 1;
+      if (!modelo.lineas || nombre === "vidrios") return;
+      const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, nombre === "interior" ? 40 : 32), mats.linea);
       m.add(bordes);
       extras.push(bordes);
     });
@@ -245,12 +285,11 @@ function BarcoReal({ modelo, pal, interior, activos }) {
   }, [modelo, mats]);
 
   useEffect(() => {
-    mats.piel.color.set(pal.casco);
-    mats.dentro.color.set(pal === PALETAS.noche ? "#2a2a2a" : "#e6e6e2");
-    mats.vidrio.color.set(pal === PALETAS.noche ? "#3a3a3a" : "#1a1a1a");
     mats.linea.color.set(pal.linea);
-    mats.lineaDentro.color.set(pal.linea);
-  }, [pal, mats]);
+    mats.lista.interior.color.set(noche ? "#2a2a2a" : "#e4e4e0");
+    // Sin materiales propios (K64): la piel toma el tono del manual.
+    if (modelo.lineas) mats.lista.casco.color.set(pal.casco);
+  }, [pal, noche, mats, modelo]);
 
   // useFrame lee por ref: los materiales se animan fuera del render de React.
   const vivo = useRef(null);
@@ -260,13 +299,15 @@ function BarcoReal({ modelo, pal, interior, activos }) {
     if (!vivo.current) return;
     const { mats, piezas, interior } = vivo.current;
     const k = Math.min(1, dt * 6);
-    const meta = interior ? 0.08 : 1;
-    mats.piel.opacity += (meta - mats.piel.opacity) * k;
-    mats.piel.depthWrite = mats.piel.opacity > 0.95;
-    mats.vidrio.opacity += ((interior ? 0.1 : 0.85) - mats.vidrio.opacity) * k;
+    Object.entries(mats.lista).forEach(([nombre, m]) => {
+      if (nombre === "interior") return;
+      const meta = m.userData.base * (interior ? 0.07 : 1);
+      m.opacity += (meta - m.opacity) * k;
+      m.depthWrite = m.opacity > 0.95;
+    });
     mats.linea.opacity += ((interior ? 0.28 : 0.55) - mats.linea.opacity) * k;
     const dentro = piezas.interior;
-    if (dentro) dentro.visible = interior || mats.piel.opacity < 0.97;
+    if (dentro) dentro.visible = interior || mats.lista.casco.opacity < 0.97;
   });
 
   return (
