@@ -23,7 +23,8 @@ const PLANOS = {
    usan el casco armado con el plano. */
 // lineas: dibujar contornos (modelos sin materiales ni detalle, como el K64).
 const MODELOS_3D = {
-  43: { url: "/models/k43.glb", lineas: false },
+  // interior: el interior solo, para la vista interior (sin cortar el exterior).
+  43: { url: "/models/k43.glb", lineas: false, interior: "/models/k43-interior.glb" },
   // corte: altura (m, sobre la base del .3dm) de la vista interior; el K64
   // no tiene piso de camarotes, se corta bajo el salón para ver los de abajo.
   64: { url: "/models/k64.glb", lineas: true, corte: 2.0 },
