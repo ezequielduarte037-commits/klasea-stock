@@ -285,7 +285,13 @@ for (let i = 0; i < objs.count; i++) {
   if (tipo !== "Brep" && tipo !== "Mesh" && tipo !== "Extrusion") continue;
   const capa = capas.get(o.attributes().layerIndex).fullPath;
   if (SALTEAR.some(r => r.test(capa))) continue;
-  const grupo = grupoDe(capa);
+  let grupo = grupoDe(capa);
+  // Almohadones: las piezas chicas de los tapizados van claras, como en los renders.
+  if (grupo === "tapizado") {
+    const b = geo.getBoundingBox();
+    const lado = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+    if (lado < 650 && /CUSHION/i.test(capa)) grupo = "almohadon";
+  }
   // Superficies duplicadas en el .3dm (misma caja, misma capa) pelean en pantalla.
   const bb0 = geo.getBoundingBox();
   const firma = `${capa}|${tipo}|${bb0.min.map(v => v.toFixed(1))}|${bb0.max.map(v => v.toFixed(1))}|${tipo === "Brep" ? geo.faces().count : ""}`;
@@ -331,7 +337,7 @@ const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior
 // UV por caja: cada triángulo se proyecta según hacia dónde mira (pisos desde
 // arriba, paredes de frente o de costado). Así la veta y las tablas no se
 // estiran en las caras verticales. Sólo en los grupos que llevan textura.
-const CON_TEXTURA = new Set(["teca", "madera", "piso", "tela", "piedra"]);
+const CON_TEXTURA = new Set(["teca", "tapizado", "almohadon", "madera", "piso", "tela", "piedra"]);
 function uvCaja(g) {
   const pos = [], nor = [], uv = [];
   for (let i = 0; i < g.idx.length; i += 3) {
@@ -350,14 +356,13 @@ function uvCaja(g) {
 }
 for (const [nombre, g0] of Object.entries(grupos)) {
   if (!g0.idx.length) continue;
-  const g = CON_TEXTURA.has(nombre) ? uvCaja(g0) : g0;
+  const g = g0;
   const prim = gdoc.createPrimitive()
     .setAttribute("POSITION", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.pos)).setBuffer(buf))
     .setAttribute("NORMAL", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.nor)).setBuffer(buf))
     .setIndices(gdoc.createAccessor().setType("SCALAR").setArray(new Uint32Array(g.idx)).setBuffer(buf))
 
     .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[nombre] || [0.8, 0.8, 0.8, 1]).setDoubleSided(true));
-  if (g.uv) prim.setAttribute("TEXCOORD_0", gdoc.createAccessor().setType("VEC2").setArray(new Float32Array(g.uv)).setBuffer(buf));
   const mesh = gdoc.createMesh(nombre).addPrimitive(prim);
   escena.addChild(gdoc.createNode(nombre).setMesh(mesh));
   console.error(`${nombre}: ${g.pos.length / 3} vértices, ${g.idx.length / 3} triángulos`);
@@ -369,16 +374,40 @@ await gdoc.transform(
   dedup(),
   weld(),
 );
+// Tapizados y almohadones vienen en cientos de parches sueltos (una malla por
+// cara): sin normales, el weld los une por posición y la simplificación normal
+// conserva las formas. El visor recalcula un sombreado suave.
+for (const mesh of gdoc.getRoot().listMeshes()) {
+  if (["tapizado", "almohadon"].includes(mesh.getName())) mesh.listPrimitives().forEach(p => p.setAttribute("NORMAL", null));
+}
+await gdoc.transform(weld());
 // Tope de triángulos por grupo: lo que más se ve (casco, cubierta) conserva detalle.
-const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 30000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
+const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 45000, almohadon: 15000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
 for (const mesh of gdoc.getRoot().listMeshes()) {
   for (const prim of mesh.listPrimitives()) {
     const n = prim.getIndices().getCount() / 3;
     const tope = TOPE[mesh.getName()] ?? 20000;
     const ratio = Math.min(1, tope / n);
-    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : 0.03, lockBorder: false });
+    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : ["tapizado", "almohadon"].includes(mesh.getName()) ? 0.01 : 0.03, lockBorder: false });
   }
 }
+// UV por caja después de simplificar (antes, cada triángulo con vértices
+// propios impedía simplificar). Se reescriben posiciones, normales e índices.
+for (const mesh of gdoc.getRoot().listMeshes()) {
+  if (!CON_TEXTURA.has(mesh.getName())) continue;
+  for (const prim of mesh.listPrimitives()) {
+    const P = prim.getAttribute("POSITION"), Nn = prim.getAttribute("NORMAL"), I = prim.getIndices();
+    const g = { pos: [], nor: [], idx: [] };
+    for (let i = 0; i < P.getCount(); i++) { g.pos.push(...P.getElement(i, [])); g.nor.push(...(Nn ? Nn.getElement(i, []) : [0, 1, 0])); }
+    for (let i = 0; i < I.getCount(); i++) g.idx.push(I.getScalar(i));
+    const r = uvCaja(g);
+    P.setArray(new Float32Array(r.pos));
+    if (Nn) Nn.setArray(new Float32Array(r.nor));
+    I.setArray(new Uint32Array(r.idx));
+    prim.setAttribute("TEXCOORD_0", gdoc.createAccessor().setType("VEC2").setArray(new Float32Array(r.uv)).setBuffer(buf));
+  }
+}
+await gdoc.transform(weld());
 // Las UV quedan en float: están en metros (fuera de 0..1) y la cuantización las recortaría.
 await gdoc.transform(prune({ keepLeaves: true, keepAttributes: true }), quantize({ pattern: /^(POSITION|NORMAL)$/ }));
 gdoc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });

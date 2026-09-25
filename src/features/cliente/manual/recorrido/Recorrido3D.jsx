@@ -253,13 +253,15 @@ const ACABADOS = {
   cromo:    { color: "#e4e4e4", metalness: 1, roughness: 0.16 },
   negro:    { color: "#2f3235", roughness: 0.32, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 },
   vidrios:  { color: "#1a2025", metalness: 0.6, roughness: 0.06 },
-  tapizado: { color: "#c49a6c", roughness: 0.62, sheen: 0.4 },
+  // Cuero caramelo afuera (como en el render), lana espigada gris topo adentro.
+  tapizado: { color: "#efe4d8", roughness: 0.55, tex: "fabric_leather_02", relieve: "fabric_leather_02", m: 0.8, clearcoat: 0.15, clearcoatRoughness: 0.5 },
+  almohadon: { color: "#f2eee7", roughness: 0.95, relieve: "poly_wool_herringbone", m: 0.25, sheen: 0.6 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
   // Interior (según los renders): roble gris rosado, piso de tablas claras,
   // camas y sillones crema, cielorraso blanco, mesada de piedra y loza.
   madera:   { color: "#ffffff", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
   piso:     { color: "#ffffff", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
-  tela:     { color: "#eee8de", roughness: 0.9, relieve: "leather_white", m: 0.3, sheen: 0.6 },
+  tela:     { color: "#ffffff", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5 },
   techo:    { color: "#f6f4f0", roughness: 0.8 },
   piedra:   { color: "#ffffff", roughness: 0.3, tex: "marble_01", relieve: "marble_01", m: 1.2, clearcoat: 0.3 },
   loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },

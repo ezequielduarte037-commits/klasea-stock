@@ -221,7 +221,11 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null }
   const piezas = {};
   const anclas = {};
   raiz.traverse(o => {
-    if (o.isMesh) piezas[o.name || o.parent?.name] = o;
+    if (o.isMesh) {
+      piezas[o.name || o.parent?.name] = o;
+      // Tapizados vienen sin normales: sombreado suave calculado acá.
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+    }
     else if (o.name?.startsWith("ancla:")) anclas[o.name.slice(6)] = o.getWorldPosition(new THREE.Vector3()).toArray();
   });
   // Altura del corte de la vista interior. Por orden: la que indique el modelo
