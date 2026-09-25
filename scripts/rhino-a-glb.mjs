@@ -41,6 +41,24 @@ const REGLAS = [
   [/BLACK|CONSOLE|CONSOLA|MAST|speakr|MOBILIARIO/i, "negro"],
 ];
 const grupoDe = c => (REGLAS.find(([r]) => r.test(c)) || [null, "detalle"])[1];
+
+// Anclas: centro de las capas con equipos reconocibles. El recorrido 3D lleva
+// la cámara y los puntos a estos lugares cuando el modelo los tiene.
+const ANCLAS = [
+  [/STEERING WHEEL|^CONSOLA$|ACCESORIOS::CONSOLA/i, "timon"],
+  [/VHF Garmin|::VHF/i, "vhf"],
+  [/GPSMAP|DISPLAY GARMIN/i, "gps"],
+  [/BOWTRUSTER|BOW THRUSTER/i, "bow"],
+  [/::WC$|BAÑO PRINCIPAL/i, "wc"],
+  [/SYSTEMS::SINK|COCINA/i, "pileta"],
+  [/FRIGONAUTICA|HELADERA/i, "heladera"],
+  [/::TV/i, "tv"],
+  [/COMPANIONWAY|ACCESORIOS::puertas/i, "bajada"],
+  [/MAST::RADAR/i, "radar"],
+  [/NAVIGATION-LIGHT HEAD/i, "tope"],
+];
+const cajasAncla = {};
+const vistos = new Set();
 const grupos = {};
 const G = n => (grupos[n] ||= { pos: [], nor: [], idx: [] });
 
@@ -258,6 +276,16 @@ for (let i = 0; i < objs.count; i++) {
   const capa = capas.get(o.attributes().layerIndex).fullPath;
   if (SALTEAR.some(r => r.test(capa))) continue;
   const grupo = grupoDe(capa);
+  // Superficies duplicadas en el .3dm (misma caja, misma capa) pelean en pantalla.
+  const bb0 = geo.getBoundingBox();
+  const firma = `${capa}|${tipo}|${bb0.min.map(v => v.toFixed(1))}|${bb0.max.map(v => v.toFixed(1))}|${tipo === "Brep" ? geo.faces().count : ""}`;
+  if (vistos.has(firma)) continue;
+  vistos.add(firma);
+  const ancla = ANCLAS.find(([r]) => r.test(capa));
+  if (ancla) {
+    const c = cajasAncla[ancla[1]] ||= { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+    for (let k = 0; k < 3; k++) { c.min[k] = Math.min(c.min[k], bb0.min[k]); c.max[k] = Math.max(c.max[k], bb0.max[k]); }
+  }
   if (tipo === "Mesh") { agregarMalla(geo, grupo); continue; }
   if (tipo === "Extrusion") {
     const m = geo.getMesh(rh.MeshType.Any);
@@ -284,6 +312,11 @@ console.error(`\ndescartados ${descartados} · caras ${caras} · planas ${planas
 const gdoc = new Document();
 const buf = gdoc.createBuffer();
 const escena = gdoc.createScene("barco");
+for (const [id, c] of Object.entries(cajasAncla)) {
+  const centro = T([(c.min[0] + c.max[0]) / 2, (c.min[1] + c.max[1]) / 2, (c.min[2] + c.max[2]) / 2]);
+  escena.addChild(gdoc.createNode(`ancla:${id}`).setTranslation(centro));
+}
+console.error("anclas:", Object.keys(cajasAncla).join(", ") || "ninguna");
 const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5], fondo: [0.15, 0.15, 0.15, 1], teca: [0.55, 0.4, 0.27, 1], cromo: [0.8, 0.8, 0.8, 1], tapizado: [0.9, 0.88, 0.84, 1], negro: [0.05, 0.05, 0.05, 1] };
 for (const [nombre, g] of Object.entries(grupos)) {
   if (!g.idx.length) continue;
@@ -314,7 +347,7 @@ for (const mesh of gdoc.getRoot().listMeshes()) {
     if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : 0.03, lockBorder: false });
   }
 }
-await gdoc.transform(prune(), quantize());
+await gdoc.transform(prune({ keepLeaves: true }), quantize());
 gdoc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
 await io.write(salidaGlb, gdoc);

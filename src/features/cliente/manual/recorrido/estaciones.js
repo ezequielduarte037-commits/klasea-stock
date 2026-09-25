@@ -72,7 +72,8 @@ export const ESTACIONES = [
     cam: { az: 145, el: 36, dist: 1.55 },
     interior: true,
     sistemas: ["tableros"],
-    foco: { u: 0.5, lado: -0.2, alto: 0.3 },
+    foco: { u: 0.5, lado: -0.2, alto: 0.3, ancla: "bajada" },
+    camAncla: { az: 140, el: 55, dist: 0.7 },
     puntos: [
       { u: 0.5, lado: -0.45, alto: 0.4, t: "Tablero 12 V", d: "En el salón, la puerta de acrílico del lado izquierdo." },
       { u: 0.5, lado: -0.45, alto: 0.75, t: "Voltímetro", d: "Más de 12,6 V: bien cargadas. Entre 12 y 12,6 V: uso normal. Menos de 12 V: cargar antes de seguir." },
@@ -93,7 +94,8 @@ export const ESTACIONES = [
     cam: { az: 215, el: 36, dist: 1.55 },
     interior: true,
     sistemas: ["tableros"],
-    foco: { u: 0.5, lado: 0.2, alto: 0.3 },
+    foco: { u: 0.5, lado: 0.2, alto: 0.3, ancla: "bajada" },
+    camAncla: { az: 220, el: 55, dist: 0.7 },
     puntos: [
       { u: 0.5, lado: 0.45, alto: 0.4, t: "Tablero 220 V", d: "En el salón, la puerta de acrílico del lado derecho." },
       { u: 0.5, lado: 0.45, alto: 0.8, t: "Selectoras", d: "Las dos en la misma posición: C.A. TIERRA, C.A. GRUPO o C.A. CONVERTIDOR." },
@@ -137,7 +139,8 @@ export const ESTACIONES = [
     foco: { u: 0.3, lado: 0, alto: 0 },
     puntos: [
       { u: 0.2, lado: 0.4, alto: -0.35, t: "Motores", d: "En la sala de máquinas, bajo la bañera de popa." },
-      { u: 0.48, lado: 0.4, alto: 0.7, t: "Puesto de mando", d: "Llave de arranque, pantallas del motor y palancas." },
+      { u: 0.48, lado: 0.4, alto: 0.7, ancla: "timon", t: "Puesto de mando", d: "Llave de arranque, pantallas del motor y palancas." },
+      { ancla: "bow", soloAncla: true, t: "Hélice de proa", d: "Su mando está en la consola. Máximo 30 segundos seguidos." },
     ],
     pasos: [
       "En el gabinete de estribor, activá el corte MOTOR (uno por motor si hay dos).",
@@ -181,6 +184,8 @@ export const ESTACIONES = [
       { u: 0.62, lado: 1, alto: 0.05, t: "Toma AGUA", d: "En los pasillos laterales de cubierta. Hay una por banda." },
       { u: 0.62, lado: 0, alto: -0.58, t: "Tanques", d: "Comunicados entre sí: el nivel sube parejo en los dos." },
       { u: 0.15, lado: -1, alto: 0.05, t: "Toma WASTE", d: "Para vaciar aguas negras en puerto, con la manguera de la marina." },
+      { ancla: "pileta", soloAncla: true, t: "Pileta", d: "Si no sale agua, revisá la térmica BOMBA POTABLE en el tablero de 12 V." },
+      { ancla: "wc", soloAncla: true, t: "Baño", d: "Tiene su propio circuito en el tablero de 12 V. Sólo papel apto para embarcaciones." },
     ],
     pasos: [
       "Para cargar, buscá las tapas que dicen AGUA en los pasillos laterales y conectá la manguera.",
@@ -219,9 +224,11 @@ export const ESTACIONES = [
     cam: { az: 125, el: 30, dist: 1.6 },
     interior: false,
     sistemas: [],
-    foco: { u: 0.48, lado: 0.3, alto: 0.5 },
+    foco: { u: 0.48, lado: 0.3, alto: 0.5, ancla: "vhf" },
+    camAncla: { az: 150, el: 34, dist: 0.42 },
     puntos: [
-      { u: 0.48, lado: 0.4, alto: 0.7, t: "Radio VHF", d: "En el puesto de mando. Canal 16 siempre en escucha." },
+      { u: 0.48, lado: 0.4, alto: 0.7, ancla: "vhf", t: "Radio VHF", d: "En el puesto de mando. Canal 16 siempre en escucha." },
+      { ancla: "gps", soloAncla: true, t: "Plotter / GPS", d: "Carta, posición y el botón MOB para marcar dónde cayó alguien al agua." },
     ],
     pasos: [
       "Hombre al agua: botón MOB en el GPS, bajá la velocidad, tirá el aro y que alguien no lo pierda de vista.",

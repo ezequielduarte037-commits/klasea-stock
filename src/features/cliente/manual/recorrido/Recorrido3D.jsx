@@ -6,7 +6,7 @@
 ═══════════════════════════════════════════════════════════════ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Edges, Html, OrbitControls } from "@react-three/drei";
+import { Edges, Html, MeshReflectorMaterial, OrbitControls } from "@react-three/drei";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import * as THREE from "three";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
@@ -33,6 +33,12 @@ function hayWebGL() {
   }
 }
 
+/* Puntos de la estación: los que dependen de un equipo del modelo real sólo
+   aparecen si ese modelo lo tiene. */
+function puntosDe(est, geo) {
+  return est.puntos.filter(p => !p.soloAncla || geo?.anclas?.[p.ancla]);
+}
+
 /* Anota la estación como vista (en este dispositivo). */
 function marcar(vistos, id) {
   if (vistos.has(id)) return vistos;
@@ -42,7 +48,10 @@ function marcar(vistos, id) {
 }
 
 /* Punto del barco en coordenadas de mundo. */
-function ubicar(geo, { u, lado = 0, alto = 0 }) {
+function ubicar(geo, { u, lado = 0, alto = 0, ancla }) {
+  // Si el modelo real trae ese equipo, el punto va exactamente ahí.
+  const a = ancla && geo.anclas?.[ancla];
+  if (a) return [a[0], a[1] + geo.D * 0.12, a[2]];
   const s = geo.enU(u);
   return [s.x, s.cubierta + alto * geo.D, s.zc + lado * s.media];
 }
@@ -97,6 +106,7 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
   }, []);
 
   const ultima = idx === ESTACIONES.length - 1;
+  const puntos = puntosDe(est, plano?.tipo === "real" ? plano.modelo : null);
 
   return (
     <div className="kx-rec" role="dialog" aria-modal="true" aria-label="Recorrido 3D">
@@ -111,7 +121,7 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
           <div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el modelo</span><i className="kx-rec-carga" /></div>
         ) : (
           <Canvas dpr={[1, 1.75]} camera={{ fov: 30, near: 0.1, far: 200, position: [9, 5, 9] }} gl={{ antialias: true }}
-            onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.05; }}>
+            onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.05; gl.localClippingEnabled = true; }}>
             <Escena plano={plano} pal={pal} est={est} interior={interior} abierto={abierto} onPunto={setAbierto} />
           </Canvas>
         )}
@@ -142,10 +152,10 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
             </li>
           ))}
         </ol>
-        {est.puntos.length > 0 && (
+        {puntos.length > 0 && (
           <div className="kx-rec-refs">
             <div className="kx-eyebrow" style={{ marginBottom: 8 }}>En el barco</div>
-            {est.puntos.map((p, i) => (
+            {puntos.map((p, i) => (
               <div key={p.t}>
                 <button type="button" className="kx-rec-ref" aria-pressed={abierto === i} onClick={() => setAbierto(abierto === i ? null : i)}>
                   <b>{i + 1}</b>{p.t}
@@ -199,8 +209,7 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
         : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} activos={est.sistemas} />}
       <Agua pal={pal} />
       <Estudio />
-      <ContactShadows position={[0, 0.02, 0]} scale={LARGO * 1.8} far={geo.D * 3} blur={2.6} opacity={pal === PALETAS.noche ? 0.6 : 0.32} resolution={512} frames={1} />
-      {est.puntos.map((p, i) => (
+      {puntosDe(est, geo).map((p, i) => (
         <Punto key={`${est.id}-${p.t}`} n={i + 1} pos={ubicar(geo, p)} p={p} abierto={abierto === i} onClick={() => onPunto(abierto === i ? null : i)} />
       ))}
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08}
@@ -233,37 +242,37 @@ function Estudio() {
 
 /* Modelo real exportado de Rhino. Cada pieza trae el nombre de su acabado
    (casco, fondo, cubierta, teca, cromo, negro, vidrios, tapizado, detalle,
-   interior). En la vista interior la piel se vuelve casi transparente y
-   aparecen camarotes, mamparos y muebles. */
+   interior). */
 const ACABADOS = {
-  casco:    { color: "#f8f8f6", roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.06 },
-  cubierta: { color: "#f0f0ec", roughness: 0.55 },
-  fondo:    { color: "#242424", roughness: 0.85 },
-  teca:     { color: "#ffffff", roughness: 0.72, teca: true },
-  cromo:    { color: "#e2e2e2", metalness: 1, roughness: 0.14 },
-  negro:    { color: "#0d0d0d", roughness: 0.22, clearcoat: 0.8, clearcoatRoughness: 0.1 },
-  vidrios:  { color: "#12161a", metalness: 0.5, roughness: 0.04, opacidad: 0.8 },
-  tapizado: { color: "#ece8e0", roughness: 0.92 },
+  casco:    { color: "#f7f7f5", roughness: 0.28, clearcoat: 0.55, clearcoatRoughness: 0.18 },
+  cubierta: { color: "#f1f1ee", roughness: 0.6 },
+  fondo:    { color: "#2a2c2e", roughness: 0.85 },
+  teca:     { color: "#ffffff", roughness: 0.7, teca: true, adelante: true },
+  cromo:    { color: "#e4e4e4", metalness: 1, roughness: 0.16 },
+  negro:    { color: "#2f3235", roughness: 0.32, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 },
+  vidrios:  { color: "#1a2025", metalness: 0.6, roughness: 0.06 },
+  tapizado: { color: "#c2a078", roughness: 0.9 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
-  interior: { color: "#e4e4e0", roughness: 0.7, opacidad: 0.92 },
+  interior: { color: "#e8e6e1", roughness: 0.75 },
 };
 
+/* Modelo real. En la vista interior no se vuelve transparente: se corta como
+   un plano de arquitectura (todo lo que está arriba de los camarotes se va),
+   con una transición que baja el corte de a poco. */
 function BarcoReal({ modelo, pal, interior, activos }) {
   const noche = pal === PALETAS.noche;
   const mats = useMemo(() => {
     const teca = texturaTeca();
-    const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => {
-      const m = new THREE.MeshPhysicalMaterial({
-        color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
-        clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
-        map: a.teca ? teca : null, transparent: true, opacity: a.opacidad ?? 1,
-        side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: nombre === "interior" ? 2 : 1,
-      });
-      m.userData.base = a.opacidad ?? 1;
-      return [nombre, m];
-    }));
-    const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.55 });
-    return { lista, linea, teca };
+    const plano = new THREE.Plane(new THREE.Vector3(0, -1, 0), 100);
+    const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => [nombre, new THREE.MeshPhysicalMaterial({
+      color: a.color, roughness: a.roughness ?? 0.5, metalness: a.metalness ?? 0,
+      clearcoat: a.clearcoat ?? 0, clearcoatRoughness: a.clearcoatRoughness ?? 0,
+      map: a.teca ? teca : null, side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
+      // La teca va apoyada sobre la cubierta: se adelanta para que no titile.
+      polygonOffset: true, polygonOffsetFactor: a.adelante ? -4 : 1, polygonOffsetUnits: a.adelante ? -4 : 1,
+    })]));
+    const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, clippingPlanes: [plano] });
+    return { lista, linea, teca, plano };
   }, []);
   useEffect(() => () => {
     Object.values(mats.lista).forEach(m => m.dispose());
@@ -275,7 +284,6 @@ function BarcoReal({ modelo, pal, interior, activos }) {
     const extras = [];
     Object.entries(modelo.piezas).forEach(([nombre, m]) => {
       m.material = mats.lista[nombre] || mats.lista.detalle;
-      m.renderOrder = nombre === "interior" ? 0 : 1;
       if (!modelo.lineas || nombre === "vidrios") return;
       const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, nombre === "interior" ? 40 : 32), mats.linea);
       m.add(bordes);
@@ -286,35 +294,31 @@ function BarcoReal({ modelo, pal, interior, activos }) {
 
   useEffect(() => {
     mats.linea.color.set(pal.linea);
-    mats.lista.interior.color.set(noche ? "#2a2a2a" : "#e4e4e0");
+    mats.lista.interior.color.set(noche ? "#3a3a3a" : "#e8e6e1");
     // Sin materiales propios (K64): la piel toma el tono del manual.
     if (modelo.lineas) mats.lista.casco.color.set(pal.casco);
   }, [pal, noche, mats, modelo]);
 
-  // useFrame lee por ref: los materiales se animan fuera del render de React.
+  // useFrame lee por ref: el corte se anima fuera del render de React.
   const vivo = useRef(null);
-  useEffect(() => { vivo.current = { mats, piezas: modelo.piezas, interior }; }, [mats, modelo, interior]);
+  useEffect(() => { vivo.current = { mats, modelo, interior }; }, [mats, modelo, interior]);
 
   useFrame((_, dt) => {
     if (!vivo.current) return;
-    const { mats, piezas, interior } = vivo.current;
-    const k = Math.min(1, dt * 6);
-    Object.entries(mats.lista).forEach(([nombre, m]) => {
-      if (nombre === "interior") return;
-      const meta = m.userData.base * (interior ? 0.07 : 1);
-      m.opacity += (meta - m.opacity) * k;
-      m.depthWrite = m.opacity > 0.95;
-    });
-    mats.linea.opacity += ((interior ? 0.28 : 0.55) - mats.linea.opacity) * k;
-    const dentro = piezas.interior;
-    if (dentro) dentro.visible = interior || mats.lista.casco.opacity < 0.97;
+    const { mats, modelo, interior } = vivo.current;
+    const tope = modelo.D * 8;
+    const meta = interior && modelo.corte != null ? modelo.corte : tope;
+    const actual = Math.min(mats.plano.constant, tope);
+    mats.plano.constant = actual + (meta - actual) * Math.min(1, dt * 4);
+    const dentro = modelo.piezas.interior;
+    if (dentro) dentro.visible = mats.plano.constant < tope * 0.98;
   });
 
   return (
     <group>
       <primitive object={modelo.raiz} />
       {interior && SISTEMAS.filter(s => activos.includes(s.id)).map(sis => (
-        <Sistema key={sis.id} geo={modelo} sis={sis} pal={pal} activo />
+        <Sistema key={sis.id} geo={modelo} sis={sis} pal={pal} activo encima />
       ))}
     </group>
   );
@@ -366,7 +370,7 @@ function Barco({ geo, textura, pal, interior, activos }) {
   );
 }
 
-function Sistema({ geo, sis, pal, activo }) {
+function Sistema({ geo, sis, pal, activo, encima = false }) {
   const s = geo.enU(sis.u);
   const w = LARGO * sis.largo;
   const h = geo.D * sis.h;
@@ -375,27 +379,38 @@ function Sistema({ geo, sis, pal, activo }) {
     ? [s.zc + sis.lado * s.media, s.zc - sis.lado * s.media]
     : [s.zc + sis.lado * s.media];
   return piezas.map((z, i) => (
-    <mesh key={i} position={[s.x, y, z]}>
+    <mesh key={i} position={[s.x, y, z]} renderOrder={encima ? 10 : 0}>
       <boxGeometry args={[w, h, s.media * sis.ancho]} />
-      <meshStandardMaterial color={activo ? pal.linea : pal.casco} transparent opacity={activo ? 0.9 : 0.25} depthWrite={false} />
-      <Edges color={activo ? pal.linea : pal.suave} />
+      <meshStandardMaterial color={activo ? pal.linea : pal.casco} transparent opacity={activo ? (encima ? 0.35 : 0.9) : 0.25} depthWrite={false} depthTest={!encima} />
+      <Edges color={activo ? pal.linea : pal.suave} renderOrder={encima ? 11 : 0}>
+        <lineBasicMaterial color={activo ? pal.linea : pal.suave} depthTest={!encima} transparent opacity={0.9} />
+      </Edges>
     </mesh>
   ));
 }
 
-/* Agua: plano apenas translúcido (lo sumergido se ve atenuado) y una
-   retícula fina que se pierde en la niebla. */
+/* Agua: espejo mate que refleja el casco (el barco "flota") y se pierde en
+   la niebla. Tapa lo sumergido, así la obra viva no se ve. */
 function Agua({ pal }) {
+  const noche = pal === PALETAS.noche;
+  const chico = typeof window !== "undefined" && window.innerWidth < 900;
   return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} renderOrder={1}>
-        <planeGeometry args={[LARGO * 8, LARGO * 8]} />
-        <meshBasicMaterial color={pal.agua} transparent opacity={0.72} depthWrite={false} />
-      </mesh>
-      <gridHelper args={[LARGO * 8, 40, pal.suave, pal.suave]} position={[0, 0.002, 0]}>
-        <lineBasicMaterial attach="material" color={pal.suave} transparent opacity={0.45} />
-      </gridHelper>
-    </group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+      <planeGeometry args={[LARGO * 10, LARGO * 10]} />
+      <MeshReflectorMaterial
+        color={noche ? "#0b0d0e" : "#e3e8ea"}
+        resolution={chico ? 512 : 1024}
+        blur={[400, 120]}
+        mixBlur={1}
+        mixStrength={noche ? 1.2 : 0.7}
+        mirror={0.6}
+        roughness={0.85}
+        metalness={0.2}
+        depthScale={0.8}
+        minDepthThreshold={0.3}
+        maxDepthThreshold={1.2}
+      />
+    </mesh>
   );
 }
 
@@ -433,7 +448,9 @@ function Camara({ geo, est }) {
   useEffect(() => {
     const { camera, controls } = get();
     const foco = est.foco ? new THREE.Vector3(...ubicar(geo, est.foco)) : new THREE.Vector3(0, geo.D * 0.6, 0);
-    const { az, el, dist } = est.cam;
+    // Si el foco es un equipo del modelo real, la cámara se acerca a él.
+    const anclado = est.foco?.ancla && geo.anclas?.[est.foco.ancla];
+    const { az, el, dist } = anclado && est.camAncla ? est.camAncla : est.cam;
     // En pantallas angostas el campo horizontal es chico: alejar la cámara.
     const r = dist * LARGO * Math.max(1, 1.3 / camera.aspect);
     const a = THREE.MathUtils.degToRad(az);
