@@ -5,7 +5,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
 import { hasAdminAccess } from "@/lib/permissions";
-import { MaterialThumb } from "@/features/materiales/MaterialExtras";
+import { MaterialImageUploader, MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { actualizarMaterialDatos, fetchCatalogo } from "@/features/materiales/api";
 import { materialMatchScore } from "@/features/panol/materialMatch";
 import { actualizarStockMinimoPanol, fetchPanolCatalogMaterialImpact, invalidatePanolCatalogFullCache } from "@/features/panol/panolApi";
@@ -118,6 +118,8 @@ export default function CatalogoMaestroScreen({ profile }) {
   const { isMobile } = useResponsive(1120);
   const toast = useToast();
   const canEdit = hasAdminAccess(profile) || ["tecnica", "compras"].includes(profile?.role);
+  // Cargar una foto no autoriza a cambiar la identidad ni los precios del producto.
+  const canUploadPhotos = canEdit || profile?.role === "panol";
   const [data, setData] = useState({ materiales: [], categorias: [], proveedores: [] });
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -232,6 +234,12 @@ export default function CatalogoMaestroScreen({ profile }) {
     else persist();
   }
 
+  async function photoUploaded() {
+    invalidatePanolCatalogFullCache();
+    await load({ force: true });
+    toast.success("Foto guardada en el catálogo maestro.");
+  }
+
   const inputStyle = { width: "100%", boxSizing: "border-box", border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 9, padding: "8px 10px", outline: "none", fontSize: 12.5, fontFamily: C.sans };
   const selectedVisible = !!selected;
 
@@ -248,6 +256,13 @@ export default function CatalogoMaestroScreen({ profile }) {
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
+        {canUploadPhotos && !editing && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, padding: "10px 12px", border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Foto del producto</div>
+            <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>Elegí una foto del celular o la computadora. Se mostrará también en stock.</div>
+          </div>
+          <MaterialImageUploader key={selected.id} material={selected} onUploaded={photoUploaded} triggerLabel={selected.imagen_url ? "Agregar foto al producto" : "Subir foto del producto"} />
+        </div>}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div>
             <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Existencia vinculada</div>
@@ -299,7 +314,7 @@ export default function CatalogoMaestroScreen({ profile }) {
           onReceive={(row) => nav(`/recepcion-panol?tab=recepcion&envio=${encodeURIComponent(row.panol_envio_id || "")}&material=${encodeURIComponent(selected.id)}&item=${encodeURIComponent(row.panol_envio_item_id || "")}`)}
         />
         <CatalogoProductoModelos materialId={selected.id} unidad={selected.unidad_medida || "unidad"} />
-        {!canEdit && <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11.5, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: "9px 10px" }}><Eye size={14} />Consulta de catálogo. Técnica, Compras y Administración pueden editar fichas.</div>}
+        {!canEdit && <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11.5, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: "9px 10px" }}><Eye size={14} />{canUploadPhotos ? "Pañol puede cargar fotos. Los demás datos de la ficha los editan Técnica, Compras y Administración." : "Consulta de catálogo. Técnica, Compras y Administración pueden editar fichas."}</div>}
       </div>
     </section>
   );

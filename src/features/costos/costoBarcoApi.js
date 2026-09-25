@@ -1,4 +1,5 @@
 import { supabase } from "@/supabaseClient";
+import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import {
   aplicarPrecioMaterial,
   precioVencido,
@@ -39,6 +40,11 @@ export const MODELOS_BARCO = [
 
 export const SIN_PROVEEDOR = "__sin_proveedor__";
 export const SIN_RUBRO = "__sin_rubro__";
+
+// Los materiales de producción no son del catálogo del pañol y no tienen
+// categoría: van con un rubro propio para que se lean aparte.
+const RUBRO_LAMINACION = { id: "__laminacion__", nombre: "Laminación" };
+const RUBRO_MADERAS = { id: "__maderas__", nombre: "Maderas" };
 
 /** Cuántas unidades de este material lleva ese barco. null = no lleva. */
 export function cantidadDeModelo(material, modelo) {
@@ -199,6 +205,69 @@ export function evaluarMaterial(material, modelo, recuperables = new Map(), crit
 }
 
 /**
+ * La laminación y la madera del barco, que no están en la matriz.
+ *
+ * Tienen su propio circuito -Laminación con su plan por barco, Maderas con el
+ * consumo real de un casco de referencia- y no generan pedidos al pañol, así
+ * que no se cargan en la matriz. Costo de obra ya las suma desde
+ * `fetchMaterialesSecundariosPlanilla`; acá se toman de ahí para que el costo
+ * del barco no deje afuera el casco ni los muebles.
+ *
+ * Los renglones salen con la misma forma que los de la matriz, marcados como
+ * `produccion`: sus precios se cargan en Laminación y Maderas, no acá.
+ */
+export async function fetchProduccionDeModelo(modelo) {
+  const { data, error } = await supabase
+    .from("produccion_obras")
+    .select("id,codigo,estado,linea_nombre")
+    .eq("estado", "activa");
+  if (error) throw error;
+  const obras = (data || []).filter((obra) => String(obra.codigo || "").trim().startsWith(`${modelo}-`));
+  const { filas } = await fetchMaterialesSecundariosPlanilla({ linea: `K${modelo}`, obras });
+  return filasDeProduccion(filas);
+}
+
+export function filasDeProduccion(filasSecundarias) {
+  const filas = [];
+  for (const row of filasSecundarias || []) {
+    const laminacion = row.circuito === "laminacion";
+    // Laminación cuenta lo que pide su plan para un barco; Maderas, lo que
+    // consumió el casco de referencia. El consumo de las obras en curso no es
+    // costo por barco: es lo que ya se gastó.
+    const cantidad = laminacion
+      ? Number(Object.values(row.porObra || {})[0]?.requerido || 0)
+      : Number(row.cantidadReferencia || 0);
+    if (!(cantidad > 0)) continue;
+    const info = row.precioInfo || null;
+    const bruto = Number(info?.precio_unidad_matriz || 0);
+    // Todo el costo va sin IVA, como el resto de la pantalla.
+    const precio = bruto > 0 ? (info.incluye_iva ? bruto / 1.21 : bruto) : null;
+    const rubro = laminacion ? RUBRO_LAMINACION : RUBRO_MADERAS;
+    filas.push({
+      material: { id: row.id, descripcion: row.descripcion, codigo: null, unidad_medida: row.unidad || "unidad" },
+      cantidad,
+      estado: precio == null ? "falta" : precioVencido(info.fecha) ? "viejo" : "firme",
+      motivo: null,
+      precio,
+      moneda: info?.moneda === "USD" ? "USD" : "ARS",
+      fecha: info?.fecha || null,
+      origen: info?.proveedor || (laminacion ? "plan de Laminación" : `consumo del ${row.referenciaMaderasCodigo}`),
+      costo: precio != null ? cantidad * precio : 0,
+      precios: [],
+      ultimo: null,
+      barato: null,
+      ahorro: 0,
+      ahorroMoneda: "ARS",
+      deRemito: null,
+      produccion: true,
+      rubro: rubro.nombre,
+      rubroId: rubro.id,
+    });
+  }
+  return filas;
+}
+
+/**
  * El rubro con el que cuenta un material, una sola vez.
  *
  * Los consumibles suben todos a Consumibles: abrir Mechas y Lijas como rubros
@@ -273,7 +342,7 @@ function sumar(acc, fila) {
  * desglose no cerraba con el total, que es justo lo que hace que nadie confíe
  * en una planilla de costos.
  */
-export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), categorias = [], criterio = "ultimo", conjuntos = [] } = {}) {
+export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), categorias = [], criterio = "ultimo", conjuntos = [], produccion = [] } = {}) {
   const indice = {
     porId: new Map((categorias || []).map((categoria) => [categoria.id, categoria])),
   };
@@ -307,6 +376,16 @@ export function resumenDeModelo(materiales, modelo, { recuperables = new Map(), 
       porRubro.set(claveRubro, { id: claveRubro, nombre: fila.rubro, ...acumuladorVacio() });
     }
     sumar(porRubro.get(claveRubro), fila);
+  }
+
+  // Laminación y Maderas: ya vienen con su rubro (`fetchProduccionDeModelo`).
+  for (const fila of produccion || []) {
+    filas.push(fila);
+    sumar(total, fila);
+    if (!porRubro.has(fila.rubroId)) {
+      porRubro.set(fila.rubroId, { id: fila.rubroId, nombre: fila.rubro, ...acumuladorVacio() });
+    }
+    sumar(porRubro.get(fila.rubroId), fila);
   }
 
   // Cada conjunto que toca al menos una pieza de este barco, con cuántas toca.
@@ -361,6 +440,9 @@ export function agruparFaltantes(filas, { ademas = new Set() } = {}) {
     // se quedan en la lista hasta el próximo refresco para que cargar veinte
     // seguidos no sea una fila saltando cada vez que se escribe un número.
     if (fila.estado !== "falta" && !ademas.has(fila.material.id)) continue;
+    // Laminación y Maderas cargan sus precios en su propio circuito: acá no se
+    // pueden pedir ni escribir.
+    if (fila.produccion) continue;
 
     // Un material aparece bajo CADA proveedor que lo vende: si el mismo racor
     // lo tienen Iriarte y Baron, se le pide a los dos y después se compara.

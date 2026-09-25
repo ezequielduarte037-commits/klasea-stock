@@ -35,6 +35,7 @@ import {
   agruparFaltantes,
   aplicarPreciosRecuperados,
   fetchPreciosDeRemitos,
+  fetchProduccionDeModelo,
   MODELOS_BARCO,
   resumenDeModelo,
   SIN_PROVEEDOR,
@@ -365,7 +366,15 @@ function DetalleRubro({ rubro, filas, tipoCambio, isMobile, onIrAFaltantes }) {
           </div>
         );
       })}
-      {rubro.falta + rubro.recuperable ? (
+      {rubro.falta + rubro.recuperable && filas.some((fila) => fila.produccion) ? (
+        // Laminación y Maderas no se cotizan acá: sus precios viven en su circuito.
+        <div style={{
+          borderTop: `1px solid ${C.border}`, color: C.muted, padding: "9px 14px 9px 26px",
+          fontFamily: C.sans, fontSize: 11.5, fontWeight: 650,
+        }}>
+          Los {rubro.falta} sin precio se cotizan desde {rubro.nombre}.
+        </div>
+      ) : rubro.falta + rubro.recuperable ? (
         <button type="button" onClick={onIrAFaltantes} style={{
           width: "100%", border: "none", borderTop: `1px solid ${C.border}`, background: "transparent",
           color: C.red, padding: "9px 14px 9px 26px", textAlign: "left", cursor: "pointer",
@@ -504,6 +513,8 @@ export default function CostoBarcoScreen() {
   const [catalogo, setCatalogo] = useState({ materiales: [], categorias: [], proveedores: [] });
   const [recuperables, setRecuperables] = useState(new Map());
   const [conjuntos, setConjuntos] = useState([]);
+  // Laminación y madera del modelo elegido: no están en la matriz.
+  const [produccion, setProduccion] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState("");
@@ -596,6 +607,17 @@ export default function CostoBarcoScreen() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Van por su lado: si Laminación o Maderas no contestan, el costo de la
+  // matriz se ve igual, sólo sin esos rubros.
+  useEffect(() => {
+    let vivo = true;
+    setProduccion([]);
+    fetchProduccionDeModelo(modelo)
+      .then((filas) => { if (vivo) setProduccion(filas); })
+      .catch(() => { if (vivo) setProduccion([]); });
+    return () => { vivo = false; };
+  }, [modelo]);
+
   // El dólar va por su lado: si la API no contesta, el costo en pesos se ve
   // igual. Sólo se pierde la columna unificada.
   useEffect(() => {
@@ -605,8 +627,8 @@ export default function CostoBarcoScreen() {
   }, []);
 
   const resumen = useMemo(
-    () => resumenDeModelo(catalogo.materiales, modelo, { recuperables, categorias: catalogo.categorias, criterio, conjuntos }),
-    [catalogo.materiales, catalogo.categorias, modelo, recuperables, criterio, conjuntos],
+    () => resumenDeModelo(catalogo.materiales, modelo, { recuperables, categorias: catalogo.categorias, criterio, conjuntos, produccion }),
+    [catalogo.materiales, catalogo.categorias, modelo, recuperables, criterio, conjuntos, produccion],
   );
   const conjuntosSinCotizar = resumen.conjuntos.filter((conjunto) => !conjunto.cotizado).length;
   // Sólo los que siguen vivos. `fetchCatalogo` trae todos -inactivos incluidos,
@@ -651,7 +673,10 @@ export default function CostoBarcoScreen() {
   // decir "3 de 21" al filtrar. Se cuentan MATERIALES, no renglones: el mismo
   // material aparece bajo cada proveedor que lo vende y sumar los grupos daría
   // más faltantes de los que hay.
-  const faltantesTotales = resumen.total.falta + resumen.total.recuperable;
+  // Los de Laminación y Maderas sin precio no entran en la lista de faltantes:
+  // se cotizan en su circuito. Se ven marcados en el desglose de su rubro.
+  const faltantesTotales = resumen.filas.filter((fila) => fila.estado === "falta" && !fila.produccion).length
+    + resumen.total.recuperable;
   const faltantesALaVista = useMemo(() => {
     const vistos = new Set();
     for (const grupo of grupos) for (const fila of grupo.items) vistos.add(fila.material.id);
@@ -1192,7 +1217,7 @@ export default function CostoBarcoScreen() {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {TABS.map((opcion) => {
                     const activo = tab === opcion.id;
-                    const cuenta = opcion.id === "faltan" ? total.falta + total.recuperable : 0;
+                    const cuenta = opcion.id === "faltan" ? faltantesTotales : 0;
                     return (
                       <button key={opcion.id} type="button" onClick={() => setTab(opcion.id)} style={{
                         border: `1px solid ${activo ? C.blueB : C.border}`, background: activo ? C.blueL : C.panelSolid,
