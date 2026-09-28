@@ -9,6 +9,12 @@ import k55 from "@/assets/boats/k55.png";
 import k64 from "@/assets/boats/k64.png";
 import k85 from "@/assets/boats/K85.png";
 
+// ?probar habilita el probador del recorrido 3D por esta sesión: el manual
+// reescribe la dirección al navegar entre capítulos y el parámetro se pierde.
+try {
+  if (new URLSearchParams(window.location.search).has("probar")) sessionStorage.setItem("ka_probar", "1");
+} catch { /* sin almacenamiento */ }
+
 const PLANOS = {
   37: { src: k37, espejo: true },
   42: { src: k42, espejo: false },

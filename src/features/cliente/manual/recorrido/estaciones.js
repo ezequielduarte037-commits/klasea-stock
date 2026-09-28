@@ -213,10 +213,12 @@ export const ESTACIONES = [
     cam: { az: 125, el: 30, dist: 1.6 },
     interior: false,
     sistemas: [],
-    foco: { u: 0.48, lado: 0.3, alto: 0.5, ancla: "vhf" },
-    camAncla: { az: 150, el: 34, dist: 0.42 },
+    // El ancla "vhf" del modelo es la antena del techo: la cámara va al puesto
+    // de mando (plotter), de proa y baja para ver por debajo del hardtop.
+    foco: { u: 0.48, lado: 0.3, alto: 0.5, ancla: "gps" },
+    camAncla: { az: 60, el: 14, dist: 0.36 },
     puntos: [
-      { u: 0.48, lado: 0.4, alto: 0.7, ancla: "vhf", t: "Radio VHF", d: "En el puesto de mando. Canal 16 siempre en escucha." },
+      { u: 0.48, lado: 0.4, alto: 0.7, ancla: "timon", t: "Radio VHF", d: "En el puesto de mando. Canal 16 siempre en escucha." },
       { ancla: "gps", soloAncla: true, t: "Plotter / GPS", d: "Carta, posición y el botón MOB para marcar dónde cayó alguien al agua." },
     ],
     pasos: [

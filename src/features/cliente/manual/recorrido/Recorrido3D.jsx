@@ -4,20 +4,38 @@
    cada punto y una vista interior (casco transparente) para lo que
    está bajo cubierta. Blanco y negro, en el tono del manual.
 ═══════════════════════════════════════════════════════════════ */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Edges, Html, MeshReflectorMaterial, OrbitControls } from "@react-three/drei";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import * as THREE from "three";
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Palette, X } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { planoDe, modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca, texturaFoto, INTERIOR } from "./barco";
+import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, texturaTeca, texturaRoble, texturaFoto, prepararLienzo, coloresDelTono, materialDe, INTERIOR } from "./barco";
 import { ESTACIONES } from "./estaciones";
 
 const VISTOS_KEY = "ka_recorrido_vistos";
 const pad = n => String(n).padStart(2, "0");
+
+// Probador de colores y materiales: sólo para probar. Aparece en el servidor
+// local o agregando ?probar a la dirección; no guarda nada en la base.
+const Probador3D = lazy(() => import("./Probador3D"));
+// ka_probar lo anota unidad.js al entrar con ?probar: el manual reescribe la
+// dirección al navegar entre capítulos y el parámetro se pierde.
+const puedeProbar = () => {
+  if (import.meta.env.DEV) return true;
+  try {
+    return new URLSearchParams(window.location.search).has("probar") || sessionStorage.getItem("ka_probar") === "1";
+  } catch {
+    return false;
+  }
+};
 
 const PALETAS = {
   dia:   { fondo: "#f4f4f2", casco: "#ffffff", linea: "#0b0b0b", plano: "#0b0b0b", suave: "#c9c9c4", agua: "#f4f4f2" },
@@ -63,6 +81,8 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
   const [plano, setPlano] = useState(null);
   const [error, setError] = useState(() => (hayWebGL() ? null : "webgl"));
   const [vistos, setVistos] = useState(() => marcar(new Set(leerJson(VISTOS_KEY, [])), ESTACIONES[0].id));
+  const [probando, setProbando] = useState(false);
+  const [conProbador] = useState(puedeProbar);
   const est = ESTACIONES[idx];
   const interior = interiorManual ?? est.interior;
   // Con un modelo interior aparte, el cambio de vista pasa por un fundido:
@@ -104,6 +124,8 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
 
   useEffect(() => {
     const onKey = (e) => {
+      // Con el probador abierto las teclas son suyas.
+      if (probando) return;
       if (e.key === "Escape") onCerrar();
       if (e.key === "ArrowRight") ir(idx + 1);
       if (e.key === "ArrowLeft") ir(idx - 1);
@@ -121,6 +143,15 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
   const ultima = idx === ESTACIONES.length - 1;
   const puntos = puntosDe(est, plano?.tipo === "real" ? plano.modelo : null);
 
+  // El probador reemplaza al recorrido (un solo lienzo 3D a la vez).
+  if (probando) {
+    return (
+      <Suspense fallback={<div className="kx-rec"><div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el probador</span><i className="kx-rec-carga" /></div></div>}>
+        <Probador3D modelo={modelo} tono={tono} onCerrar={() => setProbando(false)} />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="kx-rec" role="dialog" aria-modal="true" aria-label="Recorrido 3D">
       <div className="kx-rec-lienzo">
@@ -134,7 +165,8 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
           <div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el modelo</span><i className="kx-rec-carga" /></div>
         ) : (
           <Canvas dpr={[1, 1.75]} camera={{ fov: 30, near: 0.1, far: 200, position: [9, 5, 9] }} gl={{ antialias: true }}
-            onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.05; gl.localClippingEnabled = true; }}>
+            shadows={plano.tipo === "real" && plano.modelo.aparte ? "soft" : false}
+            onCreated={({ gl }) => prepararLienzo(gl)}>
             <Escena plano={plano} pal={pal} est={est} interior={enEscena} abierto={abierto} onPunto={setAbierto} />
           </Canvas>
         )}
@@ -145,6 +177,11 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
         <span className="kx-marca-k">KLASE A</span>
         <span className="kx-eyebrow kx-solo-ancho" style={{ marginLeft: 18 }}>Recorrido 3D · {modelo || "Klase A"}</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {!error && conProbador && (
+            <button type="button" className="kx-rec-interruptor" onClick={() => setProbando(true)} title="Probar colores y materiales (sólo para pruebas)">
+              <Palette size={14} strokeWidth={1.5} aria-hidden />Probar
+            </button>
+          )}
           {!error && (
             <button type="button" className="kx-rec-interruptor" role="switch" aria-checked={interior} onClick={() => setInteriorManual(!interior)}>
               <i aria-hidden />Vista interior
@@ -213,12 +250,7 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
 
   return (
     <>
-      <color attach="background" args={[pal.fondo]} />
-      <fog attach="fog" args={[pal.fondo, LARGO * 1.6, LARGO * 4]} />
-      <ambientLight intensity={pal === PALETAS.noche ? 0.55 : 0.85} />
-      <hemisphereLight args={["#ffffff", "#cfd4d6", 0.55]} />
-      <directionalLight position={[6, 12, 8]} intensity={1.15} />
-      <directionalLight position={[-8, 5, -6]} intensity={0.35} />
+      <Luces pal={pal} sombra={!!geo.aparte} />
       {geo.real
         ? <BarcoReal modelo={geo} pal={pal} interior={interior} />
         : <BarcoPlano geo={geo} plano={fuente.plano} pal={pal} interior={interior} />}
@@ -227,12 +259,53 @@ function Escena({ plano: fuente, pal, est, interior, abierto, onPunto }) {
           el camarote de popa). */}
       {!interior && <Agua pal={pal} />}
       <Estudio />
+      <Oclusion activa={interior && !!geo.aparte} />
       {puntosDe(est, geo).map((p, i) => (
         <Punto key={`${est.id}-${p.t}`} n={i + 1} pos={ubicar(geo, p)} p={p} abierto={abierto === i} onClick={() => onPunto(abierto === i ? null : i)} />
       ))}
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08}
         minDistance={LARGO * 0.12} maxDistance={LARGO * 2.4} maxPolarAngle={Math.PI / 2 - 0.04} />
       <Camara geo={geo} est={est} interior={interior} />
+    </>
+  );
+}
+
+/* Fondo, niebla y luces: las mismas en el recorrido y en el probador. La
+   sombra sólo se prende con interior aparte (K43): en el resto no aporta y
+   cuesta memoria y shaders más pesados, sobre todo en el celular. */
+function Luces({ pal, sombra }) {
+  return (
+    <>
+      <color attach="background" args={[pal.fondo]} />
+      <fog attach="fog" args={[pal.fondo, LARGO * 1.6, LARGO * 4]} />
+      <ambientLight intensity={pal === PALETAS.noche ? 0.55 : 0.85} />
+      <hemisphereLight args={["#ffffff", "#cfd4d6", 0.55]} />
+      {/* La luz principal da sombra sólo sobre el interior aparte (K43): los
+          mamparos y los muebles se apoyan en el piso en vez de flotar. */}
+      <directionalLight position={[6, 12, 8]} intensity={1.15} castShadow={sombra}
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02} shadow-radius={4}
+        shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6}
+        shadow-camera-near={1} shadow-camera-far={40} />
+      <directionalLight position={[-8, 5, -6]} intensity={0.35} />
+    </>
+  );
+}
+
+/* Escena del probador (Probador3D): el mismo barco, luces, agua y oclusión
+   que el recorrido, sin estaciones ni puntos. alCrearMateriales recibe los
+   materiales por acabado para poder cambiarlos en vivo. children va justo
+   después del barco: sus efectos corren después de que el barco retoca los
+   colores del tono, en la misma pasada. */
+export function EscenaProbador({ modelo, tono, interior, agua, oclusion, alCrearMateriales, children }) {
+  const pal = PALETAS[tono === "noche" ? "noche" : "dia"];
+  return (
+    <>
+      <Luces pal={pal} sombra={!!modelo.aparte} />
+      <BarcoReal modelo={modelo} pal={pal} interior={interior} alCrearMateriales={alCrearMateriales} />
+      {children}
+      {!interior && agua && <Agua pal={pal} />}
+      <Estudio />
+      <Oclusion activa={interior && oclusion && !!modelo.aparte} />
     </>
   );
 }
@@ -258,6 +331,87 @@ function Estudio() {
   return null;
 }
 
+/* Oclusión ambiental (GTAO) en la vista interior: oscurece los rincones, el
+   encuentro de mamparos y piso y lo que queda debajo de colchones y almohadones.
+   Sin ella el interior, iluminado parejo desde arriba, se veía chato, como un
+   plano de CAD. Sólo con el interior aparte (K43): el corte del K64 es un plano
+   de recorte, y la pasada de normales del GTAO no lo respeta. */
+function Oclusion({ activa }) {
+  const gl = useThree(st => st.gl);
+  const escena = useThree(st => st.scene);
+  const camara = useThree(st => st.camera);
+  const size = useThree(st => st.size);
+  const chico = size.width < 900;
+  const efecto = useMemo(() => {
+    // Destino con MSAA: al dibujar en un render target se pierde el antialias del lienzo.
+    const destino = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    const composer = new EffectComposer(gl, destino);
+    const ao = new GTAOPass(escena, camara, 1, 1);
+    // Radio en unidades de la escena (LARGO = 10 es la eslora): unos 50 cm reales.
+    ao.updateGtaoMaterial({ radius: 0.38, distanceExponent: 1.5, thickness: 2, scale: 1.35, samples: chico ? 8 : 16 });
+    ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: chico ? 8 : 16 });
+    ao.blendIntensity = 0.95;
+    const pasadas = [new RenderPass(escena, camara), ao, new OutputPass()];
+    pasadas.forEach(p => composer.addPass(p));
+    return { composer, pasadas };
+  }, [gl, escena, camara, chico]);
+  useEffect(() => {
+    efecto.composer.setPixelRatio(gl.getPixelRatio());
+    efecto.composer.setSize(size.width, size.height);
+  }, [efecto, gl, size]);
+  useEffect(() => () => {
+    efecto.pasadas.forEach(p => p.dispose?.());
+    efecto.composer.dispose();
+  }, [efecto]);
+  // Prioridad 1: desde acá se dibuja cada cuadro (R3F deja de hacerlo solo).
+  const compensado = useRef({ clave: "", color: null });
+  useFrame(({ scene }, dt) => {
+    if (!activa) {
+      gl.render(escena, camara);
+      return;
+    }
+    // Dibujado directo, el fondo no pasa por el tone mapping; con el
+    // composer sí (lo aplica el OutputPass a toda la imagen). Se le da el
+    // color que, después del tone mapping, vuelve a ser el fondo de siempre.
+    const fondo = scene.background;
+    if (fondo?.isColor) {
+      const clave = `${fondo.getHexString()}|${gl.toneMappingExposure}`;
+      if (compensado.current.clave !== clave) compensado.current = { clave, color: fondoCompensado(fondo, gl.toneMappingExposure) };
+      scene.background = compensado.current.color;
+    }
+    efecto.composer.render(dt);
+    scene.background = fondo;
+  }, 1);
+  return null;
+}
+
+/* NeutralToneMapping de three, la misma cuenta que el shader, sobre un color
+   lineal. */
+function tonoNeutro([r0, g0, b0], exposicion) {
+  let [r, g, b] = [r0 * exposicion, g0 * exposicion, b0 * exposicion];
+  const x = Math.min(r, g, b);
+  const corrimiento = x < 0.08 ? x - 6.25 * x * x : 0.04;
+  r -= corrimiento; g -= corrimiento; b -= corrimiento;
+  const pico = Math.max(r, g, b);
+  const inicio = 0.8 - 0.04;
+  if (pico < inicio) return [r, g, b];
+  const d = 1 - inicio;
+  const nuevo = 1 - (d * d) / (pico + d - inicio);
+  const desatura = 1 - 1 / (0.15 * (pico - nuevo) + 1);
+  return [r, g, b].map(v => v * (nuevo / pico) * (1 - desatura) + nuevo * desatura);
+}
+
+/* El color de entrada que, pasado por el tone mapping, da el fondo pedido. */
+function fondoCompensado(fondo, exposicion) {
+  const meta = [fondo.r, fondo.g, fondo.b];
+  let c = meta.slice();
+  for (let i = 0; i < 80; i++) {
+    const t = tonoNeutro(c, exposicion);
+    c = c.map((v, k) => Math.max(0, v + (meta[k] - t[k]) * 1.2));
+  }
+  return new THREE.Color(c[0], c[1], c[2]);
+}
+
 /* Modelo real exportado de Rhino. Cada pieza trae el nombre de su acabado
    (casco, fondo, cubierta, teca, cromo, negro, vidrios, tapizado, detalle,
    interior). */
@@ -277,11 +431,14 @@ const ACABADOS = {
   // Posavasos: acrílico gris humo, pulido.
   acrilico: { color: "#8e959a", roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.04 },
   detalle:  { color: "#3a3a3a", roughness: 0.4 },
-  // Interior (según los renders): roble gris rosado, piso de tablas claras,
-  // camas y sillones crema, cielorraso blanco, mesada de piedra y loza.
-  madera:   { color: "#e2dcd4", roughness: 0.5, tex: "grey_oak_veneer_01", relieve: "grey_oak_veneer_01", m: 0.6 },
+  // Interior: roble natural neutro con la veta marcada y barniz satinado,
+  // piso de tablas, camas y sillones en lana gris, cielorraso blanco, mesada
+  // de piedra y loza.
+  madera:   { color: "#ffffff", roughness: 0.46, tex: "roble", relieve: "grey_oak_veneer_01", m: 0.6, clearcoat: 0.3, clearcoatRoughness: 0.32 },
   piso:     { color: "#d8c2aa", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
-  tela:     { color: "#a9a298", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5 },
+  tela:     { color: "#a9a298", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5, n: 1 },
+  // Almohadones sueltos de camas y sillones: lino claro, como afuera.
+  cojin:    { color: "#ece6dc", roughness: 0.95, relieve: "poly_wool_herringbone", m: 0.2, sheen: 0.8, n: 0.5 },
   techo:    { color: "#f6f4f0", roughness: 0.8 },
   // Mesada: cuarzo blanco liso (la foto de mármol se repetía como baldosas).
   piedra:   { color: "#f2f0ec", roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.1 },
@@ -294,7 +451,7 @@ const ACABADOS = {
 /* Modelo real. En la vista interior no se vuelve transparente: se corta como
    un plano de arquitectura (todo lo que está arriba de los camarotes se va),
    con una transición que baja el corte de a poco. */
-function BarcoReal({ modelo, pal, interior }) {
+function BarcoReal({ modelo, pal, interior, alCrearMateriales }) {
   const noche = pal === PALETAS.noche;
   const mats = useMemo(() => {
     const texturas = {};
@@ -303,6 +460,7 @@ function BarcoReal({ modelo, pal, interior }) {
     const lista = Object.fromEntries(Object.entries(ACABADOS).map(([nombre, a]) => {
       const m = a.m ?? 1;
       const mapa = a.tex === "teca" ? tex("teca", texturaTeca)
+        : a.tex === "roble" ? tex(`roble-${m}`, () => texturaRoble(m))
         : a.tex ? tex(`${a.tex}-c-${m}`, () => texturaFoto(`${a.tex}_diff`, m)) : null;
       const normales = a.relieve ? tex(`${a.relieve}-n-${m}`, () => texturaFoto(`${a.relieve}_nor`, m, { color: false })) : null;
       return [nombre, new THREE.MeshPhysicalMaterial({
@@ -311,7 +469,7 @@ function BarcoReal({ modelo, pal, interior }) {
         sheen: a.sheen ?? 0, sheenRoughness: 0.8, sheenColor: new THREE.Color("#ffffff"),
         transmission: a.transmission ?? 0, thickness: a.thickness ?? 0, ior: a.ior ?? 1.5,
         attenuationColor: new THREE.Color(a.atenuacion ?? "#ffffff"), attenuationDistance: a.atenuacion ? 0.012 : Infinity,
-        map: mapa, normalMap: normales, normalScale: new THREE.Vector2(0.6, 0.6),
+        map: mapa, normalMap: normales, normalScale: new THREE.Vector2(a.n ?? 0.6, a.n ?? 0.6),
         side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
         // Teca y piso van apoyados sobre otra superficie: se adelantan apenas
         // (de más, atravesaban el casco y se veían como líneas en el costado).
@@ -335,11 +493,14 @@ function BarcoReal({ modelo, pal, interior }) {
       ...Object.entries(modelo.piezas).map(([nombre, m]) => [nombre, m, INTERIOR.includes(nombre)]),
       ...Object.entries(modelo.aparte?.piezas ?? {}).map(([nombre, m]) => [nombre, m, true]),
     ];
+    const delInterior = new Set(Object.values(modelo.aparte?.piezas ?? {}));
     todas.forEach(([nombre, m, dentro]) => {
-      m.material = mats.lista[nombre] || mats.lista.detalle;
+      m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle;
+      if (delInterior.has(m) && nombre !== "vidrios") m.castShadow = m.receiveShadow = true;
       // El interior lleva contornos finos siempre: en la vista en corte separan
       // camas, muebles y pisos como en un plano.
-      if ((!modelo.lineas && !dentro) || nombre === "vidrios") return;
+      // Los almohadones son arrugados: con contornos quedaban rayados.
+      if ((!modelo.lineas && !dentro) || nombre === "vidrios" || nombre === "cojin") return;
       const bordes = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, dentro ? 35 : 32), dentro ? mats.lineaDentro : mats.linea);
       m.add(bordes);
       extras.push(bordes);
@@ -349,16 +510,19 @@ function BarcoReal({ modelo, pal, interior }) {
 
   useEffect(() => {
     mats.linea.color.set(pal.linea);
-    mats.lista.interior.color.set(noche ? "#3a3a3a" : "#e8e6e1");
-    // Sin materiales propios (K64): la piel toma el tono del manual.
-    if (modelo.lineas) mats.lista.casco.color.set(pal.casco);
+    // Sin materiales propios (K64) la piel del casco también toma el tono del manual.
+    Object.entries(coloresDelTono(noche ? "noche" : "dia", modelo.lineas))
+      .forEach(([nombre, color]) => mats.lista[nombre].color.set(color));
   }, [pal, noche, mats, modelo]);
+
+  // Para el probador: los materiales por acabado, ya con el tono del manual.
+  useEffect(() => { alCrearMateriales?.(mats.lista); }, [mats, alCrearMateriales]);
 
   // useFrame lee por ref: el corte se anima fuera del render de React.
   const vivo = useRef(null);
   useEffect(() => { vivo.current = { mats, modelo, interior }; }, [mats, modelo, interior]);
 
-  useFrame((_, dt) => {
+  useFrame(({ gl }, dt) => {
     if (!vivo.current) return;
     const { mats, modelo, interior } = vivo.current;
     const tope = modelo.D * 8;
@@ -366,6 +530,8 @@ function BarcoReal({ modelo, pal, interior }) {
     // cambio lo tapa el fundido de la pantalla).
     if (modelo.aparte) {
       mats.plano.constant = tope;
+      // La sombra se recalcula cuando cambia lo que está a la vista.
+      if (modelo.aparte.raiz.visible !== interior) gl.shadowMap.needsUpdate = true;
       modelo.raiz.visible = !interior;
       modelo.aparte.raiz.visible = interior;
       INTERIOR.forEach(n => { if (modelo.piezas[n]) modelo.piezas[n].visible = false; });
@@ -432,28 +598,48 @@ function Barco({ geo, textura, pal, interior }) {
 }
 
 
+/* El reflejo se dibuja con una cámara espejada, que ve la escena invertida de
+   izquierda a derecha. Pero toma la proyección de la cámara principal, que en
+   escritorio va corrida (filmOffset) para dejar el barco a la derecha del
+   panel: espejada, queda corrida para el otro lado. Así el agua de la
+   izquierda leía fuera de la imagen del reflejo y estiraba su borde en franjas
+   de colores. Este paso da vuelta el corrimiento justo antes de que el reflejo
+   copie la proyección, y lo vuelve a su lugar justo después. Va antes y
+   después del material en el árbol para que sus useFrame corran en ese orden. */
+function InvertirCorrimiento() {
+  useFrame(({ camera }) => {
+    const e = camera.projectionMatrix.elements;
+    e[8] = -e[8];
+  });
+  return null;
+}
+
 /* Agua: espejo mate que refleja el casco (el barco "flota") y se pierde en
    la niebla. Tapa lo sumergido, así la obra viva no se ve. */
 function Agua({ pal }) {
   const noche = pal === PALETAS.noche;
   const chico = typeof window !== "undefined" && window.innerWidth < 900;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[LARGO * 10, LARGO * 10]} />
-      <MeshReflectorMaterial
-        color={noche ? "#0b0d0e" : "#e3e8ea"}
-        resolution={chico ? 512 : 1024}
-        blur={[400, 120]}
-        mixBlur={1}
-        mixStrength={noche ? 1.2 : 0.7}
-        mirror={0.6}
-        roughness={0.85}
-        metalness={0.2}
-        depthScale={0.8}
-        minDepthThreshold={0.3}
-        maxDepthThreshold={1.2}
-      />
-    </mesh>
+    <>
+      <InvertirCorrimiento />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[LARGO * 10, LARGO * 10]} />
+        <MeshReflectorMaterial
+          color={noche ? "#0b0d0e" : "#e3e8ea"}
+          resolution={chico ? 512 : 1024}
+          blur={[400, 120]}
+          mixBlur={1}
+          mixStrength={noche ? 1.2 : 0.7}
+          mirror={0.6}
+          roughness={0.85}
+          metalness={0.2}
+          depthScale={0.8}
+          minDepthThreshold={0.3}
+          maxDepthThreshold={1.2}
+        />
+      </mesh>
+      <InvertirCorrimiento />
+    </>
   );
 }
 
