@@ -273,21 +273,26 @@ function Icon({ id, color = "currentColor", size = 14 }) {
 }
 
 // ─── SECTION ACCENT COLORS ────────────────────────────────────────────────────
-// Colores de seccion. Sin ambar: Compras, Semaforo y Maderas lo usaban y es un
-// color que en este sistema no se usa en ningun lado mas.
+// Cada bloque del menú conserva su color aun sin hover. Las mezclas parten de
+// tokens del tema para mantener contraste en oscuro, claro y alto contraste.
 const SC = {
-  movimientos:        "#818cf8",   // indigo
-  produccion:         "#60a5fa",   // blue
-  instrucciones:      "#94a3b8",   // slate
-  gestion_laminacion: "#34d399",   // emerald
-  gestion_maderas:    "#2dd4bf",   // teal
-  sistema:            "#f87171",   // red
-  postventa:          "#67e8f9",   // cyan
-  tickets:            "#a78bfa",   // violet
-  compras:            "#a78bfa",   // violet
-  panol_catalogo:     "#38bdf8",   // sky
-  rrhh:               "#2dd4bf",   // teal
-  semaforo:           "#a78bfa",   // violet
+  operacion:          "var(--teal)",
+  consulta:           "var(--indigo)",
+  apoyo:              "color-mix(in srgb, var(--green) 72%, var(--orange))",
+  inventario:         "var(--cyan)",
+  produccion:         "var(--blue)",
+  mecanica:           "color-mix(in srgb, var(--blue) 65%, var(--teal))",
+  compras:            "var(--orange)",
+  panol:              "var(--teal)",
+  catalogo:           "var(--violet)",
+  precios:            "var(--green)",
+  logistica:          "color-mix(in srgb, var(--cyan) 58%, var(--orange))",
+  gestion_laminacion: "color-mix(in srgb, var(--green) 68%, var(--cyan))",
+  postventa:          "color-mix(in srgb, var(--cyan) 65%, var(--blue))",
+  rrhh:               "color-mix(in srgb, var(--violet) 58%, var(--red))",
+  sistema:            "var(--red)",
+  instrucciones:      "color-mix(in srgb, var(--indigo) 66%, var(--blue))",
+  ayuda:              "color-mix(in srgb, var(--orange) 56%, var(--violet))",
 };
 
 /** Riel de íconos y panel abierto (px). */
@@ -364,8 +369,8 @@ const CSS = `
   .sb-aside[data-abierto="false"] .sb-nav::-webkit-scrollbar { display: none; }
 
   .sb-grupo { height: 30px; margin-top: 8px; display: flex; align-items: center; gap: 11px; padding-left: 31px; overflow: hidden; }
-  .sb-grupo-punto { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; opacity: .9; }
-  .sb-grupo-texto { font-size: 11px; letter-spacing: .09em; color: var(--dim); text-transform: uppercase; font-weight: 600; }
+  .sb-grupo-punto { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--sb-col); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-col) 13%, transparent); }
+  .sb-grupo-texto { font-size: 11px; letter-spacing: .09em; color: var(--sb-col); text-transform: uppercase; font-weight: 700; }
 
   .sb-item {
     position: relative; overflow: hidden;
@@ -376,14 +381,13 @@ const CSS = `
     text-decoration: none !important;
     transition: color .16s, background-color .16s;
   }
-  .sb-item:hover { background: var(--panel); color: var(--text); }
-  .sb-item.sb-activo { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  .sb-item:hover { background: color-mix(in srgb, var(--sb-col) 8%, var(--panel-solid)); color: var(--text); }
+  .sb-item.sb-activo { background: color-mix(in srgb, var(--sb-col) 13%, var(--panel-solid)); color: var(--text); font-weight: 600; }
   .sb-item:active { transform: scale(.985); }
-  .sb-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); transition: color .16s; }
-  .sb-item:hover .sb-icon, .sb-item.sb-activo .sb-icon { color: var(--sb-col); }
+  .sb-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--sb-col); border-radius: 6px; background: color-mix(in srgb, var(--sb-col) 12%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-col) 8%, transparent); transition: background-color .16s, box-shadow .16s; }
+  .sb-item:hover .sb-icon, .sb-item.sb-activo .sb-icon { background: color-mix(in srgb, var(--sb-col) 20%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-col) 12%, transparent); }
   .sb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  /* La barra del ítem activo lleva el degradé de la marca. */
-  .sb-marca-activa { position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: linear-gradient(180deg, var(--cyan), var(--blue)); }
+  .sb-marca-activa { position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--sb-col); }
   .sb-contador, .sb-contador-mini {
     display: inline-flex; align-items: center; justify-content: center;
     border: 1px solid var(--cyan-border); border-radius: 999px;
@@ -677,11 +681,10 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
   };
 
   // ── GRUPO ─────────────────────────────────────────────────────────────────
-  // Alto fijo en los dos estados para que la lista no salte al abrir. El color
-  // de sección queda en el punto, que en el riel es lo único que se ve.
+  // Alto fijo en los dos estados para que la lista no salte al abrir.
   const group = (label, c, delay = 0) => (
-    <div key={`g${label}`} className="sb-grupo" style={{ animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both` }}>
-      <span className="sb-grupo-punto" style={{ background: c || C.dim }} />
+    <div key={`g${label}`} className="sb-grupo" style={{ "--sb-col": c || C.dim, animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both` }}>
+      <span className="sb-grupo-punto" />
       <span className="sb-grupo-texto sb-texto">{label}</span>
     </div>
   );
@@ -802,41 +805,41 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
       {/* NAV ───────────────────────────────────────────────────────────── */}
       <nav className="sb-nav" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
         {esPanol && <>
-          {group("Operación diaria", SC.panol_catalogo, 55)}
-          {item("/inicio-panol", "Panel de pañol", SC.panol_catalogo, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
-          {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.panol_catalogo, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
-          {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.panol_catalogo, true, 80, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
-          {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.panol_catalogo, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
-          {item("/egresos-panol", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
-          {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
-          {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
+          {group("Operación diaria", SC.operacion, 55)}
+          {item("/inicio-panol", "Panel de pañol", SC.operacion, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
+          {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.operacion, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
+          {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.operacion, true, 80, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
+          {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.operacion, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
+          {item("/egresos-panol", "Egresar materiales", SC.operacion, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
+          {item("/solicitudes-panol", "Solicitudes", SC.operacion, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
+          {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.operacion, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
           {/* Se llamaba "Egreso de consumibles" y quedaba pegado a
               "Consumibles": dos renglones casi iguales, uno arriba del otro.
               "Caja" es como le dicen en el pañol y ademas describe mejor lo
               que hace, porque por aca tambien entra mercaderia. */}
-          {item("/consumibles-caja", "Caja de consumibles", SC.panol_catalogo, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
+          {item("/consumibles-caja", "Caja de consumibles", SC.operacion, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
 
           {divider("panol-consulta")}
-          {group("Consultar", SC.movimientos, 120)}
-          {item("/stock-panol?tab=maestro", "Stock maestro", SC.movimientos, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
-          {item("/catalogo-maestro", "Catálogo maestro", SC.movimientos, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
-          {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.movimientos, true, 140, "Plano de estanterías y productos ubicados.")}
-          {item("/stock-panol?tab=movimientos", "Movimientos", SC.movimientos, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
-          {item("/motores-y-grupos", "Motores y grupos", SC.movimientos, true, 155, "Motores y grupos electrógenos por barco, en el galpón y entregados, con su número de serie.")}
-          {item("/compras", "Pedidos a compras", SC.compras, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
+          {group("Consultar", SC.consulta, 120)}
+          {item("/stock-panol?tab=maestro", "Stock maestro", SC.consulta, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
+          {item("/catalogo-maestro", "Catálogo maestro", SC.consulta, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
+          {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.consulta, true, 140, "Plano de estanterías y productos ubicados.")}
+          {item("/stock-panol?tab=movimientos", "Movimientos", SC.consulta, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
+          {item("/motores-y-grupos", "Motores y grupos", SC.consulta, true, 155, "Motores y grupos electrógenos por barco, en el galpón y entregados, con su número de serie.")}
+          {item("/compras", "Pedidos a compras", SC.consulta, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
 
           {divider("panol-apoyo")}
-          {group("Áreas de apoyo", C.dim, 175)}
-          {item("/madera", "Maderas", C.dim, true, 185, "Stock y pedidos específicos de maderas.")}
-          {itemsLaminacion(C.dim, 195)}
-          {item("/scan-pedido", "Pedir reposición", C.dim, true, 205, "Crear rápidamente un pedido interno a Compras.")}
+          {group("Áreas de apoyo", SC.apoyo, 175)}
+          {item("/madera", "Maderas", SC.apoyo, true, 185, "Stock y pedidos específicos de maderas.")}
+          {itemsLaminacion(SC.apoyo, 195)}
+          {item("/scan-pedido", "Pedir reposición", SC.apoyo, true, 205, "Crear rápidamente un pedido interno a Compras.")}
         </>}
 
         {esGestion && <>
-          {group("Inventario", SC.movimientos, 60)}
-          {item("/madera", "Maderas", SC.movimientos, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
-          {itemsLaminacion(SC.movimientos, 80)}
-          {item("/scan", "Escáner", SC.movimientos, true, 90, "Egreso de madera por escáner.")}
+          {group("Inventario", SC.inventario, 60)}
+          {item("/madera", "Maderas", SC.inventario, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
+          {itemsLaminacion(SC.inventario, 80)}
+          {item("/scan", "Escáner", SC.inventario, true, 90, "Egreso de madera por escáner.")}
         </>}
 
         {esGestion && <>
@@ -852,51 +855,51 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
         </>}
 
         {esMecanica && !esGestion && <>
-          {group("Mecánica", SC.produccion, 120)}
-          {item("/torneria", "Tornería", SC.produccion, true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
+          {group("Mecánica", SC.mecanica, 120)}
+          {item("/torneria", "Tornería", SC.mecanica, true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
         </>}
 
         {puedePedirCompras && !esPanol && <>
           {divider("compras")}
           {group(comprasGroup, SC.compras, 205)}
           {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
-          {esCompras && item("/solicitudes-panol", "Solicitudes de pañol", SC.panol_catalogo, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
+          {esCompras && item("/solicitudes-panol", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
           {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
           {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
-          {esCompras && item("/muebles", "Muebles y herrajes", SC.produccion, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
-          {esCompras && item("/calendario", "Logística", SC.produccion, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
-          {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
+          {esCompras && item("/muebles", "Muebles y herrajes", SC.compras, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
+          {esCompras && item("/calendario", "Logística", SC.compras, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
+          {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.compras, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
         </>}
 
-        {esCompras && item("/torneria", "Tornería y mecanizados", SC.produccion, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
+        {esCompras && item("/torneria", "Tornería y mecanizados", SC.compras, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
 
         {esGestion && <>
           {divider("panol-rec")}
-          {group("Pañol", SC.panol_catalogo, 216)}
-          {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
-          {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
-          {item("/stock-panol", "Stock", SC.panol_catalogo, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
-          {item("/motores-y-grupos", "Motores y grupos", SC.panol_catalogo, true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
+          {group("Pañol", SC.panol, 216)}
+          {item("/recepcion-panol", "Recepción y egresos", SC.panol, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
+          {item("/solicitudes-panol", "Solicitudes", SC.panol, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
+          {item("/stock-panol", "Stock", SC.panol, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
+          {item("/motores-y-grupos", "Motores y grupos", SC.panol, true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
         </>}
 
         {puedeVerCatalogo && !esPanol && <>
           {divider("panol-cat")}
-          {group("Catálogo", SC.panol_catalogo, 218)}
-          {item("/catalogo-maestro", "Catálogo maestro", SC.panol_catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
-          {puedeVerMateriales && item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
+          {group("Catálogo", SC.catalogo, 218)}
+          {item("/catalogo-maestro", "Catálogo maestro", SC.catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
+          {puedeVerMateriales && item("/materiales", "Listas de compras", SC.catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
         </>}
 
         {puedeVerPrecios && <>
           {divider("precios")}
-          {group("Precios", SC.panol_catalogo, 230)}
-          {item("/costo-barco", "Costo del barco", SC.panol_catalogo, true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
-          {item("/precios", "Carga de precios", SC.panol_catalogo, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
+          {group("Precios", SC.precios, 230)}
+          {item("/costo-barco", "Costo del barco", SC.precios, true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
+          {item("/precios", "Carga de precios", SC.precios, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
         </>}
 
         {esAdministracion && puedeVerLogistica && <>
           {divider("logistica-admin")}
-          {group("Logística", SC.produccion, 235)}
-          {item("/calendario", "Solicitar movimientos", SC.produccion, true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
+          {group("Logística", SC.logistica, 235)}
+          {item("/calendario", "Solicitar movimientos", SC.logistica, true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
         </>}
 
         {esGestion && <>
@@ -934,8 +937,8 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
             hacer cualquiera que entre. Va al final porque no es parte del
             trabajo diario, pero está siempre a la vista. */}
         {divider("tk")}
-        {group("Ayuda", SC.tickets, 490)}
-        {item("/tickets", "Tickets", SC.tickets, true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
+          {group("Ayuda", SC.ayuda, 490)}
+          {item("/tickets", "Tickets", SC.ayuda, true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
       </nav>
 
       {/* PIE ─────────────────────────────────────────────────────────────────
