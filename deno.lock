@@ -31,6 +31,7 @@
         "npm:eslint-plugin-react-hooks@^7.0.1",
         "npm:eslint-plugin-react-refresh@~0.4.24",
         "npm:eslint@^9.39.1",
+        "npm:fflate@~0.8.3",
         "npm:framer-motion@^12.35.2",
         "npm:globals@^16.5.0",
         "npm:jspdf-autotable@^5.0.7",

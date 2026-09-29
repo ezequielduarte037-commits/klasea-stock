@@ -55,6 +55,7 @@ import {
   rubroDeLista,
 } from "./api";
 import ProductoAsignadoControl from "./ProductoAsignadoControl";
+import { findConditionProductReplacements } from "./conditionProductReplacement";
 import {
   fetchRequisitoProductos,
   guardarConfiguracionProductoLinea,
@@ -4176,8 +4177,36 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     const byKey = new Map(baseAplicable.map((row) => [row.materialId || row.id, { ...row, baseCantidad: row.cantidad, condicionantes: [] }]));
 
     for (const condicionante of condicionantesActivos) {
+      const { replacements, consumedItemIds } = findConditionProductReplacements(
+        [...byKey.values()], condicionante.items, productosCompatibles,
+      );
+      for (const replacement of replacements) {
+        const current = byKey.get(replacement.requirementId);
+        const producto = materialById.get(replacement.productId);
+        if (!current || !producto) continue;
+        const precio = priceInfo(producto);
+        byKey.set(replacement.requirementId, {
+          ...current,
+          productoMaterialId: producto.id,
+          producto,
+          productoEstandar: false,
+          productoCondicionante: true,
+          descripcion: producto.descripcion,
+          codigo: producto.codigo || "",
+          proveedor: precio.proveedor || producto.proveedor || "Sin proveedor",
+          precio,
+          imagen_url: producto.imagen_url || "",
+          obs: [current.obs, `${condicionante.nombre}: ${producto.descripcion}`].filter(Boolean).join(" - "),
+          condicionantes: [...(current.condicionantes || []), {
+            id: replacement.addition.id,
+            condicionante: condicionante.nombre,
+            delta: 0,
+            label: `Sustituye ${current.producto?.descripcion || current.descripcion}`,
+          }],
+        });
+      }
       for (const item of condicionante.items ?? []) {
-        if (item.activo === false) continue;
+        if (item.activo === false || consumedItemIds.has(item.id)) continue;
         const delta = condicionanteDelta(item);
         const material = item.material_id ? materialById.get(item.material_id) || item.material || null : null;
         const key = item.material_id || `condicionante-${condicionante.id}-${item.id}`;
@@ -4234,7 +4263,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           || a.rubro.localeCompare(b.rubro, "es")
           || a.descripcion.localeCompare(b.descripcion, "es");
       });
-  }, [baseRows, categorias, condicionantesActivos, exclusionMaterialIds, materialById]);
+  }, [baseRows, categorias, condicionantesActivos, exclusionMaterialIds, materialById, productosCompatibles]);
 
   const addonRows = useMemo(() => (addons ?? [])
     .map((addon) => addonRowToView(addon, materialById, categorias))
@@ -5271,7 +5300,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
       {!!row.condicionantes?.length && <div style={{ display: "grid", gap: 5 }}><strong>Condicionantes</strong>{row.condicionantes.map((item) => <span key={`${item.id}-${item.condicionante}`} style={{ color: item.delta < 0 ? C.red : C.violet }}>{item.condicionante}: {item.label}</span>)}</div>}
       {productSpecEntries(row.especificaciones).map((item) => <div key={item.key}><span style={{ color: C.muted }}>{item.label}: </span>{item.value}</div>)}
-      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
+      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra && !row.productoCondicionante} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
       <RecepcionDetalle row={row} />
     </div>;
     if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
@@ -7524,7 +7553,19 @@ function mergeSnapshotIntoLive(live, snapshot) {
   const notaRecepcion = remitoDeAddon && cantidadRecibida != null
     ? `RecepciÃ³n por remito: ${qtyText(cantidadRecibida, snapshot.unidad || live.unidad)}`
     : "";
-  const snapshotDefineProducto = !!snapshot.productoConfiguracionOrigen || !!snapshot.productoMaterialId;
+  const snapshotOperado = !!(snapshot.purchase_request_id || snapshot.purchase_request_item_id
+    || snapshot.panol_envio_id || snapshot.panol_envio_item_id || snapshot.recepcion_estado
+    || (toNum(snapshot.cantidad_egresada) || 0) > 0)
+    || !["", "pendiente"].includes(String(snapshot.snapshot_estado || "").toLowerCase());
+  // Una terminación opcional definida para el barco prevalece sobre la elección
+  // previa de una fila aún pendiente. Nunca cambia un pedido o movimiento hecho.
+  const snapshotDefineProducto = !(live.productoCondicionante && !snapshotOperado)
+    && (!!snapshot.productoConfiguracionOrigen || !!snapshot.productoMaterialId);
+  const conflictoProductoCondicionante = !!live.productoCondicionante && snapshotOperado
+    && snapshot.productoMaterialId !== live.productoMaterialId;
+  const avisoProductoCondicionante = conflictoProductoCondicionante
+    ? "Revisar terminación: la configuración actual difiere de un producto ya pedido o movido."
+    : "";
   const snapshotDefineEspecificaciones = !!snapshot.especificacionesOrigen;
   // El producto que lleva esta obra: el elegido para la obra (ninguno, si se
   // dejó pendiente a propósito) o, si no se eligió, el estándar de la línea.
@@ -7544,6 +7585,7 @@ function mergeSnapshotIntoLive(live, snapshot) {
     productoMaterialId: snapshotDefineProducto ? (snapshot.productoMaterialId || null) : (live.productoMaterialId || null),
     producto: snapshotDefineProducto ? (snapshot.producto || null) : (live.producto || null),
     productoEstandar: snapshotDefineProducto ? !!snapshot.productoEstandar : !!live.productoEstandar,
+    productoCondicionante: !!live.productoCondicionante,
     productoConfiguracionOrigen: snapshot.productoConfiguracionOrigen || live.productoConfiguracionOrigen || null,
     esRequisito: live.esRequisito || snapshot.esRequisito || false,
     especificaciones: snapshotDefineEspecificaciones
@@ -7593,10 +7635,12 @@ function mergeSnapshotIntoLive(live, snapshot) {
         ? priceInfo(requisitoLive)
         : linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
     bucket: live.bucket || snapshot.bucket,
-    obs: mergeNotes(mergeNotes(live.obs, snapshot.obs), notaRecepcion),
+    obs: mergeNotes(mergeNotes(mergeNotes(live.obs, snapshot.obs), notaRecepcion), avisoProductoCondicionante),
     variante: snapshot.variante || live.variante || "",
     revisado: live.revisado ?? snapshot.revisado,
-    review: live.review?.flag ? live.review : snapshot.review,
+    review: conflictoProductoCondicionante
+      ? { flag: true, reason: avisoProductoCondicionante }
+      : live.review?.flag ? live.review : snapshot.review,
     // La lista fijada de la obra es la base operativa. Ej.: 32 fijadas +8 por
     // "sin vestidor" = 40; ese 40 es el que se muestra y se manda a Compras.
     baseCantidad: condicionaFilaBase ? cantidadFijada : live.baseCantidad,

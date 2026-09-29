@@ -1,6 +1,7 @@
 import { supabase } from "@/supabaseClient";
 import { rowDelta } from "@/features/panol/panolMovimientos";
 import { fetchRequisitoProductos } from "@/features/materiales/productosAsignadosApi";
+import { findConditionProductReplacements } from "@/features/materiales/conditionProductReplacement";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 
 /**
@@ -53,8 +54,8 @@ async function traerTodoDeObras(tabla, select, obraIds) {
   return filas;
 }
 
-const SNAPSHOT_SELECT = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,tipo,tipo_label,es_adicional,especificaciones,recepcion_estado,panol_envio_id,panol_envio_item_id,created_at";
-const SNAPSHOT_SELECT_COMPATIBLE = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,panol_envio_id,panol_envio_item_id,created_at";
+const SNAPSHOT_SELECT = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,tipo,tipo_label,es_adicional,especificaciones,recepcion_estado,panol_envio_id,panol_envio_item_id,purchase_request_id,purchase_request_item_id,created_at";
+const SNAPSHOT_SELECT_COMPATIBLE = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,panol_envio_id,panol_envio_item_id,purchase_request_id,purchase_request_item_id,created_at";
 const STOCK_SELECT = "material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado";
 
 async function traerLedgerPlanilla(obraIds) {
@@ -266,6 +267,7 @@ async function construirPlanillaDeLinea(linea) {
     .filter((row) => String(row.variante || "standard").toLowerCase() === "standard")
     .filter((row) => Number(row.cantidad || 0) > 0)
     .filter((row) => porMaterial.has(row.material_id));
+  const productosCompatibles = await fetchRequisitoProductos(matrizBase.map((row) => row.material_id));
 
   const condicionantesLinea = (condicionantesRes?.condicionantes ?? [])
     .filter((condicionante) => condicionante.activo !== false)
@@ -311,8 +313,28 @@ async function construirPlanillaDeLinea(linea) {
 
     for (const condicionante of condicionantesLinea) {
       if (!condicionanteActivo(obra.id, condicionante)) continue;
+      const { replacements, consumedItemIds } = findConditionProductReplacements(
+        [...items.values()], condicionante.items, productosCompatibles,
+      );
+      for (const replacement of replacements) {
+        const current = items.get(replacement.requirementId);
+        if (!current) continue;
+        items.set(replacement.requirementId, {
+          ...current,
+          producto_predeterminado_id: replacement.productId,
+          productoCondicionante: true,
+          ajustesConfiguracion: [...(current.ajustesConfiguracion || []), {
+            id: replacement.addition.id,
+            configuracionId: condicionante.id,
+            nombre: condicionante.nombre,
+            delta: 0,
+          }],
+          origenes: [...new Set([...(current.origenes || []), "opcional"])],
+        });
+      }
       for (const item of condicionante.items ?? []) {
-        if (item.activo === false || !item.material_id || !porMaterial.has(item.material_id)) continue;
+        if (item.activo === false || consumedItemIds.has(item.id)
+          || !item.material_id || !porMaterial.has(item.material_id)) continue;
         const cantidad = Math.abs(Number(item.cantidad ?? 1) || 1);
         const delta = item.tipo_item === "quita" ? -cantidad : cantidad;
         const ajuste = {
@@ -359,8 +381,12 @@ async function construirPlanillaDeLinea(linea) {
     }
   }
 
-  const productosCompatibles = await fetchRequisitoProductos([...matrizPorRequisito.keys()]);
-  const requisitosConProductos = new Set(productosCompatibles.map((row) => row.requisito_material_id));
+  const requisitosExtra = [...matrizPorRequisito.keys()]
+    .filter((id) => !matrizBase.some((row) => row.material_id === id));
+  const productosCompatiblesTodos = requisitosExtra.length
+    ? [...productosCompatibles, ...await fetchRequisitoProductos(requisitosExtra)]
+    : productosCompatibles;
+  const requisitosConProductos = new Set(productosCompatiblesTodos.map((row) => row.requisito_material_id));
 
   // Una FAMILIA es un requisito y todos los productos concretos que lo cumplen:
   // 'TV 24"' junto a 'TV 24" · Samsung', '· LG' y '· Noblex DB24X4000'.
@@ -371,7 +397,7 @@ async function construirPlanillaDeLinea(linea) {
   // pedian de mas, y en K52 son 313.
   const raizDeFamilia = new Map();
   const miembrosDeFamilia = new Map();
-  for (const row of productosCompatibles) {
+  for (const row of productosCompatiblesTodos) {
     const raiz = row.requisito_material_id;
     if (!raiz || !row.producto_material_id) continue;
     if (!miembrosDeFamilia.has(raiz)) miembrosDeFamilia.set(raiz, new Set([raiz]));
@@ -417,7 +443,14 @@ async function construirPlanillaDeLinea(linea) {
       const requisitoId = item.material_id;
       const snapshots = snapshotPorRequisitoObra.get(`${requisitoId}|${obra.id}`) ?? [];
       const snapshotConProducto = snapshots.find((row) => row.material_id && row.material_id !== requisitoId) || null;
-      const productoId = snapshotConProducto?.material_id || item.producto_predeterminado_id || requisitoId;
+      const snapshotOperado = snapshots.some((row) => row.purchase_request_id
+        || row.purchase_request_item_id || row.panol_envio_id || row.panol_envio_item_id
+        || row.recepcion_estado
+        || Number(row.cantidad_egresada || 0) > 0
+        || !["", "pendiente"].includes(String(row.estado || "").toLowerCase()));
+      const productoId = (item.productoCondicionante && !snapshotOperado
+        ? item.producto_predeterminado_id
+        : snapshotConProducto?.material_id) || item.producto_predeterminado_id || requisitoId;
       const clave = `${productoId}|${obra.id}`;
       const celda = celdaVacia(item.cantidad, requisitoId, true);
       celda.baseRequerido = redondear(item.baseCantidad);
@@ -427,7 +460,8 @@ async function construirPlanillaDeLinea(linea) {
       celda.configuracionSnapshotId = snapshotConProducto?.id || snapshots.find((row) => row.id)?.id || null;
       celda.productoMaterialId = productoId !== requisitoId ? productoId : null;
       celda.productoDefinido = productoId !== requisitoId;
-      celda.productoEstandar = !snapshotConProducto && !!item.producto_predeterminado_id;
+      celda.productoEstandar = !snapshotConProducto && !item.productoCondicionante
+        && !!item.producto_predeterminado_id;
       celda.requiereProductoConcreto = porMaterial.get(requisitoId)?.es_requisito === true
         || requisitosConProductos.has(requisitoId);
       // Preguntar "que modelo lleva" cuando el pañol ya tiene uno de la familia
@@ -643,7 +677,7 @@ async function construirPlanillaDeLinea(linea) {
       ...material,
       imagen_url: material.imagen_url || imagenes.get(material.id) || "",
     })),
-    productosCompatibles,
+    productosCompatibles: productosCompatiblesTodos,
     resumen: {
       materiales: listaFilas.length,
       matrizMateriales: matrizBase.length,

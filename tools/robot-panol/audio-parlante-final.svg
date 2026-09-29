@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="t d">
+<title id="t">Conexión final del parlante a la bornera verde</title>
+<desc id="d">Dos cables únicamente: negro de una lengüeta del parlante al borne negativo del amplificador y rojo de la otra lengüeta al positivo. La bornera verde está soldada a la placa; los cables se aprietan con sus tornillos.</desc>
+<defs>
+ <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#f8fbff"/><stop offset="1" stop-color="#e9f2fe"/></linearGradient>
+ <radialGradient id="metal"><stop stop-color="#cbd6e3"/><stop offset=".65" stop-color="#8496aa"/><stop offset="1" stop-color="#4d627b"/></radialGradient>
+ <linearGradient id="green" x2="0" y2="1"><stop stop-color="#46d18c"/><stop offset="1" stop-color="#168e60"/></linearGradient>
+</defs>
+<rect width="1200" height="760" fill="url(#bg)"/>
+<text x="55" y="70" font-family="Arial" font-size="42" font-weight="900" fill="#102c52">Así debe quedar el parlante</text>
+<text x="55" y="106" font-family="Arial" font-size="22" fill="#49617e">Dos cables Dupont macho-macho: cortá las puntas y pelá 3–4 mm en cada extremo.</text>
+<rect x="50" y="149" width="1100" height="475" rx="25" fill="#fff" stroke="#d4e5f8" stroke-width="3"/>
+<!-- exactly two independent, insulated paths -->
+<path d="M332 489 C180 398,215 242,408 240 C585 238,656 279,820 316" fill="none" stroke="#141e32" stroke-width="15" stroke-linecap="round"/>
+<path d="M397 489 C520 367,541 211,677 211 C794 211,905 262,934 316" fill="none" stroke="#e8414b" stroke-width="15" stroke-linecap="round"/>
+<!-- speaker rear -->
+<circle cx="365" cy="422" r="184" fill="#4b607a" stroke="#31465c" stroke-width="4"/>
+<circle cx="365" cy="422" r="164" fill="#dbe5ee" stroke="#7e91a4" stroke-width="9"/>
+<circle cx="365" cy="422" r="119" fill="url(#metal)" stroke="#d6e0e8" stroke-width="9"/>
+<text x="365" y="410" text-anchor="middle" font-family="Arial" font-size="38" font-weight="800" fill="#243956">GM</text>
+<text x="365" y="451" text-anchor="middle" font-family="Arial" font-size="32" font-weight="800" fill="#243956">4 Ω · 3 W</text>
+<rect x="300" y="482" width="130" height="30" rx="10" fill="#eee7d5" stroke="#998c7f" stroke-width="3"/>
+<circle cx="332" cy="497" r="10" fill="#b8c3ca" stroke="#627789" stroke-width="3"/>
+<circle cx="397" cy="497" r="10" fill="#b8c3ca" stroke="#627789" stroke-width="3"/>
+<text x="365" y="570" text-anchor="middle" font-family="Arial" font-size="21" font-weight="800" fill="#1b416f">UN CABLE SOLDADO A CADA LENGÜETA</text>
+<!-- amplifier PCB -->
+<rect x="706" y="323" width="340" height="256" rx="20" fill="#653394" stroke="#3d225d" stroke-width="6"/>
+<circle cx="738" cy="357" r="14" fill="#f8fbff" stroke="#aab8c7" stroke-width="7"/>
+<circle cx="1014" cy="357" r="14" fill="#f8fbff" stroke="#aab8c7" stroke-width="7"/>
+<text x="876" y="460" text-anchor="middle" font-family="Arial" font-size="32" font-weight="800" fill="#fff">MAX98357A</text>
+<text x="876" y="500" text-anchor="middle" font-family="Arial" font-size="20" fill="#e7dbf3">Amplificador</text>
+<!-- terminal physically mounted on PCB, left minus right plus -->
+<rect x="748" y="287" width="257" height="114" rx="13" fill="url(#green)" stroke="#0f7952" stroke-width="5"/>
+<rect x="770" y="304" width="101" height="72" rx="9" fill="#126f4a"/>
+<rect x="884" y="304" width="101" height="72" rx="9" fill="#126f4a"/>
+<circle cx="820" cy="339" r="25" fill="#becbd2" stroke="#536a77" stroke-width="4"/>
+<circle cx="934" cy="339" r="25" fill="#becbd2" stroke="#536a77" stroke-width="4"/>
+<path d="M805 339 H835 M820 324 V354 M919 339 H949 M934 324 V354" stroke="#667986" stroke-width="5"/>
+<text x="820" y="426" text-anchor="middle" font-family="Arial" font-size="29" font-weight="900" fill="#fff">−</text>
+<text x="934" y="426" text-anchor="middle" font-family="Arial" font-size="29" font-weight="900" fill="#fff">+</text>
+<text x="875" y="606" text-anchor="middle" font-family="Arial" font-size="21" font-weight="800" fill="#1b416f">BORNERA VERDE SOLDADA A LA PLACA</text>
+<rect x="50" y="648" width="1100" height="74" rx="17" fill="#fff1da" stroke="#f4be63" stroke-width="2"/>
+<text x="75" y="681" font-family="Arial" font-size="21" font-weight="800" fill="#8b4815">Parlante: soldá los cables a sus lengüetas.</text>
+<text x="75" y="710" font-family="Arial" font-size="21" font-weight="800" fill="#8b4815">Bornera verde: no sueldes los cables; metelos y ajustá los tornillos. USB desenchufado.</text>
+</svg>

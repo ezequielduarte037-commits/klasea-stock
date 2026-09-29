@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#f7fafc"/>
+  <text x="54" y="72" font-family="Arial" font-size="42" font-weight="700" fill="#122345">Micrófono MAX9814 · conexión sin soldar</text>
+  <text x="55" y="111" font-family="Arial" font-size="22" fill="#b4232b">Desenchufá el USB antes de mover cables. El parlante y su 5V quedan como están.</text>
+  <rect x="58" y="166" width="290" height="370" rx="24" fill="#13213d"/>
+  <text x="91" y="221" font-family="Arial" font-size="31" font-weight="700" fill="white">ESP32-S3</text>
+  <text x="92" y="284" font-family="Arial" font-size="25" fill="#ffa9af">3V3</text>
+  <circle cx="313" cy="274" r="11" fill="#e53143"/>
+  <text x="92" y="372" font-family="Arial" font-size="25" fill="#d4dce8">GND libre</text>
+  <circle cx="313" cy="362" r="11" fill="#26364d" stroke="white" stroke-width="3"/>
+  <text x="92" y="460" font-family="Arial" font-size="25" fill="#a9e4a8">Pin 1 / GPIO1</text>
+  <circle cx="313" cy="450" r="11" fill="#28a658"/>
+  <rect x="460" y="196" width="276" height="130" rx="18" fill="#fff1f3" stroke="#e53143" stroke-width="3"/>
+  <text x="483" y="238" font-family="Arial" font-size="27" font-weight="700" fill="#8c1020">Carril + protoboard</text>
+  <text x="482" y="279" font-family="Arial" font-size="20" fill="#8c1020">Usá el mismo tramo del carril</text>
+  <path d="M324 274 H460" fill="none" stroke="#e53143" stroke-width="7"/>
+  <text x="366" y="255" font-family="Arial" font-size="17" fill="#8c1020">3V3</text>
+  <rect x="865" y="170" width="270" height="248" rx="24" fill="#56438a"/>
+  <text x="900" y="222" font-family="Arial" font-size="30" font-weight="700" fill="white">MAX9814</text>
+  <text x="930" y="280" font-family="Arial" font-size="25" fill="white">V+</text>
+  <circle cx="881" cy="270" r="10" fill="#e53143"/>
+  <text x="930" y="333" font-family="Arial" font-size="25" fill="white">GND</text>
+  <circle cx="881" cy="322" r="10" fill="#26364d" stroke="white" stroke-width="3"/>
+  <text x="930" y="385" font-family="Arial" font-size="25" fill="white">Out</text>
+  <circle cx="881" cy="374" r="10" fill="#28a658"/>
+  <path d="M736 270 H870" fill="none" stroke="#e53143" stroke-width="7"/>
+  <path d="M324 362 H810 V322 H870" fill="none" stroke="#26364d" stroke-width="7"/>
+  <path d="M324 450 H780 V374 H870" fill="none" stroke="#28a658" stroke-width="7"/>
+  <rect x="460" y="424" width="276" height="112" rx="18" fill="white" stroke="#e53143" stroke-width="3"/>
+  <text x="484" y="468" font-family="Arial" font-size="25" font-weight="700" fill="#122345">Pantalla · VCC</text>
+  <text x="484" y="502" font-family="Arial" font-size="19" fill="#57627a">Cable que ya iba a 3V3</text>
+  <path d="M598 326 V424" fill="none" stroke="#e53143" stroke-width="7"/>
+  <rect x="58" y="579" width="1078" height="121" rx="18" fill="#e8f1ff"/>
+  <text x="88" y="620" font-family="Arial" font-size="22" font-weight="700" fill="#122345">Cómo unir cables hembra a la protoboard</text>
+  <text x="88" y="654" font-family="Arial" font-size="20" fill="#122345">Encajá un extremo macho de un jumper macho-macho en la ficha hembra; el otro extremo va al carril.</text>
+  <text x="88" y="681" font-family="Arial" font-size="18" fill="#57627a">El pin LED de la pantalla y los pines Gain/AR del micrófono no se tocan.</text>
+</svg>

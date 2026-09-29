@@ -6,6 +6,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "robot-panel",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/robot-panol/bridge.mjs"],
+      "port": 4188,
+      "url": "http://127.0.0.1:4188"
     }
   ]
 }

@@ -7,7 +7,7 @@
 <button id="logout" hidden>Desconectar mi cuenta</button>
 <div class="card"><h2>Robot autónomo · Chubut</h2><p>Vinculá el robot a Klase una vez por USB. Después consulta los avisos por Internet desde el Wi-Fi del pañol, alimentado por un cargador USB de 5 V. Esta PC no necesita permanecer encendida.</p><button id="pair">Vincular robot a Chubut</button><p id="pairState"></p><small>Requiere que la integración del robot esté habilitada en Supabase. El robot recibe una credencial propia de consulta; no guarda tu contraseña de Klase.</small></div>
 <form class="card" id="wifi"><h2>Wi-Fi del pañol</h2><label>Nombre de red Wi-Fi de 2,4 GHz</label><input id="ssid" required maxlength="32"><label>Contraseña Wi-Fi</label><input id="wifiPassword" type="password" autocomplete="off"><button>Guardar red en el robot por USB</button><p><small>Recordará la red al encenderlo. Para consultar avisos reales debe estar vinculado a Klase.</small></p></form>
-<p>Botón: toque corto → siguiente aviso. Doble toque → ver materiales / volver. Mantener 1 segundo → carita. La cara enojada permanece mientras haya avisos nuevos por ver. Abrirlos en el robot no confirma la recepción.</p></main>
+<p>Botón: mantener apretado → hablarle (stock, estantería, pedido de consumibles). Toque corto → siguiente aviso o volver. Doble toque → ver materiales, o mandar el pedido cuando la pantalla lo pide. La voz necesita Wi-Fi. La cara enojada permanece mientras haya avisos nuevos por ver. Abrirlos en el robot no confirma la recepción.</p></main>
 <script>
 const token='__BROWSER_SECRET__';
 const el=id=>document.getElementById(id);

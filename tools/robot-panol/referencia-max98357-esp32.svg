@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050">
+  <defs>
+    <style>
+      text{font-family:Arial,Helvetica,sans-serif;fill:#12223d}.title{font-size:53px;font-weight:800}.sub{font-size:27px}.h{font-size:31px;font-weight:800}.label{font-size:25px;font-weight:800}.small{font-size:20px}.tiny{font-size:16px;font-weight:700}.white{fill:#fff}.muted{fill:#63718a}.num{font-size:21px;font-weight:800;fill:#fff}.num text{fill:#fff}.esp-labels text{fill:#fff}
+    </style>
+    <filter id="shadow"><feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#17294e" flood-opacity=".16"/></filter>
+  </defs>
+  <rect width="1600" height="1050" fill="#f4f7fc"/>
+  <rect x="0" y="0" width="1600" height="145" fill="#081e45"/>
+  <text x="55" y="75" class="title white">Amplificador MAX98357A → ESP32-S3</text>
+  <text x="58" y="120" class="sub white">Contá los agujeros: cada nombre corresponde a uno solo</text>
+
+  <rect x="55" y="175" rx="20" width="650" height="585" fill="#fff" filter="url(#shadow)"/>
+  <text x="82" y="225" class="h">1  Tu amplificador (vista de frente)</text>
+  <text x="82" y="258" class="small muted">Bornera verde del parlante arriba · fila de pines abajo</text>
+  <rect x="160" y="300" rx="21" width="440" height="310" fill="#473066" stroke="#311b52" stroke-width="7"/>
+  <circle cx="178" cy="318" r="9" fill="#dce0ee"/><circle cx="582" cy="318" r="9" fill="#dce0ee"/>
+  <rect x="322" y="315" rx="8" width="118" height="74" fill="#19ae67" stroke="#0c7745" stroke-width="6"/>
+  <circle cx="350" cy="353" r="12" fill="#214738"/><circle cx="411" cy="353" r="12" fill="#214738"/>
+  <text x="380" y="428" text-anchor="middle" class="label white">MAX98357A</text>
+  <text x="380" y="462" text-anchor="middle" class="small white">I2S MONO AMP</text>
+  <text x="380" y="551" text-anchor="middle" class="small white">7 agujeros, de izquierda a derecha</text>
+  <g fill="#d5d9e1" stroke="#9aa2af" stroke-width="3">
+    <circle cx="203" cy="588" r="12"/><circle cx="262" cy="588" r="12"/><circle cx="321" cy="588" r="12"/><circle cx="380" cy="588" r="12"/><circle cx="439" cy="588" r="12"/><circle cx="498" cy="588" r="12"/><circle cx="557" cy="588" r="12"/>
+  </g>
+  <g><circle cx="203" cy="642" r="23" fill="#ea7550"/><circle cx="262" cy="642" r="23" fill="#d2a51e"/><circle cx="321" cy="642" r="23" fill="#16996d"/><circle cx="380" cy="642" r="23" fill="#8790a3"/><circle cx="439" cy="642" r="23" fill="#8790a3"/><circle cx="498" cy="642" r="23" fill="#333b50"/><circle cx="557" cy="642" r="23" fill="#db425b"/></g>
+  <g text-anchor="middle" class="num"><text x="203" y="649">1</text><text x="262" y="649">2</text><text x="321" y="649">3</text><text x="380" y="649">4</text><text x="439" y="649">5</text><text x="498" y="649">6</text><text x="557" y="649">7</text></g>
+  <g text-anchor="middle" class="tiny"><text x="203" y="692">LRC</text><text x="262" y="692">BCLK</text><text x="321" y="692">DIN</text><text x="380" y="692">GAIN</text><text x="439" y="692">SD</text><text x="498" y="692">GND</text><text x="557" y="692">VIN</text></g>
+  <text x="380" y="725" text-anchor="middle" class="small muted">libre</text><text x="439" y="725" text-anchor="middle" class="small muted">libre</text>
+
+  <rect x="735" y="175" rx="20" width="810" height="585" fill="#fff" filter="url(#shadow)"/>
+  <text x="765" y="225" class="h">2  Tu ESP32-S3 (como en tu foto)</text>
+  <text x="765" y="258" class="small muted">USB-C a la izquierda · antena a la derecha · usamos la fila superior</text>
+  <rect x="805" y="331" rx="14" width="684" height="276" fill="#20252b" stroke="#101419" stroke-width="6"/>
+  <rect x="755" y="405" rx="9" width="86" height="61" fill="#bac3cb" stroke="#68717c" stroke-width="5"/>
+  <rect x="755" y="490" rx="9" width="86" height="61" fill="#bac3cb" stroke="#68717c" stroke-width="5"/>
+  <rect x="1057" y="409" rx="11" width="282" height="142" fill="#c4c8bd" stroke="#808982" stroke-width="6"/>
+  <text x="1198" y="467" text-anchor="middle" class="label">ESP32-S3</text><text x="1198" y="501" text-anchor="middle" class="small">N16R8</text>
+  <rect x="1363" y="410" width="94" height="140" fill="#0f151a"/>
+  <g fill="#d9e1e5" stroke="#91a0aa" stroke-width="2">
+    <circle cx="826" cy="351" r="9"/><circle cx="856" cy="351" r="9"/><circle cx="886" cy="351" r="9"/><circle cx="916" cy="351" r="9"/><circle cx="946" cy="351" r="9"/><circle cx="976" cy="351" r="9"/><circle cx="1006" cy="351" r="9"/><circle cx="1036" cy="351" r="9"/><circle cx="1066" cy="351" r="9"/><circle cx="1096" cy="351" r="9"/><circle cx="1126" cy="351" r="9"/><circle cx="1156" cy="351" r="9"/><circle cx="1186" cy="351" r="9"/><circle cx="1216" cy="351" r="9"/><circle cx="1246" cy="351" r="9"/><circle cx="1276" cy="351" r="9"/><circle cx="1306" cy="351" r="9"/><circle cx="1336" cy="351" r="9"/><circle cx="1366" cy="351" r="9"/><circle cx="1396" cy="351" r="9"/><circle cx="1426" cy="351" r="9"/><circle cx="1456" cy="351" r="9"/>
+  </g>
+  <g fill="none" stroke-width="6"><circle cx="826" cy="351" r="15" stroke="#333b50"/><circle cx="856" cy="351" r="15" stroke="#db425b"/><circle cx="1306" cy="351" r="15" stroke="#16996d"/><circle cx="1336" cy="351" r="15" stroke="#d2a51e"/><circle cx="1366" cy="351" r="15" stroke="#ea7550"/></g>
+  <g text-anchor="middle" class="tiny esp-labels"><text x="826" y="394">GND</text><text x="856" y="394">5V</text><text x="886" y="394">14</text><text x="916" y="394">13</text><text x="946" y="394">12</text><text x="976" y="394">11</text><text x="1006" y="394">10</text><text x="1036" y="394">9</text><text x="1066" y="394">46</text><text x="1096" y="394">3</text><text x="1126" y="394">8</text><text x="1156" y="394">18</text><text x="1186" y="394">17</text><text x="1216" y="394">16</text><text x="1246" y="394">15</text><text x="1276" y="394">7</text><text x="1306" y="394">6</text><text x="1336" y="394">5</text><text x="1366" y="394">4</text><text x="1396" y="394">RST</text><text x="1426" y="394">3V3</text><text x="1456" y="394">3V3</text></g>
+  <rect x="783" y="641" rx="13" width="725" height="80" fill="#e9f1fe"/>
+  <text x="805" y="674" class="label">Ampliación mental: 7 · 6 · 5 · 4 · RST · 3V3 · 3V3</text>
+  <text x="805" y="703" class="small">Los GPIO 6, 5 y 4 están juntos, justo a la izquierda de RST.</text>
+
+  <rect x="55" y="790" rx="20" width="1490" height="190" fill="#fff" filter="url(#shadow)"/>
+  <text x="80" y="835" class="h">Conectá 5 cables hembra-hembra:</text>
+  <g class="label"><text x="90" y="880" fill="#ea7550">① LRC → GPIO4</text><text x="405" y="880" fill="#b88c0e">② BCLK → GPIO5</text><text x="775" y="880" fill="#16996d">③ DIN → GPIO6</text><text x="1090" y="880" fill="#333b50">⑥ GND → GND</text><text x="90" y="932" fill="#db425b">⑦ VIN → 5V</text><text x="405" y="932" fill="#63718a">④ GAIN y ⑤ SD: vacíos</text></g>
+  <rect x="55" y="997" rx="13" width="1490" height="39" fill="#fff0f2"/>
+  <text x="80" y="1024" class="small" fill="#b1283f">USB desenchufado mientras conectás. La pantalla y el botón quedan como están. En este montaje, VIN va al pin 5V.</text>
+</svg>

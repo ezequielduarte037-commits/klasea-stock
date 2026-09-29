@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, ChevronDown, ChevronRight, CircleDotDashed, ExternalLink, PackageCheck, PackageSearch, Plus, RefreshCw, Search, Sparkles, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, CircleDotDashed, ExternalLink, PackageCheck, PackageSearch, Plus, RefreshCw, Search, Sparkles, Trash2, X, ZoomIn } from "lucide-react";
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
+import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { buscarCatalogoParaEstandarizacion, fetchPanolNormalizationQueue, guardarNormalizacionPorLinea, vincularMovimientosAMaterial } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { fetchCategorias, fetchProveedores } from "@/features/materiales/api";
@@ -126,7 +127,16 @@ function KpiChip({ label, value, meta, active, onClick }) {
 }
 
 function ProductThumb({ material }) {
-  if (material.imagen_url) return <img src={material.imagen_url} alt="" style={{ width: 42, height: 42, borderRadius: 9, objectFit: "contain", background: "#fff", border: `1px solid ${C.border}` }} />;
+  if (material.imagen_url) {
+    return (
+      <span style={{ width: 42, height: 42, position: "relative", display: "block", flexShrink: 0 }}>
+        <MaterialThumb material={material} size={42} />
+        <span aria-hidden="true" style={{ position: "absolute", right: 2, bottom: 2, width: 16, height: 16, display: "grid", placeItems: "center", borderRadius: 5, background: "rgba(15,23,42,.78)", color: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,.28)", pointerEvents: "none" }}>
+          <ZoomIn size={10} strokeWidth={2.4} />
+        </span>
+      </span>
+    );
+  }
   return <span style={{ width: 42, height: 42, borderRadius: 9, display: "grid", placeItems: "center", background: C.panel2, border: `1px solid ${C.border}`, color: C.dim }}><PackageSearch size={18} /></span>;
 }
 

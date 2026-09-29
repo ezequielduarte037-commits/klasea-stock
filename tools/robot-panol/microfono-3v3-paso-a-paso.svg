@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080">
+  <defs>
+    <style>
+      text{font-family:Arial,Helvetica,sans-serif}
+      .title{font-size:49px;font-weight:800;fill:#10213f}
+      .subtitle{font-size:26px;fill:#42536f}
+      .step{font-size:30px;font-weight:800;fill:#10213f}
+      .small{font-size:24px;fill:#263a5b}
+      .pin{font-size:20px;font-weight:700;fill:#17294b}
+      .num{font-size:28px;font-weight:800;fill:white}
+      .wire{fill:none;stroke-width:11;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+    <marker id="arrowred" markerWidth="12" markerHeight="12" refX="8" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#e73b52" stroke-width="2.5"/></marker>
+    <marker id="arrowgreen" markerWidth="12" markerHeight="12" refX="8" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#17965c" stroke-width="2.5"/></marker>
+  </defs>
+  <rect width="1600" height="1080" fill="#f5f7fb"/>
+  <text x="65" y="80" class="title">Cómo compartir el 3V3 con el micrófono</text>
+  <text x="67" y="122" class="subtitle">Misma ESP32 de tu foto · USB desenchufado · no tocamos el 5V del parlante</text>
+
+  <!-- Physical board in the same orientation as the user's photo. -->
+  <rect x="70" y="190" width="800" height="385" rx="31" fill="#151923" stroke="#0c1220" stroke-width="8"/>
+  <rect x="73" y="285" width="93" height="78" rx="13" fill="#b7bdc7" stroke="#626b76" stroke-width="6"/>
+  <rect x="73" y="385" width="93" height="78" rx="13" fill="#b7bdc7" stroke="#626b76" stroke-width="6"/>
+  <rect x="515" y="273" width="245" height="198" rx="15" fill="#b7c1c6" stroke="#737f8b" stroke-width="5"/>
+  <text x="543" y="331" font-size="24" font-weight="800" fill="#24416c">ESP32-S3</text>
+  <text x="178" y="514" font-size="23" font-weight="700" fill="#e4e9f0">USB-C a la izquierda</text>
+  <g fill="#e6c756" stroke="#ffffff" stroke-width="2">
+    <circle cx="115" cy="208" r="9"/><circle cx="153" cy="208" r="9"/><circle cx="191" cy="208" r="9"/><circle cx="229" cy="208" r="9"/>
+    <circle cx="267" cy="208" r="9"/><circle cx="305" cy="208" r="9"/><circle cx="343" cy="208" r="9"/><circle cx="381" cy="208" r="9"/>
+    <circle cx="419" cy="208" r="9"/><circle cx="457" cy="208" r="9"/><circle cx="495" cy="208" r="9"/><circle cx="533" cy="208" r="9"/>
+    <circle cx="571" cy="208" r="9"/><circle cx="609" cy="208" r="9"/><circle cx="647" cy="208" r="9"/><circle cx="685" cy="208" r="9"/>
+    <circle cx="723" cy="208" r="9"/><circle cx="761" cy="208" r="9"/><circle cx="799" cy="208" r="9"/><circle cx="837" cy="208" r="9"/>
+    <circle cx="115" cy="555" r="9"/><circle cx="153" cy="555" r="9"/><circle cx="191" cy="555" r="9"/><circle cx="229" cy="555" r="9"/>
+    <circle cx="267" cy="555" r="9"/><circle cx="305" cy="555" r="9"/><circle cx="343" cy="555" r="9"/><circle cx="381" cy="555" r="9"/>
+    <circle cx="419" cy="555" r="9"/><circle cx="457" cy="555" r="9"/><circle cx="495" cy="555" r="9"/><circle cx="533" cy="555" r="9"/>
+    <circle cx="571" cy="555" r="9"/><circle cx="609" cy="555" r="9"/><circle cx="647" cy="555" r="9"/><circle cx="685" cy="555" r="9"/>
+    <circle cx="723" cy="555" r="9"/><circle cx="761" cy="555" r="9"/><circle cx="799" cy="555" r="9"/><circle cx="837" cy="555" r="9"/>
+  </g>
+  <rect x="710" y="127" width="166" height="52" rx="13" fill="#ffeced" stroke="#e73b52" stroke-width="4"/>
+  <text x="728" y="160" class="pin" fill="#bf1c36">3V3 libre</text>
+  <path d="M837 180 V197" stroke="#e73b52" stroke-width="5"/>
+  <rect x="724" y="574" width="150" height="48" rx="12" fill="#e9f8f0" stroke="#17965c" stroke-width="3"/>
+  <text x="739" y="606" class="pin">GPIO1 / «1»</text>
+  <path d="M723 571 V578" stroke="#17965c" stroke-width="5"/>
+
+  <!-- Breadboard power rail -->
+  <rect x="1014" y="297" width="515" height="321" rx="25" fill="#ffffff" stroke="#c7d1e0" stroke-width="6"/>
+  <text x="1068" y="352" font-size="34" font-weight="800" fill="#10213f">PROTOBOARD</text>
+  <text x="1068" y="393" font-size="24" fill="#455571">Usá tres agujeros del mismo carril rojo</text>
+  <rect x="1066" y="432" width="414" height="71" rx="22" fill="#ffe6ea"/>
+  <path d="M1090 466 H1458" stroke="#e73b52" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="1123" cy="467" r="17" fill="white" stroke="#e73b52" stroke-width="6"/>
+  <circle cx="1265" cy="467" r="17" fill="white" stroke="#e73b52" stroke-width="6"/>
+  <circle cx="1410" cy="467" r="17" fill="white" stroke="#e73b52" stroke-width="6"/>
+  <text x="1073" y="544" font-size="19" font-weight="700" fill="#17294b">A: ESP32</text>
+  <text x="1218" y="578" font-size="19" font-weight="700" fill="#17294b">B: pantalla</text>
+  <text x="1370" y="544" font-size="19" font-weight="700" fill="#17294b">C: micro</text>
+
+  <!-- Existing screen and microphone represented as modules, not pinout guesses. -->
+  <rect x="1012" y="170" width="214" height="108" rx="18" fill="#c62231"/>
+  <rect x="1045" y="195" width="149" height="58" rx="5" fill="#151b25"/>
+  <text x="1041" y="157" class="step">PANTALLA</text>
+  <circle cx="1200" cy="268" r="11" fill="#e6c756" stroke="white" stroke-width="3"/>
+  <text x="1084" y="272" class="pin" fill="white">VCC</text>
+  <rect x="1057" y="682" width="338" height="196" rx="27" fill="#493a81"/>
+  <circle cx="1134" cy="760" r="49" fill="#18243a" stroke="#a9bdd7" stroke-width="7"/>
+  <text x="1212" y="747" font-size="30" font-weight="800" fill="white">MAX9814</text>
+  <text x="1212" y="788" font-size="22" fill="#e7e0ff">micrófono</text>
+  <circle cx="1080" cy="866" r="12" fill="#e6c756" stroke="white" stroke-width="3"/>
+  <circle cx="1140" cy="866" r="12" fill="#e6c756" stroke="white" stroke-width="3"/>
+  <circle cx="1200" cy="866" r="12" fill="#e6c756" stroke="white" stroke-width="3"/>
+  <circle cx="1260" cy="866" r="12" fill="#e6c756" stroke="white" stroke-width="3"/>
+  <circle cx="1320" cy="866" r="12" fill="#e6c756" stroke="white" stroke-width="3"/>
+  <text x="1052" y="909" class="pin">GND</text>
+  <text x="1126" y="909" class="pin">V+</text>
+  <text x="1189" y="909" class="pin">G</text>
+  <text x="1243" y="909" class="pin">Out</text>
+  <text x="1305" y="909" class="pin">AR</text>
+
+  <!-- Three distinct red power routes. -->
+  <path class="wire" d="M838 208 C972 208 1123 255 1123 449" stroke="#e73b52"/>
+  <path class="wire" d="M1200 267 C1240 301 1265 358 1265 450" stroke="#ef8c2f"/>
+  <path class="wire" d="M1140 853 C1135 930 1415 965 1504 862 V508 L1410 485" stroke="#ca4bb8"/>
+  <path class="wire" d="M723 567 C782 750 973 956 1260 878" stroke="#17965c"/>
+  <path class="wire" d="M1080 878 C940 1037 648 815 115 565" stroke="#2b3a53"/>
+  <circle cx="1200" cy="268" r="18" fill="#ef8c2f" stroke="white" stroke-width="4"/>
+  <text x="1192" y="278" class="num">2</text>
+  <circle cx="1140" cy="853" r="18" fill="#ca4bb8" stroke="white" stroke-width="4"/>
+  <text x="1132" y="863" class="num">3</text>
+
+  <rect x="61" y="690" width="810" height="260" rx="27" fill="white" stroke="#c7d1e0" stroke-width="4"/>
+  <text x="94" y="739" class="step">Qué movés exactamente</text>
+  <text x="95" y="785" class="small">① Sacá SOLO el cable VCC de la pantalla del 3V3.</text>
+  <text x="95" y="828" class="small">② Del 3V3 ahora libre llevá un cable al carril rojo.</text>
+  <text x="95" y="871" class="small">③ Al mismo carril: VCC pantalla + V+ micrófono.</text>
+  <text x="95" y="917" font-size="21" fill="#6a7890">GND del micrófono va a GND libre; Out va al pin «1».</text>
+  <rect x="67" y="978" width="1465" height="66" rx="17" fill="#fff0d2"/>
+  <text x="101" y="1021" font-size="24" font-weight="700" fill="#604713">Para entrar al carril: ficha hembra → punta de cable macho-macho → otra punta al agujero.</text>
+</svg>

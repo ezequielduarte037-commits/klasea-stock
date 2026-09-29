@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="690" viewBox="0 0 1400 690">
+  <style>text{font-family:Arial,Helvetica,sans-serif;fill:#142644}.title{font-size:44px;font-weight:800}.head{font-size:30px;font-weight:800}.body{font-size:24px}.pin{font-size:24px;font-weight:800}.small{font-size:20px}.white{fill:white}</style>
+  <rect width="1400" height="690" fill="#f4f7fc"/>
+  <rect width="1400" height="118" fill="#0a2148"/>
+  <text x="44" y="73" class="title white">Prueba extra: activar el amplificador con SD</text>
+  <rect x="44" y="150" width="1312" height="470" rx="22" fill="white"/>
+  <text x="80" y="208" class="head">MAX98357A</text><text x="735" y="208" class="head">ESP32-S3 · fila superior</text>
+  <text x="80" y="245" class="body">Bornera verde arriba, pines abajo</text><text x="735" y="245" class="body">USB a la izquierda, antena a la derecha</text>
+  <rect x="90" y="300" width="510" height="180" rx="18" fill="#49316d"/>
+  <rect x="275" y="312" width="135" height="65" rx="8" fill="#20a568"/>
+  <g fill="#d9dce3"><circle cx="130" cy="455" r="13"/><circle cx="200" cy="455" r="13"/><circle cx="270" cy="455" r="13"/><circle cx="340" cy="455" r="13"/><circle cx="410" cy="455" r="13"/><circle cx="480" cy="455" r="13"/><circle cx="550" cy="455" r="13"/></g>
+  <circle cx="410" cy="455" r="28" fill="none" stroke="#8b36e8" stroke-width="9"/>
+  <g text-anchor="middle" class="small"><text x="130" y="515">1</text><text x="200" y="515">2</text><text x="270" y="515">3</text><text x="340" y="515">4</text><text x="410" y="515">5</text><text x="480" y="515">6</text><text x="550" y="515">7</text></g>
+  <g text-anchor="middle" class="small"><text x="130" y="545">LRC</text><text x="200" y="545">BCLK</text><text x="270" y="545">DIN</text><text x="340" y="545">GAIN</text><text x="410" y="545">SD</text><text x="480" y="545">GND</text><text x="550" y="545">VIN</text></g>
+  <rect x="730" y="300" width="560" height="180" rx="18" fill="#242c35"/>
+  <g fill="#d9dce3"><circle cx="775" cy="344" r="12"/><circle cx="825" cy="344" r="12"/><circle cx="875" cy="344" r="12"/><circle cx="925" cy="344" r="12"/><circle cx="975" cy="344" r="12"/><circle cx="1025" cy="344" r="12"/><circle cx="1075" cy="344" r="12"/><circle cx="1125" cy="344" r="12"/><circle cx="1175" cy="344" r="12"/><circle cx="1225" cy="344" r="12"/></g>
+  <circle cx="875" cy="344" r="27" fill="none" stroke="#8b36e8" stroke-width="9"/>
+  <g text-anchor="middle" class="small"><text x="775" y="395" class="white">18</text><text x="825" y="395" class="white">17</text><text x="875" y="395" class="white">16</text><text x="925" y="395" class="white">15</text><text x="975" y="395" class="white">7</text><text x="1025" y="395" class="white">6</text><text x="1075" y="395" class="white">5</text><text x="1125" y="395" class="white">4</text><text x="1175" y="395" class="white">RST</text><text x="1225" y="395" class="white">3V3</text></g>
+  <path d="M430 582 C640 657 708 555 867 465" fill="none" stroke="#8b36e8" stroke-width="10" stroke-linecap="round"/>
+  <text x="705" y="590" text-anchor="middle" class="pin">Un cable nuevo: SD (5.º) → pin “16”</text>
+  <rect x="44" y="639" width="1312" height="36" rx="10" fill="#fce8eb"/>
+  <text x="65" y="665" class="small">Desenchufá el USB antes de agregar el cable. GAIN (4.º) queda libre. Los otros cables no se cambian.</text>
+</svg>

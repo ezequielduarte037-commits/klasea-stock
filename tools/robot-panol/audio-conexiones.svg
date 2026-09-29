@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+ <title id="title">Conexiones de audio del robot Klase A</title>
+ <desc id="desc">Esquema por nombres de pines del micrófono MAX9814, ESP32-S3, amplificador MAX98357A y parlante de cuatro ohmios.</desc>
+ <rect width="1200" height="780" fill="#f4f7fb"/>
+ <text x="60" y="67" font-family="Arial" font-size="32" font-weight="700" fill="#17223b">Audio del robot: conexiones por nombre de pin</text>
+ <text x="60" y="99" font-family="Arial" font-size="17" fill="#53627a">Desenchufá el USB para cablear. Los pines y la bornera de los módulos deben estar soldados.</text>
+ <rect x="55" y="145" width="310" height="370" rx="22" fill="#fff" stroke="#dce4ef" stroke-width="2"/>
+ <rect x="445" y="145" width="310" height="515" rx="22" fill="#fff" stroke="#dce4ef" stroke-width="2"/>
+ <rect x="835" y="145" width="310" height="425" rx="22" fill="#fff" stroke="#dce4ef" stroke-width="2"/>
+ <text x="83" y="190" font-family="Arial" font-size="23" font-weight="700" fill="#582c8c">MAX9814</text>
+ <text x="83" y="217" font-family="Arial" font-size="15" fill="#53627a">Micrófono, placa alargada</text>
+ <text x="473" y="190" font-family="Arial" font-size="23" font-weight="700" fill="#17223b">ESP32-S3</text>
+ <text x="473" y="217" font-family="Arial" font-size="15" fill="#53627a">Placa que ya tiene pantalla y botón</text>
+ <text x="863" y="190" font-family="Arial" font-size="23" font-weight="700" fill="#582c8c">MAX98357A</text>
+ <text x="863" y="217" font-family="Arial" font-size="15" fill="#53627a">Amplificador, placa cuadrada</text>
+ <g font-family="Arial" font-size="20" font-weight="700" fill="#26354d">
+  <text x="84" y="282">V+</text><text x="84" y="354">GND</text><text x="84" y="426">OUT</text>
+  <text x="474" y="282">3V3</text><text x="474" y="354">GND</text><text x="474" y="426">GPIO1</text>
+  <text x="672" y="282">5V*</text><text x="672" y="354">GND</text><text x="672" y="426">GPIO4</text><text x="672" y="498">GPIO5</text><text x="672" y="570">GPIO6</text>
+  <text x="864" y="282">VIN</text><text x="864" y="354">GND</text><text x="864" y="426">LRC</text><text x="864" y="498">BCLK</text><text x="864" y="570">DIN</text>
+ </g>
+ <g stroke-width="5" fill="none" stroke-linecap="round">
+  <path d="M140 276 H460" stroke="#de6c52"/>
+  <path d="M150 348 H460" stroke="#39475d"/>
+  <path d="M145 420 H460" stroke="#51b98a"/>
+  <path d="M738 276 H850" stroke="#de6c52"/>
+  <path d="M738 348 H850" stroke="#39475d"/>
+  <path d="M738 420 H850" stroke="#6b94e8"/>
+  <path d="M738 492 H850" stroke="#f1b94e"/>
+  <path d="M738 564 H850" stroke="#a17ae0"/>
+ </g>
+ <rect x="55" y="595" width="310" height="100" rx="18" fill="#e9f8f2"/>
+ <text x="79" y="633" font-family="Arial" font-size="19" font-weight="700" fill="#17664f">Dejá libres G y AR</text>
+ <text x="79" y="662" font-family="Arial" font-size="16" fill="#285846">El micrófono va a 3V3.</text>
+ <rect x="835" y="595" width="310" height="100" rx="18" fill="#edf1fb"/>
+ <text x="858" y="633" font-family="Arial" font-size="19" font-weight="700" fill="#243969">Parlante 4 Ω / 3 W</text>
+ <text x="858" y="662" font-family="Arial" font-size="16" fill="#334d80">Solo entre los bornes + y −.</text>
+ <text x="55" y="740" font-family="Arial" font-size="16" fill="#a14a33">* Identificá el pin 5V/VBUS de tu ESP32 antes de conectarlo; nunca lleves 5 V a un GPIO.</text>
+</svg>
