@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Clock, ExternalLink, ImagePlus, X, ChevronLeft, ChevronRight, Trash2, Star } from "lucide-react";
+import { Camera, Clock, ExternalLink, ImagePlus, X, ChevronLeft, ChevronRight, Trash2, Star, ZoomIn } from "lucide-react";
 import { BTN, BTN_PRIMARY } from "@/features/rrhh/ui";
 import { C } from "@/theme";
 import { precioDesactualizado, precioVigente, uploadMaterialImage, setMainMaterialImage, deleteMaterialImage } from "./api";
 import { fmtDate, fmtMoney } from "./format";
 
-export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMaterial, onUploaded }) {
+export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMaterial, onUploaded, showZoomBadge = false }) {
   const [localImages, setLocalImages] = useState(null);
   const sourceKey = `${material?.id || ""}:${material?.imagen_url || ""}`;
   const displayed = localImages?.sourceKey === sourceKey ? { ...material, ...localImages.value } : material;
   const url = displayed?.imagen_url || displayed?.imagenes?.[0]?.url;
   const imagenes = displayed?.imagenes || (url ? [{ id: 'main', url }] : []);
   const [open, setOpen] = useState(false);
+  const [zoomBadgeVisible, setZoomBadgeVisible] = useState(false);
   const [failedUrl, setFailedUrl] = useState(null);
   const frameStyle = {
       width: size,
@@ -52,11 +53,20 @@ export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMateri
           event.stopPropagation();
           setOpen(true);
         }}
+        onMouseEnter={() => setZoomBadgeVisible(true)}
+        onMouseLeave={() => setZoomBadgeVisible(false)}
+        onFocus={() => setZoomBadgeVisible(true)}
+        onBlur={() => setZoomBadgeVisible(false)}
         aria-label={`Abrir imagen de ${alt}`}
         title="Abrir imagen"
         style={{ ...frameStyle, cursor: "zoom-in" }}
       >
         <img src={url} loading="lazy" alt={alt} onError={() => setFailedUrl(url)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        {showZoomBadge && (
+          <span aria-hidden="true" style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, display: "grid", placeItems: "center", borderRadius: 5, background: "rgba(15,23,42,.78)", color: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,.28)", opacity: zoomBadgeVisible ? 1 : 0, transform: zoomBadgeVisible ? "scale(1)" : "scale(.82)", transition: "opacity 120ms ease, transform 120ms ease", pointerEvents: "none" }}>
+            <ZoomIn size={10} strokeWidth={2.4} />
+          </span>
+        )}
         {multiple && (
           <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 5px", borderTopLeftRadius: 6, backdropFilter: "blur(2px)" }}>
             {imagenes.length} <Camera size={8} style={{ display: "inline", verticalAlign: "middle" }} />
@@ -153,7 +163,10 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
       data-material-lightbox="true"
       aria-modal="true"
       aria-label={alt}
-      onClick={(event) => { event.stopPropagation(); onClose?.(); }}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (event.target === event.currentTarget) onClose?.();
+      }}
       style={{ position: "fixed", inset: 0, zIndex: 6000, background: themeAware ? "color-mix(in srgb, var(--bg) 85%, transparent)" : "rgba(2,6,23,0.88)", backdropFilter: "blur(7px)", display: "grid", placeItems: "center", padding: 20 }}
     >
       <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: themeAware ? C.panelSolid : "rgba(15,23,42,0.94)", borderRadius: 12, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto" }}>

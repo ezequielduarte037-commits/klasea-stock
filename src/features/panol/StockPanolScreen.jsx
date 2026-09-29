@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Cargando from "@/components/ui/Cargando";
 import { C } from "@/theme";
+import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
@@ -532,16 +533,21 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : "108px minmax(0, 1fr) auto", gap: isMobile ? 8 : 12, alignItems: "start", padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
       <span style={{ width: "fit-content", fontSize: 9.5, fontWeight: 750, color: col, background: C.panel, border: `1px solid ${col}`, borderRadius: 999, padding: "3px 7px", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap" }}>{m.anulado ? "Anulado" : meta.label}</span>
-      <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto", gridRow: isMobile ? 2 : "auto" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{desc}</div>
-        <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
-          <span>{fmtDate(m.fecha)}</span>
-          {m.row.codigo && <span style={{ fontFamily: C.mono }}>{m.row.codigo}</span>}
-          <span>{movDetalleDestino(m.row, m.kind, obraById)}</span>
-          {variant && <span>Variante: {variant}</span>}
-          {retira && <span>Retira: {retira}</span>}
-          <span>Usuario: {usuario}</span>
-          {detalle && <span style={{ color: C.muted }}>{detalle}</span>}
+      <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto", gridRow: isMobile ? 2 : "auto", display: "flex", alignItems: "flex-start", gap: 10 }}>
+        {m.row.imagen_url && (
+          <MaterialThumb material={{ id: m.row.material_id, descripcion: desc, imagen_url: m.row.imagen_url }} size={42} showZoomBadge />
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{desc}</div>
+          <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
+            <span>{fmtDate(m.fecha)}</span>
+            {m.row.codigo && <span style={{ fontFamily: C.mono }}>{m.row.codigo}</span>}
+            <span>{movDetalleDestino(m.row, m.kind, obraById)}</span>
+            {variant && <span>Variante: {variant}</span>}
+            {retira && <span>Retira: {retira}</span>}
+            <span>Usuario: {usuario}</span>
+            {detalle && <span style={{ color: C.muted }}>{detalle}</span>}
+          </div>
         </div>
       </div>
       <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, whiteSpace: "nowrap", gridColumn: isMobile ? 2 : "auto", gridRow: isMobile ? 1 : "auto" }}>

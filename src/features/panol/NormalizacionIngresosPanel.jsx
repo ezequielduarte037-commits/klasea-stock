@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, ChevronDown, ChevronRight, CircleDotDashed, ExternalLink, PackageCheck, PackageSearch, Plus, RefreshCw, Search, Sparkles, Trash2, X, ZoomIn } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, CircleDotDashed, ExternalLink, PackageCheck, PackageSearch, Plus, RefreshCw, Search, Sparkles, Trash2, X } from "lucide-react";
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
@@ -128,14 +128,7 @@ function KpiChip({ label, value, meta, active, onClick }) {
 
 function ProductThumb({ material }) {
   if (material.imagen_url) {
-    return (
-      <span style={{ width: 42, height: 42, position: "relative", display: "block", flexShrink: 0 }}>
-        <MaterialThumb material={material} size={42} />
-        <span aria-hidden="true" style={{ position: "absolute", right: 2, bottom: 2, width: 16, height: 16, display: "grid", placeItems: "center", borderRadius: 5, background: "rgba(15,23,42,.78)", color: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,.28)", pointerEvents: "none" }}>
-          <ZoomIn size={10} strokeWidth={2.4} />
-        </span>
-      </span>
-    );
+    return <MaterialThumb material={material} size={42} showZoomBadge />;
   }
   return <span style={{ width: 42, height: 42, borderRadius: 9, display: "grid", placeItems: "center", background: C.panel2, border: `1px solid ${C.border}`, color: C.dim }}><PackageSearch size={18} /></span>;
 }
@@ -506,7 +499,18 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
               const selectedRow = selectedId === item.id;
               const meta = STATUS_META[estadoEnLinea(item, lineFilter)];
               return (
-                <button key={item.id} type="button" onClick={() => selectItem(item)} style={{ width: "100%", display: "grid", gridTemplateColumns: "42px minmax(0,1fr) auto", alignItems: "center", gap: 9, border: `1px solid ${selectedRow ? C.blueB : C.border}`, borderLeft: `3px solid ${selectedRow ? C.blue : meta.color}`, background: selectedRow ? C.blueL : C.panelSolid, color: C.text, borderRadius: 10, padding: "8px 9px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                <div
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectItem(item)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    selectItem(item);
+                  }}
+                  style={{ width: "100%", display: "grid", gridTemplateColumns: "42px minmax(0,1fr) auto", alignItems: "center", gap: 9, border: `1px solid ${selectedRow ? C.blueB : C.border}`, borderLeft: `3px solid ${selectedRow ? C.blue : meta.color}`, background: selectedRow ? C.blueL : C.panelSolid, color: C.text, borderRadius: 10, padding: "8px 9px", cursor: "pointer", textAlign: "left", fontFamily: C.sans, boxSizing: "border-box" }}
+                >
                   <ProductThumb material={item} />
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion || "Sin nombre"}</span>
@@ -519,7 +523,7 @@ export default function NormalizacionIngresosPanel({ rows = [], obras = [], mode
                     </span>
                   </span>
                   <ChevronRight size={13} style={{ color: selectedRow ? C.blue : C.dim }} />
-                </button>
+                </div>
               );
             })}
           </div>
