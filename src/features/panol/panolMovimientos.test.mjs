@@ -66,3 +66,13 @@ test("los movimientos de egreso explícitos conservan su delta negativo", () => 
   assert.equal(rowIsEgreso(row), true);
   assert.equal(rowDelta(row), -1);
 });
+
+test("un traslado entre sedes conserva el total y no suma destino hasta confirmar llegada", () => {
+  const recibidoChubut = { source: "remito", estado: "en_panol", recepcion_estado: "recibido", stock_sede: "Chubut", cantidad: 4 };
+  const despacho = { source: "transferencia_egreso_sede", estado: "egresado", recepcion_estado: "egresado", stock_sede: "Chubut", cantidad: 2, cantidad_egresada: 2 };
+  const llegada = { source: "transferencia_ingreso_sede", estado: "en_panol", recepcion_estado: "recibido", stock_sede: "Pampa", cantidad: 2 };
+
+  assert.equal(rowDelta(recibidoChubut) + rowDelta(despacho), 2);
+  assert.equal(rowDelta(llegada), 2);
+  assert.equal(rowDelta(recibidoChubut) + rowDelta(despacho) + rowDelta(llegada), 4);
+});

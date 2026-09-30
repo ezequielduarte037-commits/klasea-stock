@@ -58,7 +58,7 @@ Rutas de archivos relativas a `src/features/`. Una carpeta terminada en `/` incl
 ## 6 · Obras
 
 - **Rutas:** `/obras` (todas las vistas, menos la pantalla de entrada)
-- **Archivos:** `obras/ObrasScreen.jsx`, `obras/FechasView.jsx`, `obras/GalponPampa.jsx`, `obras/mapa/`, `obras/MapaProduccion.jsx`, `obras/MaterialesProduccionPanel.jsx`, `obras/PanelDetallesObra.jsx`, `obras/PiezasLaminacionView.jsx`, `obras/TareaArchivosPanel.jsx`, `obras/TimelineDesmoldeView.jsx`
+- **Archivos:** `obras/ObrasScreen.jsx`, `obras/produccion/` (Planta y Configuración, rehechas el 30/09: no tocar sin avisar), `obras/ObrasModales.jsx`, `obras/FechasView.jsx`, `obras/GalponPampa.jsx`, `obras/mapa/`, `obras/MapaProduccion.jsx`, `obras/PanelDetallesObra.jsx`, `obras/PiezasLaminacionView.jsx`, `obras/TareaArchivosPanel.jsx`
 - **Ojo:**
   - En el celular conviven "+ Nueva obra" y "+ Obra" en la misma vista.
   - Las obras terminadas muestran "etapas tarde": puede ser lógica, sólo anotalo.

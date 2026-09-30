@@ -12,15 +12,15 @@
  * tenía cargados.
  */
 import { useMemo } from "react";
-import { CalendarClock, ChartGantt, Layers, Map as IconoMapa, Milestone } from "lucide-react";
+import { CalendarClock, ChartGantt, Layers, Map as IconoMapa, Settings2 } from "lucide-react";
 import { Indicador, Portada, PortadaHero, SeccionPortada, TarjetaModulo } from "@/components/ui/Portada";
 
 // ─── VISTAS ──────────────────────────────────────────────────────
 // art: dibujo abstracto de cada vista; la tarjeta le pasa el color.
 const VISTAS = [
   {
-    view:"obras", label:"Obras", tono:"azul",    Icono:ChartGantt,
-    desc:"Gantt, etapas y tareas por barco",
+    view:"planta", label:"Planta de obras", tono:"azul",    Icono:ChartGantt,
+    desc:"Todas las obras en el tiempo; cada una abre su ruta de etapas y tareas",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
         {[0,1,2,3,4].map(i=>(
@@ -37,6 +37,27 @@ const VISTAS = [
         <line x1="20" y1="10" x2="20" y2="130" stroke={c} strokeWidth="1" strokeOpacity="0.3"/>
         <line x1="120" y1="10" x2="120" y2="130" stroke={c} strokeWidth="1.5" strokeOpacity="0.5" strokeDasharray="4 3"/>
         <rect x="110" y="6" width="20" height="7" rx="2" fill={c} fillOpacity="0.35"/>
+      </svg>
+    ),
+  },
+  {
+    view:"config", label:"Configuración de líneas", tono:"teal", Icono:Settings2,
+    desc:"Recorrido, tareas y productos de cada etapa: lo que toma cada obra",
+    art:(c)=>(
+      <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.2}}>
+        {[30,70,110,150,190,220].map((x)=>(
+          <line key={x} x1={x} y1="14" x2={x} y2="126" stroke={c} strokeWidth="0.7" strokeOpacity="0.22" strokeDasharray="3 3"/>
+        ))}
+        <line x1="96" y1="8" x2="96" y2="130" stroke={c} strokeWidth="2" strokeOpacity="0.8"/>
+        <text x="89" y="138" fill={c} fillOpacity="0.85" fontSize="7" fontFamily="monospace">S0</text>
+        {[[40,20,52],[80,42,40],[100,64,66],[132,86,48],[150,108,60]].map(([x,y,w],i)=>(
+          <g key={i}>
+            <rect x={x} y={y} width={w} height="14" rx="4" fill={c} fillOpacity={0.14+i*0.06} stroke={c} strokeOpacity="0.6"/>
+            <rect x={x+w+6} y={y+2} width="10" height="10" rx="2" fill={c} fillOpacity="0.45"/>
+          </g>
+        ))}
+        <rect x="16" y="20" width="16" height="14" rx="3" fill={c} fillOpacity="0.3"/>
+        <rect x="16" y="42" width="16" height="14" rx="3" fill={c} fillOpacity="0.2"/>
       </svg>
     ),
   },
@@ -100,29 +121,6 @@ const VISTAS = [
     ),
   },
   {
-    view:"timeline", label:"Cronograma", tono:"teal",    Icono:Milestone,
-    desc:"Etapas de cada obra ubicadas antes y después del desmolde",
-    art:(c)=>(
-      <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.2}}>
-        <line x1="20" y1="28" x2="222" y2="28" stroke={c} strokeWidth="1" strokeOpacity="0.45"/>
-        <line x1="20" y1="70" x2="222" y2="70" stroke={c} strokeWidth="1" strokeOpacity="0.45"/>
-        <line x1="20" y1="112" x2="222" y2="112" stroke={c} strokeWidth="1" strokeOpacity="0.45"/>
-        {[30,70,110,150,190,220].map((x)=>(
-          <line key={x} x1={x} y1="16" x2={x} y2="126" stroke={c} strokeWidth="0.7" strokeOpacity="0.2" strokeDasharray="3 3"/>
-        ))}
-        <line x1="110" y1="10" x2="110" y2="130" stroke={c} strokeWidth="2" strokeOpacity="0.8"/>
-        <rect x="26" y="20" width="54" height="16" rx="4" fill={c} fillOpacity="0.22" stroke={c} strokeOpacity="0.55"/>
-        <rect x="87" y="20" width="48" height="16" rx="4" fill={c} fillOpacity="0.42" stroke={c} strokeOpacity="0.8"/>
-        <rect x="144" y="20" width="62" height="16" rx="4" fill={c} fillOpacity="0.16" stroke={c} strokeOpacity="0.45"/>
-        <rect x="54" y="62" width="71" height="16" rx="4" fill={c} fillOpacity="0.28" stroke={c} strokeOpacity="0.65"/>
-        <rect x="134" y="62" width="40" height="16" rx="4" fill={c} fillOpacity="0.18" stroke={c} strokeOpacity="0.48"/>
-        <rect x="94" y="104" width="56" height="16" rx="4" fill={c} fillOpacity="0.38" stroke={c} strokeOpacity="0.78"/>
-        <circle cx="110" cy="8" r="4" fill={c} fillOpacity="0.9"/>
-        <text x="103" y="137" fill={c} fillOpacity="0.85" fontSize="7" fontFamily="monospace">S0</text>
-      </svg>
-    ),
-  },
-  {
     view:"fechas", label:"Fechas", tono:"cian",    Icono:CalendarClock,
     desc:"Cuándo pedir o hacer cada cosa según el desmolde de cada barco",
     art:(c)=>(
@@ -167,7 +165,7 @@ export default function ObrasHome({ obras = [], cargando = false, onEnterMapa })
         eyebrow="Producción"
         titulo="Obras de"
         acento="producción"
-        bajada="Mapa operativo, cronograma, fechas y piezas por barco."
+        bajada="Planta en el tiempo, configuración de cada línea, mapa, piezas y fechas por barco."
         indicadores={INDICADORES.map(({ estado, label, tono }) => (
           <Indicador
             key={estado}
@@ -175,7 +173,7 @@ export default function ObrasHome({ obras = [], cargando = false, onEnterMapa })
             valor={conteo[estado]}
             tono={tono}
             cargando={cargando}
-            onClick={() => onEnterMapa("obras", { estado })}
+            onClick={() => onEnterMapa("planta", { estado })}
           />
         ))}
       />

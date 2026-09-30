@@ -12,6 +12,7 @@ import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
 import NormalizacionIngresosPanel from "@/features/panol/NormalizacionIngresosPanel";
+import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
@@ -363,6 +364,7 @@ const TABS = [
   { key: "maestro", label: "Inventario" },
   { key: "obra", label: "Por obra" },
   { key: "movimientos", label: "Movimientos" },
+  { key: "traslados", label: "Entre sedes" },
   { key: "sobrantes", label: "Sobrantes de obra" },
 ];
 
@@ -446,8 +448,11 @@ const MOV_KIND = {
   reasignacion_egreso: { label: "Reasig. -> egreso", color: C.violet, sign: "−" },
   liberacion:   { label: "A stock",      color: C.violet,  sign: "←" },
   consumible:   { label: "Consumible",   color: C.violet, sign: "−" },
+  traslado_salida: { label: "Sale de sede", color: C.blue, sign: "−" },
+  traslado_llegada: { label: "Llega a sede", color: C.green, sign: "+" },
+  traslado_cancelado: { label: "Vuelve a origen", color: C.violet, sign: "+" },
 };
-const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso", "reasignacion_egreso", "liberacion"]);
+const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso", "reasignacion_egreso", "liberacion", "traslado_salida", "traslado_llegada", "traslado_cancelado"]);
 // Movimientos donde el material efectivamente salió del pañol hacia una persona.
 // Sólo estos pueden volver fallados: un ingreso o una asignación interna, no.
 const MOV_SALIDA = new Set(["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "consumible"]);
@@ -455,6 +460,8 @@ const MOV_SALIDA = new Set(["egreso", "solicitud", "asignacion_egreso", "reasign
 function rowMovementKind(row) {
   const src = rowSource(row);
   const label = String(row.tipo_label || "").toLowerCase();
+  if (src === "transferencia_egreso_sede") return "traslado_salida";
+  if (src === "transferencia_ingreso_sede") return label.includes("cancelado") ? "traslado_cancelado" : "traslado_llegada";
   // Mover algo a la obra donde ya estaba no es una reasignación: es un egreso
   // comun. Aparecia como "REASIGNACION 52-23 -> 52-23", un movimiento que no
   // mueve nada de lugar y que no habia forma de entender leyendolo.
@@ -490,6 +497,11 @@ function rowMovimientoUsuario(row) {
 
 function movDetalleDestino(row, kind, obraById) {
   const codigo = (id) => (id ? (obraById?.get?.(id)?.codigo || null) : null);
+  if (kind === "traslado_salida" || kind === "traslado_llegada" || kind === "traslado_cancelado") {
+    const ruta = row.stock_nota || row.tipo_label || "Traslado entre sedes";
+    const obra = codigo(row.obra_id) || row.obra?.codigo;
+    return obra ? `${ruta} · obra ${obra}` : ruta;
+  }
   if (kind === "solicitud") {
     const origen = row.stock_sede ? `Stock ${row.stock_sede}` : "Stock";
     const destino = codigo(row.egreso_destino_obra_id) || row.sector_destino || "Sin obra";
@@ -1513,6 +1525,16 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   <MovimientosPanel rows={rowsSinConsumibles} obras={obras} isMobile={isMobile} consumiblesOcultos={consumiblesOcultos} />
                 )}
               </div>
+            )}
+
+            {tab === "traslados" && (
+              <PanolTrasladosSedePanel
+                sedeLocked={sedeLocked}
+                canReceive={canReceive}
+                toast={toast}
+                isMobile={isMobile}
+                onStockChange={cargar}
+              />
             )}
 
             {tab === "sobrantes" && (

@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
+  Truck,
   Warehouse,
   X,
 } from "lucide-react";
@@ -62,6 +63,7 @@ import {
   vincularMovimientosAMaterial,
 } from "@/features/panol/panolApi";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
+import { iniciarTrasladoSede, OTRA_SEDE_PANOL } from "@/features/panol/panolTrasladosSedeApi";
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
 const CATALOG_SEARCH_LIMIT = 12;
@@ -2474,10 +2476,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   const isCatalogOnly = !!group?.catalogOnly;
   const cantidadNum = qty(cantidad, 0);
   const movementSede = action === "egresar" && isCatalogOnly ? (sedeLocked || sede) : (selectedLocation?.sede || sede);
-  const willGoNegative = action === "egresar" && cantidadNum > (selectedLocation?.available || 0);
-  const insufficientStock = (action === "egresar" || action === "asignar")
+  const willGoNegative = (action === "egresar" || action === "trasladar") && cantidadNum > (selectedLocation?.available || 0);
+  const insufficientStock = (action === "egresar" || action === "asignar" || action === "trasladar")
     && (isCatalogOnly || cantidadNum > (selectedLocation?.available || 0) + 0.0001);
-  const transitOnly = action === "egresar" && !isCatalogOnly && (selectedLocation?.available || 0) <= 0 && (selectedLocation?.transitQty || 0) > 0;
+  const transitOnly = (action === "egresar" || action === "trasladar") && !isCatalogOnly && (selectedLocation?.available || 0) <= 0 && (selectedLocation?.transitQty || 0) > 0;
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
   const originIsObra = !!selectedLocation?.obraId; // el stock origen ya está asignado a una obra
   const asignarLabel = originIsObra ? "Reasignar" : "Asignar a obra";
@@ -2513,6 +2515,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       toast.warning(retiradoError);
       return;
     }
+    if (action === "trasladar" && (!selectedLocation?.sede || !OTRA_SEDE_PANOL[selectedLocation.sede])) {
+      toast.warning("Elegí una ubicación con sede de origen.");
+      return;
+    }
     // Egreso sin obra: hay que aclarar a dónde va (mantenimiento, obra del río, etc.) y confirmar.
     if (action === "egresar" && !destinoObraId && !selectedLocation?.obraId) {
       if (!nota.trim()) {
@@ -2542,6 +2548,19 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           sourceRows: compactEgresoSourceRows(selectedLocation),
         });
         toast.success("Egreso registrado.");
+      } else if (action === "trasladar") {
+        const origen = selectedLocation.sede;
+        const destino = OTRA_SEDE_PANOL[origen];
+        await iniciarTrasladoSede({
+          materialId: group.material?.id,
+          cantidad,
+          sedeOrigen: origen,
+          sedeDestino: destino,
+          obraId: selectedLocation.obraId || null,
+          nota,
+          variante: varianteEgreso || null,
+        });
+        toast.success(`Traslado iniciado: ${origen} → ${destino}. Confirmá la llegada en «Entre sedes».`);
       } else if (action === "asignar") {
         const baseMov = {
           material: group.material,
@@ -2586,7 +2605,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   return (
     <div style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 11 }}>
       <div>
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : "Asignar stock"}</div>
+        <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : action === "trasladar" ? "Trasladar entre sedes" : "Asignar stock"}</div>
         {action === "ingresar" && <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>Destino: {selectedLocation?.obraId ? selectedLocation.label : `Stock ${sedeLocked || sede}`}</div>}
         <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
       </div>
@@ -2598,14 +2617,17 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
         {mode !== "egreso" && !isCatalogOnly && (
           <button type="button" onClick={() => setAction("asignar")} style={{ border: `1px solid ${action === "asignar" ? C.blueB : C.border}`, background: action === "asignar" ? C.blueL : C.panel, color: action === "asignar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>{asignarLabel}</button>
         )}
+        {mode !== "egreso" && !isCatalogOnly && (
+          <button type="button" onClick={() => setAction("trasladar")} style={{ border: `1px solid ${action === "trasladar" ? C.blueB : C.border}`, background: action === "trasladar" ? C.blueL : C.panel, color: action === "trasladar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Trasladar sede</button>
+        )}
         {mode !== "egreso" && (
           <button type="button" onClick={() => setAction("ingresar")} style={{ border: `1px solid ${action === "ingresar" ? C.blueB : C.border}`, background: action === "ingresar" ? C.blueL : C.panel, color: action === "ingresar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Ingreso</button>
         )}
       </div>
 
-      {(action === "egresar" || action === "asignar") && !isCatalogOnly && (
+      {(action === "egresar" || action === "asignar" || action === "trasladar") && !isCatalogOnly && (
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{action === "asignar" ? "Depósito / stock a asignar" : "Deposito / obra origen"}</span>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{action === "asignar" ? "Depósito / stock a asignar" : "Depósito / obra origen"}</span>
           <select value={selectedLocation?.key || ""} onChange={(event) => setSelectedLocationKey(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
             {group.locations.map((loc) => <option key={loc.key} value={loc.key}>{loc.label} · {fmtQty(loc.available)}</option>)}
           </select>
@@ -2613,7 +2635,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       )}
 
       {/* Selector de variante al egresar/asignar cuando el producto tiene variantes */}
-      {(action === "egresar" || action === "asignar") && group.variantes?.length > 0 && (
+      {(action === "egresar" || action === "asignar" || action === "trasladar") && group.variantes?.length > 0 && (
         <label style={{ display: "grid", gap: 5 }}>
           <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Variante {action === "egresar" ? "a egresar" : "a asignar"}</span>
           <select value={varianteEgreso} onChange={(event) => setVarianteEgreso(event.target.value)} style={{ background: C.bg, border: `1px solid ${varianteEgreso ? C.violet : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
@@ -2632,6 +2654,14 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
             {obrasActivas.filter((obra) => obra.id !== selectedLocation?.obraId).map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
           </select>
         </label>
+      )}
+
+      {action === "trasladar" && selectedLocation?.sede && (
+        <div style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "10px 11px", fontSize: 12, lineHeight: 1.45 }}>
+          <strong>{selectedLocation.sede} → {OTRA_SEDE_PANOL[selectedLocation.sede]}</strong>
+          {selectedLocation.obraId && <span> · La obra no cambia.</span>}
+          <div>Al despachar, sale de {selectedLocation.sede} y queda en tránsito. Sólo entra en {OTRA_SEDE_PANOL[selectedLocation.sede]} cuando allí confirmen la llegada.</div>
+        </div>
       )}
 
       {action === "egresar" && isCatalogOnly && !sedeLocked && (
@@ -2706,8 +2736,8 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
         const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || insufficientStock || (action === "asignar" && !destinoObraId);
         return (
           <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 750, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
-            {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
-            {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : action === "ingresar" ? "Confirmar ingreso" : destinoObraId === "__stock__" ? "Pasar a stock" : originIsObra ? "Confirmar reasignación" : "Confirmar asignación"}
+            {action === "egresar" ? <ArrowUpRight size={15} /> : action === "trasladar" ? <Truck size={15} /> : <PackagePlus size={15} />}
+            {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : action === "trasladar" ? "Despachar a la otra sede" : action === "ingresar" ? "Confirmar ingreso" : destinoObraId === "__stock__" ? "Pasar a stock" : originIsObra ? "Confirmar reasignación" : "Confirmar asignación"}
           </button>
         );
       })()}

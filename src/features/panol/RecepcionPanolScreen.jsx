@@ -581,7 +581,7 @@ export default function RecepcionPanolScreen({ profile }) {
   // Identidad estable: si fuera un objeto inline, cualquier re-render del padre
   // (p. ej. un toast) reiniciaría el form del modal y borraría los ítems cargados.
   const modalPrefillEstable = useMemo(
-    () => modalPrefill || { origen: "remito", modo: "remito", sede: sedeLocked || "Pampa" },
+    () => modalPrefill || { origen: "remito", modo: "remito", sede: sedeLocked || "" },
     [modalPrefill, sedeLocked],
   );
 
