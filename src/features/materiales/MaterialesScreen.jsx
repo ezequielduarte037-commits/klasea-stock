@@ -92,6 +92,7 @@ import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorMeta, PROVEEDOR_TIPOS } from "./proveedorMeta";
+import { coincideProveedor, esProveedorAlternativo, nombreProveedorVisible, nombresProveedor } from "./proveedorNombre";
 import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
 import { ordenLineasDesdeMatriz, supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
@@ -1903,7 +1904,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
   const orderRows = useMemo(() => {
     const matRows = (items ?? []).map((m) => {
       const precio = priceInfo(m);
-      const proveedor = precio.proveedor || m.proveedor || "Sin proveedor";
+      const proveedor = nombreProveedorVisible(precio.proveedor || m.proveedor) || "Sin proveedor";
       const supplierTerms = supplierTermsForMaterial(m, { proveedor });
       return {
         materialId: m.id,
@@ -1928,7 +1929,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
       codigo: "",
       cantidad: a.cantidad || 1,
       unidad: "unidad",
-      proveedor: a.proveedor || "Sin proveedor",
+      proveedor: nombreProveedorVisible(a.proveedor) || "Sin proveedor",
       rubro: a.tipo === "opcional" ? "Opcionales" : "Adicionales",
       tipo: "Addon",
       obs: a.observaciones || "",
@@ -1948,7 +1949,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
         title: `Pedido ${obra?.codigo || `K${linea}`} · ${g.label}`,
         description: `${g.items.length} ítems${obra ? ` del barco ${obra.codigo}` : ` de la línea K${linea}`} (${groupBy}: ${g.label}).`,
         priority: "media", source: "materiales", project_id: obra?.id || null, es_adicional: pedidoTipo === "adicional", tipo_pedido: pedidoTipo,
-        proveedor: groupBy === "proveedor" && g.label !== "Sin proveedor" ? g.label : null,
+        proveedor: groupBy === "proveedor" && g.label !== "Sin proveedor" && !esProveedorAlternativo(g.label) ? g.label : null,
       } });
       for (const row of g.items) {
         const supplierSnapshot = row.material
@@ -1960,6 +1961,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
           unit: row.unidad || null,
           material_id: row.materialId || null,
           catalog_source: row.materialId ? "panol" : null,
+          notes: esProveedorAlternativo(row.proveedor) ? `Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.` : null,
           ...supplierSnapshot,
         });
       }
@@ -2397,7 +2399,7 @@ function addonRowToView(addon, materialById, categorias = []) {
     codigo,
     cantidad: addon.cantidad || 1,
     unidad,
-    proveedor: precio.proveedor || material?.proveedor || addon.proveedor || "Sin proveedor",
+    proveedor: nombreProveedorVisible(precio.proveedor || material?.proveedor || addon.proveedor) || "Sin proveedor",
     rubro,
     precio,
     bucket: { key: "addon", label: tipoMeta.label, color: tipoMeta.color },
@@ -4131,7 +4133,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         codigo: producto?.codigo || m.codigo,
         cantidad: materialQty(m, linea),
         unidad: m.unidad_medida || "unidad",
-        proveedor: precio.proveedor || producto?.proveedor || m.proveedor || "Sin proveedor",
+        proveedor: nombreProveedorVisible(precio.proveedor || producto?.proveedor || m.proveedor) || "Sin proveedor",
         rubro: rubroDeLista(categorias, m.categoria_id),
         precio,
         bucket,
@@ -4193,7 +4195,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           productoCondicionante: true,
           descripcion: producto.descripcion,
           codigo: producto.codigo || "",
-          proveedor: precio.proveedor || producto.proveedor || "Sin proveedor",
+          proveedor: nombreProveedorVisible(precio.proveedor || producto.proveedor) || "Sin proveedor",
           precio,
           imagen_url: producto.imagen_url || "",
           obs: [current.obs, `${condicionante.nombre}: ${producto.descripcion}`].filter(Boolean).join(" - "),
@@ -4241,7 +4243,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           cantidad: delta,
           baseCantidad: 0,
           unidad: item.unidad || material?.unidad_medida || "unidad",
-          proveedor: precio.proveedor || material?.proveedor || "Sin proveedor",
+          proveedor: nombreProveedorVisible(precio.proveedor || material?.proveedor) || "Sin proveedor",
           rubro: material ? rubroDeLista(categorias, material.categoria_id) : "Condicionante",
           precio,
           bucket: { key: "condicionante", label: "Condicionante", color: C.violet },
@@ -4337,7 +4339,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   // filtros, no son los de la obra entera.
   const rowsSinEstado = useMemo(() => {
     return rows
-      .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
+      .filter((row) => coincideProveedor(row.proveedor, proveedorFilter))
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
       .filter((row) => {
         if (etapaFilter === "todos") return true;
@@ -4469,7 +4471,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
     return base.map((r) => {
       const material = r.producto || r.material || null;
-      const proveedor = r.producto?.proveedor || r.proveedor;
+      const proveedor = r.proveedor;
       const supplierTerms = supplierTermsForMaterial(material, { proveedor });
       return {
         id: r.id,
@@ -4683,6 +4685,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             row.requisitoDescripcion && row.requisitoDescripcion !== row.descripcion
               ? `Requisito de matriz: ${row.requisitoDescripcion}`
               : "",
+            esProveedorAlternativo(row.proveedor) ? `Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.` : "",
             row.obs,
           ].filter(Boolean).join(" · ") || null,
           ...supplierSnapshot,
@@ -5221,7 +5224,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     const proveedoresSet = new Set();
     const rubrosSet = new Set();
     rows.forEach((row) => {
-      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      const names = nombresProveedor(row.proveedor);
+      for (const name of names.length ? names : ["Sin proveedor"]) proveedoresSet.add(name);
       if (row.rubro) rubrosSet.add(row.rubro);
     });
     return {
@@ -5898,7 +5902,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       const materialOperativo = producto || m;
       const precio = priceInfo(materialOperativo);
       const bucket = materialBucket(m, opciones, code);
-      const proveedor = precio.proveedor || materialOperativo.proveedor || m.proveedor || "Sin proveedor";
+      const proveedor = nombreProveedorVisible(precio.proveedor || materialOperativo.proveedor || m.proveedor) || "Sin proveedor";
       return {
         id: m.id,
         materialId: materialOperativo.id,
@@ -5950,13 +5954,13 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       material: null,
       cantidad: row.circuito === "laminacion" ? cantidadPlan : cantidadConsumida,
       cantidadConsumida,
-      proveedor: row.proveedor || "Sin proveedor",
-      proveedorMeta: proveedorMeta(row.proveedor || "", proveedores),
+      proveedor: nombreProveedorVisible(row.proveedor) || "Sin proveedor",
+      proveedorMeta: proveedorMeta(nombreProveedorVisible(row.proveedor), proveedores),
       precio: {
         amount: precioAmount,
         moneda,
         text: precioAmount ? fmtMoney(precioAmount, moneda) : "Sin precio",
-        proveedor: row.proveedor || "",
+        proveedor: nombreProveedorVisible(row.proveedor),
       },
       bucket: { key: "secundario", label: bucketLabel, color: C.violet },
       obs: row.circuito === "laminacion"
@@ -6074,15 +6078,15 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     const contar = (lista, campo, vacio) => {
       const m = new Map();
       for (const row of lista) {
-        const v = row[campo] || vacio;
-        m.set(v, (m.get(v) || 0) + 1);
+        const values = campo === "proveedor" ? nombresProveedor(row.proveedor) : [row[campo] || vacio];
+        for (const v of values.length ? values : [vacio]) m.set(v, (m.get(v) || 0) + 1);
       }
       return [...m.entries()]
         .sort((a, b) => a[0].localeCompare(b[0], "es"))
         .map(([value, count]) => ({ value, label: value, count }));
     };
     const sinRubro = rubrosSel.size ? rowsBase.filter((row) => rubrosSel.has(row.rubro)) : rowsBase;
-    const sinProv = proveedoresSel.size ? rowsBase.filter((row) => proveedoresSel.has(row.proveedor)) : rowsBase;
+    const sinProv = proveedoresSel.size ? rowsBase.filter((row) => [...proveedoresSel].some((name) => coincideProveedor(row.proveedor, name))) : rowsBase;
     return {
       proveedores: contar(sinRubro, "proveedor", "Sin proveedor"),
       rubros: contar(sinProv, "rubro", "Sin rubro"),
@@ -6090,7 +6094,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   }, [rowsBase, proveedoresSel, rubrosSel]);
 
   const visibleRows = useMemo(() => rowsBase
-    .filter((row) => !proveedoresSel.size || proveedoresSel.has(row.proveedor || "Sin proveedor"))
+    .filter((row) => !proveedoresSel.size || [...proveedoresSel].some((name) => coincideProveedor(row.proveedor || "Sin proveedor", name)))
     .filter((row) => !rubrosSel.size || rubrosSel.has(row.rubro || "Sin rubro")),
   [rowsBase, proveedoresSel, rubrosSel]);
 
@@ -6127,7 +6131,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       const qty = toNum(row.cantidad) || 1;
       suma.items += 1;
       if (row.secundario) suma.secundarios += 1;
-      if (row.proveedor) suma.proveedores.add(row.proveedor);
+      for (const name of nombresProveedor(row.proveedor)) suma.proveedores.add(name);
       if (row.rubro) suma.rubros.add(row.rubro);
       if (row.review?.flag) suma.revisar += 1;
       if (row.conjunto) suma.conjuntos.add(row.conjunto);
@@ -7379,7 +7383,7 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
   const moneda = materialPrice?.moneda || (row?.moneda === "USD" ? "USD" : "ARS");
   const descripcion = requisito?.descripcion || row.descripcion || producto?.descripcion;
   const codigo = requisito?.codigo || row.codigo;
-  const proveedor = producto?.proveedor || row.proveedor || materialPrice?.proveedor || material?.proveedor || "Sin proveedor";
+  const proveedor = nombreProveedorVisible(producto?.proveedor || row.proveedor || materialPrice?.proveedor || material?.proveedor) || "Sin proveedor";
   const rubroMaterial = requisito || producto;
   // El rubro no es una foto: es la clasificación de hoy. El texto guardado en el
   // snapshot quedó congelado cuando se creó la fila y arrastra nombres que ya no
@@ -8088,7 +8092,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     mats.forEach((m) => {
       const precio = priceInfo(m);
       const qty = materialQty(m, linea.codigo) || 1;
-      if (precio.proveedor || m.proveedor) proveedoresSet.add(precio.proveedor || m.proveedor);
+      for (const name of nombresProveedor(precio.proveedor || m.proveedor)) proveedoresSet.add(name);
       rubrosSet.add(categoriaNombre(categorias, m.categoria_id));
       const conjunto = conjuntoDe.get(m.id);
       if (conjunto) {
@@ -8121,7 +8125,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     let laminacionArs = 0;
     let laminacionSinPrecio = 0;
     laminacionRows.forEach((row) => {
-      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      for (const name of nombresProveedor(row.proveedor)) proveedoresSet.add(name);
       if (row.rubro) rubrosSet.add(row.rubro);
       const precio = Number(row.precioInfo?.precio_unidad_matriz || 0);
       const requerido = Number(Object.values(row.porObra || {})[0]?.requerido || 0);
@@ -8133,7 +8137,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     let maderasArs = 0;
     let maderasSinPrecio = 0;
     maderasRows.forEach((row) => {
-      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      for (const name of nombresProveedor(row.proveedor)) proveedoresSet.add(name);
       if (row.rubro) rubrosSet.add(row.rubro);
       const precio = Number(row.precioInfo?.precio_unidad_matriz || 0);
       const cantidad = Number(row.cantidadReferencia || 0);

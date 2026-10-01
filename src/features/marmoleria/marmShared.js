@@ -175,6 +175,31 @@ export function resolveSectorName(value, sectores = []) {
   return found || clean;
 }
 
+// Material de un ambiente: el que más se repite entre sus piezas. Antes la
+// pantalla mostraba el de la primera pieza, y un ambiente con piezas cargadas
+// después sin material (85-2: Salón y Camarote de Marinero) parecía completo
+// pero salía vacío en el PDF de la marmolería.
+export function materialDeSector(piezas) {
+  const conteo = new Map();
+  for (const p of piezas) {
+    const texto = cleanText(p.color);
+    if (!texto) continue;
+    const clave = texto.toLocaleLowerCase("es-AR");
+    const previo = conteo.get(clave);
+    conteo.set(clave, { texto: previo?.texto ?? texto, n: (previo?.n ?? 0) + 1 });
+  }
+  const materiales = [...conteo.values()].sort((a, b) => b.n - a.n);
+  return { material: materiales[0]?.texto ?? "", unico: materiales.length === 1 };
+}
+
+// Material que hereda una pieza nueva del ambiente. Solo si el ambiente tiene
+// uno solo: con dos piedras distintas no hay forma de saber cuál le toca, y es
+// mejor que quede vacío ("A confirmar" en el PDF) que con la equivocada.
+export function materialHeredable(piezas, sector) {
+  const { material, unico } = materialDeSector(piezas.filter(p => p.sector === sector));
+  return unico ? material : "";
+}
+
 export function fmtFecha(s) {
   return s ? s.split("-").reverse().join("/") : "—";
 }

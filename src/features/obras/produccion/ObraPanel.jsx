@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Copy, Focus, Pencil,
+  AlertTriangle, CalendarRange, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Copy, Flag, Focus, Pencil,
   Settings2, Sparkles, X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import { hoyLocal, diasEntre } from "./plan";
-import { Anillo, Estado, Menu } from "./ui";
+import { TEXTO_ETAPA, claseEtapa, hoyLocal, diasEntre } from "./plan";
+import { Anillo, Estado, Menu, NodoEtapa } from "./ui";
 import { fMedia, plural, semanaRel } from "./formato";
 import EtapaDetalle from "./EtapaDetalle";
 
@@ -91,6 +91,7 @@ export default function ObraPanel({
   }
 
   const etapaHoy = plan.actual;
+  const enCurso = obra.estado !== "terminada";
   return (
     <aside className="prd-panel" aria-label={`Obra ${obra.codigo}`} data-tour="obras-panel">
       <div className="prd-panel-cab">
@@ -189,21 +190,35 @@ export default function ObraPanel({
           </div>
         </div>
 
-        {plan.sinPlantilla && (
+        {obra.estado === "terminada" && (
+          <div className="prd-aviso" data-tono="verde">
+            <CheckCircle2 size={16} />
+            <p>Obra terminada{obra.fecha_fin_real ? ` el ${fMedia(new Date(`${obra.fecha_fin_real.slice(0, 10)}T00:00:00`))}` : ""}. <span>No aparece en la planta; se ve en Terminadas.</span></p>
+            {esGestion && <div className="acc"><button type="button" className="ui-btn ui-btn-fantasma" disabled={trabajando} onClick={() => correr(() => acciones.cambiarEstadoObra(obra.id, "activa"), `${obra.codigo} vuelve a la planta`)}>Reactivar</button></div>}
+          </div>
+        )}
+        {enCurso && esGestion && obra.estado === "activa" && plan.fin && diasEntre(plan.fin, hoy) > 14 && (
+          <div className="prd-aviso" data-tono="cian">
+            <Flag size={16} />
+            <p>El plan terminó el <b>{fMedia(plan.fin)}</b>. <span>Si el barco ya se entregó, terminá la obra y sale de la planta.</span></p>
+            <div className="acc"><button type="button" className="ui-btn ui-btn-suave" disabled={trabajando} onClick={terminarObra}>Terminar obra</button></div>
+          </div>
+        )}
+        {enCurso && plan.sinPlantilla && (
           <div className="prd-aviso" data-tono="neutro">
             <Settings2 size={16} />
             <p>La línea {linea?.nombre || ""} todavía no tiene etapas. Se cargan una vez en Configuración y todas sus obras toman el plan.</p>
             {esGestion && <div className="acc"><button type="button" className="ui-btn ui-btn-suave" onClick={() => onConfigurar("recorrido")}>Ir a Configuración</button></div>}
           </div>
         )}
-        {plan.sinFechas && (
+        {enCurso && plan.sinFechas && (
           <div className="prd-aviso" data-tono="cian">
             <CalendarRange size={16} />
             <p>Falta la fecha de desmolde. Con ella se calcula todo el plan de la obra.</p>
             {esGestion && <div className="acc"><button type="button" className="ui-btn ui-btn-suave" onClick={() => setEditDesmolde("")}>Cargar desmolde</button></div>}
           </div>
         )}
-        {plan.paraConfirmar.length > 0 && (
+        {enCurso && plan.paraConfirmar.length > 0 && (
           <div className="prd-aviso" data-tono="cian">
             <AlertTriangle size={16} />
             <p>
@@ -218,7 +233,7 @@ export default function ObraPanel({
             )}
           </div>
         )}
-        {esGestion && plan.etapas.length > 0 && plan.totalTareas === 0 && (
+        {enCurso && esGestion && plan.etapas.length > 0 && plan.totalTareas === 0 && (
           <div className="prd-aviso" data-tono="azul">
             <ClipboardList size={16} />
             <p>Esta obra todavía no tiene tareas. Se pueden traer las de la plantilla de {linea?.nombre || "la línea"}.</p>
@@ -239,10 +254,10 @@ export default function ObraPanel({
             </div>
           </div>
         )}
-        {plan.tieneSugeridas && !plan.sinPlantilla && (
+        {enCurso && plan.tieneSugeridas && !plan.sinPlantilla && (
           <div className="prd-aviso" data-tono="neutro">
             <Sparkles size={16} />
-            <p>{plural(plan.etapas.filter((e) => e.sug).length, "etapa no tiene", "etapas no tienen")} semana en la plantilla: van a continuación de la anterior. <span>Las rayadas son sugeridas.</span></p>
+            <p>{plural(plan.etapas.filter((e) => e.sug).length, "etapa no tiene", "etapas no tienen")} semana en la plantilla: van a continuación de la anterior. <span>En el Gantt se ven más tenues.</span></p>
             {esGestion && <div className="acc"><button type="button" className="ui-btn ui-btn-fantasma" onClick={() => onConfigurar("recorrido")}>Ubicarlas en Configuración</button></div>}
           </div>
         )}
@@ -256,12 +271,12 @@ export default function ObraPanel({
             <div className="prd-ruta">
               {plan.etapas.map((e) => {
                 const abierta = etapaSel === e.idx;
-                const clase = ["completado", "en_curso", "bloqueado"].includes(e.estado) ? e.estado : e.vencida ? "vencida" : "pendiente";
+                const clase = claseEtapa(e);
                 const pct = e.total ? Math.round((e.hechas / e.total) * 100) : e.estado === "completado" ? 100 : 0;
                 return (
                   <div key={e.id} className={`prd-ruta-item ${clase}${abierta ? " abierta" : ""}`} data-etapa={e.idx}>
                     <button type="button" className="prd-ruta-btn" onClick={() => onEtapa(abierta ? null : e.idx)} aria-expanded={abierta}>
-                      <span className={`prd-nodo ${clase}`} />
+                      <NodoEtapa clase={clase} />
                       <span style={{ minWidth: 0 }}>
                         <span className="prd-ruta-nom">{e.nombre}</span>
                         <span className="prd-ruta-meta">
@@ -272,8 +287,13 @@ export default function ObraPanel({
                         </span>
                       </span>
                       <span className="prd-ruta-der">
-                        <span className="mono" style={{ fontSize: 11, color: "var(--subtle)" }}>{e.total ? `${e.hechas}/${e.total}` : e.estado === "completado" ? "✓" : ""}</span>
-                        <span className={`prd-mini${pct >= 100 ? " lleno" : ""}`}><i key={pct} style={{ width: `${pct}%` }} /></span>
+                        <span className={`prd-est-txt ${clase}`}>{TEXTO_ETAPA[clase]}</span>
+                        {e.total > 0 && (
+                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="mono" style={{ fontSize: 10.5, color: "var(--subtle)" }}>{e.hechas}/{e.total}</span>
+                            <span className={`prd-mini${pct >= 100 ? " lleno" : ""}`} style={{ width: 40 }}><i key={pct} style={{ width: `${pct}%` }} /></span>
+                          </span>
+                        )}
                       </span>
                     </button>
                     {abierta && (

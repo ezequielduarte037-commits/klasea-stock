@@ -1,4 +1,5 @@
 import { C } from "@/theme";
+import { esProveedorAlternativo, nombreProveedorVisible } from "./proveedorNombre";
 
 // El ranking principal/secundario/terciario se eliminó: un material con varios proveedores
 // simplemente tiene varios, sin jerarquía. Quedan solo las categorías FUNCIONALES
@@ -81,11 +82,13 @@ export function proveedorTooltip(meta) {
 }
 
 export function proveedorMeta(nombreTexto, proveedores = []) {
-  const tokens = splitProveedorText(nombreTexto);
+  if (esProveedorAlternativo(nombreTexto)) return null;
+  const tokens = splitProveedorText(nombreProveedorVisible(nombreTexto));
   if (!tokens.length || !Array.isArray(proveedores) || !proveedores.length) return null;
 
   const matches = [];
   for (const proveedor of proveedores) {
+    if (proveedor.activo === false) continue;
     const names = providerNames(proveedor);
     const score = matchScore(tokens, names);
     if (!score) continue;

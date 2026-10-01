@@ -6,17 +6,13 @@ import {
   Gem, Download, History, CalendarClock, RotateCcw, AlertTriangle, Send,
   Inbox as InboxIcon, Ship, Table2,
 } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-
-// 👇 Ajustá esta ruta dependiendo de dónde guardes la imagen de Klase A en tu proyecto
-import logoKlaseA from "@/assets/logos/logo-klasea.png";
+import { loadNavyLogo } from "@/lib/pdfLogo";
 
 import {
   MARM_CSS, T,
   DESMOLDES_DATA, GAP_POR_LINEA,
   fechaEstPlantilla, diasHastaPlantilla, diasDesde, bucketDesmolde,
-  statsDePiezas, uniqueSorted, resolveSectorName, splitPiezas, fmtFecha,
+  statsDePiezas, uniqueSorted, resolveSectorName, splitPiezas, fmtFecha, materialHeredable, cleanText,
   DEMORADA_DIAS,
 } from "./marmShared";
 import PiezaModal from "./PiezaModal";
@@ -28,6 +24,7 @@ import BoatDetail from "./BoatDetail";
 import PlantillaView from "./PlantillaView";
 import HistorialView from "./HistorialView";
 import GeneralView from "./GeneralView";
+import { construirPdfMarmoleria, nombreArchivoMarmoleria } from "./marmoleriaPdf";
 
 // ── CENTRO DE CONTROL DE MARMOLERÍA ───────────────────────────────
 export default function MarmoleriaScreen({ profile }) {
@@ -97,7 +94,7 @@ export default function MarmoleriaScreen({ profile }) {
 
   // Datos para la exportación PDF (Enviado / Rehacer en toda la fábrica)
   async function cargarDashboardGeneral() {
-    const { data: unidadesDB } = await supabase.from("marm_unidades").select("id, codigo").eq("activa", true);
+    const { data: unidadesDB } = await supabase.from("marm_unidades").select("id, codigo, linea_id").eq("activa", true);
     // Sin unidades activas la planilla esta vacia; antes se salia sin tocar el
     // estado y quedaba mostrando lo de la carga anterior.
     if (!unidadesDB?.length) { setDashboard([]); return []; }
@@ -111,7 +108,7 @@ export default function MarmoleriaScreen({ profile }) {
 
     const mapeadas = (piezasDB || []).map(p => {
       const u = unidadesDB.find(x => x.id === p.unidad_id);
-      return { ...p, codigo_barco: u?.codigo || '-' };
+      return { ...p, codigo_barco: u?.codigo || '-', linea_id: u?.linea_id ?? null };
     });
 
     setDashboard(mapeadas);
@@ -581,13 +578,14 @@ export default function MarmoleriaScreen({ profile }) {
     cargarDashboardGeneral();
   }
 
-  async function cambiarColorSector(sector, nuevoColor) {
-    const piezasSector = piezas.filter(p => p.sector === sector);
+  async function cambiarColorSector(sector, nuevoColor, { soloVacias = false } = {}) {
+    const piezasSector = piezas.filter(p => p.sector === sector && (!soloVacias || !cleanText(p.color)));
     const ids = piezasSector.map(p => p.id);
     if (!ids.length) return;
 
     // Actualizar visualmente al instante
-    setPiezas(prev => prev.map(p => p.sector === sector ? { ...p, color: nuevoColor } : p));
+    const tocadas = new Set(ids);
+    setPiezas(prev => prev.map(p => tocadas.has(p.id) ? { ...p, color: nuevoColor } : p));
 
     // Actualizar en la base de datos
     const { error } = await supabase
@@ -598,19 +596,28 @@ export default function MarmoleriaScreen({ profile }) {
     if (error) {
       setErr("Error al actualizar el color: " + error.message);
       cargarPiezas(unidadId); // Revierte en caso de error
+      return;
     }
+    // La planilla general y el PDF leen el material de cada pieza.
+    cargarFlota();
+    cargarDashboardGeneral();
   }
 
   async function agregarPiezaManual(form) {
     const piezasNuevas = splitPiezas(form.pieza);
     const sector = resolveSectorName(form.sector, sectoresBarco);
     if (!piezasNuevas.length || !sector || !unidadId) return;
+    // Una pieza nueva en un ambiente que ya tiene material lo hereda. Antes
+    // quedaba vacía y salía sin piedra en el PDF aunque la pantalla mostrara
+    // el material del ambiente.
+    const material = materialHeredable(piezas, sector);
     const { error } = await supabase.from("marm_unidad_piezas").insert(
       piezasNuevas.map((pieza) => ({
         unidad_id: unidadId,
         pieza,
         sector,
         estado: "Pendiente",
+        ...(material ? { color: material } : {}),
       }))
     );
     if (error) return setErr(error.message);
@@ -639,13 +646,18 @@ export default function MarmoleriaScreen({ profile }) {
     if (error) return setErr(error.message);
 
     if (unidadId && lps?.length) {
-      await supabase.from("marm_unidad_piezas").insert(lps.map((lp) => ({
-        unidad_id: unidadId,
-        pieza_id:  lp.id,
-        pieza:     lp.pieza,
-        sector:    lp.sector,
-        estado:    "Pendiente",
-      })));
+      await supabase.from("marm_unidad_piezas").insert(lps.map((lp) => {
+        // La plantilla no tiene material; en el barco sí, si el ambiente ya lo tiene.
+        const material = materialHeredable(piezas, lp.sector);
+        return {
+          unidad_id: unidadId,
+          pieza_id:  lp.id,
+          pieza:     lp.pieza,
+          sector:    lp.sector,
+          estado:    "Pendiente",
+          ...(material ? { color: material } : {}),
+        };
+      }));
     }
     if (lps?.length) {
       setPlantillaLinea(prev => [...prev, ...lps].sort((a,b) => (a.sector+a.pieza).localeCompare(b.sector+b.pieza)));
@@ -653,7 +665,7 @@ export default function MarmoleriaScreen({ profile }) {
     if (unidadId) cargarPiezas(unidadId);
   }
 
-  // ── EXPORTACIÓN GLOBAL A PDF CON LOGO ─────────────────────────────
+  // ── EXPORTACIÓN A PDF: la lista que se le pasa a la marmolería ─────
   async function exportarPDFGeneral() {
     setIsExporting(true);
     try {
@@ -662,173 +674,15 @@ export default function MarmoleriaScreen({ profile }) {
       const datos = await cargarDashboardGeneral();
       if (!datos.length) {
         alert("No hay piezas enviadas en ninguna de las obras para exportar.");
-        setIsExporting(false);
         return;
       }
-
-      const doc = new jsPDF();
-      const anchoHoja = doc.internal.pageSize.getWidth();
-      const altoHoja = doc.internal.pageSize.getHeight();
-      const MARGEN = 14;
-      const PIE = 16;
-
-      const img = new Image();
-      img.src = logoKlaseA;
-      await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
-
-      // Sin el parametro de compresion jsPDF guarda el PNG crudo y el reporte
-      // pesa 6 MB por un logo de 59 KB. Medido: 6.00 MB -> 74 KB.
-      const encabezado = () => {
-        doc.addImage(img, "PNG", MARGEN, 12, 45, 15, undefined, "FAST");
-        doc.setFontSize(15);
-        doc.setTextColor(14, 18, 28);
-        doc.text("Reporte de Marmolería", MARGEN, 36);
-        doc.setFontSize(9);
-        doc.setTextColor(120, 128, 140);
-        doc.text(`Generado ${new Date().toLocaleDateString("es-AR")}`, MARGEN, 41.5);
-      };
-      encabezado();
-
-      // Agrupado por obra. Cada una se dibuja como su propia tabla para poder
-      // decidir si entra en lo que queda de hoja o arranca en la siguiente: una
-      // obra partida al medio es justo lo que hace confuso el reporte.
-      const porObra = new Map();
-      for (const p of datos) {
-        const obra = p.codigo_barco || "Sin obra";
-        porObra.set(obra, [...(porObra.get(obra) ?? []), p]);
-      }
-      const obras = [...porObra.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-
-      const ALTO_TITULO = 11;
-      const ALTO_CABECERA = 8;
-      const ALTO_RENGLON = 4.1;   // un renglon de texto a 9.5pt
-      const RELLENO_FILA = 4.4;   // el padding de arriba y abajo
-      const ANCHO_PIEZA = 50;
-      const ANCHO_PIEDRA = anchoHoja - MARGEN * 2 - (34 + 50 + 22 + 22);
-      let y = 50;
-
-      /** Alto real de una fila, contando lo que se parta en varios renglones. */
-      const altoDeFila = (pieza, piedra) => {
-        doc.setFontSize(9.5);
-        const renglones = Math.max(
-          doc.splitTextToSize(String(pieza || "-"), ANCHO_PIEZA - 7).length,
-          doc.splitTextToSize(String(piedra || "-"), ANCHO_PIEDRA - 7).length,
-          1,
-        );
-        return renglones * ALTO_RENGLON + RELLENO_FILA;
-      };
-
-      obras.forEach(([obra, piezasDeObra], indice) => {
-        const piezas = [...piezasDeObra].sort((a, b) => {
-          const s = (a.sector || "").localeCompare(b.sector || "");
-          return s !== 0 ? s : (a.pieza || "").localeCompare(b.pieza || "");
-        });
-
-        const alto = ALTO_TITULO + ALTO_CABECERA + piezas.reduce(
-          (total, p) => total + altoDeFila(p.pieza, p.color || p.sector_color),
-          0,
-        );
-        const espacioLibre = altoHoja - PIE - y;
-        // Si no entra entera y no estamos recien empezando la hoja, se pasa a la
-        // siguiente. Una obra corta nunca queda cortada; una muy larga se parte
-        // igual, pero arranca limpia arriba de una hoja.
-        if (alto > espacioLibre && y > 50) {
-          doc.addPage();
-          y = 20;
-        } else if (indice > 0) {
-          y += 6;
-        }
-
-        // Barra de la obra: lo unico fuerte del reporte.
-        doc.setFillColor(14, 18, 28);
-        doc.rect(MARGEN, y, anchoHoja - MARGEN * 2, ALTO_TITULO, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(11.5);
-        doc.text(obra, MARGEN + 3.5, y + 7.6);
-        doc.setFontSize(8.5);
-        doc.setTextColor(190, 198, 210);
-        const pendientes = piezas.length;
-        const rehacer = piezas.filter((p) => p.estado === "Rehacer").length;
-        doc.text(
-          `${pendientes} pieza${pendientes === 1 ? "" : "s"}${rehacer ? ` · ${rehacer} a rehacer` : ""}`,
-          anchoHoja - MARGEN - 3.5,
-          y + 7.4,
-          { align: "right" },
-        );
-        y += ALTO_TITULO;
-
-        // El area se escribe solo cuando cambia: separa sin cortar la lectura.
-        // La piedra va en TODAS las filas porque dentro de una misma area puede
-        // haber piezas de piedras distintas, y ahi el dato importa por pieza.
-        let areaAnterior = "";
-        const filas = piezas.map((p) => {
-          const area = String(p.sector || "").trim();
-          const abre = area !== areaAnterior;
-          if (abre) areaAnterior = area;
-          return [
-            abre ? (area || "—") : "",
-            p.pieza || "-",
-            p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-",
-            p.estado,
-            p.color || p.sector_color || "-",
-          ];
-        });
-        const abrenArea = new Set();
-        let previa = "";
-        piezas.forEach((p, i) => {
-          const area = String(p.sector || "").trim();
-          if (area !== previa) { previa = area; abrenArea.add(i); }
-        });
-
-        autoTable(doc, {
-          startY: y,
-          margin: { left: MARGEN, right: MARGEN, top: 20, bottom: PIE },
-          rowPageBreak: "avoid",
-          head: [["Área", "Pieza", "Enviada", "Estado", "Piedra"]],
-          body: filas,
-          theme: "plain",
-          styles: { fontSize: 9.5, valign: "middle", overflow: "linebreak", cellPadding: { top: 2.2, bottom: 2.2, left: 3.5, right: 3 } },
-          headStyles: { fillColor: [240, 243, 247], textColor: [90, 98, 110], fontSize: 8.5, fontStyle: "bold" },
-          columnStyles: {
-            0: { cellWidth: 34, fontStyle: "bold" },
-            1: { cellWidth: 50 },
-            2: { cellWidth: 22 },
-            3: { cellWidth: 22 },
-            4: { cellWidth: ANCHO_PIEDRA },
-          },
-          didParseCell: (data) => {
-            if (data.section !== "body") return;
-            // Filete finito arriba de cada area: alcanza para separarlas.
-            if (abrenArea.has(data.row.index) && data.row.index > 0) {
-              data.cell.styles.lineWidth = { top: 0.15 };
-              data.cell.styles.lineColor = [220, 226, 234];
-            }
-            // Rehacer es lo unico que exige una accion.
-            if (data.column.index === 3 && String(data.cell.raw) === "Rehacer") {
-              data.cell.styles.textColor = [168, 50, 63];
-              data.cell.styles.fontStyle = "bold";
-            }
-            if (data.column.index === 4) data.cell.styles.textColor = [110, 118, 130];
-          },
-          didDrawPage: (data) => {
-            // El encabezado solo va en la primera; en las de continuacion basta
-            // el numero de pagina para no comerse media hoja.
-            if (data.pageNumber > 1 || doc.getNumberOfPages() > 1) {
-              doc.setFontSize(8);
-              doc.setTextColor(150, 156, 166);
-              doc.text(
-                `Marmolería · ${new Date().toLocaleDateString("es-AR")}`,
-                MARGEN,
-                altoHoja - 8,
-              );
-              doc.text(`${doc.getCurrentPageInfo().pageNumber}`, anchoHoja - MARGEN, altoHoja - 8, { align: "right" });
-            }
-          },
-        });
-        y = doc.lastAutoTable.finalY;
+      const nombreLinea = new Map(lineas.map((l) => [l.id, l.nombre]));
+      const doc = construirPdfMarmoleria({
+        piezas: datos,
+        lineaDe: (pieza) => nombreLinea.get(pieza.linea_id) ?? "",
+        logo: await loadNavyLogo(),
       });
-
-      doc.save(`Marmoleria_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`);
+      doc.save(nombreArchivoMarmoleria());
     } catch (e) {
       console.error(e);
       alert("Hubo un error al generar el PDF.");

@@ -7,7 +7,7 @@ import { EtapaModal, ObraModal, TareaModal, VacacionesObraModal } from "@/featur
 import { hasMatrixDetailColumns } from "@/features/obras/obrasHelpers";
 import GanttPlanta from "./GanttPlanta";
 import ObraPanel from "./ObraPanel";
-import { Anillo, Estado } from "./ui";
+import { Anillo, Estado, NodoEtapa } from "./ui";
 import { estadoDeObra, hoyLocal } from "./plan";
 import { MS_DIA, fLarga, fMedia, fMes } from "./formato";
 
@@ -16,7 +16,8 @@ import { MS_DIA, fLarga, fMedia, fMes } from "./formato";
 // deja sólo esa obra. En el celular se ven tarjetas y la obra abre a pantalla
 // completa (el Gantt sigue disponible con el botón de arriba).
 
-const ESTADOS = [["activa", "Activas"], ["pausada", "Pausadas"], ["terminada", "Terminadas"], ["todas", "Todas"]];
+// Las terminadas no van al Gantt: se ven en una lista aparte.
+const ESTADOS = [["activa", "Activas"], ["pausada", "Pausadas"], ["terminada", "Terminadas"]];
 
 const leer = (clave, def) => { try { return window.localStorage.getItem(clave) ?? def; } catch { return def; } };
 const guardar = (clave, v) => { try { window.localStorage.setItem(clave, v); } catch { /* sin almacenamiento */ } };
@@ -28,7 +29,7 @@ export default function PlantaView({
   const { obras, lineas, lineaById, planes, tareasPorEtapa, archCounts, periodosPorObra, acciones, loading } = datos;
   const hoy = useMemo(() => hoyLocal(), []);
 
-  const [estadoFiltro, setEstadoFiltro] = useState(filtroInicial?.estado || "activa");
+  const [estadoFiltro, setEstadoFiltro] = useState(ESTADOS.some(([k]) => k === filtroInicial?.estado) ? filtroInicial.estado : "activa");
   const [lineaFiltro, setLineaFiltro] = useState(() => leer("obras_linea_foco", "todas"));
   const [busqueda, setBusqueda] = useState("");
   const [modo, setModo] = useState(() => leer("obras_planta_modo", "cal"));
@@ -44,7 +45,10 @@ export default function PlantaView({
   const [etapaModal, setEtapaModal] = useState(null);
   const [vacaciones, setVacaciones] = useState(null);
 
-  const cambiarLinea = (id) => { setLineaFiltro(id); guardar("obras_linea_foco", id); };
+  // Cambiar de filtro cierra la obra elegida: si no, quedaría "elegida" sin verse.
+  const soltarSeleccion = () => { setSeleccion(null); setEtapaSel(null); setFoco(false); };
+  const cambiarLinea = (id) => { setLineaFiltro(id); guardar("obras_linea_foco", id); soltarSeleccion(); };
+  const cambiarEstado = (k) => { setEstadoFiltro(k); soltarSeleccion(); };
   const cambiarModo = (m) => { setModo(m); guardar("obras_planta_modo", m); };
   const cambiarZoom = (z) => { setZoom(z); guardar("obras_planta_zoom", String(z)); };
 
@@ -53,7 +57,7 @@ export default function PlantaView({
     if (!obraInicial || loading) return;
     const obra = obras.find((o) => o.id === obraInicial);
     if (!obra) return;
-    setEstadoFiltro("todas");
+    setEstadoFiltro(ESTADOS.some(([k]) => k === obra.estado) ? obra.estado : "activa");
     setLineaFiltro("todas");
     setSeleccion(obra.id);
     setEtapaSel(planes.get(obra.id)?.actual?.idx ?? null);
@@ -68,21 +72,21 @@ export default function PlantaView({
 
   const conteo = useMemo(() => {
     const base = lineaFiltro === "todas" ? obras : obras.filter((o) => o.linea_id === lineaFiltro);
-    const c = { activa: 0, pausada: 0, terminada: 0, todas: base.length };
+    const c = { activa: 0, pausada: 0, terminada: 0 };
     base.forEach((o) => { if (c[o.estado] != null) c[o.estado] += 1; });
     return c;
   }, [obras, lineaFiltro]);
 
   const porLinea = useMemo(() => {
     const c = {};
-    obras.filter((o) => estadoFiltro === "todas" || o.estado === estadoFiltro).forEach((o) => { c[o.linea_id || "_"] = (c[o.linea_id || "_"] || 0) + 1; });
+    obras.filter((o) => o.estado === estadoFiltro).forEach((o) => { c[o.linea_id || "_"] = (c[o.linea_id || "_"] || 0) + 1; });
     return c;
   }, [obras, estadoFiltro]);
 
   const filasTodas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return obras
-      .filter((o) => estadoFiltro === "todas" || o.estado === estadoFiltro)
+      .filter((o) => o.estado === estadoFiltro)
       .filter((o) => lineaFiltro === "todas" || o.linea_id === lineaFiltro)
       .filter((o) => !q || `${o.codigo} ${o.descripcion || ""} ${o.linea_nombre || ""}`.toLowerCase().includes(q))
       .map((obra) => {
@@ -110,7 +114,9 @@ export default function PlantaView({
   }, [filasTodas, lineas, lineaById]);
 
   const orden = useMemo(() => grupos.flatMap((g) => g.filas), [grupos]);
-  const filaSel = orden.find((f) => f.obra.id === seleccion) || (seleccion ? filasTodas.find((f) => f.obra.id === seleccion) : null);
+  // Sólo cuenta la obra elegida si está a la vista con los filtros actuales.
+  const filaSel = orden.find((f) => f.obra.id === seleccion) || null;
+  const seleccionVisible = filaSel ? seleccion : null;
   const gruposVista = foco && filaSel ? [{ clave: "foco", nombre: filaSel.linea?.nombre, filas: [filaSel] }] : grupos;
 
   // La obra elegida puede quedar fuera de los filtros: se cierra el panel.
@@ -120,10 +126,23 @@ export default function PlantaView({
 
   const seleccionar = useCallback((id) => {
     setTip(null);
-    if (id === seleccion) { setSeleccion(null); setEtapaSel(null); setFoco(false); return; }
+    if (id === seleccion) return;
     setSeleccion(id);
     const plan = planes.get(id);
     setEtapaSel(plan?.actual?.idx ?? plan?.primeraAbierta?.idx ?? null);
+  }, [seleccion, planes]);
+
+  // Enfocar: deja sólo esa obra y ajusta la escala a su recorrido.
+  const alternarFoco = useCallback((id) => {
+    setTip(null);
+    if (id !== seleccion) {
+      setSeleccion(id);
+      const plan = planes.get(id);
+      setEtapaSel(plan?.actual?.idx ?? plan?.primeraAbierta?.idx ?? null);
+      setFoco(true);
+      return;
+    }
+    setFoco((v) => !v);
   }, [seleccion, planes]);
 
   const idx = orden.findIndex((f) => f.obra.id === seleccion);
@@ -155,7 +174,8 @@ export default function PlantaView({
 
   const detalleHabilitado = datos.etapas.some(hasMatrixDetailColumns) || datos.lProcs.some(hasMatrixDetailColumns);
   const izq = isMobile ? 150 : 300;
-  const conGantt = !isMobile || vistaMovil === "gantt";
+  const enTerminadas = estadoFiltro === "terminada";
+  const conGantt = !enTerminadas && (!isMobile || vistaMovil === "gantt");
   const activas = conteo.activa;
 
   const onTip = useCallback((t) => {
@@ -176,7 +196,7 @@ export default function PlantaView({
               <Search size={15} />
               <input className="ui-input" id="planta-buscar" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar obra" autoComplete="off" />
             </label>
-            {isMobile && (
+            {isMobile && !enTerminadas && (
               <div className="prd-seg" role="group" aria-label="Vista">
                 <button type="button" className={vistaMovil === "tarjetas" ? "on" : ""} onClick={() => setVistaMovil("tarjetas")} aria-label="Tarjetas"><LayoutList size={15} /></button>
                 <button type="button" className={vistaMovil === "gantt" ? "on" : ""} onClick={() => setVistaMovil("gantt")} aria-label="Gantt"><GanttChart size={15} /></button>
@@ -200,7 +220,7 @@ export default function PlantaView({
         <div className="prd-filtros" data-tour="obras-planta-filtros">
           <div className="prd-seg" role="group" aria-label="Estado de las obras">
             {ESTADOS.map(([k, t]) => (
-              <button key={k} type="button" className={estadoFiltro === k ? "on" : ""} onClick={() => setEstadoFiltro(k)}>{t}<span className="n">{conteo[k]}</span></button>
+              <button key={k} type="button" className={estadoFiltro === k ? "on" : ""} onClick={() => cambiarEstado(k)}>{t}<span className="n">{conteo[k]}</span></button>
             ))}
           </div>
           <div className="prd-scroll-x" role="group" aria-label="Línea">
@@ -233,8 +253,10 @@ export default function PlantaView({
           <div className="prd-vacio" style={{ flex: 1 }}>
             <strong>{obras.length ? "Ninguna obra coincide con los filtros" : "Todavía no hay obras"}</strong>
             <span>{obras.length ? "Probá con otro estado, otra línea o borrá la búsqueda." : "Creá la primera obra: con el desmolde y la línea, el plan se arma solo."}</span>
-            {obras.length > 0 && <button type="button" className="ui-btn" onClick={() => { setEstadoFiltro("todas"); cambiarLinea("todas"); setBusqueda(""); }}>Ver todas</button>}
+            {obras.length > 0 && <button type="button" className="ui-btn" onClick={() => { cambiarEstado("activa"); cambiarLinea("todas"); setBusqueda(""); }}>Ver las activas</button>}
           </div>
+        ) : estadoFiltro === "terminada" ? (
+          <ListaTerminadas filas={orden} seleccion={seleccionVisible} onAbrir={seleccionar} />
         ) : conGantt ? (
           <GanttPlanta
             grupos={gruposVista}
@@ -242,14 +264,15 @@ export default function PlantaView({
             zoom={zoom}
             hoy={hoy}
             izq={izq}
-            seleccion={seleccion}
-            expandida={seleccion}
+            seleccion={seleccionVisible}
+            expandida={seleccionVisible}
             etapaSel={etapaSel}
             focoObra={foco ? filaSel : null}
             onSeleccionar={seleccionar}
             onEtapa={(id, j) => { if (id !== seleccion) setSeleccion(id); setEtapaSel(j); }}
             onTip={onTip}
             onZoom={cambiarZoom}
+            onFoco={alternarFoco}
           />
         ) : (
           <TarjetasObras grupos={grupos} hoy={hoy} onAbrir={seleccionar} />
@@ -282,13 +305,16 @@ export default function PlantaView({
         )}
       </div>
 
-      {!isMobile && (
+      {!isMobile && !enTerminadas && (
         <div className="prd-leyenda" aria-hidden="true">
-          <span><i className="prd-lg-ahora" />Etapa en la que debería estar hoy</span>
-          <span><i className="prd-lg-hecho" />Avance reportado</span>
-          <span><i className="prd-lg-s0" />Desmolde (S0)</span>
-          <span><i className="prd-lg-sug" />Etapas sin semana en la plantilla</span>
+          <span><i className="prd-lg-barra hecho" />Reportado</span>
+          <span><i className="prd-lg-barra esperado" />Debería estar hecho</span>
+          <span><i className="prd-lg-barra" />Falta</span>
+          <span><i className="prd-lg-s0" />Desmolde</span>
+          <span style={{ gap: 5 }}><NodoEtapa clase="completado" tam={14} /><NodoEtapa clase="en_curso" tam={14} /><NodoEtapa clase="vencida" tam={14} />Etapa terminada, en curso, atrasada</span>
           {modo === "cal" ? <span><i className="prd-lg-hoy" />Hoy</span> : <span>Alineadas en el desmolde · la raya punteada es hoy</span>}
+          <span className="prd-sp" />
+          <span style={{ color: "var(--subtle)" }}>Doble clic en una obra para enfocarla</span>
         </div>
       )}
 
@@ -368,13 +394,7 @@ function TarjetasObras({ grupos, hoy, onAbrir }) {
                 </div>
                 {tiene && (
                   <>
-                    <div className="prd-t-linea">
-                      <div className={`prd-sobre${plan.tieneSugeridas ? " sug" : ""}`} style={{ left: 0, right: 0 }} />
-                      {plan.hechoHasta && <div className="prd-hecho" style={{ left: 0, width: p(plan.hechoHasta) }} />}
-                      {plan.actual && <div className="prd-ahora" style={{ left: p(plan.actual.ini), width: `max(10px, calc(${p(plan.actual.fin)} - ${p(plan.actual.ini)}))`, height: 20, marginTop: -10 }} />}
-                      {plan.s0 && <div className="prd-s0" style={{ left: p(plan.s0) }} />}
-                      {hoy > plan.inicio && hoy < plan.fin && <div className="prd-hoy-pto" style={{ left: p(hoy), top: 0, bottom: 0 }} />}
-                    </div>
+                    <MiniLinea plan={plan} hoy={hoy} p={p} i={n} />
                     <div className="prd-t-fechas"><span>{fMes(plan.inicio)}</span><span>{plan.s0 ? `S0 ${fMedia(plan.s0)}` : ""}</span><span>fin {fMes(plan.fin)}</span></div>
                   </>
                 )}
@@ -383,6 +403,53 @@ function TarjetasObras({ grupos, hoy, onAbrir }) {
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Obras terminadas: tarjetas con cuándo terminaron. Se abren en el mismo panel
+// (para mirarlas o reactivarlas) pero no ocupan lugar en el Gantt.
+function ListaTerminadas({ filas, seleccion, onAbrir }) {
+  const ordenadas = filas.slice().sort((a, b) => String(b.obra.fecha_fin_real || "").localeCompare(String(a.obra.fecha_fin_real || "")));
+  return (
+    <div className="prd-term">
+      {ordenadas.map(({ obra, plan, linea }, i) => {
+        const fin = obra.fecha_fin_real ? new Date(`${obra.fecha_fin_real.slice(0, 10)}T00:00:00`) : null;
+        const ini = obra.fecha_inicio ? new Date(`${obra.fecha_inicio.slice(0, 10)}T00:00:00`) : null;
+        const dias = fin && ini ? Math.round((fin - ini) / MS_DIA) : null;
+        return (
+          <button key={obra.id} type="button" className={`prd-term-card${seleccion === obra.id ? " sel" : ""}`} style={{ "--i": Math.min(i, 20) }} onClick={() => onAbrir(obra.id)}>
+            <span className="fila">
+              <span className="prd-g-cod" style={{ fontSize: 16 }}>{obra.codigo}</span>
+              {linea && <span className="ui-chip" style={{ minHeight: 20 }}>{linea.nombre}</span>}
+              <span className="prd-sp" />
+              {plan.reportada && <Anillo valor={plan.avance} tam={34} />}
+            </span>
+            <span className="meta">
+              <span>Terminada <b>{fin ? fMedia(fin) : "sin fecha"}</b></span>
+              {dias != null && dias >= 0 && <span><b>{dias}</b> días en obra</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Línea de tiempo de la tarjeta del celular: la misma barra del Gantt (plan
+// contra real), en porcentajes del ancho de la tarjeta.
+function MiniLinea({ plan, hoy, p, i }) {
+  const aPct = (d) => parseFloat(p(d));
+  const cortes = [...new Set(plan.etapas.map((e) => Math.round(aPct(e.ini) * 10) / 10))].filter((x) => x > 1 && x < 99).sort((a, b) => a - b)
+    .filter((x, k, xs) => k === 0 || x - xs[k - 1] >= 3);
+  return (
+    <div className="prd-t-linea">
+      <div className={`prd-barra-o${plan.tieneSugeridas ? " sug" : ""}`} style={{ "--i": i }}>
+        {hoy > plan.inicio && <span className="esperado" style={{ width: p(hoy) }} />}
+        {plan.hechoHasta && <span className="hecho" style={{ width: p(plan.hechoHasta) }} />}
+        {cortes.map((x) => <i key={x} style={{ left: `${x}%` }} />)}
+      </div>
+      {plan.s0 && <span className="prd-hito" style={{ left: p(plan.s0), "--i": i }} />}
     </div>
   );
 }

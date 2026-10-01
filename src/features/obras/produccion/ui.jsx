@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { Ban, Check as IconoCheck, Clock3, Play } from "lucide-react";
 import { AnimatedNumber } from "@/components/ui/motion";
+import { TEXTO_ETAPA } from "./plan";
+
+// Marca de una etapa: el ícono dice el estado sin tener que aprender colores
+// (tilde = terminada, play = en curso, reloj = atrasada, vacío = pendiente).
+export function NodoEtapa({ clase, tam = 18 }) {
+  const Icono = { completado: IconoCheck, en_curso: Play, vencida: Clock3, bloqueado: Ban }[clase];
+  return (
+    <span className={`prd-nodo2 ${clase}`} style={{ width: tam, height: tam }} title={TEXTO_ETAPA[clase]} aria-label={TEXTO_ETAPA[clase]}>
+      {Icono && <Icono size={Math.round(tam * 0.58)} strokeWidth={2.6} fill={clase === "en_curso" ? "currentColor" : "none"} />}
+    </span>
+  );
+}
 
 // Degradé azul → cian de la marca para los anillos de avance. Se dibuja una
 // sola vez en la raíz del módulo y los anillos lo usan por id.

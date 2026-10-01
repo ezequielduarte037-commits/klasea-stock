@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import {
   T, PANEL, EYEBROW, INP, INP_SM, TXT, ICON_BTN, ESTADOS, ESTADO_META,
-  PRIORIDAD_META, estadoSelectStyle, fmtFecha, pct,
+  PRIORIDAD_META, estadoSelectStyle, fmtFecha, pct, cleanText, materialDeSector,
 } from "./marmShared";
 import Cargando from "@/components/ui/Cargando";
 
@@ -59,6 +59,24 @@ export default function BoatDetail({
     });
     return map;
   }, [piezas, filtroEstado, q]);
+
+  // El material del ambiente se calcula con TODAS sus piezas, no con las que
+  // deja ver el filtro: filtrando "Enviado", la primera visible podía ser una
+  // sin material y el ambiente aparecía vacío.
+  const materialPorSector = useMemo(() => {
+    const map = {};
+    piezas.forEach(p => {
+      if (!map[p.sector]) map[p.sector] = [];
+      map[p.sector].push(p);
+    });
+    return Object.fromEntries(Object.entries(map).map(([sector, todas]) => {
+      const { material } = materialDeSector(todas);
+      const faltan = material
+        ? todas.filter(p => !cleanText(p.color) && p.estado !== "No lleva").length
+        : 0;
+      return [sector, { material, faltan }];
+    }));
+  }, [piezas]);
 
   const submitAdd = (tambienPlantilla) => {
     const handler = tambienPlantilla ? onAddPiezaPlantilla : onAddPieza;
@@ -227,7 +245,7 @@ export default function BoatDetail({
           Object.entries(porSector).map(([sector, rows]) => {
             const recib   = rows.filter(p => p.estado === "Recibido").length;
             const activas = rows.filter(p => p.estado !== "No lleva").length;
-            const colorSector = rows[0]?.color || "";
+            const { material: colorSector = "", faltan: sinMaterial = 0 } = materialPorSector[sector] ?? {};
             const sectorCompleto = recib === activas && activas > 0;
             return (
               <div key={sector} style={{ ...PANEL, marginBottom:12, overflow:"hidden" }}>
@@ -236,14 +254,33 @@ export default function BoatDetail({
                   <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, flexWrap:"wrap" }}>
                     <span style={{ fontSize:10, letterSpacing:1.2, fontWeight:600, color:"var(--muted)", textTransform:"uppercase", fontFamily:T.mono }}>{sector}</span>
                     {esAdmin ? (
-                      <input defaultValue={colorSector} placeholder="Material…"
+                      // key: el campo no es controlado; sin ella seguía mostrando
+                      // el material viejo después de completarlo.
+                      <input key={colorSector} defaultValue={colorSector} placeholder="Material…"
                         style={{ background:"var(--panel)", border:"1px solid var(--border)",
                           color:"var(--muted)", padding:"3px 8px", borderRadius:7, fontSize:11, outline:"none", width:140, fontFamily:T.sans }}
                         onBlur={e => { if (e.target.value !== colorSector) onCambiarColorSector(sector, e.target.value); }}
-                        onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-                        title="Enter para aplicar a todo el sector" />
+                        onKeyDown={e => {
+                          if (e.key !== "Enter") return;
+                          // Enter sin cambiar el texto antes no hacía nada, y no
+                          // había forma de completar las piezas que faltaban.
+                          // Completa solo las vacías: las que tienen otra piedra
+                          // a propósito no se tocan.
+                          if (e.target.value === colorSector && colorSector && sinMaterial > 0) {
+                            onCambiarColorSector(sector, colorSector, { soloVacias: true });
+                          }
+                          e.target.blur();
+                        }}
+                        title={sinMaterial > 0
+                          ? `Enter para completar las ${sinMaterial} piezas sin material`
+                          : "Enter para aplicar a todo el sector"} />
                     ) : (
                       colorSector && <span style={{ fontSize:11, color:"var(--dim)" }}>{colorSector}</span>
+                    )}
+                    {sinMaterial > 0 && (
+                      <span style={{ fontSize:11, color:"var(--red)" }}>
+                        {sinMaterial} sin material{esAdmin ? " · Enter para completar" : ""}
+                      </span>
                     )}
                   </div>
                   <div style={{ display:"flex", alignItems:"center", gap:7, flexShrink:0 }}>
@@ -285,9 +322,11 @@ export default function BoatDetail({
                               padding:"1px 6px", borderRadius:99, border:"1px solid var(--border)", textTransform:"uppercase" }}>Opc</span>
                           )}
                         </div>
-                        {(p.fecha_envio || p.fecha_regreso || p.color || p.observaciones) && (
+                        {(p.fecha_envio || p.fecha_regreso || p.color || p.observaciones || (colorSector && !noLleva)) && (
                           <div style={{ fontSize:11, color:"var(--dim)", marginTop:3, paddingLeft:13, display:"flex", gap:11, flexWrap:"wrap", alignItems:"center" }}>
-                            {p.color && <span>{p.color}</span>}
+                            {p.color
+                              ? <span>{p.color}</span>
+                              : colorSector && !noLleva && <span style={{ color:"var(--red)" }}>Sin material</span>}
                             {p.fecha_envio && (
                               <span style={{ fontFamily:T.mono, display:"inline-flex", alignItems:"center", gap:4 }}>
                                 <Send size={10} /> {fmtFecha(p.fecha_envio)}

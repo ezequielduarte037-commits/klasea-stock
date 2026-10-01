@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Filter, ListFilter, MoreHorizon
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MaterialThumb } from "../MaterialExtras";
+import { coincideProveedor, nombresProveedor } from "../proveedorNombre";
 import { OBRA_PAGE_SIZE, obraPageNumbers, paginateObraGroups, toggleObraSelection, obraThemeScope } from "./obraListaPresentation";
 
 const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, borderRadius: 6, background: C.panelSolid, color: C.text, minHeight: 32, padding: "5px 9px", fontFamily: C.sans, fontSize: 12, cursor: "pointer", transition: "background 150ms ease, border-color 150ms ease" };
@@ -204,16 +205,21 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
   const indexEntries = useMemo(() => {
     const counts = new Map();
     allRows.forEach((row) => {
-      if (indexMode === "rubro" && proveedor && row.proveedor !== proveedor) return;
+      if (indexMode === "rubro" && !coincideProveedor(row.proveedor, proveedor)) return;
       if (indexMode === "proveedor" && rubro && row.rubro !== rubro) return;
-      const name = row[indexMode] || (indexMode === "rubro" ? "Sin rubro" : "Sin proveedor");
-      counts.set(name, (counts.get(name) || 0) + 1);
+      const proveedoresFila = nombresProveedor(row.proveedor);
+      const names = indexMode === "proveedor"
+        ? (proveedoresFila.length ? proveedoresFila : ["Sin proveedor"])
+        : [row.rubro || "Sin rubro"];
+      for (const name of names) counts.set(name, (counts.get(name) || 0) + 1);
     });
     return [...counts].sort(([a], [b]) => a.localeCompare(b, "es"));
   }, [allRows, indexMode, proveedor, rubro]);
   const indexValue = indexMode === "rubro" ? rubro : proveedor;
   const onIndexChange = indexMode === "rubro" ? onRubro : onProveedor;
-  const indexTotal = indexEntries.reduce((sum, [, count]) => sum + count, 0);
+  const indexTotal = allRows.filter((row) => indexMode === "proveedor"
+    ? (!rubro || row.rubro === rubro)
+    : coincideProveedor(row.proveedor, proveedor)).length;
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [pagination.page, filterKey]);
   function changePage(page) { setPageState({ key: filterKey, page }); setJump(""); }
   function selectRows(rows) { onSelectionChange((current) => toggleObraSelection(current, rows)); }

@@ -8,6 +8,7 @@ import {
 } from "./api";
 import { fmtMoney } from "./format";
 import { materialBarcodeText } from "./materialBarcodes";
+import { nombreProveedorVisible } from "./proveedorNombre";
 import { MODELOS, norm, toBomMap, varianteDeModelo, VARIANTE_LINEA_EJE } from "./materialesParser";
 
 // Un material puede estar en varias áreas (campo m.areas); si todavía no hay
@@ -187,7 +188,7 @@ function priceInfo(material) {
     amount: ok ? amount : null,
     moneda,
     text: ok ? `${fmtMoney(amount, moneda)}${esMax ? " máx" : ""}` : "Sin precio",
-    proveedor: p?.proveedor || material.proveedor || "",
+    proveedor: nombreProveedorVisible(p?.proveedor || material.proveedor),
     esMaxVariante: esMax,
   };
 }

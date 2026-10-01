@@ -7,6 +7,7 @@ import {
   setProveedoresMaterial,
 } from "./materialesConfig";
 import { barcodeKey } from "./materialBarcodes";
+import { esProveedorAlternativo, nombreProveedorVisible, nombresProveedor } from "./proveedorNombre";
 
 const PAGE = 1000;
 const VARIANTE_BASE = "standard";
@@ -536,11 +537,24 @@ export function proveedoresDeMaterial(material) {
     if (nombreFinal) porNombre.set(nombreFinal, llave);
   };
 
+  const sumarAlternativas = (nombre) => {
+    for (const alternativa of nombresProveedor(nombre)) {
+      sumar({ proveedorId: null, proveedor: alternativa, precio: null, moneda: "ARS", fecha: null, fuente: null, sinCotizar: true });
+    }
+  };
+
   // 1. El historial de precios, que es el que tiene fecha.
   for (const row of material?.precio_historial || []) {
     const precio = Number(row?.precio_unitario);
     if (!Number.isFinite(precio) || precio <= 0) continue;
     const proveedor = String(row.proveedor || "").trim() || null;
+    if (esProveedorAlternativo(proveedor)) {
+      sumarAlternativas(proveedor);
+      // El importe histórico sirve para el costo, pero no sabemos cuál de las
+      // dos casas lo cotizó: no se lo adjudicamos a ninguna por adivinanza.
+      sumar({ proveedorId: null, proveedor: null, precio, moneda: row.moneda === "USD" ? "USD" : "ARS", fecha: row.fecha || null, fuente: row.fuente || null, sinCotizar: true, sinProveedor: true });
+      continue;
+    }
     sumar({
       proveedorId: row.proveedor_id || null,
       proveedor,
@@ -555,6 +569,10 @@ export function proveedoresDeMaterial(material) {
 
   // 2. Los vínculos sueltos: con precio viejo sin fecha, o sin precio todavía.
   for (const alterno of material?.proveedores_lista || []) {
+    if (esProveedorAlternativo(alterno?.proveedor?.nombre)) {
+      sumarAlternativas(alterno.proveedor.nombre);
+      continue;
+    }
     const precio = Number(alterno?.precio);
     const tiene = Number.isFinite(precio) && precio > 0;
     sumar({
@@ -575,15 +593,22 @@ export function proveedoresDeMaterial(material) {
   //    historial. Va último justamente porque es una copia.
   const suelto = Number(material?.precio_unitario);
   if (material?.proveedor_id || material?.proveedor) {
-    sumar({
-      proveedorId: material.proveedor_id || null,
-      proveedor: String(material.proveedor || "").trim() || null,
-      precio: Number.isFinite(suelto) && suelto > 0 ? suelto : null,
-      moneda: material.moneda === "USD" ? "USD" : "ARS",
-      fecha: null,
-      fuente: "catalogo",
-      sinCotizar: !(Number.isFinite(suelto) && suelto > 0),
-    });
+    if (esProveedorAlternativo(material.proveedor)) {
+      sumarAlternativas(material.proveedor);
+      if (Number.isFinite(suelto) && suelto > 0) {
+        sumar({ proveedorId: null, proveedor: null, precio: suelto, moneda: material.moneda === "USD" ? "USD" : "ARS", fecha: null, fuente: "catalogo", sinCotizar: false, sinProveedor: true });
+      }
+    } else {
+      sumar({
+        proveedorId: material.proveedor_id || null,
+        proveedor: String(material.proveedor || "").trim() || null,
+        precio: Number.isFinite(suelto) && suelto > 0 ? suelto : null,
+        moneda: material.moneda === "USD" ? "USD" : "ARS",
+        fecha: null,
+        fuente: "catalogo",
+        sinCotizar: !(Number.isFinite(suelto) && suelto > 0),
+      });
+    }
   }
 
   return [...porClave.values()].sort((a, b) => {
@@ -1047,8 +1072,14 @@ async function fetchCatalogoFresh({
     list.push(row);
     modelosByMaterial.set(row.material_id, list);
   }
+  const proveedorPorId = new Map(proveedores.map((row) => [row.id, row.nombre]));
+  const preciosVista = precios.map((row) => ({
+    ...row,
+    proveedor_original: row.proveedor,
+    proveedor: nombreProveedorVisible(row.proveedor || proveedorPorId.get(row.proveedor_id)),
+  }));
   const preciosByMaterial = new Map();
-  for (const row of precios) {
+  for (const row of preciosVista) {
     const list = preciosByMaterial.get(row.material_id) ?? [];
     list.push(row);
     preciosByMaterial.set(row.material_id, list);
@@ -1081,7 +1112,7 @@ async function fetchCatalogoFresh({
 
   return {
     categorias,
-    precios,
+    precios: preciosVista,
     materiales: materiales.map((m) => {
       const historial = preciosByMaterial.get(m.id) ?? [];
       const imgs = imagenesByMaterial.get(m.id) ?? [];
@@ -1094,6 +1125,8 @@ async function fetchCatalogoFresh({
       ];
       return {
         ...m,
+        proveedor_original: m.proveedor,
+        proveedor: nombreProveedorVisible(m.proveedor || proveedorPorId.get(m.proveedor_id)),
         modelos: modelosByMaterial.get(m.id) ?? [],
         precio_historial: historial,
         ultimo_precio: historial[0] ?? null,

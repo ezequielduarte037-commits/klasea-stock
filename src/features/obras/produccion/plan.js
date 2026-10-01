@@ -100,14 +100,17 @@ export function planDeObra({ obra, etapas = [], tareasPorEtapa = new Map(), peri
   const enCursoPlan = lista.filter((e) => e.enPlanHoy);
   const actual = enCursoPlan.length ? enCursoPlan.reduce((a, b) => (b.ini > a.ini ? b : a)) : null;
   const primeraAbierta = lista.find((e) => e.estado !== "completado") || null;
-  const atraso = reportada && primeraAbierta && !primeraAbierta.sug && hoy > primeraAbierta.fin
-    ? diasEntre(primeraAbierta.fin, hoy) : 0;
+  // El atraso se mide contra la primera etapa sin terminar. Si esa etapa no
+  // tiene semana en la plantilla, el atraso es estimado (se muestra en cian).
+  const atraso = reportada && primeraAbierta && hoy > primeraAbierta.fin ? diasEntre(primeraAbierta.fin, hoy) : 0;
+  const pctHecho = (pesoHecho / Math.max(1, pesoTotal)) * 100;
 
   return {
     ...vacio,
     etapas: lista, inicio, fin, actual, enCursoPlan, primeraAbierta,
-    reportada, hechoHasta, atraso,
-    avance: reportada ? Math.round((pesoHecho / Math.max(1, pesoTotal)) * 100) : null,
+    reportada, hechoHasta, atraso, atrasoEstimado: !!primeraAbierta?.sug,
+    // Con algo hecho nunca se muestra 0 %.
+    avance: reportada ? (pesoHecho > 0 ? Math.max(1, Math.round(pctHecho)) : 0) : null,
     paraConfirmar: lista.filter((e) => e.vencida && !e.sug),
     tieneSugeridas: lista.some((e) => e.sug),
     terminadas: lista.filter((e) => e.estado === "completado").length,
@@ -122,7 +125,25 @@ export function estadoDeObra(obra, plan) {
   if (plan.sinPlantilla) return { tono: "neutro", texto: "Sin etapas" };
   if (plan.sinFechas) return { tono: "cian", texto: "Falta desmolde" };
   if (!plan.reportada) return { tono: "neutro", texto: "Sin reportes" };
-  if (plan.atraso > 7) return { tono: "rojo", texto: `${plan.atraso} d de atraso` };
   if (!plan.primeraAbierta) return { tono: "verde", texto: "Etapas completas" };
+  if (plan.atraso > 7) {
+    return plan.atrasoEstimado
+      ? { tono: "cian", texto: `${plan.atraso} d de atraso`, detalle: "Estimado: la etapa pendiente no tiene semana en la plantilla" }
+      : { tono: "rojo", texto: `${plan.atraso} d de atraso` };
+  }
   return { tono: "verde", texto: "Al día" };
+}
+
+// Estado de una etapa en palabras, igual en el Gantt, el panel y los avisos.
+export const TEXTO_ETAPA = {
+  completado: "Terminada",
+  en_curso: "En curso",
+  vencida: "Atrasada",
+  pendiente: "Pendiente",
+  bloqueado: "Bloqueada",
+};
+
+export function claseEtapa(e) {
+  if (e.estado === "completado" || e.estado === "en_curso" || e.estado === "bloqueado") return e.estado;
+  return e.vencida ? "vencida" : "pendiente";
 }

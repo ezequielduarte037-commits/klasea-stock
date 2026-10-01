@@ -1,3 +1,5 @@
+import { esProveedorAlternativo, nombreProveedorVisible } from "./proveedorNombre.js";
+
 function clean(value) {
   return String(value ?? "").trim();
 }
@@ -29,6 +31,7 @@ export function normalizeSupplierComponents(value) {
  */
 export function supplierTermsForMaterial(material, { proveedorId = null, proveedor = "" } = {}) {
   if (!material) return null;
+  if (esProveedorAlternativo(proveedor)) return null;
   const wantedName = supplierKey(proveedor);
   const entries = Array.isArray(material.proveedores_lista) ? material.proveedores_lista : [];
   const match = entries.find((entry) => {
@@ -50,10 +53,19 @@ export function supplierTermsForMaterial(material, { proveedorId = null, proveed
 }
 
 export function supplierSnapshotForMaterial(material, options = {}) {
+  if (esProveedorAlternativo(options.proveedor)) {
+    return {
+      supplier_id: null,
+      supplier_name: null,
+      supplier_description: null,
+      supplier_code: null,
+      supplier_components: [],
+    };
+  }
   const terms = supplierTermsForMaterial(material, options);
   return {
     supplier_id: terms?.supplierId || options.proveedorId || null,
-    supplier_name: terms?.supplierName || clean(options.proveedor) || null,
+    supplier_name: terms?.supplierName || nombreProveedorVisible(options.proveedor) || null,
     supplier_description: terms?.description || null,
     supplier_code: terms?.code || null,
     supplier_components: terms?.components || [],
