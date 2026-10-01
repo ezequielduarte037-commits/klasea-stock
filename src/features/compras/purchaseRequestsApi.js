@@ -780,6 +780,7 @@ export async function updateAdditionalItem(id, patch) {
   if (payload.amount !== undefined) {
     payload.amount = payload.amount === "" || payload.amount === null ? null : Number(payload.amount);
   }
+  if (payload.desglose !== undefined) payload.desglose = normalizarDesglose(payload.desglose);
 
   const { data, error } = await supabase
     .from("purchase_additional_items")
@@ -792,13 +793,116 @@ export async function updateAdditionalItem(id, patch) {
   return data;
 }
 
-export async function deleteAdditionalItem(id) {
+export async function deleteAdditionalItem(id, { adjuntoPath = null } = {}) {
   const { error } = await supabase
     .from("purchase_additional_items")
     .delete()
     .eq("id", id);
 
   if (error) throw error;
+  // Sin renglón, el adjunto no lo encuentra nadie más.
+  if (adjuntoPath) await supabase.storage.from(ADICIONALES_BUCKET).remove([adjuntoPath]).catch(() => null);
+}
+
+/* ── Desglose y comprobantes de un renglón de adicionales ─────────────────
+ *
+ * Los comprobantes de proveedores van a un depósito PRIVADO: los públicos
+ * (documentos, obra-archivos) abren cualquier archivo con el link. Se suben
+ * y se bajan con la sesión del usuario de Compras; el cliente los recibe
+ * anexados dentro del PDF del detalle, nunca como link.
+ */
+
+export const ADICIONALES_BUCKET = "compras-adicionales";
+const ADJUNTO_MAX_BYTES = 20 * 1024 * 1024;
+
+/** Deja el desglose en la forma que guarda la columna, o null si no hay nada. */
+export function normalizarDesglose(valor) {
+  if (!valor || typeof valor !== "object") return null;
+  const comprobantes = (Array.isArray(valor.comprobantes) ? valor.comprobantes : [])
+    .map((c) => {
+      const importe = c?.importe === "" || c?.importe == null ? null : Number(String(c.importe).replace(",", "."));
+      const pagina = c?.pagina === "" || c?.pagina == null ? null : Math.trunc(Number(c.pagina));
+      return {
+        numero: String(c?.numero ?? "").trim(),
+        fecha: String(c?.fecha ?? "").slice(0, 10) || null,
+        importe: Number.isFinite(importe) ? importe : null,
+        pagina: Number.isFinite(pagina) && pagina > 0 ? pagina : null,
+      };
+    })
+    .filter((c) => c.numero || c.importe != null);
+  if (!comprobantes.length) return null;
+  return { emisor: String(valor.emisor ?? "").trim(), comprobantes };
+}
+
+function nombreSeguro(nombre) {
+  const base = String(nombre || "comprobantes.pdf")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  return /\.pdf$/i.test(base) ? base : `${base || "comprobantes"}.pdf`;
+}
+
+/**
+ * Sube el PDF con las copias y lo deja vinculado al renglón. Si el renglón ya
+ * tenía uno, lo reemplaza y borra el anterior.
+ */
+export async function subirAdjuntoAdicional(item, file, { paginas = null } = {}) {
+  if (!file) throw new Error("Elegí un archivo.");
+  if (file.type && file.type !== "application/pdf" && !/\.pdf$/i.test(file.name || "")) {
+    throw new Error("El adjunto tiene que ser un PDF.");
+  }
+  if (file.size > ADJUNTO_MAX_BYTES) throw new Error("El PDF pesa más de 20 MB.");
+
+  // La fecha en la ruta evita pisar un archivo que alguien tenga abierto.
+  const path = `${item.board_id}/${item.id}/${Date.now()}-${nombreSeguro(file.name)}`;
+  const { error: upErr } = await supabase.storage
+    .from(ADICIONALES_BUCKET)
+    .upload(path, file, { contentType: "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .update({ adjunto_path: path, adjunto_nombre: file.name || "comprobantes.pdf", adjunto_paginas: paginas })
+    .eq("id", item.id)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+  if (error) {
+    await supabase.storage.from(ADICIONALES_BUCKET).remove([path]).catch(() => null);
+    throw error;
+  }
+  if (item.adjunto_path && item.adjunto_path !== path) {
+    await supabase.storage.from(ADICIONALES_BUCKET).remove([item.adjunto_path]).catch(() => null);
+  }
+  return data;
+}
+
+export async function quitarAdjuntoAdicional(item) {
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .update({ adjunto_path: null, adjunto_nombre: null, adjunto_paginas: null })
+    .eq("id", item.id)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+  if (error) throw error;
+  if (item.adjunto_path) await supabase.storage.from(ADICIONALES_BUCKET).remove([item.adjunto_path]).catch(() => null);
+  return data;
+}
+
+/** Bytes del adjunto, bajados con la sesión (para anexarlo al detalle). */
+export async function descargarAdjuntoAdicional(path) {
+  const { data, error } = await supabase.storage.from(ADICIONALES_BUCKET).download(path);
+  if (error) throw error;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+/** Link temporal (10 minutos) para mirarlo desde la app. No es para mandar. */
+export async function verAdjuntoAdicional(path) {
+  const { data, error } = await supabase.storage.from(ADICIONALES_BUCKET).createSignedUrl(path, 600);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 // Propaga el precio de un pedido hacia sus renglones de "adicionales":

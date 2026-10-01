@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   Check,
   ChevronDown,
   DollarSign,
   FileDown,
   ExternalLink,
+  ListOrdered,
+  Paperclip,
   Link2,
   PackagePlus,
   Pencil,
@@ -26,15 +26,27 @@ import {
   createPurchaseRequest,
   deleteAdditionalBoard,
   deleteAdditionalItem,
+  descargarAdjuntoAdicional,
   fetchAdditionalBoards,
   fetchAdditionalItems,
   fetchAllRequestItems,
   fetchRequestItems,
   ITEM_STATUSES,
+  normalizarDesglose,
   notifyComprasEmail,
+  quitarAdjuntoAdicional,
   REQUEST_PRIORITIES,
+  subirAdjuntoAdicional,
   updateAdditionalItem,
+  verAdjuntoAdicional,
 } from "@/features/compras/purchaseRequestsApi";
+import {
+  construirDetalleAdicionales,
+  diferenciaDesglose,
+  leerDesglose,
+  nombreArchivoDetalle,
+  sumaDesglose,
+} from "@/features/compras/adicionalesPdf";
 import { loadMemoriasFromSupabase } from "@/features/obras/mapa/persistence";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
@@ -103,19 +115,9 @@ function compactMoney(value, currency = "ARS") {
   return currencyOf(currency) === "USD" ? `USD ${formatted}` : `$${formatted}`;
 }
 
-function pdfMoney(value, currency = "ARS") {
-  if (value === null || value === undefined || value === "") return "En cotizacion";
-  if (Number(value) === 0) return "Sin costo";
-  return money(value, currency);
-}
-
 function formatDate(value) {
   if (!value) return "-";
   return new Date(`${value}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-function reportDate(value = new Date()) {
-  return value.toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
 }
 
 function stripHtml(value) {
@@ -450,164 +452,149 @@ async function loadNavyLogo() {
   }
 }
 
-function quantityForReport(item) {
-  // 1) cantidad cargada a mano en el renglón
-  if (item.cantidad != null && String(item.cantidad).trim() !== "") return String(item.cantidad).trim();
-  // 2) cantidad embebida en las notas de items traídos de un pedido
-  const match = String(item.notes || "").match(/^([\d.,]+)\s*([^/]*?)\s*\/\s*Estado/i);
-  if (match?.[1]) return match[1].trim();
-  return "-";
+function descargarArchivo(bytes, nombre) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-function cleanDetailForReport(item) {
-  return String(item.detail || "-").replace(/\s+/g, " ").trim();
+/**
+ * Lo que tiene un renglón además del detalle: el desglose en comprobantes y
+ * el PDF con las copias. Se ve en la tabla para saber qué va a ir de anexo en
+ * el informe, y avisa si el desglose no suma lo mismo que el renglón.
+ */
+function RowExtras({ item, onVerAdjunto }) {
+  const desglose = leerDesglose(item.desglose);
+  if (!desglose && !item.adjunto_path) return null;
+  const diferencia = diferenciaDesglose(item);
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 10px", marginTop: 4, fontSize: 11, color: C.dim }}>
+      {desglose && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <ListOrdered size={11} />
+          {desglose.comprobantes.length} comprobante{desglose.comprobantes.length === 1 ? "" : "s"} · suman {money(sumaDesglose(desglose), item.currency)}
+          {diferencia !== 0 && item.amount != null && (
+            <span style={{ color: C.red, fontWeight: 650 }}>· no coincide con el importe</span>
+          )}
+        </span>
+      )}
+      {item.adjunto_path && (
+        <button
+          type="button"
+          onClick={() => onVerAdjunto(item)}
+          title="Ver el PDF (link temporal, sólo para mirarlo desde acá)"
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "transparent", padding: 0, color: C.blue, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+        >
+          <Paperclip size={11} />
+          {item.adjunto_nombre || "Comprobantes"}{item.adjunto_paginas ? ` · ${item.adjunto_paginas} hojas` : ""}
+        </button>
+      )}
+    </div>
+  );
 }
 
-function reportFileName(board) {
-  const name = String(board?.project?.codigo || board?.name || "adicionales")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-");
-  return `Presupuesto_Adicionales_${name}_${new Date().toISOString().slice(0, 10)}.pdf`;
-}
+/**
+ * Desglose de un renglón en comprobantes (número, fecha, importe y hoja del
+ * PDF adjunto donde está la copia). En el informe va como anexo y cada
+ * comprobante abre su copia.
+ */
+function DesgloseEditor({ value, onChange, item, amount, currency, isMobile, busy, onSubir, onQuitar, onVer }) {
+  const desglose = value || { emisor: "", comprobantes: [] };
+  const comprobantes = desglose.comprobantes || [];
+  const set = (patch) => onChange({ ...desglose, ...patch });
+  const setComprobante = (i, patch) => set({ comprobantes: comprobantes.map((c, k) => (k === i ? { ...c, ...patch } : c)) });
+  const suma = comprobantes.reduce((t, c) => t + (Number(String(c.importe ?? "").replace(",", ".")) || 0), 0);
+  const importe = amount === "" || amount == null ? null : Number(amount);
+  const coincide = importe != null && Math.abs(suma - importe) < 0.005;
+  const columnas = isMobile ? "1fr 1fr" : "minmax(130px, 1fr) 136px 130px 64px 30px";
 
-async function buildAdditionalReportPdf(board, rows) {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const left = 54;
-  const navy = [14, 54, 83];
-  const ink = [45, 48, 54];
-  const muted = [108, 117, 132];
-  const line = [214, 220, 226];
-  const logo = await loadNavyLogo();
-
-  doc.setFillColor(...navy);
-  doc.rect(0, 0, pageWidth, 14, "F");
-  if (logo) doc.addImage(logo, "PNG", left, 36, 40, 40);
-
-  doc.setTextColor(...navy);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("KLASE A", left + 52, 53);
-  doc.setFontSize(8);
-  doc.setTextColor(...muted);
-  doc.setCharSpace(4);
-  doc.text("YACHTS", left + 54, 67);
-  doc.setCharSpace(0);
-
-  doc.setFontSize(26);
-  doc.setTextColor(...ink);
-  doc.text("Presupuesto de adicionales", left, 122);
-  doc.setDrawColor(...line);
-  doc.setLineWidth(1);
-  doc.line(left, 138, pageWidth - left, 138);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text("Fecha de emision:", left, 162);
-  doc.text("Obra:", left, 181);
-  doc.setFont("helvetica", "normal");
-  doc.text(reportDate(), left + 100, 162);
-  doc.text(board?.project?.codigo || board?.name || "-", left + 100, 181);
-  if (board?.project?.descripcion) {
-    doc.setTextColor(...muted);
-    doc.text(String(board.project.descripcion).slice(0, 80), left + 100, 200);
-  }
-
-  let y = board?.project?.descripcion ? 234 : 214;
-  let section = 1;
-  const groups = CURRENCIES.map((currency) => {
-    const currencyRows = rows.filter((item) => currencyOf(item.currency) === currency.value);
-    const total = currencyRows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    return { ...currency, rows: currencyRows, total };
-  }).filter((group) => group.rows.length > 0);
-
-  if (groups.length === 0) {
-    doc.setTextColor(...muted);
-    doc.setFontSize(12);
-    doc.text("Sin renglones cargados para exportar.", left, y);
-    return doc;
-  }
-
-  for (const group of groups) {
-    if (y > pageHeight - 160) {
-      doc.addPage();
-      y = 56;
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(...ink);
-    const title = group.value === "ARS"
-      ? `${section}. Adicionales en pesos (ARS)`
-      : `${section}. Adicionales en dolares (USD)`;
-    doc.text(title, left, y);
-
-    autoTable(doc, {
-      startY: y + 18,
-      margin: { left, right: left, top: 46, bottom: 42 },
-      head: [["Cant.", "Descripcion", group.pdfLabel]],
-      body: group.rows.map((item) => [
-        quantityForReport(item),
-        cleanDetailForReport(item),
-        pdfMoney(item.amount, group.value),
-      ]),
-      foot: [["", `TOTAL ${group.value}`, money(group.total, group.value)]],
-      theme: "grid",
-      rowPageBreak: "avoid",
-      styles: {
-        font: "helvetica",
-        fontSize: 10,
-        cellPadding: 7,
-        lineColor: [224, 228, 233],
-        lineWidth: 0.7,
-        textColor: ink,
-        valign: "middle",
-        overflow: "linebreak",
-      },
-      headStyles: {
-        fillColor: [244, 246, 248],
-        textColor: [31, 36, 43],
-        fontStyle: "bold",
-      },
-      footStyles: {
-        fillColor: group.value === "ARS" ? navy : [236, 239, 243],
-        textColor: group.value === "ARS" ? [255, 255, 255] : [31, 36, 43],
-        fontStyle: "bold",
-      },
-      columnStyles: {
-        0: { cellWidth: 52, halign: "center", textColor: muted },
-        1: { cellWidth: "auto" },
-        2: { cellWidth: 132, halign: "right" },
-      },
-      didParseCell: (data) => {
-        if (data.section !== "body") return;
-        const txt = String(data.cell.raw ?? "").trim();
-        // Placeholders (sin dato cargado) → gris + itálica, para que no compitan
-        // visualmente con los renglones reales.
-        const esPlaceholder = txt === "-" || txt === ""
-          || /^en cotizaci[oó]n$/i.test(txt) || txt === "Sin costo" || /^pendiente$/i.test(txt);
-        if (esPlaceholder) {
-          data.cell.styles.textColor = muted;
-          data.cell.styles.fontStyle = "italic";
-        }
-      },
-      didDrawPage: (data) => {
-        const page = data.pageNumber;
-        doc.setFontSize(8);
-        doc.setTextColor(140, 148, 160);
-        doc.text(`Pagina ${page}`, left, pageHeight - 22);
-        doc.text("Klase A Yachts", pageWidth - left - 64, pageHeight - 22);
-      },
-    });
-
-    y = (doc.lastAutoTable?.finalY || y + 90) + 32;
-    section += 1;
-  }
-
-  return doc;
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "grid", gap: 7, border: `1px solid ${C.border}`, borderRadius: 8, background: C.panel, padding: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.text, fontSize: 12, fontWeight: 700 }}>
+          <ListOrdered size={13} /> Desglose para el cliente
+        </span>
+        <span style={{ color: C.dim, fontSize: 11 }}>
+          Los comprobantes que forman este renglón. Van como anexo en el informe.
+        </span>
+      </div>
+      <input
+        value={desglose.emisor || ""}
+        onChange={(e) => set({ emisor: e.target.value })}
+        placeholder="Emisor de los comprobantes (opcional)"
+        style={inputStyle}
+      />
+      {comprobantes.map((c, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: columnas, gap: 6 }}>
+          <input value={c.numero || ""} onChange={(e) => setComprobante(i, { numero: e.target.value })} placeholder="Comprobante" style={inputStyle} />
+          <input type="date" value={c.fecha || ""} onChange={(e) => setComprobante(i, { fecha: e.target.value })} style={inputStyle} />
+          <input type="number" step="0.01" min="0" value={c.importe ?? ""} onChange={(e) => setComprobante(i, { importe: e.target.value })} placeholder="Importe" style={inputStyle} />
+          <input
+            type="number" min="1" step="1" value={c.pagina ?? ""}
+            onChange={(e) => setComprobante(i, { pagina: e.target.value })}
+            placeholder="Hoja" title="Hoja del PDF adjunto donde está la copia"
+            style={{ ...inputStyle, textAlign: "center" }}
+          />
+          <button type="button" title="Quitar comprobante" onClick={() => set({ comprobantes: comprobantes.filter((_, k) => k !== i) })} style={iconButton(C.red)}>
+            <X size={12} />
+          </button>
+        </div>
+      ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => set({ comprobantes: [...comprobantes, { numero: "", fecha: "", importe: "", pagina: item.adjunto_path ? comprobantes.length + 1 : "" }] })}
+          style={toneButton(C.blue, false)}
+        >
+          <Plus size={12} /> Comprobante
+        </button>
+        {comprobantes.length > 0 && (
+          <span style={{ fontSize: 12, color: C.muted, fontFamily: C.mono }}>
+            Suman {money(suma, currency)}
+            {importe == null
+              ? ""
+              : coincide
+                ? <span style={{ color: C.green }}> · coincide con el importe</span>
+                : <span style={{ color: C.red }}> · el renglón dice {money(importe, currency)}</span>}
+          </span>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+        {item.adjunto_path ? (
+          <>
+            <button type="button" onClick={() => onVer(item)} style={{ ...toneButton(C.blue, false), maxWidth: "100%" }} title="Ver el PDF">
+              <Paperclip size={12} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {item.adjunto_nombre || "Comprobantes"}{item.adjunto_paginas ? ` · ${item.adjunto_paginas} hojas` : ""}
+              </span>
+            </button>
+            <button type="button" disabled={busy} onClick={() => onQuitar(item)} style={{ ...toneButton(C.red, false), opacity: busy ? 0.55 : 1 }}>
+              <Trash2 size={12} /> Quitar PDF
+            </button>
+          </>
+        ) : (
+          <label style={{ ...toneButton(C.blue, false), cursor: busy ? "default" : "pointer", opacity: busy ? 0.55 : 1 }}>
+            <Paperclip size={12} /> {busy ? "Subiendo…" : "Adjuntar PDF con las copias"}
+            <input
+              type="file"
+              accept="application/pdf"
+              disabled={busy}
+              onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onSubir(item, file); }}
+              style={{ display: "none" }}
+            />
+          </label>
+        )}
+        <span style={{ color: C.dim, fontSize: 11 }}>
+          Queda privado: se ve desde Compras y dentro del informe, nunca con un link abierto.
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default function AdditionalPurchasesPanel({ profile, projects = [], requests = [], onSelectRequest, onRequestCreated }) {
@@ -652,6 +639,10 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
   const [requestForm, setRequestForm] = useState(emptyRequest);
   const [savingRequest, setSavingRequest] = useState(false);
   const [exportingReport, setExportingReport] = useState(false);
+  // Los renglones sin importe van en su propia sección del informe; para
+  // mandarle al cliente sólo lo que se cobra, se sacan.
+  const [incluirSinImporte, setIncluirSinImporte] = useState(true);
+  const [adjuntoBusyId, setAdjuntoBusyId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -904,13 +895,21 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
       amount: item.amount ?? "",
       currency: currencyOf(item.currency),
       notes: item.notes || "",
+      desglose: leerDesglose(item.desglose) ?? { emisor: "", comprobantes: [] },
     });
   }
 
   async function handleSaveEdit(itemId) {
     if (!editForm.detail.trim()) return;
+    const original = items.find((item) => item.id === itemId);
+    const patch = { ...editForm };
+    // El desglose sólo viaja si cambió: así editar un renglón no depende de
+    // que la columna exista y no se pisa lo que cargó otro.
+    const desgloseNuevo = normalizarDesglose(editForm.desglose);
+    if (JSON.stringify(desgloseNuevo) === JSON.stringify(normalizarDesglose(leerDesglose(original?.desglose)))) delete patch.desglose;
+    else patch.desglose = desgloseNuevo;
     try {
-      const saved = await updateAdditionalItem(itemId, editForm);
+      const saved = await updateAdditionalItem(itemId, patch);
       setItems((prev) => prev.map((item) => item.id === itemId ? saved : item));
       setEditingId(null);
       toast.success("Renglon actualizado.");
@@ -928,7 +927,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
     });
     if (!ok) return;
     try {
-      await deleteAdditionalItem(item.id);
+      await deleteAdditionalItem(item.id, { adjuntoPath: item.adjunto_path });
       setItems((prev) => prev.filter((row) => row.id !== item.id));
       toast.success("Renglon eliminado.");
     } catch (err) {
@@ -1067,6 +1066,62 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
     }
   }
 
+  async function handleSubirAdjunto(item, file) {
+    setAdjuntoBusyId(item.id);
+    try {
+      // Se cuentan las hojas antes de subir: si el PDF no se puede leer acá,
+      // tampoco se va a poder anexar al informe.
+      let paginas;
+      try {
+        const { PDFDocument } = await import("pdf-lib");
+        paginas = (await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true })).getPageCount();
+      } catch {
+        throw new Error("No se pudo leer el PDF. Puede estar dañado o protegido con contraseña.");
+      }
+      const saved = await subirAdjuntoAdicional(item, file, { paginas });
+      setItems((prev) => prev.map((row) => row.id === item.id ? saved : row));
+      toast.success(`PDF adjunto (${paginas} hoja${paginas === 1 ? "" : "s"}).`);
+    } catch (err) {
+      toast.error(err.message || "No se pudo subir el PDF.");
+    } finally {
+      setAdjuntoBusyId(null);
+    }
+  }
+
+  async function handleQuitarAdjunto(item) {
+    const ok = await confirm({
+      title: "Quitar PDF",
+      message: `Se borra ${item.adjunto_nombre || "el PDF adjunto"}. El desglose queda.`,
+      confirmLabel: "Quitar",
+      tone: "danger",
+    });
+    if (!ok) return;
+    setAdjuntoBusyId(item.id);
+    try {
+      const saved = await quitarAdjuntoAdicional(item);
+      setItems((prev) => prev.map((row) => row.id === item.id ? saved : row));
+      toast.success("PDF quitado.");
+    } catch (err) {
+      toast.error(err.message || "No se pudo quitar el PDF.");
+    } finally {
+      setAdjuntoBusyId(null);
+    }
+  }
+
+  async function handleVerAdjunto(item) {
+    // La pestaña se abre antes de pedir el link: si se abre después del
+    // await, el navegador la toma como ventana emergente y la bloquea.
+    const ventana = window.open("about:blank", "_blank");
+    try {
+      const url = await verAdjuntoAdicional(item.adjunto_path);
+      if (ventana) ventana.location.href = url;
+      else window.location.assign(url);
+    } catch (err) {
+      ventana?.close();
+      toast.error(err.message || "No se pudo abrir el PDF.");
+    }
+  }
+
   async function handleExportReport() {
     if (!selected) return;
     if (selectedItems.length === 0) {
@@ -1075,8 +1130,28 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
     }
     setExportingReport(true);
     try {
-      const doc = await buildAdditionalReportPdf(selected, selectedItems);
-      doc.save(reportFileName(selected));
+      // Estado y cantidad de la línea de compra como están hoy, no como
+      // quedaron escritos en las notas cuando se vinculó el renglón.
+      const compraPorId = new Map(requestItems.map((it) => [it.id, { estado: it.status, cantidad: it.quantity, unidad: it.unit }]));
+      const adjuntos = new Map();
+      for (const item of selectedItems) {
+        if (!item.adjunto_path || !leerDesglose(item.desglose) || item.amount == null) continue;
+        try {
+          adjuntos.set(item.id, await descargarAdjuntoAdicional(item.adjunto_path));
+        } catch {
+          toast.warning(`No se pudo bajar el PDF de "${item.detail}": el anexo sale sin las copias.`);
+        }
+      }
+      const { bytes, avisos } = await construirDetalleAdicionales({
+        board: selected,
+        rows: selectedItems,
+        compraDe: (item) => compraPorId.get(item.purchase_request_item_id) ?? null,
+        incluirSinImporte,
+        logo: await loadNavyLogo(),
+        adjuntos,
+      });
+      descargarArchivo(bytes, nombreArchivoDetalle(selected));
+      avisos.forEach((aviso) => toast.warning(aviso));
       toast.success("Informe exportado.");
     } catch (err) {
       toast.error(err.message || "No se pudo exportar el informe.");
@@ -1277,13 +1352,22 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
               <button type="button" onClick={() => setShowRequestForm((v) => !v)} style={toneButton(C.cyan, showRequestForm)}>
                 <PackagePlus size={13} /> Pedido
               </button>
+              {totals.pending > 0 && (
+                <label
+                  title="Los renglones sin importe van en una sección aparte y nunca se suman al total"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 12, cursor: "pointer", userSelect: "none" }}
+                >
+                  <input type="checkbox" checked={incluirSinImporte} onChange={(e) => setIncluirSinImporte(e.target.checked)} />
+                  Sin importe en el informe
+                </label>
+              )}
               <button
                 type="button"
                 onClick={handleExportReport}
                 disabled={exportingReport || selectedItems.length === 0}
                 style={{ ...toneButton(C.green, true), opacity: exportingReport || selectedItems.length === 0 ? 0.55 : 1, cursor: exportingReport || selectedItems.length === 0 ? "default" : "pointer" }}
               >
-                <FileDown size={13} /> Informe
+                <FileDown size={13} /> {exportingReport ? "Armando…" : "Informe"}
               </button>
               <button type="button" title="Eliminar tabla" onClick={handleDeleteBoard} style={iconButton(C.red)}>
                 <Trash2 size={13} />
@@ -1433,6 +1517,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                               </button>
                             )}
                             <ItemMeta notes={item.notes} linkUrl={item.link_url} />
+                            <RowExtras item={item} onVerAdjunto={handleVerAdjunto} />
                           </span>
                           <span style={{ textAlign: "right", color: item.amount !== null && item.amount !== undefined ? C.green : C.dim, fontFamily: C.mono, fontWeight: 700 }}>
                             {money(item.amount, item.currency)}
@@ -1466,6 +1551,18 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                             <button type="button" onClick={() => handleSaveEdit(item.id)} style={toneButton(C.green, true)}>
                               <Check size={13} /> Guardar
                             </button>
+                            <DesgloseEditor
+                              value={editForm.desglose}
+                              onChange={(desglose) => setEditForm((f) => ({ ...f, desglose }))}
+                              item={item}
+                              amount={editForm.amount}
+                              currency={editForm.currency}
+                              isMobile={isMobile}
+                              busy={adjuntoBusyId === item.id}
+                              onSubir={handleSubirAdjunto}
+                              onQuitar={handleQuitarAdjunto}
+                              onVer={handleVerAdjunto}
+                            />
                           </div>
                         )}
                       </div>
