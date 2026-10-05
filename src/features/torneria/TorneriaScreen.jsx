@@ -10,6 +10,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { C } from "@/theme";
+import { supabase } from "@/supabaseClient";
 import {
   actualizarItem,
   actualizarProceso,
@@ -41,6 +42,7 @@ import {
 } from "./torneriaUi";
 import { operationDestinationLabel } from "./torneriaLabels";
 import { BUTTON, PRIMARY_BUTTON } from "./torneriaStyles";
+import { cantidadPendienteDeCompra, recepcionAnticipada } from "./recepcionesAnticipadas";
 
 const TABS = [
   ["circuito", "Circuito", Factory],
@@ -1209,7 +1211,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
                 className="tor-route-action"
                 style={{ ...PRIMARY_BUTTON, width: "100%", minHeight: 36 }}
               >
-                <ShoppingCart size={14} /> Pedir a compras
+                <ShoppingCart size={14} /> {recepcionAnticipada(item).tieneIngreso ? "Pedir faltante a compras" : "Pedir a compras"}
               </button>
             )}
             {puedeSaltear && (
@@ -1391,12 +1393,44 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
 
 // Un material = una card = un circuito. Rail arriba, el tramo donde está parado
 // abajo, un solo botón.
+function RecepcionAnticipada({ item }) {
+  if (item.no_lleva || item.es_resultado) return null;
+  const info = recepcionAnticipada(item);
+  const general = item.stock_general || [];
+  if (!info.tieneIngreso && !general.length) return null;
+  return (
+    <div style={{ display: "grid", gap: 4, fontSize: 10.5, lineHeight: 1.4 }}>
+      {info.tieneIngreso && (
+        <span style={{ color: info.completa ? C.green : C.muted }}>
+          {info.completa ? "Recibido en Pañol · compra anticipada" : "Ingreso anticipado parcial"}
+          {info.materiales.map((row) => (
+            <span key={row.materialId} style={{ display: "block" }}>
+              {info.materiales.length > 1 ? `${row.material?.descripcion || "Material"}: ` : ""}
+              {qty(row.recibida)}/{qty(row.cantidad)} {row.material?.unidad_medida || item.unidad}
+              {row.faltante > 0 ? ` · falta ${qty(row.faltante)}` : " · reconocido para esta obra"}
+            </span>
+          ))}
+        </span>
+      )}
+      {!info.completa && general.length > 0 && (
+        <span style={{ color: C.teal }}>
+          Stock general: {general.map((row) => {
+            const material = info.materiales.find((entry) => entry.materialId === row.material_id)?.material;
+            return `${info.materiales.length > 1 ? `${material?.descripcion || "Material"}: ` : ""}${qty(row.cantidad)} ${material?.unidad_medida || item.unidad} en ${row.sede}`;
+          }).join(" · ")}. Asignalo a esta obra desde Pañol para usarlo.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function CircuitoMaterial({ process, item, tramos, onMove, onReady, onPedirCompra, onSkipPurchase, tono = null }) {
   const conCompra = compraAplica(item, tramos);
   const nodos = circuitoNodos({ item, tramos, conCompra });
   return (
     <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
       <CircuitoRail nodos={nodos} />
+      <RecepcionAnticipada item={item} />
       <TramoActual
         process={process}
         item={item}
@@ -2458,6 +2492,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                     )}
                   </div>
                   <CatalogTechnicalName item={item} compact />
+                  <RecepcionAnticipada item={item} />
                   {!!item.planos?.length && (
                     <div style={{
                       display: "flex",
@@ -3609,6 +3644,29 @@ export default function TorneriaScreen({ profile }) {
   }, [load]);
 
   useEffect(() => {
+    let timer;
+    const refresh = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => load({ quiet: true }), 350);
+    };
+    const channel = supabase.channel("torneria-recepciones")
+      .on("postgres_changes", { event: "*", schema: "public", table: "torneria_items" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "torneria_recepciones_panol" }, refresh)
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    const interval = window.setInterval(onVisible, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
+
+  useEffect(() => {
     if (!isMobile) return;
     window.localStorage.setItem("torneria.mobileTopbar", mobileTopbarOpen ? "open" : "closed");
   }, [isMobile, mobileTopbarOpen]);
@@ -3948,10 +4006,22 @@ export default function TorneriaScreen({ profile }) {
 
   // Abre el mismo modal que usan inventario, laminación y muebles. Tornería era
   // el único módulo que no pedía a compras desde el sistema.
-  function pedirACompras(items) {
-    const lista = (items || []).filter(Boolean);
-    if (!lista.length || !selected) return;
-    setPedidoCompra({ items: lista, proceso: selected });
+  async function pedirACompras(items) {
+    if (!selected) return;
+    try {
+      // Una recepción puede haberse confirmado mientras la pantalla estaba abierta.
+      const rows = await fetchTorneriaProcesos();
+      setProcesses(rows);
+      const proceso = rows.find((row) => row.id === selected.id);
+      const ids = new Set((items || []).filter(Boolean).map((item) => item.id));
+      const lista = (proceso?.items || []).filter((item) => ids.has(item.id)
+        && item.activo !== false && !item.no_lleva && !item.es_resultado
+        && item.compra_estado === "pendiente_solicitud" && !recepcionAnticipada(item).completa);
+      if (!lista.length) { toast.success("Los materiales ya fueron recibidos o pedidos."); return; }
+      setPedidoCompra({ items: lista, proceso });
+    } catch (purchaseError) {
+      toast.error(purchaseError.message);
+    }
   }
 
   async function toggleNoLleva(item) {
@@ -5055,9 +5125,13 @@ export default function TorneriaScreen({ profile }) {
             // emparejar la recepción: un "lote" en una sola línea no se puede ni
             // cotizar ni recibir pieza por pieza.
             if (lista.length > 1) {
-              return lista.map((row) => armar(row.material, Number(row.cantidad) || 1, true));
+              return lista.map((row) => ({
+                row, pendiente: cantidadPendienteDeCompra(item, row.material_id),
+              })).filter(({ pendiente }) => pendiente > 0)
+                .map(({ row, pendiente }) => armar(row.material, pendiente, true));
             }
-            return [armar(item.material || null, item.cantidad, false)];
+            const pendiente = cantidadPendienteDeCompra(item, item.material_id);
+            return pendiente > 0 ? [armar(item.material || null, pendiente, false)] : [];
           }),
         } : null}
       />

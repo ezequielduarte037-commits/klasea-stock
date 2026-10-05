@@ -113,8 +113,9 @@ struct Contestacion { String texto, oido; bool confirmar; int status; size_t pcm
 // ════════════════════════════════════════════════════════════════
 // Audio de salida
 // ════════════════════════════════════════════════════════════════
-void playChime() {
-  // Aviso sin palabras: dos notas suaves.
+volatile int16_t audioTestAmplitude = 3200;
+void playChime(int16_t amplitude = 1600) {
+  // Aviso sin palabras: dos notas suaves; la prueba permite variar el nivel.
   for (int note = 0; note < 2; note++) {
     const float frequency = note ? 880.0f : 660.0f;
     for (int start = 0; start < 3600; start += 128) {
@@ -123,7 +124,7 @@ void playChime() {
       for (int i = 0; i < frames; i++) {
         int position = start + i;
         float envelope = min(1.0f, position / 360.0f) * min(1.0f, (3600 - position) / 720.0f);
-        int16_t value = (int16_t)(1600.0f * envelope * sinf(2.0f * PI * frequency * position / AUDIO_RATE));
+        int16_t value = (int16_t)(amplitude * envelope * sinf(2.0f * PI * frequency * position / AUDIO_RATE));
         samples[2 * i] = samples[2 * i + 1] = value;
       }
       audio.write((uint8_t *)samples, frames * 4);
@@ -163,6 +164,10 @@ void audioWorker(void *) {
     uint32_t event = 0;
     xTaskNotifyWait(0, UINT32_MAX, &event, portMAX_DELAY);
     if (event == 2) playChime();
+    else if (event == 4) {
+      playChime(audioTestAmplitude);
+      Serial0.println("KLASE_AUDIO_TEST_DONE");
+    }
     else if (event == 3 && respuestaPcm && respuestaLen) playRespuesta();
     const uint8_t silence[1024] = {};
     audio.write(silence, sizeof(silence));
@@ -720,7 +725,15 @@ void serialCommand(String &line) {
   JsonDocument doc; if(deserializeJson(doc,line))return;
   if(doc["type"]=="feed")acceptFeed(doc);
   else if(doc["type"]=="network_test")networkTestNeeded=true;
-  else if(doc["type"]=="status") Serial0.println("KLASE_VERSION {\"firmware\":\"2026-10-02-monitor\",\"localRecording\":true}");
+  else if(doc["type"]=="status") Serial0.println("KLASE_VERSION {\"firmware\":\"2026-10-05-audio\",\"localRecording\":true}");
+  else if(doc["type"]=="test_audio") {
+    if(!audioReady || reproduciendo || grabando || modoVoz==V_PIENSA || pedidoRed!=R_NADA) {
+      Serial0.println("KLASE_AUDIO_TEST_BUSY");
+      return;
+    }
+    audioTestAmplitude = constrain(doc["percent"] | 10, 1, 15) * 32767 / 100;
+    requestAudio(4);
+  }
   else if(doc["type"]=="record_local") {
     if(!wav || grabando || reproduciendo || modoVoz==V_PIENSA || pedidoRed!=R_NADA) {
       Serial0.println("KLASE_LOCAL {\"error\":\"El robot esta ocupado o no tiene memoria.\"}");

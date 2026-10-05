@@ -5,6 +5,13 @@ const ok = (result) => {
   return result.data ?? [];
 };
 
+// El frontend y la migración pueden desplegarse en momentos distintos.
+// Sólo la ausencia de esta integración permite usar el circuito anterior.
+const recepcionOpcional = (result) => {
+  if (["PGRST202", "PGRST205", "42P01", "42883"].includes(result.error?.code)) return [];
+  return ok(result);
+};
+
 const inQuery = async (table, column, ids, select = "*", order = null) => {
   if (!ids.length) return [];
   let query = supabase.from(table).select(select).in(column, ids);
@@ -78,7 +85,10 @@ export async function fetchTorneriaProcesos() {
   ]);
 
   const operacionIds = operaciones.map((row) => row.id);
-  const [componentes, movimientos] = await Promise.all([
+  const materialIds = [...new Set(items.flatMap((item) => [
+    item.material_id, ...(item.materiales || []).map((row) => row.material_id),
+  ]).filter(Boolean))];
+  const [componentes, movimientos, recepciones, stockGeneralRes] = await Promise.all([
     inQuery("torneria_operacion_items", "operacion_id", operacionIds),
     inQuery(
       "torneria_movimientos",
@@ -87,7 +97,20 @@ export async function fetchTorneriaProcesos() {
       "*",
       { column: "fecha", options: { ascending: false } },
     ),
+    items.length
+      ? supabase.from("torneria_recepciones_panol").select("*").in("item_id", items.map((item) => item.id))
+        .then(recepcionOpcional)
+      : Promise.resolve([]),
+    materialIds.length
+      ? supabase.rpc("torneria_stock_general", { p_material_ids: materialIds })
+      : Promise.resolve({ data: [], error: null }),
   ]);
+  const stockGeneral = recepcionOpcional(stockGeneralRes);
+  for (const item of items) {
+    item.recepciones_panol = recepciones.filter((row) => row.item_id === item.id);
+    const ids = new Set([item.material_id, ...(item.materiales || []).map((row) => row.material_id)]);
+    item.stock_general = stockGeneral.filter((row) => ids.has(row.material_id));
+  }
 
   const movimientoIds = movimientos.map((row) => row.id);
   const fleteIds = [...new Set(movimientos.map((row) => row.flete_id).filter(Boolean))];
