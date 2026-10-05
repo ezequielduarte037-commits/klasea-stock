@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { rowDelta as deltaApp } from "../../../src/features/panol/panolMovimientos.js";
-import { rowDelta as deltaRobot, stockDeMaterial } from "./stockPanol.ts";
+import { rowDelta as deltaRobot, stockDeMaterial, stockDeFamilia } from "./stockPanol.ts";
 
 const FILAS_FIJAS = [
   { material_id: "a", estado: "en_panol", source: "stock_general", cantidad: 5, stock_sede: "Chubut" },
@@ -28,6 +28,17 @@ test("desglose por sede", () => {
   assert.equal(total, 7.5);
   assert.equal(porSede.get("Chubut"), 5);
   assert.equal(porSede.get("Pampa"), 2.5);
+});
+
+test("familias no duplican producto/requisito ni mezclan unidades o sedes", () => {
+  const filas = [
+    { material_id: "producto", requisito_material_id: "requisito", source: "stock_general", estado: "en_panol", cantidad: 3, stock_sede: "Chubut" },
+    { material_id: "producto", source: "stock_general", estado: "en_panol", cantidad: 90, stock_sede: "Pampa" },
+    { material_id: "metro", source: "stock_general", estado: "en_panol", cantidad: 2.5, stock_sede: "Chubut" },
+  ];
+  assert.deepEqual(stockDeFamilia(new Set(["producto", "requisito", "metro"]), filas, "Chubut", new Map([["producto", "unid"], ["metro", "metro"]])), [
+    { unidad: "unidad", cantidad: 3 }, { unidad: "metro", cantidad: 2.5 },
+  ]);
 });
 
 function credenciales() {

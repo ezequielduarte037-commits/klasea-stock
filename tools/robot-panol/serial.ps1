@@ -1,4 +1,6 @@
 param([string]$Port = 'COM5')
+[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $robotRuntime = Join-Path $PSScriptRoot 'runtime'
 while (Test-Path -LiteralPath (Join-Path $robotRuntime 'serial-paused')) { Start-Sleep -Milliseconds 200 }
 Add-Type -TypeDefinition @'

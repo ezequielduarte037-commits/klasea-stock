@@ -1077,16 +1077,20 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         }
       `}</style>
 
-      <section className="planilla-central" style={{ ...panel, padding: isMobile ? "10px 12px" : "10px 14px", display: "grid", gap: 9 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, flexShrink: 0 }}>
-            <Layers3 size={16} />
-          </span>
-          <div style={{ minWidth: 180, flex: 1 }}>
-            <h2 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 18, lineHeight: 1.15, fontWeight: 750 }}>Planillas por obra</h2>
-            <p style={{ margin: "2px 0 0", color: C.dim, fontSize: 10.5, fontWeight: 600 }}>Compará materiales y obras en una sola tabla.</p>
+      {/* Encabezado con el mismo lenguaje que el resto de Compras. Va con
+          estilos en línea porque esta planilla también se abre desde Materiales. */}
+      <section className="planilla-central" style={{ display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 200, flex: 1 }}>
+            <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase" }}>{onPedir ? "Compras · Planificar" : "Materiales"}</div>
+            <h2 style={{ margin: "3px 0 0", color: C.text, fontSize: isMobile ? 20 : 24, lineHeight: 1.12, fontWeight: 700, letterSpacing: "-.02em" }}>
+              Planilla por <span style={{ background: "var(--brand-grad)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>obra</span>
+            </h2>
+            <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13 }}>
+              Materiales y obras en una sola tabla
+              {datos ? <> · <b style={{ color: C.muted, fontWeight: 600 }}>{datos.obras.length}</b> obras · <b style={{ color: C.muted, fontWeight: 600 }}>{resumenFoco.materiales}</b> materiales</> : null}
+            </p>
           </div>
-          {datos ? <span style={{ color: C.dim, fontSize: 11, fontWeight: 650 }}>{datos.obras.length} obras · {resumenFoco.materiales} materiales</span> : null}
           <button type="button" aria-expanded={resumenAbierto} onClick={() => setResumenAbierto(actual => !actual)} style={{ ...control, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 6, color: resumenAbierto ? C.blue : C.dim }}>
             Resumen <ChevronDown size={13} style={{ transform: resumenAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
           </button>

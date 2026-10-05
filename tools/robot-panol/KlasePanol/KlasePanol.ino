@@ -10,6 +10,7 @@
 #include <Preferences.h>
 #include <NetworkClientSecure.h>
 #include <ESP_I2S.h>
+#include "esp_http_client.h"
 #include "esp_adc/adc_continuous.h"
 #include "cloud_ca.h"
 #include "logo.h"
@@ -50,6 +51,9 @@ uint8_t *wav = nullptr;          // 44 bytes de cabecera + muestras, en PSRAM
 int16_t *grabacion = nullptr;
 volatile size_t grabadas = 0;
 volatile bool grabando = false;
+uint32_t localHasta = 0;
+bool grabacionLocal = false;
+uint32_t lastMicDiag = 0;
 volatile uint8_t micLevel = 0;
 volatile uint32_t micPico = 0;
 volatile uint16_t micRawMin = 0, micRawMax = 0;  // lectura cruda del ADC en la última ventana
@@ -72,6 +76,7 @@ String cloudUrl,cloudKey,deviceId,deviceToken,funcionesUrl,sedeRobot="Chubut";
 String knownIds[20],unseenIds[20];
 int knownCount=0,unseenCount=0,cloudOffset=0,detailPage=0;
 volatile bool cloudPollNeeded=false;
+volatile bool networkTestNeeded=false;
 uint32_t lastFeed=0,lastInteraction=0,lastFrame=0,pressedAt=0,lastRawChange=0,wifiAttemptAt=0;
 int raw=HIGH,stable=HIGH;
 bool held=false,dirty=true,wifiRequested=false,wifiWasConnected=false;
@@ -268,6 +273,45 @@ void consultarFeed(NetworkClientSecure &cliente) {
   // corte de Wi-Fi) daba timeout para siempre: ante cualquier error se cierra.
   if (code < 0) cliente.stop();
 }
+void probarRed(NetworkClientSecure &cliente) {
+  // Petición vacía: comprueba la ruta HTTPS sin mandar audio ni la credencial del robot.
+  cliente.stop();
+  HTTPClient http;http.setConnectTimeout(5000);http.setTimeout(12000);http.setReuse(false);
+  JsonDocument report;report["stage"]="connecting";
+  Serial0.print("KLASE_HTTP ");serializeJson(report,Serial0);Serial0.println();
+  const uint32_t inicio=millis();
+  if(http.begin(cliente,funcionesUrl+"/robot-panol-voz")) {
+    http.addHeader("Authorization","Bearer "+cloudKey);http.addHeader("apikey",cloudKey);
+    http.addHeader("Content-Type","application/json");
+    const int code=http.POST(String("{}"));
+    char errorTls[160]={};const int tlsCode=cliente.lastError(errorTls,sizeof(errorTls));
+    report["stage"]="done";report["status"]=code;report["ms"]=millis()-inicio;
+    report["tlsCode"]=tlsCode;report["tlsError"]=errorTls;report["heap"]=ESP.getFreeHeap();
+    if(code<0)report["error"]=HTTPClient::errorToString(code);
+    Serial0.print("KLASE_HTTP ");serializeJson(report,Serial0);Serial0.println();
+    http.end();
+  }
+  cliente.stop();
+  // Comparar con el cliente HTTP nativo de ESP-IDF, manteniendo la misma CA.
+  const String url=funcionesUrl+"/robot-panol-voz";
+  esp_http_client_config_t config={};config.url=url.c_str();config.cert_pem=CLOUD_ROOT_CA;
+  config.method=HTTP_METHOD_POST;config.timeout_ms=12000;config.disable_auto_redirect=true;config.max_authorization_retries=-1;
+  config.buffer_size=1024;config.buffer_size_tx=1024;
+  auto nativo=esp_http_client_init(&config);
+  if(nativo) {
+    esp_http_client_set_header(nativo,"Content-Type","application/json");
+    esp_http_client_set_header(nativo,"apikey",cloudKey.c_str());
+    const String auth="Bearer "+cloudKey;
+    esp_http_client_set_header(nativo,"Authorization",auth.c_str());
+    esp_http_client_set_post_field(nativo,"{}",2);
+    const uint32_t t0=millis();const esp_err_t err=esp_http_client_perform(nativo);
+    JsonDocument nativeReport;nativeReport["stage"]="done";nativeReport["client"]="esp-idf";
+    nativeReport["status"]=err==ESP_OK?esp_http_client_get_status_code(nativo):-1;
+    nativeReport["error"]=esp_err_to_name(err);nativeReport["ms"]=millis()-t0;
+    Serial0.print("KLASE_HTTP ");serializeJson(nativeReport,Serial0);Serial0.println();
+    esp_http_client_cleanup(nativo);
+  }
+}
 // `tipo` va como int: Arduino arma los prototipos antes de declarar el enum PedidoRed.
 void atenderVoz(NetworkClientSecure &cliente, int tipo) {
   HTTPClient http; http.setConnectTimeout(5000); http.setTimeout(30000);
@@ -297,7 +341,7 @@ void atenderVoz(NetworkClientSecure &cliente, int tipo) {
     http.end();
     if (c.status < 0) cliente.stop();
   }
-  if (!c.texto.length()) c.texto = c.status == 401 ? "El robot no esta autorizado. Hay que vincularlo de nuevo." : "No pude consultar el sistema. Proba de nuevo en un rato.";
+  if (!c.texto.length()) c.texto = c.status == 401 ? "El robot no esta autorizado. Hay que vincularlo de nuevo." : c.status == -11 ? "El servidor no respondio a tiempo. Revisa la conexion a Internet." : "No pude consultar el sistema. Proba de nuevo en un rato.";
   xSemaphoreTake(cerrojo, portMAX_DELAY); contestacion = c; xSemaphoreGive(cerrojo);
 }
 void netWorker(void *) {
@@ -310,7 +354,9 @@ void netWorker(void *) {
     if (habiaWifi && !hayWifi) cliente->stop();   // la conexión TLS no sobrevive a un corte
     habiaWifi = hayWifi;
     const bool listo = hayWifi && time(nullptr) > 1700000000 && cloudUrl.length() && deviceToken.length();
-    if (listo && pedidoRed != R_NADA) {
+    if (listo && networkTestNeeded && pedidoRed==R_NADA) {
+      networkTestNeeded=false;probarRed(*cliente);
+    } else if (listo && pedidoRed != R_NADA) {
       atenderVoz(*cliente, pedidoRed);
       pedidoRed = R_NADA;
     } else if (listo && (cloudPollNeeded || millis() - ultimoFeed > 15000)) {
@@ -673,7 +719,18 @@ void acceptFeed(JsonDocument &doc) {
 void serialCommand(String &line) {
   JsonDocument doc; if(deserializeJson(doc,line))return;
   if(doc["type"]=="feed")acceptFeed(doc);
-  else if(doc["type"]=="dump_audio") volcarGrabacion();
+  else if(doc["type"]=="network_test")networkTestNeeded=true;
+  else if(doc["type"]=="status") Serial0.println("KLASE_VERSION {\"firmware\":\"2026-10-02-monitor\",\"localRecording\":true}");
+  else if(doc["type"]=="record_local") {
+    if(!wav || grabando || reproduciendo || modoVoz==V_PIENSA || pedidoRed!=R_NADA) {
+      Serial0.println("KLASE_LOCAL {\"error\":\"El robot esta ocupado o no tiene memoria.\"}");
+      return;
+    }
+    grabadas=0; grabacionLocal=true; grabando=true;
+    localHasta=millis()+constrain(doc["seconds"]|3,1,8)*1000;
+    Serial0.println("KLASE_LOCAL {\"state\":\"recording\"}");
+  }
+  else if(doc["type"]=="dump_audio" && wav && !grabando && pedidoRed==R_NADA) volcarGrabacion();
   else if(doc["type"]=="test_mic") {
     // Graba 2 s mientras suena el parlante: si el micrófono anda, el tono aparece fuerte.
     grabadas=0;grabando=true;requestAudio(2);
@@ -685,7 +742,7 @@ void serialCommand(String &line) {
   else if(doc["type"]=="wifi") {
     String ssid=doc["ssid"]|"",password=doc["password"]|"";
     prefs.putString("ssid",ssid);prefs.putString("pass",password);
-    WiFi.disconnect();WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.begin(ssid.c_str(),password.c_str());wifiRequested=true;wifiAttemptAt=millis();dirty=true;
+    WiFi.disconnect();WiFi.mode(WIFI_STA);WiFi.setSleep(false);WiFi.setAutoReconnect(true);WiFi.begin(ssid.c_str(),password.c_str());wifiRequested=true;wifiAttemptAt=millis();dirty=true;
   } else if(doc["type"]=="cloud") {
     cloudUrl=doc["url"]|"";cloudKey=doc["apikey"]|"";deviceId=doc["id"]|"";deviceToken=doc["token"]|"";
     prefs.putString("cloudUrl",cloudUrl);prefs.putString("cloudKey",cloudKey);prefs.putString("deviceId",deviceId);prefs.putString("deviceToken",deviceToken);
@@ -746,6 +803,8 @@ void tomarContestacion(uint32_t now) {
   xSemaphoreGive(cerrojo);
   if(!hay)return;
   respuestaTexto=c.texto;respuestaOido=c.oido;paginaRespuesta=0;paginaDesde=now;modoDesde=now;lastInteraction=now;
+  JsonDocument voiceDiag; voiceDiag["texto"]=c.texto;voiceDiag["oido"]=c.oido;voiceDiag["status"]=c.status;voiceDiag["pcmBytes"]=c.pcm;
+  Serial0.print("KLASE_VOICE ");serializeJson(voiceDiag,Serial0);Serial0.println();
   modoVoz=c.confirmar?V_CONFIRMAR:V_RESPUESTA;
   if(c.confirmar)confirmarHasta=now+CONFIRMAR_MS;
   if(c.eraConfirmacion&&c.status==200){felizHasta=now+6000;modoVoz=V_NADA;page=-1;}
@@ -787,7 +846,7 @@ void setup() {
     else if(evento==ARDUINO_EVENT_WIFI_STA_GOT_IP)wifiMotivo=0;
   });
   String ssid=prefs.getString("ssid","");
-  if(ssid.length()){WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.begin(ssid.c_str(),prefs.getString("pass","").c_str());wifiRequested=true;wifiAttemptAt=millis();}
+  if(ssid.length()){WiFi.mode(WIFI_STA);WiFi.setSleep(false);WiFi.setAutoReconnect(true);WiFi.begin(ssid.c_str(),prefs.getString("pass","").c_str());wifiRequested=true;wifiAttemptAt=millis();}
   // Hora de Argentina para la barra; la validación TLS usa el reloj UTC igual.
   configTzTime("<-03>3","pool.ntp.org","time.google.com");
   if(cloudUrl.length())state="unpaired";
@@ -795,6 +854,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(BUTTON),buttonChanged,CHANGE);
   xTaskCreatePinnedToCore(netWorker,"klase-red",12288,nullptr,1,nullptr,0);
   Serial0.println("KLASE_ROBOT_READY");
+  Serial0.println("KLASE_VERSION {\"firmware\":\"2026-10-02-monitor\",\"localRecording\":true}");
 }
 
 void toqueSimple(uint32_t now) {
@@ -820,6 +880,12 @@ void toqueDoble(uint32_t now) {
 
 void loop() {
   readSerial();uint32_t now=millis();int v=digitalRead(BUTTON);
+  if(grabacionLocal && (int32_t)(now-localHasta)>=0) {
+    grabando=false;grabacionLocal=false;
+    Serial0.println("KLASE_LOCAL {\"state\":\"transferring\"}");
+    volcarGrabacion(); // Sólo USB: no inicia una consulta de voz ni envía audio a Internet.
+    now=millis();v=digitalRead(BUTTON);
+  }
 
   // Avisos que trajo la tarea de red.
   String feed;bool hay=false,revocado=false;
@@ -838,13 +904,13 @@ void loop() {
   if(v!=raw){raw=v;lastRawChange=now;}
   if(raw!=stable&&now-lastRawChange>=40){
     stable=raw;dirty=true;lastInteraction=now;
-    if(stable==LOW){pressedAt=now;held=false;}
+    if(stable==LOW){pressedAt=now;held=grabacionLocal;}
     else if(held){ if(modoVoz==V_ESCUCHA)terminarGrabacion(now); }
     else if(toqueEnEspera&&now-toqueEnEspera<380){toqueEnEspera=0;toqueDoble(now);}
     else toqueEnEspera=now;
   }
   if(toqueEnEspera&&now-toqueEnEspera>=380){toqueEnEspera=0;toqueSimple(now);}
-  if(stable==LOW&&!held&&now-pressedAt>=400&&modoVoz!=V_PIENSA){held=true;toqueEnEspera=0;empezarGrabacion(now);}
+  if(stable==LOW&&!held&&now-pressedAt>=400&&modoVoz!=V_PIENSA&&!grabacionLocal){held=true;toqueEnEspera=0;empezarGrabacion(now);}
   if(modoVoz==V_ESCUCHA&&grabadas>=MAX_MUESTRAS)terminarGrabacion(now);
 
   // Vencimientos.
@@ -875,6 +941,9 @@ void loop() {
     lastDiag=now;
     Serial0.printf("KLASE_NET {\"wifi\":%d,\"configured\":%s,\"paired\":%s,\"clock\":%s,\"http\":%d,\"cloudAgeMs\":%lu,\"motivo\":%u,\"ssid\":\"%s\",\"rssi\":%d}\n",(int)WiFi.status(),wifiRequested?"true":"false",deviceToken.length()&&deviceId.length()?"true":"false",time(nullptr)>1700000000?"true":"false",lastCloudCode,(unsigned long)(lastCloudFeed?millis()-lastCloudFeed:0),(unsigned)wifiMotivo,WiFi.SSID().c_str(),(int)WiFi.RSSI());
     Serial0.printf("KLASE_DIAG {\"raw\":%d,\"stable\":%d,\"edges\":%lu,\"page\":%d,\"count\":%d,\"total\":%d,\"unseen\":%d,\"state\":\"%s\",\"voz\":%d,\"frameMs\":%lu}\n",digitalRead(BUTTON),stable,(unsigned long)buttonEdges,page,count,total,unseenCount,state.c_str(),(int)modoVoz,(unsigned long)ultimoCuadroMs);
+  }
+  if(now-lastMicDiag>=100) {
+    lastMicDiag=now;
     Serial0.printf("KLASE_MIC {\"pico\":%lu,\"level\":%u,\"grabadas\":%u,\"crudoMin\":%u,\"crudoMax\":%u,\"dc\":%d}\n",(unsigned long)micPico,micLevel,(unsigned)grabadas,(unsigned)micRawMin,(unsigned)micRawMax,(int)micDc);
   }
   delay(2);

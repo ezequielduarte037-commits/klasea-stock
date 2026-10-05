@@ -42,7 +42,10 @@ import { C } from "@/theme";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
+import { ArrowLeft, Hammer, Pencil, Printer, RefreshCw, Trash2 } from "lucide-react";
 import { ChapaReferenceCard, ChapaSwatch, chapaColor, chapaGradient, esNogal } from "@/features/muebles/chapa";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { Aviso, Estado, Tag, Tarea } from "./ui";
 import Cargando from "@/components/ui/Cargando";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
@@ -284,19 +287,35 @@ function saveHerrajesTemplates(next) {
   window.localStorage.setItem(HERRAJES_STORAGE_KEY, JSON.stringify(next));
 }
 
+// Las plantillas están por "K55", pero el modelo puede llegar como "55", "k55"
+// o "K55-5" (nombre de línea u obra). Sin normalizar, la OT queda sin ítems.
+function modeloKey(modelo) {
+  const raw = String(modelo ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  const match = raw.match(/^K?-?(\d+)/);
+  return match ? `K${match[1]}` : raw;
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function herrajesForModelo(modelo) {
-  return getHerrajesTemplates()[modelo] ?? null;
+  return getHerrajesTemplates()[modeloKey(modelo)] ?? null;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function templateEnchapadoForModelo(modelo) {
-  return TEMPLATES[modelo] ?? null;
+  return TEMPLATES[modeloKey(modelo)] ?? null;
+}
+
+function escHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function dispatchSteps(ot) {
-  const hasTablones = !!TEMPLATES[ot.modelo]?.tablones;
+  const hasTablones = !!templateEnchapadoForModelo(ot.modelo)?.tablones;
   const hasHerrajes = !!herrajesForModelo(ot.modelo);
   const estado = ot.estado || "Pendiente";
   const steps = [];
@@ -396,7 +415,7 @@ function ProcessStepper({ ot }) {
 }
 
 function tablonesList(modelo, tipoChapa) {
-  const tpl = TEMPLATES[modelo]?.tablones;
+  const tpl = templateEnchapadoForModelo(modelo)?.tablones;
   if (!tpl) return null;
   const nogal = esNogal(tipoChapa);
   const items = [];
@@ -489,7 +508,7 @@ alter table enchapado_ots add column if not exists herrajes_enviado    boolean d
 // ── OT Card ────────────────────────────────────────────────────────────────
 function OTCard({ ot, onClick }) {
   const meta = ESTADO_META[ot.estado] ?? ESTADO_META["Pendiente"];
-  const tpl  = TEMPLATES[ot.modelo];
+  const tpl  = templateEnchapadoForModelo(ot.modelo);
   const chapa = chapaColor(ot.tipo_chapa);
 
   // Desmolde: preferir real sobre estimado
@@ -786,6 +805,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
 
 // ── Vista detalle de una OT ────────────────────────────────────────────────
 export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
+  const confirmar = useConfirm();
   const [ot,        setOt]        = useState(otInit);
   const [items,     setItems]     = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -802,26 +822,36 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
   const [showHerrajesKit, setShowHerrajesKit] = useState(false);
   const [syncingMuebles, setSyncingMuebles] = useState(false);
   const [syncMsg, setSyncMsg] = useState(ot.muebles_sync ?? null);
+  const [error, setError] = useState("");
   const inputRef = useRef(null);
+  // Espejo de `items` para los guardados que terminan después de otro render.
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  const guardadosEnCurso = useRef(new Map());
+  const cancelarEdicion = useRef(false);
 
-  const tpl     = TEMPLATES[ot.modelo];
+  const tpl     = templateEnchapadoForModelo(ot.modelo);
   const nogal   = esNogal(ot.tipo_chapa);
-  const chapa   = chapaColor(ot.tipo_chapa);
   const tablones = tablonesList(ot.modelo, ot.tipo_chapa);
   const herrajesKit = herrajesForModelo(ot.modelo) ?? null;
-  const chapasDigitalizadas = Boolean(tpl?.items?.length)
-    && tpl.items.every((templateItem) =>
-      items.find((item) => item.item_id === templateItem.id)?.chapas_descripcion?.trim());
-
-  
+  // Lo que está escrito en el ítem abierto cuenta aunque todavía no se haya
+  // guardado: al hacer clic en "Imprimir" el textarea pierde el foco recién en
+  // ese momento y el guardado llega después.
+  const chapaDeItem = (itemId) => (editItem === itemId
+    ? editVal
+    : items.find((item) => item.item_id === itemId)?.chapas_descripcion ?? ""
+  ).trim();
+  const itemsSinChapas = (tpl?.items ?? []).filter((templateItem) => !chapaDeItem(templateItem.id));
+  const hayChapasCargadas = Boolean(tpl?.items?.length) && itemsSinChapas.length < tpl.items.length;
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error: itemsError } = await supabase
       .from("enchapado_ot_items")
       .select("*")
       .eq("ot_id", ot.id)
       .order("item_id");
+    if (itemsError) setError(`No se pudieron leer las hojas de chapa: ${itemsError.message}`);
     setItems(data ?? []);
     setLoading(false);
   }, [ot.id]);
@@ -834,32 +864,79 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
 
   function abrirEdit(itemId) {
     const row = items.find(i => i.item_id === itemId);
+    cancelarEdicion.current = false;
     setEditItem(itemId);
     setEditVal(row?.chapas_descripcion ?? "");
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  async function guardarChapas(itemId) {
-    const row = items.find(i => i.item_id === itemId);
-    if (!row) return;
-    await supabase.from("enchapado_ot_items").update({ chapas_descripcion: editVal }).eq("id", row.id);
-    setItems(p => p.map(i => i.item_id === itemId ? { ...i, chapas_descripcion: editVal } : i));
+  function cancelarEdit() {
+    cancelarEdicion.current = true;
     setEditItem(null);
   }
 
-  async function setEstado(estado) {
-    await supabase.from("enchapado_ots").update({ estado }).eq("id", ot.id);
-    const updated = { ...ot, estado };
+  // Enter, el blur y "Imprimir" pueden pedir el mismo guardado casi a la vez:
+  // se reutiliza el que está en curso en vez de mandar tres updates.
+  function guardarChapas(itemId, valor) {
+    if (cancelarEdicion.current) return Promise.resolve(false);
+    const clave = `${itemId}\u0000${valor}`;
+    const enCurso = guardadosEnCurso.current.get(clave);
+    if (enCurso) return enCurso;
+    const promesa = escribirChapas(itemId, valor)
+      .finally(() => guardadosEnCurso.current.delete(clave));
+    guardadosEnCurso.current.set(clave, promesa);
+    return promesa;
+  }
+
+  async function escribirChapas(itemId, valor) {
+    const cerrar = () => setEditItem((actual) => (actual === itemId ? null : actual));
+    const row = itemsRef.current.find(i => i.item_id === itemId);
+    if (row && (row.chapas_descripcion ?? "") === valor) {
+      cerrar();
+      return true;
+    }
+    // Si el renglón no existe (la OT se creó sin ítems o cambió de modelo), se
+    // crea. Antes el texto se perdía sin aviso.
+    const { data, error: saveError } = row
+      ? await supabase.from("enchapado_ot_items").update({ chapas_descripcion: valor }).eq("id", row.id).select()
+      : await supabase.from("enchapado_ot_items").insert({ ot_id: ot.id, item_id: itemId, chapas_descripcion: valor }).select();
+    if (saveError || !data?.length) {
+      setError(`No se guardaron las chapas del ítem ${itemId}: ${saveError?.message ?? "la base no aceptó el cambio."}`);
+      return false;
+    }
+    const guardado = data[0];
+    setItems(p => (p.some(i => i.id === guardado.id)
+      ? p.map(i => (i.id === guardado.id ? guardado : i))
+      : [...p, guardado]));
+    setError("");
+    cerrar();
+    return true;
+  }
+
+  // Si la base rechaza el cambio, la pantalla no lo muestra como hecho.
+  async function actualizarOt(cambios, accion) {
+    const { data, error: updateError } = await supabase
+      .from("enchapado_ots")
+      .update(cambios)
+      .eq("id", ot.id)
+      .select("id");
+    if (updateError || !data?.length) {
+      setError(`No se pudo ${accion}: ${updateError?.message ?? "la base no aceptó el cambio."}`);
+      return false;
+    }
+    setError("");
+    const updated = { ...ot, ...cambios };
     setOt(updated);
     onUpdated?.(updated);
+    return true;
+  }
+
+  async function setEstado(estado) {
+    await actualizarOt({ estado }, "cambiar el estado");
   }
 
   async function guardarNotas() {
-    await supabase.from("enchapado_ots").update({ notas: notasVal }).eq("id", ot.id);
-    const updated = { ...ot, notas: notasVal };
-    setOt(updated);
-    setEditNotas(false);
-    onUpdated?.(updated);
+    if (await actualizarOt({ notas: notasVal }, "guardar la nota")) setEditNotas(false);
   }
 
   async function guardarFechas() {
@@ -868,25 +945,27 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
       fecha_desmolde_real: fechasForm.fecha_desmolde_real || null,
       fecha_botada:        fechasForm.fecha_botada        || null,
     };
-    await supabase.from("enchapado_ots").update(updates).eq("id", ot.id);
-    const updated = { ...ot, ...updates };
-    setOt(updated);
-    setEditFechas(false);
-    onUpdated?.(updated);
+    if (await actualizarOt(updates, "guardar las fechas")) setEditFechas(false);
   }
 
   // Toggle genérico para campos boolean
   async function toggle(campo) {
-    const val = !ot[campo];
-    await supabase.from("enchapado_ots").update({ [campo]: val }).eq("id", ot.id);
-    const updated = { ...ot, [campo]: val };
-    setOt(updated);
-    onUpdated?.(updated);
+    await actualizarOt({ [campo]: !ot[campo] }, "actualizar el despacho");
   }
 
   async function eliminarOT() {
-    if (!window.confirm(`¿Eliminar OT "${ot.barco} — ${ot.modelo}"? Esta acción no se puede deshacer.`)) return;
-    await supabase.from("enchapado_ots").delete().eq("id", ot.id);
+    const ok = await confirmar({
+      title: `¿Eliminar la OT ${ot.barco}?`,
+      message: `Se borra la OT de preparación ${ot.modelo} ${ot.barco} con sus hojas de chapa. No se puede deshacer.`,
+      confirmLabel: "Eliminar OT",
+      tone: "danger",
+    });
+    if (!ok) return;
+    const { error: deleteError } = await supabase.from("enchapado_ots").delete().eq("id", ot.id);
+    if (deleteError) {
+      setError(`No se pudo eliminar la OT: ${deleteError.message}`);
+      return;
+    }
     onDeleted?.(ot.id);
   }
 
@@ -917,12 +996,29 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
   }
 
   function imprimir(destino) {
+    // Si hay un ítem abierto se imprime lo que está escrito, y se guarda igual.
+    let itemsActuales = items;
+    if (editItem != null) {
+      const texto = editVal;
+      itemsActuales = items.some(i => i.item_id === editItem)
+        ? items.map(i => (i.item_id === editItem ? { ...i, chapas_descripcion: texto } : i))
+        : [...items, { item_id: editItem, chapas_descripcion: texto }];
+      guardarChapas(editItem, texto);
+    }
+
+    // La ventana se abre antes que nada: si se abre después de algo asincrónico
+    // el navegador la toma como emergente y la bloquea.
+    const win = window.open("", "_blank");
+    if (!win) {
+      setError("El navegador bloqueó la ventana de impresión. Permití las ventanas emergentes para este sitio y volvé a intentar.");
+      return;
+    }
+
     const tablonesLineas = tablonesList(ot.modelo, ot.tipo_chapa) ?? [];
     const printTone = chapaColor(ot.tipo_chapa);
-    const printChapa = (ot.tipo_chapa || "Sin especificar")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    const barco = escHtml(ot.barco);
+    const modelo = escHtml(ot.modelo);
+    const impreso = new Date().toLocaleDateString("es-AR");
     const chapaPrintBlock = `
 <section style="margin-top:-4px; margin-bottom:14px;">
   <div style="
@@ -933,7 +1029,7 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
     border:2px solid #888;
     border-radius:8px;
     background:#f5f5f5;
-    font-family:'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono', Consolas, monospace;
     font-size:12pt;
     font-weight:700;
     color:#111;
@@ -947,7 +1043,7 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
       background:${chapaGradient(printTone)};
       vertical-align:middle;
     "></span>
-    <span>Chapa: ${printChapa}</span>
+    <span>Chapa: ${escHtml(ot.tipo_chapa || "Sin especificar")}</span>
   </div>
 </section>`;
 
@@ -955,27 +1051,33 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
     const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Outfit', sans-serif; font-size: 11pt; color: #1a1a1a; background: #fff; }
+  body { font-family: 'Outfit', 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1a1a1a; background: #fff; }
+  .toolbar { display: flex; gap: 8px; justify-content: flex-end; align-items: center; padding: 12px 16mm 0;
+    font-size: 9pt; color: #777; }
+  .toolbar button { font-family: inherit; font-size: 10pt; font-weight: 600; padding: 7px 14px; border-radius: 7px;
+    border: 1px solid #ccc; background: #fff; color: #1a1a1a; cursor: pointer; }
+  .toolbar button.primario { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
   .page { padding: 14mm 16mm 16mm; page-break-after: always; }
-  .page:last-child { page-break-after: auto; }
+  .page:last-of-type { page-break-after: auto; }
   .dest-banner { display: inline-flex; align-items: center; gap: 8px; background: #1a1a1a; color: #fff;
     font-size: 8pt; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
-    padding: 5px 14px; border-radius: 4px; margin-bottom: 12px; font-family: 'JetBrains Mono', monospace; }
+    padding: 5px 14px; border-radius: 4px; margin-bottom: 12px; font-family: 'JetBrains Mono', Consolas, monospace; }
   .dest-banner.carp  { background: #1e3a2f; }
-  .dest-banner.paniol { background: #2a1a3a; }
   header { display: flex; justify-content: space-between; align-items: flex-start;
     border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 14px; }
-  .brand { font-family: 'JetBrains Mono', monospace; font-size: 9pt; letter-spacing: 3px; text-transform: uppercase; color: #666; }
+  .brand { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 9pt; letter-spacing: 3px; text-transform: uppercase; color: #666; }
   .title { font-size: 20pt; font-weight: 700; margin: 2px 0; }
   .meta { font-size: 9pt; color: #555; margin-top: 4px; }
+  .barco-tag { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 16pt; font-weight: 700; color: #1a1a1a;
+    background: #fff; padding: 4px 12px; border: 2px solid #1a1a1a; border-radius: 6px; }
   .estado { font-size: 9pt; font-weight: 700; padding: 4px 10px; border: 1.5px solid #1a1a1a; border-radius: 5px; text-align: center; }
   section { margin-bottom: 14px; }
   h3 { font-size: 8pt; letter-spacing: 2px; text-transform: uppercase; color: #888; font-weight: 600;
     margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-  .chip { font-family: 'JetBrains Mono', monospace; font-size: 9pt; background: #f4f4f4;
+  .chip { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 9pt; background: #f4f4f4;
     border: 1px solid #ccc; padding: 3px 10px; border-radius: 5px; }
-  .chip.nogal { background: #fff8ed; border-color: #0891b2; color: #0e7490; }
+  .chip.nogal { background: #ecfeff; border-color: #0891b2; color: #0e7490; }
   .chip.big   { font-size: 12pt; font-weight: 700; padding: 8px 18px; background: #f0f0f0; }
   .chip.big.nogal { font-size: 12pt; font-weight: 700; padding: 8px 18px; }
   .nogal-note { font-size: 9pt; color: #0e7490; margin-top: 6px; font-weight: 600; }
@@ -985,15 +1087,17 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
     color: #888; font-weight: 600; padding: 5px 8px; border-bottom: 1.5px solid #1a1a1a; }
   td { padding: 7px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
   tr:nth-child(even) td { background: #fafafa; }
-  td.item-id { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #555; width: 36px; }
-  td.chapas  {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9pt;
-  white-space: pre-wrap;
-  width: 320px;
-  min-width: 320px;
-  line-height: 1.45;
-}
+  td.item-id { font-family: 'JetBrains Mono', Consolas, monospace; font-weight: 700; color: #555; width: 36px; }
+  td.chapas {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 10pt;
+    font-weight: 700;
+    color: #111;
+    white-space: pre-wrap;
+    width: 34%;
+    line-height: 1.45;
+  }
+  .a-mano { min-height: 34px; }
   .notas-box { border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px;
     min-height: 48px; font-size: 10pt; color: #333; white-space: pre-wrap; }
   .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd;
@@ -1005,71 +1109,48 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
   .sign-area { margin-top: 24px; display: flex; gap: 32px; }
   .sign-line { flex: 1; border-top: 1px solid #999; padding-top: 5px; font-size: 8pt; color: #999; }
   @media print {
+    /* Sin esto Chrome no imprime fondos y el texto blanco de las etiquetas desaparece. */
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .toolbar { display: none !important; }
     .page { padding: 10mm 12mm 12mm; }
     @page { margin: 0; size: A4; }
   }`;
 
-    // ── Header común (mini versión para páginas 2 y 3) ────────────
     const miniHeader = `
 <header>
   <div>
-    <div class="brand">
-      Klase A &middot; Enchapadora &nbsp;|&nbsp; OT ${ot.barco}
-    </div>
-
-    <div class="title">${ot.barco}</div>
-
+    <div class="brand">Klase A &middot; Enchapadora &nbsp;|&nbsp; OT ${barco}</div>
+    <div class="title">${barco}</div>
     <div class="meta">
-      Modelo: <strong>${ot.modelo}</strong>
+      Modelo: <strong>${modelo}</strong>
       &nbsp;&middot;&nbsp;
       Fecha: <strong>${fmtFecha(ot.fecha)}</strong>
     </div>
   </div>
-
   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-    <div style="
-      font-family:'JetBrains Mono',monospace;
-      font-size:16pt;
-      font-weight:800;
-      color:#1a1a1a;
-      background:var(--text);
-      padding:4px 12px;
-      border:2px solid #1a1a1a;
-      border-radius:6px;
-    ">
-      ${ot.barco}
-    </div>
-
-    <div class="estado">${ot.estado}</div>
+    <div class="barco-tag">${barco}</div>
+    <div class="estado">${escHtml(ot.estado)}</div>
   </div>
 </header>`;
 
-    // ── PÁGINA 1: ENCHAPADORA ─────────────────────────────────────
+    // Las hojas de chapa cargadas salen en las dos OT (Banco y Enchapadora).
+    // El ítem sin cargar queda con lugar para completarlo a mano.
+    const chapaDe = (itemId) => itemsActuales
+      .find(i => i.item_id === itemId)?.chapas_descripcion?.trim() || "";
     const rowsItems = (tpl?.items ?? []).map(it => {
-      const row = items.find(i => i.item_id === it.id);
-      const chapas = row?.chapas_descripcion?.trim() || "—";
+      const chapas = chapaDe(it.id);
       return `
         <tr>
-          <td class="item-id">${it.id}</td>
-          <td class="chapas">${chapas.replace(/\n/g, "<br>")}</td>
-          <td>${it.material}</td>
-          <td>${it.medidas}</td>
-          <td>${it.caras}</td>
-          <td>${it.veta}</td>
+          <td class="item-id">${escHtml(it.id)}</td>
+          <td class="chapas">${chapas ? escHtml(chapas).replace(/\n/g, "<br>") : '<div class="a-mano"></div>'}</td>
+          <td>${escHtml(it.material)}</td>
+          <td>${escHtml(it.medidas)}</td>
+          <td>${escHtml(it.caras)}</td>
+          <td>${escHtml(it.veta)}</td>
         </tr>`;
     }).join("");
 
-    const rowsBancoItems = (tpl?.items ?? []).map(it => `
-      <tr>
-        <td class="item-id">${it.id}</td>
-        <td class="chapas"><div style="min-height:34px"></div></td>
-        <td>${it.material}</td>
-        <td>${it.medidas}</td>
-        <td>${it.caras}</td>
-        <td>${it.veta}</td>
-      </tr>`).join("");
-
-    const placasHTML = (tpl?.placas ?? []).map(p => `<span class="chip">${p}</span>`).join("");
+    const placasHTML = (tpl?.placas ?? []).map(p => `<span class="chip">${escHtml(p)}</span>`).join("");
 
     const fechasHTML = (ot.fecha_desmolde_est || ot.fecha_desmolde_real || ot.fecha_botada) ? `
     <section>
@@ -1081,12 +1162,11 @@ export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, on
       </div>
     </section>` : "";
 
-    const pagEnchapadoHTML = `
+    const paginaChapas = ({ banner, titulo, firmas, pie }) => `
   <div class="page">
-    <div class="dest-banner">🔨 Para: Enchapadora</div>
+    <div class="dest-banner">${banner}</div>
     ${miniHeader}
-
-${chapaPrintBlock}
+    ${chapaPrintBlock}
     ${fechasHTML}
     <section>
       <h3>Placas a enviar</h3>
@@ -1094,7 +1174,7 @@ ${chapaPrintBlock}
       <p class="sub">Identificar cada paquete con modelo, ítem y número de OT.</p>
     </section>
     <section>
-      <h3>Hojas de Chapa &amp; Trabajo a Realizar</h3>
+      <h3>${titulo}</h3>
       <table>
         <thead>
           <tr>
@@ -1104,47 +1184,50 @@ ${chapaPrintBlock}
         <tbody>${rowsItems}</tbody>
       </table>
     </section>
-    ${ot.notas ? `<section><h3>Notas</h3><div class="notas-box">${ot.notas.replace(/\n/g, "<br>")}</div></section>` : ""}
+    ${ot.notas ? `<section><h3>Notas</h3><div class="notas-box">${escHtml(ot.notas).replace(/\n/g, "<br>")}</div></section>` : ""}
     <div class="sign-area">
-      <div class="sign-line">Entregó</div>
-      <div class="sign-line">Recibió (Enchapadora)</div>
-      <div class="sign-line">Fecha entrega</div>
+      ${firmas.map(f => `<div class="sign-line">${f}</div>`).join("")}
     </div>
     <div class="footer">
-      <span>Klase A · Procedimiento Enchapadora — Hoja 1 / Enchapadora</span>
-      <span>Impreso: ${new Date().toLocaleDateString("es-AR")}</span>
+      <span>${pie}</span>
+      <span>Impreso: ${impreso}</span>
     </div>
   </div>`;
 
-    const pagPreparacionBancoHTML = pagEnchapadoHTML
-      .replace("Para: Enchapadora", "Para: Carpintero de banco")
-      .replace("Hojas de Chapa &amp; Trabajo a Realizar", "Preparación de hojas de chapa")
-      .replace(`<tbody>${rowsItems}</tbody>`, `<tbody>${rowsBancoItems}</tbody>`)
-      .replace("Recibió (Enchapadora)", "Supervisó (Oficina Técnica)")
-      .replace("Fecha entrega", "Fecha de devolución")
-      .replace("Hoja 1 / Enchapadora", "Preparación / Banco");
+    const pagEnchapadoHTML = paginaChapas({
+      banner: "🔨 Para: Enchapadora",
+      titulo: "Hojas de Chapa &amp; Trabajo a Realizar",
+      firmas: ["Entregó", "Recibió (Enchapadora)", "Fecha entrega"],
+      pie: "Klase A · Procedimiento Enchapadora — Hoja 1 / Enchapadora",
+    });
 
-    // ── PÁGINA 2: CARPINTERÍA (sólo si hay tablones) ──────────────
-    let pagCarpinteriaHTML = "";
-    if (tablonesLineas.length) {
+    const pagPreparacionBancoHTML = paginaChapas({
+      banner: "🔨 Para: Carpintero de banco",
+      titulo: "Preparación de hojas de chapa",
+      firmas: ["Entregó", "Supervisó (Oficina Técnica)", "Fecha de devolución"],
+      pie: "Klase A · Procedimiento Enchapadora — Preparación / Banco",
+    });
+
+    // ── Tablones: Banco los prepara, a Oberti se le avisa ─────────
+    const paginaTablones = ({ banner, titulo, firmas, pie }) => {
+      if (!tablonesLineas.length) return "";
       const tablonesStd = tpl?.tablones
         ? `${tpl.tablones.lenga} Lenga + ${tpl.tablones.okume} Okumé`
         : null;
-      pagCarpinteriaHTML = `
+      return `
   <div class="page">
-    <div class="dest-banner carp">🪵 Para: Carpintero de banco</div>
+    <div class="dest-banner carp">${banner}</div>
     ${miniHeader}
-
-${chapaPrintBlock}
+    ${chapaPrintBlock}
     <section>
-      <h3>Anexo B — Tablones Cepillados</h3>
-            <div style="background: #f8f8f8; border: 2px solid #bbb; padding: 14px; border-radius: 8px; margin-bottom: 20px; margin-top: 10px;">
+      <h3>${titulo}</h3>
+      <div style="background: #f8f8f8; border: 2px solid #bbb; padding: 14px; border-radius: 8px; margin-bottom: 20px; margin-top: 10px;">
         <div style="font-size: 14pt; font-weight: 700; color: #111; text-align: center; margin-bottom: 6px;">Medida: 2,00 m &times; 0,20 m &times; 45 mm</div>
-        <div style="font-size: 12pt; font-weight: 800; color: #1e3a2f; text-align: center; text-transform: uppercase; letter-spacing: 1.5px;">Cepillados en 4 caras</div>
-        <div style="font-size: 10pt; color: #555; text-align: center; margin-top: 8px; font-family: 'JetBrains Mono', monospace;">Marcados con: Modelo ${ot.modelo} / OT: ${ot.barco}</div>
+        <div style="font-size: 12pt; font-weight: 700; color: #1e3a2f; text-align: center; text-transform: uppercase; letter-spacing: 1.5px;">Cepillados en 4 caras</div>
+        <div style="font-size: 10pt; color: #555; text-align: center; margin-top: 8px; font-family: 'JetBrains Mono', Consolas, monospace;">Marcados con: Modelo ${modelo} / OT: ${barco}</div>
       </div>
       <div class="chips">
-        ${tablonesLineas.map(t => `<span class="chip big${t.includes("Nogal") ? " nogal" : ""}">${t}</span>`).join("")}
+        ${tablonesLineas.map(t => `<span class="chip big${t.includes("Nogal") ? " nogal" : ""}">${escHtml(t)}</span>`).join("")}
       </div>
       ${nogal ? '<p class="nogal-note">⚠ Chapa de nogal — La Lenga fue reemplazada por Tablón de Nogal</p>' : ""}
       ${tablonesStd ? `<p class="sub" style="margin-top:10px">Combinación estándar: ${tablonesStd}</p>` : ""}
@@ -1160,76 +1243,28 @@ ${chapaPrintBlock}
       </div>
     </div>
     <div class="sign-area" style="margin-top: 32px">
-      <div class="sign-line">Preparó (Banco)</div>
-      <div class="sign-line">Controló</div>
-      <div class="sign-line">Fecha preparación</div>
+      ${firmas.map(f => `<div class="sign-line">${f}</div>`).join("")}
     </div>
     <div class="footer">
-      <span>Klase A · Preparación de muebles — Tablones / Banco</span>
-      <span>Impreso: ${new Date().toLocaleDateString("es-AR")}</span>
+      <span>${pie}</span>
+      <span>Impreso: ${impreso}</span>
     </div>
   </div>`;
-    }
+    };
 
-    const pagAvisoObertiHTML = pagCarpinteriaHTML
-      .replace("Para: Carpintero de banco", "Aviso para: Oberti")
-      .replace("Anexo B — Tablones Cepillados", "Aviso de tablones preparados")
-      .replace("Preparó (Banco)", "Informó (Oficina Técnica)")
-      .replace("Controló", "Recibió aviso (Oberti)")
-      .replace("Fecha preparación", "Fecha de aviso")
-      .replace("Tablones / Banco", "Aviso de tablones / Oberti");
+    const pagCarpinteriaHTML = paginaTablones({
+      banner: "🪵 Para: Carpintero de banco",
+      titulo: "Anexo B — Tablones Cepillados",
+      firmas: ["Preparó (Banco)", "Controló", "Fecha preparación"],
+      pie: "Klase A · Preparación de muebles — Tablones / Banco",
+    });
 
-    // ── PÁGINA 3: PAÑOL / OBERTI (sólo si hay herrajes) ──────────
-    let pagHerrajesHTML = "";
-    if (herrajesKit) {
-      const herrajesRows = herrajesKit.map((h) => `
-        <tr>
-          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#555;width:50px">${h.q}×</td>
-          <td>${h.name}</td>
-          <td style="width:60px;text-align:center;font-size:16pt">⬜</td>
-        </tr>`).join("");
-
-      pagHerrajesHTML = `
-  <div class="page">
-    <div class="dest-banner paniol">🔩 Para: Pañol / Oberti</div>
-    ${miniHeader}
-
-${chapaPrintBlock}
-    <section>
-      <h3>Anexo C — Kit de Herrajes (${ot.modelo})</h3>
-      <p class="sub" style="margin-bottom:12px">Pañol confirma cantidades antes del despacho. Un envío = un modelo completo.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Cant.</th>
-            <th>Herraje</th>
-            <th style="text-align:center">✓</th>
-          </tr>
-        </thead>
-        <tbody>${herrajesRows}</tbody>
-      </table>
-    </section>
-    <div class="check-row">
-      <div class="check-box">
-        <div class="check-label">Pedido a Pañol</div>
-        <div class="check-val">${ot.herrajes_pedido ? "✓  Sí" : "⬜  Pendiente"}</div>
-      </div>
-      <div class="check-box">
-        <div class="check-label">Enviado a Oberti</div>
-        <div class="check-val">${ot.herrajes_enviado ? "✓  Sí" : "⬜  Pendiente"}</div>
-      </div>
-    </div>
-    <div class="sign-area" style="margin-top: 32px">
-      <div class="sign-line">Preparó (Pañol)</div>
-      <div class="sign-line">Recibió (Oberti)</div>
-      <div class="sign-line">Fecha despacho</div>
-    </div>
-    <div class="footer">
-      <span>Klase A · Procedimiento Enchapadora — Hoja 3 / Pañol</span>
-      <span>Impreso: ${new Date().toLocaleDateString("es-AR")}</span>
-    </div>
-  </div>`;
-    }
+    const pagAvisoObertiHTML = paginaTablones({
+      banner: "🪵 Aviso para: Oberti",
+      titulo: "Aviso de tablones preparados",
+      firmas: ["Informó (Oficina Técnica)", "Recibió aviso (Oberti)", "Fecha de aviso"],
+      pie: "Klase A · Preparación de muebles — Aviso de tablones / Oberti",
+    });
 
     const paginas = destino === "banco"
       ? `${pagPreparacionBancoHTML}${pagCarpinteriaHTML}`
@@ -1242,380 +1277,347 @@ ${chapaPrintBlock}
         ? "Aviso Tablones Oberti"
         : "OT Enchapadora";
 
+    // El diálogo de impresión se abre cuando las fuentes ya llegaron: si se
+    // dispara antes, el navegador puede imprimir la hoja sin texto. La barra
+    // de arriba queda por si el diálogo no se abre o se cierra sin imprimir.
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>${tituloDocumento} — ${ot.modelo} ${ot.barco}</title>
+<title>${tituloDocumento} — ${modelo} ${barco}</title>
 <style>${CSS}</style>
 </head>
 <body>
+<div class="toolbar">
+  <span>Si no se abrió el diálogo de impresión, usá el botón.</span>
+  <button class="primario" onclick="window.print()">Imprimir / Guardar PDF</button>
+  <button onclick="window.close()">Cerrar</button>
+</div>
 ${paginas}
-${destino === "completo" ? pagHerrajesHTML : ""}
-<script>window.onload = () => window.print();</script>
+<script>
+(function () {
+  var hecho = false;
+  function imprimir() {
+    if (hecho) return;
+    hecho = true;
+    setTimeout(function () { try { window.focus(); window.print(); } catch (e) {} }, 200);
+  }
+  function esperarFuentes() {
+    setTimeout(imprimir, 2500);
+    if (!document.fonts || !document.fonts.load) return imprimir();
+    Promise.all([
+      document.fonts.load("400 11pt Outfit"),
+      document.fonts.load("700 11pt Outfit"),
+      document.fonts.load("400 10pt 'JetBrains Mono'"),
+      document.fonts.load("700 10pt 'JetBrains Mono'")
+    ]).then(imprimir, imprimir);
+  }
+  if (document.readyState === "complete") esperarFuentes();
+  else window.addEventListener("load", esperarFuentes);
+})();
+</script>
 </body>
 </html>`;
 
-    const win = window.open("", "_blank");
+    win.document.open();
     win.document.write(html);
     win.document.close();
   }
 
-  const meta = ESTADO_META[ot.estado] ?? ESTADO_META["Pendiente"];
-
-  const VetaChip = ({ v }) => {
-    const col = v.toLowerCase().includes("ancho") ? "#60a5fa"
-               : v.toLowerCase().includes("largo") ? C.green
-               : C.t2;
-    return (
-      <span style={{ fontSize: 11, color: col, background: col + "14", border: `1px solid ${col}33`, padding: "2px 7px", borderRadius: 5, fontFamily: C.mono }}>
-        {v}
-      </span>
-    );
-  };
-
-  // Componente toggle de despacho
-  const DespachoToggle = ({ campo, label, color }) => {
-    const active = !!ot[campo];
-    return (
-      <button
-        onClick={() => toggle(campo)}
-        style={{
-          display: "flex", alignItems: "center", gap: 8,
-          padding: "8px 14px", borderRadius: 9, cursor: "pointer",
-          fontFamily: C.sans, fontSize: 13, transition: "all .15s",
-          background: active ? color + "15" : C.s0,
-          border: `1px solid ${active ? color + "44" : C.b0}`,
-          color: active ? color : C.t2,
-        }}
-      >
-        <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${active ? color : C.b1}`, background: active ? color : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
-          {active && <span style={{ color: "#000", fontSize: 11, lineHeight: 1, fontWeight: 600 }}>✓</span>}
-        </span>
-        {label}
-      </button>
-    );
-  };
+  const tonoEstado = { Pendiente: "neutro", Enviada: "azul", Devuelta: "verde", Rehacer: "rojo" }[ot.estado] ?? "neutro";
+  const pasos = dispatchSteps(ot);
+  const avanceDespacho = dispatchProgress(ot, true);
+  // Los pasos de tablones y herrajes se tildan acá; el envío y la devolución
+  // los da el estado de la OT, y el pedido de herrajes sale de Compras.
+  const pasoEditable = { tablones_pedido: true, tablones_enviado: true, herrajes_enviado: true };
+  const vetaTono = (v = "") => (v.toLowerCase().includes("ancho") ? "azul" : v.toLowerCase().includes("largo") ? "verde" : "neutro");
+  const fechasCargadas = [ot.fecha_desmolde_est, ot.fecha_desmolde_real, ot.fecha_botada].some(Boolean);
 
   return (
-    <div style={{ padding: "28px 28px 60px", maxWidth: 820 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 24 }}>
-        <button onClick={onBack} style={{ flexShrink: 0, marginTop: 2, background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 10, fontFamily: C.mono, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Klase A</span>
-            <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{ot.modelo}</span>
+    <div className="mbl-ot">
+      <div className="mbl-ot-barra">
+        <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={onBack}>
+          <ArrowLeft size={15} /> Volver al seguimiento
+        </button>
+        <span className="mbl-ot-ruta">OT de preparación · <b className="mono">{ot.barco}</b></span>
+        {/* El estado va a la izquierda: la esquina derecha la ocupa el aviso de notificaciones. */}
+        <label className="mbl-ot-estado" data-tono={tonoEstado}>
+          <span>Estado</span>
+          <select value={ot.estado} onChange={e => setEstado(e.target.value)} aria-label="Estado de la OT">
+            {ESTADOS_OT.map(e => <option key={e} value={e}>{e}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div className="mbl-panel" style={{ margin: "0 auto", maxWidth: 940 }}>
+        <div className="mbl-cab">
+          <div className="mbl-cab-sw">
+            {ot.tipo_chapa ? <ChapaSwatch tipo={ot.tipo_chapa} size="lg" /> : <Hammer size={22} />}
           </div>
-          <h2 style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 600, color: C.t0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {ot.barco}
-            {ot.tipo_chapa && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: C.t0, background: C.s1, border: `1px solid ${chapa.base}55`, padding: "4px 10px 4px 5px", borderRadius: 9, fontFamily: C.sans }}>
-                <ChapaSwatch tipo={ot.tipo_chapa} size="md" />
-                {ot.tipo_chapa}
-              </span>
-            )}
-          </h2>
-          <div style={{ display: "flex", gap: 16, marginTop: 5, fontSize: 12, color: C.t2 }}>
-            <span>📅 {fmtFecha(ot.fecha)}</span>
-            {ot.responsable && <span>👤 {ot.responsable}</span>}
+          <div style={{ minWidth: 0 }}>
+            <div className="mbl-cab-tags">
+              <Tag tono="teal">{ot.modelo}</Tag>
+              {ot.estado === "Rehacer" && <Estado tono="rojo">Rehacer</Estado>}
+            </div>
+            <h2 className="mbl-cab-tit">OT <span className="mono">{ot.barco}</span></h2>
+            <div className="mbl-cab-sub">{ot.tipo_chapa ? `Chapa ${ot.tipo_chapa}` : "Chapa sin especificar"}{nogal ? " · regla nogal: la Lenga pasa a Tablón de Nogal" : ""}</div>
+            <div className="mbl-cab-sub">Creada el {fmtFecha(ot.fecha)}{ot.responsable ? ` · ${ot.responsable}` : ""}</div>
           </div>
         </div>
 
-        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
-          {syncMsg && (
-            <div style={{ maxWidth: 250, textAlign: "right", fontSize: 11, lineHeight: 1.45, color: syncMsg.ok ? C.green : "#f87171" }}>
-              {syncMsg.ok
-                ? `${syncMsg.created ? "Alta creada" : "Ya vinculada"} en Muebles - ${syncMsg.lineaNombre} / ${syncMsg.unidadCodigo}`
-                : `Muebles: ${syncMsg.message ?? "No se pudo sincronizar"}`}
-            </div>
-          )}
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 650, textAlign: "right" }}>Estado de la OT</span>
-            <select
-              value={ot.estado}
-              onChange={e => setEstado(e.target.value)}
-              style={{ background: meta.bg, border: `1px solid ${meta.color}55`, color: meta.color, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 650, cursor: "pointer", outline: "none", fontFamily: C.sans, boxShadow: `0 0 0 1px ${meta.color}22` }}
-            >
-              {ESTADOS_OT.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-          </label>
-          <button onClick={sincronizarMuebles} disabled={syncingMuebles || !onEnsureMueblesUnidad} style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, padding: "5px 12px", borderRadius: 7, cursor: syncingMuebles ? "not-allowed" : "pointer", fontSize: 12, fontFamily: C.sans, opacity: syncingMuebles ? 0.7 : 1 }}>
-            {syncingMuebles ? "Sincronizando..." : "Sincronizar con Muebles"}
-          </button>
-          <button onClick={() => imprimir("banco")} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
-            Imprimir OT para Banco
-          </button>
-          <button
-            onClick={() => imprimir("enchapadora")}
-            disabled={!chapasDigitalizadas}
-            title={chapasDigitalizadas ? "Imprimir la OT digitalizada para la enchapadora" : "Completá la descripción de chapas de todos los ítems"}
-            style={{ background: chapasDigitalizadas ? C.blueL : C.s0, border: `1px solid ${chapasDigitalizadas ? C.blueB : C.b0}`, color: chapasDigitalizadas ? C.blue : C.t3, padding: "5px 12px", borderRadius: 7, cursor: chapasDigitalizadas ? "pointer" : "not-allowed", fontSize: 12, fontFamily: C.sans }}
-          >
-            Imprimir para Enchapadora
-          </button>
-          {tablones && (
-            <button onClick={() => imprimir("oberti")} style={{ background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
-              Aviso de tablones a Oberti
-            </button>
-          )}
-          {esAdmin && (
-            <button onClick={eliminarOT} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Eliminar OT</button>
-          )}
-        </div>
-      </div>
+        {error && <Aviso onCerrar={() => setError("")}>{error}</Aviso>}
+        {ot.estado === "Rehacer" && <Aviso tono="rojo">Esta OT está marcada para rehacer. Revisá los materiales antes de volver a enviarla.</Aviso>}
 
-      <ProcessStepper ot={ot} />
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8, marginBottom: 16 }}>
-        {[
-          ["1", "Banco", "Recibe la OT completa y prepara chapas y tablones."],
-          ["2", "Enchapadora", "Recibe impresa únicamente la OT de chapas ya digitalizada."],
-          ["3", "Oberti", "Recibe el aviso de la OT de tablones para anticipar lo que llegará."],
-        ].map(([paso, destino, detalle]) => (
-          <div key={paso} style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
-              <span style={{ width: 19, height: 19, borderRadius: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", background: C.blueL, color: C.blue, fontSize: 10, fontWeight: 700 }}>{paso}</span>
-              <span style={{ color: C.t0, fontSize: 12, fontWeight: 650 }}>{destino}</span>
+        {/* Cada destino recibe sólo su parte. */}
+        <section className="mbl-bloque">
+          <div className="mbl-bloque-cab"><h3>Imprimir</h3></div>
+          <div className="mbl-imprimir">
+            <div className="mbl-imp">
+              <div className="mbl-imp-cab"><span className="mbl-imp-n">1</span> Banco</div>
+              <div className="mbl-imp-txt">OT completa: prepara chapas{tablones ? " y tablones" : ""}.</div>
+              <button type="button" className="ui-btn chico" onClick={() => imprimir("banco")}><Printer size={14} /> OT para Banco</button>
             </div>
-            <div style={{ color: C.t2, fontSize: 10, lineHeight: 1.45 }}>{detalle}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── SECCIÓN: FECHAS DE PRODUCCIÓN ───────────────────────────────── */}
-      <Section
-        title="Producción"
-        action={
-          <button onClick={() => setEditFechas(v => !v)} style={{ background: "none", border: "none", color: C.t2, cursor: "pointer", fontSize: 12, fontFamily: C.sans, padding: "1px 4px" }}>
-            {editFechas ? "Cancelar" : "Editar fechas"}
-          </button>
-        }
-      >
-        {editFechas ? (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
-              {[
-                { key: "fecha_desmolde_est",  label: "Desmolde est." },
-                { key: "fecha_desmolde_real", label: "Desmolde real" },
-                { key: "fecha_botada",        label: "Botada" },
-              ].map(({ key, label }) => (
-                <div key={key}>
-                  <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.t2, marginBottom: 4, textTransform: "uppercase" }}>{label}</div>
-                  <input
-                    style={{ ...INP, fontSize: 12 }}
-                    type="date"
-                    value={fechasForm[key]}
-                    onChange={e => setFechasForm(p => ({ ...p, [key]: e.target.value }))}
-                  />
-                </div>
-              ))}
-            </div>
-            <button onClick={guardarFechas} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>
-              Guardar fechas
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            {[
-              { label: "Desmolde est.",  val: ot.fecha_desmolde_est,  color: C.t1 },
-              { label: "Desmolde real",  val: ot.fecha_desmolde_real, color: C.blue },
-              { label: "Botada",         val: ot.fecha_botada,        color: C.green },
-            ].map(({ label, val, color }) => (
-              <div key={label}>
-                <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.t2, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
-                <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: val ? color : C.t2 }}>
-                  {fmtFecha(val)}
-                </div>
+            <div className="mbl-imp destacado">
+              <div className="mbl-imp-cab"><span className="mbl-imp-n">2</span> Enchapadora</div>
+              <div className="mbl-imp-txt">
+                {!loading && tpl?.items?.length > 0 && itemsSinChapas.length > 0
+                  ? hayChapasCargadas
+                    ? `Sin hojas de chapa: ${itemsSinChapas.length === 1 ? "ítem" : "ítems"} ${itemsSinChapas.map(i => i.id).join(", ")}. Sale en blanco para completar a mano.`
+                    : "Cargá las hojas de chapa abajo para poder imprimirla."
+                  : "Sólo la OT de chapas, ya digitalizada."}
               </div>
+              {/* Antes exigía todos los ítems: con uno vacío el botón quedaba
+                  apagado y la única OT imprimible era la de Banco, con las
+                  chapas en blanco. */}
+              <button type="button" className="ui-btn ui-btn-primario chico" onClick={() => imprimir("enchapadora")} disabled={!hayChapasCargadas}><Printer size={14} /> OT para Enchapadora</button>
+            </div>
+            {tablones && (
+              <div className="mbl-imp">
+                <div className="mbl-imp-cab"><span className="mbl-imp-n">3</span> Oberti</div>
+                <div className="mbl-imp-txt">Aviso de los tablones que van a llegar.</div>
+                <button type="button" className="ui-btn chico" onClick={() => imprimir("oberti")}><Printer size={14} /> Aviso de tablones</button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mbl-bloque">
+          <div className="mbl-bloque-cab">
+            <h3>Despacho</h3>
+            <div className="der">
+              <span className="mono" style={{ fontSize: 12, color: "var(--dim)" }}>{avanceDespacho.done}/{avanceDespacho.total}</span>
+              <span className="mbl-mini" style={{ width: 90 }}><i className={avanceDespacho.pct >= 100 ? "lleno" : ""} style={{ width: `${avanceDespacho.pct}%` }} /></span>
+            </div>
+          </div>
+          <div className="mbl-tareas" style={{ marginTop: 0 }}>
+            {pasos.map(paso => (
+              <Tarea
+                key={paso.key}
+                hecha={paso.done}
+                disabled={!pasoEditable[paso.key]}
+                onClick={() => toggle(paso.key)}
+              >
+                {paso.label}
+                {!pasoEditable[paso.key] && (
+                  <span style={{ marginLeft: 8, fontSize: 11.5, color: "var(--subtle)" }}>
+                    {paso.key === "herrajes_pedido" ? "· se marca al pedirlos a Compras" : "· sale del estado de la OT"}
+                  </span>
+                )}
+              </Tarea>
             ))}
           </div>
-        )}
-      </Section>
+        </section>
 
-      {/* ── SECCIÓN: PLACAS ─────────────────────────────────────────────── */}
-      <Section title="Placas">
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {tpl?.placas.map((p, i) => (
-            <div key={i} style={{ fontSize: 13, color: C.t0, background: C.s1, border: `1px solid ${C.b0}`, padding: "6px 12px", borderRadius: 8, fontFamily: C.mono }}>
-              {p}
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 8, fontSize: 11, color: C.t2 }}>
-          Identificar cada paquete con modelo, ítem y número de OT.
-        </div>
-      </Section>
-
-      {/* ── SECCIÓN: HOJAS DE CHAPA ─────────────────────────────────────── */}
-      <Section title="Hojas de Chapa" badge={ot.tipo_chapa || undefined} badgeColor={chapa.grain}>
-        {ot.tipo_chapa && (
-          <div style={{ marginBottom: 10 }}>
-            <ChapaReferenceCard tipo={ot.tipo_chapa} />
+        <section className="mbl-bloque">
+          <div className="mbl-bloque-cab">
+            <h3>Hojas de chapa</h3>
+            {tpl?.items?.length > 0 && (
+              <span className="der mono" style={{ fontSize: 12, color: "var(--dim)" }}>{tpl.items.length - itemsSinChapas.length}/{tpl.items.length} cargadas</span>
+            )}
           </div>
-        )}
-        {loading ? (
-          <Cargando compacto />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {tpl?.items.map(tItem => {
-              const row = items.find(i => i.item_id === tItem.id);
-              const val = row?.chapas_descripcion ?? "";
-              const isEdit = editItem === tItem.id;
-              return (
-                <div key={tItem.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", gap: 10, alignItems: "start", padding: "10px 12px", borderRadius: 9, background: isEdit ? "rgba(59,130,246,0.04)" : (val ? C.s0 : "transparent"), border: `1px solid ${isEdit ? "rgba(59,130,246,0.2)" : (val ? C.b0 : "transparent")}`, transition: "all .15s" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: val ? C.t1 : C.t2, fontFamily: C.mono, paddingTop: 1 }}>{tItem.id}</div>
-                  <div>
-                    {isEdit ? (
-                      <textarea
-                        ref={inputRef}
-                        value={editVal}
-                        onChange={e => setEditVal(e.target.value)}
-                        onBlur={() => guardarChapas(tItem.id)}
-                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); guardarChapas(tItem.id); } if (e.key === "Escape") setEditItem(null); }}
-                        placeholder={`Hojas de chapa para ítem ${tItem.id}…`}
-                        style={{ ...INP, minHeight: 56, resize: "vertical", fontSize: 13, lineHeight: 1.7 }}
-                      />
-                    ) : val ? (
-                      <div onClick={() => abrirEdit(tItem.id)} style={{ fontSize: 13, color: C.t0, lineHeight: 1.7, whiteSpace: "pre-wrap", cursor: "text", fontFamily: C.mono }}>{val}</div>
-                    ) : (
-                      <button onClick={() => abrirEdit(tItem.id)} style={{ background: "none", border: "none", color: C.t2, fontSize: 12, cursor: "text", padding: 0, fontFamily: C.sans }}>
-                        + Hojas para ítem {tItem.id}
-                      </button>
-                    )}
-                    <div style={{ marginTop: 3, fontSize: 11, color: C.t2, fontFamily: C.mono }}>
-                      {tItem.material} · {tItem.medidas} · {tItem.caras} · {tItem.veta}
+          {ot.tipo_chapa && <div style={{ marginBottom: 12 }}><ChapaReferenceCard tipo={ot.tipo_chapa} /></div>}
+          {loading ? (
+            <Cargando compacto />
+          ) : !tpl?.items?.length ? (
+            <p className="mbl-bloque-txt">No hay plantilla de ítems para el modelo {ot.modelo}.</p>
+          ) : (
+            <div className="mbl-hojas">
+              {tpl.items.map(tItem => {
+                const row = items.find(i => i.item_id === tItem.id);
+                const val = row?.chapas_descripcion ?? "";
+                const isEdit = editItem === tItem.id;
+                return (
+                  <div key={tItem.id} className={`mbl-hoja${isEdit ? " editando" : ""}${val.trim() ? "" : " vacia"}`}>
+                    <span className="mbl-hoja-id mono">{tItem.id}</span>
+                    <div style={{ minWidth: 0 }}>
+                      {isEdit ? (
+                        <textarea
+                          ref={inputRef}
+                          className="ui-input"
+                          value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardarChapas(tItem.id, editVal)}
+                          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); guardarChapas(tItem.id, editVal); } if (e.key === "Escape") cancelarEdit(); }}
+                          placeholder={`Hojas de chapa para el ítem ${tItem.id}…`}
+                          style={{ minHeight: 64, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}
+                        />
+                      ) : val.trim() ? (
+                        <button type="button" className="mbl-hoja-val mono" onClick={() => abrirEdit(tItem.id)}>{val}</button>
+                      ) : (
+                        <button type="button" className="mbl-hoja-cargar" onClick={() => abrirEdit(tItem.id)}>+ Cargar hojas del ítem {tItem.id}</button>
+                      )}
+                      <div className="mbl-hoja-meta">
+                        <span>{tItem.material}</span>
+                        <span className="mono">{tItem.medidas}</span>
+                        <span>{tItem.caras}</span>
+                        <span className="mbl-estado" data-tono={vetaTono(tItem.veta)} style={{ minHeight: 20 }}>Veta {tItem.veta.toLowerCase()}</span>
+                      </div>
+                      {isEdit && <div className="mbl-hoja-ayuda">Enter guarda · Shift+Enter agrega un renglón · Esc cancela</div>}
                     </div>
+                    {!isEdit && val.trim() && (
+                      <button type="button" className="mbl-btn-ic" style={{ width: 32, height: 32 }} onClick={() => abrirEdit(tItem.id)} aria-label={`Editar hojas del ítem ${tItem.id}`}><Pencil size={14} /></button>
+                    )}
                   </div>
-                  {!isEdit && val && (
-                    <button onClick={() => abrirEdit(tItem.id)} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, marginTop: 1 }}>Editar</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Section>
-
-      {/* ── SECCIÓN: TRABAJO A REALIZAR ─────────────────────────────────── */}
-      <Section title="Trabajo a Realizar">
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.b0}` }}>
-                {["Ítem", "Material", "Medidas", "Caras", "Sentido de Veta"].map((h, i) => (
-                  <th key={i} style={{ textAlign: "left", padding: "6px 10px", fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", fontWeight: 600, width: i === 0 ? 40 : i === 4 ? "auto" : undefined }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tpl?.items.map((it, idx) => (
-                <tr key={it.id} style={{ borderBottom: `1px solid var(--panel)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
-                  <td style={{ padding: "9px 10px", fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.t1 }}>{it.id}</td>
-                  <td style={{ padding: "9px 10px", color: C.t0 }}>{it.material}</td>
-                  <td style={{ padding: "9px 10px", color: C.t1, fontFamily: C.mono, fontSize: 12 }}>{it.medidas}</td>
-                  <td style={{ padding: "9px 10px", color: C.t1 }}>{it.caras}</td>
-                  <td style={{ padding: "9px 10px" }}><VetaChip v={it.veta} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
-          Respetar el sentido de veta indicado. · Control y actualización a cargo de Oficina Técnica.
-        </div>
-      </Section>
-
-      {/* ── SECCIÓN: TABLONES — Anexo B ─────────────────────────────────── */}
-      {tablones && (
-        <Section title="Tablones — Anexo B" badge={nogal ? "⚠ regla nogal activa" : undefined} badgeColor="#0891b2">
-          {/* Tablones requeridos */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-            {tablones.map((t, i) => (
-              <div key={i} style={{
-                fontSize: 13, padding: "6px 13px", borderRadius: 8, fontFamily: C.mono,
-                background: t.includes("Nogal") ? "rgba(34,211,238,0.08)" : C.s1,
-                border: `1px solid ${t.includes("Nogal") ? "rgba(34,211,238,0.25)" : C.b0}`,
-                color: t.includes("Nogal") ? "#0891b2" : C.t0,
-              }}>{t}</div>
-            ))}
-          </div>
-                    <div style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, padding: "14px 18px", borderRadius: 8, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: C.t0, marginBottom: 4 }}>Medida: 2,00 m &times; 0,20 m &times; 45 mm</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.green, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 8 }}>Cepillados en 4 caras</div>
-            <div style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>Marcados con: {ot.modelo} / OT: {ot.barco}</div>
-            {nogal && <div style={{ fontSize: 12, color: "#0891b2", marginTop: 8 }}>&#9888; La Lenga fue reemplazada por Tabl&oacute;n de Nogal.</div>}
-          </div>
-          {/* Toggles pedido / enviado */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <DespachoToggle campo="tablones_pedido" label="OT entregada al carpintero de banco" color={C.blue} />
-            <DespachoToggle campo="tablones_enviado" label="Aviso de la OT enviado a Oberti" color={C.green} />
-          </div>
-        </Section>
-      )}
-
-      {/* ── SECCIÓN: HERRAJES — Anexo C ─────────────────────────────────── */}
-      {herrajesKit && (
-        <Section title="Herrajes — Anexo C" badge={`${herrajesKit.length} ítems · ${ot.modelo}`} badgeColor={C.purple}>
-          {/* Toggles */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
-              borderRadius: 9, fontSize: 13,
-              background: ot.herrajes_pedido ? `${C.blue}15` : C.s0,
-              border: `1px solid ${ot.herrajes_pedido ? `${C.blue}44` : C.b0}`,
-              color: ot.herrajes_pedido ? C.blue : C.t2,
-            }}>
-              {ot.herrajes_pedido ? "✓ Pedido creado en Compras" : "Pedido pendiente · crear desde Seguimiento"}
-            </div>
-            <DespachoToggle campo="herrajes_enviado" label="Enviados a Oberti"  color={C.green} />
-          </div>
-          {/* Kit expandible */}
-          <button
-            onClick={() => setShowHerrajesKit(v => !v)}
-            style={{ background: "none", border: "none", color: C.t2, fontSize: 12, cursor: "pointer", padding: 0, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}
-          >
-            {showHerrajesKit ? "▾" : "▸"} {showHerrajesKit ? "Ocultar" : "Ver"} kit de herrajes
-          </button>
-          {showHerrajesKit && (
-            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {herrajesKit.map((h, i) => (
-                <div key={i} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "4px 10px", borderRadius: 7, fontFamily: C.mono }}>
-                  <span style={{ color: C.purple, fontWeight: 600 }}>{h.q}×</span>{" "}{h.name}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-          <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
-            Pañol controla cantidades y estado antes del despacho. Un envío = un modelo completo.
-          </div>
-        </Section>
-      )}
+          <p className="mbl-bloque-txt" style={{ marginTop: 10 }}>Respetar el sentido de veta indicado. Control y actualización a cargo de Oficina Técnica.</p>
+        </section>
 
-      {/* ── SECCIÓN: Notas ───────────────────────────────────────────────── */}
-      <Section title="Notas">
-        {editNotas ? (
-          <div>
-            <textarea
-              value={notasVal}
-              onChange={e => setNotasVal(e.target.value)}
-              style={{ ...INP, minHeight: 80, resize: "vertical", lineHeight: 1.7 }}
-              autoFocus
-              onKeyDown={e => { if (e.key === "Escape") { setEditNotas(false); setNotasVal(ot.notas ?? ""); } }}
-            />
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button onClick={guardarNotas} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Guardar</button>
-              <button onClick={() => { setEditNotas(false); setNotasVal(ot.notas ?? ""); }} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Cancelar</button>
-            </div>
+        <section className="mbl-bloque">
+          <div className="mbl-bloque-cab"><h3>Placas a enviar</h3></div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {(tpl?.placas ?? []).map((p, i) => <span key={i} className="ui-chip mono" style={{ minHeight: 30, fontSize: 12.5 }}>{p}</span>)}
           </div>
-        ) : notasVal ? (
-          <div onClick={() => setEditNotas(true)} style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap", cursor: "text" }}>{notasVal}</div>
-        ) : (
-          <button onClick={() => setEditNotas(true)} style={{ background: "none", border: "none", color: C.t2, fontSize: 12, cursor: "text", padding: 0, fontFamily: C.sans }}>+ Agregar nota</button>
+          <p className="mbl-bloque-txt" style={{ marginTop: 8 }}>Identificar cada paquete con modelo, ítem y número de OT.</p>
+        </section>
+
+        {tablones && (
+          <section className="mbl-bloque">
+            <div className="mbl-bloque-cab">
+              <h3>Tablones · Anexo B</h3>
+              {nogal && <span className="der"><Estado tono="cian">Regla nogal activa</Estado></span>}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {tablones.map((t, i) => (
+                <span key={i} className="mbl-estado" data-tono={t.includes("Nogal") ? "cian" : "neutro"} style={{ minHeight: 30, fontSize: 13, padding: "0 12px" }}>{t}</span>
+              ))}
+            </div>
+            <div className="mbl-obs" style={{ marginTop: 0 }}>
+              <b style={{ color: "var(--text)" }}>2,00 m × 0,20 m × 45 mm</b> · cepillados en 4 caras · marcados con {ot.modelo} / OT {ot.barco}
+              {nogal && <><br />La Lenga se reemplaza por Tablón de Nogal.</>}
+            </div>
+          </section>
         )}
-      </Section>
+
+        {herrajesKit && (
+          <section className="mbl-bloque">
+            <div className="mbl-bloque-cab">
+              <h3>Herrajes · Anexo C</h3>
+              <span className="der">
+                <button type="button" className="mbl-link tenue" onClick={() => setShowHerrajesKit(v => !v)} aria-expanded={showHerrajesKit}>
+                  {showHerrajesKit ? "Ocultar kit" : `Ver kit · ${herrajesKit.length} ítems`}
+                </button>
+              </span>
+            </div>
+            <p className="mbl-bloque-txt">
+              {ot.herrajes_pedido ? "Pedido creado en Compras." : "El pedido se crea desde Seguimiento."} Pañol controla cantidades antes del despacho: un envío = un modelo completo.
+            </p>
+            {showHerrajesKit && (
+              <div className="mbl-kit">
+                {herrajesKit.map((h, i) => (
+                  <div key={i} className="mbl-kit-fila"><span className="mono">{h.q}×</span><span>{h.name}</span></div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        <section className="mbl-bloque">
+          <div className="mbl-bloque-cab">
+            <h3>Fechas de producción</h3>
+            <span className="der">
+              <button type="button" className="mbl-link tenue" onClick={() => setEditFechas(v => !v)}>{editFechas ? "Cancelar" : "Editar"}</button>
+            </span>
+          </div>
+          {editFechas ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              <div className="mbl-form tres">
+                {[
+                  { key: "fecha_desmolde_est",  label: "Desmolde estimado" },
+                  { key: "fecha_desmolde_real", label: "Desmolde real" },
+                  { key: "fecha_botada",        label: "Botada" },
+                ].map(({ key, label }) => (
+                  <label key={key} className="mbl-campo"><span>{label}</span>
+                    <input className="ui-input" type="date" value={fechasForm[key]} onChange={e => setFechasForm(p => ({ ...p, [key]: e.target.value }))} />
+                  </label>
+                ))}
+              </div>
+              <div><button type="button" className="ui-btn ui-btn-primario chico" onClick={guardarFechas}>Guardar fechas</button></div>
+            </div>
+          ) : fechasCargadas ? (
+            <div className="mbl-datos">
+              {[
+                { label: "Desmolde estimado", val: ot.fecha_desmolde_est },
+                { label: "Desmolde real",     val: ot.fecha_desmolde_real },
+                { label: "Botada",            val: ot.fecha_botada },
+              ].map(({ label, val }) => (
+                <div key={label}>
+                  <div className="mbl-dato-et">{label}</div>
+                  <div className={`mbl-dato-v mono${val ? "" : " vacio"}`}>{fmtFecha(val)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mbl-bloque-txt">Sin fechas cargadas.</p>
+          )}
+        </section>
+
+        <section className="mbl-bloque">
+          <div className="mbl-bloque-cab">
+            <h3>Notas</h3>
+            {!editNotas && notasVal && <span className="der"><button type="button" className="mbl-link tenue" onClick={() => setEditNotas(true)}>Editar</button></span>}
+          </div>
+          {editNotas ? (
+            <div style={{ display: "grid", gap: 8 }}>
+              <textarea
+                className="ui-input"
+                value={notasVal}
+                onChange={e => setNotasVal(e.target.value)}
+                autoFocus
+                onKeyDown={e => { if (e.key === "Escape") { setEditNotas(false); setNotasVal(ot.notas ?? ""); } }}
+                placeholder="Indicaciones para Banco o la Enchapadora…"
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="ui-btn ui-btn-primario chico" onClick={guardarNotas}>Guardar</button>
+                <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => { setEditNotas(false); setNotasVal(ot.notas ?? ""); }}>Cancelar</button>
+              </div>
+            </div>
+          ) : notasVal ? (
+            <div className="mbl-obs" style={{ marginTop: 0 }}>{notasVal}</div>
+          ) : (
+            <button type="button" className="mbl-hoja-cargar" onClick={() => setEditNotas(true)}>+ Agregar nota</button>
+          )}
+        </section>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 4 }}>
+          {syncMsg && (
+            <span style={{ fontSize: 12, color: syncMsg.ok ? "var(--green)" : "var(--red)" }}>
+              {syncMsg.ok
+                ? `${syncMsg.created ? "Alta creada" : "Ya vinculada"} en Muebles · ${syncMsg.lineaNombre} / ${syncMsg.unidadCodigo}`
+                : `Muebles: ${syncMsg.message ?? "No se pudo sincronizar"}`}
+            </span>
+          )}
+          <div className="mbl-sp" />
+          <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={sincronizarMuebles} disabled={syncingMuebles || !onEnsureMueblesUnidad}>
+            <RefreshCw size={14} /> {syncingMuebles ? "Sincronizando…" : "Sincronizar con Muebles"}
+          </button>
+          {esAdmin && (
+            <button type="button" className="ui-btn ui-btn-peligro chico" onClick={eliminarOT}><Trash2 size={14} /> Eliminar OT</button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

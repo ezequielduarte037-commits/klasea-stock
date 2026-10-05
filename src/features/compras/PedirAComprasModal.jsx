@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Package, Paperclip, Plus, Send, Trash2, X } from "lucide-react";
+import { ExternalLink, LoaderCircle, Package, Paperclip, Plus, Send, Trash2 } from "lucide-react";
 import {
   addRequestItem,
   createPurchaseRequest,
@@ -7,9 +7,10 @@ import {
   notifyComprasEmail,
 } from "@/features/compras/purchaseRequestsApi";
 import { supabase } from "@/supabaseClient";
-import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
-import { useResponsive } from "@/hooks/useResponsive";
+import { PRIORIDADES } from "./modulo";
+import { Modal } from "./ui";
+import SelectorDestino from "./SelectorDestino";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RUTEO DE PEDIDOS LEGACY — POR ORIGEN, no por texto del destino.
@@ -293,7 +294,6 @@ export default function PedirAComprasModal({
   onLoadObraPlantilla = null,
 }) {
   const toast = useToast();
-  const { isMobile } = useResponsive();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("media");
@@ -586,580 +586,217 @@ export default function PedirAComprasModal({
     }
   }
 
+  const faltaAlgo = saving || !title.trim() || items.length === 0 || !tipoPedido;
+  const otrosDestinos = destinationOptions
+    .filter((d) => !/^Obra\s+/i.test(d.value))
+    .map((d) => ({ valor: d.value, label: d.label, detalle: /^Stock/i.test(d.value) ? "para el stock del galpón" : "" }));
+  const tipos = [
+    { value: "stock", label: "Stock del pañol", detail: "Material general, sin obra", tono: "verde" },
+    { value: "estandar", label: "Estándar", detail: "Lo que lleva el barco por matriz", tono: "azul" },
+    { value: "adicional", label: "Adicional u opcional", detail: "Un extra para esta obra", tono: "violeta" },
+  ].filter((o) => !(o.value === "estandar" && newDest.toLowerCase().includes("pampa")));
+  const origenTexto = prefilled?.sourceLabel || prefilled?.source;
+
   return (
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "var(--overlay-strong)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        display: "grid", placeItems: isMobile ? "end center" : "center",
-        padding: isMobile ? 0 : 20,
-        fontFamily: C.sans,
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          background: C.panelSolid,
-          border: `1px solid ${C.border}`,
-          borderRadius: isMobile ? "14px 14px 0 0" : 14,
-          padding: 0,
-          width: "100%",
-          maxWidth: isMobile ? "100%" : 720,
-          maxHeight: isMobile ? "94vh" : "90vh",
-          overflow: "hidden",
-          display: "grid",
-          gridTemplateRows: "auto 1fr auto",
-          color: C.text,
-          boxShadow: "0 30px 80px var(--shadow-strong)",
-        }}
-      >
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "16px 18px",
-          borderBottom: `1px solid ${C.border}`,
-        }}>
-          <Send size={17} color={C.blue} />
-          <div style={{ fontSize: 15, fontWeight: 650 }}>Pedir a compras</div>
-          {prefilled?.source && (
-            <span style={{
-              fontSize: 9, color: C.dim,
-              background: C.panel2,
-              border: `1px solid ${C.border}`,
-              borderRadius: 5,
-              padding: "2px 6px",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginLeft: 6,
-              display: "inline-flex", alignItems: "center", gap: 4,
-            }}>
-              {prefilled.sourceLabel || prefilled.source}
-              {prefilled.source_url && (
-                <a href={prefilled.source_url} target="_blank" rel="noopener noreferrer"
-                  style={{ color: C.blue, marginLeft: 4 }}>
-                  <ExternalLink size={9} />
+    <Modal
+      capa={9999}
+      ancho
+      icono={Send}
+      titulo="Pedir a Compras"
+      sub={(
+        <>
+          {origenTexto && (
+            <span className="cmp-tag" data-tono="teal" style={{ marginRight: 6 }}>
+              {origenTexto}
+              {prefilled?.source_url && (
+                <a href={prefilled.source_url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", display: "inline-flex" }} aria-label="Abrir el origen">
+                  <ExternalLink size={10} />
                 </a>
               )}
             </span>
           )}
-          <div style={{ flex: 1 }} />
-          <button
-            type="button"
-            onClick={() => onClose()}
-            className="ui-btn ui-btn-icono"
-            aria-label="Cerrar"
-          >
-            <X size={17} />
-          </button>
-        </div>
-
-        {/* ── Body scrolleable ──────────────────────────────────────── */}
-        <div style={{ overflowY: "auto", padding: 18, display: "grid", gap: 16 }}>
-
-          {/* Título + Descripción */}
-          <div style={{ display: "grid", gap: 10 }}>
-            <div>
-              <div style={labelStyle}>Título</div>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder='Ej: "Solicitud Compra Materiales Laminación K52-26 y stock"'
-                required
-                style={inp()}
-              />
-            </div>
-            <div>
-              <div style={labelStyle}>Descripción (opcional)</div>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Notas generales para compras"
-                rows={2}
-                style={inp({ resize: "vertical", minHeight: 50 })}
-              />
-            </div>
+          Compras recibe el pedido con sus ítems y lo seguís desde Compras.
+        </>
+      )}
+      onCerrar={() => onClose()}
+      bloqueado={saving}
+      pie={(
+        <>
+          <div className="izq">
+            {items.length ? <span><b className="mono" style={{ color: "var(--text)" }}>{items.length}</b> {items.length === 1 ? "ítem" : "ítems"}</span> : <span>Sumá al menos un ítem.</span>}
+            {items.length > 0 && !tipoPedido && <span>· Falta elegir el tipo</span>}
           </div>
-
-          {!!prefilled?.attachments?.length && (
-            <div style={{
-              display: "grid",
-              gap: 8,
-              padding: 11,
-              borderRadius: 9,
-              border: `1px solid ${C.blueB}`,
-              background: C.blueL,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <Paperclip size={13} style={{ color: C.blue }} />
-                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>
-                  Planos adjuntos automáticamente
-                </span>
-                <span style={{ marginLeft: "auto", color: C.blue, fontSize: 10.5, fontWeight: 700 }}>
-                  {prefilled.attachments.length}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {prefilled.attachments.map((attachment, index) => (
-                  <a
-                    key={attachment.path || attachment.url || index}
-                    href={attachment.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={attachment.name}
-                    style={{
-                      maxWidth: 230,
-                      padding: "3px 8px",
-                      borderRadius: 999,
-                      border: `1px solid ${C.blueB}`,
-                      background: C.panel,
-                      color: C.blue,
-                      fontSize: 9.5,
-                      fontWeight: 650,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {attachment.name || `Plano ${index + 1}`}
-                  </a>
-                ))}
-              </div>
-              <div style={{ color: C.muted, fontSize: 10, lineHeight: 1.4 }}>
-                Compras los recibirá junto con el pedido. No hace falta volver a cargarlos.
-              </div>
-            </div>
-          )}
-
-          {/* Cargar plantilla de obra (reemplaza el modal-selector previo) */}
-          {onLoadObraPlantilla && obrasPlantilla.length > 0 && (
-            <div style={{
-              border: `1px dashed ${C.border2}`,
-              borderRadius: 9,
-              padding: 11,
-              background: C.greenL,
-              display: "grid",
-              gap: 8,
-            }}>
-              <div style={{ ...labelStyle, marginBottom: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                <Package size={12} color={C.teal} /> Cargar plantilla de obra (opcional)
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6 }}>
-                <select
-                  value={plantillaObra}
-                  onChange={(e) => setPlantillaObra(e.target.value)}
-                  style={inp({ padding: "7px 9px", fontSize: 12 })}
-                >
-                  <option value="">Elegí una obra…</option>
-                  {obrasPlantilla.map((o) => (
-                    <option key={o.id} value={o.id}>{o.label}</option>
+          <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => onClose()} disabled={saving}>Cancelar</button>
+          <button type="submit" form="cmp-pedir-compras" className="ui-btn ui-btn-primario" disabled={faltaAlgo}>
+            {saving ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}
+            {saving ? "Enviando…" : "Enviar a Compras"}
+          </button>
+        </>
+      )}
+    >
+      <form id="cmp-pedir-compras" onSubmit={handleSubmit} className="cmp-pasos-form">
+        {/* 1 · Qué es */}
+        <section className={`cmp-paso${title.trim() ? " hecho" : ""}`}>
+          <span className="cmp-paso-n">1</span>
+          <div className="cmp-form" style={{ minWidth: 0 }}>
+            <div className="cmp-paso-tit cmp-campo c6" style={{ margin: "4px 0 0" }}>¿Qué es el pedido?</div>
+            <label className="cmp-campo c6">
+              <span>Título <span className="req">*</span></span>
+              <input className="ui-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej.: Materiales de laminación para el 52-26 y stock" required />
+            </label>
+            <label className="cmp-campo c6">
+              <span>Notas para Compras <span style={{ fontWeight: 500, color: "var(--subtle)" }}>· opcional</span></span>
+              <textarea className="ui-input" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Algo que Compras tenga que saber" />
+            </label>
+            {!!prefilled?.attachments?.length && (
+              <div className="cmp-campo c6">
+                <span>Planos que van con el pedido · {prefilled.attachments.length}</span>
+                <div className="cmp-personas">
+                  {prefilled.attachments.map((attachment, index) => (
+                    <a key={attachment.path || attachment.url || index} className="cmp-persona" href={attachment.url} target="_blank" rel="noreferrer" title={attachment.name} style={{ textDecoration: "none", paddingLeft: 10, maxWidth: 260 }}>
+                      <Paperclip size={13} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachment.name || `Plano ${index + 1}`}</span>
+                    </a>
                   ))}
+                </div>
+                <span className="cmp-ayuda">Compras los recibe junto con el pedido: no hace falta volver a cargarlos.</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 2 · Ítems */}
+        <section className={`cmp-paso${items.length ? " hecho" : ""}`}>
+          <span className="cmp-paso-n">2</span>
+          <div style={{ minWidth: 0, display: "grid", gap: 10 }}>
+            <div className="cmp-paso-tit" style={{ margin: "4px 0 0" }}>Ítems y a dónde va cada uno</div>
+
+            {onLoadObraPlantilla && obrasPlantilla.length > 0 && (
+              <div className="cmp-plantilla">
+                <Package size={15} />
+                <select className="ui-input" value={plantillaObra} onChange={(e) => setPlantillaObra(e.target.value)} aria-label="Plantilla de obra">
+                  <option value="">Cargar los ítems de una plantilla de obra…</option>
+                  {obrasPlantilla.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
                 </select>
-                <button
-                  type="button"
-                  onClick={handleLoadPlantilla}
-                  disabled={!plantillaObra || loadingPlantilla}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    background: plantillaObra && !loadingPlantilla ? C.teal : C.panel2,
-                    color: plantillaObra && !loadingPlantilla ? "var(--inverse-text)" : C.dim,
-                    border: "none",
-                    borderRadius: 7,
-                    padding: "7px 14px",
-                    cursor: plantillaObra && !loadingPlantilla ? "pointer" : "default",
-                    fontSize: 12,
-                    fontWeight: 650,
-                    fontFamily: C.sans,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {loadingPlantilla ? "Cargando…" : "Cargar ítems"}
+                <button type="button" className="ui-btn ui-btn-suave chico" onClick={handleLoadPlantilla} disabled={!plantillaObra || loadingPlantilla}>
+                  {loadingPlantilla ? <LoaderCircle size={13} className="spin" /> : null}
+                  {loadingPlantilla ? "Cargando…" : "Cargar"}
                 </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Ítems ya agregados, agrupados por destino */}
-          {items.length > 0 && (
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={labelStyle}>Ítems del pedido — {items.length}</div>
-              {itemsByDest.map(([dest, list]) => (
-                <div
-                  key={dest}
-                  style={{
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 9,
-                    background: C.panel,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div style={{
-                    padding: "7px 11px",
-                    background: C.panel2,
-                    fontSize: 11,
-                    fontWeight: 650,
-                    letterSpacing: 0.6,
-                    textTransform: "uppercase",
-                    color: dest === "Sin destino" ? C.dim : C.text,
-                    borderBottom: `1px solid ${C.border}`,
-                  }}>
-                    {dest}
-                  </div>
-                  {list.map((it) => {
-                    const realIdx = items.indexOf(it);
-                    const extra = isExtraItem(it);
-                    return (
-                      <div key={realIdx} style={{
-                        display: "grid",
-                        gridTemplateColumns: isMobile ? "1fr 1fr auto" : "minmax(0, 1fr) 90px 100px 110px auto",
-                        gap: 6,
-                        padding: "6px 8px",
-                        borderTop: `1px solid ${C.border}`,
-                        background: extra ? `${C.cyan}0d` : "transparent",
-                        alignItems: "center",
-                        fontSize: 12,
-                      }}>
-                        <div style={{ display: "grid", gap: 4, minWidth: 0, gridColumn: isMobile ? "1 / -1" : undefined }}>
-                          {extra && (
-                            <span style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              width: "fit-content",
-                              color: C.cyan,
-                              background: `${C.cyan}18`,
-                              border: `1px solid ${C.cyan}44`,
-                              borderRadius: 5,
-                              padding: "2px 6px",
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: 0.6,
-                              textTransform: "uppercase",
-                            }}>
-                              Extra - Stock Pampa 1050
-                            </span>
-                          )}
-                          <input
-                            value={it.description}
-                            onChange={(e) => updateItem(realIdx, { description: e.target.value })}
-                          placeholder="Descripción"
-                            style={inp({ padding: "5px 7px", fontSize: 12 })}
-                          />
-                          {it.material_id && (() => {
-                            // catalogSource viene del caller que precargó el ítem
-                            // ("laminacion" / "madera" / "panol"). Si no llegó, lo
-                            // inferimos del origen del pedido y, por compatibilidad
-                            // con pedidos anteriores, del destino del ítem.
-                            const src = (it.catalogSource || "").toLowerCase();
-                            const inferredSource = src
-                              || (origen === "torneria" ? "panol" : "")
-                              || (origen === "maderas" ? "madera" : "")
-                              || (origen === "laminacion" ? "laminacion" : "")
-                              || (/^Stock\s+(Chubut|Pampa)/i.test(it.destination || "")
-                                ? "madera"
-                                : "laminacion");
-                            const label = {
-                              panol: "Catálogo pañol",
-                              madera: "Catálogo maderas",
-                              maderas: "Catálogo maderas",
-                              laminacion: "Catálogo laminación",
-                            }[inferredSource] || "Catálogo";
-                            return (
-                              <span style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                width: "fit-content",
-                                color: C.teal,
-                                background: C.panel2,
-                                border: `1px solid ${C.border}`,
-                                borderRadius: 5,
-                                padding: "2px 6px",
-                                fontSize: 10,
-                                fontWeight: 650,
-                                letterSpacing: 0.6,
-                                textTransform: "uppercase",
-                              }}>
-                                <Package size={10} /> {label}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                        <input
-                          value={it.quantity}
-                          onChange={(e) => updateItem(realIdx, { quantity: e.target.value })}
-                          placeholder="Cant."
-                          style={inp({ padding: "5px 7px", fontSize: 12 })}
-                        />
-                        <select
-                          value={it.unit || "unidad"}
-                          onChange={(e) => updateItem(realIdx, { unit: e.target.value })}
-                          style={inp({ padding: "5px 7px", fontSize: 12 })}
-                        >
-                          {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                        <input
-                          value={it.destination || ""}
-                          onChange={(e) => updateItem(realIdx, { destination: e.target.value })}
-                          list="dest-options"
-                          placeholder="Destino (obra o stock…)"
-                          autoComplete="off"
-                          style={inp({ padding: "5px 7px", fontSize: 12, gridColumn: isMobile ? "1 / 3" : undefined })}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeItem(realIdx)}
-                          title="Eliminar ítem"
-                          style={{
-                            border: "none", background: "transparent",
-                            color: C.dim, cursor: "pointer", padding: 4,
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+            {itemsByDest.map(([dest, list]) => (
+              <div key={dest} className="cmp-items">
+                <div className="cmp-items-dest">{dest}<span className="mono">{list.length}</span></div>
+                {list.map((it) => {
+                  const realIdx = items.indexOf(it);
+                  const extra = isExtraItem(it);
+                  const src = (it.catalogSource || "").toLowerCase()
+                    || (origen === "torneria" ? "panol" : "")
+                    || (origen === "maderas" ? "madera" : "")
+                    || (origen === "laminacion" ? "laminacion" : "")
+                    || (/^Stock\s+(Chubut|Pampa)/i.test(it.destination || "") ? "madera" : "laminacion");
+                  const catalogo = { panol: "Catálogo pañol", madera: "Catálogo maderas", maderas: "Catálogo maderas", laminacion: "Catálogo laminación" }[src] || "Catálogo";
+                  return (
+                    <div key={realIdx} className={`cmp-pedir-fila${extra ? " extra" : ""}`}>
+                      <div className="desc">
+                        <input className="ui-input" value={it.description} onChange={(e) => updateItem(realIdx, { description: e.target.value })} placeholder="Descripción" aria-label="Descripción" />
+                        {(extra || it.material_id) && (
+                          <span style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                            {extra && <span className="cmp-tag" data-tono="cian">Extra · al stock</span>}
+                            {it.material_id && <span className="cmp-tag" data-tono="teal"><Package size={10} /> {catalogo}</span>}
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
+                      <input className="ui-input num" value={it.quantity} onChange={(e) => updateItem(realIdx, { quantity: e.target.value })} placeholder="Cant." aria-label="Cantidad" />
+                      <select className="ui-input" value={it.unit || "unidad"} onChange={(e) => updateItem(realIdx, { unit: e.target.value })} aria-label="Unidad">
+                        {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                      <div className="dest">
+                        <SelectorDestino
+                          chico
+                          obras={projects}
+                          prefijoObra="Obra "
+                          value={it.destination || ""}
+                          onChange={(valor) => updateItem(realIdx, { destination: valor })}
+                          otros={otrosDestinos}
+                          placeholder="Destino…"
+                        />
+                      </div>
+                      <button type="button" className="cmp-btn-ic chico peligro" onClick={() => removeItem(realIdx)} title="Quitar ítem" aria-label={`Quitar ${it.description}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            <div className="cmp-pedir-alta">
+              <div className="cmp-rotulo">Sumar un ítem</div>
+              <div className="cmp-pedir-alta-grilla">
+                <input
+                  className="ui-input desc"
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newDesc.trim()) { e.preventDefault(); addCurrentItem(); } }}
+                  placeholder="Qué es (ej.: Gelcoat MN2000B)"
+                  aria-label="Descripción del ítem nuevo"
+                />
+                <input className="ui-input num" value={newQty} onChange={(e) => setNewQty(e.target.value)} placeholder="Cant." aria-label="Cantidad" />
+                <select className="ui-input" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} aria-label="Unidad">
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+                <div className="dest">
+                  <SelectorDestino
+                    chico
+                    obras={projects}
+                    prefijoObra="Obra "
+                    value={newDest}
+                    onChange={(valor) => setNewDest(valor)}
+                    otros={otrosDestinos}
+                    placeholder="Para qué obra o stock…"
+                  />
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Form para agregar ítem nuevo */}
-          <div
-            style={{
-              border: `1px dashed ${C.border2}`,
-              borderRadius: 9,
-              padding: 11,
-              background: C.blueL,
-              display: "grid",
-              gap: 8,
-            }}
-          >
-            <div style={{ ...labelStyle, marginBottom: 0 }}>
-              + Agregar ítem
-            </div>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 90px 100px",
-              gap: 6,
-            }}>
-              <input
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                style={inp({ padding: "7px 9px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newDesc.trim()) {
-                    e.preventDefault();
-                    addCurrentItem();
-                  }
-                }}
-                placeholder="Descripción (ej. GELCOAT MN2000B)"
-              />
-              <input
-                value={newQty}
-                onChange={(e) => setNewQty(e.target.value)}
-                placeholder='Cant. (ej. "260")'
-                style={inp({ padding: "7px 9px", fontSize: 12 })}
-              />
-              <select
-                value={newUnit}
-                onChange={(e) => setNewUnit(e.target.value)}
-                style={inp({ padding: "7px 9px", fontSize: 12 })}
-              >
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <datalist id="dest-options">
-              {destinationOptions.map((d) => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
-            </datalist>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 6,
-            }}>
-              <input
-                value={newDest}
-                onChange={(e) => setNewDest(e.target.value)}
-                list="dest-options"
-                placeholder="Destino (obra o stock…)"
-                autoComplete="off"
-                style={inp({ padding: "7px 9px", fontSize: 12 })}
-              />
-              <input
-                value={newNotes}
-                onChange={(e) => setNewNotes(e.target.value)}
-                placeholder='Notas (opcional, ej. "para Hernán López")'
-                style={inp({ padding: "7px 9px", fontSize: 12 })}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={addCurrentItem}
-              disabled={!newDesc.trim()}
-              style={{
-                justifySelf: "start",
-                display: "inline-flex", alignItems: "center", gap: 5,
-                background: newDesc.trim() ? C.blue : C.panel2,
-                color: newDesc.trim() ? "var(--inverse-text)" : C.dim,
-                border: "none",
-                borderRadius: 7,
-                padding: "6px 12px",
-                cursor: newDesc.trim() ? "pointer" : "default",
-                fontSize: 12,
-                fontWeight: 600,
-                fontFamily: C.sans,
-              }}
-            >
-              <Plus size={13} /> Agregar al pedido
-            </button>
-          </div>
-
-          {/* Prioridad */}
-          <div>
-            <div style={labelStyle}>Prioridad</div>
-            <div style={{ display: "flex", gap: 5 }}>
-              {[
-                { v: "baja",    l: "Baja",    c: C.dim    },
-                { v: "media",   l: "Media",   c: C.blue   },
-                { v: "alta",    l: "Alta",    c: C.cyan  },
-                { v: "urgente", l: "Urgente", c: C.red    },
-              ].map((p) => {
-                const active = priority === p.v;
-                return (
-                  <button
-                    key={p.v}
-                    type="button"
-                    onClick={() => setPriority(p.v)}
-                    style={{
-                      border: `1px solid ${active ? p.c + "66" : C.border}`,
-                      background: active ? `${p.c}1c` : "transparent",
-                      color: active ? p.c : C.dim,
-                      borderRadius: 7,
-                      padding: "6px 12px",
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      letterSpacing: 0.5,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {p.l}
-                  </button>
-                );
-              })}
+                <input className="ui-input notas" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} placeholder="Notas (opcional)" aria-label="Notas del ítem" />
+                <button type="button" className="ui-btn ui-btn-suave" onClick={addCurrentItem} disabled={!newDesc.trim()}><Plus size={14} /> Sumar</button>
+              </div>
+              <span className="cmp-ayuda">El destino queda para los próximos ítems, así se cargan rápido varios para la misma obra.</span>
             </div>
           </div>
+        </section>
 
-          <div>
-            <div style={labelStyle}>¿Qué tipo de pedido es?</div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
-              {[
-                { value: "stock", label: "Stock pañol", detail: "Material general de pañol", color: C.green },
-                { value: "estandar", label: "Estándar", detail: "Matriz base del barco", color: C.blue },
-                { value: "adicional", label: "Adicional / opcional", detail: "Extra para esta obra", color: C.violet },
-              ]
-                .filter(o => !(o.value === "estandar" && newDest.toLowerCase().includes("pampa")))
-                .map((option) => {
+        {/* 3 · Tipo y prioridad */}
+        <section className={`cmp-paso${tipoPedido ? " hecho" : ""}`}>
+          <span className="cmp-paso-n">3</span>
+          <div style={{ minWidth: 0, display: "grid", gap: 12 }}>
+            <div className="cmp-paso-tit" style={{ margin: "4px 0 0" }}>¿Qué tipo de pedido es?</div>
+            <div className="cmp-tipos" role="radiogroup" aria-label="Tipo de pedido">
+              {tipos.map((option) => {
                 const active = tipoPedido === option.value;
                 return (
-                  <button
-                    key={option.label}
-                    type="button"
-                    onClick={() => setTipoPedido(option.value)}
-                    style={{
-                      border: `1px solid ${active ? option.color : C.border}`,
-                      background: active ? `${option.color}18` : C.panel,
-                      color: active ? option.color : C.text,
-                      borderRadius: 8,
-                      padding: "9px 10px",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      fontFamily: C.sans,
-                    }}
-                  >
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700 }}>{option.label}</span>
-                    <span style={{ display: "block", marginTop: 2, color: active ? option.color : C.dim, fontSize: 10.5, fontWeight: 600 }}>{option.detail}</span>
+                  <button key={option.value} type="button" role="radio" aria-checked={active} className={`cmp-tipo${active ? " on" : ""}`} data-tono={option.tono} onClick={() => setTipoPedido(option.value)}>
+                    <b>{option.label}</b>
+                    <small>{option.detail}</small>
                   </button>
                 );
               })}
             </div>
+            <div className="cmp-campo c6">
+              <span>Prioridad</span>
+              <div className="cmp-seg" role="radiogroup" aria-label="Prioridad">
+                {PRIORIDADES.map((p) => (
+                  <button key={p.value} type="button" role="radio" aria-checked={priority === p.value}
+                    className={priority === p.value ? "on" : ""} data-tono={priority === p.value && p.value !== "media" ? p.tono : undefined}
+                    onClick={() => setPriority(p.value)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* ── Footer ─────────────────────────────────────────────────── */}
-        <div style={{
-          display: "flex", gap: 8, justifyContent: "flex-end",
-          padding: "12px 18px",
-          borderTop: `1px solid ${C.border}`,
-          background: C.panel,
-        }}>
-          <button
-            type="button"
-            onClick={() => onClose()}
-            style={{
-              border: `1px solid ${C.border}`,
-              background: "transparent",
-              color: C.dim,
-              borderRadius: 7,
-              padding: "9px 16px",
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 600,
-              fontFamily: C.sans,
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !title.trim() || items.length === 0 || !tipoPedido}
-            style={{
-              border: "none",
-              background: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.panel2 : C.blue,
-              color: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.dim : "var(--inverse-text)",
-              borderRadius: 7,
-              padding: "9px 16px",
-              cursor: saving || !title.trim() || items.length === 0 || !tipoPedido ? "default" : "pointer",
-              fontSize: 12,
-              fontWeight: 650,
-              fontFamily: C.sans,
-              letterSpacing: 0.3,
-              display: "inline-flex", alignItems: "center", gap: 6,
-            }}
-          >
-            {saving ? "Enviando…" : <><Send size={13} /> Enviar a compras</>}
-          </button>
-        </div>
+        </section>
       </form>
-    </div>
+    </Modal>
   );
-}
-
-const labelStyle = {
-  color: "var(--dim)",
-  fontSize: 11,
-  letterSpacing: "0.07em",
-  textTransform: "uppercase",
-  fontWeight: 600,
-  marginBottom: 6,
-};
-
-function inp(over) {
-  return {
-    width: "100%",
-    border: `1px solid var(--border)`,
-    borderRadius: 7,
-    background: "var(--panel)",
-    color: "var(--text)",
-    padding: "8px 11px",
-    fontSize: 13,
-    fontFamily: "var(--font-sans, 'Outfit', system-ui, sans-serif)",
-    outline: "none",
-    ...over,
-  };
 }

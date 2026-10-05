@@ -9,15 +9,16 @@ import {
   Plus,
   Receipt,
   RefreshCw,
-  Search,
   Trash2,
-  TrendingDown,
-  TrendingUp,
   Upload,
   Wallet,
   WandSparkles,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import Cargando from "@/components/ui/Cargando";
+import { CSS_COMPRAS_MODULO } from "./estilos";
+import { Aviso, Buscar, Cabecera, Modal, Vacio } from "./ui";
 import {
   createCajaChicaClosure,
   createCajaChicaEntries,
@@ -33,7 +34,6 @@ import {
 } from "@/features/compras/cajaChicaApi";
 import { fetchProfiles } from "@/features/compras/purchaseRequestsApi";
 import ReciboModal from "@/features/compras/ReciboModal";
-import { C } from "@/theme";
 
 // null = caja de compras (histórica, sin dueño). Un uuid = la caja de ese cadete.
 const CAJA_COMPRAS = "__compras__";
@@ -453,6 +453,8 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   // Recibo imprimible: el mismo papel que se llenaba a mano. Sale de un
   // movimiento ya cargado, o se arma suelto y de paso queda asentado.
   const [recibo, setRecibo] = useState(null);
+  const [pegarOpen, setPegarOpen] = useState(false);
+  const confirm = useConfirm();
 
   // null = caja de compras; uuid = caja del cadete seleccionado.
   const ownerId = lockedOwnerId != null ? lockedOwnerId : (ownerSel === CAJA_COMPRAS ? null : ownerSel);
@@ -463,14 +465,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       .then((rows) => setOwners((rows || []).filter((p) => p.role === "cadete")))
       .catch(() => setOwners([]));
   }, [lockedOwnerId]);
-
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const on = (e) => setIsMobile(e.matches);
-    mq.addEventListener?.("change", on);
-    return () => mq.removeEventListener?.("change", on);
-  }, []);
 
   async function loadCierres(preferredId = selectedCierreId) {
     setLoading(true);
@@ -575,41 +569,6 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       .filter((cierre) => cierre.estado === "cerrado")
       .sort((a, b) => String(cuando(b)).localeCompare(String(cuando(a))));
   }, [cierres]);
-
-  const tarjetaCierre = (cierre) => {
-    const elegida = selectedCierreId === cierre.id;
-    const cerrada = cierre.estado === "cerrado";
-    return (
-      <button
-        key={cierre.id}
-        type="button"
-        onClick={() => setSelectedCierreId(cierre.id)}
-        style={{
-          textAlign: "left",
-          border: `1px solid ${elegida ? C.blueB : C.border}`,
-          background: elegida ? C.blueL : C.panel2,
-          color: C.text,
-          borderRadius: 10,
-          padding: 11,
-          cursor: "pointer",
-          display: "grid",
-          gap: 5,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <strong style={{ fontSize: 13 }}>{cierre.nombre}</strong>
-          {/* Abierta = azul (está en uso), cerrada = gris apagado (ya está
-              rendida). El verde sugería "correcta" y las dos lo son; lo que
-              cambia es si admite movimientos. */}
-          <span style={pill(cerrada ? C.dim : C.blue)}>{cerrada ? "Cerrada" : "Abierta"}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 12 }}>
-          <CalendarRange size={13} /> {cierreDateLabel(cierre)}
-        </div>
-        {cierre.notas && <div style={{ color: C.dim, fontSize: 12 }}>{cierre.notas}</div>}
-      </button>
-    );
-  };
 
   // Sólo las abiertas: un recibo no puede ir a parar a una caja ya rendida.
   const cajasAbiertas = useMemo(
@@ -764,6 +723,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       await createCajaChicaEntries(importReady.map((row) => ({ ...normalizeImportRow(row), cierre_id: selectedCierreId, owner_id: ownerId })));
       setPasteText("");
       setImportRows([]);
+      setPegarOpen(false);
       await loadEntries(selectedCierreId);
       toast.success(`${importReady.length} movimientos importados.`);
     } catch (error) {
@@ -859,7 +819,7 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   }
 
   async function handleDelete(row) {
-    const ok = window.confirm(`¿Borrar movimiento "${row.detalle}"?`);
+    const ok = await confirm({ title: "Borrar movimiento", message: `Se borra «${row.detalle}» de la caja.`, confirmLabel: "Borrar", tone: "danger" });
     if (!ok) return;
     try {
       await deleteCajaChicaEntry(row.id);
@@ -906,513 +866,376 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
     }
   }
 
+  const opcionesCaja = [{ id: CAJA_COMPRAS, label: "Compras" }, ...owners.map((o) => ({ id: o.id, label: o.username }))];
+  const conUsd = totalesCaja.USD.ingresos > 0 || totalesCaja.USD.egresos > 0;
+  const tarjetaCierre = (cierre) => {
+    const elegida = selectedCierreId === cierre.id;
+    const cerrada = cierre.estado === "cerrado";
+    return (
+      <button
+        key={cierre.id}
+        type="button"
+        className={`cmp-caja-op${elegida ? " on" : ""}`}
+        onClick={() => { setSelectedCierreId(cierre.id); setVerCierres(false); }}
+      >
+        <span style={{ minWidth: 0 }}>
+          <b>{cierre.nombre}</b>
+          <small><CalendarRange size={12} /> {cierreDateLabel(cierre)}{cierre.notas ? ` · ${cierre.notas.split("\n")[0]}` : ""}</small>
+        </span>
+        {/* Abierta = azul (está en uso), cerrada = apagada (ya está rendida). */}
+        <span className="cmp-estado" data-tono={cerrada ? "neutro" : "azul"}>{cerrada ? "Cerrada" : "Abierta"}</span>
+      </button>
+    );
+  };
+
   return (
-    <div style={{ display: "grid", gap: 14, color: C.text }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-        <div style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          display: "grid",
-          placeItems: "center",
-          background: C.cyanL,
-          border: `1px solid ${C.cyanB}`,
-          color: C.cyan,
-        }}>
-          <Wallet size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Caja chica</h2>
-          <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13 }}>
-            Movimientos organizados por cierres semanales o por período.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={abrirReciboNuevo}
-          style={{ ...smallBtn(), border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontWeight: 700 }}
-          title="Armar un recibo para que lo firmen"
-        >
-          <Receipt size={14} /> Recibo
-        </button>
-        <button type="button" onClick={refreshAll} style={smallBtn()}>
-          <RefreshCw size={14} /> Actualizar
-        </button>
-        <button type="button" onClick={exportCsv} disabled={!filteredRows.length} style={smallBtn(!filteredRows.length)}>
-          <Upload size={14} /> CSV
-        </button>
-        <button type="button" onClick={exportPdf} disabled={!filteredRows.length} style={smallBtn(!filteredRows.length)}>
-          <FileDown size={14} /> PDF
-        </button>
-      </div>
+    <div className="cmp-ambito cmp-caja">
+      <style href="klasea-compras" precedence="default">{CSS_COMPRAS_MODULO}</style>
+
+      <Cabecera
+        eyebrow="Compras · Gastos"
+        titulo="Caja"
+        acento="chica"
+        sub="Movimientos organizados por cajas: una por semana o por período, y se cierran al rendir."
+        acciones={(
+          <>
+            <button type="button" className="ui-btn ui-btn-suave chico" onClick={abrirReciboNuevo} title="Armar un recibo para que lo firmen"><Receipt size={14} /> Recibo</button>
+            <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={exportCsv} disabled={!filteredRows.length}><Upload size={14} /> CSV</button>
+            <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={exportPdf} disabled={!filteredRows.length}><FileDown size={14} /> PDF</button>
+            <button type="button" className="cmp-btn-ic" onClick={refreshAll} title="Volver a leer" aria-label="Volver a leer la caja"><RefreshCw size={15} /></button>
+          </>
+        )}
+      />
 
       {(missingTable || missingClosuresTable) && (
-        <div style={{
-          border: `1px solid ${C.cyanB}`,
-          background: C.cyanL,
-          color: C.text,
-          borderRadius: 12,
-          padding: 14,
-          fontSize: 13,
-          lineHeight: 1.45,
-        }}>
-          Falta aplicar el SQL de caja chica con cierres en Supabase. Te lo dejo al final para pegarlo en el SQL Editor.
-        </div>
+        <Aviso tono="cian">Falta aplicar el SQL de caja chica con cierres en Supabase.</Aviso>
       )}
 
-      <section style={cardStyle()}>
-        <SectionTitle
-          title="Cierres"
-          subtitle="Cada carga queda dentro de un cierre. Usalo como la planilla: un bloque por semana o por período real."
-        />
-        {!lockedOwnerId && owners.length > 0 && (
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12 }}>
-            <span style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, alignSelf: "center" }}>Caja:</span>
-            {[{ id: CAJA_COMPRAS, label: "Compras" }, ...owners.map((o) => ({ id: o.id, label: o.username }))].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setOwnerSel(opt.id)}
-                style={{
-                  border: `1px solid ${ownerSel === opt.id ? C.blueB : C.border}`,
-                  background: ownerSel === opt.id ? C.blueL : C.panel2,
-                  color: ownerSel === opt.id ? C.blue : C.text,
-                  borderRadius: 999,
-                  padding: "5px 13px",
-                  cursor: "pointer",
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                }}
-              >
+      {!lockedOwnerId && owners.length > 0 && (
+        <div className="cmp-filtros">
+          <span className="cmp-rotulo">Caja de</span>
+          <div className="cmp-seg" role="radiogroup" aria-label="De quién es la caja">
+            {opcionesCaja.map((opt) => (
+              <button key={opt.id} type="button" role="radio" aria-checked={ownerSel === opt.id} className={ownerSel === opt.id ? "on" : ""} onClick={() => setOwnerSel(opt.id)}>
                 {opt.label}
               </button>
             ))}
           </div>
-        )}
-        {/* Banda de caja activa. El problema que resuelve es concreto: no saber
-            en qué caja estás cargando. Va antes que todo lo demás y muestra las
-            dos cosas que definen el contexto: cuál es y cuánto tiene. */}
-        {selectedCierre && (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-            border: `1px solid ${cajaCerrada ? C.border : C.blueB}`,
-            background: cajaCerrada ? C.panel2 : C.blueL,
-            borderRadius: 12, padding: "10px 13px", marginBottom: 12,
-          }}>
-            <Wallet size={16} style={{ color: cajaCerrada ? C.dim : C.blue, flexShrink: 0 }} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750, lineHeight: 1.15 }}>
-                {selectedCierre.nombre}
-              </div>
-              {/* La fecha se mostraba abajo, en un bloque "Cierre activo" que
-                  repetía el nombre y la cantidad de movimientos que ya estaban
-                  acá. Un mismo cierre se nombraba tres veces en la pantalla:
-                  en esta barra, en la lista y en ese bloque. Ahora está una vez
-                  y con todo junto. */}
-              <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
-                {cierreDateLabel(selectedCierre)}
-                {" · "}
-                {totalesCaja.movimientos} movimiento{totalesCaja.movimientos === 1 ? "" : "s"}
-                {cajaCerrada ? " · cerrada, no admite carga" : " · en uso"}
-              </div>
-            </div>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ color: C.dim, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Saldo</div>
-                <div style={{ color: totalesCaja.saldoArs < 0 ? C.red : C.text, fontFamily: C.mono, fontSize: 16, fontWeight: 750 }}>
-                  {fmtMoney(totalesCaja.saldoArs, "ARS")}
-                </div>
-                {(totalesCaja.USD.ingresos > 0 || totalesCaja.USD.egresos > 0) && (
-                  <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{fmtMoney(totalesCaja.saldoUsd, "USD")}</div>
-                )}
-              </div>
-              {cajaCerrada ? (
-                <button type="button" onClick={() => setReabrirOpen(true)}
-                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
-                  Reabrir
-                </button>
-              ) : (
-                <button type="button" onClick={() => setCerrarOpen(true)}
-                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap" }}>
-                  Cerrar caja
-                </button>
-              )}
-            </div>
+        </div>
+      )}
+
+      {/* La caja en la que se está cargando: cuál es y cuánto tiene. Es lo
+          primero que hay que saber antes de anotar un gasto. */}
+      <section className={`cmp-caja-actual${cajaCerrada ? " cerrada" : ""}`}>
+        <div className="cmp-caja-nombre">
+          <span className="cmp-bloque-ic" data-tono={cajaCerrada ? "neutro" : "azul"}><Wallet size={18} /></span>
+          <span style={{ minWidth: 0 }}>
+            <b>{selectedCierre?.nombre || (loading ? "Cargando…" : "Sin caja elegida")}</b>
+            <small>
+              {selectedCierre ? <>{cierreDateLabel(selectedCierre)} · {totalesCaja.movimientos} {totalesCaja.movimientos === 1 ? "movimiento" : "movimientos"} · {cajaCerrada ? "cerrada, no admite carga" : "en uso"}</> : "Creá una caja para empezar a cargar."}
+            </small>
+          </span>
+        </div>
+        <div className="cmp-caja-cifras">
+          <div><span>Ingresos</span><b className="mono" data-tono="verde">{fmtMoney(totalesCaja.ARS.ingresos, "ARS")}</b></div>
+          <div><span>Egresos</span><b className="mono" data-tono="rojo">{fmtMoney(totalesCaja.ARS.egresos, "ARS")}</b></div>
+          <div className="saldo">
+            <span>Saldo</span>
+            <b className="mono" data-tono={totalesCaja.saldoArs < 0 ? "rojo" : undefined}>{fmtMoney(totalesCaja.saldoArs, "ARS")}</b>
+            {conUsd && <small className="mono">{fmtMoney(totalesCaja.saldoUsd, "USD")}</small>}
           </div>
-        )}
-
-        {/* Elegir cierre y crear uno nuevo son cosas que se hacen una vez por
-            semana, no cada vez que se entra. Estaban siempre desplegadas y
-            empujaban la tabla fuera de la pantalla. */}
-        <button
-          type="button"
-          onClick={() => setVerCierres((v) => !v)}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 7,
-            border: "none", background: "transparent", padding: "2px 0",
-            color: C.muted, fontFamily: C.sans, fontSize: 12, fontWeight: 700, cursor: "pointer",
-          }}
-        >
-          <ChevronDown size={13} style={{ transform: verCierres ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
-          {verCierres ? "Ocultar cierres" : "Cambiar de cierre o crear uno nuevo"}
-          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>{cierres.length}</span>
-        </button>
-
-        <div hidden={!verCierres} style={{ display: verCierres ? "grid" : "none", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12, marginTop: 10 }}>
-          <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
-            {cierres.length ? (
-              <>
-                {cierresAbiertos.map(tarjetaCierre)}
-
-                {cierresCerrados.length ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setVerCerradas((actual) => !actual)}
-                      style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-                        border: `1px solid ${C.border}`, background: C.panel, color: C.muted,
-                        borderRadius: 10, padding: "9px 11px", cursor: "pointer",
-                        fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, textAlign: "left",
-                      }}
-                    >
-                      <span>Cerradas · {cierresCerrados.length}</span>
-                      <ChevronDown size={14} style={{ transform: verCerradas ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
-                    </button>
-                    {/* Aunque esten plegadas, la que se esta mirando sigue a la
-                        vista: si no, seleccionar una y que desaparezca. */}
-                    {(verCerradas
-                      ? cierresCerrados
-                      : cierresCerrados.filter((cierre) => cierre.id === selectedCierreId)
-                    ).map(tarjetaCierre)}
-                  </>
-                ) : null}
-
-                {!cierresAbiertos.length && !verCerradas ? (
-                  <div style={{ border: `1px dashed ${C.border2}`, borderRadius: 10, padding: 14, color: C.dim, fontSize: 12.5, lineHeight: 1.5 }}>
-                    No hay ninguna caja abierta. Creá una nueva acá al lado, o abrí las cerradas para consultarlas.
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div style={{ border: `1px dashed ${C.border2}`, borderRadius: 10, padding: 18, color: C.dim, fontSize: 13 }}>
-                No hay cierres cargados todavía.
-              </div>
-            )}
-          </div>
-
-          {/* alignSelf start: sin esto el formulario se estira hasta la altura
-              de la lista de la izquierda y, como es un grid, sus filas crecen
-              con el: con diez cajas cargadas los campos quedaban gigantes. */}
-          <form onSubmit={handleCreateCierre} style={{ display: "grid", gap: 8, alignSelf: "start", alignContent: "start", border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Nuevo cierre</div>
-            <Field label="Nombre">
-              <input value={cierreForm.nombre} onChange={(e) => patchCierreForm({ nombre: e.target.value })} placeholder="Ej: Cierre 14/05 al 21/05" style={inputStyle()} />
-            </Field>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
-              <Field label="Desde">
-                <input type="date" value={cierreForm.fecha_desde} onChange={(e) => patchCierreForm({ fecha_desde: e.target.value })} style={inputStyle()} />
-              </Field>
-              <Field label="Hasta">
-                <input type="date" value={cierreForm.fecha_hasta} onChange={(e) => patchCierreForm({ fecha_hasta: e.target.value })} style={inputStyle()} />
-              </Field>
-            </div>
-            <Field label="Notas">
-              <input value={cierreForm.notas} onChange={(e) => patchCierreForm({ notas: e.target.value })} placeholder="Opcional: feriado, semana corta, etc." style={inputStyle()} />
-            </Field>
-            <button type="submit" disabled={saving || missingClosuresTable} style={primaryBtn(saving || missingClosuresTable)}>
-              <Plus size={14} /> Crear cierre
-            </button>
-          </form>
+        </div>
+        <div className="cmp-caja-acc">
+          <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => setVerCierres(true)}>
+            <ChevronDown size={14} /> Cambiar de caja <span className="mono" style={{ color: "var(--subtle)" }}>{cierres.length}</span>
+          </button>
+          {selectedCierre && (cajaCerrada ? (
+            <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => setReabrirOpen(true)}>Reabrir</button>
+          ) : (
+            <button type="button" className="ui-btn chico" data-tono="verde" onClick={() => setCerrarOpen(true)}>Cerrar caja</button>
+          ))}
         </div>
       </section>
 
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-        <section style={cardStyle({ padding: 0, overflow: "hidden" })}>
-          <div style={{ padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ position: "relative" }}>
-              <Search size={14} style={{ position: "absolute", left: 11, top: 11, color: C.dim }} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar proveedor, detalle o centro..." style={{ ...inputStyle(), paddingLeft: 32 }} />
+      <div className="cmp-caja-grilla">
+        {/* Movimientos: lo que se viene a mirar. */}
+        <section className="cmp-bloque" style={{ minWidth: 0 }}>
+          <div className="cmp-bloque-cab">
+            <div className="cmp-filtros" style={{ flex: 1 }}>
+              <Buscar value={query} onChange={setQuery} placeholder="Buscar proveedor, detalle o centro…" />
+              <div className="cmp-seg" role="radiogroup" aria-label="Tipo de movimiento">
+                {[["todos", "Todos"], ["egreso", "Egresos"], ["ingreso", "Ingresos"]].map(([v, l]) => (
+                  <button key={v} type="button" role="radio" aria-checked={tipoFilter === v} className={tipoFilter === v ? "on" : ""} onClick={() => setTipoFilter(v)}>{l}</button>
+                ))}
+              </div>
+              {centros.length > 0 && (
+                <select className="ui-input" style={{ width: "auto", minHeight: 36 }} value={centroFilter} onChange={(e) => setCentroFilter(e.target.value)} aria-label="Centro de costo">
+                  <option value="todos">Todos los centros</option>
+                  {centros.map((centro) => <option key={centro} value={centro}>{centro}</option>)}
+                </select>
+              )}
             </div>
-            <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} style={inputStyle()}>
-              <option value="todos">Todos</option>
-              <option value="egreso">Egresos</option>
-              <option value="ingreso">Ingresos</option>
-            </select>
-            <select value={centroFilter} onChange={(e) => setCentroFilter(e.target.value)} style={inputStyle()}>
-              <option value="todos">Todos los centros</option>
-              {centros.map((centro) => <option key={centro} value={centro}>{centro}</option>)}
-            </select>
           </div>
-
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 850 }}>
-              <thead>
-                <tr>
-                  {["Fecha", "Proveedor", "Detalle", "Centro", "Egreso", "Ingreso", ""].map((head) => (
-                    <th key={head} style={thStyle()}>{head}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={7} style={emptyCell()}>Cargando caja chica...</td></tr>
-                ) : filteredRows.length ? filteredRows.map((row) => {
-                  const marcaRecibo = leerReciboDeNotas(row.notas);
-                  return (
-                  <tr key={row.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                    <td style={tdStyle({ whiteSpace: "nowrap", color: C.dim })}>{fmtDate(row.fecha)}</td>
-                    <td style={tdStyle({ fontWeight: 650 })}>{row.proveedor || "-"}</td>
-                    <td style={tdStyle()}>
-                      <div>{row.detalle}</div>
-                      {/* Borrador = el gasto está asentado pero el papel todavía
-                          no salió. Es la lista de lo que falta imprimir. */}
-                      {marcaRecibo && (
-                        <div style={{ marginTop: 5 }}>
-                          <span style={pill(marcaRecibo.estado === "borrador" ? C.blue : C.dim)}>
-                            {marcaRecibo.estado === "borrador" ? "Recibo en borrador" : `Recibo ${marcaRecibo.numero}`}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    <td style={tdStyle()}>
-                      <span style={pill(C.blue)}>{row.centro_costo || "Sin centro"}</span>
-                    </td>
-                    <td style={tdStyle({ color: C.red, fontFamily: C.mono, fontWeight: 650 })}>
-                      {row.tipo === "egreso" ? fmtMoney(row.importe, row.moneda) : "-"}
-                    </td>
-                    <td style={tdStyle({ color: C.green, fontFamily: C.mono, fontWeight: 650 })}>
-                      {row.tipo === "ingreso" ? fmtMoney(row.importe, row.moneda) : "-"}
-                    </td>
-                    <td style={tdStyle({ textAlign: "right", whiteSpace: "nowrap" })}>
-                      <button
-                        type="button"
-                        onClick={() => abrirReciboDeMovimiento(row)}
-                        style={{ ...iconBtn(C.blue), marginRight: 6 }}
-                        title={marcaRecibo?.estado === "borrador" ? "Completar e imprimir el recibo pendiente" : "Imprimir recibo de este movimiento"}
-                      >
-                        <Receipt size={14} />
-                      </button>
-                      <button type="button" onClick={() => handleDelete(row)} style={iconBtn(C.red)} title="Borrar">
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                  );
-                }) : (
-                  <tr><td colSpan={7} style={emptyCell()}>No hay movimientos para mostrar.</td></tr>
-                )}
-              </tbody>
-            </table>
+          <div className="cmp-bloque-cuerpo sin-pad">
+            {loading ? (
+              <Cargando texto="Trayendo la caja…" />
+            ) : !filteredRows.length ? (
+              <Vacio icono={Wallet} titulo={rows.length ? "Ningún movimiento coincide" : "Todavía no hay movimientos"} texto={rows.length ? "Probá con otro término o sacá el filtro." : "Cargá el primero acá al lado o pegá filas desde Excel."} />
+            ) : (
+              <div className="cmp-tabla" style={{ border: 0, borderRadius: 0, maxHeight: "none" }}>
+                <table className="cmp-t" style={{ minWidth: 720 }}>
+                  <thead>
+                    <tr><th>Fecha</th><th>Proveedor</th><th>Detalle</th><th>Centro</th><th className="der">Importe</th><th /></tr>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map((row) => {
+                      const marcaRecibo = leerReciboDeNotas(row.notas);
+                      const ingreso = row.tipo === "ingreso";
+                      return (
+                        <tr key={row.id}>
+                          <td className="mono" style={{ whiteSpace: "nowrap", color: "var(--dim)", fontSize: 12.5 }}>{fmtDate(row.fecha)}</td>
+                          <td className="nom" style={{ whiteSpace: "nowrap" }}>{row.proveedor || "—"}</td>
+                          <td>
+                            <div>{row.detalle}</div>
+                            {/* Borrador = el gasto está asentado pero el papel todavía no salió. */}
+                            {marcaRecibo && (
+                              <span className="cmp-tag" data-tono={marcaRecibo.estado === "borrador" ? "azul" : "neutro"} style={{ marginTop: 5 }}>
+                                {marcaRecibo.estado === "borrador" ? "Recibo en borrador" : `Recibo ${marcaRecibo.numero}`}
+                              </span>
+                            )}
+                          </td>
+                          <td>{row.centro_costo ? <span className="cmp-tag" data-tono="azul">{row.centro_costo}</span> : <span className="cmp-ayuda">sin centro</span>}</td>
+                          <td className="der mono" style={{ fontWeight: 650, whiteSpace: "nowrap", color: ingreso ? "var(--green)" : "var(--red)" }}>
+                            {ingreso ? "+" : "−"} {fmtMoney(row.importe, row.moneda)}
+                          </td>
+                          <td className="der" style={{ whiteSpace: "nowrap" }}>
+                            <button
+                              type="button"
+                              className="cmp-btn-ic chico"
+                              onClick={() => abrirReciboDeMovimiento(row)}
+                              title={marcaRecibo?.estado === "borrador" ? "Completar e imprimir el recibo pendiente" : "Imprimir el recibo de este movimiento"}
+                              aria-label="Recibo"
+                              style={{ display: "inline-grid", marginRight: 6 }}
+                            >
+                              <Receipt size={14} />
+                            </button>
+                            <button type="button" className="cmp-btn-ic chico peligro" onClick={() => handleDelete(row)} title="Borrar" aria-label={`Borrar ${row.detalle}`} style={{ display: "inline-grid" }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </section>
 
-      </div>
-
-      {/* Los formularios van DEBAJO de la tabla.
-
-          Estaban arriba, así que para ver un movimiento había que pasar de largo
-          el bloque de cierres, las siete casillas de carga y el pegado de Excel:
-          tres pantallas de formulario antes del primer dato. Cargar es la acción
-          ocasional; mirar lo que se gastó es a lo que se entra. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>
-        <section style={cardStyle()}>
-          <SectionTitle title="Nuevo movimiento" subtitle={selectedCierre ? `Se guarda en ${selectedCierre.nombre}.` : "Primero seleccioná o creá un cierre."} />
-          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
-              <Field label="Fecha">
-                <input type="date" value={form.fecha} onChange={(e) => patchForm({ fecha: e.target.value })} style={inputStyle()} />
-              </Field>
-              <Field label="Tipo">
-                <select value={form.tipo} onChange={(e) => patchForm({ tipo: e.target.value })} style={inputStyle()}>
-                  <option value="egreso">Egreso</option>
-                  <option value="ingreso">Ingreso</option>
-                </select>
-              </Field>
-              <Field label="Moneda">
-                <select value={form.moneda} onChange={(e) => patchForm({ moneda: e.target.value })} style={inputStyle()}>
+        {/* Carga rápida, al costado: se carga sin perder de vista la caja. */}
+        <aside className="cmp-bloque cmp-caja-carga">
+          <div className="cmp-bloque-cab">
+            <div style={{ minWidth: 0 }}>
+              <h2 className="cmp-bloque-tit">Nuevo movimiento</h2>
+              <p className="cmp-bloque-txt">{selectedCierre ? (cajaCerrada ? "Esta caja está cerrada: reabrila para corregir." : `Va a ${selectedCierre.nombre}.`) : "Primero elegí o creá una caja."}</p>
+            </div>
+          </div>
+          <div className="cmp-bloque-cuerpo">
+            <form onSubmit={handleSubmit} className="cmp-form">
+              <div className="cmp-campo c6">
+                <div className="cmp-seg" role="radiogroup" aria-label="Tipo" style={{ justifySelf: "start" }}>
+                  <button type="button" role="radio" aria-checked={form.tipo === "egreso"} className={form.tipo === "egreso" ? "on" : ""} data-tono={form.tipo === "egreso" ? "rojo" : undefined} onClick={() => patchForm({ tipo: "egreso" })}>Egreso</button>
+                  <button type="button" role="radio" aria-checked={form.tipo === "ingreso"} className={form.tipo === "ingreso" ? "on" : ""} data-tono={form.tipo === "ingreso" ? "verde" : undefined} onClick={() => patchForm({ tipo: "ingreso" })}>Ingreso</button>
+                </div>
+              </div>
+              <label className="cmp-campo c4"><span>Importe</span>
+                <input className="ui-input num" value={form.importe} onChange={(e) => patchForm({ importe: e.target.value })} placeholder="0" inputMode="decimal" style={{ textAlign: "right" }} />
+              </label>
+              <label className="cmp-campo c2"><span>Moneda</span>
+                <select className="ui-input" value={form.moneda} onChange={(e) => patchForm({ moneda: e.target.value })}>
                   <option value="ARS">ARS</option>
                   <option value="USD">USD</option>
                 </select>
-              </Field>
-              <Field label="Importe">
-                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: C.dim, fontWeight: 650 }}>{form.moneda === "USD" ? "USD" : "$"}</span>
-                  <input
-                    value={form.importe}
-                    onChange={(e) => patchForm({ importe: e.target.value })}
-                    placeholder="0"
-                    inputMode="decimal"
-                    style={{ ...inputStyle(), textAlign: "right" }}
-                  />
-                </div>
-              </Field>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
-              <Field label="Proveedor">
-                <input value={form.proveedor} onChange={(e) => patchForm({ proveedor: e.target.value })} placeholder="Ej: Uber, Casa Iriarte..." style={inputStyle()} />
-              </Field>
-              <Field label="Centro de costo">
-                <input value={form.centro_costo} onChange={(e) => patchForm({ centro_costo: e.target.value })} placeholder="Ej: 55-4, logística..." style={inputStyle()} />
-              </Field>
-            </div>
-
-            <Field label="Detalle">
-              <input value={form.detalle} onChange={(e) => patchForm({ detalle: e.target.value })} placeholder="Qué se compró o qué ingreso fue" style={inputStyle()} />
-            </Field>
-
-            <Field label="Notas">
-              <textarea value={form.notas} onChange={(e) => patchForm({ notas: e.target.value })} placeholder="Opcional" rows={3} style={{ ...inputStyle(), resize: "vertical" }} />
-            </Field>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap" }}>
-              <div style={{ color: C.dim, fontSize: 12 }}>
-                Vista previa: <strong style={{ color: form.tipo === "ingreso" ? C.green : C.red }}>{form.tipo === "ingreso" ? "+" : "-"} {fmtMoney(parseMoney(form.importe) || 0, form.moneda)}</strong>
-                {form.proveedor ? ` · ${form.proveedor}` : ""}
-                {form.centro_costo ? ` · ${form.centro_costo}` : ""}
+              </label>
+              <label className="cmp-campo c6"><span>Detalle</span>
+                <input className="ui-input" value={form.detalle} onChange={(e) => patchForm({ detalle: e.target.value })} placeholder="Qué se compró o qué ingreso fue" />
+              </label>
+              <label className="cmp-campo"><span>Proveedor</span>
+                <input className="ui-input" value={form.proveedor} onChange={(e) => patchForm({ proveedor: e.target.value })} placeholder="Uber, Iriarte…" />
+              </label>
+              <label className="cmp-campo"><span>Centro de costo</span>
+                <input className="ui-input" value={form.centro_costo} onChange={(e) => patchForm({ centro_costo: e.target.value })} placeholder="55-4, logística…" list="cmp-caja-centros" />
+                <datalist id="cmp-caja-centros">{centros.map((c) => <option key={c} value={c} />)}</datalist>
+              </label>
+              <label className="cmp-campo"><span>Fecha</span>
+                <input type="date" className="ui-input" value={form.fecha} onChange={(e) => patchForm({ fecha: e.target.value })} />
+              </label>
+              <label className="cmp-campo"><span>Notas</span>
+                <input className="ui-input" value={form.notas} onChange={(e) => patchForm({ notas: e.target.value })} placeholder="Opcional" />
+              </label>
+              <div className="cmp-campo c6 cmp-caja-previa">
+                <span className="mono" data-tono={form.tipo === "ingreso" ? "verde" : "rojo"}>{form.tipo === "ingreso" ? "+" : "−"} {fmtMoney(parseMoney(form.importe) || 0, form.moneda)}</span>
+                <button type="submit" className="ui-btn ui-btn-primario chico" disabled={saving || missingTable || !selectedCierreId || cajaCerrada}><Plus size={14} /> Guardar</button>
               </div>
-              <button type="submit" disabled={saving || missingTable || !selectedCierreId} style={primaryBtn(saving || missingTable || !selectedCierreId)}>
-                <Plus size={14} /> Guardar
-              </button>
-            </div>
-          </form>
-        </section>
+            </form>
+            <button type="button" className="cmp-link" style={{ marginTop: 12 }} onClick={() => setPegarOpen(true)} disabled={!selectedCierreId || cajaCerrada}>
+              <WandSparkles size={13} style={{ verticalAlign: -2 }} /> Pegar varias filas desde Excel
+            </button>
+          </div>
+        </aside>
+      </div>
 
-        <section style={cardStyle()}>
-          <SectionTitle title="Pegar desde Excel" subtitle={selectedCierre ? "Pegá filas del cierre seleccionado. Primero analizamos y después importamos." : "Seleccioná un cierre antes de importar."} />
+      {/* ── Cambiar de caja o crear una ── */}
+      {verCierres && (
+        <Modal
+          icono={Wallet}
+          titulo="Cajas"
+          sub="Elegí en cuál cargar, o creá una nueva para la semana o el período."
+          ancho
+          onCerrar={() => setVerCierres(false)}
+        >
+          <div className="cmp-caja-cajas">
+            <div style={{ display: "grid", gap: 6, alignContent: "start" }}>
+              <div className="cmp-rotulo">Abiertas</div>
+              {cierresAbiertos.length ? cierresAbiertos.map(tarjetaCierre) : <p className="cmp-ayuda">No hay ninguna caja abierta: creá una acá al lado.</p>}
+              {cierresCerrados.length > 0 && (
+                <>
+                  <button type="button" className="cmp-link" style={{ justifySelf: "start", marginTop: 8 }} onClick={() => setVerCerradas((v) => !v)}>
+                    {verCerradas ? "Ocultar las cerradas" : `Ver las cerradas · ${cierresCerrados.length}`}
+                  </button>
+                  {verCerradas && cierresCerrados.map(tarjetaCierre)}
+                </>
+              )}
+            </div>
+            <form onSubmit={handleCreateCierre} className="cmp-form cmp-caja-nueva">
+              <div className="cmp-campo c6 cmp-rotulo">Nueva caja</div>
+              <label className="cmp-campo c6"><span>Nombre</span>
+                <input className="ui-input" value={cierreForm.nombre} onChange={(e) => patchCierreForm({ nombre: e.target.value })} placeholder="Ej.: Semana del 14/05 al 21/05" />
+              </label>
+              <label className="cmp-campo"><span>Desde</span>
+                <input type="date" className="ui-input" value={cierreForm.fecha_desde} onChange={(e) => patchCierreForm({ fecha_desde: e.target.value })} />
+              </label>
+              <label className="cmp-campo"><span>Hasta</span>
+                <input type="date" className="ui-input" value={cierreForm.fecha_hasta} onChange={(e) => patchCierreForm({ fecha_hasta: e.target.value })} />
+              </label>
+              <label className="cmp-campo c6"><span>Notas</span>
+                <input className="ui-input" value={cierreForm.notas} onChange={(e) => patchCierreForm({ notas: e.target.value })} placeholder="Opcional: feriado, semana corta…" />
+              </label>
+              <div className="cmp-campo c6" style={{ justifyItems: "end" }}>
+                <button type="submit" className="ui-btn ui-btn-primario chico" disabled={saving || missingClosuresTable}><Plus size={14} /> Crear caja</button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Pegar desde Excel ── */}
+      {pegarOpen && (
+        <Modal
+          icono={WandSparkles}
+          titulo="Pegar desde Excel"
+          sub={selectedCierre ? `Pegá las filas y revisalas antes de importar. Van a ${selectedCierre.nombre}.` : "Elegí una caja antes de importar."}
+          ancho
+          onCerrar={() => setPegarOpen(false)}
+          bloqueado={saving}
+          pie={(
+            <>
+              <div className="izq">{importRows.length ? `${importReady.length} listas · ${importReview} para revisar` : "Primero se analiza, después se importa."}</div>
+              <button type="button" className="ui-btn ui-btn-fantasma" onClick={handleAnalyzePaste} disabled={!pasteText.trim()}><WandSparkles size={14} /> Analizar</button>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={async () => { await handlePasteImport(); }} disabled={saving || missingTable || !selectedCierreId || !importReady.length}><Upload size={14} /> Importar {importReady.length || ""}</button>
+            </>
+          )}
+        >
           <textarea
+            className="ui-input mono"
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
             placeholder={"14/05/2026\tUBER\tTRASLADO A PAMPA\tLOGISTICA\t3700\t\n14/05/2026\tVERONICA\tINGRESO CAJA\t\t\t12000000"}
-            rows={8}
-            style={{ ...inputStyle(), resize: "vertical", fontFamily: C.mono, fontSize: 12, lineHeight: 1.55 }}
+            rows={7}
+            style={{ fontSize: 12, lineHeight: 1.55 }}
           />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <div style={{ color: C.dim, fontSize: 12 }}>
-              {importRows.length
-                ? `${importReady.length} listas · ${importReview} para revisar`
-                : "Primero analizamos el pegado, después importamos."}
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={handleAnalyzePaste} disabled={!pasteText.trim()} style={smallBtn(!pasteText.trim())}>
-                <WandSparkles size={14} /> Analizar
-              </button>
-              <button type="button" onClick={handlePasteImport} disabled={saving || missingTable || !selectedCierreId || !importReady.length} style={primaryBtn(saving || missingTable || !selectedCierreId || !importReady.length)}>
-                <Upload size={14} /> Importar listas
-              </button>
-            </div>
-          </div>
-
           {importRows.length > 0 && (
-            <div style={{ display: "grid", gap: 8, marginTop: 12, maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>
+            <div style={{ display: "grid", gap: 8 }}>
               {importRows.map((row) => {
                 const issues = rowIssues(row);
-                const needsReview = issues.length > 0;
+                const revisar = issues.length > 0;
                 return (
-                  <div key={row.key} style={{
-                    border: `1px solid ${needsReview ? C.cyanB : C.greenB}`,
-                    background: needsReview ? C.cyanL : C.greenL,
-                    borderRadius: 10,
-                    padding: 10,
-                    display: "grid",
-                    gap: 8,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                      <strong style={{ color: needsReview ? C.cyan : C.green, fontSize: 12 }}>
-                        {needsReview ? `Revisar: ${issues.join(", ")}` : "Lista para importar"}
-                      </strong>
-                      <span style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.raw}</span>
+                  <div key={row.key} className="cmp-caja-imp" data-tono={revisar ? "cian" : "verde"}>
+                    <div className="cab">
+                      <b>{revisar ? `Revisar: ${issues.join(", ")}` : "Lista para importar"}</b>
+                      <small>{row.raw}</small>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 6 }}>
-                      <input type="date" value={row.fecha || ""} onChange={(e) => patchImportRow(row.key, { fecha: e.target.value })} style={miniInput()} />
-                      <select value={row.tipo} onChange={(e) => patchImportRow(row.key, { tipo: e.target.value })} style={miniInput()}>
+                    <div className="campos">
+                      <input type="date" className="ui-input" value={row.fecha || ""} onChange={(e) => patchImportRow(row.key, { fecha: e.target.value })} aria-label="Fecha" />
+                      <select className="ui-input" value={row.tipo} onChange={(e) => patchImportRow(row.key, { tipo: e.target.value })} aria-label="Tipo">
                         <option value="egreso">Egreso</option>
                         <option value="ingreso">Ingreso</option>
                       </select>
-                      <select value={row.moneda || "ARS"} onChange={(e) => patchImportRow(row.key, { moneda: e.target.value })} style={miniInput()}>
+                      <select className="ui-input" value={row.moneda || "ARS"} onChange={(e) => patchImportRow(row.key, { moneda: e.target.value })} aria-label="Moneda">
                         <option value="ARS">ARS</option>
                         <option value="USD">USD</option>
                       </select>
-                      <input value={row.proveedor || ""} onChange={(e) => patchImportRow(row.key, { proveedor: e.target.value })} placeholder="Proveedor" style={miniInput()} />
-                      <input value={row.detalle || ""} onChange={(e) => patchImportRow(row.key, { detalle: e.target.value })} placeholder="Detalle" style={miniInput()} />
-                      <input value={row.centro_costo || ""} onChange={(e) => patchImportRow(row.key, { centro_costo: e.target.value })} placeholder="Centro" style={miniInput()} />
-                      <input value={row.importe || ""} onChange={(e) => patchImportRow(row.key, { importe: e.target.value })} placeholder="Importe" inputMode="decimal" style={{ ...miniInput(), textAlign: "right" }} />
+                      <input className="ui-input" value={row.proveedor || ""} onChange={(e) => patchImportRow(row.key, { proveedor: e.target.value })} placeholder="Proveedor" aria-label="Proveedor" />
+                      <input className="ui-input" value={row.detalle || ""} onChange={(e) => patchImportRow(row.key, { detalle: e.target.value })} placeholder="Detalle" aria-label="Detalle" />
+                      <input className="ui-input" value={row.centro_costo || ""} onChange={(e) => patchImportRow(row.key, { centro_costo: e.target.value })} placeholder="Centro" aria-label="Centro" />
+                      <input className="ui-input num" value={row.importe || ""} onChange={(e) => patchImportRow(row.key, { importe: e.target.value })} placeholder="Importe" inputMode="decimal" style={{ textAlign: "right" }} aria-label="Importe" />
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-        </section>
-      </div>
+        </Modal>
+      )}
 
-      {/* Cerrar: el resumen va antes de la confirmación, no después. Es el
-          número por el que estás firmando. */}
+      {/* Cerrar: el resumen va antes de la confirmación. Es el número por el que se firma. */}
       {cerrarOpen && selectedCierre && (
-        <CajaModal
+        <Modal
+          icono={Wallet}
+          tono="verde"
           titulo={`Cerrar ${selectedCierre.nombre}`}
-          bajada="Después de cerrarla no se pueden cargar movimientos. Se puede reabrir, pero pide un motivo."
-          onClose={() => setCerrarOpen(false)}
-          pie={<>
-            <button type="button" onClick={() => setCerrarOpen(false)} style={ghostBtn()}>Cancelar</button>
-            <button type="button" onClick={confirmarCierre} disabled={cierreBusy}
-              style={{ ...primaryBtn(cierreBusy), background: C.greenL, color: C.green, borderColor: C.greenB }}>
-              {cierreBusy ? "Cerrando…" : "Cerrar la caja"}
-            </button>
-          </>}
+          sub="Después de cerrarla no se pueden cargar movimientos. Se puede reabrir, pero pide un motivo."
+          onCerrar={() => setCerrarOpen(false)}
+          bloqueado={cierreBusy}
+          pie={(
+            <>
+              <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => setCerrarOpen(false)}>Cancelar</button>
+              <button type="button" className="ui-btn" data-tono="verde" onClick={confirmarCierre} disabled={cierreBusy}>{cierreBusy ? "Cerrando…" : "Cerrar la caja"}</button>
+            </>
+          )}
         >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
-            {[
-              ["Movimientos", String(totalesCaja.movimientos), C.text],
-              ["Ingresos", fmtMoney(totalesCaja.ARS.ingresos, "ARS"), C.green],
-              ["Egresos", fmtMoney(totalesCaja.ARS.egresos, "ARS"), C.red],
-              ["Saldo", fmtMoney(totalesCaja.saldoArs, "ARS"), totalesCaja.saldoArs < 0 ? C.red : C.blue],
-            ].map(([label, valor, color]) => (
-              <div key={label} style={{ border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: "9px 11px" }}>
-                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</div>
-                <div style={{ color, fontFamily: C.mono, fontSize: 16, fontWeight: 750, marginTop: 3 }}>{valor}</div>
-              </div>
-            ))}
+          <div className="cmp-caja-cifras modal">
+            <div><span>Movimientos</span><b className="mono">{totalesCaja.movimientos}</b></div>
+            <div><span>Ingresos</span><b className="mono" data-tono="verde">{fmtMoney(totalesCaja.ARS.ingresos, "ARS")}</b></div>
+            <div><span>Egresos</span><b className="mono" data-tono="rojo">{fmtMoney(totalesCaja.ARS.egresos, "ARS")}</b></div>
+            <div className="saldo"><span>Saldo</span><b className="mono" data-tono={totalesCaja.saldoArs < 0 ? "rojo" : "azul"}>{fmtMoney(totalesCaja.saldoArs, "ARS")}</b></div>
           </div>
-          {(totalesCaja.USD.ingresos > 0 || totalesCaja.USD.egresos > 0) && (
-            <div style={{ color: C.muted, fontSize: 12 }}>
-              En dólares: ingresos {fmtMoney(totalesCaja.USD.ingresos, "USD")} · egresos {fmtMoney(totalesCaja.USD.egresos, "USD")} · saldo <strong>{fmtMoney(totalesCaja.saldoUsd, "USD")}</strong>
-            </div>
+          {conUsd && (
+            <p className="cmp-ayuda">En dólares: ingresos {fmtMoney(totalesCaja.USD.ingresos, "USD")} · egresos {fmtMoney(totalesCaja.USD.egresos, "USD")} · saldo <b>{fmtMoney(totalesCaja.saldoUsd, "USD")}</b></p>
           )}
-          {totalesCaja.movimientos === 0 && (
-            <div style={{ color: C.red, fontSize: 12, fontWeight: 650 }}>
-              Ojo: esta caja no tiene ningún movimiento cargado.
-            </div>
-          )}
-        </CajaModal>
+          {totalesCaja.movimientos === 0 && <Aviso tono="rojo">Ojo: esta caja no tiene ningún movimiento cargado.</Aviso>}
+        </Modal>
       )}
 
       {reabrirOpen && selectedCierre && (
-        <CajaModal
+        <Modal
+          icono={Wallet}
           titulo={`Reabrir ${selectedCierre.nombre}`}
-          bajada="Queda registrado con fecha en las notas de la caja."
-          onClose={() => { setReabrirOpen(false); setReabrirMotivo(""); }}
-          pie={<>
-            <button type="button" onClick={() => { setReabrirOpen(false); setReabrirMotivo(""); }} style={ghostBtn()}>Cancelar</button>
-            <button type="button" onClick={confirmarReapertura} disabled={cierreBusy || !reabrirMotivo.trim()}
-              style={primaryBtn(cierreBusy || !reabrirMotivo.trim())}>
-              {cierreBusy ? "Reabriendo…" : "Reabrir"}
-            </button>
-          </>}
+          sub="El motivo queda registrado con fecha en las notas de la caja."
+          onCerrar={() => { setReabrirOpen(false); setReabrirMotivo(""); }}
+          bloqueado={cierreBusy}
+          pie={(
+            <>
+              <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => { setReabrirOpen(false); setReabrirMotivo(""); }}>Cancelar</button>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarReapertura} disabled={cierreBusy || !reabrirMotivo.trim()}>{cierreBusy ? "Reabriendo…" : "Reabrir"}</button>
+            </>
+          )}
         >
-          <label style={{ display: "grid", gap: 5 }}>
-            <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>¿Por qué la reabrís?</span>
-            <input
-              autoFocus
-              value={reabrirMotivo}
-              onChange={(event) => setReabrirMotivo(event.target.value)}
-              placeholder="Ej: faltó cargar el remito del 8/8"
-              style={inputStyle()}
-            />
+          <label className="cmp-campo c6"><span>¿Por qué la reabrís?</span>
+            <input className="ui-input" autoFocus value={reabrirMotivo} onChange={(event) => setReabrirMotivo(event.target.value)} placeholder="Ej.: faltó cargar el remito del 8/8" />
           </label>
-        </CajaModal>
+        </Modal>
       )}
 
       {recibo && (
@@ -1428,212 +1251,4 @@ export default function CajaChicaPanel({ lockedOwnerId } = {}) {
       )}
     </div>
   );
-}
-
-// Modal chico y propio: los de esta pantalla son dos preguntas cortas y no
-// justifican arrastrar un componente más pesado.
-function CajaModal({ titulo, bajada, onClose, children, pie }) {
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.5)", display: "grid", placeItems: "center", padding: 16 }}>
-      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(470px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.28)", display: "grid" }}>
-        <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>{titulo}</div>
-          {bajada && <div style={{ color: C.dim, fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>{bajada}</div>}
-        </div>
-        <div style={{ padding: 16, display: "grid", gap: 11 }}>{children}</div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 16px", borderTop: `1px solid ${C.border}` }}>{pie}</div>
-      </div>
-    </div>
-  );
-}
-
-function Kpi({ icon, label, value, color }) {
-  return (
-    <div style={cardStyle({ display: "flex", alignItems: "center", gap: 12 })}>
-      <div style={{
-        width: 34,
-        height: 34,
-        display: "grid",
-        placeItems: "center",
-        borderRadius: 10,
-        background: `${color}18`,
-        color,
-        border: `1px solid ${color}44`,
-      }}>
-        {icon}
-      </div>
-      <div>
-        <div style={{ color, fontFamily: C.mono, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{value}</div>
-        <div style={{ marginTop: 5, color: C.dim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 650 }}>{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function SectionTitle({ title, subtitle }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
-      {subtitle && <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 12, lineHeight: 1.35 }}>{subtitle}</p>}
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label style={{ display: "grid", gap: 5 }}>
-      <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function cardStyle(extra = {}) {
-  return {
-    border: `1px solid ${C.border}`,
-    background: C.panelSolid,
-    borderRadius: 13,
-    padding: 14,
-    boxShadow: "0 12px 30px var(--shadow)",
-    ...extra,
-  };
-}
-
-function inputStyle() {
-  return {
-    width: "100%",
-    boxSizing: "border-box",
-    border: `1px solid ${C.border}`,
-    background: C.panelSolid2,
-    color: C.text,
-    borderRadius: 8,
-    padding: "9px 10px",
-    fontSize: 13,
-    fontWeight: 600,
-    outline: "none",
-    fontFamily: C.sans,
-  };
-}
-
-function miniInput() {
-  return {
-    ...inputStyle(),
-    padding: "7px 8px",
-    fontSize: 12,
-    borderRadius: 7,
-  };
-}
-
-function ghostBtn() {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    border: `1px solid ${C.border}`,
-    background: C.panel,
-    color: C.muted,
-    borderRadius: 9,
-    padding: "9px 13px",
-    fontSize: 13,
-    fontWeight: 650,
-    cursor: "pointer",
-    fontFamily: C.sans,
-  };
-}
-
-function primaryBtn(disabled = false) {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    border: `1px solid ${disabled ? C.border : C.blueB}`,
-    background: disabled ? C.panel2 : C.blue,
-    color: disabled ? C.dim : "var(--inverse-text)",
-    borderRadius: 9,
-    padding: "9px 13px",
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: disabled ? "not-allowed" : "pointer",
-  };
-}
-
-function smallBtn(disabled = false) {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    border: `1px solid ${C.border}`,
-    background: C.panelSolid,
-    color: disabled ? C.dim : C.text,
-    borderRadius: 9,
-    padding: "8px 11px",
-    fontSize: 12,
-    fontWeight: 650,
-    cursor: disabled ? "not-allowed" : "pointer",
-  };
-}
-
-function iconBtn(color) {
-  return {
-    width: 30,
-    height: 30,
-    display: "inline-grid",
-    placeItems: "center",
-    borderRadius: 8,
-    border: `1px solid ${color}44`,
-    background: `${color}12`,
-    color,
-    cursor: "pointer",
-  };
-}
-
-function pill(color) {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    maxWidth: 160,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    borderRadius: 999,
-    border: `1px solid ${color}44`,
-    background: `${color}12`,
-    color,
-    padding: "4px 8px",
-    fontSize: 11,
-    fontWeight: 700,
-  };
-}
-
-function thStyle() {
-  return {
-    textAlign: "left",
-    padding: "10px 12px",
-    color: C.dim,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1.1,
-    fontWeight: 700,
-    background: C.panel2,
-    borderBottom: `1px solid ${C.border}`,
-  };
-}
-
-function tdStyle(extra = {}) {
-  return {
-    padding: "11px 12px",
-    color: C.text,
-    fontSize: 13,
-    verticalAlign: "top",
-    ...extra,
-  };
-}
-
-function emptyCell() {
-  return {
-    padding: 28,
-    color: C.dim,
-    textAlign: "center",
-    fontSize: 13,
-  };
 }

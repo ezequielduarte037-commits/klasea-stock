@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Search,
   Ship,
-  Table2,
   Trash2,
   Volume2,
   X,
@@ -54,6 +53,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import logoKUrl from "@/assets/logos/logo-k.png";
 import { StatStrip } from "@/features/compras/comprasUI";
 import { C } from "@/theme";
+import { Cabecera } from "./ui";
 
 const emptyRow = {
   entry_date: new Date().toISOString().slice(0, 10),
@@ -81,20 +81,20 @@ const CURRENCIES = [
 
 const labelStyle = {
   color: C.dim,
-  fontSize: 10,
-  letterSpacing: 1.1,
+  fontSize: 11,
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
-  fontWeight: 650,
+  fontWeight: 600,
   marginBottom: 5,
 };
 
 const inputStyle = {
   width: "100%",
   background: C.panel,
-  border: `1px solid ${C.border}`,
+  border: `1px solid ${C.border2}`,
   color: C.text,
-  borderRadius: 7,
-  padding: "8px 9px",
+  borderRadius: 10,
+  padding: "8px 11px",
   outline: "none",
   fontSize: 13,
   fontFamily: C.sans,
@@ -332,13 +332,13 @@ function toneButton(color, active = false) {
     justifyContent: "center",
     gap: 6,
     border: `1px solid ${active ? color + "66" : C.border}`,
-    background: active ? `${color}14` : C.panel,
+    background: active ? `color-mix(in srgb, ${color} 12%, transparent)` : C.panel,
     color: active ? color : C.muted,
-    borderRadius: 7,
-    padding: "7px 10px",
+    borderRadius: 10,
+    padding: "7px 12px",
     cursor: "pointer",
-    fontSize: 12,
-    fontWeight: 650,
+    fontSize: 12.5,
+    fontWeight: 600,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
   };
@@ -353,7 +353,7 @@ function iconButton(color = C.dim) {
     border: `1px solid ${C.border}`,
     background: C.panel,
     color,
-    borderRadius: 7,
+    borderRadius: 9,
     cursor: "pointer",
     flexShrink: 0,
   };
@@ -1179,19 +1179,20 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: panelGrid, gap: 14, minHeight: 0 }}>
+    <>
+    <Cabecera
+      eyebrow="Compras · Gastos"
+      titulo="Adicionales por"
+      acento="obra"
+      sub={<>Lo que se compra fuera de la matriz de cada barco · <b className="mono">{boards.length}</b> tablas</>}
+    />
+    <div className="cmp-adic" style={{ display: "grid", gridTemplateColumns: panelGrid, gap: 14, minHeight: 0 }}>
       {/* El rail scrollea solo. Con veintiún tablas estiraba el alto de la
           página, así que al bajar para ver una tabla del final también se iba
           de pantalla el contenido de la derecha. */}
-      <aside style={{ display: "grid", gap: 10, alignContent: "start", minWidth: 0, maxHeight: "calc(100vh - 96px)", overflowY: "auto", paddingRight: 4 }}>
+      <aside className="cmp-adic-rail" style={{ display: "grid", gap: 10, alignContent: "start", minWidth: 0, maxHeight: "calc(100vh - 210px)", overflowY: "auto", paddingRight: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, display: "grid", placeItems: "center", background: `${C.cyan}12`, color: C.cyan, border: `1px solid ${C.cyan}33` }}>
-            <Table2 size={15} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Adicionales</div>
-            <div style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{boards.length} tablas</div>
-          </div>
+          <div style={{ color: C.dim, fontSize: 11, fontWeight: 650, letterSpacing: ".08em", textTransform: "uppercase" }}>Tablas</div>
           <span style={{ flex: 1 }} />
           <button type="button" title="Recargar" onClick={load} style={iconButton(C.dim)}>
             <RefreshCw size={13} />
@@ -1258,9 +1259,9 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                     background: "transparent",
                     color: C.dim,
                     fontFamily: C.sans,
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    letterSpacing: 1.1,
+                    fontSize: 11,
+                    fontWeight: 650,
+                    letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     cursor: plegable ? "pointer" : "default",
                     textAlign: "left",
@@ -1291,21 +1292,21 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                         gridTemplateColumns: "1fr auto",
                         gap: 8,
                         textAlign: "left",
-                        border: `1px solid ${active ? C.cyan : C.border}`,
-                        background: active ? `${C.cyan}18` : C.panel,
-                        boxShadow: active ? `0 0 0 1px ${C.cyan}44 inset` : "none",
-                        borderRadius: 8,
+                        border: `1px solid ${active ? C.blueB : C.border}`,
+                        background: active ? C.blueL : C.panel,
+                        boxShadow: "none",
+                        borderRadius: 12,
                         color: C.text,
-                        padding: active ? "9px 10px 9px 15px" : "8px 10px",
+                        padding: active ? "10px 12px 10px 15px" : "10px 12px",
                         cursor: "pointer",
                         minWidth: 0,
                       }}
                     >
                       {active && (
-                        <span style={{ position: "absolute", left: 0, top: 8, bottom: 8, width: 3, borderRadius: "0 3px 3px 0", background: C.cyan }} />
+                        <span style={{ position: "absolute", left: 0, top: 9, bottom: 9, width: 3, borderRadius: "0 3px 3px 0", background: C.blue }} />
                       )}
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: "block", fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                           {board.name}
                         </span>
                         <span style={{ display: "block", marginTop: 2, color: C.dim, fontSize: 11 }}>
@@ -1338,19 +1339,19 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 8, display: "grid", placeItems: "center", background: C.panel, border: `1px solid ${C.border}`, color: C.cyan }}>
-                <Ship size={17} />
+              <div style={{ width: 38, height: 38, borderRadius: 12, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
+                <Ship size={18} />
               </div>
               <div style={{ minWidth: 0, flex: "1 1 220px" }}>
-                <div style={{ color: C.text, fontSize: 18, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ color: C.text, fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {selected.name}
                 </div>
                 <div style={{ color: C.dim, fontSize: 12 }}>
                   {selected.project?.codigo ? `Obra ${selected.project.codigo}` : "Barco sin obra vinculada"}
                 </div>
               </div>
-              <button type="button" onClick={() => setShowRequestForm((v) => !v)} style={toneButton(C.cyan, showRequestForm)}>
-                <PackagePlus size={13} /> Pedido
+              <button type="button" onClick={() => setShowRequestForm((v) => !v)} style={toneButton(C.blue, true)}>
+                <PackagePlus size={13} /> {showRequestForm ? "Cerrar pedido" : "Pedido"}
               </button>
               {totals.pending > 0 && (
                 <label
@@ -1445,7 +1446,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
               </form>
             )}
 
-            <form onSubmit={handleAddRow} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "112px 140px minmax(150px, 1fr) 62px 120px 78px auto", gap: 7, border: `1px solid ${C.border}`, borderRadius: 8, background: C.panel, padding: 10 }}>
+            <form onSubmit={handleAddRow} className="cmp-adic-alta" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "112px 140px minmax(150px, 1fr) 62px 120px 78px auto", gap: 7, border: `1px solid ${C.border}`, borderRadius: 8, background: C.panel, padding: 10 }}>
               <input type="date" value={rowForm.entry_date} onChange={(e) => setRowForm((f) => ({ ...f, entry_date: e.target.value }))} style={inputStyle} />
               <input value={rowForm.provider} onChange={(e) => setRowForm((f) => ({ ...f, provider: e.target.value }))} placeholder="Proveedor" style={inputStyle} />
               <input value={rowForm.detail} onChange={(e) => setRowForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Detalle extra" style={inputStyle} />
@@ -1537,7 +1538,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
                           </span>
                         </div>
                         {editing && (
-                          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "108px 130px minmax(170px, 1fr) 60px 110px 78px auto", gap: 7, padding: "0 10px 10px", background: C.panel2 }}>
+                          <div className="cmp-adic-alta" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "108px 130px minmax(170px, 1fr) 60px 110px 78px auto", gap: 7, padding: "0 10px 10px", background: C.panel2 }}>
                             <input type="date" value={editForm.entry_date} onChange={(e) => setEditForm((f) => ({ ...f, entry_date: e.target.value }))} style={inputStyle} />
                             <input value={editForm.provider} onChange={(e) => setEditForm((f) => ({ ...f, provider: e.target.value }))} placeholder="Proveedor" style={inputStyle} />
                             <input value={editForm.detail} onChange={(e) => setEditForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Detalle" style={inputStyle} />
@@ -1708,5 +1709,6 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
         )}
       </section>
     </div>
+    </>
   );
 }

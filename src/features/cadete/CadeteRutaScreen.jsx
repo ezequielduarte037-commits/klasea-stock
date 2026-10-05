@@ -5,8 +5,8 @@ import {
   MapPin, Plus, Printer, RefreshCw, Trash2, Truck, Wallet, X,
 } from "lucide-react";
 import { exportRutaPdf } from "@/features/cadete/cadeteRutaPdf";
-import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import {
   addParada, addParadas, createRuta, deleteParada, deleteRuta, fetchCadetes,
   fetchPedidosParaRuta, fetchRutasConParadas, marcarParada, updateParada,
@@ -16,6 +16,11 @@ import {
 import { ensureCajaChicaCierreAbierto, fetchCajaChicaEntries } from "@/features/compras/cajaChicaApi";
 import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
 import Cargando from "@/components/ui/Cargando";
+import { CSS_COMPRAS_MODULO } from "@/features/compras/estilos";
+import { Aviso, Buscar, Modal, Vacio } from "@/features/compras/ui";
+
+// Hoja de ruta del cadete. Compras la arma (dentro de Compras) y el cadete la
+// recorre desde el celular (/cadete). Usa las piezas del módulo de Compras.
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
@@ -31,21 +36,14 @@ function fmtFecha(v) {
 }
 
 const PARADA_ESTADO = {
-  pendiente: { label: "Pendiente", color: C.cyan, bg: C.cyanL, border: C.cyanB },
-  hecho: { label: "Hecho", color: C.green, bg: C.greenL, border: C.greenB },
-  no_pude: { label: "No pude", color: C.red, bg: C.redL, border: C.redB },
+  pendiente: { label: "Pendiente", tono: "cian" },
+  hecho: { label: "Hecho", tono: "verde" },
+  no_pude: { label: "No pude", tono: "rojo" },
 };
 
-const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" };
-const LBL = { fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4, display: "block" };
-const BTN_PRIM = { border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 };
-const BTN_GHOST = { border: `1px solid ${C.border}`, background: "transparent", color: C.text, borderRadius: 9, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 650 };
-
-function EstadoBadge({ estado }) {
+function EstadoParada({ estado }) {
   const m = PARADA_ESTADO[estado] || PARADA_ESTADO.pendiente;
-  return (
-    <span style={{ color: m.color, background: m.bg, border: `1px solid ${m.border}`, borderRadius: 999, padding: "2px 9px", fontSize: 10, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{m.label}</span>
-  );
+  return <span className="cmp-estado" data-tono={m.tono}>{m.label}</span>;
 }
 
 function rutaProgreso(ruta) {
@@ -56,7 +54,7 @@ function rutaProgreso(ruta) {
   return { total, hechas, noPude, pend: total - hechas - noPude };
 }
 
-// ─── Modal: agregar paradas desde pedidos abiertos ──────────────────────────
+// ─── Agregar paradas desde pedidos abiertos ─────────────────────────────────
 function PedidosModal({ onClose, onAdd }) {
   const toast = useToast();
   const [rows, setRows] = useState([]);
@@ -89,77 +87,71 @@ function PedidosModal({ onClose, onAdd }) {
   }
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "grid", placeItems: "center", padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(560px,100%)", maxHeight: "82vh", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontWeight: 750, color: C.text, fontSize: 15 }}>Agregar desde pedidos</div>
-          <button type="button" onClick={onClose} style={{ ...BTN_GHOST, padding: "5px 8px" }}><X size={15} /></button>
+    <Modal
+      icono={ClipboardList}
+      titulo="Agregar desde pedidos"
+      sub="Cada pedido elegido queda como una parada para retirar."
+      onCerrar={onClose}
+      pie={(
+        <>
+          <button type="button" className="ui-btn ui-btn-fantasma" onClick={onClose}>Cancelar</button>
+          <button type="button" className="ui-btn ui-btn-primario" onClick={confirmar} disabled={!count}><Plus size={15} /> Agregar {count > 0 ? count : ""}</button>
+        </>
+      )}
+    >
+      <Buscar value={q} onChange={setQ} placeholder="Buscar pedido, proveedor u obra…" ancho />
+      {loading ? <Cargando texto="Trayendo los pedidos…" /> : !filtered.length ? (
+        <p className="cmp-ayuda">No hay pedidos abiertos{q.trim() ? " que coincidan" : ""}.</p>
+      ) : (
+        <div style={{ display: "grid", gap: 6 }}>
+          {filtered.map((r) => (
+            <label key={r.id} className={`cmp-ruta-pick${sel[r.id] ? " on" : ""}`}>
+              <input type="checkbox" checked={!!sel[r.id]} onChange={() => toggle(r.id)} />
+              <span style={{ minWidth: 0 }}>
+                <b>{r.title}</b>
+                <small>{r.proveedor || "sin proveedor"}{r.obra_codigo ? ` · Obra ${r.obra_codigo}` : ""} · {r.status}</small>
+              </span>
+            </label>
+          ))}
         </div>
-        <div style={{ padding: "10px 15px" }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar pedido, proveedor u obra..." style={INP} />
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 15px 12px", display: "grid", gap: 6 }}>
-          {loading ? <div style={{ color: C.dim, fontSize: 13, padding: 12 }}>Cargando pedidos...</div>
-            : filtered.length === 0 ? <div style={{ color: C.dim, fontSize: 13, padding: 12 }}>No hay pedidos abiertos.</div>
-              : filtered.map((r) => (
-                <label key={r.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 11px", borderRadius: 9, background: sel[r.id] ? C.blueL : C.panelSolid, border: `1px solid ${sel[r.id] ? C.blueB : C.border}`, cursor: "pointer" }}>
-                  <input type="checkbox" checked={!!sel[r.id]} onChange={() => toggle(r.id)} style={{ marginTop: 2 }} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 650, color: C.text, fontSize: 13 }}>{r.title}</div>
-                    <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>
-                      {r.proveedor ? r.proveedor : "sin proveedor"}{r.obra_codigo ? ` · Obra ${r.obra_codigo}` : ""} · {r.status}
-                    </div>
-                  </div>
-                </label>
-              ))}
-        </div>
-        <div style={{ padding: "12px 15px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button type="button" onClick={onClose} style={BTN_GHOST}>Cancelar</button>
-          <button type="button" onClick={confirmar} style={{ ...BTN_PRIM, background: C.green }}><Plus size={15} /> Agregar {count > 0 ? `(${count})` : ""}</button>
-        </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }
 
-// ─── Fila de parada (armador de compras) ────────────────────────────────────
+// ─── Parada, vista de Compras (arma y ordena) ───────────────────────────────
 function ParadaAdminRow({ parada, idx, total, onMove, onDelete }) {
+  const m = PARADA_ESTADO[parada.estado] || PARADA_ESTADO.pendiente;
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 10, background: C.panelSolid, border: `1px solid ${C.border}` }}>
-      <div style={{ display: "grid", gap: 2 }}>
-        <button type="button" disabled={idx === 0} onClick={() => onMove(idx, -1)} style={{ ...BTN_GHOST, padding: "2px 5px", opacity: idx === 0 ? 0.35 : 1 }}><ChevronUp size={13} /></button>
-        <div style={{ textAlign: "center", fontSize: 11, fontWeight: 750, color: C.dim }}>{idx + 1}</div>
-        <button type="button" disabled={idx === total - 1} onClick={() => onMove(idx, 1)} style={{ ...BTN_GHOST, padding: "2px 5px", opacity: idx === total - 1 ? 0.35 : 1 }}><ChevronDown size={13} /></button>
+    <div className="cmp-parada" data-tono={m.tono}>
+      <div className="orden">
+        <button type="button" className="cmp-btn-ic chico" disabled={idx === 0} onClick={() => onMove(idx, -1)} aria-label="Subir"><ChevronUp size={14} /></button>
+        <span className="n">{idx + 1}</span>
+        <button type="button" className="cmp-btn-ic chico" disabled={idx === total - 1} onClick={() => onMove(idx, 1)} aria-label="Bajar"><ChevronDown size={14} /></button>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 700, color: C.text, fontSize: 13.5 }}>{parada.proveedor || "Sin proveedor"}</span>
-          <EstadoBadge estado={parada.estado} />
-          {parada.request_id && <span style={{ fontSize: 9.5, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "1px 7px", fontWeight: 700 }}>PEDIDO</span>}
+      <div style={{ minWidth: 0 }}>
+        <div className="cab">
+          <b>{parada.proveedor || "Sin proveedor"}</b>
+          <EstadoParada estado={parada.estado} />
+          {parada.request_id && <span className="cmp-tag" data-tono="azul">Pedido</span>}
         </div>
-        {parada.detalle && <div style={{ fontSize: 12, color: C.t2 || C.dim, marginTop: 3 }}>{parada.detalle}</div>}
-        {parada.direccion && <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {parada.direccion}</div>}
-        {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 12, color: C.green, fontWeight: 700, marginTop: 3, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
-        {parada.estado === "no_pude" && parada.motivo && <div style={{ fontSize: 11.5, color: C.red, marginTop: 3 }}>Motivo: {parada.motivo}</div>}
-        {/* Compras arma la ruta y después rinde la caja: acá es donde el remito
-            hace falta para cruzar el gasto contra el comprobante. */}
+        {parada.detalle && <div className="det">{parada.detalle}</div>}
+        {parada.direccion && <div className="dir"><MapPin size={12} /> {parada.direccion}</div>}
+        {parada.estado === "hecho" && parada.importe != null && <div className="importe mono">{fmtMoney(parada.importe, parada.moneda)}</div>}
+        {parada.estado === "no_pude" && parada.motivo && <div className="motivo">Motivo: {parada.motivo}</div>}
+        {/* Compras rinde la caja con esto: el remito cruza el gasto contra el comprobante. */}
         {parada.comprobante_url && (
-          <a
-            href={parada.comprobante_url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 4, color: C.blue, fontSize: 11.5, fontWeight: 650, textDecoration: "none" }}
-          >
+          <a className="cmp-link" href={parada.comprobante_url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 4, textDecoration: "none" }}>
             <Camera size={12} /> Ver remito
           </a>
         )}
       </div>
-      <button type="button" onClick={() => onDelete(parada)} title="Quitar" style={{ ...BTN_GHOST, padding: "6px 8px", color: C.red, borderColor: C.redB }}><Trash2 size={14} /></button>
+      <button type="button" className="cmp-btn-ic chico peligro" onClick={() => onDelete(parada)} title="Quitar parada" aria-label="Quitar parada"><Trash2 size={14} /></button>
     </div>
   );
 }
 
-// ─── Tarjeta de parada (ejecución del cadete) ───────────────────────────────
+// ─── Parada, vista del cadete (la recorre) ──────────────────────────────────
 function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
   const toast = useToast();
   const [mode, setMode] = useState(null); // null | "hecho" | "no_pude"
@@ -207,123 +199,80 @@ function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
   const resuelta = parada.estado !== "pendiente";
 
   return (
-    <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${resuelta ? m.border : C.border}`, overflow: "hidden" }}>
-      <div style={{ padding: "12px 13px", display: "flex", gap: 11, alignItems: "flex-start" }}>
-        <div style={{ width: 26, height: 26, borderRadius: 8, background: m.bg, color: m.color, display: "grid", placeItems: "center", fontWeight: 750, fontSize: 13, flexShrink: 0 }}>{idx + 1}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 700, color: C.text, fontSize: 15 }}>{parada.proveedor || "Sin proveedor"}</span>
-            <EstadoBadge estado={parada.estado} />
-          </div>
-          {parada.detalle && <div style={{ fontSize: 13, color: C.text, marginTop: 4 }}>{parada.detalle}</div>}
-          {parada.direccion && <div style={{ fontSize: 12.5, color: C.blue, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> {parada.direccion}</div>}
-          {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 13.5, color: C.green, fontWeight: 700, marginTop: 5, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
-          {parada.estado === "no_pude" && parada.motivo && <div style={{ fontSize: 12.5, color: C.red, marginTop: 5 }}>Motivo: {parada.motivo}</div>}
-          {/* El remito se subía y quedaba invisible: nadie podía verlo desde
-              ninguna pantalla, así que parecía que no se había guardado. */}
+    <div className={`cmp-parada-cad${resuelta ? " resuelta" : ""}`} data-tono={m.tono}>
+      <div className="cuerpo">
+        <span className="n">{idx + 1}</span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="cab"><b>{parada.proveedor || "Sin proveedor"}</b><EstadoParada estado={parada.estado} /></div>
+          {parada.detalle && <div className="det">{parada.detalle}</div>}
+          {parada.direccion && <div className="dir"><MapPin size={13} /> {parada.direccion}</div>}
+          {parada.estado === "hecho" && parada.importe != null && <div className="importe mono">{fmtMoney(parada.importe, parada.moneda)}</div>}
+          {parada.estado === "no_pude" && parada.motivo && <div className="motivo">Motivo: {parada.motivo}</div>}
+          {/* El remito se subía y quedaba invisible; ahora se ve. */}
           {parada.comprobante_url && (
-            <a
-              href={parada.comprobante_url}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                marginTop: 8,
-                padding: 5,
-                paddingRight: 11,
-                borderRadius: 10,
-                border: `1px solid ${C.border}`,
-                background: C.panel2,
-                color: C.blue,
-                fontSize: 12.5,
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
-            >
-              <img
-                src={parada.comprobante_url}
-                alt="Remito"
-                style={{ width: 34, height: 34, borderRadius: 7, objectFit: "cover", display: "block" }}
-              />
-              Ver remito
+            <a className="cmp-parada-remito" href={parada.comprobante_url} target="_blank" rel="noreferrer">
+              <img src={parada.comprobante_url} alt="Remito" /> Ver remito
             </a>
           )}
         </div>
       </div>
 
-      {/* Acciones */}
       {!resuelta && mode === null && (
-        <div style={{ display: "flex", gap: 8, padding: "0 13px 13px" }}>
-          <button type="button" onClick={() => setMode("hecho")} style={{ ...BTN_PRIM, background: C.green, flex: 1, justifyContent: "center", padding: "11px" }}><Check size={16} /> Hecho</button>
-          <button type="button" onClick={() => setMode("no_pude")} style={{ ...BTN_GHOST, color: C.red, borderColor: C.redB, flex: 1, justifyContent: "center", padding: "11px", display: "inline-flex", alignItems: "center", gap: 6 }}><X size={16} /> No pude</button>
+        <div className="acc">
+          <button type="button" className="ui-btn" data-tono="verde" onClick={() => setMode("hecho")}><Check size={16} /> Hecho</button>
+          <button type="button" className="ui-btn" data-tono="rojo" onClick={() => setMode("no_pude")}><X size={16} /> No pude</button>
         </div>
       )}
 
       {mode === "hecho" && (
-        <div style={{ padding: "0 13px 13px", display: "grid", gap: 8 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 84px", gap: 8 }}>
-            <div>
-              <label style={LBL}>¿Cuánto gastaste?</label>
-              <input value={importe} onChange={(e) => setImporte(e.target.value)} inputMode="decimal" placeholder="0" autoFocus style={{ ...INP, fontFamily: C.mono, fontSize: 16 }} />
-            </div>
-            <div>
-              <label style={LBL}>Moneda</label>
-              <select value={moneda} onChange={(e) => setMoneda(e.target.value)} style={{ ...INP, cursor: "pointer" }}><option value="ARS">ARS</option><option value="USD">USD</option></select>
-            </div>
+        <div className="form">
+          <div className="cmp-form">
+            <label className="cmp-campo c4"><span>¿Cuánto gastaste?</span>
+              <input className="ui-input num" value={importe} onChange={(e) => setImporte(e.target.value)} inputMode="decimal" placeholder="0" autoFocus style={{ fontSize: 16 }} />
+            </label>
+            <label className="cmp-campo c2"><span>Moneda</span>
+              <select className="ui-input" value={moneda} onChange={(e) => setMoneda(e.target.value)}><option value="ARS">ARS</option><option value="USD">USD</option></select>
+            </label>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button type="button" onClick={() => fileRef.current?.click()} style={{ ...BTN_GHOST, display: "inline-flex", alignItems: "center", gap: 6, color: C.blue }}><Camera size={15} /> {file ? "Cambiar foto" : "Foto del remito"}</button>
-            {file && <span style={{ fontSize: 12, color: C.green, fontWeight: 650 }}>✓ {file.name.slice(0, 18)}</span>}
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { setFile(e.target.files?.[0] || null); e.target.value = ""; }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => fileRef.current?.click()}><Camera size={15} /> {file ? "Cambiar foto" : "Foto del remito"}</button>
+            {file && <span className="cmp-ayuda" style={{ color: "var(--green)" }}>✓ {file.name.slice(0, 22)}</span>}
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { setFile(e.target.files?.[0] || null); e.target.value = ""; }} />
           </div>
-          <div style={{ fontSize: 11, color: C.dim }}>Se registra como gasto en tu caja chica.</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={() => { setMode(null); setFile(null); }} style={{ ...BTN_GHOST, flex: 1, textAlign: "center" }}>Cancelar</button>
-            <button type="button" onClick={confirmHecho} disabled={busy} style={{ ...BTN_PRIM, background: C.green, flex: 2, justifyContent: "center", opacity: busy ? 0.6 : 1 }}><Check size={16} /> {busy ? "Guardando..." : "Confirmar"}</button>
+          <p className="cmp-ayuda">Se registra como gasto en tu caja chica.</p>
+          <div className="acc">
+            <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => { setMode(null); setFile(null); }}>Cancelar</button>
+            <button type="button" className="ui-btn" data-tono="verde" onClick={confirmHecho} disabled={busy}><Check size={16} /> {busy ? "Guardando…" : "Confirmar"}</button>
           </div>
         </div>
       )}
 
       {mode === "no_pude" && (
-        <div style={{ padding: "0 13px 13px", display: "grid", gap: 8 }}>
-          <div>
-            <label style={LBL}>¿Por qué no pudiste?</label>
-            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus placeholder="Cerrado, sin stock, no estaba pago..." style={INP} />
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={() => setMode(null)} style={{ ...BTN_GHOST, flex: 1, textAlign: "center" }}>Cancelar</button>
-            <button type="button" onClick={confirmNoPude} disabled={busy} style={{ ...BTN_PRIM, background: C.red, flex: 2, justifyContent: "center", opacity: busy ? 0.6 : 1 }}>{busy ? "Guardando..." : "Marcar no pude"}</button>
+        <div className="form">
+          <label className="cmp-campo c6"><span>¿Por qué no pudiste?</span>
+            <input className="ui-input" value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus placeholder="Cerrado, sin stock, no estaba pago…" />
+          </label>
+          <div className="acc">
+            <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => setMode(null)}>Cancelar</button>
+            <button type="button" className="ui-btn" data-tono="rojo" onClick={confirmNoPude} disabled={busy}>{busy ? "Guardando…" : "Marcar no pude"}</button>
           </div>
         </div>
       )}
 
       {resuelta && mode === null && (
-        <div style={{ padding: "0 13px 12px" }}>
-          <button type="button" onClick={() => onReset(parada)} style={{ ...BTN_GHOST, fontSize: 11.5, padding: "6px 10px", color: C.dim }}>Deshacer</button>
+        <div className="acc" style={{ justifyContent: "flex-start" }}>
+          <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => onReset(parada)}>Deshacer</button>
         </div>
       )}
     </div>
   );
 }
 
-function useIsMobile() {
-  const [m, setM] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const on = (e) => setM(e.matches);
-    mq.addEventListener?.("change", on);
-    return () => mq.removeEventListener?.("change", on);
-  }, []);
-  return m;
-}
-
 // ─── Pantalla ───────────────────────────────────────────────────────────────
 export default function CadeteRutaScreen({ profile, signOut, embedded = false }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const nav = useNavigate();
-  const isMobile = useIsMobile();
   const isCadete = profile?.role === "cadete";
   const isManager = profile?.is_admin || ["admin", "compras", "tecnica", "oficina"].includes(profile?.role);
 
@@ -382,8 +331,14 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
     }
   }, [isManager, isCadete]);
 
-  useEffect(() => { loadRutas(targetCadeteId); }, [targetCadeteId, loadRutas]);
-  useEffect(() => { loadCaja(targetCadeteId); }, [targetCadeteId, loadCaja]);
+  useEffect(() => {
+    const t = window.setTimeout(() => { void loadRutas(targetCadeteId); }, 0);
+    return () => window.clearTimeout(t);
+  }, [targetCadeteId, loadRutas]);
+  useEffect(() => {
+    const t = window.setTimeout(() => { void loadCaja(targetCadeteId); }, 0);
+    return () => window.clearTimeout(t);
+  }, [targetCadeteId, loadCaja]);
 
   // el cadete asegura un cierre abierto en su caja para agrupar los gastos
   useEffect(() => {
@@ -414,14 +369,15 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
     } catch (e) { toast.error(e?.message || "No se pudo crear la ruta."); }
   }
 
-  async function agregarParadaManual() {
+  async function agregarParadaManual(e) {
+    e?.preventDefault();
     if (!ruta) return;
     if (!np.proveedor.trim() && !np.detalle.trim()) { toast.warning("Poné al menos proveedor o detalle."); return; }
     try {
       await addParada(ruta.id, { ...np, orden: paradas.length });
       setNp({ proveedor: "", direccion: "", detalle: "" });
       await loadRutas(targetCadeteId);
-    } catch (e) { toast.error(e?.message || "No se pudo agregar la parada."); }
+    } catch (err) { toast.error(err?.message || "No se pudo agregar la parada."); }
   }
 
   async function agregarDesdePedidos(list) {
@@ -451,7 +407,8 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
 
   async function borrarRuta() {
     if (!ruta) return;
-    if (!window.confirm("¿Borrar esta ruta y todas sus paradas?")) return;
+    const ok = await confirm({ title: "Borrar la ruta", message: "Se borra la ruta con todas sus paradas.", confirmLabel: "Borrar", tone: "danger" });
+    if (!ok) return;
     try { await deleteRuta(ruta.id); await loadRutas(targetCadeteId); }
     catch (e) { toast.error(e?.message || "No se pudo borrar la ruta."); }
   }
@@ -475,178 +432,173 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
   }
 
   const prog = ruta ? rutaProgreso(ruta) : null;
+  const armaCompras = isManager && !isCadete;
 
-  return (
-    <div style={embedded
-      ? { display: "flex", flexDirection: "column", height: "80vh", minHeight: 520, background: C.bg, color: C.text, fontFamily: C.sans, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }
-      : { position: "fixed", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, display: "flex", flexDirection: "column" }}>
-      {/* Top bar */}
-      {!embedded && (
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: isMobile ? "9px 12px" : "11px 15px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, flexShrink: 0, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            {isManager && !isCadete && (
-              <button type="button" onClick={() => nav("/")} style={{ ...BTN_GHOST, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 5 }}><ArrowLeft size={15} /> Inicio</button>
-            )}
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, display: "grid", placeItems: "center", flexShrink: 0 }}><Truck size={18} /></div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 750, fontSize: 15 }}>Hoja de ruta</div>
-              <div style={{ fontSize: 11, color: C.dim }}>{isCadete ? `Hola, ${profile.username}` : "Cadete · retiros y caja"}</div>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button type="button" onClick={() => loadRutas(targetCadeteId)} title="Actualizar" style={{ ...BTN_GHOST, padding: "7px 9px" }}><RefreshCw size={15} /></button>
-            {isCadete && <button type="button" onClick={signOut} style={BTN_GHOST}>Salir</button>}
-          </div>
-          {isCadete && (
-            <div style={{ display: "flex", gap: 6, flex: isMobile ? "1 0 100%" : "0 0 auto", order: isMobile ? 3 : 0 }}>
-              {[["ruta", "Hoja de ruta"], ["caja", "Caja chica"]].map(([v, l]) => (
-                <button key={v} type="button" onClick={() => setView(v)} style={{ flex: isMobile ? 1 : "0 0 auto", border: `1px solid ${view === v ? C.blueB : C.border}`, background: view === v ? C.blueL : "transparent", color: view === v ? C.blue : C.text, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>{l}</button>
-              ))}
-            </div>
-          )}
-        </header>
-      )}
-
+  const contenido = (
+    <>
       {missingTable && (
-        <div style={{ margin: 14, padding: 14, borderRadius: 10, background: C.cyanL, border: `1px solid ${C.cyanB}`, color: C.cyan, fontSize: 13 }}>
-          Falta correr el SQL de la hoja de ruta (tablas <b>cadete_rutas</b> / <b>cadete_ruta_paradas</b>) en Supabase.
-        </div>
+        <Aviso tono="cian">Falta correr el SQL de la hoja de ruta (tablas <b>cadete_rutas</b> / <b>cadete_ruta_paradas</b>) en Supabase.</Aviso>
       )}
 
       {view === "caja" && isCadete ? (
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 14 }}>
-          <CajaChicaPanel lockedOwnerId={profile.id} />
-        </div>
+        <CajaChicaPanel lockedOwnerId={profile.id} />
       ) : (
-      <div style={isMobile
-        ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" }
-        : { flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
-        {/* Columna izquierda: selección de cadete + rutas */}
-        <aside style={isMobile
-          ? { width: "100%", flexShrink: 0, borderBottom: `1px solid ${C.border}`, padding: 12, display: "grid", gap: 12, alignContent: "start" }
-          : { width: isManager && !isCadete ? 300 : 260, flexShrink: 0, borderRight: `1px solid ${C.border}`, overflowY: "auto", padding: 13, display: "grid", gap: 12, alignContent: "start" }}>
-          {isManager && !isCadete && (
-            <div>
-              <label style={LBL}>Cadete</label>
-              <select value={cadeteId} onChange={(e) => setCadeteId(e.target.value)} style={{ ...INP, cursor: "pointer" }}>
-                <option value="">- Elegí un cadete -</option>
-                {cadetes.map((c) => <option key={c.id} value={c.id}>{c.username}</option>)}
-              </select>
-              {cadetes.length === 0 && <div style={{ fontSize: 11, color: C.dim, marginTop: 5 }}>No hay usuarios con rol "cadete". Creá uno en Configuración.</div>}
-            </div>
-          )}
+        <div className="cmp-ruta">
+          {/* Lado: de quién es, su caja, crear y elegir la ruta */}
+          <aside className="cmp-ruta-lado">
+            {armaCompras && (
+              <label className="cmp-campo c6"><span>Cadete</span>
+                <select className="ui-input" value={cadeteId} onChange={(e) => setCadeteId(e.target.value)}>
+                  <option value="">Elegí un cadete…</option>
+                  {cadetes.map((c) => <option key={c.id} value={c.id}>{c.username}</option>)}
+                </select>
+                {cadetes.length === 0 && <span className="cmp-ayuda">No hay usuarios con rol "cadete". Se crean en Configuración.</span>}
+              </label>
+            )}
 
-          {/* Vistazo de la caja del cadete — solo para compras (el cadete la ve completa en su pestaña "Caja chica") */}
-          {!isCadete && (
-            <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 13 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}><Wallet size={13} /> Caja del cadete</div>
-              <div style={{ fontSize: 22, fontWeight: 750, color: cajaSaldo.ARS < 0 ? C.red : C.green, fontFamily: C.mono }}>{fmtMoney(cajaSaldo.ARS, "ARS")}</div>
-              {Math.abs(cajaSaldo.USD) > 0.001 && <div style={{ fontSize: 14, fontWeight: 700, color: cajaSaldo.USD < 0 ? C.red : C.green, fontFamily: C.mono, marginTop: 2 }}>{fmtMoney(cajaSaldo.USD, "USD")}</div>}
-              <div style={{ fontSize: 10.5, color: C.dim, marginTop: 4 }}>saldo (ingresos − gastos)</div>
-            </div>
-          )}
-
-          {/* Nueva ruta */}
-          {(isManager || isCadete) && (
-            <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 13, display: "grid", gap: 8 }}>
-              <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>{isCadete ? "Armar mi ruta" : "Nueva ruta"}</div>
-              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} style={INP} />
-              <button type="button" onClick={crearRuta} disabled={!targetCadeteId} style={{ ...BTN_PRIM, justifyContent: "center", opacity: targetCadeteId ? 1 : 0.5 }}><Plus size={15} /> Crear ruta</button>
-            </div>
-          )}
-
-          {/* Lista de rutas */}
-          <div style={{ display: "grid", gap: 7 }}>
-            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Rutas</div>
-            {loading ? <Cargando compacto />
-              : rutas.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>Sin rutas todavía.</div>
-                : rutas.map((r) => {
-                  const p = rutaProgreso(r);
-                  const activa = r.id === rutaId;
-                  return (
-                    <button key={r.id} type="button" onClick={() => setRutaId(r.id)} style={{ textAlign: "left", border: `1px solid ${activa ? C.blueB : C.border}`, background: activa ? C.blueL : C.panelSolid, borderRadius: 10, padding: "10px 11px", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 700, color: C.text, fontSize: 13, textTransform: "capitalize" }}>{fmtFecha(r.fecha)}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: r.estado === "cerrada" ? C.dim : C.green, textTransform: "uppercase" }}>{r.estado}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: C.dim, marginTop: 3 }}>{p.hechas}/{p.total} hechas{p.noPude ? ` · ${p.noPude} no pude` : ""}</div>
-                    </button>
-                  );
-                })}
-          </div>
-        </aside>
-
-        {/* Columna derecha: detalle de la ruta */}
-        <main style={isMobile
-          ? { flex: "none", width: "100%", boxSizing: "border-box", padding: 12 }
-          : { flex: 1, minWidth: 0, overflowY: "auto", padding: 15 }}>
-          {!ruta ? (
-            <div style={{ display: "grid", placeItems: "center", minHeight: isMobile ? 160 : "100%", color: C.dim, gap: 8, textAlign: "center", padding: 16 }}>
-              <ClipboardList size={40} color={C.dim} />
-              <div style={{ fontSize: 14 }}>{isManager ? "Elegí o creá una ruta." : "Todavía no tenés ruta. Creá una arriba (“Armar mi ruta”)."}</div>
-            </div>
-          ) : (
-            <div style={{ maxWidth: 720, margin: "0 auto", display: "grid", gap: 13 }}>
-              {/* Header de ruta */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 750, textTransform: "capitalize" }}>{fmtFecha(ruta.fecha)}</div>
-                  {prog && <div style={{ fontSize: 12.5, color: C.dim, marginTop: 2 }}>{prog.total} paradas · {prog.hechas} hechas · {prog.pend} pendientes{prog.noPude ? ` · ${prog.noPude} no pude` : ""}</div>}
-                </div>
-                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                  <button type="button" onClick={imprimirRuta} style={{ ...BTN_GHOST, color: C.blue, display: "inline-flex", alignItems: "center", gap: 6 }}><Printer size={15} /> Imprimir / PDF</button>
-                  {isManager && (ruta.estado !== "cerrada"
-                    ? <button type="button" onClick={() => cambiarEstadoRuta("cerrada")} style={BTN_GHOST}>Cerrar ruta</button>
-                    : <button type="button" onClick={() => cambiarEstadoRuta("abierta")} style={BTN_GHOST}>Reabrir</button>)}
-                  {isManager && <button type="button" onClick={borrarRuta} style={{ ...BTN_GHOST, color: C.red, borderColor: C.redB }}><Trash2 size={14} /></button>}
-                </div>
+            {/* La caja del cadete de un vistazo (el cadete la ve completa en su pestaña). */}
+            {!isCadete && (
+              <div className="cmp-lado-card">
+                <div className="cmp-lado-tit"><Wallet size={13} /> Caja del cadete</div>
+                <b className="mono cmp-ruta-saldo" data-tono={cajaSaldo.ARS < 0 ? "rojo" : "verde"}>{fmtMoney(cajaSaldo.ARS, "ARS")}</b>
+                {Math.abs(cajaSaldo.USD) > 0.001 && <b className="mono" style={{ color: cajaSaldo.USD < 0 ? "var(--red)" : "var(--green)" }}>{fmtMoney(cajaSaldo.USD, "USD")}</b>}
+                <span className="cmp-ayuda">Saldo: lo que le dieron menos lo que gastó.</span>
               </div>
+            )}
 
-              {/* Barra progreso */}
-              {prog && prog.total > 0 && (
-                <div style={{ height: 8, borderRadius: 999, background: C.panel2 || C.panel, overflow: "hidden", display: "flex" }}>
-                  <div style={{ width: `${(prog.hechas / prog.total) * 100}%`, background: C.green }} />
-                  <div style={{ width: `${(prog.noPude / prog.total) * 100}%`, background: C.red }} />
-                </div>
-              )}
+            {(isManager || isCadete) && (
+              <div className="cmp-lado-card">
+                <div className="cmp-lado-tit">{isCadete ? "Armar mi ruta" : "Nueva ruta"}</div>
+                <input type="date" className="ui-input" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} aria-label="Fecha de la ruta" />
+                <button type="button" className="ui-btn ui-btn-primario" onClick={crearRuta} disabled={!targetCadeteId}><Plus size={15} /> Crear ruta</button>
+              </div>
+            )}
 
-              {/* Paradas */}
-              {paradas.length === 0 ? (
-                <div style={{ color: C.dim, fontSize: 13, padding: "12px 0" }}>Sin paradas todavía. Agregá abajo.</div>
-              ) : isManager && !isCadete ? (
-                <div style={{ display: "grid", gap: 8 }}>
-                  {paradas.map((p, i) => <ParadaAdminRow key={p.id} parada={p} idx={i} total={paradas.length} onMove={moverParada} onDelete={borrarParada} />)}
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {paradas.map((p, i) => <ParadaCadeteCard key={p.id} parada={p} idx={i} rutaId={ruta.id} onMarcar={marcar} onReset={resetParada} />)}
-                </div>
-              )}
-
-              {/* Agregar paradas */}
-              {(isManager || isCadete) && ruta.estado !== "cerrada" && (
-                <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 14, display: "grid", gap: 9, marginTop: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Agregar parada</div>
-                    {isManager && <button type="button" onClick={() => setShowPedidos(true)} style={{ ...BTN_GHOST, color: C.blue, display: "inline-flex", alignItems: "center", gap: 6 }}><ClipboardList size={14} /> Desde pedidos</button>}
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
-                    <input value={np.proveedor} onChange={(e) => setNp((s) => ({ ...s, proveedor: e.target.value }))} placeholder="Proveedor / comercio" style={INP} />
-                    <input value={np.direccion} onChange={(e) => setNp((s) => ({ ...s, direccion: e.target.value }))} placeholder="Dirección (opcional)" style={INP} />
-                  </div>
-                  <input value={np.detalle} onChange={(e) => setNp((s) => ({ ...s, detalle: e.target.value }))} placeholder="Qué retirar / detalle" style={INP} />
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button type="button" onClick={agregarParadaManual} style={{ ...BTN_PRIM, background: C.green }}><Plus size={15} /> Agregar parada</button>
-                  </div>
-                </div>
-              )}
+            <div style={{ display: "grid", gap: 6 }}>
+              <div className="cmp-rotulo">Rutas</div>
+              {loading ? <Cargando compacto /> : rutas.length === 0 ? <p className="cmp-ayuda">Sin rutas todavía.</p> : rutas.map((r) => {
+                const p = rutaProgreso(r);
+                const activa = r.id === rutaId;
+                return (
+                  <button key={r.id} type="button" className={`cmp-caja-op${activa ? " on" : ""}`} onClick={() => setRutaId(r.id)}>
+                    <span style={{ minWidth: 0 }}>
+                      <b style={{ textTransform: "capitalize" }}>{fmtFecha(r.fecha)}</b>
+                      <small>{p.hechas} de {p.total} hechas{p.noPude ? ` · ${p.noPude} no pude` : ""}</small>
+                    </span>
+                    <span className="cmp-estado" data-tono={r.estado === "cerrada" ? "neutro" : "verde"}>{r.estado === "cerrada" ? "Cerrada" : "Abierta"}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </main>
-      </div>
+          </aside>
+
+          {/* La ruta elegida */}
+          <section className="cmp-ruta-main">
+            {!ruta ? (
+              <Vacio icono={ClipboardList} titulo={armaCompras ? "Elegí o creá una ruta" : "Todavía no tenés ruta"} texto={armaCompras ? "Las paradas se arman acá: a mano o desde los pedidos abiertos." : "Creala con «Armar mi ruta»."} />
+            ) : (
+              <>
+                <div className="cmp-ruta-cab">
+                  <div style={{ minWidth: 0 }}>
+                    <h2 className="cmp-ruta-fecha">{fmtFecha(ruta.fecha)}</h2>
+                    {prog && <p className="cmp-sub" style={{ marginTop: 2 }}><b className="mono">{prog.total}</b> paradas · <b className="mono">{prog.hechas}</b> hechas · <b className="mono">{prog.pend}</b> pendientes{prog.noPude ? <> · <b className="mono">{prog.noPude}</b> no pude</> : null}</p>}
+                  </div>
+                  <div className="cmp-acciones" style={{ width: "auto" }}>
+                    <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={imprimirRuta}><Printer size={14} /> Imprimir</button>
+                    {isManager && (ruta.estado !== "cerrada"
+                      ? <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => cambiarEstadoRuta("cerrada")}>Cerrar ruta</button>
+                      : <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => cambiarEstadoRuta("abierta")}>Reabrir</button>)}
+                    {isManager && <button type="button" className="cmp-btn-ic chico peligro" onClick={borrarRuta} aria-label="Borrar ruta" title="Borrar ruta"><Trash2 size={14} /></button>}
+                  </div>
+                </div>
+
+                {prog && prog.total > 0 && (
+                  <div className="cmp-ruta-barra" aria-hidden="true">
+                    <i style={{ width: `${(prog.hechas / prog.total) * 100}%`, background: "var(--green)" }} />
+                    <i style={{ width: `${(prog.noPude / prog.total) * 100}%`, background: "var(--red)" }} />
+                  </div>
+                )}
+
+                {paradas.length === 0 ? (
+                  <p className="cmp-ayuda">Sin paradas todavía. Agregalas abajo.</p>
+                ) : armaCompras ? (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {paradas.map((p, i) => <ParadaAdminRow key={p.id} parada={p} idx={i} total={paradas.length} onMove={moverParada} onDelete={borrarParada} />)}
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {paradas.map((p, i) => <ParadaCadeteCard key={p.id} parada={p} idx={i} rutaId={ruta.id} onMarcar={marcar} onReset={resetParada} />)}
+                  </div>
+                )}
+
+                {(isManager || isCadete) && ruta.estado !== "cerrada" && (
+                  <form className="cmp-bloque" onSubmit={agregarParadaManual}>
+                    <div className="cmp-bloque-cab">
+                      <div style={{ minWidth: 0 }}>
+                        <h3 className="cmp-bloque-tit">Agregar parada</h3>
+                      </div>
+                      {isManager && <div className="der"><button type="button" className="ui-btn ui-btn-suave chico" onClick={() => setShowPedidos(true)}><ClipboardList size={14} /> Desde pedidos</button></div>}
+                    </div>
+                    <div className="cmp-bloque-cuerpo cmp-form">
+                      <label className="cmp-campo"><span>Proveedor o comercio</span>
+                        <input className="ui-input" value={np.proveedor} onChange={(e) => setNp((s) => ({ ...s, proveedor: e.target.value }))} placeholder="Ej.: Casa Iriarte" />
+                      </label>
+                      <label className="cmp-campo"><span>Dirección</span>
+                        <input className="ui-input" value={np.direccion} onChange={(e) => setNp((s) => ({ ...s, direccion: e.target.value }))} placeholder="Opcional" />
+                      </label>
+                      <label className="cmp-campo c6"><span>Qué retirar</span>
+                        <input className="ui-input" value={np.detalle} onChange={(e) => setNp((s) => ({ ...s, detalle: e.target.value }))} placeholder="Ej.: 4 rollos de cinta, pagar factura 123…" />
+                      </label>
+                      <div className="cmp-campo c6" style={{ justifyItems: "end" }}>
+                        <button type="submit" className="ui-btn ui-btn-primario chico"><Plus size={14} /> Agregar parada</button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+          </section>
+        </div>
       )}
 
       {showPedidos && <PedidosModal onClose={() => setShowPedidos(false)} onAdd={agregarDesdePedidos} />}
+    </>
+  );
+
+  // Dentro de Compras: la cabecera la pone el módulo.
+  if (embedded) {
+    return (
+      <div className="cmp-ambito" style={{ display: "grid", gap: 14, minWidth: 0 }}>
+        <style href="klasea-compras" precedence="default">{CSS_COMPRAS_MODULO}</style>
+        {contenido}
+      </div>
+    );
+  }
+
+  // Pantalla propia del cadete (y de Compras cuando entra por /cadete).
+  return (
+    <div className="cmp-ambito cmp-ruta-pantalla">
+      <style href="klasea-compras" precedence="default">{CSS_COMPRAS_MODULO}</style>
+      <header className="cmp-ruta-top">
+        {isManager && !isCadete && (
+          <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => nav("/")}><ArrowLeft size={15} /> Inicio</button>
+        )}
+        <span className="cmp-bloque-ic"><Truck size={17} /></span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 650, fontSize: 15 }}>Hoja de ruta</div>
+          <div className="cmp-ayuda">{isCadete ? `Hola, ${profile.username}` : "Cadete · retiros y caja"}</div>
+        </div>
+        <button type="button" className="cmp-btn-ic" onClick={() => loadRutas(targetCadeteId)} title="Volver a leer" aria-label="Volver a leer"><RefreshCw size={15} /></button>
+        {isCadete && <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={signOut}>Salir</button>}
+        {isCadete && (
+          <div className="cmp-seg cmp-ruta-vistas" role="radiogroup" aria-label="Qué ver">
+            {[["ruta", "Hoja de ruta"], ["caja", "Caja chica"]].map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? "on" : ""} onClick={() => setView(v)}>{l}</button>
+            ))}
+          </div>
+        )}
+      </header>
+      <main className="cmp-ruta-scroll">{contenido}</main>
     </div>
   );
 }

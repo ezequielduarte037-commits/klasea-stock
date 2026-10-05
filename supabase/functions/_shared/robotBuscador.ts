@@ -68,7 +68,9 @@ export function palabras(texto: string): string[] {
     .replace(/[^a-z0-9/]+/g, " ")
     .split(" ")
     .filter(Boolean)
-    .map((w) => w.replace(/y/g, "i"));
+    .map((w) => w.replace(/y/g, "i"))
+    // El catálogo histórico escribe CANILLA VALDEOS. No es otro material.
+    .map((w) => /^valdeos?$/.test(w) ? "baldeo" : w);
 }
 
 const raiz = (w: string) => (w.length > 4 ? w.replace(/(es|s)$/, "") : w.replace(/s$/, ""));
@@ -123,6 +125,26 @@ export function buscar(indice: Indexado[], consulta: string, maximo = 5): Candid
   if (!puntuados.length) return [];
   const mejor = puntuados[0].puntaje;
   return puntuados.filter((c) => mejor - c.puntaje < 0.05).slice(0, maximo);
+}
+
+/** Todos los productos de una consulta, sin privilegiar el nombre más corto.
+ * Una pregunta por griferías no puede esconder las variantes de ducha porque
+ * una bacha tenga menos palabras. Exige todas las medidas y palabras útiles.
+ * Los sinónimos amplían familias; nunca cambian códigos ni medidas.
+ */
+export function buscarFamilia(indice: Indexado[], consulta: string): Candidato[] {
+  const texto = medidasHabladas(consulta);
+  const dichos = palabras(texto).filter((w) => !RELLENO.has(w)).map((w) => NUMEROS_DICHOS[w] ?? w);
+  if (!dichos.length) return [];
+  const cod = plano(texto.replace(/\b(codigo|cod)\b/g, ""));
+  const exactos = indice.filter((x) => x.codigos.includes(cod));
+  if (exactos.length) return exactos.map((x) => ({ material: x.m, puntaje: 1 }));
+  const sinonimos: Record<string, string[]> = { griferia: ["griferia", "canilla", "grifo"], canilla: ["canilla", "grifo"], grifo: ["canilla", "grifo"] };
+  return indice.filter((x) => dichos.every((w) => {
+    if (esMedida(w)) return x.tokens.includes(w);
+    const alternativas = sinonimos[raiz(w)] || [raiz(w)];
+    return alternativas.some((a) => x.tokens.some((t) => raiz(t) === a || a.length >= 4 && t.startsWith(a)) || x.plano.includes(a));
+  })).map((x) => ({ material: x.m, puntaje: 1 }));
 }
 
 /** "C1-2" → "estantería C1, estante 2", para que la voz lo diga bien. */

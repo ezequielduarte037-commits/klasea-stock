@@ -46,6 +46,7 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { parsePanolLine } from "@/features/panol/panolParsing";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
+import { Cabecera } from "./ui";
 
 const EMPTY = [];
 
@@ -290,14 +291,12 @@ function chip(color, label) {
       background: `${color}14`,
       border: `1px solid ${color}38`,
       borderRadius: 999,
-      padding: "3px 8px",
-      fontSize: 10,
-      fontWeight: 700,
-      letterSpacing: 0.5,
-      textTransform: "uppercase",
+      padding: "2px 9px",
+      fontSize: 11.5,
+      fontWeight: 600,
       whiteSpace: "nowrap",
     }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
       {label}
     </span>
   );
@@ -307,17 +306,13 @@ function chip(color, label) {
 // grid contenedor (gap 1px sobre fondo `border`).
 function KpiCell({ icon: IconComponent, label, value, detail, color, loading }) {
   return (
-    <div style={{ background: C.panelSolid, padding: "10px 12px", display: "grid", gap: 3, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase" }}>
-        {IconComponent && <IconComponent size={12} style={{ color, flexShrink: 0 }} />}
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+    <div className="cmp-kpi" style={{ "--t": color }}>
+      <div className="cab">
+        {IconComponent && <span className="ic" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, borderColor: `color-mix(in srgb, ${color} 32%, transparent)` }}><IconComponent size={15} /></span>}
+        <span className="et">{label}</span>
       </div>
-      {loading ? (
-        <Skeleton width={90} height={19} radius={6} />
-      ) : (
-        <div style={{ color, fontFamily: C.mono, fontSize: 19, fontWeight: 700, lineHeight: 1.05, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
-      )}
-      {detail && <div style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</div>}
+      {loading ? <Skeleton width={90} height={22} radius={6} /> : <div className="v" style={{ color }}>{value}</div>}
+      {detail && <div className="txt">{detail}</div>}
     </div>
   );
 }
@@ -1152,59 +1147,29 @@ export default function PurchaseLogPanel({ profile }) {
       <PanelStyles />
       <SkeletonStyles />
 
-      <header style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        flexWrap: "wrap",
-        border: `1px solid ${C.border}`,
-        background: C.topbarSoft,
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        borderRadius: 13,
-        padding: "9px 11px",
-      }}>
-        <div style={{
-          width: 30,
-          height: 30,
-          borderRadius: 9,
-          display: "grid",
-          placeItems: "center",
-          background: C.blueL,
-          border: `1px solid ${C.blueB}`,
-          color: C.blue,
-          flexShrink: 0,
-        }}>
-          <ClipboardList size={16} />
-        </div>
-        <div style={{ minWidth: 160, marginRight: "auto" }}>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 700, lineHeight: 1.15 }}>Registro de compras</div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Cargas, pedidos a Pañol y gasto por obra.</div>
-        </div>
-        <ViewTabs value={view} onChange={setView} />
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-          <button type="button" className="plp-btn" onClick={() => setShowForm((v) => !v)} style={secondaryButton()}>
-            {showForm ? <X size={14} /> : <ReceiptText size={14} />}
-            {showForm ? "Cerrar carga" : "Cargar compra"}
-          </button>
-          <button type="button" className="plp-btn" onClick={() => setBudgetModal({ obraKey: view === "costos" ? selectedObraKey : "" })} style={secondaryButton()}>
-            <Sparkles size={14} /> Cargar precios
-          </button>
-          <button type="button" className="plp-btn" onClick={() => setPanolModal({ prefill: null })} style={primaryButton(C.blue)}>
-            <Plus size={14} /> Envío a Pañol
-          </button>
-        </div>
-      </header>
+      <Cabecera
+        eyebrow="Compras · Gastos"
+        titulo="Registro de"
+        acento="compras"
+        sub="Lo que se cargó, lo que se mandó al pañol y el gasto por obra."
+        acciones={(
+          <>
+            <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? <X size={14} /> : <ReceiptText size={14} />}
+              {showForm ? "Cerrar carga" : "Cargar compra"}
+            </button>
+            <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => setBudgetModal({ obraKey: view === "costos" ? selectedObraKey : "" })}>
+              <Sparkles size={14} /> Cargar precios
+            </button>
+            <button type="button" className="ui-btn ui-btn-primario chico" onClick={() => setPanolModal({ prefill: null })}>
+              <Plus size={14} /> Envío a Pañol
+            </button>
+          </>
+        )}
+      />
+      <div><ViewTabs value={view} onChange={setView} /></div>
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
-        gap: 1,
-        background: C.border,
-        border: `1px solid ${C.border}`,
-        borderRadius: 12,
-        overflow: "hidden",
-      }}>
+      <div className="cmp-kpis">
         {/* Los de plata sólo cuando hay plata cargada. Con las cargas manuales
             todavía sin usar, dos de los cuatro recuadros mostraban "$0 · 0
             cargas" y ocupaban media banda diciendo nada. */}
@@ -1289,37 +1254,13 @@ function ViewTabs({ value, onChange }) {
     { value: "costos", label: "Gasto por obra", icon: Layers3 },
   ];
   return (
-    <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10 }}>
+    <div className="cmp-seg" role="radiogroup" aria-label="Qué ver">
       {tabs.map((tab) => {
         const TabIcon = tab.icon;
-        const v = tab.value;
-        const label = tab.label;
-        const active = value === v;
+        const active = value === tab.value;
         return (
-          <button
-            key={v}
-            type="button"
-            className="plp-btn"
-            aria-pressed={active}
-            onClick={() => onChange(v)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              border: `1px solid ${active ? C.blueB : "transparent"}`,
-              background: active ? C.blueL : "transparent",
-              color: active ? C.blue : C.dim,
-              borderRadius: 8,
-              padding: "7px 10px",
-              cursor: "pointer",
-              fontFamily: C.sans,
-              fontSize: 12,
-              fontWeight: 700,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <TabIcon size={13} />
-            {label}
+          <button key={tab.value} type="button" role="radio" aria-checked={active} className={active ? "on" : ""} onClick={() => onChange(tab.value)}>
+            <TabIcon size={14} /> {tab.label}
           </button>
         );
       })}
@@ -1382,7 +1323,7 @@ function PedidosPanolView({
       ) : filteredEnvios.length === 0 ? (
         <EmptyState text={envios.length ? "No hay pedidos a Pañol para ese filtro." : "Todavía no hay pedidos a Pañol."} />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 0.8fr) minmax(420px, 1.2fr)", gap: 10, minHeight: 520 }}>
+        <div className="cmp-reg-dos" style={{ minHeight: 520 }}>
           <div style={{ display: "grid", gap: 8, alignContent: "start", maxHeight: 650, overflowY: "auto", paddingRight: 3 }}>
             {filteredEnvios.map((envio) => (
               <EnvioRow
@@ -1413,7 +1354,7 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
   }, [entries, selected]);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.45fr) minmax(520px, 1fr)", gap: 12, alignItems: "start" }}>
+    <div className="cmp-reg-obras">
       <section style={panelStyle()}>
         <div style={sectionHeaderStyle()}>
           <div style={{ minWidth: 0 }}>
@@ -2574,9 +2515,9 @@ function EmptyState({ text, compact = false }) {
 function panelStyle() {
   return {
     border: `1px solid ${C.border}`,
-    background: C.panelSolid,
-    borderRadius: 13,
-    padding: 14,
+    background: C.panel,
+    borderRadius: 16,
+    padding: 16,
     minWidth: 0,
   };
 }
@@ -2586,7 +2527,7 @@ function sectionHeaderStyle() {
 }
 
 function sectionTitleStyle() {
-  return { color: C.text, fontSize: 14, fontWeight: 700 };
+  return { color: C.text, fontSize: 15, fontWeight: 650 };
 }
 
 function primaryButton(color) {
@@ -2597,11 +2538,11 @@ function primaryButton(color) {
     border: `1px solid ${color}40`,
     background: `${color}14`,
     color,
-    borderRadius: 9,
-    padding: "9px 13px",
+    borderRadius: 10,
+    padding: "8px 13px",
     cursor: "pointer",
     fontSize: 13,
-    fontWeight: 700,
+    fontWeight: 600,
     fontFamily: C.sans,
   };
 }
@@ -2612,21 +2553,21 @@ function secondaryButton() {
     alignItems: "center",
     gap: 7,
     border: `1px solid ${C.border}`,
-    background: C.panelSolid,
+    background: C.panel,
     color: C.text,
-    borderRadius: 9,
-    padding: "9px 13px",
+    borderRadius: 10,
+    padding: "8px 13px",
     cursor: "pointer",
     fontSize: 13,
-    fontWeight: 650,
+    fontWeight: 600,
     fontFamily: C.sans,
   };
 }
 
 function iconButton(color) {
   return {
-    width: 29,
-    height: 29,
+    width: 30,
+    height: 30,
     display: "grid",
     placeItems: "center",
     border: `1px solid ${C.border}`,
@@ -2643,11 +2584,11 @@ function inp(over = {}) {
   return {
     width: "100%",
     boxSizing: "border-box",
-    border: `1px solid ${C.border}`,
-    borderRadius: 9,
+    border: `1px solid ${C.border2}`,
+    borderRadius: 10,
     background: C.panel,
     color: C.text,
-    padding: "10px 11px",
+    padding: "9px 11px",
     fontSize: 13,
     fontFamily: C.sans,
     outline: "none",

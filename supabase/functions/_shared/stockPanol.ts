@@ -88,3 +88,22 @@ export function stockDeMaterial(
   const redondeo = (n: number) => Math.round(n * 1000) / 1000;
   return { total: redondeo(total), porSede: new Map([...porSede].map(([s, n]) => [s, redondeo(n)])) };
 }
+
+/** Una familia puede contener requisito y producto: una fila del ledger debe
+ * contarse una sola vez aunque coincida con ambos. No sumar stocks individuales.
+ */
+export function stockDeFamilia(ids: Set<string>, filas: FilaLedger[], sede: string,
+  unidades: Map<string, string>, sedeDeEnvio: Map<string, string> = new Map()) {
+  const totales = new Map<string, number>();
+  for (const fila of filas) {
+    const id = fila.material_id && ids.has(fila.material_id) ? fila.material_id
+      : fila.requisito_material_id && ids.has(fila.requisito_material_id) ? fila.requisito_material_id : null;
+    if (!id) continue;
+    const sedeFila = fila.stock_sede || (fila.panol_envio_id ? sedeDeEnvio.get(fila.panol_envio_id) : "") || "Sin sede";
+    if (sedeFila !== sede) continue;
+    const raw = unidades.get(fila.material_id || id) || unidades.get(id) || "unidad";
+    const unidad = /^(unid|unidad|unidades|u)$/i.test(raw) ? "unidad" : raw.toLowerCase();
+    totales.set(unidad, (totales.get(unidad) || 0) + rowDelta(fila));
+  }
+  return [...totales].map(([unidad, cantidad]) => ({ unidad, cantidad: Math.round(cantidad * 1000) / 1000 }));
+}

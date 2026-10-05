@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, LoaderCircle, PackageOpen, RotateCcw, Search, Truck, Undo2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, LoaderCircle, PackageOpen, RotateCcw, Search, Truck, Undo2 } from "lucide-react";
+import { Aviso, Bloque, Estado } from "./ui";
 import { OTRA_SEDE, cancelarTraslado, cargarTraslados, confirmarTraslado, crearTraslado, stockDeSede } from "@/features/laminacion/trasladosApi";
 
 /**
@@ -29,16 +30,6 @@ const fechaCorta = (ts) => {
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
 };
 
-const S = {
-  card: { border: "1px solid var(--panel-2)", borderRadius: 12, background: "var(--panel)", padding: 16, marginBottom: 12 },
-  h3: { margin: 0, color: "var(--text)", fontSize: 15, fontWeight: 600 },
-  small: { color: "var(--dim)", fontSize: 12.5 },
-  label: { display: "block", color: "var(--dim)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
-  input: { width: "100%", boxSizing: "border-box", border: "1px solid var(--panel-2)", background: "var(--panel-2)", color: "var(--text)", borderRadius: 8, padding: "8px 10px", fontFamily: "inherit", fontSize: 13.5, outline: "none" },
-  btn: { border: "1px solid var(--panel-2)", background: "var(--panel-2)", color: "var(--text)", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 },
-  fila: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--panel-2)" },
-  vacio: { color: "var(--dim)", fontSize: 12.5, padding: "14px 0" },
-};
 
 export default function TrasladosPanel({ sede, materiales, stockPorMaterial, puedeCargar, onCambio }) {
   const otra = OTRA_SEDE[sede];
@@ -124,174 +115,165 @@ export default function TrasladosPanel({ sede, materiales, stockPorMaterial, pue
   const unidadDe = (t) => t.laminacion_materiales?.unidad || porId.get(t.material_id)?.unidad || "";
 
   return (
-    <div>
-      {err ? (
-        <div style={{ ...S.card, borderColor: "var(--red-border)", background: "var(--red-soft)", color: "var(--red)", fontWeight: 600, fontSize: 13 }}>{err}</div>
-      ) : null}
-      {ok ? (
-        <div style={{ ...S.card, borderColor: "var(--green-border)", background: "var(--green-soft)", color: "var(--green)", fontWeight: 600, fontSize: 13 }}>{ok}</div>
-      ) : null}
-
-      {/* ── 1 · Lo que me está llegando ────────────────────────────────────── */}
-      <div style={S.card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 2 }}>
-          <PackageOpen size={16} color="var(--green)" />
-          <h3 style={S.h3}>Me está llegando de {otra}</h3>
-          {traslados.entrando.length ? (
-            <span style={{ fontFamily: "var(--mono, monospace)", fontWeight: 700, color: "var(--green)", fontSize: 13 }}>{traslados.entrando.length}</span>
-          ) : null}
-          <button type="button" style={{ ...S.btn, marginLeft: "auto", padding: "6px 10px" }} onClick={() => void cargar()} disabled={cargando}>
-            {cargando ? <LoaderCircle size={13} className="spin" /> : <RotateCcw size={13} />}
+    <>
+      <div className="lam-cab">
+        <div className="lam-titulos">
+          <div className="lam-eyebrow">Laminación · {sede}</div>
+          <h1 className="lam-h1">Traslados con <span className="acento">{otra}</span></h1>
+          <p className="lam-sub">
+            {traslados.entrando.length
+              ? <><b className="mono">{traslados.entrando.length}</b> {traslados.entrando.length === 1 ? "envío" : "envíos"} en camino para confirmar</>
+              : "Nada en camino"}
+            {traslados.saliendo.length > 0 && <> · <b className="mono">{traslados.saliendo.length}</b> sin confirmar allá</>}
+          </p>
+        </div>
+        <div className="lam-acciones">
+          <button type="button" className="lam-btn-ic" onClick={() => void cargar()} disabled={cargando} aria-label="Volver a leer los traslados" title="Volver a leer">
+            {cargando ? <LoaderCircle size={15} className="spin" /> : <RotateCcw size={15} />}
           </button>
         </div>
-        <div style={S.small}>Hasta que no confirmes que llegó, este material no suma a tu stock.</div>
+      </div>
+
+      {err ? <Aviso onCerrar={() => setErr("")}>{err}</Aviso> : null}
+      {ok ? <Aviso tono="verde">{ok}</Aviso> : null}
+
+      {/* ── 1 · Lo que me está llegando ── */}
+      <Bloque icono={PackageOpen} tono="verde" titulo={`Me está llegando de ${otra}`} texto="Hasta que no confirmes que llegó, este material no suma a tu stock." sinPad>
         {!traslados.entrando.length ? (
-          <div style={S.vacio}>{cargando ? "Cargando…" : "No hay nada en camino."}</div>
-        ) : traslados.entrando.map((t) => (
-          <div key={t.id} style={S.fila}>
-            <Truck size={15} color="var(--dim)" style={{ flexShrink: 0 }} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 600 }}>
-                {fmt(t.cantidad)} {unidadDe(t)} · {nombreDe(t)}
-              </div>
-              <div style={S.small}>
-                Salió de {t.sede_origen} el {fechaCorta(t.created_at)}
-                {t.observaciones ? ` · ${t.observaciones}` : ""}
-              </div>
-            </div>
-            <button type="button" disabled={ocupado === t.id}
-              onClick={() => void accion(t.id, () => confirmarTraslado(t), `Confirmado: ${nombreDe(t)} ya está en tu stock.`)}
-              style={{ ...S.btn, borderColor: "var(--green-border)", background: "var(--green-soft)", color: "var(--green)", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              {ocupado === t.id ? <LoaderCircle size={13} className="spin" /> : <Check size={13} />} Llegó
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* ── 2 · Lo que mandé ───────────────────────────────────────────────── */}
-      <div style={S.card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 2 }}>
-          <Truck size={16} color="var(--dim)" />
-          <h3 style={S.h3}>Mandé a {otra} y no confirmaron</h3>
-        </div>
-        <div style={S.small}>Ya salió de tu stock. Si nunca salió o volvió, cancelalo y vuelve a entrar.</div>
-        {!traslados.saliendo.length ? (
-          <div style={S.vacio}>Nada pendiente de confirmar.</div>
-        ) : traslados.saliendo.map((t) => (
-          <div key={t.id} style={S.fila}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 600 }}>
-                {fmt(t.cantidad)} {unidadDe(t)} · {nombreDe(t)}
-              </div>
-              <div style={S.small}>Salió el {fechaCorta(t.created_at)}{t.observaciones ? ` · ${t.observaciones}` : ""}</div>
-            </div>
-            <button type="button" disabled={ocupado === t.id}
-              onClick={() => void accion(t.id, () => cancelarTraslado(t, "Cancelado desde el galpón de origen"), "Cancelado. El material volvió a tu stock.")}
-              style={{ ...S.btn, display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              {ocupado === t.id ? <LoaderCircle size={13} className="spin" /> : <Undo2 size={13} />} Cancelar
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* ── 3 · Mandar ─────────────────────────────────────────────────────── */}
-      {puedeCargar ? (
-        <form onSubmit={mandar} style={S.card}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
-            <ArrowRight size={16} color="var(--blue)" />
-            <h3 style={S.h3}>Mandar material a {otra}</h3>
-          </div>
-          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)" }}>
-            <div>
-              <label style={S.label} htmlFor="traslado-material">Material</label>
-              <select id="traslado-material" style={S.input} value={form.material_id}
-                onChange={(e) => setForm((f) => ({ ...f, material_id: e.target.value }))}>
-                <option value="">— Elegir —</option>
-                {(materiales ?? []).map((m) => (
-                  <option key={m.id} value={m.id}>{m.nombre} · acá {fmt(stockPorMaterial?.[m.id])} {m.unidad}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={S.label} htmlFor="traslado-cantidad">Cantidad</label>
-              <input id="traslado-cantidad" type="number" step="0.01" min="0" style={S.input} value={form.cantidad}
-                onChange={(e) => setForm((f) => ({ ...f, cantidad: e.target.value }))} />
-            </div>
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <label style={S.label} htmlFor="traslado-obs">Observaciones</label>
-            <input id="traslado-obs" style={S.input} value={form.observaciones} placeholder="Quién lo lleva, para qué obra…"
-              onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))} />
-          </div>
-          {materialElegido ? (
-            <div style={{ marginTop: 9, fontSize: 12.5, fontWeight: 600, color: seLlevaDeMas ? "var(--red)" : "var(--dim)" }}>
-              {seLlevaDeMas
-                ? `Acá hay ${fmt(stockPropio)} ${materialElegido.unidad}: estás mandando más de lo que tenés.`
-                : `Te quedan ${fmt(stockPropio - num(form.cantidad))} ${materialElegido.unidad} después de mandarlo.`}
-            </div>
-          ) : null}
-          <button type="submit" disabled={ocupado === "mandar"}
-            style={{ ...S.btn, marginTop: 12, width: "100%", borderColor: "var(--blue-border)", background: "var(--blue-soft)", color: "var(--blue)", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px" }}>
-            {ocupado === "mandar" ? <LoaderCircle size={14} className="spin" /> : <Truck size={14} />}
-            Mandar a {otra}
-          </button>
-        </form>
-      ) : null}
-
-      {/* ── 4 · Qué hay en el otro galpón ──────────────────────────────────── */}
-      <div style={S.card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 2, flexWrap: "wrap" }}>
-          <h3 style={S.h3}>Qué hay en {otra}</h3>
-          <div style={{ position: "relative", marginLeft: "auto", minWidth: 180 }}>
-            <Search size={13} color="var(--dim)" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)" }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material…"
-              style={{ ...S.input, paddingLeft: 27, fontSize: 12.5 }} />
-          </div>
-        </div>
-        <div style={S.small}>Solo para mirar. Cargar y egresar en {otra} lo hacen desde {otra}.</div>
-        <div style={{ marginTop: 8, maxHeight: 340, overflowY: "auto" }}>
-          {filasOtra.map((m) => (
-            <div key={m.id} style={S.fila}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nombre}</div>
-                <div style={S.small}>{m.categoria || "Sin categoría"}</div>
-              </div>
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontFamily: "var(--mono, monospace)", fontWeight: 700, fontSize: 14, color: m.alla > 0 ? "var(--text)" : "var(--dim)" }}>
-                  {fmt(m.alla)} <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--dim)" }}>{m.unidad}</span>
+          <p className="lam-ayuda" style={{ padding: "14px 16px" }}>{cargando ? "Cargando…" : "No hay nada en camino."}</p>
+        ) : (
+          <div className="lam-filas">
+            {traslados.entrando.map((t) => (
+              <div key={t.id} className="lam-fila">
+                <div style={{ minWidth: 0 }}>
+                  <div className="lam-fila-tit"><span className="mono">{fmt(t.cantidad)} {unidadDe(t)}</span> · {nombreDe(t)}</div>
+                  <div className="lam-fila-meta"><Truck size={13} /> Salió de {t.sede_origen} el {fechaCorta(t.created_at)}{t.observaciones ? ` · ${t.observaciones}` : ""}</div>
                 </div>
-                <div style={{ ...S.small, fontSize: 11 }}>acá {fmt(m.aca)}</div>
-              </div>
-            </div>
-          ))}
-          {!filasOtra.length ? <div style={S.vacio}>Ningún material coincide.</div> : null}
-        </div>
-      </div>
-
-      {/* ── 5 · Historial ──────────────────────────────────────────────────── */}
-      {traslados.historial.length ? (
-        <div style={S.card}>
-          <h3 style={S.h3}>Traslados cerrados</h3>
-          <div style={{ marginTop: 6, maxHeight: 260, overflowY: "auto" }}>
-            {traslados.historial.map((t) => (
-              <div key={t.id} style={S.fila}>
-                {t.estado === "recibido"
-                  ? <Check size={14} color="var(--green)" style={{ flexShrink: 0 }} />
-                  : <X size={14} color="var(--dim)" style={{ flexShrink: 0 }} />}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 600 }}>
-                    {fmt(t.cantidad)} {unidadDe(t)} · {nombreDe(t)}
-                  </div>
-                  <div style={S.small}>
-                    {t.sede_origen} → {t.sede_destino} · {t.estado === "recibido" ? `recibido ${fechaCorta(t.recibido_at)}` : `cancelado ${fechaCorta(t.cancelado_at)}`}
-                    {t.cancelado_motivo ? ` · ${t.cancelado_motivo}` : ""}
-                  </div>
+                <div className="lam-fila-acc">
+                  <button type="button" className="ui-btn chico" data-tono="verde" disabled={ocupado === t.id}
+                    onClick={() => void accion(t.id, () => confirmarTraslado(t), `Confirmado: ${nombreDe(t)} ya está en tu stock.`)}>
+                    {ocupado === t.id ? <LoaderCircle size={13} className="spin" /> : <Check size={13} />} Llegó
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        )}
+      </Bloque>
+
+      {/* ── 2 · Lo que mandé ── */}
+      <Bloque icono={Truck} tono="neutro" titulo={`Mandé a ${otra} y no confirmaron`} texto="Ya salió de tu stock. Si nunca salió o volvió, cancelalo y vuelve a entrar." sinPad>
+        {!traslados.saliendo.length ? (
+          <p className="lam-ayuda" style={{ padding: "14px 16px" }}>Nada pendiente de confirmar.</p>
+        ) : (
+          <div className="lam-filas">
+            {traslados.saliendo.map((t) => (
+              <div key={t.id} className="lam-fila">
+                <div style={{ minWidth: 0 }}>
+                  <div className="lam-fila-tit"><span className="mono">{fmt(t.cantidad)} {unidadDe(t)}</span> · {nombreDe(t)}</div>
+                  <div className="lam-fila-meta">Salió el {fechaCorta(t.created_at)}{t.observaciones ? ` · ${t.observaciones}` : ""}</div>
+                </div>
+                <div className="lam-fila-acc">
+                  <button type="button" className="ui-btn chico ui-btn-fantasma" disabled={ocupado === t.id}
+                    onClick={() => void accion(t.id, () => cancelarTraslado(t, "Cancelado desde el galpón de origen"), "Cancelado. El material volvió a tu stock.")}>
+                    {ocupado === t.id ? <LoaderCircle size={13} className="spin" /> : <Undo2 size={13} />} Cancelar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Bloque>
+
+      {/* ── 3 · Mandar ── */}
+      {puedeCargar ? (
+        <Bloque icono={ArrowRight} titulo={`Mandar material a ${otra}`} texto={`Sale de ${sede} ahora y suma en ${otra} cuando lo confirmen.`}>
+          <form onSubmit={mandar} className="lam-form">
+            <label className="lam-campo c4" htmlFor="traslado-material"><span>Material</span>
+              <select id="traslado-material" className="ui-input" value={form.material_id}
+                onChange={(e) => setForm((f) => ({ ...f, material_id: e.target.value }))}>
+                <option value="">Elegir material…</option>
+                {(materiales ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>{m.nombre} · acá {fmt(stockPorMaterial?.[m.id])} {m.unidad}</option>
+                ))}
+              </select>
+            </label>
+            <label className="lam-campo c2" htmlFor="traslado-cantidad"><span>Cantidad</span>
+              <input id="traslado-cantidad" type="number" step="0.01" min="0" className="ui-input num" value={form.cantidad}
+                onChange={(e) => setForm((f) => ({ ...f, cantidad: e.target.value }))} />
+            </label>
+            <label className="lam-campo c6" htmlFor="traslado-obs"><span>Observaciones</span>
+              <input id="traslado-obs" className="ui-input" value={form.observaciones} placeholder="Quién lo lleva, para qué obra…"
+                onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))} />
+            </label>
+            {materialElegido ? (
+              <div className="lam-campo c6">
+                <Aviso tono={seLlevaDeMas ? "rojo" : "neutro"}>
+                  {seLlevaDeMas
+                    ? `Acá hay ${fmt(stockPropio)} ${materialElegido.unidad}: estás mandando más de lo que tenés.`
+                    : `Te quedan ${fmt(stockPropio - num(form.cantidad))} ${materialElegido.unidad} después de mandarlo.`}
+                </Aviso>
+              </div>
+            ) : null}
+            <div className="lam-form-pie">
+              <button type="submit" className="ui-btn ui-btn-primario" disabled={ocupado === "mandar"}>
+                {ocupado === "mandar" ? <LoaderCircle size={14} className="spin" /> : <Truck size={14} />} Mandar a {otra}
+              </button>
+            </div>
+          </form>
+        </Bloque>
       ) : null}
-    </div>
+
+      {/* ── 4 · Qué hay en el otro galpón ── */}
+      <Bloque
+        icono={Search}
+        tono="neutro"
+        titulo={`Qué hay en ${otra}`}
+        texto={`Sólo para mirar. Cargar y egresar en ${otra} lo hacen desde ${otra}.`}
+        der={(
+          <label className="lam-buscar">
+            <Search size={15} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material…" className="ui-input" aria-label={`Buscar material en ${otra}`} />
+          </label>
+        )}
+        sinPad
+      >
+        <div className="lam-tabla" style={{ maxHeight: 380, overflowY: "auto" }}>
+          <table className="lam-t">
+            <thead><tr><th>Material</th><th className="der">En {otra}</th><th className="der">Acá</th></tr></thead>
+            <tbody>
+              {filasOtra.map((m) => (
+                <tr key={m.id}>
+                  <td><div className="nom">{m.nombre}</div><div className="chico">{m.categoria || "Sin categoría"}</div></td>
+                  <td className="der"><span className="lam-cant" data-tono={m.alla > 0 ? undefined : "neutro"}>{fmt(m.alla)} <small>{m.unidad}</small></span></td>
+                  <td className="der mono" style={{ color: "var(--dim)" }}>{fmt(m.aca)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!filasOtra.length ? <p className="lam-ayuda" style={{ padding: 16 }}>Ningún material coincide.</p> : null}
+        </div>
+      </Bloque>
+
+      {/* ── 5 · Historial ── */}
+      {traslados.historial.length ? (
+        <Bloque icono={Undo2} tono="neutro" titulo="Traslados cerrados" sinPad>
+          <div className="lam-filas" style={{ maxHeight: 300, overflowY: "auto" }}>
+            {traslados.historial.map((t) => (
+              <div key={t.id} className="lam-fila">
+                <div style={{ minWidth: 0 }}>
+                  <div className="lam-fila-tit"><span className="mono">{fmt(t.cantidad)} {unidadDe(t)}</span> · {nombreDe(t)}</div>
+                  <div className="lam-fila-meta">
+                    {t.sede_origen} → {t.sede_destino} · {t.estado === "recibido" ? `recibido ${fechaCorta(t.recibido_at)}` : `cancelado ${fechaCorta(t.cancelado_at)}`}
+                    {t.cancelado_motivo ? ` · ${t.cancelado_motivo}` : ""}
+                  </div>
+                </div>
+                <Estado tono={t.estado === "recibido" ? "verde" : "neutro"}>{t.estado === "recibido" ? "Recibido" : "Cancelado"}</Estado>
+              </div>
+            ))}
+          </div>
+        </Bloque>
+      ) : null}
+    </>
   );
 }

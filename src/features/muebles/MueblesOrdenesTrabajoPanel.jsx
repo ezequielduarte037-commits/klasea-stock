@@ -233,15 +233,21 @@ export default function MueblesOrdenesTrabajoPanel({
     fetchMueblesOtScopes({ loteId, lineaId })
       .then((ordersByScope) => {
         if (!active) return;
+        // Igual que en loadWorkspace: si la plantilla no tiene ítems guardados
+        // se usan los históricos. Antes decía "0 ítems" hasta abrir el modal.
+        const lineaItems = Object.keys(MUEBLES_OT_TYPES).reduce((total, tipo) => {
+          const saved = ordersByScope.linea.find((row) => row.tipo === tipo);
+          return total + (saved?.items?.length || historicalDraft(tipo, modelo).items.length);
+        }, 0);
         setSummary({
-          linea: ordersByScope.linea.reduce((total, order) => total + (order.items?.length || 0), 0),
+          linea: lineaItems,
           obra: ordersByScope.obra.reduce((total, order) => total + (order.items?.length || 0), 0),
         });
         setOverrideTypes(new Set(ordersByScope.obra.map((row) => row.tipo)));
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [lineaId, loteId]);
+  }, [lineaId, loteId, modelo]);
 
   useEffect(() => {
     if (!modalOpen) return undefined;
@@ -398,28 +404,28 @@ export default function MueblesOrdenesTrabajoPanel({
     setOpen(true);
   }
 
+  // Fila del bloque "OT y herrajes" de Seguimiento (clases .mbl-fila).
   const trigger = (
-    <div style={{ margin: "0 0 14px", padding: "11px", borderRadius: 10, border: `1px solid ${C.tealB}`, background: `color-mix(in srgb, ${C.teal} 5%, ${C.s0})` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 9, alignItems: "center", minWidth: 0 }}>
-          <span style={{ width: 29, height: 29, borderRadius: 8, display: "grid", placeItems: "center", color: C.teal, background: C.tealL, border: `1px solid ${C.tealB}`, flexShrink: 0 }}>
-            <Link2 size={14} />
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.t0, fontSize: 11.5, fontWeight: 700 }}>OT de materiales · Oberti</div>
-            <div style={{ color: C.t2, fontSize: 9.5, marginTop: 2 }}>
-              Plantilla K{modelLabel}: {summary.linea} ítems · {overrideTypes.size ? `${summary.obra} ítems personalizados en ${obraCodigo}` : `${obraCodigo} usa la plantilla`}
-            </div>
-          </div>
+    <div className="mbl-fila">
+      <span className="mbl-fila-ic" data-tono="teal"><Link2 size={16} /></span>
+      <div style={{ minWidth: 0 }}>
+        <div className="mbl-fila-tit">OT de materiales · maderas y herrajes</div>
+        <div className="mbl-fila-txt">
+          Plantilla K{modelLabel}: {summary.linea} ítems · {overrideTypes.size ? `${summary.obra} ítems personalizados en ${obraCodigo}` : `${obraCodigo} usa la plantilla`}
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => openScope("linea")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
-            <Layers3 size={13} /> {canEdit ? `Editar plantilla K${modelLabel}` : `Ver plantilla K${modelLabel}`}
+        <div className="mbl-fila-acc">
+          <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => openScope("obra")}>
+            <FilePenLine size={14} /> {overrideTypes.size ? `Editar OT ${obraCodigo}` : `Revisar OT ${obraCodigo}`}
           </button>
-          <button type="button" onClick={() => openScope("obra")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
-            <FilePenLine size={13} /> {overrideTypes.size ? `Editar OT ${obraCodigo}` : `Revisar OT ${obraCodigo}`}
+          <button type="button" className="ui-btn ui-btn-fantasma chico" onClick={() => openScope("linea")}>
+            <Layers3 size={14} /> {canEdit ? `Editar plantilla K${modelLabel}` : `Ver plantilla K${modelLabel}`}
           </button>
         </div>
+      </div>
+      <div className="mbl-fila-der">
+        <span className="mbl-estado punto" data-tono={overrideTypes.size ? "teal" : "neutro"}>
+          {overrideTypes.size ? "Personalizada" : "Plantilla"}
+        </span>
       </div>
     </div>
   );

@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, FileUp, MessageSquare } from "lucide-react";
-import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 
 // Actividad del proveedor vía portal (link mágico): confirmaciones de entrega,
 // facturas subidas y mensajes. No renderiza nada si el pedido no tiene actividad.
 const TIPO_META = {
-  entrega_confirmada: { icon: CheckCircle2, color: "#10b981", label: "Confirmó la entrega" },
-  factura: { icon: FileUp, color: "#3b82f6", label: "Subió una factura" },
-  comentario: { icon: MessageSquare, color: "#a78bfa", label: "Mensaje" },
+  entrega_confirmada: { icon: CheckCircle2, color: "var(--green)", label: "Confirmó la entrega" },
+  factura: { icon: FileUp, color: "var(--blue)", label: "Subió una factura" },
+  comentario: { icon: MessageSquare, color: "var(--violet)", label: "Mensaje" },
 };
 
 function fmt(ts) {
@@ -34,11 +33,11 @@ export default function PortalProveedorActividad({ requestId }) {
   if (!eventos.length) return null;
 
   return (
-    <div style={{ margin: "10px 16px 0", border: "1px solid rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.05)", borderRadius: 12, padding: "10px 13px" }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>
-        Actividad del proveedor (portal)
+    <div style={{ border: "1px solid var(--green-border)", background: "var(--green-soft)", borderRadius: 14, padding: "11px 14px" }}>
+      <div style={{ fontSize: 11, fontWeight: 650, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>
+        Lo que hizo el proveedor en el portal
       </div>
-      <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "grid", gap: 7 }}>
         {eventos.map((ev) => {
           const meta = TIPO_META[ev.tipo] || TIPO_META.comentario;
           const Icon = meta.icon;
@@ -46,12 +45,12 @@ export default function PortalProveedorActividad({ requestId }) {
             <div key={ev.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5 }}>
               <Icon size={14} style={{ color: meta.color, flexShrink: 0, marginTop: 2 }} />
               <div style={{ minWidth: 0 }}>
-                <span style={{ color: C.text, fontWeight: 650 }}>{ev.proveedor}</span>
-                <span style={{ color: C.dim }}> · {meta.label}</span>
-                {ev.fecha_estimada && <span style={{ color: meta.color, fontWeight: 650 }}> · llega {new Date(`${ev.fecha_estimada}T12:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}</span>}
-                {ev.archivo_url && <> · <a href={ev.archivo_url} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", fontWeight: 650 }}>ver archivo</a></>}
-                {ev.mensaje && <div style={{ color: C.dim, marginTop: 1 }}>"{ev.mensaje}"</div>}
-                <span style={{ color: C.dim, fontSize: 11 }}> {fmt(ev.created_at)}</span>
+                <span style={{ color: "var(--text)", fontWeight: 600 }}>{ev.proveedor}</span>
+                <span style={{ color: "var(--dim)" }}> · {meta.label}</span>
+                {ev.fecha_estimada && <span style={{ color: meta.color, fontWeight: 600 }}> · llega el {new Date(`${ev.fecha_estimada}T12:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}</span>}
+                {ev.archivo_url && <> · <a href={ev.archivo_url} target="_blank" rel="noreferrer" style={{ color: "var(--blue)", fontWeight: 600 }}>ver archivo</a></>}
+                {ev.mensaje && <div style={{ color: "var(--muted)", marginTop: 1 }}>«{ev.mensaje}»</div>}
+                <span style={{ color: "var(--subtle)", fontSize: 11 }}> {fmt(ev.created_at)}</span>
               </div>
             </div>
           );

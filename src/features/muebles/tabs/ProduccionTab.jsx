@@ -1,26 +1,26 @@
-import { createElement, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   Factory,
   FilePenLine,
+  Hammer,
+  History,
   Layers3,
-  PackageCheck,
+  PackagePlus,
   Plus,
   Search,
   ShoppingCart,
   Trash2,
-  Truck,
-  Warehouse,
-  X,
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
-import { C } from "@/theme";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import Cargando from "@/components/ui/Cargando";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { ChapaSwatch } from "@/features/muebles/chapa";
 import MueblesOrdenesTrabajoPanel from "@/features/muebles/MueblesOrdenesTrabajoPanel";
@@ -34,33 +34,13 @@ import {
   destinoLote,
   etapaMeta,
   fechaCorta,
+  FLUJOS_MUEBLES,
   nombreLinea,
   nombreMuebles,
   nombreObra,
   PROVEEDORES_MUEBLES,
 } from "../mueblesProduccion";
-
-const input = {
-  width: "100%",
-  minHeight: 38,
-  padding: "8px 11px",
-  borderRadius: 9,
-  border: `1px solid ${C.b0}`,
-  background: C.s0,
-  color: C.t0,
-  font: `500 13px ${C.sans}`,
-  outline: "none",
-};
-
-const label = {
-  display: "block",
-  marginBottom: 6,
-  color: C.t2,
-  fontSize: 10,
-  fontWeight: 650,
-  letterSpacing: 1.1,
-  textTransform: "uppercase",
-};
+import { Aviso, Estado, Mini, Modal, Tag, Tarea, Vacio } from "../ui";
 
 const EMPTY_FORM = {
   tipo_destino: "obra",
@@ -82,49 +62,21 @@ const OBERTI_TASKS = [
   ["medidas_adjuntas", "Oficina Técnica: OT de chapas digitalizada"],
 ];
 
-// Paleta de la pantalla. El ámbar hacía doble trabajo —marcaba al proveedor
-// Oberti Y el estado "parcial"— y además chillaba de más. Ahora cada cosa tiene
-// su color y ninguno es amarillo:
-//   · proveedor  → teal (Oberti) / violeta (Morph)
-//   · estado     → azul (en curso o parcial) / verde (completo) / gris (sin arrancar)
-const TONO_OBERTI = { color: C.teal, bg: C.tealL, border: C.tealB };
-const TONO_MORPH = { color: C.violet, bg: C.violetL, border: C.violetB };
+// Proveedor → teal (Oberti) / violeta (Morph). Ninguno es amarillo.
+const TONO_PROVEEDOR = { Oberti: "teal", Morph: "violeta" };
 
-function proveedorTone(proveedor) {
-  return proveedor === "Morph" ? TONO_MORPH : TONO_OBERTI;
-}
+// Orden de las etapas de los dos recorridos juntos, para los chips de arriba.
+const ORDEN_ETAPAS = [
+  "definicion", "compra_materiales", "materiales_astillero", "preparacion_banco", "enchapadora",
+  "envio_morph", "flete_oberti", "fabricacion_oberti", "fabricacion_morph", "transito_astillero", "recibido",
+];
 
-function Badge({ children, color = C.t1, bg = C.s1, border = C.b0 }) {
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 7, border: `1px solid ${border}`, background: bg, color, fontSize: 10, lineHeight: 1, fontWeight: 650, letterSpacing: 0.5, textTransform: "uppercase" }}>
-      {children}
-    </span>
-  );
-}
-
-function Kpi({ icon, value, label: text, tone = C.blue }) {
-  return (
-    <div style={{ minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, display: "flex", alignItems: "center", gap: 9 }}>
-      <div style={{ width: 29, height: 29, borderRadius: 8, display: "grid", placeItems: "center", background: `color-mix(in srgb, ${tone} 12%, transparent)`, color: tone, flexShrink: 0 }}>
-        {createElement(icon, { size: 15 })}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.t0, fontSize: 16, lineHeight: 1, fontWeight: 700 }}>{value}</div>
-        <div style={{ color: C.t2, fontSize: 10, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{text}</div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ onAdd, canAdd }) {
-  return (
-    <div style={{ padding: "70px 20px", border: `1px dashed ${C.b1}`, borderRadius: 14, textAlign: "center", background: C.s0 }}>
-      <Factory size={28} color={C.t2} style={{ marginBottom: 12 }} />
-      <div style={{ fontSize: 15, fontWeight: 650, color: C.t0 }}>No hay procesos con estos filtros</div>
-      <div style={{ fontSize: 12, color: C.t2, marginTop: 5 }}>Creá un proceso para una obra o para stock y seguí su recorrido.</div>
-      {canAdd && <button onClick={onAdd} style={{ marginTop: 16, padding: "8px 13px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 650 }}>Crear proceso</button>}
-    </div>
-  );
+function etiquetaEtapa(key) {
+  for (const flujo of Object.values(FLUJOS_MUEBLES)) {
+    const etapa = flujo.find((item) => item.key === key);
+    if (etapa) return key === "recibido" ? "Recepción" : etapa.label;
+  }
+  return key;
 }
 
 function normalizeKey(value = "") {
@@ -146,7 +98,23 @@ function recepcionMeta(lote, checklistRows) {
   };
 }
 
+function fechaHora(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
+
+function tonoHistorial(accion = "") {
+  const texto = accion.toLowerCase();
+  if (texto.includes("advertencia") || texto.includes("revertido")) return "violeta";
+  if (texto.includes("creado") || texto.includes("recepción completada") || texto.includes("enviados a oberti")) return "verde";
+  if (texto.includes("etapa")) return "azul";
+  return "neutro";
+}
+
 export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEnsureMueblesUnidad }) {
+  const confirmar = useConfirm();
   const [lotes, setLotes] = useState([]);
   const [ots, setOts] = useState([]);
   const [comprasHerrajes, setComprasHerrajes] = useState([]);
@@ -161,7 +129,10 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
   const [q, setQ] = useState("");
   const [proveedor, setProveedor] = useState("Todos");
   const [destino, setDestino] = useState("Todos");
+  const [etapaFiltro, setEtapaFiltro] = useState("todas");
   const [seleccionadoId, setSeleccionadoId] = useState(null);
+  // En el celular la lista y el detalle se alternan.
+  const [detalleMovil, setDetalleMovil] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -173,6 +144,13 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
   const [showTemplates, setShowTemplates] = useState(false);
   const [templateLineaId, setTemplateLineaId] = useState("");
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  // Datos que se leen aparte para el proceso elegido. Se guardan junto con la
+  // clave para la que se pidieron: si cambia la selección, se descartan solos.
+  const [chapasOt, setChapasOt] = useState(null);
+  const [faltanAhora, setFaltanAhora] = useState(null);
+  const [historial, setHistorial] = useState(null);
+  const [refresco, setRefresco] = useState(0);
+  const rutaRef = useRef(null);
 
   async function cargar() {
     setLoading(true);
@@ -278,7 +256,10 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     const recepcion = recepcionMeta(lote, checklistRecepcion);
     return !recepcion || recepcion.estado !== "completa";
   }), [checklistRecepcion, lotes]);
-  const filtrados = useMemo(() => {
+
+  // Proveedor, destino y búsqueda. La etapa se filtra aparte para que los
+  // chips de etapa muestren cuántos hay en cada una con los demás filtros.
+  const base = useMemo(() => {
     const text = q.trim().toLowerCase();
     return activos.filter((lote) => {
       if (proveedor !== "Todos" && lote.proveedor !== proveedor) return false;
@@ -288,22 +269,107 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     });
   }, [activos, destino, proveedor, q]);
 
+  const porEtapa = useMemo(() => {
+    const cuenta = new Map();
+    for (const lote of base) {
+      const key = etapaMeta(lote).etapa.key;
+      cuenta.set(key, (cuenta.get(key) || 0) + 1);
+    }
+    return ORDEN_ETAPAS.filter((key) => cuenta.has(key)).map((key) => ({ key, n: cuenta.get(key) }));
+  }, [base]);
+
+  const filtrados = useMemo(() => (etapaFiltro === "todas"
+    ? base
+    : base.filter((lote) => etapaMeta(lote).etapa.key === etapaFiltro)), [base, etapaFiltro]);
+
   const seleccionado = filtrados.find((lote) => lote.id === seleccionadoId) ?? filtrados[0] ?? null;
   const meta = seleccionado ? etapaMeta(seleccionado) : null;
   const selectedOt = seleccionado ? otParaLote(seleccionado) : null;
   const selectedHerrajes = seleccionado?.proveedor === "Oberti"
     ? (herrajesForModelo(nombreLinea(seleccionado)) ?? [])
     : [];
-  const enchapadoStageIndex = meta?.flujo.findIndex((etapa) => etapa.key === "preparacion_banco") ?? -1;
-  const enchapadoEnEtapaRecomendada = seleccionado?.proveedor === "Oberti"
-    && enchapadoStageIndex >= 0
-    && meta?.index >= enchapadoStageIndex;
   const selectedCompraHerrajes = seleccionado
     ? comprasHerrajes.find((request) =>
       request.source_ref === selectedOt?.id || request.source_ref === seleccionado.id)
     : null;
   const selectedRecepcion = seleccionado ? recepcionMeta(seleccionado, checklistRecepcion) : null;
   const selectedChapa = selectedOt?.tipo_chapa || seleccionado?.color_chapa || seleccionado?.material_base || "";
+  const herrajesEnviados = Boolean(seleccionado?.herrajes_enviado || selectedOt?.herrajes_enviado);
+  const herrajesPedidos = Boolean(seleccionado?.herrajes_pedido || selectedOt?.herrajes_pedido);
+  const plantillaOt = selectedOt ? templateEnchapadoForModelo(selectedOt.modelo) : null;
+
+  // Hojas de chapa cargadas en la OT del proceso elegido.
+  useEffect(() => {
+    if (!selectedOt?.id || !plantillaOt?.items?.length) return undefined;
+    let activo = true;
+    const otId = selectedOt.id;
+    supabase.from("enchapado_ot_items").select("item_id,chapas_descripcion").eq("ot_id", otId)
+      .then(({ data, error: itemsError }) => {
+        if (!activo || itemsError) return;
+        const cargadas = plantillaOt.items.filter((item) =>
+          data?.find((row) => row.item_id === item.id)?.chapas_descripcion?.trim()).length;
+        setChapasOt({ otId, refresco, cargadas, total: plantillaOt.items.length });
+      });
+    return () => { activo = false; };
+  }, [selectedOt?.id, plantillaOt, refresco]);
+  const chapas = chapasOt && chapasOt.otId === selectedOt?.id ? chapasOt : null;
+
+  // Lo que falta para dejar la etapa actual: el mismo chequeo que se hace al
+  // avanzar, pero a la vista antes de tocar el botón.
+  const firmaFaltan = seleccionado && meta ? JSON.stringify([
+    seleccionado.id, meta.etapa.key, seleccionado.tablones_preparados, seleccionado.chapas_preparadas,
+    seleccionado.medidas_adjuntas, seleccionado.herrajes_enviado, selectedOt?.id, selectedOt?.estado,
+    selectedOt?.tablones_enviado, selectedOt?.herrajes_enviado, refresco,
+  ]) : "";
+  useEffect(() => {
+    if (!firmaFaltan || !seleccionado || !meta?.siguiente) return undefined;
+    let activo = true;
+    pendientesParaAvanzar(seleccionado, meta).then((faltan) => {
+      if (activo) setFaltanAhora({ firma: firmaFaltan, faltan });
+    });
+    return () => { activo = false; };
+    // La firma resume todo lo que cambia el resultado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmaFaltan]);
+  const faltan = faltanAhora && faltanAhora.firma === firmaFaltan ? faltanAhora.faltan : null;
+
+  // Últimos movimientos del proceso elegido, con quién los hizo.
+  useEffect(() => {
+    if (!seleccionado?.id) return undefined;
+    let activo = true;
+    const loteId = seleccionado.id;
+    (async () => {
+      const { data, error: histError } = await supabase
+        .from("prod_muebles_lotes_historial")
+        .select("id,accion,usuario_id,creado_el")
+        .eq("lote_id", loteId)
+        .order("creado_el", { ascending: false })
+        .limit(12);
+      if (!activo || histError) return;
+      const ids = [...new Set((data ?? []).map((row) => row.usuario_id).filter(Boolean))];
+      let nombres = new Map();
+      if (ids.length) {
+        const { data: perfiles } = await supabase.from("profiles").select("id,username").in("id", ids);
+        nombres = new Map((perfiles ?? []).map((perfil) => [perfil.id, perfil.username]));
+      }
+      if (!activo) return;
+      setHistorial({
+        loteId,
+        refresco,
+        filas: (data ?? []).map((row) => ({ ...row, quien: nombres.get(row.usuario_id) || null })),
+      });
+    })();
+    return () => { activo = false; };
+  }, [seleccionado?.id, refresco]);
+  const filasHistorial = historial && historial.loteId === seleccionado?.id ? historial.filas : null;
+
+  // Si el recorrido no entra (celular), se centra en la etapa actual.
+  useEffect(() => {
+    const ruta = rutaRef.current;
+    const actual = ruta?.querySelector(".mbl-paso.actual");
+    if (!ruta || !actual || ruta.scrollWidth <= ruta.clientWidth) return;
+    ruta.scrollLeft = actual.offsetLeft - ruta.clientWidth / 2 + actual.clientWidth / 2;
+  }, [seleccionado?.id, meta?.index, detalleMovil]);
 
   async function registrar(loteId, accion, extra = {}) {
     const { data } = await supabase.auth.getUser();
@@ -313,6 +379,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
       usuario_id: data?.user?.id ?? null,
       ...extra,
     });
+    setRefresco((n) => n + 1);
   }
 
   async function actualizarLote(lote, patch, accion = "Actualización", detalleExtra = {}) {
@@ -339,20 +406,20 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
   // chequeo cortaba con un `return` y dejaba al usuario trabado; ahora sólo
   // informa, y quien decide es la persona.
   async function pendientesParaAvanzar(lote, current) {
-    const faltan = [];
-    if (lote.proveedor !== "Oberti") return faltan;
+    const faltanLista = [];
+    if (lote.proveedor !== "Oberti") return faltanLista;
 
     if (current.etapa.key === "preparacion_banco") {
-      if (!lote.tablones_preparados) faltan.push("Los tablones no están marcados como preparados.");
-      if (!lote.chapas_preparadas) faltan.push("Las chapas no están marcadas como preparadas.");
-      if (!lote.medidas_adjuntas) faltan.push("Faltan adjuntar las medidas.");
+      if (!lote.tablones_preparados) faltanLista.push("Los tablones no están marcados como preparados.");
+      if (!lote.chapas_preparadas) faltanLista.push("Las chapas no están marcadas como preparadas.");
+      if (!lote.medidas_adjuntas) faltanLista.push("Faltan adjuntar las medidas.");
 
       const ot = otParaLote(lote);
       if (!ot) {
-        faltan.push("No hay OT de chapas digitalizada.");
+        faltanLista.push("No hay OT de chapas digitalizada.");
       } else {
         if (!["Enviada", "Devuelta"].includes(ot.estado)) {
-          faltan.push("La OT de chapas todavía no figura como “Enviada”.");
+          faltanLista.push("La OT de chapas todavía no figura como “Enviada”.");
         }
         const plantilla = templateEnchapadoForModelo(nombreLinea(lote));
         const { data: itemsOt, error: itemsOtError } = await supabase
@@ -360,16 +427,16 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
           .select("item_id,chapas_descripcion")
           .eq("ot_id", ot.id);
         if (itemsOtError) {
-          faltan.push(`No se pudo verificar la digitalización de la OT: ${itemsOtError.message}`);
+          faltanLista.push(`No se pudo verificar la digitalización de la OT: ${itemsOtError.message}`);
         } else if (plantilla?.items?.length) {
           const sinDigitalizar = plantilla.items.filter((itemPlantilla) =>
             !itemsOt?.find((item) => item.item_id === itemPlantilla.id)?.chapas_descripcion?.trim());
           if (sinDigitalizar.length) {
-            faltan.push(`${sinDigitalizar.length} ${sinDigitalizar.length === 1 ? "ítem no tiene" : "ítems no tienen"} descripción de chapas cargada.`);
+            faltanLista.push(`${sinDigitalizar.length} ${sinDigitalizar.length === 1 ? "ítem no tiene" : "ítems no tienen"} descripción de chapas cargada.`);
           }
         }
         if (plantilla?.tablones && !ot.tablones_enviado) {
-          faltan.push("No se envió a Oberti el aviso con la OT de tablones.");
+          faltanLista.push("No se envió a Oberti el aviso con la OT de tablones.");
         }
       }
     }
@@ -377,15 +444,15 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     if (current.etapa.key === "enchapadora") {
       const ot = otParaLote(lote);
       if (!ot || ot.estado !== "Devuelta") {
-        faltan.push("La OT no figura como “Devuelta” (material enchapado y de vuelta en el astillero).");
+        faltanLista.push("La OT no figura como “Devuelta” (material enchapado y de vuelta en el astillero).");
       }
       const kit = herrajesForModelo(nombreLinea(lote)) ?? [];
       if (kit.length && !(lote.herrajes_enviado || ot?.herrajes_enviado)) {
-        faltan.push("Los herrajes no están marcados como enviados a Oberti.");
+        faltanLista.push("Los herrajes no están marcados como enviados a Oberti.");
       }
     }
 
-    return faltan;
+    return faltanLista;
   }
 
   async function moverAEtapa(lote, targetIndex) {
@@ -394,20 +461,20 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
     if (!target || targetIndex === current.index) return;
 
     if (targetIndex > current.index) {
-      const faltan = [];
+      const faltanLista = [];
       for (let index = current.index; index < targetIndex; index += 1) {
         const etapa = current.flujo[index];
         const pendientes = await pendientesParaAvanzar(lote, { ...current, etapa, index });
-        pendientes.forEach((pendiente) => faltan.push(`${etapa.label}: ${pendiente}`));
+        pendientes.forEach((pendiente) => faltanLista.push(`${etapa.label}: ${pendiente}`));
       }
       const etapasOmitidas = current.flujo
         .slice(current.index + 1, targetIndex)
         .map((etapa) => etapa.label);
 
-      if (faltan.length || etapasOmitidas.length) {
+      if (faltanLista.length || etapasOmitidas.length) {
         // La realidad del taller no siempre entra en el orden del sistema. Se
         // informa qué queda abierto, pero la persona conserva la decisión.
-        setAvisoSalto({ lote, target, targetIndex, faltan, etapasOmitidas });
+        setAvisoSalto({ lote, target, targetIndex, faltan: faltanLista, etapasOmitidas });
         return;
       }
     }
@@ -551,6 +618,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
           detalle: { proveedor: form.proveedor, destino: form.tipo_destino },
         });
         setSeleccionadoId(data.id);
+        setEtapaFiltro("todas");
       }
 
       setShowAdd(false);
@@ -567,10 +635,13 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
 
   async function eliminarProceso(lote) {
     const incluyeOt = Boolean(lote.enchapado_ot_id);
-    const detalle = incluyeOt
-      ? " También se eliminará la OT de enchapado vinculada."
-      : "";
-    if (!window.confirm(`¿Eliminar “${nombreMuebles(lote)}” de ${destinoLote(lote) === "obra" ? `la obra ${nombreObra(lote)}` : "stock"}? Se borrarán el proceso, su historial y sus OT internas.${detalle} La obra y su checklist no se eliminan.`)) return;
+    const ok = await confirmar({
+      title: `¿Eliminar “${nombreMuebles(lote)}”?`,
+      message: `Se borran el proceso, su historial y sus OT internas${incluyeOt ? ", y también la OT de enchapado vinculada" : ""}. ${destinoLote(lote) === "obra" ? `La obra ${nombreObra(lote)} y su checklist de recepción no se eliminan.` : ""}`.trim(),
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (!ok) return;
 
     setEliminandoId(lote.id);
     setError("");
@@ -591,6 +662,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
       setLotes((prev) => prev.filter((item) => item.id !== lote.id));
       setOts((prev) => prev.filter((item) => item.id !== lote.enchapado_ot_id));
       setSeleccionadoId(null);
+      setDetalleMovil(false);
     } catch (e) {
       await cargar();
       setError(e?.message || "No se pudo eliminar el proceso.");
@@ -741,503 +813,480 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
       setVinculandoObra(false);
     }
   }
-  const recibidos = lotes.filter((lote) => etapaMeta(lote).etapa.key === "recibido").length;
+
+  function elegirProceso(id) {
+    setSeleccionadoId(id);
+    setDetalleMovil(true);
+  }
+
+  function cerrarOt() {
+    setGestionOt(null);
+    setRefresco((n) => n + 1);
+  }
+
+  const enRecepcion = activos.filter((lote) => etapaMeta(lote).etapa.key === "recibido").length;
   const templateLinea = lineas.find((linea) => linea.id === templateLineaId) ?? lineas[0] ?? null;
+  const cuentaProveedor = (item) => activos.filter((lote) => (item === "Todos" || lote.proveedor === item)
+    && (destino === "Todos" || destinoLote(lote) === destino)).length;
 
   return (
-    <div className="muebles-flow" style={{ maxWidth: 1520, margin: "0 auto", padding: "20px 22px 44px" }}>
-      <style>{`
-        .muebles-flow button, .muebles-flow input, .muebles-flow select, .muebles-flow textarea { font-family: ${C.sans}; }
-        .muebles-flow button:focus-visible, .muebles-flow input:focus-visible, .muebles-flow select:focus-visible, .muebles-flow textarea:focus-visible { outline:2px solid ${C.blue}; outline-offset:2px; }
-        .muebles-kpis { display:grid; grid-template-columns:repeat(5,minmax(118px,1fr)); gap:7px; }
-        .muebles-workspace { display:grid; grid-template-columns:minmax(330px, .72fr) minmax(560px, 1.28fr); gap:12px; align-items:start; }
-        .muebles-form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
-        .muebles-stage-scroll { overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
-        .muebles-stage-track { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(118px,1fr); min-width:max-content; gap:6px; }
-        .muebles-process-card { transition:border-color .16s ease, transform .16s ease, box-shadow .16s ease, background .16s ease; }
-        .muebles-process-card:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,0,0,.08); }
-        @media(max-width:1180px){ .muebles-kpis{grid-template-columns:repeat(3,1fr)} .muebles-workspace{grid-template-columns:1fr} }
-        @media(max-width:720px){ .muebles-flow{padding:14px 10px 36px!important}.muebles-kpis{grid-template-columns:repeat(2,1fr)}.muebles-form-grid{grid-template-columns:1fr}.muebles-toolbar{align-items:stretch!important}.muebles-toolbar>div{width:100%}.muebles-search{min-width:0!important;width:100%}.muebles-title-row{align-items:flex-start!important}.muebles-title-row h1{font-size:21px!important}.muebles-detail-meta{grid-template-columns:1fr!important}.muebles-detail-head{align-items:flex-start!important}.muebles-detail-head>div:first-child{align-items:flex-start!important} }
-      `}</style>
-
-      <div className="muebles-title-row" style={{ display: "flex", justifyContent: "space-between", gap: 20, alignItems: "center", marginBottom: 14 }}>
-        <div>
-          <div style={{ display: "flex", gap: 7, alignItems: "center", color: C.t2, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, textTransform: "uppercase" }}>
-            <Factory size={14} /> Operación de muebles
+    <div className={`mbl-tab${detalleMovil ? " en-detalle" : ""}`} style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <header className="mbl-barra">
+        <div className="mbl-barra-fila">
+          <div className="mbl-titulos">
+            <div className="mbl-eyebrow">Muebles · Fabricación</div>
+            <h1 className="mbl-h1">Seguimiento de <span className="acento">fabricación</span></h1>
+            <p className="mbl-sub">
+              {loading
+                ? "Leyendo procesos…"
+                : <><b className="mono">{activos.length}</b> {activos.length === 1 ? "proceso activo" : "procesos activos"}{enRecepcion > 0 && <> · <b className="mono">{enRecepcion}</b> en recepción</>}</>}
+            </p>
           </div>
-          <h1 style={{ margin: "5px 0 0", color: C.t0, fontSize: 25, letterSpacing: -0.7 }}>Seguimiento de fabricación</h1>
-          <div style={{ marginTop: 4, color: C.t2, fontSize: 12 }}>Una vista operativa desde la definición de la chapa hasta la recepción.</div>
-        </div>
-        {esAdmin && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => { setTemplateLineaId(seleccionado?.linea_id || lineas[0]?.id || ""); setShowTemplates(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>
-              <FilePenLine size={15} /> Plantillas OT y herrajes
-            </button>
-            <button data-tour="muebles-nuevo" onClick={abrirNuevoProceso} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 650, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
-              <Plus size={15} /> Nuevos muebles
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div data-tour="muebles-resumen" className="muebles-kpis" style={{ marginBottom: 12 }}>
-        <Kpi icon={Layers3} value={activos.length} label="procesos activos" />
-        <Kpi icon={Factory} value={activos.filter((l) => l.proveedor === "Oberti").length} label="en Oberti" tone={C.teal} />
-        <Kpi icon={Warehouse} value={activos.filter((l) => l.proveedor === "Morph").length} label="en Morph" tone={C.violet} />
-        <Kpi icon={Truck} value={activos.filter((l) => etapaMeta(l).etapa.key.includes("transito") || etapaMeta(l).etapa.key.includes("flete")).length} label="en logística" tone={C.teal} />
-        <Kpi icon={PackageCheck} value={recibidos} label="en recepción" tone={C.green} />
-      </div>
-
-      <div className="muebles-toolbar" style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12, padding: "10px 11px", borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 13, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div>
-            <div style={{ ...label, marginBottom: 5 }}>Mueblero</div>
-            <div style={{ display: "flex", gap: 4, padding: 3, borderRadius: 8, background: C.s1, border: `1px solid ${C.b0}` }}>
-              {["Todos", ...PROVEEDORES_MUEBLES].map((item) => (
-                <button key={item} onClick={() => setProveedor(item)} style={{ padding: "5px 9px", borderRadius: 6, border: `1px solid ${proveedor === item ? C.b1 : "transparent"}`, background: proveedor === item ? C.s0 : "transparent", color: proveedor === item ? C.t0 : C.t2, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>{item}</button>
-              ))}
+          {esAdmin && (
+            <div className="mbl-acciones">
+              <button type="button" className="ui-btn ui-btn-fantasma mbl-solo-escritorio" onClick={() => { setTemplateLineaId(seleccionado?.linea_id || lineas[0]?.id || ""); setShowTemplates(true); }}>
+                <FilePenLine size={15} /> Plantillas OT y herrajes
+              </button>
+              <button type="button" data-tour="muebles-nuevo" className="ui-btn ui-btn-primario" onClick={abrirNuevoProceso}>
+                <Plus size={15} /> Nuevos muebles
+              </button>
             </div>
-          </div>
-          <div>
-            <div style={{ ...label, marginBottom: 5 }}>Destino</div>
-            <div style={{ display: "flex", gap: 4, padding: 3, borderRadius: 8, background: C.s1, border: `1px solid ${C.b0}` }}>
-              {[["Todos", "Todos"], ["obra", "Obras"], ["stock", "Stock"]].map(([value, text]) => (
-                <button key={value} onClick={() => setDestino(value)} style={{ padding: "5px 9px", borderRadius: 6, border: `1px solid ${destino === value ? C.b1 : "transparent"}`, background: destino === value ? C.s0 : "transparent", color: destino === value ? C.t0 : C.t2, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>{text}</button>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
-        <div className="muebles-search" style={{ position: "relative", minWidth: 260 }}>
-          <div style={{ ...label, marginBottom: 5 }}>Buscar</div>
-          <Search size={14} style={{ position: "absolute", left: 10, bottom: 10, color: C.t2 }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Obra, línea, chapa..." style={{ ...input, paddingLeft: 32, minHeight: 34 }} />
-        </div>
-      </div>
 
-      {error && <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 9, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 12 }}>{error}</div>}
+        <div className="mbl-filtros">
+          <div className="mbl-seg" role="group" aria-label="Mueblero">
+            {["Todos", ...PROVEEDORES_MUEBLES].map((item) => (
+              <button key={item} type="button" className={proveedor === item ? "on" : ""} onClick={() => setProveedor(item)}>
+                {item} <span className="n">{cuentaProveedor(item)}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mbl-seg" role="group" aria-label="Destino">
+            {[["Todos", "Todos"], ["obra", "Obras"], ["stock", "Stock"]].map(([value, text]) => (
+              <button key={value} type="button" className={destino === value ? "on" : ""} onClick={() => setDestino(value)}>{text}</button>
+            ))}
+          </div>
+          <div className="mbl-sp" />
+          <label className="mbl-buscar">
+            <Search size={15} />
+            <input className="ui-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Obra, línea, chapa…" aria-label="Buscar procesos" />
+          </label>
+        </div>
+
+        <div data-tour="muebles-resumen" className="mbl-scroll-x" style={{ marginTop: 10 }}>
+          <button type="button" className={`mbl-chip${etapaFiltro === "todas" ? " on" : ""}`} onClick={() => setEtapaFiltro("todas")}>
+            Todas las etapas <span className="n">{base.length}</span>
+          </button>
+          {porEtapa.map(({ key, n }) => (
+            <button
+              key={key}
+              type="button"
+              className={`mbl-chip${etapaFiltro === key ? " on" : ""}`}
+              data-tono={key === "recibido" ? "cian" : key === "definicion" ? "neutro" : "azul"}
+              onClick={() => setEtapaFiltro(etapaFiltro === key ? "todas" : key)}
+            >
+              <span className="pto" /> {etiquetaEtapa(key)} <span className="n">{n}</span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {error && !showAdd && (
+        <div style={{ padding: "0 24px 12px" }}>
+          <Aviso onCerrar={() => setError("")}>{error}</Aviso>
+        </div>
+      )}
 
       {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: C.t2 }}>Cargando procesos...</div>
+        <Cargando llenar texto="Cargando procesos…" />
       ) : filtrados.length === 0 ? (
-        <EmptyState onAdd={abrirNuevoProceso} canAdd={esAdmin} />
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", borderTop: "1px solid var(--border)" }}>
+          <Vacio
+            icono={Factory}
+            titulo={activos.length ? "No hay procesos con estos filtros" : "Todavía no hay procesos de muebles"}
+            texto={activos.length ? "Probá con otro mueblero, destino o etapa." : "Creá un proceso para una obra o para stock y seguí su recorrido hasta la recepción."}
+          >
+            {activos.length > 0 ? (
+              <button type="button" className="ui-btn" onClick={() => { setProveedor("Todos"); setDestino("Todos"); setEtapaFiltro("todas"); setQ(""); }}>Quitar filtros</button>
+            ) : esAdmin && (
+              <button type="button" className="ui-btn ui-btn-primario" onClick={abrirNuevoProceso}><Plus size={15} /> Nuevos muebles</button>
+            )}
+          </Vacio>
+        </div>
       ) : (
-        <div className="muebles-workspace">
-          <div data-tour="muebles-procesos" style={{ display: "grid", gap: 8 }}>
-            {filtrados.map((lote) => {
-              const itemMeta = etapaMeta(lote);
-              const itemRecepcion = recepcionMeta(lote, checklistRecepcion);
-              const tone = proveedorTone(lote.proveedor);
-              const selected = seleccionado?.id === lote.id;
-              const itemChapa = otParaLote(lote)?.tipo_chapa || lote.color_chapa || lote.material_base;
-              return (
-                <button className="muebles-process-card" key={lote.id} onClick={() => setSeleccionadoId(lote.id)} style={{ width: "100%", padding: 0, borderRadius: 12, border: `1px solid ${selected ? tone.border : C.b0}`, background: selected ? `color-mix(in srgb, ${tone.color} 6%, ${C.s0})` : C.s0, textAlign: "left", cursor: "pointer", overflow: "hidden", boxShadow: selected ? `0 8px 26px color-mix(in srgb, ${tone.color} 10%, transparent)` : "none" }}>
-                  <div style={{ padding: "13px 14px 11px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                      <div style={{ display: "flex", gap: 11, minWidth: 0, alignItems: "flex-start" }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 9, display: "grid", placeItems: "center", background: C.s1, border: `1px solid ${C.b0}`, flexShrink: 0, overflow: "hidden" }}>
-                          {itemChapa ? <ChapaSwatch tipo={itemChapa} size="md" /> : <Layers3 size={16} color={C.t2} />}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 7 }}>
-                          <Badge {...tone}>{lote.proveedor}</Badge>
-                          <Badge color={destinoLote(lote) === "stock" ? C.green : C.t1} bg={destinoLote(lote) === "stock" ? C.greenL : C.s1} border={destinoLote(lote) === "stock" ? C.greenB : C.b0}>
-                            {destinoLote(lote) === "stock" ? "Stock" : `Obra ${nombreObra(lote)}`}
-                          </Badge>
-                        </div>
-                          <div style={{ color: C.t0, fontSize: 14, lineHeight: 1.2, fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreMuebles(lote)}</div>
-                          <div style={{ color: C.t2, fontSize: 10.5, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Línea {nombreLinea(lote)} · {itemChapa || "Chapa por definir"}</div>
-                        </div>
-                      </div>
-                      <ChevronRight size={17} color={selected ? tone.color : C.t2} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, color: C.t1, fontSize: 11, fontWeight: 600 }}>
-                      <span>{itemRecepcion ? `Recibido ${itemRecepcion.estado}` : itemMeta.etapa.label}</span>
-                      <span>{itemMeta.progreso}%</span>
-                    </div>
-                  </div>
-                  <div style={{ height: 3, background: C.s2 }}><div style={{ width: `${itemMeta.progreso}%`, height: "100%", background: tone.color, transition: "width .2s" }} /></div>
-                </button>
-              );
-            })}
+        <div className={`mbl-dos${detalleMovil ? " con-detalle" : ""}`}>
+          <div className="mbl-lista" data-tour="muebles-procesos">
+            {filtrados.map((lote, idx) => (
+              <ItemProceso
+                key={lote.id}
+                lote={lote}
+                indice={idx}
+                selected={seleccionado?.id === lote.id}
+                chapa={otParaLote(lote)?.tipo_chapa || lote.color_chapa || lote.material_base}
+                recepcion={recepcionMeta(lote, checklistRecepcion)}
+                onClick={() => elegirProceso(lote.id)}
+              />
+            ))}
           </div>
 
-          {seleccionado && meta && (
-            <section data-tour="muebles-recorrido" style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: C.s0, overflow: "hidden", position: "sticky", top: 12 }}>
-              <div style={{ padding: "16px 18px", borderBottom: `1px solid ${C.b0}`, background: C.s1 }}>
-                <div className="muebles-detail-head" style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 13, minWidth: 0 }}>
-                    <div style={{ width: 54, height: 44, borderRadius: 11, display: "grid", placeItems: "center", background: C.s0, border: `1px solid ${C.b0}`, overflow: "hidden", flexShrink: 0 }}>
-                      {selectedChapa ? <ChapaSwatch tipo={selectedChapa} size="lg" /> : <Layers3 size={20} color={C.t2} />}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
-                        <Badge {...proveedorTone(seleccionado.proveedor)}>{seleccionado.proveedor}</Badge>
-                        <Badge>{destinoLote(seleccionado) === "stock" ? "Fabricación para stock" : `Obra ${nombreObra(seleccionado)}`}</Badge>
-                      </div>
-                      <h2 style={{ margin: 0, fontSize: 19, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nombreMuebles(seleccionado)}</h2>
-                      <div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>
-                        {destinoLote(seleccionado) === "obra" ? `Obra ${nombreObra(seleccionado)} · ` : ""}Línea {nombreLinea(seleccionado)} · {cantidadMuebles(seleccionado)}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, flexWrap: "wrap", flexShrink: 0 }}>
-                    {seleccionado.fecha_objetivo && <Badge color={C.blue} bg={C.blueL} border={C.blueB}><CalendarDays size={12} /> Objetivo {fechaCorta(seleccionado.fecha_objetivo)}</Badge>}
-                    {esAdmin && (
-                      <>
-                        <button type="button" onClick={() => abrirEditarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 10.5, fontWeight: 650 }}>
-                          <FilePenLine size={13} /> Editar
-                        </button>
-                        <button type="button" disabled={eliminandoId === seleccionado.id} onClick={() => eliminarProceso(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: eliminandoId === seleccionado.id ? "wait" : "pointer", opacity: eliminandoId === seleccionado.id ? .65 : 1, fontSize: 10.5, fontWeight: 650 }}>
-                          <Trash2 size={13} /> {eliminandoId === seleccionado.id ? "Eliminando…" : "Eliminar"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+          <div className="mbl-detalle">
+            {seleccionado && meta && (
+              <div className="mbl-panel" key={seleccionado.id}>
+                <button type="button" className="mbl-volver-movil" onClick={() => setDetalleMovil(false)}>
+                  <ChevronLeft size={18} /> Procesos
+                </button>
 
-              <div style={{ padding: 18 }}>
-                {seleccionado.proveedor === "Oberti" && (
-                  <MueblesOrdenesTrabajoPanel
-                    key={seleccionado.id}
-                    loteId={seleccionado.id}
-                    lineaId={seleccionado.linea_id}
-                    obraCodigo={nombreObra(seleccionado)}
-                    modelo={nombreLinea(seleccionado)}
-                    canEdit={esAdmin}
-                  />
-                )}
-
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-end", marginBottom: 10 }}>
-                  <div>
-                    <div style={{ ...label, marginBottom: 3 }}>Proceso {seleccionado.proveedor}</div>
-                    <div style={{ color: C.t2, fontSize: 10.5 }}>{esAdmin ? "Seleccioná cualquier etapa. Si queda algo pendiente, te avisamos antes de guardar." : "Recorrido operativo de fabricación."}</div>
+                <div className="mbl-cab">
+                  <div className="mbl-cab-sw">
+                    {selectedChapa ? <ChapaSwatch tipo={selectedChapa} size="lg" /> : <Layers3 size={22} />}
                   </div>
-                  <Badge color={proveedorTone(seleccionado.proveedor).color} bg={proveedorTone(seleccionado.proveedor).bg} border={proveedorTone(seleccionado.proveedor).border}>{meta.progreso}%</Badge>
-                </div>
-                <div className="muebles-stage-scroll">
-                  <div className="muebles-stage-track">
-                  {meta.flujo.map((etapa, index) => {
-                    const done = index < meta.index;
-                    const active = index === meta.index;
-                    return (
+                  <div style={{ minWidth: 0 }}>
+                    <div className="mbl-cab-tags">
+                      <Tag tono={TONO_PROVEEDOR[seleccionado.proveedor] || "teal"} icono={Factory}>{seleccionado.proveedor}</Tag>
+                      <Tag tono={destinoLote(seleccionado) === "stock" ? "verde" : "neutro"}>
+                        {destinoLote(seleccionado) === "stock" ? "Para stock" : `Obra ${nombreObra(seleccionado)}`}
+                      </Tag>
+                      {seleccionado.fecha_objetivo && <Tag tono="azul">Objetivo {fechaCorta(seleccionado.fecha_objetivo)}</Tag>}
+                    </div>
+                    <h2 className="mbl-cab-tit">{nombreMuebles(seleccionado)}</h2>
+                    <div className="mbl-cab-sub">Línea {nombreLinea(seleccionado)} · {cantidadMuebles(seleccionado)}</div>
+                  </div>
+                  {esAdmin && (
+                    <div className="mbl-cab-acc">
+                      <button type="button" className="ui-btn chico" onClick={() => abrirEditarProceso(seleccionado)}>
+                        <FilePenLine size={14} /> Editar
+                      </button>
                       <button
-                        key={etapa.key}
                         type="button"
-                        disabled={!esAdmin || active}
-                        onClick={() => moverAEtapa(seleccionado, index)}
-                        title={esAdmin ? active ? "Etapa actual" : `Cambiar a ${etapa.label}` : etapa.short}
-                        style={{
-                          width: 124,
-                          minHeight: 76,
-                          padding: "9px 9px 8px",
-                          borderRadius: 10,
-                          border: `1px solid ${active ? proveedorTone(seleccionado.proveedor).border : done ? C.b1 : C.b0}`,
-                          background: active ? proveedorTone(seleccionado.proveedor).bg : done ? C.s1 : "transparent",
-                          color: active ? proveedorTone(seleccionado.proveedor).color : done ? C.t1 : C.t2,
-                          textAlign: "left",
-                          cursor: esAdmin && !active ? "pointer" : "default",
-                          opacity: esAdmin || active || done ? 1 : 0.82,
-                        }}
+                        className="mbl-btn-ic peligro"
+                        disabled={eliminandoId === seleccionado.id}
+                        onClick={() => eliminarProceso(seleccionado)}
+                        aria-label="Eliminar proceso"
+                        title="Eliminar proceso"
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 7, marginBottom: 8 }}>
-                          <span style={{ width: 21, height: 21, borderRadius: 7, display: "grid", placeItems: "center", border: `1px solid ${done || active ? proveedorTone(seleccionado.proveedor).border : C.b0}`, background: done ? proveedorTone(seleccionado.proveedor).color : C.s0, color: done ? C.bg : active ? proveedorTone(seleccionado.proveedor).color : C.t2, fontSize: 9, fontWeight: 700 }}>
-                            {done ? <Check size={12} strokeWidth={3} /> : index + 1}
-                          </span>
-                          {active && <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Actual</span>}
-                        </div>
-                        <div style={{ fontSize: 10.5, lineHeight: 1.25, fontWeight: active ? 700 : 600 }}>{etapa.label}</div>
+                        <Trash2 size={15} />
                       </button>
-                    );
-                  })}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 11, padding: "10px 11px", borderRadius: 10, border: `1px solid ${proveedorTone(seleccionado.proveedor).border}`, background: proveedorTone(seleccionado.proveedor).bg }}>
-                  <div style={{ color: proveedorTone(seleccionado.proveedor).color, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Etapa actual · {meta.etapa.label}</div>
-                  <div style={{ color: C.t1, fontSize: 11.5, marginTop: 4 }}>{meta.etapa.short}</div>
-                </div>
-
-                <div className="muebles-detail-meta" style={{ marginTop: 12, paddingTop: 13, borderTop: `1px solid ${C.b0}`, display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 9 }}>
-                  <div>
-                    <span style={label}>Chapa de los muebles</span>
-                    {selectedChapa ? <ChapaSwatch tipo={selectedChapa} size="sm" label /> : <div style={{ color: C.t2, fontSize: 11 }}>Pendiente de definición</div>}
-                  </div>
-                  <div><span style={label}>Material base</span><div style={{ color: C.t0, fontSize: 11.5 }}>{seleccionado.material_base || "Estándar de línea"}</div></div>
-                  <div><span style={label}>Madera especial</span><div style={{ color: C.t0, fontSize: 11.5 }}>{seleccionado.detalle_madera || "Sin dependencia especial"}</div></div>
-                </div>
-
-                {selectedRecepcion && (
-                  <div style={{ marginTop: 14, padding: 13, borderRadius: 11, border: `1px solid ${selectedRecepcion.estado === "completa" ? C.greenB : C.blueB}`, background: selectedRecepcion.estado === "completa" ? C.greenL : C.blueL }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                      <div>
-                        <div style={{ color: selectedRecepcion.estado === "completa" ? C.green : C.blue, fontSize: 12, fontWeight: 700 }}>
-                          Recepción {selectedRecepcion.estado}
-                        </div>
-                        <div style={{ color: C.t2, fontSize: 10, marginTop: 3 }}>
-                          {selectedRecepcion.total
-                            ? `${selectedRecepcion.completos} de ${selectedRecepcion.total} muebles recibidos completos${selectedRecepcion.parciales ? ` · ${selectedRecepcion.parciales} parciales` : ""}`
-                            : "Los muebles empezaron a llegar. Falta controlar los ítems en el checklist."}
-                        </div>
-                      </div>
-                      <span style={{ color: selectedRecepcion.estado === "completa" ? C.green : C.blue, fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>{selectedRecepcion.pct}%</span>
                     </div>
-                    <div style={{ height: 4, borderRadius: 99, background: C.s2, marginTop: 9, overflow: "hidden" }}>
-                      <div style={{ width: `${selectedRecepcion.pct}%`, height: "100%", background: selectedRecepcion.estado === "completa" ? C.green : C.blue }} />
+                  )}
+                </div>
+
+                <section className="mbl-bloque" data-tour="muebles-recorrido" style={{ "--i": 1 }}>
+                  <div className="mbl-bloque-cab">
+                    <h3>Recorrido {seleccionado.proveedor}</h3>
+                    <div className="der">
+                      <span className="mono" style={{ fontSize: 12, color: "var(--dim)" }}>{meta.index + 1}/{meta.flujo.length}</span>
+                      <Mini pct={meta.progreso} style={{ width: 80 }} />
                     </div>
-                    {esAdmin && selectedRecepcion.total === 0 && (
-                      <button
-                        onClick={() => actualizarLote(
-                          seleccionado,
-                          { recepcion_estado: selectedRecepcion.estado === "completa" ? "parcial" : "completa" },
-                          selectedRecepcion.estado === "completa" ? "Recepción reabierta" : "Recepción completada",
-                        )}
-                        style={{ marginTop: 10, padding: "7px 10px", borderRadius: 8, border: `1px solid ${selectedRecepcion.estado === "completa" ? C.b0 : C.greenB}`, background: selectedRecepcion.estado === "completa" ? "transparent" : C.greenL, color: selectedRecepcion.estado === "completa" ? C.t2 : C.green, cursor: "pointer", fontSize: 10, fontWeight: 700 }}
-                      >
-                        {selectedRecepcion.estado === "completa" ? "Volver a recepción parcial" : "Marcar recepción completa"}
-                      </button>
-                    )}
                   </div>
-                )}
+                  <div className="mbl-ruta" ref={rutaRef}>
+                    {meta.flujo.map((etapa, index) => {
+                      const hecho = index < meta.index;
+                      const actual = index === meta.index;
+                      return (
+                        <button
+                          key={etapa.key}
+                          type="button"
+                          className={`mbl-paso${hecho ? " hecho" : ""}${actual ? " actual" : ""}`}
+                          disabled={!esAdmin || actual}
+                          onClick={() => moverAEtapa(seleccionado, index)}
+                          title={actual ? "Etapa actual" : esAdmin ? `Cambiar a ${etapa.label}` : etapa.short}
+                          aria-current={actual ? "step" : undefined}
+                        >
+                          <span className="mbl-paso-nodo">{hecho ? <Check size={14} strokeWidth={3} /> : index + 1}</span>
+                          <span className="mbl-paso-et">{etapa.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {esAdmin && <p className="mbl-bloque-txt" style={{ marginTop: 6 }}>Tocá cualquier etapa para corregirla. Si queda algo pendiente, te avisamos antes de guardar.</p>}
+                </section>
+
+                <BloqueAhora
+                  lote={seleccionado}
+                  meta={meta}
+                  esAdmin={esAdmin}
+                  faltan={faltan}
+                  recepcion={selectedRecepcion}
+                  onAvanzar={() => mover(seleccionado, 1)}
+                  onVolver={() => mover(seleccionado, -1)}
+                  onAbrirRecepcion={() => onOpenChecklist?.(seleccionado)}
+                  onToggleRecepcion={() => actualizarLote(
+                    seleccionado,
+                    { recepcion_estado: selectedRecepcion?.estado === "completa" ? "parcial" : "completa" },
+                    selectedRecepcion?.estado === "completa" ? "Recepción reabierta" : "Recepción completada",
+                  )}
+                />
 
                 {seleccionado.proveedor === "Oberti" && (
-                  <div data-tour="muebles-preparacion" style={{ marginTop: 16, padding: 13, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s1 }}>
-                    <div style={{ ...label, marginBottom: 5 }}>OT de preparación · Carpintero de banco</div>
-                    <div style={{ color: C.t2, fontSize: 10, lineHeight: 1.5, marginBottom: 10 }}>
-                      Banco prepara chapas y tablones. Después Oficina Técnica digitaliza la parte de chapas para enviarla impresa a la enchapadora.
+                  <section className="mbl-bloque" data-tour="muebles-enchapado-herrajes" style={{ "--i": 3 }}>
+                    <div className="mbl-bloque-cab">
+                      <h3>OT y herrajes</h3>
+                      <span className="der" style={{ fontSize: 12, color: "var(--dim)" }}>
+                        {meta.index >= meta.flujo.findIndex((etapa) => etapa.key === "preparacion_banco")
+                          ? "Banco recibe la OT completa; Enchapadora y Oberti, sólo su parte."
+                          : "Se pueden adelantar: el momento recomendado es la preparación en Banco."}
+                      </span>
                     </div>
-                    <div style={{ display: "grid", gap: 7 }}>
-                      {OBERTI_TASKS.map(([key, text]) => (
-                        <label key={key} style={{ display: "flex", gap: 9, alignItems: "center", cursor: esAdmin ? "pointer" : "default", color: seleccionado[key] ? C.t1 : C.t2, fontSize: 11 }}>
-                          <input type="checkbox" disabled={!esAdmin} checked={Boolean(seleccionado[key])} onChange={() => actualizarLote(seleccionado, { [key]: !seleccionado[key] }, text)} />
-                          <span style={{ textDecoration: seleccionado[key] ? "line-through" : "none" }}>{text}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                    <div className="mbl-filas">
+                      <MueblesOrdenesTrabajoPanel
+                        key={seleccionado.id}
+                        loteId={seleccionado.id}
+                        lineaId={seleccionado.linea_id}
+                        obraCodigo={nombreObra(seleccionado)}
+                        modelo={nombreLinea(seleccionado)}
+                        canEdit={esAdmin}
+                      />
 
-                {seleccionado.proveedor === "Oberti" && (
-                  <div data-tour="muebles-enchapado-herrajes" style={{
-                    marginTop: 12,
-                    padding: 14,
-                    borderRadius: 12,
-                    border: `1px solid ${enchapadoEnEtapaRecomendada ? C.blueB : C.b0}`,
-                    background: enchapadoEnEtapaRecomendada ? C.blueL : C.s1,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 11 }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, color: enchapadoEnEtapaRecomendada ? C.blue : C.t1, fontSize: 11, fontWeight: 700 }}>
-                          <Layers3 size={15} /> Circuito de OT y herrajes
-                        </div>
-                        <div style={{ color: C.t2, fontSize: 10, marginTop: 4 }}>
-                          {enchapadoEnEtapaRecomendada
-                            ? "Banco recibe la OT completa; Enchapadora y Oberti reciben únicamente la parte que les corresponde."
-                            : "Podés adelantar la OT y los herrajes. El momento recomendado es durante la preparación en Banco."}
-                        </div>
-                      </div>
-                      {!enchapadoEnEtapaRecomendada && <Badge color={C.blue} bg={C.blueL} border={C.blueB}>Disponible</Badge>}
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                        <div style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                            <div>
-                              <div style={{ color: C.t0, fontSize: 12, fontWeight: 650 }}>1. OT de preparación de Banco</div>
-                              <div style={{ color: C.t2, fontSize: 10, marginTop: 3 }}>
-                                {selectedOt
-                                  ? `${selectedOt.estado} · Digitalizar chapas, imprimir para Enchapadora y avisar tablones a Oberti`
-                                  : "Creala para entregársela al carpintero de banco antes de comenzar la preparación."}
-                              </div>
-                            </div>
+                      <div className="mbl-fila" data-tour="muebles-preparacion">
+                        <span className="mbl-fila-ic" data-tono="azul"><Hammer size={16} /></span>
+                        <div style={{ minWidth: 0 }}>
+                          <div className="mbl-fila-tit">OT de preparación · Banco → Enchapadora</div>
+                          <div className="mbl-fila-txt">
                             {selectedOt
-                              ? <Badge color={selectedOt.estado === "Devuelta" ? C.green : C.blue} bg={selectedOt.estado === "Devuelta" ? C.greenL : C.blueL} border={selectedOt.estado === "Devuelta" ? C.greenB : C.blueB}>{selectedOt.estado}</Badge>
-                              : <Badge>Pendiente</Badge>}
+                              ? [
+                                chapas ? `Hojas de chapa cargadas: ${chapas.cargadas} de ${chapas.total}` : null,
+                                plantillaOt?.tablones ? (selectedOt.tablones_enviado ? "aviso de tablones enviado a Oberti" : "falta avisar los tablones a Oberti") : null,
+                              ].filter(Boolean).join(" · ") || "Digitalizá las chapas, imprimí para la Enchapadora y avisá los tablones a Oberti."
+                              : "Creala para entregársela al carpintero de banco antes de empezar la preparación."}
+                          </div>
+                          <div className="mbl-tareas">
+                            {OBERTI_TASKS.map(([key, text]) => (
+                              <Tarea
+                                key={key}
+                                hecha={seleccionado[key]}
+                                disabled={!esAdmin}
+                                onClick={() => actualizarLote(seleccionado, { [key]: !seleccionado[key] }, text)}
+                              >
+                                {text}
+                              </Tarea>
+                            ))}
                           </div>
                           {esAdmin && (
-                            <div style={{ display: "flex", gap: 7, marginTop: 10, flexWrap: "wrap" }}>
+                            <div className="mbl-fila-acc">
                               {selectedOt ? (
-                                <button onClick={() => setGestionOt(selectedOt)} style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>Abrir y gestionar OT</button>
+                                <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => setGestionOt(selectedOt)}>
+                                  Abrir OT: chapas e impresión <ArrowRight size={14} />
+                                </button>
                               ) : (
-                                <button disabled={creandoOt || !seleccionado.unidad_id} onClick={() => crearOtEnchapado(seleccionado)} style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: seleccionado.unidad_id ? C.blue : C.t3, cursor: seleccionado.unidad_id ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 700 }}>
-                                  {creandoOt ? "Creando OT..." : "Crear OT de preparación"}
+                                <button
+                                  type="button"
+                                  className="ui-btn ui-btn-suave chico"
+                                  disabled={creandoOt || !seleccionado.unidad_id}
+                                  title={seleccionado.unidad_id ? "" : "La OT necesita una obra asignada"}
+                                  onClick={() => crearOtEnchapado(seleccionado)}
+                                >
+                                  <Plus size={14} /> {creandoOt ? "Creando OT…" : "Crear OT de preparación"}
                                 </button>
                               )}
                             </div>
                           )}
                         </div>
+                        <div className="mbl-fila-der">
+                          {selectedOt
+                            ? <Estado tono={selectedOt.estado === "Devuelta" ? "verde" : selectedOt.estado === "Rehacer" ? "rojo" : selectedOt.estado === "Enviada" ? "azul" : "neutro"}>{selectedOt.estado}</Estado>
+                            : <Estado tono="neutro">Sin crear</Estado>}
+                        </div>
+                      </div>
 
-                        <div style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                            <div>
-                              <div style={{ color: C.t0, fontSize: 12, fontWeight: 650 }}>2. Kit de herrajes para Oberti</div>
-                              <div style={{ color: C.t2, fontSize: 10, marginTop: 3 }}>
-                                {selectedHerrajes.length
-                                  ? selectedCompraHerrajes
-                                    ? `${selectedHerrajes.length} ítems · Compras: ${selectedCompraHerrajes.status}`
-                                    : `${selectedHerrajes.length} ítems definidos para ${nombreLinea(seleccionado)}`
-                                  : `No hay un kit cargado para ${nombreLinea(seleccionado)}.`}
-                              </div>
-                            </div>
-                            <Badge
-                              color={(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.green : (seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido) ? C.blue : C.t2}
-                              bg={(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.greenL : (seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido) ? C.blueL : C.s1}
-                              border={(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.greenB : (seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido) ? C.blueB : C.b0}
-                            >
-                              {(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado)
-                                ? "Enviado a Oberti"
-                                : (seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido)
-                                  ? "Pedido a Compras"
-                                  : "Pendiente"}
-                            </Badge>
+                      <div className="mbl-fila">
+                        <span className="mbl-fila-ic" data-tono="violeta"><PackagePlus size={16} /></span>
+                        <div style={{ minWidth: 0 }}>
+                          <div className="mbl-fila-tit">Kit de herrajes para Oberti</div>
+                          <div className="mbl-fila-txt">
+                            {selectedHerrajes.length
+                              ? selectedCompraHerrajes
+                                ? `${selectedHerrajes.length} ítems · Compras: ${selectedCompraHerrajes.status}`
+                                : `${selectedHerrajes.length} ítems definidos para ${nombreLinea(seleccionado)}`
+                              : `No hay un kit cargado para ${nombreLinea(seleccionado)}.`}
                           </div>
-                          {selectedHerrajes.length > 0 && (
-                            <div style={{ display: "flex", gap: 7, marginTop: 10, flexWrap: "wrap" }}>
-                              {esAdmin && !(seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido) && (
-                                <button onClick={() => setPedidoHerrajes({ lote: seleccionado, ot: selectedOt, items: selectedHerrajes })} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
-                                  <ShoppingCart size={13} /> Enviar pedido a Compras
+                          {selectedHerrajes.length > 0 && (esAdmin || selectedCompraHerrajes) && (
+                            <div className="mbl-fila-acc">
+                              {esAdmin && !herrajesPedidos && (
+                                <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => setPedidoHerrajes({ lote: seleccionado, ot: selectedOt, items: selectedHerrajes })}>
+                                  <ShoppingCart size={14} /> Enviar pedido a Compras
                                 </button>
                               )}
-                              {esAdmin && (seleccionado.herrajes_pedido || selectedOt?.herrajes_pedido) && (
+                              {esAdmin && herrajesPedidos && (
                                 <button
-                                  disabled={!(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) && selectedCompraHerrajes?.status !== "recibido"}
-                                  title={selectedCompraHerrajes?.status !== "recibido" ? "Compras debe marcar el pedido como recibido antes del envío a Oberti." : ""}
+                                  type="button"
+                                  className={`ui-btn chico${herrajesEnviados ? " ui-btn-fantasma" : ""}`}
+                                  disabled={!herrajesEnviados && selectedCompraHerrajes?.status !== "recibido"}
+                                  title={!herrajesEnviados && selectedCompraHerrajes?.status !== "recibido" ? "Compras debe marcar el pedido como recibido antes del envío a Oberti." : ""}
                                   onClick={() => toggleHerrajesEnviados(seleccionado, selectedOt)}
-                                  style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.b0 : C.greenB}`, background: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? "transparent" : C.greenL, color: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) ? C.t2 : selectedCompraHerrajes?.status === "recibido" ? C.green : C.t3, cursor: (seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado) || selectedCompraHerrajes?.status === "recibido" ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 700 }}
                                 >
-                                  {(seleccionado.herrajes_enviado || selectedOt?.herrajes_enviado)
+                                  {herrajesEnviados
                                     ? "Revertir envío"
                                     : selectedCompraHerrajes?.status === "recibido"
-                                      ? "Marcar enviados a Oberti"
+                                      ? <><Check size={14} /> Marcar enviados a Oberti</>
                                       : `Compras: ${selectedCompraHerrajes?.status || "sin vincular"}`}
                                 </button>
                               )}
                               {selectedCompraHerrajes && (
-                                <a href={`/compras?open=${selectedCompraHerrajes.id}`} style={{ display: "inline-flex", alignItems: "center", padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, textDecoration: "none", fontSize: 10, fontWeight: 650 }}>
-                                  Abrir pedido en Compras
-                                </a>
+                                <a className="ui-btn ui-btn-fantasma chico" href={`/compras?open=${selectedCompraHerrajes.id}`}>Abrir pedido en Compras</a>
                               )}
                             </div>
                           )}
                         </div>
-
+                        <div className="mbl-fila-der">
+                          <Estado tono={herrajesEnviados ? "verde" : herrajesPedidos ? "azul" : "neutro"}>
+                            {herrajesEnviados ? "Enviado a Oberti" : herrajesPedidos ? "Pedido a Compras" : "Pendiente"}
+                          </Estado>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </section>
                 )}
 
-                {seleccionado.observaciones && <div style={{ marginTop: 13, padding: 11, borderRadius: 9, background: C.s1, color: C.t1, fontSize: 11, lineHeight: 1.5 }}>{seleccionado.observaciones}</div>}
+                <section className="mbl-bloque" style={{ "--i": 4 }}>
+                  <div className="mbl-bloque-cab"><h3>Datos de los muebles</h3></div>
+                  <div className="mbl-datos">
+                    <div>
+                      <div className="mbl-dato-et">Chapa</div>
+                      {selectedChapa ? <ChapaSwatch tipo={selectedChapa} size="sm" label /> : <div className="mbl-dato-v vacio">Pendiente de definición</div>}
+                    </div>
+                    <div>
+                      <div className="mbl-dato-et">Material base</div>
+                      <div className={`mbl-dato-v${seleccionado.material_base ? "" : " vacio"}`}>{seleccionado.material_base || "Estándar de línea"}</div>
+                    </div>
+                    <div>
+                      <div className="mbl-dato-et">Madera especial</div>
+                      <div className={`mbl-dato-v${seleccionado.detalle_madera ? "" : " vacio"}`}>{seleccionado.detalle_madera || "Sin dependencia especial"}</div>
+                    </div>
+                  </div>
+                  {seleccionado.observaciones && <div className="mbl-obs">{seleccionado.observaciones}</div>}
+                </section>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-                  {esAdmin && (
-                    <>
-                      <button disabled={!meta.anterior} onClick={() => mover(seleccionado, -1)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: meta.anterior ? C.t1 : C.t3, cursor: meta.anterior ? "pointer" : "default", fontWeight: 650, fontSize: 11 }}><ArrowLeft size={14} /> Volver</button>
-                      <button disabled={!meta.siguiente} onClick={() => mover(seleccionado, 1)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.blueB}`, background: C.blueL, color: meta.siguiente ? C.blue : C.t3, cursor: meta.siguiente ? "pointer" : "default", fontWeight: 650, fontSize: 11 }}>
-                        {meta.siguiente ? `Avanzar a ${meta.siguiente.label}` : `Recepción ${selectedRecepcion?.estado || "parcial"}`}
-                        {meta.siguiente && <ArrowRight size={14} />}
-                      </button>
-                    </>
+                <section className="mbl-bloque" style={{ "--i": 5 }}>
+                  <div className="mbl-bloque-cab"><h3>Últimos movimientos</h3><History size={14} className="der" style={{ color: "var(--subtle)" }} /></div>
+                  {!filasHistorial ? (
+                    <Cargando compacto texto="Leyendo historial…" />
+                  ) : filasHistorial.length === 0 ? (
+                    <p className="mbl-bloque-txt">Sin movimientos registrados.</p>
+                  ) : (
+                    <div className="mbl-hist">
+                      {filasHistorial.map((fila) => (
+                        <div key={fila.id} className="mbl-hist-item" data-tono={tonoHistorial(fila.accion)}>
+                          <span className="mbl-hist-pto" />
+                          <div style={{ minWidth: 0 }}>
+                            <div className="mbl-hist-acc">{fila.accion}</div>
+                            {fila.quien && <div className="mbl-hist-quien">{fila.quien}</div>}
+                          </div>
+                          <span className="mbl-hist-fecha">{fechaHora(fila.creado_el)}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  {meta.etapa.key === "recibido" && destinoLote(seleccionado) === "obra" && <button onClick={() => onOpenChecklist?.(seleccionado)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 650, fontSize: 11 }}><ClipboardCheck size={14} /> Abrir recepción</button>}
-                </div>
+                </section>
               </div>
-            </section>
-          )}
+            )}
+          </div>
         </div>
       )}
 
       {/* Confirmación para saltear pasos. No es un error: es una advertencia con
           la lista de lo que falta, y la decisión queda del lado de la persona. */}
       {avisoSalto && (
-        <div
-          onMouseDown={(e) => e.target === e.currentTarget && setAvisoSalto(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 96, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}
+        <Modal
+          onCerrar={() => setAvisoSalto(null)}
+          icono={AlertTriangle}
+          tono="violeta"
+          titulo={`Cambiar a ${avisoSalto.target.label}`}
+          sub="Revisá lo que queda abierto antes de actualizar el proceso."
+          pie={(
+            <>
+              <button type="button" className="ui-btn" onClick={() => setAvisoSalto(null)}>Volver</button>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarSalto}>Cambiar de etapa igual</button>
+            </>
+          )}
         >
-          <div style={{ width: "min(520px, 100%)", borderRadius: 15, border: `1px solid ${C.b1}`, background: C.bg1, boxShadow: "0 26px 80px rgba(0,0,0,.38)", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "15px 18px", borderBottom: `1px solid ${C.b0}` }}>
-              <span style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 10, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
-                <AlertTriangle size={16} />
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: C.t0, fontSize: 14.5 }}>
-                  Cambiar a {avisoSalto.target.label}
-                </div>
-                <div style={{ color: C.t2, fontSize: 11.5, marginTop: 2 }}>
-                  Revisá la advertencia antes de actualizar el proceso.
-                </div>
-              </div>
-            </div>
-
-            <div style={{ padding: "14px 18px", display: "grid", gap: 8 }}>
-              {avisoSalto.etapasOmitidas?.length > 0 && (
-                <div style={{ padding: "10px 11px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL }}>
-                  <div style={{ color: C.blue, fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase" }}>Etapas que se omiten</div>
-                  <div style={{ color: C.t1, fontSize: 11.5, lineHeight: 1.45, marginTop: 4 }}>{avisoSalto.etapasOmitidas.join(" · ")}</div>
-                </div>
-              )}
-              {avisoSalto.faltan.map((motivo, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 12.5, color: C.t1, lineHeight: 1.45 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: 99, background: C.t3, flexShrink: 0, marginTop: 6 }} />
-                  {motivo}
-                </div>
-              ))}
-              <div style={{ marginTop: 4, fontSize: 11.5, color: C.t2, lineHeight: 1.5 }}>
-                Podés continuar igual. La etapa elegida, las omisiones y los pendientes quedarán registrados en el historial.
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, padding: "12px 18px", borderTop: `1px solid ${C.b0}` }}>
-              <button
-                onClick={() => setAvisoSalto(null)}
-                style={{ padding: "8px 14px", borderRadius: 9, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontWeight: 650, fontSize: 12 }}
-              >
-                Volver
-              </button>
-              <button
-                onClick={confirmarSalto}
-                style={{ padding: "8px 15px", borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 700, fontSize: 12 }}
-              >
-                Cambiar de etapa igual
-              </button>
-            </div>
-          </div>
-        </div>
+          {avisoSalto.etapasOmitidas?.length > 0 && (
+            <Aviso tono="azul"><b>Etapas que se omiten:</b> {avisoSalto.etapasOmitidas.join(" · ")}</Aviso>
+          )}
+          {avisoSalto.faltan.length > 0 && (
+            <ul className="mbl-lista-puntos">
+              {avisoSalto.faltan.map((motivo, i) => <li key={i}>{motivo}</li>)}
+            </ul>
+          )}
+          <p className="mbl-bloque-txt">Podés continuar igual. La etapa elegida, las omisiones y los pendientes quedan registrados en el historial.</p>
+        </Modal>
       )}
 
       {showAdd && (
-        <div onMouseDown={(e) => e.target === e.currentTarget && cerrarFormulario()} style={{ position: "fixed", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
-          <div style={{ width: "min(760px, 100%)", maxHeight: "90vh", overflowY: "auto", borderRadius: 15, border: `1px solid ${C.b1}`, background: C.bg1, boxShadow: "0 26px 80px rgba(0,0,0,.38)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: `1px solid ${C.b0}` }}>
-              <div><div style={{ fontWeight: 700, color: C.t0 }}>{editandoId ? "Editar proceso de muebles" : "Nuevo proceso de muebles"}</div><div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>{editandoId ? "Corregí la obra, el proveedor y los datos del proceso." : "Definí quién lo fabrica y si nace para una obra o para stock."}</div></div>
-              <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer" }}><X size={15} /></button>
-            </div>
-            {error && <div role="alert" style={{ margin: "12px 18px 0", padding: "9px 11px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 11.5 }}>{error}</div>}
-            <div className="muebles-form-grid" style={{ padding: 18 }}>
-              <div><label style={label}>Destino</label><select style={input} value={form.tipo_destino} onChange={(e) => setForm({ ...form, tipo_destino: e.target.value, unidad_id: "" })}><option value="obra">Obra específica</option><option value="stock">Fabricar para stock</option></select></div>
-              <div><label style={label}>Mueblero</label><select style={input} value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })}>{PROVEEDORES_MUEBLES.map((item) => <option key={item}>{item}</option>)}</select></div>
-              <div><label style={label}>Línea</label><select style={input} value={form.linea_id} onChange={(e) => setForm({ ...form, linea_id: e.target.value, unidad_id: "" })}><option value="">Seleccionar línea</option>{lineas.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></div>
-              {form.tipo_destino === "obra" && <div><label style={label}>Obra</label><select style={input} value={form.unidad_id} disabled={vinculandoObra} onChange={(e) => seleccionarObra(e.target.value)}><option value="">{vinculandoObra ? "Vinculando obra…" : "Seleccionar obra"}</option>{obraOptions.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select></div>}
-              <div><label style={label}>Nombre interno</label><input style={input} value={form.nombre_lote} onChange={(e) => setForm({ ...form, nombre_lote: e.target.value })} placeholder="Ej: Muebles principales K37" /></div>
-              <div><label style={label}>Cantidad de conjuntos de muebles</label><input style={input} type="number" min="1" value={form.cantidad_juegos} onChange={(e) => setForm({ ...form, cantidad_juegos: Math.max(1, Number(e.target.value) || 1) })} /></div>
-              <div><label style={label}>Color / chapa</label><input style={input} value={form.color_chapa} onChange={(e) => setForm({ ...form, color_chapa: e.target.value })} placeholder="Ej: Roble plata" /></div>
-              <div><label style={label}>Material base</label><input style={input} value={form.material_base} onChange={(e) => setForm({ ...form, material_base: e.target.value })} placeholder="Ej: estándar de línea" /></div>
-              <div><label style={label}>Nogal / roble / detalle</label><input style={input} value={form.detalle_madera} onChange={(e) => setForm({ ...form, detalle_madera: e.target.value })} placeholder="Opcional" /></div>
-              <div><label style={label}>Fecha objetivo</label><input style={input} type="date" value={form.fecha_objetivo} onChange={(e) => setForm({ ...form, fecha_objetivo: e.target.value })} /></div>
-              <div style={{ gridColumn: "1 / -1" }}><label style={label}>Observaciones</label><textarea style={{ ...input, minHeight: 72, resize: "vertical" }} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} placeholder="Dependencias, alcance de los muebles o acuerdos con el proveedor..." /></div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "13px 18px", borderTop: `1px solid ${C.b0}` }}>
-              <button onClick={cerrarFormulario} disabled={saving || vinculandoObra} style={{ padding: "8px 12px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "transparent", color: C.t1, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 650 }}>Cancelar</button>
-              <button disabled={saving || vinculandoObra} onClick={guardarLote} style={{ padding: "8px 13px", border: `1px solid ${C.blueB}`, borderRadius: 8, background: C.blueL, color: C.blue, cursor: saving || vinculandoObra ? "wait" : "pointer", fontWeight: 700 }}>{saving ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear proceso"}</button>
-            </div>
+        <Modal
+          ancho
+          onCerrar={cerrarFormulario}
+          bloqueado={saving || vinculandoObra}
+          icono={editandoId ? FilePenLine : Plus}
+          titulo={editandoId ? "Editar proceso de muebles" : "Nuevo proceso de muebles"}
+          sub={editandoId ? "Corregí la obra, el proveedor y los datos del proceso." : "Definí quién lo fabrica y si nace para una obra o para stock."}
+          pie={(
+            <>
+              <button type="button" className="ui-btn" onClick={cerrarFormulario} disabled={saving || vinculandoObra}>Cancelar</button>
+              <button type="button" className="ui-btn ui-btn-primario" disabled={saving || vinculandoObra} onClick={guardarLote}>
+                {saving ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear proceso"}
+              </button>
+            </>
+          )}
+        >
+          {error && <Aviso onCerrar={() => setError("")}>{error}</Aviso>}
+          <div className="mbl-form tres">
+            <label className="mbl-campo"><span>Destino</span>
+              <select className="ui-input" value={form.tipo_destino} onChange={(e) => setForm({ ...form, tipo_destino: e.target.value, unidad_id: "" })}>
+                <option value="obra">Obra específica</option>
+                <option value="stock">Fabricar para stock</option>
+              </select>
+            </label>
+            <label className="mbl-campo"><span>Mueblero</span>
+              <select className="ui-input" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })}>
+                {PROVEEDORES_MUEBLES.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="mbl-campo"><span>Línea</span>
+              <select className="ui-input" value={form.linea_id} onChange={(e) => setForm({ ...form, linea_id: e.target.value, unidad_id: "" })}>
+                <option value="">Seleccionar línea</option>
+                {lineas.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+              </select>
+            </label>
+            {form.tipo_destino === "obra" && (
+              <label className="mbl-campo"><span>Obra</span>
+                <select className="ui-input" value={form.unidad_id} disabled={vinculandoObra} onChange={(e) => seleccionarObra(e.target.value)}>
+                  <option value="">{vinculandoObra ? "Vinculando obra…" : "Seleccionar obra"}</option>
+                  {obraOptions.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}
+                </select>
+              </label>
+            )}
+            <label className="mbl-campo"><span>Nombre interno</span>
+              <input className="ui-input" value={form.nombre_lote} onChange={(e) => setForm({ ...form, nombre_lote: e.target.value })} placeholder="Ej: Muebles principales K37" />
+            </label>
+            <label className="mbl-campo"><span>Conjuntos de muebles</span>
+              <input className="ui-input" type="number" min="1" value={form.cantidad_juegos} onChange={(e) => setForm({ ...form, cantidad_juegos: Math.max(1, Number(e.target.value) || 1) })} />
+            </label>
+            <label className="mbl-campo"><span>Color / chapa</span>
+              <input className="ui-input" value={form.color_chapa} onChange={(e) => setForm({ ...form, color_chapa: e.target.value })} placeholder="Ej: Roble plata" />
+            </label>
+            <label className="mbl-campo"><span>Material base</span>
+              <input className="ui-input" value={form.material_base} onChange={(e) => setForm({ ...form, material_base: e.target.value })} placeholder="Ej: estándar de línea" />
+            </label>
+            <label className="mbl-campo"><span>Nogal / roble / detalle</span>
+              <input className="ui-input" value={form.detalle_madera} onChange={(e) => setForm({ ...form, detalle_madera: e.target.value })} placeholder="Opcional" />
+            </label>
+            <label className="mbl-campo"><span>Fecha objetivo</span>
+              <input className="ui-input" type="date" value={form.fecha_objetivo} onChange={(e) => setForm({ ...form, fecha_objetivo: e.target.value })} />
+            </label>
+            <label className="mbl-campo ancho"><span>Observaciones</span>
+              <textarea className="ui-input" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} placeholder="Dependencias, alcance de los muebles o acuerdos con el proveedor…" />
+            </label>
           </div>
-        </div>
+        </Modal>
       )}
 
       {gestionOt && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 95, background: C.bg, overflowY: "auto" }}>
+        <div className="mbl-capa">
           <OTDetail
             ot={gestionOt}
             esAdmin={esAdmin}
-            onBack={() => setGestionOt(null)}
+            onBack={cerrarOt}
             onEnsureMueblesUnidad={onEnsureMueblesUnidad}
             onUpdated={(updated) => {
               setGestionOt(updated);
@@ -1246,7 +1295,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
             onDeleted={(otId) => {
               setOts((prev) => prev.filter((ot) => ot.id !== otId));
               setLotes((prev) => prev.map((lote) => lote.enchapado_ot_id === otId ? { ...lote, enchapado_ot_id: null, enchapado_listo: false } : lote));
-              setGestionOt(null);
+              cerrarOt();
             }}
           />
         </div>
@@ -1294,5 +1343,98 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
         } : null}
       />
     </div>
+  );
+}
+
+function ItemProceso({ lote, indice, selected, chapa, recepcion, onClick }) {
+  const meta = etapaMeta(lote);
+  const stock = destinoLote(lote) === "stock";
+  return (
+    <button type="button" className={`mbl-item${selected ? " on" : ""}`} style={{ "--i": Math.min(indice, 12) }} onClick={onClick} aria-current={selected ? "true" : undefined}>
+      <span className="mbl-item-sw">{chapa ? <ChapaSwatch tipo={chapa} size="md" /> : <Layers3 size={17} />}</span>
+      <span style={{ minWidth: 0, display: "block" }}>
+        <span className="mbl-item-l1">
+          <Tag tono={TONO_PROVEEDOR[lote.proveedor] || "teal"}>{lote.proveedor}</Tag>
+          <Tag tono={stock ? "verde" : "neutro"}>{stock ? "Stock" : nombreObra(lote)}</Tag>
+        </span>
+        <span className="mbl-item-nom" style={{ display: "block" }}>{nombreMuebles(lote)}</span>
+        <span className="mbl-item-sub" style={{ display: "block" }}>Línea {nombreLinea(lote)} · {chapa || "Chapa por definir"}</span>
+        <span className="mbl-item-av">
+          <span style={{ minWidth: 0, display: "grid", gap: 5 }}>
+            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {recepcion ? `Recepción ${recepcion.estado} · ${recepcion.completos}/${recepcion.total}` : meta.etapa.label}
+            </span>
+            <Mini pct={recepcion ? recepcion.pct : meta.progreso} />
+          </span>
+          <span className="mono">{meta.index + 1}/{meta.flujo.length}</span>
+        </span>
+      </span>
+      <ChevronRight size={16} className="mbl-item-flecha" />
+    </button>
+  );
+}
+
+// La etapa actual en grande: qué hay que hacer, qué falta y cómo avanzar.
+function BloqueAhora({ lote, meta, esAdmin, faltan, recepcion, onAvanzar, onVolver, onAbrirRecepcion, onToggleRecepcion }) {
+  const enRecepcion = meta.etapa.key === "recibido";
+  return (
+    <section className="mbl-ahora">
+      <div className="mbl-ahora-eyebrow">Ahora · etapa {meta.index + 1} de {meta.flujo.length}</div>
+      <div className="mbl-ahora-tit">{enRecepcion ? `Recepción ${recepcion?.estado || "parcial"}` : meta.etapa.label}</div>
+      <div className="mbl-ahora-txt">{meta.etapa.short}.</div>
+
+      <div className="mbl-ahora-cuerpo">
+        {enRecepcion && recepcion && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+              <span className="mono" style={{ fontSize: 26, fontWeight: 650, letterSpacing: "-.03em" }}>{recepcion.pct}%</span>
+              <span style={{ fontSize: 12.5, color: "var(--dim)" }}>
+                {recepcion.total
+                  ? `${recepcion.completos} de ${recepcion.total} muebles recibidos completos${recepcion.parciales ? ` · ${recepcion.parciales} parciales` : ""}`
+                  : "Los muebles empezaron a llegar. Falta controlar los ítems en el checklist."}
+              </span>
+            </div>
+            <Mini pct={recepcion.pct} />
+          </div>
+        )}
+        {!enRecepcion && meta.siguiente && faltan && (
+          faltan.length ? (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 7 }}>Falta para avanzar:</div>
+              <ul className="mbl-lista-puntos">
+                {faltan.map((motivo, i) => <li key={i}>{motivo}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--green)", fontWeight: 600 }}>
+              <Check size={16} strokeWidth={2.6} /> Todo listo para avanzar a la etapa siguiente.
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="mbl-ahora-acc">
+        {enRecepcion && destinoLote(lote) === "obra" && (
+          <button type="button" className="ui-btn ui-btn-primario" onClick={onAbrirRecepcion}>
+            <ClipboardCheck size={15} /> Abrir recepción
+          </button>
+        )}
+        {enRecepcion && esAdmin && recepcion?.total === 0 && (
+          <button type="button" className="ui-btn" onClick={onToggleRecepcion}>
+            {recepcion.estado === "completa" ? "Volver a recepción parcial" : "Marcar recepción completa"}
+          </button>
+        )}
+        {esAdmin && meta.siguiente && (
+          <button type="button" className="ui-btn ui-btn-primario" onClick={onAvanzar}>
+            Avanzar: {meta.siguiente.label} <ArrowRight size={15} />
+          </button>
+        )}
+        {esAdmin && meta.anterior && (
+          <button type="button" className="ui-btn ui-btn-fantasma" onClick={onVolver}>
+            <ArrowLeft size={15} /> Volver: {meta.anterior.label}
+          </button>
+        )}
+      </div>
+    </section>
   );
 }

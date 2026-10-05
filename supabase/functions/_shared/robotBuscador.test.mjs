@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { buscar, indexar, medidasHabladas, ubicacionHablada } from "./robotBuscador.ts";
+import { buscar, buscarFamilia, indexar, medidasHabladas, ubicacionHablada } from "./robotBuscador.ts";
 
 const FIJO = indexar([
   { id: "1", descripcion: "MASILLA E-POXY" },
@@ -41,6 +41,22 @@ function credenciales() {
   return env.SUPABASE_SERVICE_ROLE_KEY ? { url: env.VITE_SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY } : null;
 }
 const cred = credenciales();
+
+test("familias completas, baldeo histórico y medidas estrictas", () => {
+  const indice = indexar([
+    { id: "1", descripcion: "CANILLA VALDEOS" },
+    { id: "2", descripcion: "Grifería Monocomando Para Ducha Sin Transferencia Negro Mate" },
+    { id: "3", descripcion: "Grifería ducha FV plateada" },
+    { id: "4", descripcion: "Canilla cocina negra" },
+    { id: "5", descripcion: "Racor 1\"" },
+    { id: "6", descripcion: "Racor 1/2\"" },
+  ]);
+  assert.deepEqual(buscarFamilia(indice, "canilla de baldeo").map((c) => c.material.id), ["1"]);
+  assert.equal(buscarFamilia(indice, "griferías").length, 4, "no oculta las variantes largas");
+  assert.deepEqual(buscarFamilia(indice, "racor de una pulgada").map((c) => c.material.id), ["5"]);
+  assert.equal(buscarFamilia(indice, "racor de dos pulgadas").length, 0, "no ignora la medida ausente");
+  assert.equal(buscarFamilia(indice, "canilla de baldeo gigante").length, 0);
+});
 
 test("catálogo real", { skip: !cred && "sin credenciales de servicio" }, async () => {
   const filas = [];

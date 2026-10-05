@@ -6,6 +6,9 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 import { createClient } from '@supabase/supabase-js';
 import { makeFeed, canonicalSede } from './feed.mjs';
+import { Telemetry } from './telemetry.mjs';
+const telemetry = new Telemetry();
+let captureRequestedAt = 0;
 
 const root = new URL('../../', import.meta.url);
 const env = {};
@@ -44,11 +47,19 @@ const isLoopback = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.
 function sendSerial(data) { if (serialReady && serial?.stdin.writable) serial.stdin.write(JSON.stringify(data) + '\n'); }
 function startSerial() {
   serialReady = false;
+  telemetry.resetConnection();
   serial = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
     fileURLToPath(new URL('serial.ps1', import.meta.url)), '-Port', process.env.ROBOT_PORT || 'COM5'],
     { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  serial.stdout.setEncoding('utf8');
   serial.stdout.on('data', data => {
-    if (data.toString().includes('SERIAL_READY')) { serialReady = true; sendSerial(feed); }
+    telemetry.push(data);
+    if (data.toString().includes('SERIAL_READY')) {
+      serialReady = true;
+      sendSerial({ type: 'status' });
+      // Abrir el monitor no debe reemplazar los avisos autónomos por "login".
+      if (profile) sendSerial(feed);
+    }
     if (data.toString().includes('KLASE_FEED_OK')) lastAck = Date.now();
   });
   serial.stderr.on('data', () => {});
@@ -102,7 +113,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/') {
       const html = (await readFile(new URL('panel.html', import.meta.url), 'utf8')).replace('__BROWSER_SECRET__', browserSecret);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
-        'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'" });
+        'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'" });
       return res.end(html);
     }
     if (!sameSecret(req.headers['x-robot-session'], browserSecret)) return json(res, 403, { error: 'Sesion del panel requerida' });
@@ -115,8 +126,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (req.url === '/status' && req.method === 'GET') return json(res, 200,
-      { serial: serialReady, lastAck, cloudPaired, cloudReady, sede: 'Chubut', user: profile?.username || (profile ? 'Conectado' : null), feed,
+      { serial: serialReady, lastAck, cloudPaired: cloudPaired || !!telemetry.net?.paired, cloudReady, telemetry: telemetry.snapshot(), sede: 'Chubut', user: profile?.username || (profile ? 'Conectado' : null), feed,
         addresses: Object.values(networkInterfaces()).flat().filter(i => i.family === 'IPv4' && !i.internal).map(i => `http://${i.address}:4188/device`) });
+    if (req.url === '/network-test' && req.method === 'POST') {
+      if (!serialReady || telemetry.net?.wifi!==3 || !telemetry.net?.clock || !telemetry.net?.paired)
+        return json(res,409,{error:'La prueba requiere robot por USB, Wi-Fi conectado, hora y vínculo guardados.'});
+      sendSerial({type:'network_test'});return json(res,200,{ok:true});
+    }
+    if (req.url === '/record' && req.method === 'POST') {
+      if (!serialReady || !telemetry.version?.localRecording) return json(res, 409, { error: 'Conectá por USB el robot con el firmware de monitor.' });
+      const now = Date.now();
+      if (now - (telemetry.diag?.at || 0) > 4000) return json(res, 409, { error: 'Esperá a que lleguen datos de la placa.' });
+      if (telemetry.diag.voz === 1 || telemetry.diag.voz === 2 || now - captureRequestedAt < 16000)
+        return json(res, 409, { error: 'El robot está ocupado. Esperá a que termine.' });
+      captureRequestedAt = now; telemetry.recording = null;
+      telemetry.capture = { state: 'requested', at: now };
+      sendSerial({ type: 'record_local', seconds: 3 });
+      return json(res, 200, { ok: true });
+    }
+    if (req.url === '/recording' && req.method === 'GET') {
+      if (!telemetry.recording) return json(res, 404, { error: 'Todavía no hay grabación.' });
+      res.writeHead(200, { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store' });
+      return res.end(telemetry.recording.wav);
+    }
     if (req.url === '/login' && req.method === 'POST') {
       attempts = attempts.filter(t => Date.now() - t < 60000);
       if (attempts.length >= 5) return json(res, 429, { error: 'Espera un minuto antes de intentar de nuevo' });
