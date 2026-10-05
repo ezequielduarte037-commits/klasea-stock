@@ -9,10 +9,9 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Cargando from "@/components/ui/Cargando";
-import { claveObra } from "@/features/equipos/equiposModelo";
 import { CSS_MEMORIAS } from "./estilos";
 import {
-  armarSugerencias, avanceDe, camposDeObra, datosDeFila, filaDeObra, lineaDeObra, ordenLinea, semillaDeObra,
+  avanceDe, camposDeObra, datosDeFila, filaDeObra, lineaDeObra, ordenLinea, semillaDeObra,
 } from "./campos";
 import {
   escucharMemorias, traerCantidadAdicionales, traerMemorias, traerObrasActivas, traerPerfiles,
@@ -105,11 +104,6 @@ export default function MemoriasScreen() {
     };
   }).sort((a, b) => ordenLinea(a.linea, b.linea) || a.obra.codigo.localeCompare(b.obra.codigo, "es", { numeric: true })), [obras, filas, adicionales]);
 
-  const sugerencias = useMemo(() => {
-    const porClave = new Map(obras.map((o) => [claveObra(o.codigo), o]));
-    return armarSugerencias(filas, porClave);
-  }, [filas, obras]);
-
   const indice = fichas.findIndex((f) => f.obra.codigo === codigoAbierto);
   const abierta = indice >= 0 ? fichas[indice] : null;
 
@@ -134,7 +128,6 @@ export default function MemoriasScreen() {
             siguiente={fichas[indice + 1] || null}
             filas={filas}
             columnas={columnas}
-            sugerencias={sugerencias}
             perfiles={perfiles}
             onFilaGuardada={alGuardar}
             onVolver={() => abrir(null)}

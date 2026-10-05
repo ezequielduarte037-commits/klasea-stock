@@ -1,0 +1,979 @@
+{
+  "consultado": "2026-10-05T17:25:04.717Z",
+  "fuente": "panol_estanterias: solo lectura",
+  "rows": [
+    {
+      "codigo": "A1",
+      "tipo": "estante",
+      "largo_cm": 300,
+      "alto_cm": 150,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        125
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 25,
+      "y_cm": 625,
+      "w_cm": 55,
+      "h_cm": 260,
+      "activo": true
+    },
+    {
+      "codigo": "A2",
+      "tipo": "estante",
+      "largo_cm": 300,
+      "alto_cm": 150,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        125
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 25,
+      "y_cm": 355,
+      "w_cm": 55,
+      "h_cm": 270,
+      "activo": true
+    },
+    {
+      "codigo": "A3",
+      "tipo": "estante",
+      "largo_cm": 190,
+      "alto_cm": 190,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        190
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 25,
+      "y_cm": 105,
+      "w_cm": 55,
+      "h_cm": 250,
+      "activo": true
+    },
+    {
+      "codigo": "B1",
+      "tipo": "estante",
+      "largo_cm": 320,
+      "alto_cm": 260,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        110,
+        210,
+        260
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 180,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 470,
+      "activo": true
+    },
+    {
+      "codigo": "B2",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 250,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "C1",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 420,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "C2",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 475,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "C3",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 400,
+      "y_cm": 690,
+      "w_cm": 120,
+      "h_cm": 50,
+      "activo": true
+    },
+    {
+      "codigo": "C4",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 400,
+      "y_cm": 100,
+      "w_cm": 120,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "D1",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 610,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "D2",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 665,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "D3",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 590,
+      "y_cm": 690,
+      "w_cm": 120,
+      "h_cm": 50,
+      "activo": true
+    },
+    {
+      "codigo": "D4",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 590,
+      "y_cm": 100,
+      "w_cm": 120,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "E1",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1755,
+      "y_cm": 875,
+      "w_cm": 80,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "E2",
+      "tipo": "estante",
+      "largo_cm": 120,
+      "alto_cm": 180,
+      "prof_cm": 45,
+      "niveles_cm": [
+        0,
+        50,
+        95,
+        140,
+        180
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1670,
+      "y_cm": 570,
+      "w_cm": 45,
+      "h_cm": 90,
+      "activo": true
+    },
+    {
+      "codigo": "F1",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 800,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "F2",
+      "tipo": "estante",
+      "largo_cm": 360,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 950,
+      "y_cm": 150,
+      "w_cm": 55,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "G1",
+      "tipo": "estante",
+      "largo_cm": 300,
+      "alto_cm": 190,
+      "prof_cm": 90,
+      "niveles_cm": [
+        0,
+        70,
+        125,
+        190
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1125,
+      "y_cm": 150,
+      "w_cm": 120,
+      "h_cm": 330,
+      "activo": true
+    },
+    {
+      "codigo": "G2",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1125,
+      "y_cm": 480,
+      "w_cm": 60,
+      "h_cm": 80,
+      "activo": true
+    },
+    {
+      "codigo": "G3",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        29,
+        57,
+        86,
+        114,
+        143,
+        171,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1185,
+      "y_cm": 480,
+      "w_cm": 60,
+      "h_cm": 80,
+      "activo": true
+    },
+    {
+      "codigo": "G4",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1125,
+      "y_cm": 560,
+      "w_cm": 60,
+      "h_cm": 80,
+      "activo": true
+    },
+    {
+      "codigo": "G5",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1185,
+      "y_cm": 560,
+      "w_cm": 60,
+      "h_cm": 80,
+      "activo": true
+    },
+    {
+      "codigo": "G6",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1125,
+      "y_cm": 690,
+      "w_cm": 120,
+      "h_cm": 50,
+      "activo": true
+    },
+    {
+      "codigo": "H1",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1335,
+      "y_cm": 150,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H2",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1400,
+      "y_cm": 150,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H3",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1335,
+      "y_cm": 280,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H4",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1400,
+      "y_cm": 280,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H5",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1335,
+      "y_cm": 410,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H6",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1400,
+      "y_cm": 410,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H7",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1335,
+      "y_cm": 540,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H8",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1400,
+      "y_cm": 540,
+      "w_cm": 65,
+      "h_cm": 130,
+      "activo": true
+    },
+    {
+      "codigo": "H9",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1335,
+      "y_cm": 690,
+      "w_cm": 130,
+      "h_cm": 50,
+      "activo": true
+    },
+    {
+      "codigo": "I1",
+      "tipo": "estante",
+      "largo_cm": 380,
+      "alto_cm": 175,
+      "prof_cm": 60,
+      "niveles_cm": [
+        15,
+        85,
+        140,
+        170
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1580,
+      "y_cm": 150,
+      "w_cm": 85,
+      "h_cm": 520,
+      "activo": true
+    },
+    {
+      "codigo": "I2",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        110,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1575,
+      "y_cm": 100,
+      "w_cm": 80,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "J1",
+      "tipo": "estante",
+      "largo_cm": 200,
+      "alto_cm": 250,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        120,
+        190,
+        250
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1845,
+      "y_cm": 610,
+      "w_cm": 75,
+      "h_cm": 260,
+      "activo": true
+    },
+    {
+      "codigo": "J2",
+      "tipo": "estante",
+      "largo_cm": 200,
+      "alto_cm": 250,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        120,
+        190,
+        250
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1845,
+      "y_cm": 330,
+      "w_cm": 75,
+      "h_cm": 280,
+      "activo": true
+    },
+    {
+      "codigo": "J3",
+      "tipo": "estante",
+      "largo_cm": 200,
+      "alto_cm": 250,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        120,
+        190,
+        250
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1845,
+      "y_cm": 70,
+      "w_cm": 75,
+      "h_cm": 260,
+      "activo": true
+    },
+    {
+      "codigo": "K1",
+      "tipo": "estante",
+      "largo_cm": 560,
+      "alto_cm": 190,
+      "prof_cm": 60,
+      "niveles_cm": [
+        63,
+        127,
+        190
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 1315,
+      "y_cm": 45,
+      "w_cm": 520,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "N",
+      "tipo": "cajonera",
+      "largo_cm": 130,
+      "alto_cm": 95,
+      "prof_cm": 60,
+      "niveles_cm": null,
+      "cajones": [
+        "MACHO FLARE / TUERCA FLARE",
+        "LLAVINES",
+        "ENTREROSCA",
+        "MACHO FLARE",
+        "RACOR / MEDIDAS VARIAS",
+        "MACHO FLARE",
+        "TAPÓN / TAPA",
+        "TUERCA / TEE 1/4 / CODO 1/4",
+        "ENTREROSCA REDUCCIÓN / ACOPLE CODO",
+        "CODOS 1/2",
+        "ENTREROSCA / TAPA-TAPÓN",
+        "NIPLE 1 1/2",
+        "CANILLA VALDEOS / MIX",
+        "ESFÉRICA / RACOR",
+        "RACOR",
+        "VÁLVULA RETENCIÓN / NIPLE",
+        "BUJE REDUCCIÓN",
+        "CUPLA / ENTREROSCA",
+        "VÁLVULA RETENCIÓN",
+        "VÁLVULA RETENCIÓN PLÁSTICO"
+      ],
+      "filas": 5,
+      "x_cm": 1057,
+      "y_cm": 38,
+      "w_cm": 130,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "P1",
+      "tipo": "estante",
+      "largo_cm": 300,
+      "alto_cm": 150,
+      "prof_cm": 80,
+      "niveles_cm": [
+        30,
+        125
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 125,
+      "y_cm": 45,
+      "w_cm": 260,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "V1",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 675,
+      "y_cm": 875,
+      "w_cm": 80,
+      "h_cm": 45,
+      "activo": true
+    },
+    {
+      "codigo": "V2",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 515,
+      "y_cm": 820,
+      "w_cm": 70,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "V3",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 515,
+      "y_cm": 760,
+      "w_cm": 70,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "V4",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 445,
+      "y_cm": 820,
+      "w_cm": 70,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "V5",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 445,
+      "y_cm": 760,
+      "w_cm": 70,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "V6",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 375,
+      "y_cm": 820,
+      "w_cm": 70,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "V7",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 375,
+      "y_cm": 760,
+      "w_cm": 70,
+      "h_cm": 60,
+      "activo": true
+    },
+    {
+      "codigo": "V8",
+      "tipo": "estante",
+      "largo_cm": 90,
+      "alto_cm": 200,
+      "prof_cm": 60,
+      "niveles_cm": [
+        40,
+        111,
+        150,
+        200
+      ],
+      "cajones": null,
+      "filas": null,
+      "x_cm": 315,
+      "y_cm": 760,
+      "w_cm": 50,
+      "h_cm": 80,
+      "activo": true
+    }
+  ]
+}

@@ -185,38 +185,57 @@ export const CSS_MEMORIAS = `
 .mem-seccion-cab .usan b { color: var(--dim); font-weight: 600; }
 .mem-seccion-cuerpo { display: grid; }
 
-.mem-campo { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 4px 18px; padding: 13px 18px; border-top: 1px solid var(--border); transition: background-color .2s; }
-.mem-campo:first-child { border-top: 0; }
-.mem-campo:focus-within { background: color-mix(in srgb, var(--blue) 4%, transparent); }
-.mem-campo-et { display: flex; align-items: flex-start; gap: 9px; padding-top: 9px; font-size: 13.5px; font-weight: 600; color: var(--muted); line-height: 1.3; }
-.mem-campo-et .pto { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; flex-shrink: 0; background: var(--border-2); transition: background-color .2s; }
-.mem-campo[data-definido="1"] .mem-campo-et .pto { background: var(--green); }
-.mem-campo[data-definido="1"] .mem-campo-et { color: var(--text); }
-.mem-campo-ctl { display: grid; gap: 8px; min-width: 0; }
-.mem-valor { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.mem-valor .ui-input { flex: 1; min-width: 0; min-height: 38px; font-size: 14px; }
-.mem-valor textarea.ui-input { min-height: 62px; padding-top: 9px; padding-bottom: 9px; line-height: 1.45; resize: vertical; font-family: inherit; }
-.mem-valor .ui-input.no-lleva { color: var(--dim); font-style: italic; }
-.mem-valor.con-muestra .ui-input { padding-left: 42px; }
-.mem-valor .muestra { position: absolute; left: 8px; top: 50%; width: 26px; height: 26px; margin-top: -13px; border-radius: 7px; background: var(--sw); border: 1px solid var(--border-2); pointer-events: none; }
-.mem-sug { display: flex; flex-wrap: wrap; gap: 6px; animation: mem-aparece .2s ease both; }
 .mem-sug-op {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 30px; max-width: 100%; padding: 0 10px;
+  display: inline-flex; align-items: center; gap: 7px; min-height: 32px; max-width: 100%; padding: 0 11px;
   border: 1px solid var(--border); border-radius: 9px; background: var(--panel-solid); color: var(--muted);
   font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: border-color .15s, color .15s, background-color .15s, transform .12s;
 }
-.mem-sug-op:hover { color: var(--text); border-color: var(--border-2); }
-.mem-sug-op:active { transform: scale(.97); }
+.mem-sug-op:hover:not(:disabled) { color: var(--text); border-color: var(--border-2); }
+.mem-sug-op:active:not(:disabled) { transform: scale(.97); }
+.mem-sug-op:disabled { opacity: .4; cursor: default; }
 .mem-sug-op.on { color: var(--blue); border-color: var(--blue-border); background: var(--blue-soft); }
-.mem-sug-op .sw { width: 18px; height: 18px; margin-left: -4px; border-radius: 5px; flex-shrink: 0; background: var(--sw); border: 1px solid var(--border-2); }
-.mem-sug-op .n { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--subtle); }
-.mem-sug-op.no { border-style: dashed; color: var(--dim); }
-.mem-sug-op.no.on { color: var(--muted); background: var(--panel-2); border-color: var(--border-2); border-style: solid; }
-.mem-nota { display: flex; align-items: center; gap: 8px; }
-.mem-nota .ui-input { flex: 1; min-height: 32px; font-size: 12.5px; color: var(--muted); }
-.mem-nota-btn { justify-self: start; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 0; color: var(--subtle); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
-.mem-nota-btn:hover { color: var(--blue); }
+.mem-sug-op .mem-sw { margin-left: -4px; }
+
+/* Muestra de un material: foto, color o neutra si no se sabe cómo es. */
+.mem-sw { display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; background: var(--sw); border: 1px solid var(--border-2); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); color: var(--subtle); }
+.mem-sw.grande { width: 100%; height: 74px; border-radius: 10px 10px 0 0; border: 0; border-bottom: 1px solid var(--border); }
+
+/* Hoja de definiciones */
+.mem-defs { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; padding: 14px 18px 18px; }
+.mem-def {
+  position: relative; display: grid; gap: 7px; align-content: start; min-width: 0; min-height: 88px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--panel-solid); color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: border-color .16s, background-color .16s, transform .16s cubic-bezier(.22,1,.36,1), box-shadow .16s;
+}
+.mem-def:hover { border-color: var(--border-2); transform: translateY(-1px); box-shadow: var(--elev-1); }
+.mem-def:active { transform: scale(.99); }
+.mem-def[data-estado="vacio"] { border-style: dashed; border-color: var(--border-2); background: transparent; }
+.mem-def[data-estado="vacio"]:hover { border-color: var(--blue-border); background: var(--blue-soft); }
+.mem-def-et { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--dim); line-height: 1.3; }
+.mem-def-et .ok { margin-left: auto; color: var(--green); flex-shrink: 0; }
+.mem-def-valor { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mem-def-valor .mem-sw { width: 30px; height: 30px; border-radius: 8px; }
+.mem-def-valor b { font-size: 15px; font-weight: 600; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; white-space: pre-line; }
+.mem-def[data-estado="no"] .mem-def-valor b { color: var(--dim); font-weight: 500; }
+.mem-def-valor .no { color: var(--subtle); flex-shrink: 0; }
+.mem-def-vacio { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--subtle); }
+.mem-def:hover .mem-def-vacio { color: var(--blue); }
+.mem-def-sub { font-size: 12px; color: var(--muted); }
+.mem-def-nota { font-size: 12px; color: var(--dim); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem-def-filas { display: grid; gap: 6px; }
+.mem-def-filas .fila { display: grid; grid-template-columns: 58px 22px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
+.mem-def-filas small { color: var(--dim); font-size: 12px; }
+.mem-def-filas b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem-def-filas em { grid-column: 2 / -1; color: var(--subtle); font-style: normal; font-size: 12.5px; }
+
+.mem-cliente { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 14px 18px 18px; }
+.mem-cliente-campo, .mem-notas { display: grid; gap: 6px; min-width: 0; }
+.mem-cliente-campo span, .mem-notas span { font-size: 12px; font-weight: 600; color: var(--dim); }
+.mem-cliente-campo .ui-input { min-height: 40px; font-size: 14.5px; }
+.mem-notas { padding: 14px 18px 0; }
+.mem-notas textarea.ui-input { min-height: 72px; padding: 10px 12px; line-height: 1.5; resize: vertical; font: inherit; font-size: 14px; }
 
 /* Equipos */
 .mem-equipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start; padding: 14px 18px 16px; }
@@ -290,6 +309,47 @@ export const CSS_MEMORIAS = `
 .mem-cambio small { grid-column: 1 / -1; color: var(--subtle); font-size: 11.5px; }
 .mem-cambio time { color: var(--subtle); font-size: 11.5px; white-space: nowrap; }
 
+/* ── Panel para elegir ── */
+.mem-panel-fondo { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8000; display: flex; justify-content: flex-end; background: color-mix(in srgb, var(--bg) 45%, transparent); animation: mem-aparece .16s ease both; color: var(--text); font-family: 'Outfit', system-ui, sans-serif; }
+.mem-panel { width: min(520px, 100%); height: 100%; display: flex; flex-direction: column; border-left: 1px solid var(--border-2); background: var(--panel-solid); box-shadow: var(--elev-2); animation: mem-entra .28s cubic-bezier(.22,1,.36,1) both; }
+.mem-panel-cab { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.mem-panel-cab h2 { margin: 3px 0 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+.mem-panel-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 20px; display: grid; gap: 16px; align-content: start; animation: mem-aparece .18s ease both; }
+.mem-panel-pie { display: flex; align-items: center; gap: 6px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+.mem-panel-pie .mono { font-size: 11.5px; opacity: .8; }
+
+.mem-ops-grupo { display: grid; gap: 8px; }
+.mem-ops { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.mem-ops.muestras { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.mem-op {
+  position: relative; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--panel); color: var(--text);
+  font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; overflow: hidden;
+  transition: border-color .15s, background-color .15s, transform .12s;
+}
+.mem-op:hover { border-color: var(--border-2); background: var(--panel-2); }
+.mem-op:active { transform: scale(.98); }
+.mem-op.on { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 1px var(--blue); }
+.mem-op .ok { margin-left: auto; color: var(--blue); flex-shrink: 0; }
+.mem-op.con-muestra { flex-direction: column; align-items: stretch; gap: 0; padding: 0; min-height: 0; }
+.mem-op.con-muestra .nom { padding: 8px 10px 9px; font-size: 12.5px; line-height: 1.3; }
+.mem-op.con-muestra .ok { position: absolute; top: 7px; right: 7px; padding: 3px; border-radius: 50%; background: var(--blue); color: #fff; }
+.mem-otro { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 10px; }
+.mem-otro > span { font-size: 12.5px; font-weight: 600; color: var(--dim); }
+.mem-otro .ui-input { min-height: 38px; font-size: 13.5px; }
+.mem-otro.on .ui-input { border-color: var(--blue-border); }
+.mem-no-lleva { justify-self: start; display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border: 1px dashed var(--border-2); border-radius: 10px; background: transparent; color: var(--dim); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.mem-no-lleva:hover { color: var(--text); }
+.mem-no-lleva.on { border-style: solid; color: var(--text); background: var(--panel-2); }
+.mem-chips-elegir { display: flex; flex-wrap: wrap; gap: 6px; }
+.mem-seg.ancho { display: flex; width: 100%; }
+.mem-seg.ancho button { flex: 1; justify-content: center; min-height: 34px; }
+.mem-lugar { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.mem-lugar-cab { display: flex; align-items: baseline; gap: 10px; }
+.mem-lugar-cab b { font-size: 14px; }
+.mem-lugar-cab span { font-size: 12.5px; color: var(--blue); font-weight: 600; }
+.mem-lugar .ui-input.chico { min-height: 34px; font-size: 13px; }
+
 /* ── Diálogos ── */
 .mem-modal-fondo { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9000; display: grid; place-items: center; padding: 18px; background: var(--overlay); animation: mem-aparece .18s ease both; color: var(--text); font-family: 'Outfit', system-ui, sans-serif; }
 .mem-modal { width: min(560px, 100%); max-height: min(86vh, 760px); display: flex; flex-direction: column; border: 1px solid var(--border-2); border-radius: 18px; background: var(--panel-solid); box-shadow: var(--elev-2); overflow: hidden; animation: mem-sube .3s cubic-bezier(.22,1,.36,1) both; }
@@ -309,6 +369,7 @@ export const CSS_MEMORIAS = `
 
 @keyframes mem-aparece { from { opacity: 0; } to { opacity: 1; } }
 @keyframes mem-sube { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes mem-entra { from { transform: translateX(28px); opacity: .4; } to { transform: none; opacity: 1; } }
 @keyframes mem-late { from { opacity: .45; } to { opacity: 1; } }
 
 @media (max-width: 1100px) {
@@ -332,8 +393,6 @@ export const CSS_MEMORIAS = `
   .mem-ficha { padding: 12px 14px 56px; }
   .mem-ficha-tit .cod { font-size: 20px; }
   .mem-ficha-tit .cli { max-width: 100%; font-size: 14px; }
-  .mem-campo { grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
-  .mem-campo-et { padding-top: 0; }
   .mem-seccion-cab { padding: 12px 14px; }
   .mem-seccion-cab .usan { margin-left: 0; width: 100%; }
   .mem-equipos { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 14px; }
@@ -343,6 +402,15 @@ export const CSS_MEMORIAS = `
   .mem-opciones { margin: 0 14px 14px; }
   .mem-tarjetas { grid-template-columns: minmax(0, 1fr); }
   .mem-modal-fondo { place-items: end stretch; padding: 0; }
+  .mem-panel-fondo { align-items: flex-end; }
+  .mem-panel { width: 100%; height: 92vh; border-left: 0; border-top: 1px solid var(--border-2); border-radius: 20px 20px 0 0; animation-name: mem-sube; }
+  .mem-panel-cab { padding: 14px 16px 12px; }
+  .mem-panel-cuerpo { padding: 14px 16px 18px; }
+  .mem-panel-pie { padding-left: 16px; padding-right: 16px; }
+  .mem-ops, .mem-ops.muestras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mem-defs { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 14px; }
+  .mem-cliente { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 14px; }
+  .mem-notas { padding: 12px 14px 0; }
   .mem-modal { width: 100%; max-height: 90vh; border-radius: 20px 20px 0 0; padding-bottom: env(safe-area-inset-bottom); }
   .mem-ocultar-chico { display: none !important; }
 }

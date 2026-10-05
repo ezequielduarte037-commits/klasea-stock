@@ -2,15 +2,15 @@
 // Supabase).
 //
 // Los campos por línea salen de MEMORIA_FIELDS_BY_TIPO (la misma plantilla que
-// usa el mapa del galpón); acá se agrupan en secciones, se decide qué cuenta
-// como "definido" y se arman las sugerencias con lo que se eligió en otros
-// barcos.
+// usa el mapa del galpón); acá se agrupan en secciones y se decide qué cuenta
+// como "definido". Cómo se elige cada uno está en decisiones.js.
 import { MEMORIA_FIELDS_BY_TIPO } from "@/features/obras/mapa/memoriaFields";
 import { claveObra } from "@/features/equipos/equiposModelo";
 import { MEMORIA_EXCEL_SEED } from "./memoriaExcelSeed";
 import { sinTildes } from "./acabados";
+import { DECISIONES, NO_LLEVA } from "./decisiones";
 
-export const NO_LLEVA = "No lleva";
+export { NO_LLEVA };
 
 // Equipos que se marcan Sí / No. null = todavía no se sabe.
 export const EQUIPOS = [
@@ -40,7 +40,7 @@ export const ETIQUETAS_EQUIPO = {
 export const SECCIONES = [
   { key: "cliente", label: "Cliente", campos: ["propietario", "nombre_barco", "constructor"], usan: [] },
   { key: "casco", label: "Casco y motor", campos: ["motorizacion", "grupo_electrogeno", "color_casco", "cabina", "teca_tipo"], usan: ["Laminación", "Compras"] },
-  { key: "interior", label: "Interior", campos: ["madera_muebles", "piso", "alfombra", "color_mesadas"], usan: ["Muebles", "Marmolería"] },
+  { key: "interior", label: "Interior", campos: ["madera_muebles", "piso", "alfombra", "color_mesadas"], usan: ["Muebles", "Marmolería", "Compras"] },
   { key: "tapiceria", label: "Tapicería", campos: ["tapiceria_mamparos", "tapiceria_dinette", "tapiceria_respaldos", "tapiceria_exterior", "color_acolchados", "color_cerramientos"], usan: ["Tapicería"] },
   { key: "loneria", label: "Lonería", campos: ["loneria_toldo_proa", "loneria_cobertor", "loneria_otros"], usan: ["Tapicería"] },
   { key: "electronica", label: "Electrónica y audio", campos: ["electronica", "audio", "tv_camarote", "tv_cockpit"], usan: ["Compras", "Electricidad"] },
@@ -48,8 +48,6 @@ export const SECCIONES = [
   { key: "adicionales", label: "Adicionales", campos: ["adicionales"], usan: ["Compras", "Pañol"] },
 ];
 
-const LARGOS = new Set(["electronica", "audio", "loneria_otros", "adicionales", "color_cerramientos"]);
-const SIN_SUGERENCIAS = new Set(["propietario", "nombre_barco", "adicionales"]);
 
 // "52-27" → "k52"; "HUNTER-H-175" → "kH". Lo que no se reconoce usa la K52.
 export function tipoDeObra(obra) {
@@ -75,9 +73,9 @@ export function modeloDeObra(obra) {
   return m ? m[1] : null;
 }
 
-// Los campos de un barco, con su sección y tipo de control.
-//   tipo: "texto" | "largo" | "si_no" | "opciones"
-//   extra: equipos que la plantilla de la línea no trae (van en "Más equipos").
+// Los campos de un barco, con su sección y cómo se eligen.
+//   tipo: el de decisiones.js, o "si_no" para los equipos.
+//   extra: lo que la plantilla de la línea no trae (no cuenta para el avance).
 export function camposDeObra(obra) {
   const plantilla = MEMORIA_FIELDS_BY_TIPO[tipoDeObra(obra)] || MEMORIA_FIELDS_BY_TIPO.default;
   const porClave = new Map();
@@ -94,9 +92,10 @@ export function camposDeObra(obra) {
       campos.push({
         key,
         seccion: seccion.key,
-        label: d?.label || ETIQUETAS_EQUIPO[key] || (siempre ? "Nombre del barco" : key),
-        tipo: esEquipo ? "si_no" : d?.type === "selector" ? "opciones" : LARGOS.has(key) || d?.wide ? "largo" : "texto",
-        opciones: d?.type === "selector" ? (d.opts || []).filter((o) => o.val).map((o) => ({ valor: o.val, label: o.label })) : null,
+        // La etiqueta propia de la línea sólo donde dice qué parte del barco es
+        // (tapicería, lonería); el resto con nombres claros.
+        label: DECISIONES[key]?.label || d?.label || ETIQUETAS_EQUIPO[key] || key,
+        tipo: esEquipo ? "si_no" : DECISIONES[key]?.tipo || "texto",
         extra: (esEquipo || siempre) && !d,
       });
     }
@@ -186,52 +185,6 @@ export function datosDeSemilla(semilla, campos) {
   return out;
 }
 
-// ── Sugerencias ─────────────────────────────────────────────────────────────
-// Lo que se eligió en otros barcos para cada campo, lo de la misma línea
-// primero y lo más repetido arriba. Sale de la base y de la planilla vieja.
-export function armarSugerencias(filas, obrasPorClave) {
-  const porCampo = new Map();
-  const sumar = (key, valor, linea) => {
-    if (SIN_SUGERENCIAS.has(key) || typeof valor !== "string") return;
-    const texto = valor.trim().replace(/\s+/g, " ");
-    // Sin "???" ni textos larguísimos: una sugerencia es para elegir de un toque.
-    if (!texto || texto.length > 60 || !/[a-z]{2,}/i.test(sinTildes(texto)) || sinTildes(texto) === sinTildes(NO_LLEVA)) return;
-    if (!porCampo.has(key)) porCampo.set(key, new Map());
-    const mapa = porCampo.get(key);
-    const id = sinTildes(texto);
-    const actual = mapa.get(id) || { valor: texto, veces: 0, lineas: new Set() };
-    actual.veces += 1;
-    if (linea) actual.lineas.add(linea);
-    mapa.set(id, actual);
-  };
-  const lineaDeCodigo = (codigo) => {
-    const clave = claveObra(codigo);
-    const obra = obrasPorClave?.get(clave);
-    return obra ? lineaDeObra(obra) : lineaDeObra({ codigo });
-  };
-  const vistos = new Set();
-  for (const fila of filas || []) {
-    const clave = claveObra(fila.obra_codigo);
-    vistos.add(clave);
-    const linea = lineaDeCodigo(fila.obra_codigo);
-    for (const [key, valor] of Object.entries(fila)) sumar(key, valor, linea);
-  }
-  for (const [codigo, datos] of Object.entries(MEMORIA_EXCEL_SEED)) {
-    if (vistos.has(claveObra(codigo))) continue;
-    const linea = lineaDeCodigo(codigo);
-    for (const [key, valor] of Object.entries(datos)) sumar(key, valor, linea);
-  }
-  return porCampo;
-}
-
-export function sugerenciasPara(sugerencias, key, linea, limite = 8) {
-  const mapa = sugerencias?.get(key);
-  if (!mapa) return [];
-  return [...mapa.values()]
-    .sort((a, b) => Number(b.lineas.has(linea)) - Number(a.lineas.has(linea)) || b.veces - a.veces || a.valor.localeCompare(b.valor, "es"))
-    .slice(0, limite);
-}
-
 // ── Texto para copiar ───────────────────────────────────────────────────────
 export function textoDeMemoria(obra, campos, datos) {
   const lineas = [`Memoria descriptiva ${obra.codigo} · ${lineaDeObra(obra)}`];
@@ -240,7 +193,7 @@ export function textoDeMemoria(obra, campos, datos) {
     if (!propios.length) continue;
     lineas.push("", seccion.label.toUpperCase());
     for (const c of propios) {
-      const valor = c.tipo === "si_no" ? (datos[c.key] ? "Sí" : "No") : String(datos[c.key]).trim();
+      const valor = c.tipo === "si_no" ? (datos[c.key] ? "Sí" : "No") : String(datos[c.key]).trim().replace(/\s*\n\s*/g, " · ");
       const nota = String(datos[`${c.key}_obs`] || "").trim();
       lineas.push(`${c.label}: ${valor}${nota ? ` (${nota})` : ""}`);
     }

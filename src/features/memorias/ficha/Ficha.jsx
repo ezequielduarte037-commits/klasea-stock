@@ -1,6 +1,7 @@
-// Ficha de la memoria de un barco. Se completa por secciones; cada cambio se
-// guarda solo (sin botón "Guardar") y sólo con lo que cambió, así dos personas
-// pueden cargar a la vez sin pisarse.
+// Ficha de la memoria de un barco: una hoja con cada definición a la vista.
+// Tocando una se abre el panel para elegir (con opciones que tienen sentido
+// para ese campo) y desde ahí se recorre lo que falta. Cada cambio se guarda
+// solo y sólo con lo que cambió, así dos personas pueden cargar a la vez.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -13,12 +14,14 @@ import MemoriaSelector from "../MemoriaSelector";
 import { familiasShowroom, seleccionesShowroom } from "../acabados";
 import {
   SECCIONES, avanceDe, datosDeFila, datosDeSemilla, estaDefinido, haceCuanto, modeloDeObra,
-  sugerenciasPara, textoDeMemoria, tonoDeAvance,
+  textoDeMemoria, tonoDeAvance,
 } from "../campos";
+import { DECISIONES } from "../decisiones";
 import { guardarCambios } from "../memoriasApi";
 import { imprimirMemoria } from "../imprimir";
 import { Barra } from "../ui";
-import { Campo, Equipo } from "./Campo";
+import { Definicion, Equipo } from "./Tarjetas";
+import Elegir from "./Elegir";
 import Adicionales from "./Adicionales";
 import OpcionesLinea from "./OpcionesLinea";
 import Cambios from "./Cambios";
@@ -36,8 +39,9 @@ const ASPECTO = {
 };
 
 const ESPERA_GUARDADO = 700;
+const SE_ELIGEN = new Set(["opciones", "lleva", "ambientes", "lista"]);
 
-export default function Ficha({ ficha, anterior, siguiente, filas, columnas, sugerencias, perfiles, onFilaGuardada, onVolver, onAbrir }) {
+export default function Ficha({ ficha, anterior, siguiente, filas, columnas, perfiles, onFilaGuardada, onVolver, onAbrir }) {
   const { obra, fila, campos, linea } = ficha;
   const toast = useToast();
   const confirmar = useConfirm();
@@ -163,16 +167,31 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, sug
     document.getElementById(`mem-sec-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const ultimoSalto = useRef(null);
-  function siguientePendiente() {
-    const faltan = avance.faltan;
-    if (!faltan.length) return;
-    const i = faltan.findIndex((c) => c.key === ultimoSalto.current);
-    const campo = faltan[(i + 1) % faltan.length];
-    ultimoSalto.current = campo.key;
+  // ── Panel para elegir ────────────────────────────────────────────────────
+  const elegibles = useMemo(() => campos.filter((c) => SE_ELIGEN.has(c.tipo)), [campos]);
+  const [abierto, setAbierto] = useState(null);
+  const campoAbierto = elegibles.find((c) => c.key === abierto) || null;
+  const iAbierto = campoAbierto ? elegibles.indexOf(campoAbierto) : -1;
+  const faltanElegir = elegibles.filter((c) => !c.extra && !estaDefinido(c, datos[c.key]));
+
+  function irA(campo) {
     const el = document.getElementById(`mem-campo-${campo.key}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => el?.querySelector("[data-campo-input]")?.focus({ preventScroll: true }), 350);
+    if (SE_ELIGEN.has(campo.tipo)) { setAbierto(campo.key); return; }
+    setTimeout(() => el?.querySelector("input, button")?.focus({ preventScroll: true }), 350);
+  }
+
+  // Lo siguiente sin definir después del campo abierto (vuelve a empezar al final).
+  function siguienteSinDefinir() {
+    const lista = faltanElegir.filter((c) => c.key !== abierto);
+    if (!lista.length) { setAbierto(null); return; }
+    const despues = lista.find((c) => elegibles.indexOf(c) > iAbierto) || lista[0];
+    irA(despues);
+  }
+
+  function completarLoQueFalta() {
+    const primero = avance.faltan[0];
+    if (primero) irA(primero);
   }
 
   // ── Acciones ─────────────────────────────────────────────────────────────
@@ -254,8 +273,8 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, sug
             <Barra pct={avance.pct} tono={tono} />
             <span className="mem-avance-txt"><b>{avance.hechos}</b> de <b>{avance.total}</b> definidos</span>
             {avance.faltan.length > 0 ? (
-              <button type="button" className="ui-btn chico" data-tono="azul" onClick={siguientePendiente}>
-                Siguiente pendiente <ArrowRight size={14} />
+              <button type="button" className="ui-btn chico" data-tono="azul" onClick={completarLoQueFalta}>
+                Completar lo que falta <ArrowRight size={14} />
               </button>
             ) : (
               <span className="mem-estado" data-tono="verde">Memoria completa</span>
@@ -272,7 +291,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, sug
           {indice}
           <div className="mem-indice-sep" />
           <div className="mem-indice-pie">
-            <span>Se guarda solo. Enter pasa al campo siguiente.</span>
+            <span>Se guarda solo, campo por campo.</span>
             <Link className="mem-link" to={`/memorias/viva?obra=${encodeURIComponent(obra.codigo)}`}>Trazabilidad con la matriz (beta)</Link>
           </div>
         </nav>
@@ -311,21 +330,34 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, sug
                 </div>
                 {s.key === "equipos" ? (
                   <SeccionEquipos campos={propios} datos={datos} puedeNota={puedeNota} cambiar={cambiar} obra={obra} linea={linea} />
-                ) : (
-                  <div className="mem-seccion-cuerpo">
+                ) : s.key === "cliente" ? (
+                  <div className="mem-cliente">
                     {propios.map((c) => (
-                      <Campo
-                        key={c.key}
-                        campo={c}
-                        valor={datos[c.key]}
-                        nota={datos[`${c.key}_obs`]}
-                        puedeNota={puedeNota(c.key)}
-                        sugerencias={sugerenciasPara(sugerencias, c.key, linea)}
-                        onValor={(v) => cambiar(c.key, v)}
-                        onNota={(v) => cambiar(`${c.key}_obs`, v)}
-                      />
+                      <label key={c.key} className="mem-cliente-campo" id={`mem-campo-${c.key}`}>
+                        <span>{c.label}</span>
+                        <input className="ui-input" value={datos[c.key] || ""} onChange={(e) => cambiar(c.key, e.target.value)} placeholder={DECISIONES[c.key]?.placeholder || ""} autoComplete="off" />
+                      </label>
                     ))}
-                    {s.key === "adicionales" && <Adicionales obra={obra} notas={datos.adicionales} />}
+                  </div>
+                ) : s.key === "adicionales" ? (
+                  <>
+                    <label className="mem-notas" id="mem-campo-adicionales">
+                      <span>Lo que pidió el cliente aparte</span>
+                      <textarea
+                        className="ui-input"
+                        rows={3}
+                        value={datos.adicionales || ""}
+                        onChange={(e) => cambiar("adicionales", e.target.value)}
+                        placeholder="Griferías negras, sin parrilla en el cockpit, luces bajo agua, heladera 12 V…"
+                      />
+                    </label>
+                    <Adicionales obra={obra} notas={datos.adicionales} />
+                  </>
+                ) : (
+                  <div className="mem-defs">
+                    {propios.map((c) => (
+                      <Definicion key={c.key} campo={c} valor={datos[c.key]} nota={datos[`${c.key}_obs`]} linea={linea} onAbrir={() => setAbierto(c.key)} />
+                    ))}
                   </div>
                 )}
               </section>
@@ -336,6 +368,26 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, sug
           <div className="mem-herr-pie">{herramientas}</div>
         </div>
       </div>
+
+      {campoAbierto && (
+        <Elegir
+          campo={campoAbierto}
+          seccion={SECCIONES.find((s) => s.key === campoAbierto.seccion)?.label || ""}
+          valor={datos[campoAbierto.key]}
+          nota={datos[`${campoAbierto.key}_obs`]}
+          puedeNota={puedeNota(campoAbierto.key)}
+          linea={linea}
+          posicion={iAbierto + 1}
+          total={elegibles.length}
+          faltan={faltanElegir.filter((c) => c.key !== abierto).length}
+          onValor={(v) => cambiar(campoAbierto.key, v)}
+          onNota={(v) => cambiar(`${campoAbierto.key}_obs`, v)}
+          onCerrar={() => setAbierto(null)}
+          onAnterior={() => irA(elegibles[iAbierto - 1])}
+          onSiguiente={() => irA(elegibles[iAbierto + 1])}
+          onSiguientePendiente={siguienteSinDefinir}
+        />
+      )}
 
       {copiando && (
         <CopiarDeBarco
