@@ -4,6 +4,7 @@ import Cargando from "@/components/ui/Cargando";
 import { usernameOf } from "../purchaseRequestsApi";
 import { ESTADOS, FILTROS_VACIOS, PRIORIDADES, destinoDe, estaCerrado, textoPlano, useVistaPedidos } from "../modulo";
 import { Buscar, Cabecera, Chip, Grupo, PedidosEnVista, SelectorVista, Vacio } from "../ui";
+import { pedidoIncluyeObra } from "../destinosPedido";
 
 const POR_GRUPO = 40;
 
@@ -35,14 +36,14 @@ export default function Pedidos({ requests, users, projects, sinLeer, filtros, s
       if (filtros.creator !== "todos" && r.created_by !== filtros.creator) return false;
       if (filtros.project !== "todos") {
         if (filtros.project.startsWith("dest:")) { if ((r.destino || "") !== filtros.project.slice(5)) return false; }
-        else if (r.project_id !== filtros.project) return false;
+        else if (r.project_id !== filtros.project && !pedidoIncluyeObra(r, projects.find((p) => p.id === filtros.project))) return false;
       }
       if (filtros.dateFrom && r.created_at?.slice(0, 10) < filtros.dateFrom) return false;
       if (filtros.dateTo && r.created_at?.slice(0, 10) > filtros.dateTo) return false;
       if (!q) return true;
       return `${r.title || ""} ${textoPlano(r.description)} ${r.creator?.username || ""} ${destinoDe(r)} ${r.proveedor || ""}`.toLowerCase().includes(q);
     });
-  }, [requests, filtros]);
+  }, [requests, filtros, projects]);
 
   // Agrupado por estado, en el orden del recorrido, cuando se ven varios
   // estados a la vez. Filtrando uno solo, son todos iguales.

@@ -38,6 +38,7 @@ import {
 } from "../modulo";
 import { Avatar, Aviso, Modal } from "../ui";
 import SelectorDestino from "../SelectorDestino";
+import { agregarDestinoPedido, destinoPedidoParaGuardar, restaurarDestinosPedido } from "../destinosPedido";
 import "react-quill-new/dist/quill.snow.css";
 
 // Quill pesa ~80 kB: se baja recién cuando alguien quiere escribir una descripción.
@@ -50,7 +51,7 @@ const QUILL_MODULES = {
   ],
 };
 
-const FORM_VACIO = { title: "", description: "", priority: "media", project_id: "", destino: "", needed_at: "" };
+const FORM_VACIO = { title: "", description: "", priority: "media", project_id: "", destinos: [], destino: "", needed_at: "" };
 const ITEM_VACIO = { description: "", quantity: "", unit: "unidad", link: "", cat: null };
 
 const claveActual = (userId) => `${BORRADOR_ACTUAL}:${userId || "anon"}`;
@@ -84,6 +85,7 @@ function tieneContenido(b) {
     || String(f.destino || "").trim()
     || String(f.needed_at || "").trim()
     || String(f.project_id || "").trim()
+    || (f.destinos || []).length
     || (f.priority && f.priority !== "media")
     || (b?.ccUserIds || []).length
     || (b?.createItems || []).length
@@ -98,9 +100,9 @@ function tituloDe(b) {
   return it ? String(it).trim().slice(0, 60) : "Pedido sin título";
 }
 
-function desdeBorrador(b) {
+function desdeBorrador(b, projects = []) {
   return {
-    form: { ...FORM_VACIO, ...(b?.form || {}) },
+    form: { ...FORM_VACIO, ...restaurarDestinosPedido(b?.form || {}, projects) },
     ccUserIds: Array.isArray(b?.ccUserIds) ? b.ccUserIds : [],
     createItems: Array.isArray(b?.createItems) ? b.createItems : [],
     newItem: { ...ITEM_VACIO, ...(b?.newItem || {}) },
@@ -110,15 +112,17 @@ function desdeBorrador(b) {
 function desdePrefill(p, projects) {
   const proyecto = p.project_id ? projects.find((x) => x.id === p.project_id) : null;
   return {
-    form: {
+    form: restaurarDestinosPedido({
       ...FORM_VACIO,
+      destinos: undefined,
       title: p.title || "",
       description: p.description || "",
       priority: p.priority || "media",
       project_id: p.project_id || "",
+      ...(Array.isArray(p.destinos) ? { destinos: p.destinos } : {}),
       destino: p.destino || proyecto?.codigo || "",
       needed_at: p.needed_at || "",
-    },
+    }, projects),
     ccUserIds: [],
     createItems: (p.items || []).filter((it) => it?.description).map((it) => ({
       description: it.description,
@@ -143,7 +147,7 @@ function guardadosVivos(userId) {
 export default function NuevoPedido({ profile, projects = [], users = [], prefill = null, onCerrar, onCreado }) {
   const toast = useToast();
   const userId = profile?.id;
-  const [b, setB] = useState(() => (prefill ? desdePrefill(prefill, projects) : desdeBorrador(leerJSON(claveActual(userId), null))));
+  const [b, setB] = useState(() => (prefill ? desdePrefill(prefill, projects) : desdeBorrador(leerJSON(claveActual(userId), null), projects)));
   const [guardados, setGuardados] = useState(() => guardadosVivos(userId));
   const [archivos, setArchivos] = useState([]);
   const [guardando, setGuardando] = useState(false);
@@ -307,7 +311,7 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
   function retomar(id) {
     const d = guardados.find((x) => x.id === id);
     if (!d) return;
-    const cargado = desdeBorrador(d.body);
+    const cargado = desdeBorrador(d.body, projects);
     setB(cargado);
     setVerDescripcion(Boolean(textoPlano(cargado.form.description)));
     setGuardados((prev) => prev.filter((x) => x.id !== id));
@@ -332,11 +336,8 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
     setGuardando(true);
     setError("");
     try {
-      // Si el destino coincide con una obra queda ligado a la obra; si no, va como texto.
-      const txt = (form.destino || "").trim();
-      const obra = txt && projects.find((p) => String(p.codigo || "").toLowerCase() === txt.toLowerCase());
       const request = await createPurchaseRequest({
-        form: { ...form, project_id: obra ? obra.id : null, destino: obra ? null : (txt || null) },
+        form: { ...form, ...destinoPedidoParaGuardar(form, projects) },
         ccUserIds,
         attachmentFiles: archivos,
       });
@@ -363,7 +364,7 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
   }
 
   const pasoQue = Boolean(form.title.trim()) && (createItems.length > 0 || textoPlano(form.description));
-  const pasoDonde = Boolean(form.destino.trim());
+  const pasoDonde = form.destinos.length > 0 || Boolean(form.destino.trim());
 
   return (
     <Modal
@@ -517,18 +518,45 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
         <section className={`cmp-paso${pasoDonde ? " hecho" : ""}`}>
           <span className="cmp-paso-n">2</span>
           <div style={{ minWidth: 0 }}>
-            <div className="cmp-paso-tit">¿Para qué obra y para cuándo?</div>
+            <div className="cmp-paso-tit">¿Para dónde y para cuándo?</div>
             <div className="cmp-form">
               <div className="cmp-campo c6">
-                <span>Obra o destino</span>
+                <span>Embarcaciones o destinos <span style={{ fontWeight: 500, color: "var(--subtle)" }}>· opcional, podés elegir varios</span></span>
+                {form.destinos.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }} aria-label="Destinos elegidos">
+                    {form.destinos.map((d, i) => (
+                      <button
+                        key={d.obra_id || d.valor}
+                        type="button"
+                        className="cmp-chip on"
+                        onClick={() => setForm({ destinos: form.destinos.filter((_, k) => k !== i) })}
+                        aria-label={`Quitar ${d.valor}`}
+                        title={`Quitar ${d.valor}`}
+                      >
+                        {d.valor}<X size={12} />
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <SelectorDestino
-                  obras={projects}
-                  value={form.destino}
-                  onChange={(valor, obra) => setForm({ destino: valor, project_id: obra?.id || "" })}
+                  obras={projects.filter((p) => !form.destinos.some((d) => d.obra_id === p.id))}
+                  value=""
+                  onChange={(valor, obra) => setForm({ destinos: agregarDestinoPedido(form.destinos, valor, obra) })}
                   otros={STOCK_DESTINOS.map((d) => ({ valor: d, label: d, detalle: "para el stock del galpón" }))}
-                  placeholder="Elegí la obra o el stock…"
+                  permitirLibre={false}
+                  placeholder={form.destinos.length ? "Agregar otra embarcación o destino…" : "Agregar embarcaciones o stock…"}
                 />
               </div>
+              <label className="cmp-campo c6" htmlFor="np-destino-libre">
+                <span>Nombre del barco u otra referencia <span style={{ fontWeight: 500, color: "var(--subtle)" }}>· texto libre, opcional</span></span>
+                <input
+                  id="np-destino-libre"
+                  className="ui-input"
+                  value={form.destino}
+                  onChange={(e) => setForm({ destino: e.target.value })}
+                  placeholder="Ej.: barco La Esperanza en el río, taller, reparación…"
+                />
+              </label>
               <label className="cmp-campo c2" htmlFor="np-fecha">
                 <span>Lo necesitás para</span>
                 <input id="np-fecha" type="date" className="ui-input" value={form.needed_at} onChange={(e) => setForm({ needed_at: e.target.value })} />

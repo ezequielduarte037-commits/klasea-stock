@@ -215,6 +215,8 @@ export function mostrar(campo, valor, linea) {
   }
   if (tipo === "lleva") {
     const l = leerLleva(valor);
+    // Si la matriz lo trae de serie, vacío quiere decir "lo de serie".
+    if (l.vacio && campo.serie) return { estado: "serie", texto: "De serie", sub: campo.serie };
     if (l.vacio) return { estado: "vacio" };
     if (l.noLleva) return { estado: "no", texto: NO_LLEVA, sub: l.detalle };
     const muestra = d.paletaModelos ? buscarMuestra(d.paletaModelos, l.modelo) : null;

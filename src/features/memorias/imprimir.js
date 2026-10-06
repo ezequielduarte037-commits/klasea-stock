@@ -44,6 +44,7 @@ const CSS = `
 function valorHtml(campo, datos) {
   const valor = datos[campo.key];
   const nota = String(datos[`${campo.key}_obs`] || "").trim();
+  if (!estaDefinido(campo, valor) && campo.serie) return `<td class="va">De serie<span class="nota">${esc(campo.serie)}</span></td>`;
   if (!estaDefinido(campo, valor)) return `<td class="va vacio">—</td>`;
   const texto = String(valor).trim();
   const clase = texto.toLowerCase() === NO_LLEVA.toLowerCase() ? ' class="no"' : "";
@@ -63,14 +64,15 @@ export async function imprimirMemoria({ obra, linea, campos, datos }) {
   const bloques = [];
   for (const seccion of SECCIONES) {
     if (seccion.key === "cliente") continue;
-    const propios = campos.filter((c) => c.seccion === seccion.key && (!c.extra || estaDefinido(c, datos[c.key])));
+    // Las opciones de la línea no se imprimen desde la memoria (viven en la obra).
+    const propios = campos.filter((c) => c.seccion === seccion.key && !c.opcion && (!c.extra || c.serie || estaDefinido(c, datos[c.key])));
     if (seccion.key === "equipos") {
       if (!propios.length) continue;
       const celdas = propios.map((c) => {
         const v = datos[c.key];
-        const marca = v === true ? "✓" : v === false ? "✕" : "";
+        const marca = c.serie || v === true ? "✓" : v === false ? "✕" : "";
         const nota = String(datos[`${c.key}_obs`] || "").trim();
-        return `<div><span class="caja">${marca}</span>${esc(c.label)}${nota ? ` <span class="no">· ${esc(nota)}</span>` : ""}</div>`;
+        return `<div><span class="caja">${marca}</span>${esc(c.label)}${c.serie ? ' <span class="no">· de serie</span>' : ""}${nota ? ` <span class="no">· ${esc(nota)}</span>` : ""}</div>`;
       });
       while (celdas.length % 3) celdas.push("<div></div>");
       bloques.push(`<h2>${esc(seccion.label)}</h2><div class="equipos">${celdas.join("")}</div>`);

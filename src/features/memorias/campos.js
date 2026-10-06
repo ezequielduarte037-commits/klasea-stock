@@ -7,7 +7,7 @@
 import { MEMORIA_FIELDS_BY_TIPO } from "@/features/obras/mapa/memoriaFields";
 import { claveObra } from "@/features/equipos/equiposModelo";
 import { MEMORIA_EXCEL_SEED } from "./memoriaExcelSeed";
-import { sinTildes } from "./acabados";
+import { claveSimple, sinTildes } from "./acabados";
 import { DECISIONES, NO_LLEVA } from "./decisiones";
 
 export { NO_LLEVA };
@@ -76,7 +76,11 @@ export function modeloDeObra(obra) {
 // Los campos de un barco, con su sección y cómo se eligen.
 //   tipo: el de decisiones.js, o "si_no" para los equipos.
 //   extra: lo que la plantilla de la línea no trae (no cuenta para el avance).
-export function camposDeObra(obra) {
+//   serie: la matriz de la línea ya lo trae como estándar (descripción del
+//          material). No se pregunta; se puede marcar que este barco no lo lleva.
+//   opcion: es una opción de la línea (condicionante). Se elige ahí, una vez.
+// matrizLinea: { deSerie: Map, opciones: [nombres] } de matriz.js (o nada).
+export function camposDeObra(obra, matrizLinea = null) {
   const plantilla = MEMORIA_FIELDS_BY_TIPO[tipoDeObra(obra)] || MEMORIA_FIELDS_BY_TIPO.default;
   const porClave = new Map();
   for (const d of plantilla) if (!porClave.has(d.key)) porClave.set(d.key, d);
@@ -89,14 +93,19 @@ export function camposDeObra(obra) {
       // puede cargar (no cuenta para el avance: se suele decidir al final).
       const siempre = key === "nombre_barco";
       if (!d && !esEquipo && !siempre) continue;
+      // La etiqueta propia de la línea sólo donde dice qué parte del barco es
+      // (tapicería, lonería); el resto con nombres claros.
+      const label = DECISIONES[key]?.label || d?.label || ETIQUETAS_EQUIPO[key] || key;
+      const puedeSerDeSerie = esEquipo || key === "grupo_electrogeno";
       campos.push({
         key,
         seccion: seccion.key,
-        // La etiqueta propia de la línea sólo donde dice qué parte del barco es
-        // (tapicería, lonería); el resto con nombres claros.
-        label: DECISIONES[key]?.label || d?.label || ETIQUETAS_EQUIPO[key] || key,
+        label,
         tipo: esEquipo ? "si_no" : DECISIONES[key]?.tipo || "texto",
         extra: (esEquipo || siempre) && !d,
+        serie: puedeSerDeSerie ? matrizLinea?.deSerie?.get(key)?.descripcion || null : null,
+        serieId: puedeSerDeSerie ? matrizLinea?.deSerie?.get(key)?.materialId || null : null,
+        opcion: esEquipo ? (matrizLinea?.opciones || []).find((n) => claveSimple(n.replace(/\(.*?\)/g, "")) === claveSimple(label)) || null : null,
       });
     }
   }
@@ -108,9 +117,14 @@ export function estaDefinido(campo, valor) {
   return String(valor ?? "").trim() !== "";
 }
 
-// Cuánto está definido (los equipos que la línea no trae no cuentan).
+// Cuánto está definido. No cuentan los equipos que la línea no trae, lo que
+// ya viene de serie en la matriz ni lo que se elige en las opciones de línea.
+export function cuenta(campo) {
+  return !campo.extra && !campo.serie && !campo.opcion;
+}
+
 export function avanceDe(campos, datos) {
-  const cuentan = campos.filter((c) => !c.extra);
+  const cuentan = campos.filter(cuenta);
   const faltan = cuentan.filter((c) => !estaDefinido(c, propio(datos, c.key)));
   const total = cuentan.length;
   const hechos = total - faltan.length;
@@ -173,6 +187,7 @@ export function datosDeFila(fila) {
 export function datosDeSemilla(semilla, campos) {
   const out = {};
   for (const campo of campos) {
+    if (campo.serie || campo.opcion) continue;
     const valor = propio(semilla, campo.key);
     if (valor == null || valor === "") continue;
     if (campo.tipo === "si_no") {

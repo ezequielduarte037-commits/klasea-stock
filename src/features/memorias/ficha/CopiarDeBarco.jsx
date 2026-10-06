@@ -40,7 +40,7 @@ export default function CopiarDeBarco({ ficha, datos, filas, puedeNota, onCopiar
       if (!clave || clave === propia || porClave.has(clave)) continue;
       porClave.set(clave, { clave, codigo, datos: d, origen: "planilla" });
     }
-    const campos = ficha.campos.filter((c) => c.seccion !== "cliente" && c.key !== "adicionales");
+    const campos = ficha.campos.filter((c) => c.seccion !== "cliente" && c.key !== "adicionales" && !c.serie && !c.opcion);
     return [...porClave.values()].map((f) => {
       const cambios = {};
       for (const c of campos) {

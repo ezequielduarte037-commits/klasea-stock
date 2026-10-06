@@ -4658,10 +4658,51 @@
         "policyHash": "sha256:00b63b2f746eb8b9095bbd5e1dbae4ddd74fd92a6740b72f59f4069fbfda4737"
       },
       "hash": "sha256:02a827440e03eb8207ca8165a14b2f8b4fe4b38320640239cbb0f8f3569d1670"
+    },
+    {
+      "payload": {
+        "receiptId": "sha256:b4d705878e74dedd55c866d533b54350334301bfdd8d695cd84577da459f350a",
+        "previousReceiptHash": "sha256:02a827440e03eb8207ca8165a14b2f8b4fe4b38320640239cbb0f8f3569d1670",
+        "sequence": 116,
+        "issuedAt": 1791225785959,
+        "request": {
+          "identity": {
+            "id": "legacy-cli",
+            "type": "legacy"
+          },
+          "action": {
+            "type": "memory.read",
+            "resource": "memory_search",
+            "tool": "memory_search",
+            "server": "ruflo",
+            "namespace": "klasea-stock",
+            "network": false,
+            "destructive": false
+          },
+          "context": {
+            "metadata": {
+              "inputDigest": "sha256:400f92c8d87db87c48cb29ef73149e9bf74d47d3b2875c6683735bd093bd1c40"
+            },
+            "now": 1791225785959
+          },
+          "requestId": "6f8cab60-3993-4847-8e45-e57613309516"
+        },
+        "decision": {
+          "requestId": "6f8cab60-3993-4847-8e45-e57613309516",
+          "outcome": "allowed",
+          "enforcedOutcome": "allowed",
+          "mode": "legacy",
+          "reason": "legacy-default-allow",
+          "matchedRules": [],
+          "obligations": []
+        },
+        "policyHash": "sha256:00b63b2f746eb8b9095bbd5e1dbae4ddd74fd92a6740b72f59f4069fbfda4737"
+      },
+      "hash": "sha256:6ac1e215c025b644239b31664babe09e282794f50082b089ab4f67df7dd7c343"
     }
   ],
   "migratedAt": 1786546403269,
   "migratedFrom": "pre-ADR-324; capabilities=.swarm/memory.db",
-  "ledgerLength": 116,
-  "ledgerHead": "sha256:02a827440e03eb8207ca8165a14b2f8b4fe4b38320640239cbb0f8f3569d1670"
+  "ledgerLength": 117,
+  "ledgerHead": "sha256:6ac1e215c025b644239b31664babe09e282794f50082b089ab4f67df7dd7c343"
 }

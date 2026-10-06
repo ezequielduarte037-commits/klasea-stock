@@ -4,14 +4,12 @@ import useAlertas from "@/hooks/useAlertas";
 import {
   audienciaAviso,
   audienciaCompra,
-  audienciaLogistica,
   audienciaProduccion,
   audienciaRecepcion,
   esAccionPropia,
   gravedadAviso,
   gravedadCompra,
   gravedadItem,
-  gravedadLogistica,
   gravedadRecepcion,
   isComprasOperativo,
   operationalRole,
@@ -22,6 +20,7 @@ import {
   sedeOperativa,
   userIdOf,
 } from "@/lib/notificacionesAudience";
+import { cargarAvisosLogistica, notificacionLogistica } from "@/lib/notificacionesLogistica";
 
 /**
  * La campanita.
@@ -206,6 +205,8 @@ export default function useNotificaciones(profile) {
   const [loadingCompras, setLoadingCompras] = useState(false);
   const [loadingAvisos, setLoadingAvisos] = useState(false);
   const [loadingLogistica, setLoadingLogistica] = useState(false);
+  const [errorLogistica, setErrorLogistica] = useState(false);
+  const logisticaRequestRef = useRef(0);
   const [vistas, setVistas] = useState(() => readVistas(profile));
   const [ready, setReady] = useState(false);
   const [freshEvents, setFreshEvents] = useState([]);
@@ -240,6 +241,12 @@ export default function useNotificaciones(profile) {
     setFreshEvents([]);
     setInitialLoadedKey("");
   }, [profile]);
+
+  useEffect(() => {
+    logisticaRequestRef.current += 1;
+    setLogistica([]);
+    setErrorLogistica(false);
+  }, [loadKey]);
 
   const cargarRecepcion = useCallback(async () => {
     if (!verRecepcion) {
@@ -377,44 +384,26 @@ export default function useNotificaciones(profile) {
   }, [colaCompras, profile, role, verCompras]);
 
   const cargarLogistica = useCallback(async () => {
+    const request = ++logisticaRequestRef.current;
     if (!verLogistica) {
       setLogistica([]);
+      setErrorLogistica(false);
+      setLoadingLogistica(false);
       return;
     }
     setLoadingLogistica(true);
     try {
-      let query = supabase
-        .from("calendario_eventos")
-        .select("id,carga,titulo,obra,estado,fecha,fecha_solicitada,fecha_propuesta,fecha_confirmada,hora_propuesta,hora_confirmada,tipo_transporte,proveedor_logistico,created_by,updated_at,created_at")
-        .eq("clase", "solicitud_logistica")
-        .order("updated_at", { ascending: false })
-        .limit(30);
-
-      if (colaCompras) {
-        query = query.in("estado", ["solicitado", "fecha_aceptada"]);
-      } else if (yo) {
-        if (profile?.is_admin || role === "admin") {
-          query = query.or(
-            `and(created_by.eq.${yo},estado.in.(fecha_propuesta,confirmado)),and(created_by.is.null,estado.eq.solicitado)`,
-          );
-        } else {
-          query = query.eq("created_by", yo).in("estado", ["fecha_propuesta", "confirmado"]);
-        }
-      } else {
-        setLogistica([]);
-        setLoadingLogistica(false);
-        return;
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setLogistica((data || []).filter((row) => audienciaLogistica(row, profile).ok));
+      const data = await cargarAvisosLogistica(supabase, profile);
+      if (request !== logisticaRequestRef.current) return;
+      setLogistica(data);
+      setErrorLogistica(false);
     } catch {
-      setLogistica([]);
+      // Conservar la última carga válida y avisar: un fallo no significa que no haya novedades.
+      if (request === logisticaRequestRef.current) setErrorLogistica(true);
     } finally {
-      setLoadingLogistica(false);
+      if (request === logisticaRequestRef.current) setLoadingLogistica(false);
     }
-  }, [colaCompras, profile, role, verLogistica, yo]);
+  }, [profile, verLogistica]);
 
   useEffect(() => {
     let active = true;
@@ -444,9 +433,14 @@ export default function useNotificaciones(profile) {
     const handleOnline = () => schedule(refreshAll);
     document.addEventListener("visibilitychange", handleVisible);
     window.addEventListener("online", handleOnline);
+    window.addEventListener("focus", handleVisible);
     const safetyInterval = window.setInterval(() => {
       if (document.visibilityState === "visible") schedule(refreshAll);
     }, 15 * 60 * 1000);
+    // El aviso debe llegar incluso si Realtime se corta o la tabla no está publicada.
+    const logisticaInterval = verLogistica ? window.setInterval(() => {
+      schedule(cargarLogistica);
+    }, 60 * 1000) : null;
 
     const channels = [];
     if (verRecepcion) {
@@ -482,8 +476,10 @@ export default function useNotificaciones(profile) {
       refreshTimers.forEach((timer) => window.clearTimeout(timer));
       refreshTimers.clear();
       window.clearInterval(safetyInterval);
+      window.clearInterval(logisticaInterval);
       document.removeEventListener("visibilitychange", handleVisible);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("focus", handleVisible);
       channels.forEach((channel) => supabase.removeChannel(channel));
     };
   }, [
@@ -586,25 +582,8 @@ export default function useNotificaciones(profile) {
 
     if (verLogistica) {
       for (const movement of logistica) {
-        if (!audienciaLogistica(movement, profile).ok) continue;
-        const manager = colaCompras;
-        const proposed = movement.estado === "fecha_propuesta";
-        const accepted = movement.estado === "fecha_aceptada";
-        out.push({
-          clave: `logistica:${movement.id}`,
-          tipo: "logistica",
-          gravedad: gravedadLogistica(movement, { comoManager: manager }),
-          titulo: manager
-            ? (accepted ? "Técnica aceptó la fecha" : "Nueva solicitud logística")
-            : (proposed ? "Compras propuso otra fecha" : "Movimiento confirmado"),
-          detalle: `${movement.carga || movement.titulo || "Movimiento"}${movement.obra ? ` · ${movement.obra}` : ""}`,
-          actor: null,
-          fecha: movement.updated_at || movement.created_at,
-          ruta: `/calendario?open=${movement.id}`,
-          requiereAccion: movement.estado !== "confirmado",
-          why: audienciaLogistica(movement, profile).why,
-          meta: { movement },
-        });
+        const notif = notificacionLogistica(movement, profile);
+        if (notif) out.push(notif);
       }
     }
 
@@ -612,7 +591,7 @@ export default function useNotificaciones(profile) {
       .map((item) => ({ ...item, id: `${item.clave}@${item.fecha || ""}` }))
       .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
   }, [
-    alertas, avisos, colaCompras, compras, enabled, envios, logistica,
+    alertas, avisos, compras, enabled, envios, logistica,
     profile, verCompras, verLogistica, verProduccion, verRecepcion, yo,
   ]);
 
@@ -685,6 +664,9 @@ export default function useNotificaciones(profile) {
   return {
     loading,
     ready,
+    errorLogistica: verLogistica && errorLogistica,
+    loadingLogistica,
+    recargarLogistica: cargarLogistica,
     lista,
     unreadCount,
     freshEvents,

@@ -92,6 +92,9 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
     unreadCount,
     loading,
     ready,
+    errorLogistica,
+    loadingLogistica,
+    recargarLogistica,
     freshEvents,
     consumeFreshEvents,
     markLeido,
@@ -487,7 +490,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
                 Notificaciones
               </div>
               <div style={{ color: hayUrgentes ? C.red : C.dim, fontSize: 12, marginTop: 3 }}>
-                {loading ? "Actualizando…" : hayUrgentes ? `${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer · ${unreadCount} en total` : unreadCount ? `Tenés ${unreadCount} notificación${unreadCount === 1 ? "" : "es"} sin leer` : "Estás al día"}
+                {loading ? "Actualizando…" : hayUrgentes ? `${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer · ${unreadCount} en total` : unreadCount ? `Tenés ${unreadCount} notificación${unreadCount === 1 ? "" : "es"} sin leer` : errorLogistica ? "Actualización pendiente" : "Estás al día"}
               </div>
             </div>
             <button
@@ -518,6 +521,29 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             </button>
           </div>
 
+          {errorLogistica && (
+            <div role="status" style={{
+              padding: "10px 16px",
+              background: C.redL,
+              color: C.red,
+              borderBottom: `1px solid ${C.redB}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexShrink: 0,
+              fontSize: 12,
+            }}>
+              <span style={{ flex: 1 }}>No pudimos actualizar los avisos de Logística.</span>
+              <button type="button" onClick={recargarLogistica} disabled={loadingLogistica} style={{
+                background: "transparent", border: `1px solid ${C.redB}`, color: C.red,
+                borderRadius: 6, padding: "6px 9px", fontFamily: C.sans, fontWeight: 700,
+                cursor: loadingLogistica ? "default" : "pointer", opacity: loadingLogistica ? 0.5 : 1,
+              }}>
+                {loadingLogistica ? "Actualizando…" : "Reintentar"}
+              </button>
+            </div>
+          )}
+
           <div style={{
             padding: "10px 16px",
             borderBottom: `1px solid ${C.border}`,
@@ -545,10 +571,12 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
               </div>
             ) : visibleGroups.every((g) => !g.items.length) ? (
               <div style={{ padding: "36px 20px", textAlign: "center", color: C.dim }}>
-                <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 10 }} />
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>Estás al día</div>
+                {errorLogistica
+                  ? <AlertTriangle size={28} style={{ color: C.red, marginBottom: 10 }} />
+                  : <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 10 }} />}
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>{errorLogistica ? "No hay avisos cargados" : "Estás al día"}</div>
                 <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
-                  Sólo aparecen novedades relacionadas con tu trabajo.
+                  {errorLogistica ? "Reintentá para comprobar si hay novedades de Logística." : "Sólo aparecen novedades relacionadas con tu trabajo."}
                 </div>
               </div>
             ) : (

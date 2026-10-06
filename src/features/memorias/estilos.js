@@ -253,6 +253,19 @@ export const CSS_MEMORIAS = `
 .mem-equipo .ui-input { min-height: 32px; font-size: 12.5px; }
 .mem-mas { padding: 0 18px 16px; }
 
+/* Lo que ya viene de serie según la matriz */
+.mem-serie { display: grid; gap: 10px; margin: 14px 18px 0; padding: 12px 14px; border: 1px solid var(--green-border); border-radius: 14px; background: color-mix(in srgb, var(--green) 5%, transparent); }
+.mem-serie-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mem-serie-cab b { font-size: 13.5px; font-weight: 650; }
+.mem-serie-cab small { font-size: 12px; color: var(--dim); }
+.mem-serie-op { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 11px; border: 1px solid var(--green-border); border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12.5px; font-weight: 600; cursor: default; }
+.mem-serie-op.fuera { border-style: dashed; border-color: var(--border-2); background: transparent; color: var(--dim); text-decoration: line-through; }
+.mem-def[data-estado="serie"] { border-color: var(--green-border); background: color-mix(in srgb, var(--green) 5%, transparent); }
+.mem-def[data-estado="serie"] .mem-def-valor b { color: var(--green); }
+.mem-info { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid var(--t-borde); border-radius: 11px; background: var(--t-soft); font-size: 12.5px; line-height: 1.45; color: var(--text); }
+.mem-info > svg { color: var(--t); flex-shrink: 0; margin-top: 1px; }
+.mem-info b { font-weight: 600; }
+
 /* Opciones de la línea (condicionantes) */
 .mem-opciones { margin: 0 18px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel-solid); overflow: hidden; }
 .mem-opciones-cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 11px 14px; border-bottom: 1px solid var(--border); }

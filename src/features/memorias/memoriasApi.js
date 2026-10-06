@@ -207,6 +207,74 @@ export async function agregarAdicional(obra, { material = null, descripcion, can
   }
 }
 
+// ── Lo que ya resuelve la matriz ────────────────────────────────────────────
+
+async function todasLasFilas(tabla, select) {
+  const out = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await supabase.from(tabla).select(select).range(desde, desde + 999);
+    if (error) return { error, filas: out };
+    out.push(...(data || []));
+    if (!data || data.length < 1000) return { filas: out };
+  }
+}
+
+let matrizEnCurso = null;
+
+// Por modelo ("52"): qué viene de serie según la matriz y qué opciones tiene
+// la línea. Un material es "de serie" si no depende de una opción ni de una
+// variante (línea de eje, etc.). Se pide una vez por sesión de pantalla.
+export function traerMatrizMemoria() {
+  if (matrizEnCurso) return matrizEnCurso;
+  matrizEnCurso = (async () => {
+    const [modelo, condicion, items, condicionantes] = await Promise.all([
+      todasLasFilas("panol_material_modelo", "material_id,modelo,variante,producto_predeterminado_id"),
+      todasLasFilas("panol_material_condicion", "material_id,opcion_valor_id"),
+      todasLasFilas("panol_matriz_condicionante_items", "material_id"),
+      todasLasFilas("panol_matriz_condicionantes", "modelo,nombre,activo"),
+    ]);
+    if (modelo.error) return new Map();
+    const ids = [...new Set(modelo.filas.flatMap((f) => [f.material_id, f.producto_predeterminado_id]).filter(Boolean))];
+    const nombres = new Map();
+    for (let i = 0; i < ids.length; i += 150) {
+      const { data } = await supabase.from("panol_materiales").select("id,descripcion").in("id", ids.slice(i, i + 150));
+      for (const m of data || []) nombres.set(m.id, m.descripcion || "");
+    }
+    const condicionados = new Set([
+      ...condicion.filas.filter((c) => c.opcion_valor_id).map((c) => c.material_id),
+      ...items.filas.map((c) => c.material_id).filter(Boolean),
+    ]);
+    const porModelo = new Map();
+    for (const f of modelo.filas) {
+      const id = f.material_id || f.producto_predeterminado_id;
+      if (!porModelo.has(f.modelo)) porModelo.set(f.modelo, { filas: [], opciones: [] });
+      porModelo.get(f.modelo).filas.push({
+        materialId: id,
+        descripcion: nombres.get(f.material_id) || nombres.get(f.producto_predeterminado_id) || "",
+        condicional: condicionados.has(id) || (f.variante && f.variante !== "standard"),
+      });
+    }
+    for (const c of condicionantes.filas) {
+      if (c.activo === false) continue;
+      if (!porModelo.has(c.modelo)) porModelo.set(c.modelo, { filas: [], opciones: [] });
+      porModelo.get(c.modelo).opciones.push(c.nombre);
+    }
+    return porModelo;
+  })().catch(() => {
+    matrizEnCurso = null;
+    return new Map();
+  });
+  return matrizEnCurso;
+}
+
+// Materiales que se sacaron de la lista de esta obra (en Materiales).
+export async function traerExclusionesObra(obraId) {
+  if (!obraId) return new Set();
+  const { data, error } = await supabase.from("panol_obra_material_exclusiones").select("material_id").eq("obra_id", obraId);
+  if (error) return new Set();
+  return new Set((data || []).map((x) => x.material_id).filter(Boolean));
+}
+
 // ── Opciones de la línea (condicionantes de la matriz) ─────────────────────
 
 export async function traerOpcionesLinea(modelo, obraId) {

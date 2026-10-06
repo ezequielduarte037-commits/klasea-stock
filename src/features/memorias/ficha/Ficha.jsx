@@ -6,18 +6,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Armchair, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ClipboardCopy, Copy, FileSpreadsheet,
-  PackagePlus, Palette, Printer, Radio, Settings2, Ship, Sofa, Tent, UserRound,
+  Check, PackagePlus, Palette, Printer, Radio, Settings2, Ship, Sofa, Tent, UserRound, X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import MemoriaSelector from "../MemoriaSelector";
 import { familiasShowroom, seleccionesShowroom } from "../acabados";
 import {
-  SECCIONES, avanceDe, datosDeFila, datosDeSemilla, estaDefinido, haceCuanto, modeloDeObra,
+  SECCIONES, avanceDe, cuenta, datosDeFila, datosDeSemilla, estaDefinido, haceCuanto, modeloDeObra,
   textoDeMemoria, tonoDeAvance,
 } from "../campos";
 import { DECISIONES } from "../decisiones";
-import { guardarCambios } from "../memoriasApi";
+import { guardarCambios, traerExclusionesObra } from "../memoriasApi";
 import { imprimirMemoria } from "../imprimir";
 import { Barra } from "../ui";
 import { Definicion, Equipo } from "./Tarjetas";
@@ -167,12 +167,23 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
     document.getElementById(`mem-sec-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Materiales de serie que se sacaron de la lista de esta obra (Materiales).
+  const [excluidos, setExcluidos] = useState(() => new Set());
+  useEffect(() => {
+    let vivo = true;
+    const t = setTimeout(async () => {
+      const set = await traerExclusionesObra(obra.id);
+      if (vivo) setExcluidos(set);
+    }, 0);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [obra.id]);
+
   // ── Panel para elegir ────────────────────────────────────────────────────
   const elegibles = useMemo(() => campos.filter((c) => SE_ELIGEN.has(c.tipo)), [campos]);
   const [abierto, setAbierto] = useState(null);
   const campoAbierto = elegibles.find((c) => c.key === abierto) || null;
   const iAbierto = campoAbierto ? elegibles.indexOf(campoAbierto) : -1;
-  const faltanElegir = elegibles.filter((c) => !c.extra && !estaDefinido(c, datos[c.key]));
+  const faltanElegir = elegibles.filter((c) => cuenta(c) && !estaDefinido(c, datos[c.key]));
 
   function irA(campo) {
     const el = document.getElementById(`mem-campo-${campo.key}`);
@@ -237,7 +248,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
   );
 
   const indice = SECCIONES.map((s) => {
-    const propios = campos.filter((c) => c.seccion === s.key && !c.extra);
+    const propios = campos.filter((c) => c.seccion === s.key && cuenta(c));
     const hechos = propios.filter((c) => estaDefinido(c, datos[c.key])).length;
     const lleno = propios.length > 0 && hechos === propios.length;
     return (
@@ -317,7 +328,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
           {SECCIONES.map((s) => {
             const propios = campos.filter((c) => c.seccion === s.key);
             const { Icon, tono: tonoSec } = ASPECTO[s.key];
-            const cuentan = propios.filter((c) => !c.extra);
+            const cuentan = propios.filter(cuenta);
             const hechos = cuentan.filter((c) => estaDefinido(c, datos[c.key])).length;
             if (!propios.length && s.key !== "adicionales") return null;
             return (
@@ -329,7 +340,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
                   {s.usan.length > 0 && <span className="usan">Lo usan <b>{s.usan.join(" · ")}</b></span>}
                 </div>
                 {s.key === "equipos" ? (
-                  <SeccionEquipos campos={propios} datos={datos} puedeNota={puedeNota} cambiar={cambiar} obra={obra} linea={linea} />
+                  <SeccionEquipos campos={propios} datos={datos} puedeNota={puedeNota} cambiar={cambiar} obra={obra} linea={linea} excluidos={excluidos} />
                 ) : s.key === "cliente" ? (
                   <div className="mem-cliente">
                     {propios.map((c) => (
@@ -377,6 +388,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
           nota={datos[`${campoAbierto.key}_obs`]}
           puedeNota={puedeNota(campoAbierto.key)}
           linea={linea}
+          matrizLinea={ficha.matrizLinea}
           posicion={iAbierto + 1}
           total={elegibles.length}
           faltan={faltanElegir.filter((c) => c.key !== abierto).length}
@@ -421,16 +433,38 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
   );
 }
 
-function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea }) {
-  const propios = campos.filter((c) => !c.extra);
-  const extras = campos.filter((c) => c.extra);
+function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea, excluidos }) {
+  // Lo que ya viene de serie no se pregunta, y lo que es opción de la línea se
+  // elige una sola vez, abajo, en las opciones (que cambian la lista de la obra).
+  const deSerie = campos.filter((c) => c.serie);
+  const preguntar = campos.filter((c) => !c.serie && !c.opcion);
+  const propios = preguntar.filter((c) => !c.extra);
+  const extras = preguntar.filter((c) => c.extra);
   const extrasConDato = extras.filter((c) => datos[c.key] === true || datos[c.key] === false);
   const [verTodos, setVerTodos] = useState(false);
   const visibles = [...propios, ...(verTodos ? extras : extrasConDato)];
   const ocultos = extras.length - (verTodos ? extras.length : extrasConDato.length);
   return (
     <>
-      <div className="mem-equipos">
+      {deSerie.length > 0 && (
+        <div className="mem-serie">
+          <div className="mem-serie-cab">
+            <b>Viene de serie en la {linea}</b>
+            <small>Lo trae la matriz de la línea: no hace falta preguntarlo. Si este barco no lo lleva, se saca de la lista de la obra en Materiales.</small>
+          </div>
+          <div className="mem-chips-elegir">
+            {deSerie.map((c) => {
+              const fuera = c.serieId && excluidos.has(c.serieId);
+              return (
+                <span key={c.key} className={`mem-serie-op${fuera ? " fuera" : ""}`} title={fuera ? `Se sacó de la lista de ${obra.codigo}` : c.serie}>
+                  {fuera ? <X size={12} /> : <Check size={12} />} {c.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {visibles.length > 0 && <div className="mem-equipos">
         {visibles.map((c) => (
           <Equipo
             key={c.key}
@@ -442,7 +476,7 @@ function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea }) {
             onNota={(v) => cambiar(`${c.key}_obs`, v)}
           />
         ))}
-      </div>
+      </div>}
       {ocultos > 0 && (
         <div className="mem-mas">
           <button type="button" className="mem-link" onClick={() => setVerTodos(true)}>

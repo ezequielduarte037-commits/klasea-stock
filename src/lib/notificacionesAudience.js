@@ -11,6 +11,7 @@
  */
 
 import { canonicalPanolSede } from "@/features/panol/panolApi";
+export { audienciaLogistica, gravedadLogistica, puedeVerLogistica } from "./notificacionesLogistica.js";
 
 /** Rol operativo real. Nunca se reemplaza por "admin" vía is_admin. */
 export function operationalRole(profile) {
@@ -108,13 +109,6 @@ export function puedeVerCompras(profile) {
   return ["tecnica", "oficina", "panol"].includes(role);
 }
 
-export function puedeVerLogistica(profile) {
-  const role = operationalRole(profile);
-  if (isComprasOperativo(profile)) return true;
-  if (isAdminAccount(profile)) return true;
-  return ["tecnica", "administracion"].includes(role);
-}
-
 /**
  * ¿Este usuario debe recibir esta compra como notificación?
  * Devuelve { ok, why } para depurar audiencia.
@@ -164,38 +158,6 @@ export function audienciaProduccion(alerta, profile) {
   return { ok: false, why: "sin-interes" };
 }
 
-/**
- * Logística:
- * - Compras: solicitudes a coordinar / fechas aceptadas (no las propias).
- * - Solicitante (tecnica/admin/administracion): propuestas y confirmaciones de lo suyo.
- * - Admin sin rol compras: sólo lo propio o sin dueño claro en estado crítico.
- */
-export function audienciaLogistica(movement, profile) {
-  if (!movement) return { ok: false, why: "sin-movimiento" };
-  const yo = userIdOf(profile);
-  const propio = movement.created_by === yo;
-  const compras = isComprasOperativo(profile);
-
-  if (compras) {
-    if (propio) return { ok: false, why: "propio-compras" };
-    if (["solicitado", "fecha_aceptada"].includes(movement.estado)) {
-      return { ok: true, why: "cola-compras" };
-    }
-    return { ok: false, why: "estado-no-accionable" };
-  }
-
-  if (propio && ["fecha_propuesta", "confirmado"].includes(movement.estado)) {
-    return { ok: true, why: "solicitante" };
-  }
-
-  // Admin sin rol compras: no inunda con toda la cola.
-  if (isAdminAccount(profile) && !propio && movement.estado === "solicitado" && !movement.created_by) {
-    return { ok: true, why: "escalacion-sin-dueño" };
-  }
-
-  return { ok: false, why: "sin-interes" };
-}
-
 export function gravedadCompra(row = {}) {
   if (row.status === "comprado" || row.status === "recibido") return "success";
   if (row.status === "cancelado") return "critical";
@@ -222,14 +184,6 @@ export function gravedadRecepcion(envio = {}) {
   if (envio.prioridad === "urgente") return "critical";
   if (envio.estado === "parcial") return "warning";
   return "warning"; // recepción abierta = acción pendiente
-}
-
-export function gravedadLogistica(movement = {}, { comoManager } = {}) {
-  if (movement.estado === "solicitado") return "warning";
-  if (movement.estado === "fecha_aceptada") return "warning";
-  if (movement.estado === "fecha_propuesta") return "warning";
-  if (movement.estado === "confirmado") return "success";
-  return "info";
 }
 
 /**

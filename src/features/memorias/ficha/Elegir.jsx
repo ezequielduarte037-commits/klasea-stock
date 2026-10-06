@@ -4,12 +4,13 @@
 // seguir con lo siguiente sin definir sin cerrar el panel.
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, Ban, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowRight, Ban, Check, ChevronLeft, ChevronRight, Layers3, ListChecks, X } from "lucide-react";
 import { CSS_MEMORIAS } from "../estilos";
 import {
   DECISIONES, NO_LLEVA, armarAmbientes, armarLleva, armarOpciones, leerAmbientes, leerLleva, leerOpciones, opcionesDe,
 } from "../decisiones";
 import { PALETAS, buscarMuestra, claveSimple } from "../acabados";
+import { claveDeOpcion } from "../matriz";
 import { Muestra } from "./Tarjetas";
 
 function Opcion({ op, on, onClick }) {
@@ -174,7 +175,7 @@ function SegModo({ modo, setModo }) {
   );
 }
 
-function CuerpoLista({ d, valor, onValor }) {
+function CuerpoLista({ d, valor, onValor, quitar }) {
   const texto = String(valor ?? "");
   const noLleva = /^\s*no lleva\s*$/i.test(texto);
   const lineas = noLleva ? [] : texto.split(/\n+/).map((x) => x.trim()).filter(Boolean);
@@ -183,7 +184,7 @@ function CuerpoLista({ d, valor, onValor }) {
   return (
     <>
       <div className="mem-chips-elegir">
-        {d.sugeridos.map((s) => (
+        {d.sugeridos.filter((s) => !quitar.has(claveDeOpcion(s))).map((s) => (
           <button key={s} type="button" className={`mem-sug-op${tiene(s) ? " on" : ""}`} aria-pressed={tiene(s)} onClick={() => alternar(s)}>
             {tiene(s) ? <Check size={12} /> : null} {s}
           </button>
@@ -197,8 +198,31 @@ function CuerpoLista({ d, valor, onValor }) {
   );
 }
 
-export default function Elegir({ campo, seccion, valor, nota, puedeNota, linea, posicion, total, faltan, onValor, onNota, onCerrar, onAnterior, onSiguiente, onSiguientePendiente }) {
+// Lo que la matriz de la línea ya resuelve para este campo.
+//   serie: textos de materiales que vienen de serie.
+//   opciones: nombres de opciones de la línea que corresponden a este campo.
+//   quitar: claves que no hay que ofrecer como sugerencia.
+function resueltoPorMatriz(campo, matrizLinea) {
+  const out = { serie: [], opciones: [], quitar: new Set() };
+  if (!matrizLinea) return out;
+  if (campo.serie) out.serie.push(campo.serie);
+  if (campo.key === "electronica") {
+    for (const clave of ["vhf", "plotter", "piloto", "ais"]) {
+      if (matrizLinea.deSerie.has(clave)) { out.serie.push(matrizLinea.deSerie.get(clave).descripcion); out.quitar.add(clave); }
+    }
+    for (const nombre of matrizLinea.opciones) {
+      const clave = claveDeOpcion(nombre);
+      if (["vhf", "plotter", "piloto", "ais"].includes(clave)) { out.opciones.push(nombre); out.quitar.add(clave); }
+    }
+  }
+  const propia = matrizLinea.opciones.find((n) => claveSimple(n) === claveSimple(campo.label));
+  if (propia && !out.opciones.includes(propia)) out.opciones.push(propia);
+  return out;
+}
+
+export default function Elegir({ campo, seccion, valor, nota, puedeNota, linea, matrizLinea, posicion, total, faltan, onValor, onNota, onCerrar, onAnterior, onSiguiente, onSiguientePendiente }) {
   const d = DECISIONES[campo.key] || { tipo: "texto" };
+  const resuelto = resueltoPorMatriz(campo, matrizLinea);
 
   useEffect(() => {
     const tecla = (e) => { if (e.key === "Escape") onCerrar(); };
@@ -220,10 +244,22 @@ export default function Elegir({ campo, seccion, valor, nota, puedeNota, linea, 
         </header>
 
         <div className="mem-panel-cuerpo" key={campo.key}>
+          {resuelto.serie.length > 0 && (
+            <div className="mem-info" data-tono="verde">
+              <Layers3 size={15} />
+              <span>De serie en la {linea}: <b>{resuelto.serie.join(" · ")}</b>{campo.key === "electronica" ? "" : ". Elegí sólo si este barco lleva otro o no lo lleva."}</span>
+            </div>
+          )}
+          {resuelto.opciones.length > 0 && (
+            <div className="mem-info" data-tono="azul">
+              <ListChecks size={15} />
+              <span>Se elige en las opciones de la {linea} (cambian la lista de materiales): <b>{resuelto.opciones.join(" · ")}</b>.</span>
+            </div>
+          )}
           {d.tipo === "opciones" && <CuerpoOpciones campo={campo} d={d} valor={valor} linea={linea} onValor={onValor} />}
           {d.tipo === "lleva" && <CuerpoLleva d={d} valor={valor} onValor={onValor} />}
           {d.tipo === "ambientes" && <CuerpoAmbientes d={d} valor={valor} onValor={onValor} />}
-          {d.tipo === "lista" && <CuerpoLista d={d} valor={valor} onValor={onValor} />}
+          {d.tipo === "lista" && <CuerpoLista d={d} valor={valor} onValor={onValor} quitar={resuelto.quitar} />}
           {puedeNota && (
             <label className="mem-otro">
               <span>Nota</span>

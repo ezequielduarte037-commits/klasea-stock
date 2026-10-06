@@ -11,11 +11,12 @@ import { useSearchParams } from "react-router-dom";
 import Cargando from "@/components/ui/Cargando";
 import { CSS_MEMORIAS } from "./estilos";
 import {
-  avanceDe, camposDeObra, datosDeFila, filaDeObra, lineaDeObra, ordenLinea, semillaDeObra,
+  avanceDe, camposDeObra, modeloDeObra, datosDeFila, filaDeObra, lineaDeObra, ordenLinea, semillaDeObra,
 } from "./campos";
 import {
-  escucharMemorias, traerCantidadAdicionales, traerMemorias, traerObrasActivas, traerPerfiles,
+  escucharMemorias, traerCantidadAdicionales, traerMatrizMemoria, traerMemorias, traerObrasActivas, traerPerfiles,
 } from "./memoriasApi";
+import { deSerieDe } from "./matriz";
 import Portada from "./Portada";
 import Ficha from "./ficha/Ficha";
 
@@ -29,12 +30,14 @@ export default function MemoriasScreen() {
   const [columnas, setColumnas] = useState(() => new Set());
   const [adicionales, setAdicionales] = useState(() => new Map());
   const [perfiles, setPerfiles] = useState(() => new Map());
+  const [matriz, setMatriz] = useState(() => new Map());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
 
   const cargar = useCallback(async () => {
     setCargando(true);
-    const [o, m, a] = await Promise.allSettled([traerObrasActivas(), traerMemorias(), traerCantidadAdicionales()]);
+    const [o, m, a, mz] = await Promise.allSettled([traerObrasActivas(), traerMemorias(), traerCantidadAdicionales(), traerMatrizMemoria()]);
+    if (mz.status === "fulfilled") setMatriz(mz.value);
     if (o.status === "fulfilled") setObras(o.value);
     if (m.status === "fulfilled") {
       setFilas(m.value.filas);
@@ -88,9 +91,17 @@ export default function MemoriasScreen() {
     });
   }, []);
 
+  // Por modelo: lo que la matriz ya trae de serie y las opciones de la línea.
+  const matrizPorModelo = useMemo(() => new Map([...matriz].map(([modelo, v]) => [modelo, {
+    deSerie: deSerieDe(v.filas),
+    opciones: v.opciones,
+    conMatriz: v.filas.length > 0,
+  }])), [matriz]);
+
   const fichas = useMemo(() => obras.map((obra) => {
     const fila = filaDeObra(obra, filas);
-    const campos = camposDeObra(obra);
+    const matrizLinea = matrizPorModelo.get(modeloDeObra(obra)) || null;
+    const campos = camposDeObra(obra, matrizLinea);
     const datos = datosDeFila(fila);
     return {
       obra,
@@ -100,9 +111,10 @@ export default function MemoriasScreen() {
       avance: avanceDe(campos, datos),
       linea: lineaDeObra(obra),
       semilla: semillaDeObra(obra),
+      matrizLinea,
       adicionales: adicionales.get(obra.id) || 0,
     };
-  }).sort((a, b) => ordenLinea(a.linea, b.linea) || a.obra.codigo.localeCompare(b.obra.codigo, "es", { numeric: true })), [obras, filas, adicionales]);
+  }).sort((a, b) => ordenLinea(a.linea, b.linea) || a.obra.codigo.localeCompare(b.obra.codigo, "es", { numeric: true })), [obras, filas, adicionales, matrizPorModelo]);
 
   const indice = fichas.findIndex((f) => f.obra.codigo === codigoAbierto);
   const abierta = indice >= 0 ? fichas[indice] : null;
