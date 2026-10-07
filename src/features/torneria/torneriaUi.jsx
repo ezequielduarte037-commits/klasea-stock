@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { C } from "@/theme";
 import { BUTTON } from "./torneriaStyles";
@@ -7,15 +9,15 @@ export function Field({ label, hint, children, full = false }) {
     <label style={{ display: "grid", gap: 6, gridColumn: full ? "1 / -1" : undefined }}>
       <span style={{
         color: C.dim,
-        fontSize: 10,
-        fontWeight: 650,
-        letterSpacing: "0.09em",
+        fontSize: 11.5,
+        fontWeight: 600,
+        letterSpacing: "0.07em",
         textTransform: "uppercase",
       }}>
         {label}
       </span>
       {children}
-      {hint && <span style={{ color: C.dim, fontSize: 11, lineHeight: 1.4 }}>{hint}</span>}
+      {hint && <span style={{ color: C.dim, fontSize: 12, lineHeight: 1.4 }}>{hint}</span>}
     </label>
   );
 }
@@ -23,73 +25,70 @@ export function Field({ label, hint, children, full = false }) {
 export function Modal({ title, subtitle, onClose, children, footer, width = 640 }) {
   return (
     <div
+      className="tor-modal-fondo"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 3000,
-        display: "grid",
-        placeItems: "center",
-        padding: 14,
-        background: "var(--overlay)",
-        backdropFilter: "blur(7px)",
-        WebkitBackdropFilter: "blur(7px)",
-      }}
     >
-      <div style={{
-        width: `min(${width}px, 100%)`,
-        maxHeight: "min(88vh, 820px)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        borderRadius: 18,
-        border: `1px solid ${C.border2}`,
-        background: C.panelSolid,
-        boxShadow: "0 30px 90px var(--shadow-strong)",
-      }}>
-        <div style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 14,
-          padding: "16px 16px 13px",
-          borderBottom: `1px solid ${C.border}`,
-        }}>
+      <div className="tor-modal" role="dialog" aria-modal="true" aria-label={title} style={{ "--ancho": `${width}px` }}>
+        <div className="tor-modal-cab">
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>{title}</div>
-            {subtitle && (
-              <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 3 }}>
-                {subtitle}
-              </div>
-            )}
+            <div className="tor-modal-tit">{title}</div>
+            {subtitle && <div className="tor-modal-sub">{subtitle}</div>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" style={{
-            ...BUTTON,
-            width: 36,
-            minHeight: 36,
-            padding: 0,
-            flexShrink: 0,
-          }}>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="ui-btn ui-btn-icono" style={{ flexShrink: 0 }}>
             <X size={16} />
           </button>
         </div>
-        <div style={{ padding: 16, overflowY: "auto" }}>{children}</div>
-        {footer && (
-          <div style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-            padding: "12px 16px",
-            borderTop: `1px solid ${C.border}`,
-            background: C.panel,
-          }}>
-            {footer}
-          </div>
-        )}
+        <div className="tor-modal-cuerpo">{children}</div>
+        {footer && <div className="tor-modal-pie">{footer}</div>}
       </div>
     </div>
+  );
+}
+
+// Menú de acciones de una obra. En el celular es una hoja que sube desde abajo
+// (al alcance del pulgar); en escritorio, un popover pegado al botón que lo abrió.
+// Va por portal porque la barra que lo contiene tiene backdrop-filter, y un
+// elemento fijo adentro de un ancestro con filtro se posiciona contra ese
+// ancestro y no contra la pantalla.
+export function MenuAcciones({ hoja = false, titulo = null, onClose, children }) {
+  useEffect(() => {
+    const onKey = (event) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (hoja) {
+    return createPortal(
+      <>
+        <div className="tor-hoja-fondo" onClick={onClose} />
+        <div className="tor-hoja" role="menu">
+          <div className="tor-hoja-asa" />
+          {titulo && <div className="tor-hoja-tit">{titulo}</div>}
+          {children}
+        </div>
+      </>,
+      document.body,
+    );
+  }
+  return (
+    <>
+      {createPortal(<div className="tor-menu-fondo" onClick={onClose} />, document.body)}
+      <div className="tor-menu" role="menu">{children}</div>
+    </>
+  );
+}
+
+export function Opcion({ icon: Icon, label, hint = null, peligro = false, onClick }) {
+  return (
+    <button type="button" role="menuitem" className="tor-opcion" data-peligro={peligro ? "1" : undefined} onClick={onClick}>
+      {Icon && <Icon size={18} />}
+      <span style={{ minWidth: 0 }}>
+        {label}
+        {hint && <small>{hint}</small>}
+      </span>
+    </button>
   );
 }
 
@@ -150,6 +149,55 @@ export function ProgressBar({ value, color = C.blue, height = 5 }) {
         background: color,
         transition: "width .3s ease",
       }} />
+    </div>
+  );
+}
+
+// ─── Piezas chicas con las clases de torneriaEstilos (.tor-…) ───────────────
+
+export function Estado({ tono = "neutro", punto = true, children, title }) {
+  return <span className={`tor-estado${punto ? " punto" : ""}`} data-tono={tono} title={title}>{children}</span>;
+}
+
+export function Tag({ tono = "neutro", children }) {
+  return <span className="tor-tag" data-tono={tono}>{children}</span>;
+}
+
+export function Dias({ dias, demora = 15, title = "Días desde la última salida" }) {
+  if (dias == null) return null;
+  return (
+    <span className={`tor-dias${dias >= demora ? " demora" : ""}`} title={title}>
+      {dias} d
+    </span>
+  );
+}
+
+// Avance de una obra en un anillo: se lee de lejos y no ocupa una fila.
+export function Anillo({ pct = 0, size = 44, grosor = 4 }) {
+  const valor = Math.max(0, Math.min(100, Number(pct) || 0));
+  const radio = (size - grosor) / 2;
+  const largo = 2 * Math.PI * radio;
+  return (
+    <span className={`tor-anillo${valor >= 100 ? " lleno" : ""}`} style={{ width: size, height: size }} aria-label={`${valor}% del circuito`}>
+      <svg width={size} height={size} aria-hidden="true">
+        <circle className="fondo" cx={size / 2} cy={size / 2} r={radio} fill="none" strokeWidth={grosor} />
+        <circle
+          className="arco" cx={size / 2} cy={size / 2} r={radio} fill="none" strokeWidth={grosor} strokeLinecap="round"
+          strokeDasharray={largo} strokeDashoffset={largo * (1 - valor / 100)}
+        />
+      </svg>
+      <b style={{ fontSize: size >= 56 ? 14 : 11.5 }}>{valor}</b>
+    </span>
+  );
+}
+
+export function Vacio({ icono: Icono, titulo, texto, chico = false, children }) {
+  return (
+    <div className={`tor-vacio${chico ? " chico" : ""}`}>
+      {Icono && !chico && <div className="tor-vacio-ic"><Icono size={22} /></div>}
+      {titulo && <b>{titulo}</b>}
+      {texto && <div style={{ maxWidth: 380, lineHeight: 1.5 }}>{texto}</div>}
+      {children && <div style={{ marginTop: 6 }}>{children}</div>}
     </div>
   );
 }

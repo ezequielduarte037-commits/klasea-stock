@@ -165,12 +165,12 @@ export function ProcesoModal({ proceso, onClose, onSave }) {
         <Field label="Nombre" full>
           <input value={form.nombre} onChange={(event) => set("nombre", event.target.value)} style={INPUT} />
         </Field>
-        <Field label="Estado">
+        <Field label="Estado" hint="Archivada y Cancelada salen del Panel y van al Archivo.">
           <select value={form.estado} onChange={(event) => set("estado", event.target.value)} style={INPUT}>
             <option value="borrador">Borrador</option>
             <option value="activo">Activo</option>
             <option value="pausado">Pausado</option>
-            <option value="completado">Completado</option>
+            <option value="completado">Archivada</option>
             <option value="cancelado">Cancelado</option>
           </select>
         </Field>
@@ -263,7 +263,7 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                     title="Cuánto de este material lleva el renglón. Es la cantidad que se le pide a Compras."
                     style={{ ...INPUT, width: 58, minHeight: 30, padding: "0 7px", textAlign: "center" }}
                   />
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 650, whiteSpace: "nowrap" }}>
+                  <span style={{ color: C.dim, fontSize: 11, fontWeight: 650, whiteSpace: "nowrap" }}>
                     {mat.unidad_medida || mat.unidad || "unidad"}
                   </span>
                 </div>
@@ -278,7 +278,7 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                       ? "Cantidad del paquete de línea de eje. Vale si este barco la lleva; si va con pata o dentro-fuera, corregila."
                       : "Cantidad que la línea lleva siempre, según su matriz. Podés cambiarla."}
                     style={{
-                      flexShrink: 0, fontSize: 9, fontWeight: 700,
+                      flexShrink: 0, fontSize: 11, fontWeight: 700,
                       borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap",
                       color: row.origenCantidad === "linea_eje" ? C.violet : C.blue,
                       border: `1px solid ${row.origenCantidad === "linea_eje" ? C.violetB : C.blueB}`,
@@ -290,15 +290,15 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                 )}
                 <div style={{ minWidth: 0, flex: 1, display: "grid" }}>
                   {mat.alias && (
-                    <span style={{ color: C.blue, fontSize: 10, fontWeight: 700 }}>{mat.alias}</span>
+                    <span style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>{mat.alias}</span>
                   )}
                   <span style={{
-                    fontSize: 11.5, fontWeight: 650, color: C.text,
+                    fontSize: 12.5, fontWeight: 650, color: C.text,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>
                     {mat.descripcion || "Material del catálogo"}
                   </span>
-                  <span style={{ color: C.dim, fontSize: 10 }}>
+                  <span style={{ color: C.dim, fontSize: 11 }}>
                     {[mat.codigo, mat.proveedor, mat.unidad_medida || mat.unidad].filter(Boolean).join(" · ")}
                   </span>
                 </div>
@@ -393,7 +393,7 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                 }}
               >
                 {puesto && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontSize: 10, fontWeight: 700 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.green, fontSize: 11, fontWeight: 700 }}>
                     <Check size={11} /> Ya está en el renglón
                   </span>
                 )}
@@ -402,10 +402,10 @@ function CatalogSearch({ seleccionados = [], onAgregar, onQuitar, onCantidad }) 
                     sin verlo no se entiende por qué apareció un "Bulón Cabeza
                     ALLEN" cuando buscaste "manchon". */}
                 {row.alias && (
-                  <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 700 }}>{row.alias}</span>
+                  <span style={{ color: C.blue, fontSize: 12, fontWeight: 700 }}>{row.alias}</span>
                 )}
                 <span style={{ fontSize: 12, fontWeight: 650 }}>{row.descripcion}</span>
-                <span style={{ color: C.dim, fontSize: 10.5 }}>
+                <span style={{ color: C.dim, fontSize: 12 }}>
                   {[row.codigo, row.proveedor, row.unidad].filter(Boolean).join(" · ")}
                 </span>
               </button>
@@ -628,8 +628,8 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                   fontFamily: C.sans,
                 }}
               >
-                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{title}</span>
-                <span style={{ fontSize: 9.5, lineHeight: 1.35 }}>{hint}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>{title}</span>
+                <span style={{ fontSize: 11, lineHeight: 1.35 }}>{hint}</span>
               </button>
             );
           })}
@@ -645,7 +645,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
         }}>
           <div>
             <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Aplicar este cambio en</div>
-            <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
+            <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 2 }}>
               Los estados de compra y recepción siempre siguen siendo propios de cada obra.
             </div>
           </div>
@@ -677,8 +677,8 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                     fontFamily: C.sans,
                   }}
                 >
-                  <span style={{ fontSize: 11.5, fontWeight: 700 }}>{title}</span>
-                  <span style={{ fontSize: 9.5, lineHeight: 1.35 }}>{detail}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700 }}>{title}</span>
+                  <span style={{ fontSize: 11, lineHeight: 1.35 }}>{detail}</span>
                 </button>
               );
             })}
@@ -689,7 +689,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
               gap: 7,
               alignItems: "flex-start",
               color: C.violet,
-              fontSize: 10.5,
+              fontSize: 12,
               lineHeight: 1.4,
             }}>
               <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -718,7 +718,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           }}>
             <div>
               <div style={{ color: C.blue, fontSize: 12, fontWeight: 700 }}>Materiales que forman el conjunto</div>
-              <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
+              <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.4, marginTop: 2 }}>
                 Al completar esos recorridos, este será el ítem que viaje en la etapa siguiente.
               </div>
             </div>
@@ -738,7 +738,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                       background: checked ? C.panel : C.panelSolid,
                       color: checked ? C.text : C.muted,
                       cursor: "pointer",
-                      fontSize: 11.5,
+                      fontSize: 12.5,
                       fontWeight: 650,
                     }}>
                       <input
@@ -844,7 +844,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
             </span>
             <div style={{ minWidth: 0 }}>
               <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Planos del material</div>
-              <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
+              <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 2 }}>
                 PDF, DXF, DWG, STEP, imágenes o cualquier archivo técnico. Se adjuntan automáticamente al pedido de Compras.
               </div>
             </div>
@@ -870,7 +870,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                     style={{
                       minWidth: 0,
                       color: C.blue,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 650,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -893,7 +893,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           )}
 
           {!!archivosNuevos.length && (
-            <div style={{ color: C.green, fontSize: 10.5, fontWeight: 650 }}>
+            <div style={{ color: C.green, fontSize: 12, fontWeight: 650 }}>
               {archivosNuevos.length} archivo{archivosNuevos.length === 1 ? "" : "s"} nuevo{archivosNuevos.length === 1 ? "" : "s"} listo{archivosNuevos.length === 1 ? "" : "s"} para subir.
             </div>
           )}
@@ -1044,9 +1044,9 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div>
               <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Piezas de este paso</div>
-              <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Marcá qué materiales viajan juntos.</div>
+              <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>Marcá qué materiales viajan juntos.</div>
             </div>
-            <span style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>{components.size} seleccionadas</span>
+            <span style={{ color: C.blue, fontSize: 12, fontWeight: 700 }}>{components.size} seleccionadas</span>
           </div>
           <div style={{ display: "grid", gap: 5, maxHeight: 270, overflowY: "auto" }}>
             {(proceso.items || []).filter((item) => item.activo !== false).map((item) => {
@@ -1079,7 +1079,7 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
                     <div style={{ color: C.text, fontSize: 12, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.descripcion}
                     </div>
-                    <div style={{ color: C.dim, fontSize: 10.5 }}>{item.grupo}</div>
+                    <div style={{ color: C.dim, fontSize: 12 }}>{item.grupo}</div>
                   </div>
                   <input
                     type="number"
@@ -1231,28 +1231,10 @@ export function MovimientoModal({
           ))}
         </div>
 
-        <div className="tor-form-grid">
-          <Field label="Fecha y hora">
-            <input type="datetime-local" value={form.fecha} onChange={(event) => set("fecha", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label="Responsable">
-            <input value={form.responsable} onChange={(event) => set("responsable", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label={form.tipo === "salida" ? "Destino del envío" : "Origen del regreso"}>
-            <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label="Remito">
-            <input value={form.remito} onChange={(event) => set("remito", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label="Observaciones" full>
-            <textarea value={form.notas} onChange={(event) => set("notas", event.target.value)} rows={3} style={{ ...INPUT, resize: "vertical" }} />
-          </Field>
-        </div>
-
         <div>
           <div style={{ marginBottom: 8 }}>
             <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Cantidades</div>
-            <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Cargá solamente lo que sale o vuelve en este movimiento.</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>Cargá solamente lo que sale o vuelve en este movimiento.</div>
           </div>
           <div style={{ display: "grid", gap: 6 }}>
             {operacion.componentes.map((row) => (
@@ -1270,7 +1252,7 @@ export function MovimientoModal({
                   <div style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>
                     {row.item?.descripcion || "Pieza"}
                   </div>
-                  <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
+                  <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>
                     Requerido {row.cantidad_requerida} · enviado {row.cantidad_enviada} · recibido {row.cantidad_recibida}
                   </div>
                 </div>
@@ -1291,6 +1273,24 @@ export function MovimientoModal({
           </div>
         </div>
 
+        <div className="tor-form-grid">
+          <Field label="Fecha y hora">
+            <input type="datetime-local" value={form.fecha} onChange={(event) => set("fecha", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Responsable">
+            <input value={form.responsable} onChange={(event) => set("responsable", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label={form.tipo === "salida" ? "Destino del envío" : "Origen del regreso"}>
+            <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Remito">
+            <input value={form.remito} onChange={(event) => set("remito", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Observaciones" full>
+            <textarea value={form.notas} onChange={(event) => set("notas", event.target.value)} rows={3} style={{ ...INPUT, resize: "vertical" }} />
+          </Field>
+        </div>
+
         <div style={{ display: "grid", gap: 8 }}>
           <label style={{
             ...BUTTON,
@@ -1309,7 +1309,7 @@ export function MovimientoModal({
             />
           </label>
           {!!files.length && (
-            <div style={{ color: C.green, fontSize: 11, fontWeight: 650 }}>
+            <div style={{ color: C.green, fontSize: 12, fontWeight: 650 }}>
               {files.length} archivo{files.length === 1 ? "" : "s"} listo{files.length === 1 ? "" : "s"} para subir
             </div>
           )}
@@ -1329,7 +1329,7 @@ export function MovimientoModal({
                     flex: 1,
                     minWidth: 0,
                     color: C.blue,
-                    fontSize: 11,
+                    fontSize: 12,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -1421,7 +1421,7 @@ export function FleteModal({
             border: `1px solid ${C.violetB}`,
             background: C.violetL,
             color: C.violet,
-            fontSize: 11.5,
+            fontSize: 12.5,
             lineHeight: 1.45,
           }}>
             <AlertTriangle size={16} style={{ flexShrink: 0 }} />
@@ -1431,28 +1431,10 @@ export function FleteModal({
           </div>
         )}
 
-        <div className="tor-form-grid">
-          <Field label="Fecha y hora">
-            <input type="datetime-local" value={form.fecha} onChange={(event) => set("fecha", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label="Responsable / transportista">
-            <input value={form.responsable} onChange={(event) => set("responsable", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label={isOutbound ? "Destino del recorrido" : "Origen del retiro"}>
-            <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label="Remito">
-            <input value={form.remito} onChange={(event) => set("remito", event.target.value)} style={INPUT} />
-          </Field>
-          <Field label="Observaciones" full>
-            <textarea value={form.notas} onChange={(event) => set("notas", event.target.value)} rows={2} style={{ ...INPUT, resize: "vertical" }} />
-          </Field>
-        </div>
-
         <div style={{ display: "grid", gap: 7 }}>
           <div>
             <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>Carga del flete</div>
-            <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>
               Revisá las cantidades. Cada obra conservará su movimiento y su historial por separado.
             </div>
           </div>
@@ -1474,11 +1456,11 @@ export function FleteModal({
                     <span style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>
                       {row.process?.obra?.codigo || row.process?.nombre}
                     </span>
-                    <span style={{ color: C.dim, fontSize: 10 }}>
+                    <span style={{ color: C.dim, fontSize: 11 }}>
                       {operationDestinationLabel(row.operation)}
                     </span>
                   </div>
-                  <div style={{ color: C.muted, fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ color: C.muted, fontSize: 12, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {item?.descripcion || "Material"} · {row.operation?.nombre}
                   </div>
                 </div>
@@ -1497,7 +1479,7 @@ export function FleteModal({
                     aria-label={`Cantidad de ${item?.descripcion || "material"}`}
                     style={{ ...INPUT, minHeight: 36, padding: "6px 8px" }}
                   />
-                  <div style={{ color: C.dim, fontSize: 9, marginTop: 3, textAlign: "right" }}>
+                  <div style={{ color: C.dim, fontSize: 11, marginTop: 3, textAlign: "right" }}>
                     máx. {row.cantidad} {item?.unidad || ""}
                   </div>
                 </div>
@@ -1505,6 +1487,24 @@ export function FleteModal({
             );
           })}
         </div>
+        <div className="tor-form-grid">
+          <Field label="Fecha y hora">
+            <input type="datetime-local" value={form.fecha} onChange={(event) => set("fecha", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Responsable / transportista">
+            <input value={form.responsable} onChange={(event) => set("responsable", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label={isOutbound ? "Destino del recorrido" : "Origen del retiro"}>
+            <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Remito">
+            <input value={form.remito} onChange={(event) => set("remito", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Observaciones" full>
+            <textarea value={form.notas} onChange={(event) => set("notas", event.target.value)} rows={2} style={{ ...INPUT, resize: "vertical" }} />
+          </Field>
+        </div>
+
       </div>
     </Modal>
   );

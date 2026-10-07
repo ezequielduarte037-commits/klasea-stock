@@ -2,14 +2,14 @@ import { C } from "@/theme";
 
 export const INPUT = {
   width: "100%",
-  minHeight: 42,
+  minHeight: 44,
   boxSizing: "border-box",
   borderRadius: 10,
   border: `1px solid ${C.border}`,
   background: C.panel,
   color: C.text,
   padding: "9px 11px",
-  fontSize: 13,
+  fontSize: 14,
   fontFamily: C.sans,
   outline: "none",
 };
@@ -25,8 +25,8 @@ export const BUTTON = {
   background: C.panel,
   color: C.muted,
   padding: "8px 12px",
-  fontSize: 12,
-  fontWeight: 650,
+  fontSize: 13,
+  fontWeight: 600,
   fontFamily: C.sans,
   cursor: "pointer",
 };
