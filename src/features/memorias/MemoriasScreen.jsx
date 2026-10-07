@@ -18,6 +18,7 @@ import {
 } from "./memoriasApi";
 import { deSerieDe } from "./matriz";
 import Portada from "./Portada";
+import { imprimirMemorias } from "./imprimir";
 import Ficha from "./ficha/Ficha";
 
 export default function MemoriasScreen() {
@@ -155,6 +156,7 @@ export default function MemoriasScreen() {
             perfiles={perfiles}
             onAbrir={abrir}
             onRecargar={() => void cargar()}
+            onImprimir={(lista, nombre) => void imprimirMemorias(lista, { titulo: `Memorias ${nombre}`, perfiles })}
           />
         )}
       </div>

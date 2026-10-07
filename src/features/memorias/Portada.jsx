@@ -1,7 +1,7 @@
 // Portada de Memorias: todos los barcos activos con cuánto tienen definido y
 // qué les falta, agrupados por línea.
 import { useMemo, useState } from "react";
-import { BookOpenText, FileSpreadsheet, PackagePlus, RefreshCw, Search, Ship } from "lucide-react";
+import { BookOpenText, FileSpreadsheet, PackagePlus, Printer, RefreshCw, Search, Ship } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { haceCuanto, ordenLinea, tonoDeAvance } from "./campos";
 import { sinTildes } from "./acabados";
@@ -66,7 +66,7 @@ function Tarjeta({ ficha, perfiles, onAbrir, i }) {
   );
 }
 
-export default function Portada({ fichas, cargando, error, perfiles, onAbrir, onRecargar }) {
+export default function Portada({ fichas, cargando, error, perfiles, onAbrir, onRecargar, onImprimir }) {
   const [filtro, setFiltroEstado] = useState(leerFiltro);
   const [linea, setLinea] = useState("todas");
   const [q, setQ] = useState("");
@@ -146,6 +146,10 @@ export default function Portada({ fichas, cargando, error, perfiles, onAbrir, on
             <div className="mem-grupo-tit">
               <h2>{nombre}</h2>
               <span className="mono">{lista.length}</span>
+              <span className="mem-sp" />
+              <button type="button" className="ui-btn chico" onClick={() => onImprimir(lista, nombre)} title={`Una hoja por barco, para el pizarrón`}>
+                <Printer size={14} /> Imprimir {lista.length === 1 ? "la hoja" : `las ${lista.length} hojas`}
+              </button>
             </div>
             <div className="mem-tarjetas">
               {lista.map((f, i) => <Tarjeta key={f.obra.id} ficha={f} perfiles={perfiles} onAbrir={onAbrir} i={i} />)}

@@ -6,14 +6,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Armchair, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ClipboardCopy, Copy, FileSpreadsheet,
-  Check, PackagePlus, Palette, Printer, Radio, Settings2, Ship, Sofa, Tent, UserRound, X,
+  Check, PackagePlus, Palette, Pencil, Printer, Radio, Settings2, Ship, Sofa, Tent, UserRound, X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import MemoriaSelector from "../MemoriaSelector";
 import { familiasShowroom, seleccionesShowroom } from "../acabados";
 import {
-  SECCIONES, avanceDe, cuenta, datosDeFila, datosDeSemilla, estaDefinido, haceCuanto, modeloDeObra,
+  SECCIONES, avanceDe, cambioDeSerie, cuenta, datosDeFila, datosDeSemilla, estaDefinido, haceCuanto, modeloDeObra,
   textoDeMemoria, tonoDeAvance,
 } from "../campos";
 import { DECISIONES } from "../decisiones";
@@ -26,6 +26,7 @@ import Adicionales from "./Adicionales";
 import OpcionesLinea from "./OpcionesLinea";
 import Cambios from "./Cambios";
 import CopiarDeBarco from "./CopiarDeBarco";
+import CambioSerie from "./CambioSerie";
 
 const ASPECTO = {
   cliente: { Icon: UserRound, tono: "azul" },
@@ -65,7 +66,10 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
     enVuelo.current = true;
     setGuardado({ tipo: "guardando" });
     try {
-      const { fila: nueva, sinLugar } = await guardarCambios({ obra, fila: filaRef.current, cambios: lote, columnas });
+      const { fila: nueva, sinLugar, recortado } = await guardarCambios({ obra, fila: filaRef.current, cambios: lote, columnas });
+      if (recortado) {
+        toast.info(`Por ahora el piso del cockpit quedó como “${recortado.guardado || "sin definir"}”: el detalle (“${recortado.original}”) se va a poder guardar cuando se aplique la actualización de Memorias.`);
+      }
       filaRef.current = nueva;
       onFilaGuardada(nueva);
       const resto = { ...cambiosRef.current };
@@ -207,6 +211,14 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
 
   // ── Acciones ─────────────────────────────────────────────────────────────
   const [copiando, setCopiando] = useState(false);
+  const [cambiandoSerie, setCambiandoSerie] = useState(null);
+  const campoSerie = campos.find((c) => c.key === cambiandoSerie) || null;
+
+  function irAAdicionales() {
+    setCambiandoSerie(null);
+    document.getElementById("mem-sec-adicionales")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => document.querySelector(".mem-adic-buscar input")?.focus({ preventScroll: true }), 450);
+  }
   const [showroom, setShowroom] = useState(false);
   const familias = useMemo(() => familiasShowroom(new Set(campos.map((c) => c.key))), [campos]);
 
@@ -243,7 +255,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
       <button type="button" className="ui-btn chico" onClick={() => setCopiando(true)} title="Completar lo vacío con lo de otro barco"><Copy size={14} /> Copiar de otro barco</button>
       <button type="button" className="ui-btn chico" onClick={() => setShowroom(true)} title="Elegir acabados con el cliente"><Palette size={14} /> Showroom</button>
       <button type="button" className="ui-btn chico" onClick={copiarTexto} title="Copiar como texto"><ClipboardCopy size={14} /> <span className="txt">Copiar texto</span></button>
-      <button type="button" className="ui-btn chico" onClick={() => void imprimirMemoria({ obra, linea, campos, datos })} title="Imprimir planilla"><Printer size={14} /> <span className="txt">Imprimir</span></button>
+      <button type="button" className="ui-btn chico" onClick={() => void imprimirMemoria({ obra, linea, campos, datos, excluidos, actualizada: fila?.updated_at, quien })} title="Imprimir la hoja para el pizarrón"><Printer size={14} /> <span className="txt">Imprimir</span></button>
     </>
   );
 
@@ -340,7 +352,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
                   {s.usan.length > 0 && <span className="usan">Lo usan <b>{s.usan.join(" · ")}</b></span>}
                 </div>
                 {s.key === "equipos" ? (
-                  <SeccionEquipos campos={propios} datos={datos} puedeNota={puedeNota} cambiar={cambiar} obra={obra} linea={linea} excluidos={excluidos} />
+                  <SeccionEquipos campos={propios} datos={datos} puedeNota={puedeNota} cambiar={cambiar} obra={obra} linea={linea} excluidos={excluidos} onCambioSerie={setCambiandoSerie} />
                 ) : s.key === "cliente" ? (
                   <div className="mem-cliente">
                     {propios.map((c) => (
@@ -401,6 +413,18 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
         />
       )}
 
+      {campoSerie && (
+        <CambioSerie
+          campo={campoSerie}
+          linea={linea}
+          cambio={datos[`${campoSerie.key}_obs`]}
+          puedeNota={puedeNota(campoSerie.key)}
+          onCambio={(v) => cambiar(`${campoSerie.key}_obs`, v)}
+          onCerrar={() => setCambiandoSerie(null)}
+          onIrAdicionales={irAAdicionales}
+        />
+      )}
+
       {copiando && (
         <CopiarDeBarco
           ficha={ficha}
@@ -433,7 +457,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
   );
 }
 
-function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea, excluidos }) {
+function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea, excluidos, onCambioSerie }) {
   // Lo que ya viene de serie no se pregunta, y lo que es opción de la línea se
   // elige una sola vez, abajo, en las opciones (que cambian la lista de la obra).
   const deSerie = campos.filter((c) => c.serie);
@@ -450,15 +474,23 @@ function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea, exclui
         <div className="mem-serie">
           <div className="mem-serie-cab">
             <b>Viene de serie en la {linea}</b>
-            <small>Lo trae la matriz de la línea: no hace falta preguntarlo. Si este barco no lo lleva, se saca de la lista de la obra en Materiales.</small>
+            <small>Lo trae la matriz: no se pregunta ni sale en la hoja impresa. Tocá uno sólo si en este barco cambia (ej.: un faro más grande).</small>
           </div>
           <div className="mem-chips-elegir">
             {deSerie.map((c) => {
-              const fuera = c.serieId && excluidos.has(c.serieId);
+              const cambio = cambioDeSerie(c, datos);
+              const fuera = (c.serieId && excluidos.has(c.serieId)) || /^\s*no lleva\s*$/i.test(cambio || "");
               return (
-                <span key={c.key} className={`mem-serie-op${fuera ? " fuera" : ""}`} title={fuera ? `Se sacó de la lista de ${obra.codigo}` : c.serie}>
-                  {fuera ? <X size={12} /> : <Check size={12} />} {c.label}
-                </span>
+                <button
+                  key={c.key}
+                  type="button"
+                  className={`mem-serie-op${fuera ? " fuera" : cambio ? " cambia" : ""}`}
+                  title={fuera ? `${obra.codigo} no lo lleva` : cambio ? `Cambia: ${cambio}` : `${c.serie}. Tocá si cambia en este barco.`}
+                  onClick={() => onCambioSerie(c.key)}
+                >
+                  {fuera ? <X size={12} /> : cambio ? <Pencil size={12} /> : <Check size={12} />}
+                  {c.label}{cambio && !fuera ? <span className="cambio">· {cambio}</span> : null}
+                </button>
               );
             })}
           </div>

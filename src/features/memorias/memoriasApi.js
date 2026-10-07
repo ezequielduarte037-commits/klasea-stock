@@ -74,19 +74,22 @@ export async function guardarCambios({ obra, fila, cambios, columnas }) {
   }
   if (!Object.keys(payload).length) return { fila, sinLugar };
 
-  let resultado;
-  if (fila?.id) {
-    if (!fila.obra_id && obra?.id) payload.obra_id = obra.id;
-    resultado = await supabase.from("obra_memorias").update(payload).eq("id", fila.id).select("*").single();
-  } else {
-    resultado = await supabase
-      .from("obra_memorias")
-      .insert({ obra_codigo: obra.codigo, obra_id: obra.id, ...payload })
-      .select("*")
-      .single();
+  const escribir = (datos) => (fila?.id
+    ? supabase.from("obra_memorias").update(datos).eq("id", fila.id).select("*").single()
+    : supabase.from("obra_memorias").insert({ obra_codigo: obra.codigo, obra_id: obra.id, ...datos }).select("*").single());
+  if (fila?.id && !fila.obra_id && obra?.id) payload.obra_id = obra.id;
+  let resultado = await escribir(payload);
+  let recortado = null;
+  // Hasta aplicar la migración, el piso del cockpit sólo acepta 'teca' o
+  // 'infinity': se guarda lo básico y se avisa que el detalle no entró.
+  if (resultado.error?.code === "23514" && /teca_tipo/.test(resultado.error.message || "") && "teca_tipo" in payload) {
+    const original = String(payload.teca_tipo || "");
+    const base = /infinity/i.test(original) ? "infinity" : /tec|tek/i.test(original) ? "teca" : null;
+    resultado = await escribir({ ...payload, teca_tipo: base });
+    if (!resultado.error && original.toLowerCase() !== String(base)) recortado = { campo: "teca_tipo", original, guardado: base };
   }
   if (resultado.error) throw resultado.error;
-  return { fila: resultado.data, sinLugar };
+  return { fila: resultado.data, sinLugar, recortado };
 }
 
 // Últimos cambios de la memoria (si la migración está aplicada).

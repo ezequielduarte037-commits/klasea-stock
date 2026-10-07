@@ -24,6 +24,7 @@ import {
   SEDES_PANOL,
   asignarResponsableCierre,
   conciliarCierreObra,
+  egresarCierreItem,
   fetchCierreItems,
   fetchCierreObra,
   fetchCierreRequisitosSinProducto,
@@ -73,7 +74,7 @@ function Chip({ meta, children }) {
 }
 
 function emptyForm() {
-  return { utilizado: "", sobrante: "", recibido: "", danado: "", aclaracion: "", observacion: "", sede: "" };
+  return { utilizado: "", sobrante: "", recibido: "", danado: "", aclaracion: "", egresado: "", observacion: "", sede: "" };
 }
 
 function needsReview(item) {
@@ -126,6 +127,7 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
   const [sede, setSede] = useState(sedeDefault || item.sede_sugerida || "");
   const choices = [
     { key: "recibido", label: "Liberar al stock general", hint: "El material nunca salió de pañol. Se quita la asignación de esta obra y queda disponible para otra.", submit: "Liberar sobrante" },
+    { key: "egresado", label: "Egresar para esta obra", hint: "Opción temporal para registrar un egreso que se hizo para esta obra y quedó sin cargar en el sistema. Descuenta el saldo asignado directamente, sin pasarlo al stock general.", submit: "Egresar para esta obra" },
     { key: "aclaracion", label: "La cantidad no coincide", hint: "Usá esta opción si el saldo del sistema no está físicamente en pañol o necesita revisión.", submit: "Registrar diferencia" },
   ];
   const selected = choices.find((option) => option.key === action);
@@ -135,10 +137,10 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
   try { validateCierreQuantities(form); } catch (err) { error = err.message; }
   if (!error && qty(amount) > max + EPS) error = `La cantidad no puede superar ${fmtCierreQty(max)} ${item.unidad || "u"}.`;
   const blocked = !canOperate || busy || !selected || !amount.trim() || qty(amount) <= EPS || !!error
-    || (action === "recibido" && (!sede || !item.material_id)) || (action === "aclaracion" && !note.trim());
+    || (["recibido", "egresado"].includes(action) && (!sede || !item.material_id)) || (action === "aclaracion" && !note.trim());
   const selectAction = (key) => { setAction(key); setAmount(""); };
   const optionButton = (option) => <button key={option.key} type="button" aria-pressed={action === option.key}
-    disabled={!canOperate || busy || (option.key === "recibido" && !item.material_id)}
+    disabled={!canOperate || busy || (["recibido", "egresado"].includes(option.key) && !item.material_id)}
     onClick={() => selectAction(option.key)} style={{ ...ghostBtn, width: "100%", justifyContent: "space-between", textAlign: "left", minHeight: 46,
       background: action === option.key ? C.blueL : C.panelSolid, borderColor: action === option.key ? C.blueB : C.border, color: action === option.key ? C.blue : C.text }}>
     {option.label}{action === option.key ? <CheckCircle2 size={17} /> : <ChevronRight size={16} color={C.dim} />}
@@ -150,8 +152,8 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
     if (await onSubmit(form)) { setAmount(""); setNote(""); setAction(""); }
   }} style={{ display: "grid", gap: 16 }}>
     <div>
-      <div style={{ fontSize: 14, fontWeight: 650, marginBottom: 4 }}>Este material nunca se egresó</div>
-      <div style={{ color: C.dim, fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>Sigue en pañol pero reservado para una obra que ya terminó. Elegí qué hacer con ese saldo.</div>
+      <div style={{ fontSize: 14, fontWeight: 650, marginBottom: 4 }}>Este saldo figura sin egresar</div>
+      <div style={{ color: C.dim, fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>El sistema lo mantiene asignado a esta obra. Elegí qué hacer según lo que ocurrió con el material.</div>
       <div role="group" aria-label="Elegir una acción" style={{ display: "grid", gap: 7 }}>{choices.map(optionButton)}</div>
     </div>
     {selected && <div style={{ display: "grid", gap: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
@@ -163,7 +165,7 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
         </div>
       </label>
       <div id="sob-quantity-help" style={{ fontSize: 12, color: error ? C.red : C.dim }} role={error ? "alert" : undefined}>{error || `Hasta ${fmtCierreQty(max)} ${item.unidad || "u"} disponibles para esta acción.`}</div>
-      {action === "recibido" && <label style={labelStyle}>Pañol donde está guardado
+      {["recibido", "egresado"].includes(action) && <label style={labelStyle}>{action === "egresado" ? "Pañol de origen del egreso" : "Pañol donde está guardado"}
         <select value={sede} onChange={(e) => setSede(e.target.value)} disabled={!canOperate || busy} style={inputStyle}>
           <option value="">Elegir pañol…</option>{SEDES_PANOL.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -173,26 +175,27 @@ function ResolveForm({ item, sedeDefault, busy, onSubmit, canOperate }) {
       </label>
       <button type="submit" disabled={blocked} style={{ ...ghostBtn, justifyContent: "center", background: C.blue, borderColor: C.blue, color: "#fff", minHeight: 46 }}>{busy ? "Guardando…" : selected.submit}</button>
     </div>}
-    {!item.material_id && <div style={{ fontSize: 12, color: C.red, lineHeight: 1.5 }}>Falta vincular este material al catálogo para poder liberarlo al stock general.</div>}
+    {!item.material_id && <div style={{ fontSize: 12, color: C.red, lineHeight: 1.5 }}>Falta vincular este material al catálogo para poder liberarlo o egresarlo.</div>}
   </form>;
 }
 
 function MaterialDetail({ item, resoluciones, sedeDefault, canOperate, busy, onResolve, onClose, closed }) {
   const hist = resoluciones.filter((row) => row.item_id === item.id);
   const figures = [
-    ["Quedó asignado a la obra", item.cantidad_reservada],
+    ["Saldo asignado a la obra", item.cantidad_reservada],
     ["Pendiente de resolver", item.cantidad_pendiente],
     ["Liberado al stock general", item.cantidad_recibida],
+    ["Egresado para esta obra", item.cantidad_utilizada],
     ["Diferencia documentada", item.cantidad_aclaracion],
   ].filter(([, value], index) => index === 0 || qty(value) > EPS);
   return <aside className="sob-detail" aria-label="Detalle del material" style={{ height: "100%", overflowY: "auto", background: C.panelSolid }}>
     <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-      <span style={{ color: C.dim, fontSize: 12, fontWeight: 600 }}>SOBRANTE SIN EGRESAR</span>
+      <span style={{ color: C.dim, fontSize: 12, fontWeight: 600 }}>SALDO DE LA OBRA</span>
       <button type="button" disabled={busy} aria-label="Cerrar detalle" onClick={onClose} style={{ ...ghostBtn, padding: 0, width: 44, justifyContent: "center", border: "none" }}><X size={19} /></button>
     </div>
     <div style={{ padding: 20, display: "grid", gap: 20 }}>
       <div><h2 style={{ fontSize: 19, lineHeight: 1.4, margin: "0 0 6px", overflowWrap: "anywhere" }}>{item.descripcion}</h2>
-        <div style={{ color: C.dim, fontSize: 12 }}>{[item.codigo, item.unidad, "Nunca salió de pañol"].filter(Boolean).join(" · ")}</div>
+        <div style={{ color: C.dim, fontSize: 12 }}>{[item.codigo, item.unidad, qty(item.cantidad_utilizada) > EPS ? "Egreso regularizado" : "Sin egreso registrado"].filter(Boolean).join(" · ")}</div>
       </div>
       <div style={{ padding: 14, borderRadius: 10, background: C.panel, display: "grid", gap: 9 }}>
         {figures.map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, fontSize: 13 }}><span style={{ color: C.dim }}>{label}</span><strong style={{ whiteSpace: "nowrap", fontFamily: C.mono }}>{fmtCierreQty(value)} {item.unidad || "u"}</strong></div>)}
@@ -201,11 +204,11 @@ function MaterialDetail({ item, resoluciones, sedeDefault, canOperate, busy, onR
         ? canOperate || busy
           ? <ResolveForm item={item} sedeDefault={sedeDefault} canOperate={canOperate} busy={busy} onSubmit={onResolve} />
           : <p style={{ color: C.dim, fontSize: 13 }}>Tenés acceso de consulta. Un operador de pañol debe registrar los movimientos.</p>
-        : <div style={{ display: "flex", gap: 8, alignItems: "center", color: itemStatus(item).color, fontSize: 13 }}><CheckCircle2 size={18} />{qty(item.cantidad_aclaracion) > EPS ? "Diferencia documentada. Requiere autorización al cerrar." : "Este sobrante ya fue liberado al stock general."}</div>}
+        : <div style={{ display: "flex", gap: 8, alignItems: "center", color: itemStatus(item).color, fontSize: 13 }}><CheckCircle2 size={18} />{qty(item.cantidad_aclaracion) > EPS ? "Diferencia documentada. Requiere autorización al cerrar." : "La revisión de este material está resuelta."}</div>}
       {hist.length > 0 && <details style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
         <summary style={{ cursor: "pointer", fontSize: 13, minHeight: 32 }}>Ver historial · {hist.length}</summary>
         <div style={{ display: "grid", gap: 14, paddingTop: 10 }}>{hist.map((row) => <div key={row.id} style={{ fontSize: 12, lineHeight: 1.5 }}>
-          <strong>{{ recibido_panol: "Liberado al stock general", pendiente_aclaracion: "Diferencia registrada" }[row.tipo] || row.tipo} · {fmtCierreQty(row.cantidad)} {item.unidad || "u"}</strong>
+          <strong>{{ utilizado: "Egresado para esta obra", recibido_panol: "Liberado al stock general", pendiente_aclaracion: "Diferencia registrada" }[row.tipo] || row.tipo} · {fmtCierreQty(row.cantidad)} {item.unidad || "u"}</strong>
           <div style={{ color: C.dim }}>{new Date(row.created_at).toLocaleString("es-AR")} · {row.usuario_nombre || "Usuario"}</div>
           {row.observacion && <div>{row.observacion}</div>}
         </div>)}</div>
@@ -278,6 +281,7 @@ function DetalleCierre({ cierreId, profile }) {
       qty(form.recibido),
       qty(form.danado),
       qty(form.aclaracion),
+      qty(form.egresado),
       String(form.observacion || "").trim(),
       canonicalPanolSede(form.sede || sedeDefault) || "",
     ].join("|");
@@ -365,7 +369,15 @@ function DetalleCierre({ cierreId, profile }) {
     try {
       validateCierreQuantities(form);
       const key = takeIdempotencyKey(item.id, fingerprintResolucion(form));
-      await resolverCierreItem({
+      if (qty(form.egresado) > EPS) {
+        await egresarCierreItem({
+          itemId: item.id,
+          cantidad: form.egresado,
+          observacion: form.observacion,
+          sede: form.sede,
+          idempotencyKey: key,
+        });
+      } else await resolverCierreItem({
         itemId: item.id,
         utilizado: form.utilizado,
         sobrante: form.sobrante,
@@ -377,7 +389,7 @@ function DetalleCierre({ cierreId, profile }) {
         idempotencyKey: key,
       });
       clearIdempotencyKey(item.id);
-      toast.success("Resolución registrada.");
+      toast.success(qty(form.egresado) > EPS ? "Egreso registrado para esta obra." : "Resolución registrada.");
       await cargar();
       return true;
     } catch (error) {
@@ -429,7 +441,7 @@ function DetalleCierre({ cierreId, profile }) {
     }
     const ok = await confirm({
       title: "¿Finalizar la revisión?",
-      message: "Los sobrantes sin egresar ya fueron liberados o quedaron documentados. Esta acción cierra la revisión.",
+      message: "Los saldos ya fueron liberados, egresados para esta obra o quedaron documentados. Esta acción cierra la revisión.",
       confirmLabel: "Finalizar revisión",
     });
     if (!ok || operationInFlight.current) return;
@@ -474,7 +486,7 @@ function DetalleCierre({ cierreId, profile }) {
           icon={ClipboardCheck}
           eyebrow="Pañol"
           title={`Sobrantes · ${cierre?.codigo || "Obra"}`}
-          subtitle={`Materiales que quedaron en pañol y nunca se egresaron · obra terminada el ${fmtCierreDate(cierre?.fecha_terminacion)}`}
+          subtitle={`Saldos sin egreso registrado y resoluciones · obra terminada el ${fmtCierreDate(cierre?.fecha_terminacion)}`}
           actions={(
             <>
               <button type="button" className="ui-btn ui-btn-icono" aria-label="Volver a sobrantes de obra" onClick={() => nav("/stock-panol?tab=sobrantes")}><ArrowLeft size={18} /></button>
@@ -546,8 +558,8 @@ function DetalleCierre({ cierreId, profile }) {
               {visibles.map((item) => {
                 const status = itemStatus(item); const pending = qty(item.cantidad_pendiente); const selected = selectedItemId === item.id;
                 return <button className="sob-row" key={item.id} type="button" onClick={() => setSelectedItemId(item.id)} style={{ width: "100%", border: "none", borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${selected ? C.blue : "transparent"}`, background: selected ? C.blueL : C.panelSolid, color: C.text, padding: "13px 16px", textAlign: "left", fontFamily: C.sans, cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 16, alignItems: "center" }}>
-                  <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</span><span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 4 }}>{[item.codigo, item.unidad, "Nunca egresado"].filter(Boolean).join(" · ")}</span></span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ textAlign: "right" }}><span style={{ display: "block", color: status.color, fontSize: 12, fontWeight: 600 }}>{status.label}</span>{pending > EPS && <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 3 }}>{fmtCierreQty(pending)} {item.unidad || "u"} por liberar</span>}</span><ChevronRight size={17} color={C.dim} /></span>
+                  <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</span><span style={{ display: "block", color: C.dim, fontSize: 11.5, marginTop: 4 }}>{[item.codigo, item.unidad, qty(item.cantidad_utilizada) > EPS ? "Egreso regularizado" : "Sin egreso registrado"].filter(Boolean).join(" · ")}</span></span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ textAlign: "right" }}><span style={{ display: "block", color: status.color, fontSize: 12, fontWeight: 600 }}>{status.label}</span>{pending > EPS && <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 3 }}>{fmtCierreQty(pending)} {item.unidad || "u"} por resolver</span>}</span><ChevronRight size={17} color={C.dim} /></span>
                 </button>;
               })}
             </div>
@@ -556,7 +568,7 @@ function DetalleCierre({ cierreId, profile }) {
           {selectedItem ? <MaterialDetail key={selectedItem.id} item={selectedItem} resoluciones={resoluciones} sedeDefault={sedeDefault}
             canOperate={canOperate && !conciliada && !loading && !busyItem && !busyAction} busy={busyItem === selectedItem.id}
             onResolve={(form) => onResolve(selectedItem, form)} onClose={() => setSelectedItemId("")} closed={conciliada} />
-          : !isMobile && <aside style={{ display: "grid", placeItems: "center", padding: 36, background: C.panelSolid, color: C.dim, textAlign: "center" }}><div><Package size={30} strokeWidth={1.5} /><div style={{ marginTop: 12, color: C.text, fontWeight: 600 }}>Elegí un sobrante</div><div style={{ marginTop: 6, maxWidth: 270, fontSize: 13, lineHeight: 1.5 }}>Podés liberarlo al stock general o documentar una diferencia de inventario.</div></div></aside>}
+          : !isMobile && <aside style={{ display: "grid", placeItems: "center", padding: 36, background: C.panelSolid, color: C.dim, textAlign: "center" }}><div><Package size={30} strokeWidth={1.5} /><div style={{ marginTop: 12, color: C.text, fontWeight: 600 }}>Elegí un sobrante</div><div style={{ marginTop: 6, maxWidth: 270, fontSize: 13, lineHeight: 1.5 }}>Podés liberarlo al stock general, egresarlo para esta obra o documentar una diferencia de inventario.</div></div></aside>}
         </div>
       </main>
     </div>

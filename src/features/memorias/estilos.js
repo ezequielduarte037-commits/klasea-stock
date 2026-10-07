@@ -94,7 +94,7 @@ export const CSS_MEMORIAS = `
 /* ── Portada ── */
 .mem-filtros { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mem-grupo { display: grid; gap: 10px; animation: mem-sube .45s cubic-bezier(.22,1,.36,1) both; }
-.mem-grupo-tit { display: flex; align-items: baseline; gap: 10px; padding: 4px 2px 0; }
+.mem-grupo-tit { display: flex; align-items: center; gap: 10px; padding: 4px 2px 0; }
 .mem-grupo-tit h2 { font-size: 15px; font-weight: 650; }
 .mem-grupo-tit .mono { font-size: 12px; color: var(--subtle); }
 .mem-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
@@ -258,7 +258,11 @@ export const CSS_MEMORIAS = `
 .mem-serie-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .mem-serie-cab b { font-size: 13.5px; font-weight: 650; }
 .mem-serie-cab small { font-size: 12px; color: var(--dim); }
-.mem-serie-op { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 11px; border: 1px solid var(--green-border); border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12.5px; font-weight: 600; cursor: default; }
+.mem-serie-op { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; max-width: 100%; padding: 0 11px; border: 1px solid var(--green-border); border-radius: 999px; background: var(--green-soft); color: var(--green); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s; }
+.mem-serie-op:hover { border-color: var(--green); }
+.mem-serie-op.cambia { border-color: var(--violet-border); background: var(--violet-soft); color: var(--violet); }
+.mem-serie-op.cambia:hover { border-color: var(--violet); }
+.mem-serie-op .cambio { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
 .mem-serie-op.fuera { border-style: dashed; border-color: var(--border-2); background: transparent; color: var(--dim); text-decoration: line-through; }
 .mem-def[data-estado="serie"] { border-color: var(--green-border); background: color-mix(in srgb, var(--green) 5%, transparent); }
 .mem-def[data-estado="serie"] .mem-def-valor b { color: var(--green); }

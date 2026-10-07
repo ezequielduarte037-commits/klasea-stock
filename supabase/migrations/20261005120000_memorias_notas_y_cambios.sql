@@ -17,6 +17,10 @@ alter table public.obra_memorias
   add column if not exists extras jsonb not null default '{}'::jsonb,
   add column if not exists updated_by uuid references public.profiles(id) on delete set null;
 
+-- El piso del cockpit sólo aceptaba 'teca' o 'infinity'. La memoria guarda lo
+-- que se eligió ("Infinity gris claro", "Seadek gris", "No lleva").
+alter table public.obra_memorias drop constraint if exists obra_memorias_teca_tipo_check;
+
 create table if not exists public.obra_memoria_cambios (
   id uuid primary key default gen_random_uuid(),
   memoria_id uuid,

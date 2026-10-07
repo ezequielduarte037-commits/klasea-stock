@@ -112,6 +112,15 @@ export function camposDeObra(obra, matrizLinea = null) {
   return campos;
 }
 
+// Lo que cambia este barco sobre algo de serie (nota del equipo). Las notas
+// viejas sin contenido ("OK", "Si") no cuentan como cambio.
+export function cambioDeSerie(campo, datos) {
+  if (!campo?.serie) return null;
+  const texto = String(propio(datos, `${campo.key}_obs`) || "").trim();
+  if (!texto || /^(ok|si|sí|x|-)$/i.test(texto)) return null;
+  return texto;
+}
+
 export function estaDefinido(campo, valor) {
   if (campo.tipo === "si_no") return valor === true || valor === false;
   return String(valor ?? "").trim() !== "";

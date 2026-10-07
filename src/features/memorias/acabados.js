@@ -79,6 +79,7 @@ export const PALETAS = {
     titulo: "Piso del cockpit",
     muestras: [
       m("Teca", TECA, ["Si / Teka", "Teka"]),
+      m("Infinity", liso("#aeb2b6", "#8d9196")),
       m("Infinity gris claro", liso("#c9cbcd", "#aeb1b4")),
       m("Infinity gris oscuro", liso("#6f7377", "#55595d")),
       m("Infinity gris c/rayas negras", foto(floorInfinityImg), ["Infinity gris c/rayas"]),

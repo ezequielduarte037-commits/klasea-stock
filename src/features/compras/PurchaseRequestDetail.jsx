@@ -59,8 +59,8 @@ import {
   validatePurchaseAttachment,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
-import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
-import { ordenLineasDesdePedido, supplierPurchaseLines } from "@/features/materiales/proveedorPedido";
+import { copyPurchaseRequestText, printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
+import { ordenLineasDesdePedido } from "@/features/materiales/proveedorPedido";
 import CopiarOcProveedor from "@/components/CopiarOcProveedor";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -86,42 +86,6 @@ const isHttpUrl = (u) => {
   try { const x = new URL(u); return x.protocol === "http:" || x.protocol === "https:"; }
   catch { return false; }
 };
-
-function htmlToText(value) {
-  const raw = String(value || "");
-  if (!raw) return "";
-  return raw
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<li>/gi, "- ")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
-}
-
-async function copyPlainText(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  ta.style.position = "fixed";
-  ta.style.left = "-9999px";
-  ta.style.top = "0";
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  document.execCommand("copy");
-  document.body.removeChild(ta);
-}
 
 function attachmentExtension(attachment) {
   const name = String(attachment?.name || attachment?.path || attachment?.url || "");
@@ -734,56 +698,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     }
   }
 
-  function buildCopyText() {
-    const lines = [];
-    const priorityLabel = REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority;
-    const statusLabel = REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status;
-    const destino = request.project?.codigo || request.destino || "";
-    const description = htmlToText(request.description);
-
-    lines.push(`Pedido: ${request.title || "Sin titulo"}`);
-    if (destino) lines.push(`Destino/obra: ${destino}`);
-    if (priorityLabel) lines.push(`Prioridad: ${priorityLabel}`);
-    if (statusLabel) lines.push(`Estado: ${statusLabel}`);
-    if (request.needed_at) {
-      lines.push(`Necesario para: ${new Date(request.needed_at).toLocaleDateString("es-AR")}`);
-    }
-    if (description && items.length === 0) {
-      lines.push("");
-      lines.push("Descripcion:");
-      lines.push(description);
-    }
-
-    lines.push("");
-    lines.push(`Items (${items.length}):`);
-    if (!items.length) {
-      lines.push("- Sin items cargados.");
-    } else {
-      let lineNumber = 0;
-      items.forEach((item) => {
-        supplierPurchaseLines(item).forEach((line) => {
-          lineNumber += 1;
-          const qty = line.quantity ? [line.quantity, line.unit].filter(Boolean).join(" ").trim() : "";
-          const suffix = qty ? ` - ${qty}` : "";
-          const code = line.code ? ` (${line.code})` : "";
-          lines.push(`${lineNumber}. ${line.description}${code}${suffix}`);
-        });
-        if (item.destination) lines.push(`   Destino: ${item.destination}`);
-        if (item.notes) lines.push(`   Nota: ${item.notes}`);
-        if (isHttpUrl(item.link_url)) lines.push(`   Link: ${item.link_url}`);
-        if (isHttpUrl(item.image_url)) lines.push(`   Foto: ${item.image_url}`);
-      });
-    }
-
-    return lines.join("\n").trim();
-  }
-
   async function handleCopyPurchaseText() {
     try {
-      await copyPlainText(buildCopyText());
-      toast.success(items.length > 0
-        ? `Pedido copiado con ${items.length} items.`
-        : "Pedido copiado.");
+      await copyPurchaseRequestText({ ...request, items });
+      toast.success("Pedido copiado completo. Pegalo en WhatsApp.");
     } catch {
       toast.error("No se pudo copiar el pedido.");
     }
@@ -1117,7 +1035,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
           </div>
           <div className="cmp-det-acc">
-            <button type="button" className="cmp-btn-ic" title="Imprimir" aria-label="Imprimir el pedido" onClick={() => printPurchaseRequest({ ...request, items }, logoK)}>
+            <button type="button" className="ui-btn ui-btn-suave chico" title="Copiar el pedido completo para WhatsApp" onClick={handleCopyPurchaseText}>
+              <Copy size={14} /> Copiar
+            </button>
+            <button type="button" className="cmp-btn-ic" title="Imprimir o guardar PDF" aria-label="Imprimir o guardar el pedido como PDF" onClick={() => printPurchaseRequest({ ...request, items }, logoK)}>
               <Printer size={15} />
             </button>
             {(manager || profile?.id === request.created_by) && (
@@ -1187,7 +1108,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 {items.length > 0 && pendientesItems < items.length && <span className="cmp-ayuda">{items.length - pendientesItems} cerrados</span>}
                 <span className="cmp-sp" />
                 {manager && <CopiarOcProveedor lineas={lineasOcProveedor} necesarioPara={request.needed_at} label="OC proveedor" iconSize={13} />}
-                <button type="button" className="cmp-btn-ic chico" onClick={handleCopyPurchaseText} title="Copiar el pedido completo" aria-label="Copiar el pedido completo"><Copy size={13} /></button>
                 {canEditItems && !showAddItem && (
                   <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => setShowAddItem(true)}><Plus size={13} /> Ítem</button>
                 )}

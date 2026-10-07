@@ -6,7 +6,7 @@ export { SEDES_PANOL, canonicalPanolSede };
 const EPS = 0.0001;
 
 export function validateCierreQuantities(values = {}) {
-  const labels = { utilizado: "Utilizado", sobrante: "Sobrante", recibido: "Recibido", danado: "Dañado", aclaracion: "Aclaración" };
+  const labels = { utilizado: "Utilizado", sobrante: "Sobrante", recibido: "Recibido", danado: "Dañado", aclaracion: "Aclaración", egresado: "Egreso" };
   const result = {};
   for (const [key, label] of Object.entries(labels)) {
     const raw = String(values[key] ?? "").trim().replace(",", ".");
@@ -177,11 +177,9 @@ export async function fetchCierreItems(cierreId) {
     .from("panol_obra_cierre_items")
     .select("*")
     .eq("cierre_id", cierreId)
-    // El cierre revisa únicamente saldo que sigue físicamente en pañol
-    // asignado a la obra. Todo lo que ya egresó se considera entregado y no
-    // forma parte de los sobrantes.
+    // Conserva también los egresos regularizados durante esta revisión.
     .eq("tipo_origen", "reservado")
-    .or("cantidad_reservada.gt.0,cantidad_recibida.gt.0,cantidad_aclaracion.gt.0")
+    .or("cantidad_reservada.gt.0,cantidad_recibida.gt.0,cantidad_aclaracion.gt.0,cantidad_utilizada.gt.0")
     .order("descripcion").order("id"));
   if (error) {
     if (isMissingRelation(error)) return [];
@@ -386,6 +384,25 @@ export async function conciliarCierreObra(cierreId) {
   const { data, error } = await supabase.rpc("panol_cierre_conciliar", { p_cierre_id: cierreId });
   if (error) throw error;
   return data;
+}
+
+export async function egresarCierreItem({ itemId, cantidad, sede, observacion = "", idempotencyKey = null } = {}) {
+  if (!itemId) throw new Error("Falta el material a egresar.");
+  const { egresado } = validateCierreQuantities({ egresado: cantidad });
+  if (egresado <= EPS) throw new Error("Ingresá una cantidad mayor a cero.");
+  const sedeOrigen = canonicalPanolSede(sede);
+  if (!sedeOrigen) throw new Error("Elegí el pañol de origen.");
+  const { error } = await supabase.rpc("panol_cierre_egresar", {
+    p_item_id: itemId,
+    p_cantidad: egresado,
+    p_sede: sedeOrigen,
+    p_observacion: String(observacion || "").trim() || null,
+    p_idempotency_key: idempotencyKey || crypto.randomUUID(),
+  });
+  if (error) {
+    if (isMissingRelation(error)) throw new Error("Falta aplicar la migración para egresar desde sobrantes de obra.");
+    throw error;
+  }
 }
 
 export async function fetchOperadoresCierre() {
