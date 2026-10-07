@@ -24,12 +24,14 @@ const VISTOS_KEY = "ka_recorrido_vistos";
 const pad = n => String(n).padStart(2, "0");
 
 // Probador de colores y materiales: sólo para probar. Aparece en el servidor
-// local o agregando ?probar a la dirección; no guarda nada en la base.
+// local, en el panel de los clientes del K43 tender (para probarlo ya
+// montado) o agregando ?probar a la dirección; no guarda nada en la base.
 const Probador3D = lazy(() => import("./Probador3D"));
 // ka_probar lo anota unidad.js al entrar con ?probar: el manual reescribe la
 // dirección al navegar entre capítulos y el parámetro se pierde.
-const puedeProbar = () => {
+const puedeProbar = (modelo) => {
   if (import.meta.env.DEV) return true;
+  if (String(modelo || "").match(/(\d{2})/)?.[1] === "43") return true;
   try {
     return new URLSearchParams(window.location.search).has("probar") || sessionStorage.getItem("ka_probar") === "1";
   } catch {
@@ -82,7 +84,7 @@ export default function Recorrido3D({ modelo, tono, onCerrar }) {
   const [error, setError] = useState(() => (hayWebGL() ? null : "webgl"));
   const [vistos, setVistos] = useState(() => marcar(new Set(leerJson(VISTOS_KEY, [])), ESTACIONES[0].id));
   const [probando, setProbando] = useState(false);
-  const [conProbador] = useState(puedeProbar);
+  const [conProbador] = useState(() => puedeProbar(modelo));
   const est = ESTACIONES[idx];
   const interior = interiorManual ?? est.interior;
   // Con un modelo interior aparte, el cambio de vista pasa por un fundido:
