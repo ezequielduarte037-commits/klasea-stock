@@ -4,6 +4,9 @@ import { supabase } from "./supabaseClient";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import AppVersionGuard from "@/components/AppVersionGuard";
+import PushNotificationsProvider from "@/components/PushNotificationsProvider";
+import { clearPushForLogout } from "@/lib/pushNotifications";
+import { removeLegacyWorkers } from "@/lib/webPushSupport";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import { C } from "@/theme";
@@ -63,8 +66,7 @@ function recargarSalteandoCache() {
 async function limpiarCachesAntiguas() {
   try {
     if ("serviceWorker" in navigator) {
-      const registros = await navigator.serviceWorker.getRegistrations?.();
-      await Promise.all((registros || []).map((registro) => registro.unregister()));
+      await removeLegacyWorkers();
     }
     if ("caches" in window) {
       const claves = await window.caches.keys();
@@ -445,6 +447,7 @@ export default function App() {
         // nuevos), pero una sesión ya abierta sigue viva hasta que expira. Acá se
         // la cierra; si vuelve a intentar entrar, el login le explica por qué.
         if (pData && pData.activo === false) {
+          await clearPushForLogout();
           await supabase.auth.signOut();
           if (loadId === profileLoadIdRef.current) setProfile(null);
           return null;
@@ -512,6 +515,7 @@ export default function App() {
     // dejar getSession (y toda la app) esperando indefinidamente.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === "INITIAL_SESSION") initialEventReceived = true;
+      if (event === "SIGNED_OUT") window.setTimeout(() => { void clearPushForLogout(); }, 0);
       scheduleSession(s);
     });
 
@@ -551,6 +555,7 @@ export default function App() {
     }
     try {
       await endTrackedAdminSession(profile, window.location.pathname);
+      await clearPushForLogout();
       await supabase.auth.signOut();
     } finally {
       // Un respiro para que la ruta ya haya pasado al login antes de destapar.
@@ -632,6 +637,7 @@ export default function App() {
       <TourProvider>
         <ToastProvider>
           <ConfirmProvider>
+            <PushNotificationsProvider key={session?.user?.id || "guest"} profile={profile}>
             {/* Avisa cuando hubo un deploy nuevo mientras la pestaña estaba
                 abierta. Existía desde antes pero nunca se había montado, así que
                 nadie veía el aviso. */}
@@ -749,6 +755,7 @@ export default function App() {
       {despedida && (
         <TelonSalida nombre={despedida.nombre} fase={despedida.fase} onSalio={() => setDespedida(null)} />
       )}
+            </PushNotificationsProvider>
           </ConfirmProvider>
         </ToastProvider>
       </TourProvider>

@@ -25,3 +25,10 @@ entrypoint = "./functions/alerta-30min/index.ts"
 [functions.notificar-email-compras]
 enabled = true
 verify_jwt = false
+
+# Cron usa un secreto dedicado; acciones de usuario validan JWT con auth.getUser.
+[functions.notificaciones-push]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notificaciones-push/deno.json"
+entrypoint = "./functions/notificaciones-push/index.ts"

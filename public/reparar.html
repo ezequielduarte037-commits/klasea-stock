@@ -26,7 +26,11 @@
           try {
             if ('serviceWorker' in navigator) {
               var registros = await navigator.serviceWorker.getRegistrations();
-              await Promise.all(registros.map(function (registro) { return registro.unregister(); }));
+              await Promise.all(registros.filter(function (registro) {
+                return ![registro.active, registro.waiting, registro.installing].some(function (worker) {
+                  return worker && new URL(worker.scriptURL).pathname === '/klasea-push-sw.js';
+                });
+              }).map(function (registro) { return registro.unregister(); }));
             }
             if ('caches' in window) {
               var claves = await caches.keys();

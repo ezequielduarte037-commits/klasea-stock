@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { C } from "@/theme";
+import { removeLegacyWorkers } from "@/lib/webPushSupport";
 
 // Aviso de versión nueva.
 //
@@ -42,8 +43,7 @@ export default function AppVersionGuard() {
   const actualizar = useCallback(async () => {
     try {
       if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations?.();
-        await Promise.all((regs || []).map((reg) => reg.unregister()));
+        await removeLegacyWorkers();
       }
       if ("caches" in window) {
         const keys = await window.caches.keys();
@@ -77,8 +77,7 @@ export default function AppVersionGuard() {
     // Restos de un service worker viejo: si quedó uno registrado, sirve los
     // assets desde su propio caché y ningún header de Vercel lo va a corregir.
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistrations?.()
-        .then((regs) => regs.forEach((reg) => reg.unregister()))
+      removeLegacyWorkers()
         .catch(() => {});
     }
 

@@ -192,12 +192,14 @@ export function gravedadRecepcion(envio = {}) {
  */
 export function requiereAccionDirecta(notif) {
   if (!notif || notif.leida) return false;
+  // La logística distingue cola de coordinación y agenda para prepararse.
+  // Un color de urgencia no convierte una cancelación en trabajo a resolver.
+  if (notif.tipo === "logistica") return notif.requiereAccion === true;
   if (notif.gravedad === "critical") return true;
   if (notif.gravedad !== "warning") return false;
   if (notif.tipo === "recepcion") return true;
   if (notif.tipo === "compras" && notif.meta?.aviso) return true;
   if (notif.tipo === "compras" && notif.meta?.movimiento?.kind === "status") return false;
-  if (notif.tipo === "logistica") return true;
   if (notif.tipo === "produccion") return true;
   return notif.requiereAccion === true;
 }

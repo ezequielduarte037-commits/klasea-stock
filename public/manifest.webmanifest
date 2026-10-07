@@ -3,6 +3,7 @@
   "short_name": "Klase A",
   "description": "Sistema de gestión del astillero Klase A",
   "lang": "es-AR",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,65 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertTriangle,
-  Bell,
-  ChevronRight,
-  CheckCheck,
-  CheckCircle2,
-  Info,
-  PackageOpen,
-  ShoppingCart,
-  Truck,
-  X,
+  AlertTriangle, Bell, Check, CheckCheck, CheckCircle2, ChevronRight,
+  Info, LoaderCircle, PackageOpen, RefreshCw, Search, ShoppingCart, Truck, X,
 } from "lucide-react";
+import PushNotificationsControl from "@/components/PushNotificationsControl";
 import useNotificaciones from "@/hooks/useNotificaciones";
 import { hasAdminAccess } from "@/lib/permissions";
-import {
-  PRIORIDAD_LABEL,
-  debeMostrarToast,
-  operationalRole,
-  requiereAccionDirecta,
-} from "@/lib/notificacionesAudience";
+import { debeMostrarToast, operationalRole, requiereAccionDirecta } from "@/lib/notificacionesAudience";
+import { filterNotifications, groupNotifications } from "@/lib/notificacionesPresentation";
 import { C } from "@/theme";
 
 const TYPE_UI = {
-  recepcion: { label: "Recepción", color: C.blue, soft: C.blueL, border: C.blueB, icon: PackageOpen },
+  recepcion: { label: "Pañol", color: C.blue, soft: C.blueL, border: C.blueB, icon: PackageOpen },
   produccion: { label: "Producción", color: C.cyan, soft: C.cyanL, border: C.cyanB, icon: AlertTriangle },
   compras: { label: "Compras", color: C.green, soft: C.greenL, border: C.greenB, icon: ShoppingCart },
-  logistica: { label: "Logística", color: C.blue, soft: C.blueL, border: C.blueB, icon: Truck },
+  logistica: { label: "Logística", color: C.violet, soft: C.violetL, border: C.violetB, icon: Truck },
 };
-
 const GRAVITY_UI = {
-  critical: { color: C.red, soft: C.redL, border: C.redB, label: PRIORIDAD_LABEL.critical },
-  warning: { color: C.violet, soft: C.violetL, border: C.violetB, label: PRIORIDAD_LABEL.warning },
-  success: { color: C.green, soft: C.greenL, border: C.greenB, label: PRIORIDAD_LABEL.success },
-  info: { color: C.blue, soft: C.blueL, border: C.blueB, label: PRIORIDAD_LABEL.info },
+  critical: { color: C.red, soft: C.redL, border: C.redB, label: "Urgente" },
+  warning: { color: C.violet, soft: C.violetL, border: C.violetB, label: "Atención" },
+  success: { color: C.green, soft: C.greenL, border: C.greenB, label: "Confirmación" },
+  info: { color: C.blue, soft: C.blueL, border: C.blueB, label: "Novedad" },
 };
-
-const TOAST_MS = 9000;
+const TOAST_MS = 9_000;
 const MAX_TOASTS = 2;
 
-function fmtFecha(ts) {
-  if (!ts) return "";
-  return new Date(ts).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+function needsAttention(item) {
+  return !item.leida && (requiereAccionDirecta(item) || item.requiereAccion === true);
 }
 
-function counterByType(lista) {
-  const sinLeer = lista.filter((item) => !item.leida);
-  const out = { todos: sinLeer.length, recepcion: 0, produccion: 0, compras: 0, logistica: 0 };
-  for (const item of sinLeer) out[item.tipo] = (out[item.tipo] || 0) + 1;
-  return out;
-}
-
-function sectionOf(item) {
-  if (item.leida) return "anteriores";
-  if (item.gravedad === "critical" || requiereAccionDirecta(item) || item.requiereAccion) return "accion";
-  return "novedades";
+// Las filas van agrupadas por día ("Hoy", "Ayer", "6 de octubre"): alcanza la hora.
+function fmtFecha(value) {
+  const date = new Date(value || "");
+  return Number.isFinite(date.getTime()) ? date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
 }
 
 function actionLabel(item) {
-  if (!item) return "Ver avisos";
+  if (!item?.ruta) return "Marcar como leída";
   if (item.tipo === "compras") return "Abrir pedido";
   if (item.tipo === "logistica") return "Ver movimiento";
   if (item.tipo === "recepcion") return "Ver recepción";
@@ -67,42 +46,63 @@ function actionLabel(item) {
   return "Abrir";
 }
 
-/**
- * Campanita dentro del sidebar. El panel sale por portal (el aside tiene overflow).
- */
+/** La campana abre un panel accesible; en el celular ocupa la pantalla útil. */
 export default function NotificacionesBell({ profile, size = 28, iconSize = 15, estiloBoton = null }) {
   const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState("todos");
+  const [type, setType] = useState("todos");
+  const [state, setState] = useState("todos");
+  const [search, setSearch] = useState("");
   const [pos, setPos] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [bellPulse, setBellPulse] = useState(false);
-  const [badgePulse, setBadgePulse] = useState(false);
-  const [panelEnter, setPanelEnter] = useState(false);
-  const ref = useRef(null);
-  const attentionRef = useRef(null);
-  const attentionAnchorRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [resolvingKey, setResolvingKey] = useState(null);
+  const bellRef = useRef(null);
   const panelRef = useRef(null);
-  const prevUnreadRef = useRef(0);
+  const closeRef = useRef(null);
+  const openerRef = useRef(null);
   const toastSeenRef = useRef(new Set());
   const originalTitleRef = useRef(null);
+  const panelId = useId();
   const navigate = useNavigate();
   const isAdmin = hasAdminAccess(profile);
   const {
-    lista,
-    unreadCount,
-    loading,
-    ready,
-    errorLogistica,
-    loadingLogistica,
-    recargarLogistica,
-    freshEvents,
-    consumeFreshEvents,
-    markLeido,
-    markTodoLeido,
-    resolverAlerta,
+    lista, unreadCount, loading, ready, errorLogistica, errorCarga, errorLecturas,
+    recargar, freshEvents, consumeFreshEvents, markLeido, markTodoLeido, resolverAlerta,
   } = useNotificaciones(profile);
-  const urgentesSinLeer = lista.filter((item) => !item.leida && item.gravedad === "critical").length;
-  const hayUrgentes = urgentesSinLeer > 0;
+  const urgentCount = lista.filter((item) => !item.leida && item.gravedad === "critical").length;
+  const attentionCount = lista.filter(needsAttention).length;
+  const loadError = errorCarga || (errorLogistica ? "No pudimos actualizar los avisos de Logística." : "");
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+  const filtered = useMemo(() => filterNotifications(lista, { search, type, state }, needsAttention), [lista, search, state, type]);
+  const groups = useMemo(() => groupNotifications(filtered, needsAttention), [filtered]);
+  const types = useMemo(() => Object.keys(TYPE_UI).filter((key) => lista.some((item) => item.tipo === key)), [lista]);
+
+  const closePanel = useCallback((restoreFocus = true) => {
+    setOpen(false);
+    if (restoreFocus) window.requestAnimationFrame(() => {
+      const target = openerRef.current?.isConnected ? openerRef.current : bellRef.current;
+      target?.focus({ preventScroll: true });
+    });
+  }, []);
+
+  const ubicar = useCallback(() => {
+    if (!bellRef.current) return;
+    const rect = bellRef.current.getBoundingClientRect();
+    const margin = 12;
+    const width = Math.min(500, window.innerWidth - margin * 2);
+    const above = rect.top > window.innerHeight / 2;
+    const space = above ? rect.top - margin * 2 : window.innerHeight - rect.bottom - margin * 2;
+    setPos({
+      width, left: Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)),
+      ...(above ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
+      maxHeight: Math.max(300, Math.min(780, space)),
+      viewportHeight: Math.round(window.visualViewport?.height || window.innerHeight),
+      viewportTop: Math.round(window.visualViewport?.offsetTop || 0),
+    });
+  }, []);
 
   useEffect(() => {
     originalTitleRef.current = document.title || "Klase A";
@@ -111,663 +111,354 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
 
   useEffect(() => {
     const base = originalTitleRef.current || "Klase A";
-    document.title = hayUrgentes
-      ? `🔴 ${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer · ${base}`
-      : unreadCount > 0
-        ? `(${unreadCount}) Notificaciones sin leer · ${base}`
-        : base;
-  }, [hayUrgentes, unreadCount, urgentesSinLeer]);
-
-  const filtered = useMemo(
-    () => (filter === "todos" ? lista : lista.filter((item) => item.tipo === filter)),
-    [filter, lista],
-  );
-
-  const sections = useMemo(() => {
-    const accion = [];
-    const novedades = [];
-    const anteriores = [];
-    for (const item of filtered) {
-      const sec = sectionOf(item);
-      if (sec === "accion") accion.push(item);
-      else if (sec === "novedades") novedades.push(item);
-      else anteriores.push(item);
-    }
-    return { accion, novedades, anteriores };
-  }, [filtered]);
-
-  const visibleGroups = useMemo(() => {
-    const groups = [];
-    if (sections.accion.length) groups.push({ key: "accion", label: "Necesitan atención", items: sections.accion });
-    if (sections.novedades.length) groups.push({ key: "novedades", label: "Novedades para vos", items: sections.novedades });
-    if (sections.anteriores.length) groups.push({ key: "anteriores", label: "Ya leídas", items: sections.anteriores });
-    return groups;
-  }, [sections]);
-
-  const ubicar = useCallback(() => {
-    const boton = (attentionAnchorRef.current && attentionRef.current) || ref.current;
-    if (!boton) return;
-    const r = boton.getBoundingClientRect();
-    const margen = 12;
-    const ancho = Math.min(480, window.innerWidth - margen * 2);
-    const left = Math.max(margen, Math.min(r.left, window.innerWidth - ancho - margen));
-    const arriba = r.top > window.innerHeight / 2;
-    const libre = arriba ? r.top - margen * 2 : window.innerHeight - r.bottom - margen * 2;
-    setPos({
-      ancho,
-      left,
-      ...(arriba ? { bottom: window.innerHeight - r.top + 8 } : { top: r.bottom + 8 }),
-      maxHeight: Math.max(160, Math.min(720, libre)),
-    });
-  }, []);
+    document.title = urgentCount ? `(${unreadCount}) ${urgentCount} urgente${urgentCount === 1 ? "" : "s"} · ${base}`
+      : unreadCount ? `(${unreadCount}) Notificaciones · ${base}` : base;
+  }, [unreadCount, urgentCount]);
 
   useEffect(() => {
-    function handleClick(event) {
-      const fueraDelBoton = ref.current && !ref.current.contains(event.target);
-      const fueraDelAviso = !attentionRef.current || !attentionRef.current.contains(event.target);
-      const fueraDelPanel = !panelRef.current || !panelRef.current.contains(event.target);
-      if (fueraDelBoton && fueraDelAviso && fueraDelPanel) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  useEffect(() => {
+    setOpen(false);
     setToasts([]);
+    setSearch("");
+    setType("todos");
+    setState("todos");
+    setActionError("");
     toastSeenRef.current = new Set();
-    prevUnreadRef.current = 0;
   }, [profile?.id]);
 
   useEffect(() => {
-    if (!open) {
-      setPanelEnter(false);
-      return undefined;
-    }
+    if (!open) return undefined;
+    openerRef.current = document.activeElement?.closest("button") || bellRef.current;
     ubicar();
-    const t = window.setTimeout(() => setPanelEnter(true), 10);
-    const onEsc = (event) => { if (event.key === "Escape") setOpen(false); };
-    window.addEventListener("resize", ubicar);
-    window.addEventListener("scroll", ubicar, true);
-    window.addEventListener("keydown", onEsc);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("resize", ubicar);
-      window.removeEventListener("scroll", ubicar, true);
-      window.removeEventListener("keydown", onEsc);
-    };
-  }, [open, ubicar]);
-
-  // Badge pulse sólo cuando sube el contador.
-  useEffect(() => {
-    if (unreadCount > prevUnreadRef.current && unreadCount > 0) {
-      setBadgePulse(true);
-      const t = window.setTimeout(() => setBadgePulse(false), 700);
-      prevUnreadRef.current = unreadCount;
-      return () => window.clearTimeout(t);
+    const frame = window.requestAnimationFrame(() => closeRef.current?.focus({ preventScroll: true }));
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePanel();
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusables = [...panelRef.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, a[href], [tabindex="0"]')]
+        .filter((node) => node.getClientRects().length > 0);
+      const first = focusables[0];
+      const last = focusables.at(-1);
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || !panelRef.current.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !panelRef.current.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
     }
-    prevUnreadRef.current = unreadCount;
-    return undefined;
-  }, [unreadCount]);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", ubicar);
+    window.visualViewport?.addEventListener("resize", ubicar);
+    window.visualViewport?.addEventListener("scroll", ubicar);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.body.style.overflow = overflow;
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", ubicar);
+      window.visualViewport?.removeEventListener("resize", ubicar);
+      window.visualViewport?.removeEventListener("scroll", ubicar);
+    };
+  }, [closePanel, open, ubicar]);
 
-  // Toasts: sólo eventos frescos post-bootstrap.
+  // La primera carga no muestra avisos históricos. Cada cambio fresco aparece una vez.
   useEffect(() => {
     if (!ready || !freshEvents?.length) return;
-
-    const candidates = freshEvents.filter((n) => {
-      if (!debeMostrarToast(n)) return false;
-      const stamp = `${n.clave}@${n.fecha || ""}`;
-      if (toastSeenRef.current.has(stamp)) return false;
-      return true;
-    });
+    const candidates = freshEvents.filter((item) => debeMostrarToast(item) && !toastSeenRef.current.has(`${item.clave}@${item.fecha || ""}`));
     consumeFreshEvents();
     if (!candidates.length) return;
-
-    if (candidates.some((n) => n.gravedad === "critical" || n.gravedad === "warning")) {
-      setBellPulse(true);
-      window.setTimeout(() => setBellPulse(false), 800);
-    }
-
+    for (const item of candidates) toastSeenRef.current.add(`${item.clave}@${item.fecha || ""}`);
+    if (open) return;
+    setBellPulse(true);
     setToasts((prev) => {
-      // Un lote nuevo siempre deja lugar para al menos un aviso concreto.
-      const keep = candidates.length > 1 ? [] : prev.filter((t) => t.kind !== "summary").slice(-1);
-      const room = Math.max(0, MAX_TOASTS - keep.length);
-      const needsSummary = candidates.length > room;
-      const itemRoom = needsSummary ? Math.max(0, room - 1) : room;
-      const take = candidates.slice(0, itemRoom);
+      const keep = candidates.length > 1 ? [] : prev.filter((toast) => toast.kind !== "summary").slice(-1);
+      const room = MAX_TOASTS - keep.length;
+      const take = candidates.slice(0, candidates.length > room ? Math.max(0, room - 1) : room);
       const rest = candidates.length - take.length;
-      for (const item of candidates) {
-        toastSeenRef.current.add(`${item.clave}@${item.fecha || ""}`);
-      }
-
-      const next = [
+      return [
         ...keep,
-        ...take.map((item) => ({
-          kind: "item",
-          id: item.id,
-          clave: item.clave,
-          titulo: item.titulo,
-          detalle: item.detalle,
-          gravedad: item.gravedad,
-          tipo: item.tipo,
-          ruta: item.ruta,
-          expires: Date.now() + (item.gravedad === "critical" ? 12_000 : TOAST_MS),
-          raw: item,
-        })),
-      ];
-
-      if (rest > 0) {
-        next.push({
-          kind: "summary",
-          id: `summary-${Date.now()}`,
-          titulo: `${rest} notificación${rest === 1 ? "" : "es"} nueva${rest === 1 ? "" : "s"}`,
-          detalle: "Abrí la campana para verlas",
-          gravedad: "info",
-          expires: Date.now() + TOAST_MS,
-        });
-      }
-      return next.slice(0, MAX_TOASTS);
+        ...take.map((item) => ({ kind: "item", id: item.id, raw: item, expires: Date.now() + (item.gravedad === "critical" ? 12_000 : TOAST_MS) })),
+        ...(rest ? [{ kind: "summary", id: `summary-${Date.now()}`, count: rest, expires: Date.now() + TOAST_MS }] : []),
+      ].slice(0, MAX_TOASTS);
     });
-  }, [consumeFreshEvents, freshEvents, ready]);
+  }, [consumeFreshEvents, freshEvents, open, ready]);
+
+  useEffect(() => {
+    if (!bellPulse) return undefined;
+    const timer = window.setTimeout(() => setBellPulse(false), 800);
+    return () => window.clearTimeout(timer);
+  }, [bellPulse]);
 
   useEffect(() => {
     if (!toasts.length) return undefined;
-    const tick = window.setInterval(() => {
-      const now = Date.now();
-      setToasts((prev) => prev.filter((t) => (t.expires || 0) > now));
-    }, 500);
-    return () => window.clearInterval(tick);
+    const timer = window.setInterval(() => setToasts((prev) => prev.filter((toast) => toast.expires > Date.now())), 500);
+    return () => window.clearInterval(timer);
   }, [toasts.length]);
 
-  const role = operationalRole(profile);
-  if (!profile || role === "cliente") return null;
+  if (!profile || operationalRole(profile) === "cliente") return null;
 
-  const counts = counterByType(lista);
-  const hayDelTipo = lista.reduce((acc, item) => ({ ...acc, [item.tipo]: true }), {});
+  function dismissToast(id) { setToasts((prev) => prev.filter((toast) => toast.id !== id)); }
 
   function openNotification(item) {
     markLeido(item);
-    setOpen(false);
-    dismissToast(item.clave);
-    if (item.ruta) navigate(item.ruta);
-  }
-
-  function dismissToast(claveOrId) {
-    setToasts((prev) => prev.filter((t) => t.clave !== claveOrId && t.id !== claveOrId));
-  }
-
-  function openToast(toast) {
-    if (toast.kind === "summary") {
-      setOpen(true);
-      dismissToast(toast.id);
-      return;
+    dismissToast(item.id);
+    if (item.ruta) {
+      closePanel(false);
+      navigate(item.ruta);
     }
-    if (toast.raw) openNotification(toast.raw);
-    else dismissToast(toast.id);
   }
 
-  const reducedMotion = typeof window !== "undefined"
-    && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  async function refresh() {
+    setRefreshing(true);
+    setActionError("");
+    try { await recargar?.(); }
+    catch { setActionError("No pudimos actualizar los avisos. Reintentá en un momento."); }
+    finally { setRefreshing(false); }
+  }
 
-  const S = {
-    wrapper: { position: "relative", display: "inline-flex", flexShrink: 0 },
-    bell: {
-      position: "relative",
-      width: size,
-      height: size,
-      borderRadius: 7,
-      boxSizing: "border-box",
-      background: open ? C.panel2 : C.panel,
-      border: `1px solid ${unreadCount > 0 ? C.blueB : C.border}`,
-      cursor: "pointer",
-      display: "grid",
-      placeItems: "center",
-      color: unreadCount > 0 ? C.blue : C.dim,
-      transition: "color .2s, border-color .2s, background .2s",
-      padding: 0,
-      ...(estiloBoton || {}),
-      ...(hayUrgentes ? {
-        background: C.redL,
-        border: `1px solid ${C.redB}`,
-        color: C.red,
-        boxShadow: `0 0 0 3px ${C.redL}`,
-      } : {}),
-      ...(bellPulse && !reducedMotion ? { animation: "notifBellNudge .7s ease-out" } : {}),
-    },
-    badge: {
-      position: "absolute",
-      top: -6,
-      right: -6,
-      minWidth: 16,
-      height: 16,
-      borderRadius: 99,
-      background: C.red,
-      color: "#fff",
-      fontSize: 9,
-      fontWeight: 750,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "0 4px",
-      border: `2px solid ${C.bg}`,
-      fontFamily: C.mono,
-      pointerEvents: "none",
-      ...(badgePulse && !reducedMotion ? { animation: "notifBadgePop .65s ease-out" } : {}),
-    },
-    panel: {
-      position: "fixed",
-      zIndex: 9000,
-      left: pos?.left ?? 0,
-      ...(pos && "bottom" in pos ? { bottom: pos.bottom } : { top: pos?.top ?? 0 }),
-      width: pos?.ancho ?? 480,
-      maxHeight: pos?.maxHeight ?? 720,
-      overflow: "hidden",
-      background: C.panelSolid,
-      backdropFilter: "var(--glass-filter)",
-      WebkitBackdropFilter: "var(--glass-filter)",
-      border: `1px solid ${C.border}`,
-      borderRadius: 16,
-      boxShadow: "0 18px 48px var(--shadow-strong)",
-      color: C.text,
-      display: "flex",
-      flexDirection: "column",
-      opacity: panelEnter ? 1 : 0,
-      transform: panelEnter ? "translateY(0)" : "translateY(6px)",
-      transition: reducedMotion ? "none" : "opacity .18s ease, transform .18s ease",
-    },
+  async function resolve(item) {
+    if (!resolverAlerta || !item.meta?.alerta?.id) return;
+    setResolvingKey(item.clave);
+    setActionError("");
+    try {
+      await resolverAlerta(item.meta.alerta.id, profile?.username ?? "usuario");
+      markLeido(item);
+    } catch { setActionError("No se pudo resolver la alerta. Sigue pendiente; reintentá en un momento."); }
+    finally { setResolvingKey(null); }
+  }
+
+  const busy = loading || refreshing;
+  const hasFilter = search.trim() || type !== "todos" || state !== "todos";
+  const controls = {
+    border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 10,
+    minHeight: 44, cursor: "pointer", fontFamily: C.sans, fontWeight: 700, fontSize: 12,
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
   };
 
   return (
-    <div style={S.wrapper} ref={ref}>
+    <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
       <style>{`
-        @keyframes notifBellNudge {
-          0% { transform: rotate(0); }
-          25% { transform: rotate(-12deg); }
-          55% { transform: rotate(10deg); }
-          100% { transform: rotate(0); }
+        @keyframes notifBellNudge { 25% { transform: rotate(-12deg); } 55% { transform: rotate(10deg); } }
+        @keyframes notifEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        @keyframes notifSpin { to { transform: rotate(360deg); } }
+        .notif-spin { animation: notifSpin 1s linear infinite; }
+        .notif-panel button:focus-visible, .notif-panel input:focus-visible, .notif-panel select:focus-visible,
+        .notif-panel summary:focus-visible, .notif-bell:focus-visible, .notif-toast button:focus-visible {
+          outline: 2px solid var(--blue); outline-offset: -2px;
         }
-        @keyframes notifUrgentRing {
-          0%, 70%, 100% { transform: rotate(0) scale(1); }
-          76% { transform: rotate(-9deg) scale(1.1); }
-          83% { transform: rotate(8deg) scale(1.1); }
-          90% { transform: rotate(-5deg) scale(1.06); }
-          96% { transform: rotate(0) scale(1); }
-        }
-        .notif-bell-urgent { animation: notifUrgentRing 3.6s ease-in-out infinite; }
-        @keyframes notifBadgePop {
-          0% { transform: scale(.6); opacity: .4; }
-          40% { transform: scale(1.15); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes notifToastIn {
-          from { opacity: 0; transform: translateY(-12px) scale(.98); }
-          to { opacity: 1; transform: none; }
+        .notif-control:hover:not(:disabled), .notif-filter:hover, .notif-row:hover { background: var(--panel-2) !important; }
+        .notif-row-open:hover .notif-open-label { text-decoration: underline; text-underline-offset: 3px; }
+        .notif-list { scrollbar-width: thin; overscroll-behavior: contain; }
+        @media (max-width: 600px) {
+          .notif-panel { left: 8px !important; right: 8px; top: calc(var(--notif-viewport-top, 0px) + env(safe-area-inset-top) + 8px) !important;
+            bottom: auto !important; height: calc(var(--notif-viewport-height, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+            width: auto !important; max-height: none !important;
+            border-radius: 20px !important; }
+          .notif-panel-footer { max-height: min(40dvh, calc(var(--notif-viewport-height, 100dvh) * .4), 300px) !important; flex-shrink: 1 !important; min-height: 0; }
+          .notif-list { min-height: min(120px, calc(var(--notif-viewport-height, 100dvh) * .2)) !important; }
+          .notif-filters { flex-wrap: wrap; }
+          .notif-type-select { flex: 1; min-width: 110px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .notif-toast, .notif-bell-anim, .notif-bell-urgent { animation: none !important; }
-        }
-        .notif-filter:hover { background: var(--panel-2) !important; }
-        .notif-row:hover { background: var(--panel-2) !important; }
-        .notif-filter:focus-visible, .notif-row-open:focus-visible, .notif-resolve:focus-visible, .notif-toast-action:focus-visible, .notif-toast-close:focus-visible {
-          outline: 2px solid var(--blue);
-          outline-offset: -2px;
+          .notif-panel, .notif-toast, .notif-bell { animation: none !important; transition: none !important; }
         }
       `}</style>
-
       <button
-        type="button"
-        className={hayUrgentes ? "notif-bell-urgent" : bellPulse ? "notif-bell-anim" : undefined}
-        style={S.bell}
-        onClick={() => {
-          attentionAnchorRef.current = false;
-          setOpen((value) => !value);
+        ref={bellRef} type="button" className="notif-bell"
+        onClick={() => open ? closePanel() : setOpen(true)}
+        title="Notificaciones" aria-label={unreadCount ? `Notificaciones, ${unreadCount} sin leer${urgentCount ? `, ${urgentCount} urgentes` : ""}` : "Notificaciones"}
+        aria-expanded={open} aria-haspopup="dialog" aria-controls={open ? panelId : undefined}
+        style={{
+          width: size, height: size, position: "relative", borderRadius: 8, padding: 0,
+          border: `1px solid ${urgentCount ? C.redB : unreadCount ? C.blueB : C.border}`,
+          color: urgentCount ? C.red : unreadCount ? C.blue : C.dim,
+          background: urgentCount ? C.redL : open ? C.panel2 : C.panel,
+          display: "grid", placeItems: "center", cursor: "pointer", boxSizing: "border-box",
+          ...(estiloBoton || {}), ...(bellPulse && !reducedMotion ? { animation: "notifBellNudge .7s ease-out" } : {}),
         }}
-        title={hayUrgentes ? `${urgentesSinLeer} notificación${urgentesSinLeer === 1 ? "" : "es"} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer` : "Notificaciones"}
-        aria-label={hayUrgentes ? `Notificaciones, ${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} y ${unreadCount} sin leer` : unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : "Notificaciones"}
-        aria-expanded={open}
-        aria-haspopup="dialog"
       >
-        <Bell size={iconSize} />
-        {unreadCount > 0 && <span style={S.badge}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
+        <Bell size={iconSize} aria-hidden="true" />
+        {unreadCount > 0 && <span aria-hidden="true" style={{
+          position: "absolute", right: -6, top: -6, minWidth: 16, height: 16, padding: "0 4px",
+          display: "grid", placeItems: "center", borderRadius: 99, background: urgentCount ? C.red : C.blue,
+          color: "#fff", border: `2px solid ${C.bg}`, fontSize: 9, fontWeight: 750, fontFamily: C.mono, pointerEvents: "none",
+        }}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
 
-      {unreadCount > 0 && createPortal(
-        <button
-          ref={attentionRef}
-          type="button"
-          onClick={() => {
-            attentionAnchorRef.current = true;
-            ubicar();
-            setOpen(true);
-          }}
-          aria-label={hayUrgentes
-            ? `Abrir notificaciones: ${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer`
-            : `Abrir notificaciones: ${unreadCount} sin leer`}
-          style={{
-            position: "fixed",
-            top: size >= 40 ? "calc(66px + env(safe-area-inset-top))" : "max(14px, env(safe-area-inset-top))",
-            right: "max(14px, env(safe-area-inset-right))",
-            zIndex: 8999,
-            maxWidth: "calc(100vw - 28px)",
-            minHeight: 44,
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            padding: "8px 12px",
-            borderRadius: 12,
-            border: `1px solid ${hayUrgentes ? C.redB : C.blueB}`,
-            background: C.panelSolid,
-            color: hayUrgentes ? C.red : C.blue,
-            boxShadow: "0 10px 28px var(--shadow-strong)",
-            cursor: "pointer",
-            fontFamily: C.sans,
-            fontSize: 12,
-            fontWeight: 750,
-            textAlign: "left",
-          }}
-        >
-          <Bell size={17} aria-hidden="true" />
-          <span>{hayUrgentes
-            ? `${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer`
-            : `${unreadCount} notificación${unreadCount === 1 ? "" : "es"} sin leer`}</span>
-          <span style={{ color: C.text, whiteSpace: "nowrap", fontWeight: 700 }}>Abrir campana ›</span>
-        </button>,
-        document.body,
-      )}
-
-      {open && pos && createPortal(
-        <div ref={panelRef} role="dialog" aria-label="Panel de notificaciones" style={S.panel}>
-          <div style={{
-            padding: "16px 18px 14px",
-            borderBottom: `1px solid ${C.border}`,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            flexShrink: 0,
+      {open && createPortal(<>
+        <div aria-hidden="true" onClick={() => closePanel()} style={{
+          position: "fixed", inset: 0, zIndex: 8999, background: "color-mix(in srgb, var(--bg) 65%, transparent)",
+        }} />
+        <div ref={panelRef} id={panelId} role="dialog" aria-modal="true" aria-labelledby={`${panelId}-title`}
+          className="notif-panel" style={{
+            position: "fixed", zIndex: 9000, left: pos?.left ?? 12, ...(pos && "bottom" in pos ? { bottom: pos.bottom } : { top: pos?.top ?? 12 }),
+            width: pos?.width ?? "min(500px, calc(100vw - 24px))", maxHeight: pos?.maxHeight ?? "calc(100dvh - 24px)",
+            "--notif-viewport-height": pos?.viewportHeight ? `${pos.viewportHeight}px` : "100dvh",
+            "--notif-viewport-top": `${pos?.viewportTop || 0}px`,
+            background: C.panelSolid, color: C.text, border: `1px solid ${C.border}`, borderRadius: 18,
+            boxShadow: "0 20px 64px var(--shadow-strong)", display: "flex", flexDirection: "column", overflow: "hidden",
+            fontFamily: C.sans, animation: reducedMotion ? "none" : "notifEnter .18s ease-out",
           }}>
-            <div>
-              <div style={{ color: C.text, fontFamily: C.sans, fontWeight: 750, fontSize: 16, letterSpacing: 0.1 }}>
-                Notificaciones
-              </div>
-              <div style={{ color: hayUrgentes ? C.red : C.dim, fontSize: 12, marginTop: 3 }}>
-                {loading ? "Actualizando…" : hayUrgentes ? `${urgentesSinLeer} urgente${urgentesSinLeer === 1 ? "" : "s"} sin leer · ${unreadCount} en total` : unreadCount ? `Tenés ${unreadCount} notificación${unreadCount === 1 ? "" : "es"} sin leer` : errorLogistica ? "Actualización pendiente" : "Estás al día"}
+          <div style={{ padding: "14px 16px 10px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <span style={{ width: 36, height: 36, background: C.blueL, color: C.blue, border: `1px solid ${C.blueB}`, borderRadius: 11, display: "grid", placeItems: "center" }}><Bell size={18} aria-hidden="true" /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 id={`${panelId}-title`} style={{ fontSize: 17, fontWeight: 750, lineHeight: 1.2, margin: 0 }}>Notificaciones</h2>
+              <div style={{ fontSize: 12, color: urgentCount ? C.red : C.dim, marginTop: 4 }}>
+                {busy ? "Actualizando avisos…" : urgentCount ? `${urgentCount} urgente${urgentCount === 1 ? "" : "s"} · ${unreadCount} sin leer`
+                  : unreadCount ? `${unreadCount} sin leer${attentionCount ? ` · ${attentionCount} necesitan atención` : ""}`
+                    : loadError || errorLecturas ? "Actualización pendiente" : "Estás al día"}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={markTodoLeido}
-              disabled={!unreadCount}
-              title="Marcar todas las notificaciones como leídas"
-              aria-label="Marcar todas las notificaciones como leídas"
-              style={{
-                border: `1px solid ${C.border}`,
-                background: C.panel,
-                color: C.dim,
-                borderRadius: 8,
-                padding: "8px 11px",
-                minHeight: 36,
-                cursor: unreadCount ? "pointer" : "default",
-                opacity: unreadCount ? 1 : 0.45,
-                fontSize: 11.5,
-                fontWeight: 700,
-                fontFamily: C.sans,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <CheckCheck size={14} />
-              Marcar todas
-            </button>
+            <button type="button" className="notif-control" title="Actualizar avisos" aria-label="Actualizar avisos" disabled={busy} onClick={refresh}
+              style={{ ...controls, width: 44, opacity: busy ? 0.5 : 1 }}><RefreshCw size={16} className={busy ? "notif-spin" : undefined} aria-hidden="true" /></button>
+            <button ref={closeRef} type="button" className="notif-control" title="Cerrar notificaciones" aria-label="Cerrar notificaciones" onClick={() => closePanel()}
+              style={{ ...controls, width: 44 }}><X size={18} aria-hidden="true" /></button>
           </div>
 
-          {errorLogistica && (
-            <div role="status" style={{
-              padding: "10px 16px",
-              background: C.redL,
-              color: C.red,
-              borderBottom: `1px solid ${C.redB}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexShrink: 0,
-              fontSize: 12,
-            }}>
-              <span style={{ flex: 1 }}>No pudimos actualizar los avisos de Logística.</span>
-              <button type="button" onClick={recargarLogistica} disabled={loadingLogistica} style={{
-                background: "transparent", border: `1px solid ${C.redB}`, color: C.red,
-                borderRadius: 6, padding: "6px 9px", fontFamily: C.sans, fontWeight: 700,
-                cursor: loadingLogistica ? "default" : "pointer", opacity: loadingLogistica ? 0.5 : 1,
-              }}>
-                {loadingLogistica ? "Actualizando…" : "Reintentar"}
-              </button>
+          <div style={{ padding: "0 16px 12px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "0 11px" }}>
+              <Search size={16} color={C.dim} aria-hidden="true" />
+              <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Buscar notificaciones" placeholder="Buscar aviso, obra o movimiento…"
+                style={{ border: 0, background: "transparent", color: C.text, padding: "11px 0", width: "100%", minWidth: 0, minHeight: 44, fontSize: 16, fontFamily: C.sans }} />
             </div>
-          )}
-
-          <div style={{
-            padding: "10px 16px",
-            borderBottom: `1px solid ${C.border}`,
-            display: "flex",
-            gap: 6,
-            overflowX: "auto",
-            flexShrink: 0,
-          }}>
-            <FilterTab active={filter === "todos"} color={C.blue} soft={C.blueL} border={C.blueB} onClick={() => setFilter("todos")}>
-              Todas
-            </FilterTab>
-            {Object.entries(TYPE_UI).map(([key, cfg]) => (
-              hayDelTipo[key] && (
-                <FilterTab key={key} active={filter === key} color={cfg.color} soft={cfg.soft} border={cfg.border} onClick={() => setFilter(key)}>
-                  {cfg.label}{counts[key] ? ` (${counts[key]})` : ""}
-                </FilterTab>
-              )
-            ))}
+            <div className="notif-filters" style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 9 }}>
+              <FilterTab active={state === "todos"} onClick={() => setState("todos")}>Todas</FilterTab>
+              <FilterTab active={state === "sin-leer"} onClick={() => setState("sin-leer")}>Sin leer{unreadCount ? ` · ${unreadCount}` : ""}</FilterTab>
+              <FilterTab active={state === "atencion"} onClick={() => setState("atencion")}>Atención{attentionCount ? ` · ${attentionCount}` : ""}</FilterTab>
+              <select className="notif-type-select" aria-label="Filtrar notificaciones por módulo" value={type} onChange={(event) => setType(event.target.value)}
+                style={{ ...controls, marginLeft: "auto", padding: "0 9px", maxWidth: "100%", minWidth: 0, flexShrink: 1, color: type === "todos" ? C.dim : C.text }}>
+                <option value="todos">Módulos</option>
+                {types.map((key) => <option key={key} value={key}>{TYPE_UI[key].label}</option>)}
+                {type !== "todos" && !types.includes(type) && <option value={type}>{TYPE_UI[type]?.label || type}</option>}
+              </select>
+            </div>
           </div>
 
-          <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
-            {loading && !lista.length ? (
-              <div style={{ padding: "28px 20px", textAlign: "center", color: C.dim, fontSize: 12.5 }}>
-                Cargando avisos…
+          {(loadError || errorLecturas || actionError) && <div role="status" style={{ padding: "10px 16px", flexShrink: 0, borderBottom: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 12, lineHeight: 1.45 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <AlertTriangle size={15} style={{ marginTop: 1, flexShrink: 0 }} aria-hidden="true" />
+              <div style={{ flex: 1 }}>{actionError || loadError || "No pudimos sincronizar las notificaciones leídas entre tus dispositivos."}
+                {loadError && <span style={{ display: "block", marginTop: 2 }}>Los avisos cargados se conservan. Reintentá para comprobar las novedades.</span>}
               </div>
-            ) : visibleGroups.every((g) => !g.items.length) ? (
-              <div style={{ padding: "36px 20px", textAlign: "center", color: C.dim }}>
-                {errorLogistica
-                  ? <AlertTriangle size={28} style={{ color: C.red, marginBottom: 10 }} />
-                  : <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 10 }} />}
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>{errorLogistica ? "No hay avisos cargados" : "Estás al día"}</div>
-                <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
-                  {errorLogistica ? "Reintentá para comprobar si hay novedades de Logística." : "Sólo aparecen novedades relacionadas con tu trabajo."}
-                </div>
-              </div>
-            ) : (
-              visibleGroups.map((group) => (
-                <div key={group.key}>
-                  {group.label && (
-                    <div style={{
-                      padding: "11px 18px 7px",
-                      color: C.dim,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: 0.6,
-                      textTransform: "uppercase",
-                      position: "sticky",
-                      top: 0,
-                      background: C.panelSolid,
-                      zIndex: 1,
-                    }}>
-                      {group.label} · {group.items.length}
-                    </div>
-                  )}
-                  {group.items.map((item) => (
-                    <NotifRow
-                      key={item.id}
-                      item={item}
-                      isAdmin={isAdmin}
-                      onOpen={() => openNotification(item)}
-                      onResolve={async () => {
-                        markLeido(item);
-                        await resolverAlerta?.(item.meta?.alerta?.id, profile?.username ?? "usuario");
-                      }}
-                    />
-                  ))}
-                </div>
-              ))
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
+              <button type="button" className="notif-control" onClick={refresh} disabled={busy} style={{ ...controls, padding: "0 9px", color: C.red, background: "transparent", borderColor: C.redB }}>Reintentar</button>
+            </div>
+          </div>}
 
-      {toasts.length > 0 && createPortal(
-        <div
-          aria-live="polite"
-          style={{
-            position: "fixed",
-            top: unreadCount > 0
-              ? size >= 40 ? "calc(120px + env(safe-area-inset-top))" : "68px"
-              : size >= 40 ? "calc(68px + env(safe-area-inset-top))" : "max(16px, env(safe-area-inset-top))",
-            right: "max(12px, env(safe-area-inset-right))",
-            zIndex: 9500,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            width: "min(390px, calc(100vw - 24px))",
-            pointerEvents: "none",
-          }}
-        >
-          {toasts.map((toast) => {
-            const g = GRAVITY_UI[toast.gravedad] || GRAVITY_UI.info;
-            const cfg = TYPE_UI[toast.tipo] || TYPE_UI.produccion;
-            const Icon = toast.kind === "summary" ? Info : (cfg.icon || Bell);
-            return (
-              <div
-                key={toast.id}
-                className="notif-toast"
-                style={{
-                  pointerEvents: "auto",
-                  display: "grid",
-                  gridTemplateColumns: "32px minmax(0, 1fr) auto",
-                  gap: 10,
-                  alignItems: "start",
-                  padding: "13px 12px",
-                  borderRadius: 12,
-                  background: C.panelSolid,
-                  border: `1px solid ${g.border}`,
-                  borderLeft: `3px solid ${g.color}`,
-                  boxShadow: "0 12px 32px var(--shadow-strong)",
-                  animation: reducedMotion ? "none" : "notifToastIn .26s cubic-bezier(.22,1,.36,1)",
-                }}
-              >
-                <span style={{
-                  width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center",
-                  color: g.color, background: g.soft, border: `1px solid ${g.border}`,
-                }}>
-                  <Icon size={15} />
-                </span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: g.color, fontSize: 9.5, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 3 }}>
-                    {toast.kind === "summary" ? "Notificaciones nuevas" : "Nueva notificación"}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 750, fontSize: 13, color: C.text }}>{toast.titulo}</span>
-                    {(toast.gravedad === "critical" || toast.gravedad === "warning") && (
-                      <span style={{
-                        fontSize: 9.5, fontWeight: 700, color: g.color,
-                        border: `1px solid ${g.border}`, borderRadius: 999, padding: "1px 6px",
-                      }}>
-                        {g.label}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.35, marginTop: 3 }}>
-                    {toast.detalle}
-                  </div>
-                  <button
-                    type="button"
-                    className="notif-toast-action"
-                    onClick={() => openToast(toast)}
-                    style={{
-                      marginTop: 8, minHeight: 32, padding: "0 10px",
-                      border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue,
-                      borderRadius: 8, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: C.sans,
-                    }}
-                  >
-                    {toast.kind === "summary" ? "Ver avisos" : actionLabel(toast.raw)}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="notif-toast-close"
-                  aria-label="Cerrar aviso"
-                  onClick={() => dismissToast(toast.clave || toast.id)}
-                  style={{
-                    width: 32, height: 32, border: "none", background: "transparent",
-                    color: C.dim, cursor: "pointer", borderRadius: 8, display: "grid", placeItems: "center",
-                  }}
-                >
-                  <X size={14} />
-                </button>
+          <div className="notif-list" aria-busy={busy} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <PushNotificationsControl profile={profile} modo="invitacion" />
+            {busy && !lista.length ?<div role="status" style={{ padding: "40px 20px", textAlign: "center", color: C.dim, fontSize: 13 }}>
+              <LoaderCircle className="notif-spin" size={24} style={{ marginBottom: 10 }} aria-hidden="true" /><div>Cargando tus avisos…</div>
+            </div> : !filtered.length ? <div style={{ padding: "36px 22px", textAlign: "center", color: C.dim }}>
+              {hasFilter ? <Search size={28} style={{ color: C.blue, marginBottom: 12 }} aria-hidden="true" />
+                : loadError ? <AlertTriangle size={28} style={{ color: C.red, marginBottom: 12 }} aria-hidden="true" />
+                  : <CheckCircle2 size={28} style={{ color: C.green, marginBottom: 12 }} aria-hidden="true" />}
+              <div style={{ fontSize: 15, color: C.text, fontWeight: 750 }}>{hasFilter ? "No hay avisos con estos filtros" : loadError ? "No pudimos comprobar las novedades" : "Estás al día"}</div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.5, marginTop: 6 }}>{hasFilter ? "Probá con otra búsqueda o mostrálos todos." : loadError ? "Reintentá cuando tengas conexión." : "Acá vas a encontrar las novedades y tareas relacionadas con tu trabajo."}</div>
+              {hasFilter && <button type="button" className="notif-control" onClick={() => { setSearch(""); setType("todos"); setState("todos"); }} style={{ ...controls, marginTop: 14, padding: "0 12px", color: C.blue }}>Limpiar filtros</button>}
+            </div> : groups.map((group) => <section key={group.key} aria-label={group.label}>
+              <div style={{ padding: "12px 16px 9px", background: C.panelSolid2, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                {group.key === "atencion" && <AlertTriangle size={13} color={C.violet} aria-hidden="true" />}
+                <h3 style={{ fontSize: 11, fontWeight: 750, letterSpacing: ".04em", color: group.key === "atencion" ? C.violet : C.dim, textTransform: "uppercase", margin: 0 }}>{group.label}</h3>
+                <span style={{ color: C.dim, fontSize: 11 }}>{group.items.length}</span>
               </div>
-            );
-          })}
-        </div>,
-        document.body,
-      )}
+              {group.dates.map((bucket) => <div key={bucket.key}>
+                <div style={{ padding: "9px 16px 5px", fontSize: 11, fontWeight: 650, color: C.dim }}>{bucket.label}</div>
+                {bucket.items.map((item) => <NotifRow key={item.id} item={item} isAdmin={isAdmin}
+                  onOpen={() => openNotification(item)} onRead={() => markLeido(item)} onResolve={() => resolve(item)} resolving={resolvingKey === item.clave} />)}
+              </div>)}
+            </section>)}
+          </div>
+
+          <div className="notif-panel-footer" style={{ flexShrink: 0, maxHeight: "min(40dvh, 300px)", overflowY: "auto", padding: "10px 14px 12px", borderTop: `1px solid ${C.border}`, background: C.panelSolid2 }}>
+            {!!lista.length && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 9 }}>
+              <span style={{ fontSize: 11, color: C.dim }}>{filtered.length} aviso{filtered.length === 1 ? "" : "s"}{hasFilter ? " en esta vista" : " relacionados con vos"}</span>
+              <button type="button" className="notif-control" onClick={markTodoLeido} disabled={!unreadCount} title="Marcar todas las notificaciones como leídas, incluso las filtradas"
+                style={{ ...controls, padding: "0 9px", fontSize: 11, color: unreadCount ? C.blue : C.dim, opacity: unreadCount ? 1 : 0.5 }}><CheckCheck size={14} aria-hidden="true" />Marcar todas leídas</button>
+            </div>}
+            <PushNotificationsControl profile={profile} compacto />
+          </div>
+        </div>
+      </>, document.body)}
+
+      {!open && toasts.length > 0 && createPortal(<div aria-live="polite" aria-label="Avisos nuevos" style={{
+        position: "fixed", top: size >= 40 ? "calc(68px + env(safe-area-inset-top))" : "max(16px, env(safe-area-inset-top))",
+        right: "max(12px, env(safe-area-inset-right))", zIndex: 9500, display: "flex", flexDirection: "column", gap: 8,
+        width: "min(390px, calc(100vw - 24px))", pointerEvents: "none", fontFamily: C.sans,
+      }}>{toasts.map((toast) => {
+        const item = toast.raw;
+        const gravity = GRAVITY_UI[item?.gravedad] || GRAVITY_UI.info;
+        const Icon = toast.kind === "summary" ? Info : TYPE_UI[item?.tipo]?.icon || Bell;
+        return <div key={toast.id} className="notif-toast" style={{
+          pointerEvents: "auto", display: "grid", gridTemplateColumns: "32px minmax(0, 1fr) 40px", gap: 9, padding: "12px 10px",
+          borderRadius: 14, background: C.panelSolid, border: `1px solid ${gravity.border}`, borderLeft: `3px solid ${gravity.color}`,
+          boxShadow: "0 12px 32px var(--shadow-strong)", animation: reducedMotion ? "none" : "notifEnter .2s ease-out",
+        }}>
+          <span style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", color: gravity.color, background: gravity.soft }}><Icon size={16} aria-hidden="true" /></span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 750, color: gravity.color, marginBottom: 3 }}>{item?.gravedad === "critical" ? "Aviso urgente" : "Nueva notificación"}</div>
+            <div style={{ fontSize: 13, fontWeight: 750, color: C.text, overflowWrap: "anywhere" }}>{item?.titulo || `${toast.count} notificación${toast.count === 1 ? "" : "es"} nueva${toast.count === 1 ? "" : "s"}`}</div>
+            <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.45, marginTop: 3, overflowWrap: "anywhere" }}>{item?.detalle || "Abrí la campana para verlas."}</div>
+            <button type="button" className="notif-control" onClick={() => {
+              if (item) openNotification(item); else { setOpen(true); dismissToast(toast.id); }
+            }} style={{ ...controls, color: C.blue, background: C.blueL, borderColor: C.blueB, padding: "0 10px", marginTop: 8 }}>{item ? actionLabel(item) : "Ver avisos"}<ChevronRight size={13} aria-hidden="true" /></button>
+          </div>
+          <button type="button" className="notif-control" aria-label="Cerrar aviso" onClick={() => dismissToast(toast.id)} style={{ ...controls, width: 40, border: 0, background: "transparent" }}><X size={16} aria-hidden="true" /></button>
+        </div>;
+      })}</div>, document.body)}
     </div>
   );
 }
 
-function FilterTab({ active, color, soft, border, onClick, children }) {
-  return (
-    <button
-      type="button"
-      className="notif-filter"
-      onClick={onClick}
-      style={{
-        border: `1px solid ${active ? border : C.border}`,
-        background: active ? soft : "transparent",
-        color: active ? color : C.dim,
-        borderRadius: 999,
-        padding: "7px 10px",
-        minHeight: 34,
-        cursor: "pointer",
-        fontSize: 11,
-        fontWeight: 700,
-        fontFamily: C.sans,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </button>
-  );
+function FilterTab({ active, onClick, children }) {
+  return <button type="button" className="notif-filter" aria-pressed={active} onClick={onClick} style={{
+    border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent",
+    color: active ? C.blue : C.dim, borderRadius: 8, minHeight: 44, padding: "0 9px", cursor: "pointer",
+    fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap", flexShrink: 0,
+  }}>{children}</button>;
 }
 
-function NotifRow({ item, isAdmin, onOpen, onResolve }) {
-  const cfg = TYPE_UI[item.tipo] || TYPE_UI.produccion;
+function NotifRow({ item, isAdmin, onOpen, onRead, onResolve, resolving }) {
+  const cfg = TYPE_UI[item.tipo] || { label: "Aviso", color: C.blue, soft: C.blueL, border: C.blueB, icon: Bell };
   const Icon = cfg.icon;
-  const g = GRAVITY_UI[item.gravedad] || GRAVITY_UI.info;
+  const gravity = GRAVITY_UI[item.gravedad] || GRAVITY_UI.info;
   const unread = !item.leida;
-  const canResolve = isAdmin && item.tipo === "produccion" && unread;
-
-  return (
-    <div className="notif-row" style={{ borderBottom: `1px solid ${C.border}`, borderLeft: unread ? `3px solid ${g.color}` : "3px solid transparent", background: unread ? g.soft : "transparent" }}>
-      <button type="button" onClick={onOpen} className="notif-row-open" style={{ width: "100%", border: 0, background: "transparent", color: C.text, cursor: "pointer", display: "grid", gridTemplateColumns: "36px minmax(0, 1fr)", gap: 11, textAlign: "left", padding: "13px 16px 12px", fontFamily: C.sans }}>
-        <span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", color: g.color, background: g.soft, border: `1px solid ${g.border}` }}><Icon size={17} /></span>
-        <span style={{ minWidth: 0 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ color: cfg.color, background: cfg.soft, border: `1px solid ${cfg.border}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, fontWeight: 750 }}>{cfg.label}</span>
-            {["critical", "warning"].includes(item.gravedad) && <span style={{ color: g.color, fontSize: 10, fontWeight: 750 }}>{g.label}</span>}
-            {unread && <span style={{ color: g.color, fontSize: 10, fontWeight: 750 }}>Sin leer</span>}
-            <span style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, fontFamily: C.mono, whiteSpace: "nowrap" }}>{fmtFecha(item.fecha)}</span>
-          </span>
-          <span style={{ display: "block", color: C.text, fontSize: 14, fontWeight: unread ? 750 : 650, lineHeight: 1.3, marginTop: 7 }}>{item.titulo}</span>
-          <span style={{ display: "block", color: C.dim, fontSize: 12.5, lineHeight: 1.45, marginTop: 3, overflowWrap: "anywhere" }}>{item.detalle}</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.blue, fontSize: 11.5, fontWeight: 750, marginTop: 9 }}>
-            {actionLabel(item)} <ChevronRight size={14} />
-          </span>
+  const canResolve = isAdmin && item.tipo === "produccion" && !!item.meta?.alerta?.id;
+  return <article className="notif-row" style={{
+    borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${unread ? gravity.color : "transparent"}`,
+    background: unread && item.gravedad === "critical" ? C.redL : "transparent", transition: "background .15s ease",
+  }}>
+    <button type="button" onClick={onOpen} className="notif-row-open" style={{
+      display: "grid", gridTemplateColumns: "34px minmax(0, 1fr)", gap: 10, padding: "12px 13px 4px",
+      width: "100%", background: "transparent", border: 0, color: C.text, cursor: "pointer", textAlign: "left", fontFamily: C.sans,
+    }} aria-label={`${actionLabel(item)}: ${item.titulo}`}>
+      <span style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 10, color: cfg.color, background: cfg.soft, border: `1px solid ${cfg.border}` }}><Icon size={16} aria-hidden="true" /></span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ color: cfg.color, fontSize: 10.5, fontWeight: 750 }}>{cfg.label}</span>
+          {item.gravedad === "critical" && <span style={{ background: gravity.soft, color: gravity.color, border: `1px solid ${gravity.border}`, borderRadius: 5, padding: "1px 5px", fontSize: 10, fontWeight: 750 }}>Urgente</span>}
+          {unread && <span style={{ width: 5, height: 5, borderRadius: 99, background: gravity.color }} title="Sin leer" />}
+          <time dateTime={item.fecha || undefined} style={{ marginLeft: "auto", fontSize: 10, color: C.dim, whiteSpace: "nowrap" }}>{fmtFecha(item.fecha)}</time>
         </span>
-      </button>
-      {canResolve && <div style={{ padding: "0 16px 12px 63px" }}><button type="button" onClick={onResolve} className="notif-resolve" style={{ minHeight: 32, padding: "6px 10px", border: `1px solid ${C.greenB}`, borderRadius: 8, background: C.greenL, color: C.green, cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}>Resolver alerta</button></div>}
+        <span style={{ display: "block", color: C.text, fontSize: 13.5, fontWeight: unread ? 750 : 600, lineHeight: 1.35, marginTop: 5, overflowWrap: "anywhere" }}>{item.titulo}</span>
+        <span style={{ display: "block", color: C.muted, fontSize: 12.5, lineHeight: 1.45, marginTop: 4, overflowWrap: "anywhere", whiteSpace: "pre-line" }}>{item.detalle}</span>
+      </span>
+    </button>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "0 12px 7px 57px" }}>
+      <button type="button" className="notif-control notif-row-open" onClick={onOpen} style={{
+        border: 0, background: "transparent", color: C.blue, display: "inline-flex", alignItems: "center", gap: 2,
+        fontSize: 11.5, fontWeight: 750, fontFamily: C.sans, minHeight: 44, padding: "0 2px", cursor: "pointer",
+      }}><span className="notif-open-label">{actionLabel(item)}</span><ChevronRight size={14} aria-hidden="true" /></button>
+      {canResolve && <button type="button" className="notif-control" onClick={onResolve} disabled={resolving} style={{
+        border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 8, minHeight: 44,
+        padding: "0 8px", cursor: resolving ? "wait" : "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700,
+      }}>{resolving ? "Resolviendo…" : "Resolver alerta"}</button>}
+      {unread && item.ruta && <button type="button" className="notif-control" onClick={onRead} title="Marcar como leída sin abrir" aria-label={`Marcar como leída: ${item.titulo}`} style={{
+        marginLeft: "auto", border: 0, background: "transparent", color: C.dim, display: "grid", placeItems: "center",
+        borderRadius: 8, width: 44, minHeight: 44, cursor: "pointer",
+      }}><Check size={16} aria-hidden="true" /></button>}
+      {!unread && <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: C.dim }}><CheckCheck size={12} aria-hidden="true" />Leída</span>}
     </div>
-  );
+  </article>;
 }
