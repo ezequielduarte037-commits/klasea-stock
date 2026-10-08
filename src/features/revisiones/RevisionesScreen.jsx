@@ -40,7 +40,11 @@ function semanaDeTitulo(titulo) {
 function corto(lote) {
   if (lote.tipo === "inicio") return "Semanas de producción";
   if (lote.tipo === "condicionante") return "Condicionante";
-  if (lote.tipo === "productos") return `${lote.total} productos`;
+  // Productos: de qué proveedor es la lista del día.
+  if (lote.tipo === "productos") {
+    const de = lote.titulo.split("·")[1]?.trim() || "";
+    return /^sin proveedor/.test(de) ? "Productos sin proveedor" : de ? `Productos · ${de}` : `${lote.total} productos`;
+  }
   const w = semanaDeTitulo(lote.titulo);
   return lote.titulo === "Semana de la botadura" ? "Plan · botadura" : w === 0 ? "Plan · desmolde" : w != null ? `Plan · ${w > 0 ? "+" : "−"}${Math.abs(w)}` : "Plan";
 }
@@ -266,7 +270,7 @@ function textoPaso(lote) {
     case "semana": return { etiqueta: "Plan de producción", titulo: lote.titulo, detalle: "Qué etapas y qué materiales van esa semana" };
     default: return {
       etiqueta: "Productos de la matriz", titulo: `Revisá ${lote.total} productos`,
-      detalle: `${lote.titulo.split("·")[1]?.trim() || "Matriz"}${lote.respondidos ? ` · te faltan ${falta}` : ""}`,
+      detalle: `${(lote.titulo.split("·")[1]?.trim() || "Matriz").replace(/^sin proveedor cargado: /, "Sin proveedor · ")}${lote.respondidos ? ` · te faltan ${falta}` : ""}`,
     };
   }
 }
