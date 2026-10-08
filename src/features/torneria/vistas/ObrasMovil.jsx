@@ -15,7 +15,8 @@ import {
   primeraSalida, processProgress, qty, routeIsComplete, tramoCerrado, workshopName,
 } from "../torneriaEstado";
 import { COMPRA_META, GROUP_COLORS, circuitoNodos } from "../circuitoDatos";
-import { CatalogTechnicalName, CircuitoRail, OperationCard, RecepcionAnticipada } from "../circuito";
+import { CatalogTechnicalName, CircuitoRail, FotoMaterial, OperationCard, RecepcionAnticipada } from "../circuito";
+import { fotoDelMaterial } from "../circuitoDatos";
 import { MenuDeObra } from "./ObraDetalle";
 
 // Las obras en el celular, como las conocía el mecánico: la lista de obras y,
@@ -622,7 +623,8 @@ function StandaloneRouteCard({
         gap: 10,
         flexWrap: "wrap",
       }}>
-        <div style={{ minWidth: 0 }}>
+        <FotoMaterial item={item} size={48} />
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
             <span style={{ color: C.text, fontSize: 13.5, fontWeight: 700, lineHeight: 1.3 }}>
               {item.descripcion}
@@ -694,7 +696,8 @@ function TransformationSource({ process, row, onMove, onReady, onPedirCompra = n
       background: complete ? C.greenL : C.panelSolid,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
+        <FotoMaterial item={row.item} size={42} />
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>
             {row.item.descripcion}
           </div>
@@ -1553,7 +1556,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
             return (
               <div key={item.id} style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0,1fr) auto",
+                gridTemplateColumns: fotoDelMaterial(item) ? "auto minmax(0,1fr) auto" : "minmax(0,1fr) auto",
                 gap: 10,
                 padding: 11,
                 borderRadius: 12,
@@ -1563,6 +1566,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                 // dudar de si se decidió o si alguien lo borró.
                 opacity: item.no_lleva ? 0.55 : 1,
               }}>
+                <FotoMaterial item={item} size={48} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                     <span style={{

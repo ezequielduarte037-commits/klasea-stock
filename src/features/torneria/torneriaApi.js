@@ -63,9 +63,9 @@ export async function fetchTorneriaProcesos() {
       // peso_kg viaja porque el pedido a Compras lo necesita: la broncería se
       // cotiza por kilo y sin el peso el proveedor tiene el diámetro pero no
       // cuánto material lleva la pieza.
-      "*,material:panol_materiales(id,codigo,descripcion,proveedor,unidad_medida,peso_kg,categoria_id)"
+      "*,material:panol_materiales(id,codigo,descripcion,proveedor,unidad_medida,peso_kg,categoria_id,imagen_url)"
         + ",materiales:torneria_item_materiales(id,material_id,cantidad,orden"
-        + ",material:panol_materiales(id,codigo,descripcion,alias,proveedor,unidad_medida,peso_kg,precio_unitario,moneda,categoria_id))",
+        + ",material:panol_materiales(id,codigo,descripcion,alias,proveedor,unidad_medida,peso_kg,precio_unitario,moneda,categoria_id,imagen_url))",
       { column: "orden", options: { ascending: true } },
     ),
     inQuery(

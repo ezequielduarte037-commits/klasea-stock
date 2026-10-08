@@ -8,7 +8,7 @@ import {
   DEMORA_DIAS, ETAPAS, cantidadTexto, contarEtapas, diasEntre, groupRows, plural, primeraSalida, workshopName,
 } from "../torneriaEstado";
 import { GROUP_COLORS, circuitoNodos } from "../circuitoDatos";
-import { CatalogTechnicalName, CircuitoRail, RecepcionAnticipada } from "../circuito";
+import { CatalogTechnicalName, CircuitoRail, FotoMaterial, RecepcionAnticipada } from "../circuito";
 import { Dias } from "../torneriaUi";
 
 const ICONO_ETAPA = {
@@ -83,9 +83,12 @@ function FilaPieza({ pieza, acciones }) {
   return (
     <div className={`tor-pieza${abierta ? " abierta" : ""}${hecha ? " hecha" : ""}`}>
       <div className="tor-pieza-fila">
-        <span className="tor-pieza-ic" data-tono={etapa === "taller" && operation?.tipo === "plegadora" ? "violeta" : meta.tono}>
-          {createElement(ICONO_ETAPA[etapa] || CircleDashed, { size: 16 })}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="tor-pieza-ic" data-tono={etapa === "taller" && operation?.tipo === "plegadora" ? "violeta" : meta.tono}>
+            {createElement(ICONO_ETAPA[etapa] || CircleDashed, { size: 16 })}
+          </span>
+          <FotoMaterial item={item} size={46} />
+        </div>
         <button type="button" className="tor-pieza-txt" onClick={() => setAbierta((v) => !v)} aria-expanded={abierta}>
           <div className="tor-pieza-nom">
             {item.descripcion}
@@ -97,6 +100,7 @@ function FilaPieza({ pieza, acciones }) {
             <span>{detalleEtapa(pieza)}</span>
             {(etapa === "taller" || etapa === "retirar") && <Dias dias={pieza.dias} demora={DEMORA_DIAS} />}
           </div>
+          <div style={{ marginTop: 3 }}><CatalogTechnicalName item={item} /></div>
         </button>
         {principal && (
           <div className="tor-pieza-acc">
@@ -125,7 +129,6 @@ function FilaPieza({ pieza, acciones }) {
       {abierta && (
         <div className="tor-pieza-mas">
           {hecha && nodos.length > 0 && <CircuitoRail nodos={nodos} />}
-          <CatalogTechnicalName item={item} />
           <RecepcionAnticipada item={item} />
           <div className="linea">
             {cantidadTexto(item.cantidad, item.unidad)}

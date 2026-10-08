@@ -265,9 +265,9 @@ function PasosObra({ process, acciones }) {
   );
 }
 
-function HistorialObra({ process, onOpenMovement }) {
+function HistorialObra({ process, onOpenMovement, limiteInicial = 30, paginar = true }) {
   // Un seguimiento junta cientos de eventos: se muestran los más nuevos.
-  const [limite, setLimite] = useState(30);
+  const [limite, setLimite] = useState(limiteInicial);
   const movimientos = (process.operaciones || []).flatMap((operation) =>
     (operation.movimientos || []).map((movement) => ({
       id: `movement-${movement.id}`,
@@ -331,12 +331,41 @@ function HistorialObra({ process, onOpenMovement }) {
           );
         })}
       </div>
-      {rows.length > limite && (
+      {paginar && rows.length > limite && (
         <button type="button" className="ui-btn chico" onClick={() => setLimite((v) => v + 30)}>
           Ver {Math.min(30, rows.length - limite)} más · quedan {rows.length - limite}
         </button>
       )}
     </div>
+  );
+}
+
+function DatosObra({ process, onEditar }) {
+  const datos = [
+    ["Taller de Tornería", operationDestinationLabel({ tipo: "torneria", destino: process.taller_torneria })],
+    ["Plegadora", operationDestinationLabel({ tipo: "plegadora", destino: process.taller_plegadora })],
+    ["Responsable", process.responsable],
+    ["Plantilla", process.plantilla?.nombre],
+    ["Creado", process.created_at ? fmtDate(process.created_at, false) : null],
+  ];
+  return (
+    <section className="tor-bloque">
+      <div className="tor-bloque-cab">
+        <h3>Datos de la obra</h3>
+        <span className="der">
+          <button type="button" className="ui-btn chico ui-btn-fantasma" onClick={onEditar}><Edit3 size={14} /> Editar</button>
+        </span>
+      </div>
+      <div className="tor-datos">
+        {datos.map(([etiqueta, valor]) => (
+          <div key={etiqueta}>
+            <div className="tor-dato-et">{etiqueta}</div>
+            <div className={`tor-dato-v${valor ? "" : " vacio"}`}>{valor || "—"}</div>
+          </div>
+        ))}
+      </div>
+      {process.notas && <div className="tor-obs">{process.notas}</div>}
+    </section>
   );
 }
 
@@ -423,9 +452,27 @@ export default function ObraDetalle({ process, piezas, isMobile, seccion, setSec
         </div>
       )}
 
-      <Ahora process={process} piezas={piezas} acciones={acciones} onVerMateriales={() => setSeccion("materiales")} />
+      {/* Con pantalla ancha el detalle va en dos columnas: lo que hay que hacer
+          ("Ahora") queda fijo a la derecha mientras se recorren las piezas. En
+          una columna, "Ahora" va primero. */}
+      <div className="tor-panel-cuerpo">
+        <aside className="tor-panel-lado">
+          <Ahora process={process} piezas={piezas} acciones={acciones} onVerMateriales={() => setSeccion("materiales")} />
+          <section className="tor-bloque tor-solo-ancho">
+            <div className="tor-bloque-cab">
+              <h3>Últimos movimientos</h3>
+              <span className="der">
+                <button type="button" className="ui-btn chico ui-btn-fantasma" onClick={() => setSeccion("historial")}>Ver todo</button>
+              </span>
+            </div>
+            <HistorialObra process={process} onOpenMovement={acciones.onOpenMovement} limiteInicial={8} paginar={false} />
+          </section>
+          <div className="tor-solo-ancho">
+            <DatosObra process={process} onEditar={acciones.onEditProcess} />
+          </div>
+        </aside>
 
-      <section className="tor-bloque">
+      <section className="tor-bloque tor-panel-main">
         <div className="tor-bloque-cab">
           <div className="tor-seg" role="tablist" aria-label="Secciones de la obra" style={{ maxWidth: "100%", overflowX: "auto" }}>
             {SECCIONES.map(([key, texto]) => (
@@ -456,6 +503,7 @@ export default function ObraDetalle({ process, piezas, isMobile, seccion, setSec
         {seccion === "pasos" && <PasosObra process={process} acciones={acciones} />}
         {seccion === "historial" && <HistorialObra process={process} onOpenMovement={acciones.onOpenMovement} />}
       </section>
+      </div>
     </div>
   );
 }

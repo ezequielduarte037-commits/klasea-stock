@@ -119,6 +119,13 @@ export function descripcionPedidoCompras(process, items = []) {
 // Los colores siguen la semántica del resto de la app: cyan es "falta hacer",
 // azul es "en curso", violeta es "casi", verde es "listo". El rojo queda para lo
 // que está bloqueado — "sin pedir" no es un error, es una tarea.
+// La foto del producto del catálogo vinculado, si tiene. En un lote, la del
+// primer material que tenga foto.
+export function fotoDelMaterial(item) {
+  const candidatos = [item?.material, ...materialesDelRenglon(item).map((row) => row.material)].filter(Boolean);
+  return candidatos.find((material) => material.imagen_url) || null;
+}
+
 export const COMPRA_META = {
   pendiente_solicitud: { label: "Sin pedir", color: C.cyan, soft: C.cyanL, borde: C.cyanB, paso: 0 },
   solicitado: { label: "Pedido", color: C.blue, soft: C.blueL, borde: C.blueB, paso: 1 },

@@ -1,7 +1,7 @@
 import { Check, Edit3, FileText, Link2, Plus, ShoppingCart } from "lucide-react";
 import { cantidadTexto, diasEntre, fmtDate, groupRows } from "../torneriaEstado";
-import { GROUP_COLORS } from "../circuitoDatos";
-import { CatalogTechnicalName, RecepcionAnticipada } from "../circuito";
+import { GROUP_COLORS, fotoDelMaterial } from "../circuitoDatos";
+import { CatalogTechnicalName, FotoMaterial, RecepcionAnticipada } from "../circuito";
 
 const PURCHASE_STATES = [
   ["pendiente_solicitud", "Sin pedir"],
@@ -52,7 +52,12 @@ export default function MaterialesObra({ process, onEdit, onNew, onStatus, onCon
               const porConfirmar = item.requiere_confirmacion && !item.confirmado_at && !item.no_lleva;
               const dias = diasEntre(item.solicitado_at, item.recibido_astillero_at);
               return (
-                <div key={item.id} className={`tor-fila${porConfirmar ? " atencion" : ""}${item.no_lleva ? " apagada" : ""}`}>
+                <div
+                  key={item.id}
+                  className={`tor-fila${porConfirmar ? " atencion" : ""}${item.no_lleva ? " apagada" : ""}`}
+                  style={fotoDelMaterial(item) ? { gridTemplateColumns: "auto minmax(0, 1fr) auto" } : undefined}
+                >
+                  <FotoMaterial item={item} size={52} />
                   <div style={{ minWidth: 0 }}>
                     <div className="tor-fila-tit">
                       <span style={{ textDecoration: item.no_lleva ? "line-through" : "none" }}>{item.descripcion}</span>

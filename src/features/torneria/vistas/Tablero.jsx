@@ -3,6 +3,8 @@ import { Check, ChevronRight, PackageOpen, Search, ShoppingCart, Truck } from "l
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { DEMORA_DIAS, cantidadTexto, plural, workshopName } from "../torneriaEstado";
 import { Dias } from "../torneriaUi";
+import { CatalogTechnicalName, FotoMaterial } from "../circuito";
+import { fotoDelMaterial } from "../circuitoDatos";
 
 // El Panel general es el circuito de todas las obras puesto en columnas, en el
 // orden en que viaja una pieza. Cada columna dice qué hay que hacer con lo que
@@ -122,9 +124,15 @@ function ObraMarcar({ grupo, etapa, onAbrir, onReady }) {
       />
       <div className="tor-ocard-cuerpo">
         {piezas.map((pieza) => (
-          <div key={pieza.key} className="tor-prow">
+          <div
+            key={pieza.key}
+            className="tor-prow"
+            style={fotoDelMaterial(pieza.item) ? { gridTemplateColumns: "auto minmax(0, 1fr) auto" } : undefined}
+          >
+            <FotoMaterial item={pieza.item} size={36} />
             <div style={{ minWidth: 0 }}>
               <div className="tor-prow-nom">{pieza.item.descripcion}</div>
+              <CatalogTechnicalName item={pieza.item} linea />
               <div className="tor-prow-sub">
                 {enTaller
                   ? `${workshopName(pieza.operation)} · viaje ${pieza.operation.viaje || 1}${pieza.dias != null ? ` · hace ${pieza.dias} d` : ""}`
@@ -178,10 +186,13 @@ function ObraElegir({ grupo, etapa, elegidas, onElegir, onAbrir }) {
               className={`tor-prow sel${on ? " on" : ""}`}
               onClick={() => onElegir(pieza.key)}
               aria-pressed={on}
+              style={fotoDelMaterial(pieza.item) ? { gridTemplateColumns: "auto auto minmax(0, 1fr) auto" } : undefined}
             >
               <span className={`tor-check${on ? " on" : ""}`}>{on && <Check size={13} />}</span>
+              <FotoMaterial item={pieza.item} size={36} estatica />
               <span style={{ minWidth: 0 }}>
                 <span className="tor-prow-nom">{pieza.item.descripcion}</span>
+                <CatalogTechnicalName item={pieza.item} linea />
                 <span className="tor-prow-sub" style={{ display: "block" }}>
                   {workshopName(pieza.operation)} · viaje {pieza.operation.viaje || 1}
                   {pieza.desdeListo != null && pieza.desdeListo > 0 ? ` · lista hace ${pieza.desdeListo} d` : ""}

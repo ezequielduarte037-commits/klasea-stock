@@ -219,6 +219,8 @@ button.tor-ocard-cab:hover { background: var(--panel-2); }
 .tor-prow-nom { font-size: 13px; font-weight: 600; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .tor-prow-sub { margin-top: 2px; font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tor-prow-der { display: flex; align-items: center; gap: 6px; }
+.tor-foto { display: block; flex-shrink: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); }
+.tor-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .tor-check {
   width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; display: grid; place-items: center;
   border: 1.5px solid var(--border-3); background: var(--bg); color: var(--inverse-text);
@@ -255,6 +257,26 @@ button.tor-ocard-cab:hover { background: var(--panel-2); }
 /* ── Detalle de una obra ── */
 .tor-panel { padding: 18px 24px 40px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; max-width: 1080px; animation: tor-aparece .3s ease both; }
 .tor-cab { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.tor-panel-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; min-width: 0; }
+.tor-panel-lado { display: grid; gap: 14px; min-width: 0; align-content: start; }
+.tor-panel-main { min-width: 0; }
+.tor-solo-ancho { display: none; }
+/* Pantalla ancha: dos columnas, y "Ahora" acompaña el scroll. */
+@container (min-width: 1180px) {
+  .tor-panel { max-width: none; }
+  .tor-panel-cuerpo { grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); }
+  .tor-panel-main { grid-column: 1; grid-row: 1; }
+  .tor-panel-lado {
+    grid-column: 2; grid-row: 1; position: sticky; top: 14px;
+    max-height: calc(100vh - 150px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  }
+  .tor-solo-ancho { display: block; }
+}
+.tor-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.tor-dato-et { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); margin-bottom: 4px; }
+.tor-dato-v { font-size: 13px; color: var(--text); line-height: 1.4; overflow-wrap: anywhere; }
+.tor-dato-v.vacio { color: var(--subtle); }
+.tor-obs { margin-top: 12px; padding: 10px 12px; border-radius: 11px; background: var(--bg); border: 1px solid var(--border); font-size: 12.5px; color: var(--muted); line-height: 1.5; white-space: pre-wrap; }
 .tor-cab-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
 .tor-cab-tit { font-size: 22px; font-weight: 700; letter-spacing: -.015em; line-height: 1.15; }
 .tor-cab-sub { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--dim); }
@@ -329,7 +351,9 @@ button.tor-ocard-cab:hover { background: var(--panel-2); }
 .tor-pieza-mas .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
 .tor-cat { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 12px; color: var(--dim); }
 .tor-cat svg { flex-shrink: 0; color: var(--green); }
-.tor-cat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tor-cat b { flex-shrink: 0; font-weight: 600; color: var(--muted); }
+.tor-cat span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tor-prow .tor-cat { margin-top: 2px; font-size: 11.5px; }
 
 /* El recorrido de un material, en un riel */
 .tor-riel { display: flex; align-items: center; gap: 0; min-width: 0; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; position: relative; }

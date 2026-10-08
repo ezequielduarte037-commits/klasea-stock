@@ -6,7 +6,8 @@ import { C } from "@/theme";
 import { ProgressBar, StatusBadge } from "./torneriaUi";
 import { BUTTON, PRIMARY_BUTTON } from "./torneriaStyles";
 import { recepcionAnticipada } from "./recepcionesAnticipadas";
-import { materialesDelRenglon } from "./circuitoDatos";
+import { fotoDelMaterial, materialesDelRenglon } from "./circuitoDatos";
+import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import {
   dependencyRows, fmtDate, operationProgress, operationStatusLabel, qty, workshopName,
 } from "./torneriaEstado";
@@ -66,15 +67,28 @@ export function CircuitoRail({ nodos }) {
 // Nombre real del material en el catálogo de Pañol. El nombre grande sigue
 // siendo el de Mecánica ("Núcleo para pata de gallo"); este aclara qué producto
 // físico es. Un lote lista todos sus materiales con su cantidad.
-export function CatalogTechnicalName({ item }) {
+export function CatalogTechnicalName({ item, linea = false }) {
   const lista = materialesDelRenglon(item);
+  const texto = (material) => [material?.codigo, material?.descripcion].filter(Boolean).join(" · ");
+  // En una fila angosta (el Panel) va en una sola línea: el primer material del
+  // lote y cuántos más lleva.
+  if (linea && lista.length > 1) {
+    return (
+      <div className="tor-cat" title={lista.map((row) => `×${Number(row.cantidad) || 1} ${texto(row.material)}`).join(" · ")}>
+        <Link2 size={11} />
+        <b>Catálogo</b>
+        <span>{texto(lista[0].material)} · y {lista.length - 1} más</span>
+      </div>
+    );
+  }
   if (lista.length > 1) {
     return (
       <div style={{ display: "grid", gap: 2 }}>
         {lista.map((row) => (
           <div key={row.id || row.material_id} className="tor-cat" title="Material vinculado desde el catálogo de Pañol">
             <Link2 size={11} />
-            <span><b className="mono" style={{ fontWeight: 600 }}>×{Number(row.cantidad) || 1}</b> {[row.material?.codigo, row.material?.descripcion].filter(Boolean).join(" · ")}</span>
+            <b className="mono">×{Number(row.cantidad) || 1}</b>
+            <span>{texto(row.material)}</span>
           </div>
         ))}
       </div>
@@ -85,8 +99,33 @@ export function CatalogTechnicalName({ item }) {
   return (
     <div className="tor-cat" title="Nombre técnico vinculado desde el catálogo de Pañol">
       <Link2 size={11} />
-      <span>{[material.codigo, material.descripcion].filter(Boolean).join(" · ")}</span>
+      <b>Catálogo</b>
+      <span>{texto(material)}</span>
     </div>
+  );
+}
+
+// La fotito del producto del catálogo: el mecánico reconoce la pieza antes de
+// leer el nombre. Si el material no tiene foto, no ocupa lugar. Al tocarla se
+// abre grande (la misma vista que en Pañol).
+export function FotoMaterial({ item, size = 44, estatica = false }) {
+  const material = fotoDelMaterial(item);
+  if (!material) return null;
+  // Adentro de un botón (las filas que se eligen en el Panel) no puede haber
+  // otro botón: ahí va sólo la imagen.
+  if (estatica) {
+    return (
+      <span className="tor-foto" style={{ width: size, height: size }}>
+        <img src={material.imagen_url} alt="" loading="lazy" />
+      </span>
+    );
+  }
+  return (
+    <MaterialThumb
+      material={{ id: material.id, descripcion: material.descripcion || item?.descripcion, imagen_url: material.imagen_url }}
+      size={size}
+      showZoomBadge
+    />
   );
 }
 

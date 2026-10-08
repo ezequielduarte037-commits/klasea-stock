@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
+import { useResponsive } from "@/hooks/useResponsive";
 import {
   borrarAdjunto,
   borrarContacto,
@@ -29,7 +30,7 @@ const tinta = (color, alfa) => `color-mix(in srgb, ${color} ${Math.round(alfa * 
 const INP = {
   width: "100%", boxSizing: "border-box", background: "var(--panel)",
   border: `1px solid ${C.b0}`, color: C.t0, padding: "8px 11px", borderRadius: 8,
-  fontSize: 13, outline: "none", fontFamily: C.sans,
+  fontSize: 13, outline: "none", fontFamily: C.sans, minHeight: 40,
 };
 const LBL = {
   fontSize: 9.5, letterSpacing: 1.2, color: C.t1, display: "block",
@@ -87,12 +88,10 @@ function FilaContacto({ contacto, onGuardar, onBorrar }) {
             style={{ ...INP, fontFamily: C.mono }} />
         </div>
         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-          <button type="button" onClick={() => (contacto.id ? setEditando(false) : onBorrar())}
-            style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 11px", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>
+          <button type="button" className="ui-btn" onClick={() => (contacto.id ? setEditando(false) : onBorrar())}>
             Cancelar
           </button>
-          <button type="button" onClick={guardar} disabled={!form.nombre.trim() || guardando}
-            style={{ background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.35)}`, color: C.blue, padding: "5px 13px", borderRadius: 7, fontSize: 12, fontWeight: 650, cursor: form.nombre.trim() ? "pointer" : "default" }}>
+          <button type="button" className="ui-btn ui-btn-suave" onClick={guardar} disabled={!form.nombre.trim() || guardando}>
             {guardando ? "Guardando…" : "Guardar"}
           </button>
         </div>
@@ -115,17 +114,16 @@ function FilaContacto({ contacto, onGuardar, onBorrar }) {
       </div>
       {wa ? (
         <a href={wa} target="_blank" rel="noreferrer" title="Abrir WhatsApp"
-          style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 7, border: `1px solid ${tinta(C.green, 0.3)}`, background: tinta(C.green, 0.1), color: C.green }}>
-          <MessageCircle size={13} />
+          className="pv-ficha-ico"
+          style={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 9, border: `1px solid ${tinta(C.green, 0.3)}`, background: tinta(C.green, 0.1), color: C.green, flexShrink: 0 }}>
+          <MessageCircle size={16} />
         </a>
       ) : null}
-      <button type="button" onClick={() => setEditando(true)} title="Editar"
-        style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "grid", placeItems: "center" }}>
-        <Phone size={12} />
+      <button type="button" onClick={() => setEditando(true)} title="Editar" className="ui-btn ui-btn-icono">
+        <Phone size={14} />
       </button>
-      <button type="button" onClick={onBorrar} title="Quitar"
-        style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", padding: 3, display: "flex" }}>
-        <Trash2 size={13} />
+      <button type="button" onClick={onBorrar} title="Quitar" className="ui-btn ui-btn-icono" aria-label="Quitar contacto">
+        <Trash2 size={14} />
       </button>
     </div>
   );
@@ -134,6 +132,7 @@ function FilaContacto({ contacto, onGuardar, onBorrar }) {
 /* ── LA FICHA ──────────────────────────────────────────────────────────────── */
 
 export default function FichaBarco({ barco, onCerrar, onCambio }) {
+  const { isMobile } = useResponsive();
   const toast = useToast();
   const [contactos, setContactos] = useState([]);
   const [adjuntos, setAdjuntos] = useState([]);
@@ -219,9 +218,15 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
 
   return (
     <div
+      className={isMobile ? "pv-ficha pv-ficha-cel" : "pv-ficha"}
       onClick={(e) => e.target === e.currentTarget && onCerrar()}
-      style={{ position: "fixed", inset: 0, background: tinta(C.bg, 0.82), backdropFilter: "blur(18px)", zIndex: 9998, display: "flex", justifyContent: "flex-end" }}
+      style={{ position: "fixed", inset: 0, background: tinta(C.bg, 0.82), backdropFilter: "blur(18px)", zIndex: 9998, display: "flex", justifyContent: isMobile ? "center" : "flex-end", alignItems: isMobile ? "flex-end" : "stretch" }}
     >
+      <style>{`
+        .pv-ficha-cel .pv-ficha-panel { border-left: none; border-radius: 16px 16px 0 0; width: 100%; height: min(92dvh, 100%); max-height: min(92dvh, 100%); box-shadow: 0 -18px 44px rgba(0,0,0,.28); }
+        .pv-ficha .pv-ficha-pie { padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+        .pv-ficha-cel button[aria-label="Borrar foto"] { width: 32px; height: 32px; }
+      `}</style>
       <datalist id="postventa-roles">{ROLES.map((r) => <option key={r} value={r} />)}</datalist>
 
       {mirando ? (
@@ -234,7 +239,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
         </div>
       ) : null}
 
-      <div style={{ width: "min(440px, 100%)", height: "100%", background: "var(--panel-solid)", borderLeft: `1px solid ${C.b1}`, display: "flex", flexDirection: "column", boxShadow: "-24px 0 60px rgba(0,0,0,.4)" }}>
+      <div className="pv-ficha-panel" style={{ width: "min(440px, 100%)", height: "100%", background: "var(--panel-solid)", borderLeft: `1px solid ${C.b1}`, display: "flex", flexDirection: "column", boxShadow: "-24px 0 60px rgba(0,0,0,.4)" }}>
         {/* Encabezado */}
         <div style={{ padding: "16px 18px 13px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -250,8 +255,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 </div>
               ) : null}
             </div>
-            <button type="button" onClick={onCerrar} aria-label="Cerrar"
-              style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", padding: 4, display: "flex" }}>
+            <button type="button" onClick={onCerrar} aria-label="Cerrar" className="ui-btn ui-btn-icono">
               <X size={17} />
             </button>
           </div>
@@ -273,10 +277,10 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 icono={Phone}
                 titulo={`Contactos${contactos.length ? ` · ${contactos.length}` : ""}`}
                 extra={(
-                  <button type="button" title="Agregar"
+                  <button type="button" title="Agregar" className="ui-btn ui-btn-suave"
                     onClick={() => setContactos((a) => [...a, { nombre: "", rol: "", telefono: "", orden: a.length }])}
-                    style={{ background: tinta(C.blue, 0.1), border: `1px solid ${tinta(C.blue, 0.28)}`, color: C.blue, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    <UserPlus size={11} /> Sumar
+                    style={{ minHeight: 38, padding: "0 10px", fontSize: 12 }}>
+                    <UserPlus size={13} /> Sumar
                   </button>
                 )}
               >
@@ -302,7 +306,7 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
 
               {/* ACCESO */}
               <Seccion icono={Clock} titulo="Horario de trabajo">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 8 }}>
                   <div>
                     <span style={LBL}>Días</span>
                     <input value={acceso.acceso_dias} placeholder="Lunes a viernes"
@@ -329,8 +333,8 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 icono={ImagePlus}
                 titulo={`Fotos${fotos.length ? ` · ${fotos.length}` : ""}`}
                 extra={(
-                  <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    {subiendo === "foto" ? <LoaderCircle size={11} className="spin" /> : <Plus size={11} />} Subir
+                  <label className="ui-btn" style={{ minHeight: 38, padding: "0 10px", fontSize: 12, cursor: "pointer" }}>
+                    {subiendo === "foto" ? <LoaderCircle size={11} className="spin" /> : <Plus size={13} />} Subir
                     <input type="file" accept="image/*" multiple hidden
                       onChange={(e) => { subir(e.target.files, "foto"); e.target.value = ""; }} />
                   </label>
@@ -363,8 +367,8 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                 icono={Paperclip}
                 titulo={`Documentación${papeles.length ? ` · ${papeles.length}` : ""}`}
                 extra={(
-                  <label style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, padding: "4px 9px", fontSize: 11.5, fontWeight: 650, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    {subiendo === "documento" ? <LoaderCircle size={11} className="spin" /> : <Plus size={11} />} Subir
+                  <label className="ui-btn" style={{ minHeight: 38, padding: "0 10px", fontSize: 12, cursor: "pointer" }}>
+                    {subiendo === "documento" ? <LoaderCircle size={11} className="spin" /> : <Plus size={13} />} Subir
                     <input type="file" multiple hidden
                       onChange={(e) => { subir(e.target.files, "documento"); e.target.value = ""; }} />
                   </label>
@@ -377,17 +381,15 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
                       style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: C.t0, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {p.nombre || "archivo"}
                     </a>
-                    <button type="button" title="Copiar link"
+                    <button type="button" title="Copiar link" className="ui-btn ui-btn-icono"
                       onClick={async () => {
                         try { await navigator.clipboard.writeText(p.url); toast.success("Link copiado."); }
                         catch { toast.error("No se pudo copiar."); }
-                      }}
-                      style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, width: 26, height: 26, borderRadius: 6, cursor: "pointer", display: "grid", placeItems: "center" }}>
-                      <Copy size={11} />
+                      }}>
+                      <Copy size={13} />
                     </button>
-                    <button type="button" onClick={() => quitarAdjunto(p)} aria-label="Borrar"
-                      style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", padding: 3, display: "flex" }}>
-                      <Trash2 size={12} />
+                    <button type="button" onClick={() => quitarAdjunto(p)} aria-label="Borrar" className="ui-btn ui-btn-icono">
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 )) : (
@@ -401,9 +403,8 @@ export default function FichaBarco({ barco, onCerrar, onCambio }) {
         </div>
 
         {/* Lo que se le manda al técnico */}
-        <div style={{ borderTop: `1px solid ${C.b0}`, padding: 14, flexShrink: 0, background: "var(--panel)" }}>
-          <button type="button" onClick={copiarFicha}
-            style={{ width: "100%", background: tinta(C.blue, 0.14), border: `1px solid ${tinta(C.blue, 0.4)}`, color: C.blue, borderRadius: 9, padding: "11px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: C.sans }}>
+        <div className="pv-ficha-pie" style={{ borderTop: `1px solid ${C.b0}`, padding: 14, flexShrink: 0, background: "var(--panel)" }}>
+          <button type="button" onClick={copiarFicha} className="ui-btn ui-btn-primario" style={{ width: "100%", minHeight: 44 }}>
             <Copy size={14} /> Copiar ficha
           </button>
           <div style={{ color: C.t2, fontSize: 11, marginTop: 7, lineHeight: 1.45, textAlign: "center" }}>
