@@ -96,7 +96,7 @@ export async function loadPushState(profile, isCurrent = () => true) {
   if (!isCurrent()) return null;
   const permission = window.Notification?.permission || "default";
   return { phase: permission === "denied" ? "blocked" : subscription ? "active" : "ready", reg, key, subscription,
-    preferences: preferences || { push_enabled: true, categorias: ["logistica", "compras", "panol"] } };
+    preferences: preferences || { push_enabled: true, categorias: ["logistica", "compras", "panol", "revisiones"] } };
 }
 
 function deviceLabel() {

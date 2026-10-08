@@ -210,6 +210,7 @@ const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/Port
 const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
 const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
 const MemoriaVivaScreen = pantalla(() => import("@/features/memorias/MemoriaVivaScreen"));
+const RevisionesScreen = pantalla(() => import("@/features/revisiones/RevisionesScreen"));
 const EquiposScreen = pantalla(() => import("@/features/equipos/EquiposScreen"));
 const SemaforoScreen = pantalla(() => import("@/features/semaforo/SemaforoScreen"));
 const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScreen"));
@@ -720,6 +721,8 @@ export default function App() {
           <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
           <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
           <Route path="/memorias/viva" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriaVivaScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* Etapa de carga: los dueños de cada línea depuran matrices y etapas; Compras sigue el avance. */}
+          <Route path="/revisiones" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><RevisionesScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
           <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","administracion","compras"]}><CalendarioScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/calendario-produccion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><CalendarioProduccionScreen {...A} /></RequireRole></RequireAuth>} />

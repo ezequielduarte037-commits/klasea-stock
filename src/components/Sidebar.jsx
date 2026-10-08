@@ -61,6 +61,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M5 5h6M5 8h6M5 11h4" {...p}/>
       <path d="M4 2v12" {...p}/>
     </>,
+    "/revisiones": <>
+      <rect x="3" y="2" width="10" height="13" rx="2" {...p}/>
+      <path d="M6 2V1h4v1" {...p}/>
+      <path d="M5.5 8.5l1.8 1.8L10.5 7" {...p}/>
+    </>,
     "/marmoleria": <>
       <path d="M8 1l7 7-7 7-7-7z" {...p}/>
       <path d="M8 5.5l2.5 2.5-2.5 2.5-2.5-2.5z" {...p}/>
@@ -848,6 +853,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
           {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
           {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
+          {item("/revisiones",  "Revisiones técnicas", SC.produccion, true, 155, "Etapa de carga: los dueños de cada línea depuran la matriz y las etapas, y la liberan para Compras.")}
           {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
           {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
           {item("/torneria",    "Tornería",    SC.produccion, true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}

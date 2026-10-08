@@ -71,7 +71,7 @@ export default function PushNotificationsControl({ profile, modo = "ajustes" }) 
       <summary style={{ cursor: "pointer", color: C.dim, padding: "4px 0" }}>Qué avisos recibir</summary>
       <div style={{ display: "grid", gap: 9, marginTop: 9 }}>
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={prefs.push_enabled !== false} disabled={!!busy} onChange={(event) => preferences({ ...prefs, push_enabled: event.target.checked })} />Recibir avisos al celular</label>
-        {[["logistica", "Movimientos: hidrogrúas, fletes, desmoldes y recordatorios del día"], ["compras", "Pedidos y novedades de compras"], ["panol", "Recepción y solicitudes de pañol"]].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {[["logistica", "Movimientos: hidrogrúas, fletes, desmoldes y recordatorios del día"], ["compras", "Pedidos y novedades de compras"], ["panol", "Recepción y solicitudes de pañol"], ["revisiones", "Revisiones técnicas de matrices y etapas"]].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={prefs.categorias?.includes(key) || false} disabled={!!busy} onChange={(event) => preferences({ ...prefs, categorias: event.target.checked ? [...new Set([...(prefs.categorias || []), key])] : (prefs.categorias || []).filter((category) => category !== key) })} />{label}
         </label>)}
         <span style={{ fontSize: 11, color: C.dim, lineHeight: 1.45 }}>Recibís solo los avisos que corresponden a tu rol y a tus pedidos. Estas preferencias se aplican a todos tus dispositivos.</span>
