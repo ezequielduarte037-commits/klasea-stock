@@ -863,15 +863,16 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {divider("compras")}
           {group(comprasGroup, SC.compras, 205)}
           {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
-          {esCompras && item("/solicitudes-panol", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
+          {/* Atajos de Compras: una cuenta Compras con admin ya los tiene en Producción y Pañol. */}
+          {esCompras && !esGestion && item("/solicitudes-panol", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
           {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
-          {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
-          {esCompras && item("/muebles", "Muebles y herrajes", SC.compras, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
-          {esCompras && item("/calendario", "Logística", SC.compras, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
+          {esCompras && !esGestion && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
+          {esCompras && !esGestion && item("/muebles", "Muebles y herrajes", SC.compras, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
+          {esCompras && !esGestion && item("/calendario", "Logística", SC.compras, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
           {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.compras, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
         </>}
 
-        {esCompras && item("/torneria", "Tornería y mecanizados", SC.compras, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
+        {esCompras && !esGestion && item("/torneria", "Tornería y mecanizados", SC.compras, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
 
         {esGestion && <>
           {divider("panol-rec")}
