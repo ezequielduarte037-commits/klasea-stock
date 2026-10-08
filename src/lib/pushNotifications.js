@@ -34,7 +34,12 @@ export async function invokePush(action, extra = {}) {
 }
 
 async function registration() {
-  const reg = await navigator.serviceWorker.register(PUSH_WORKER_PATH, { scope: "/", updateViaCache: "none" });
+  let reg;
+  try { reg = await navigator.serviceWorker.register(PUSH_WORKER_PATH, { scope: "/", updateViaCache: "none" }); }
+  catch {
+    // El mensaje del navegador viene en inglés y no le sirve a nadie en el astillero.
+    throw new Error("Este navegador no pudo preparar los avisos. Recargá la app o abrila desde Chrome (Android) o desde el ícono de inicio (iPhone).");
+  }
   // La app nunca espera indefinidamente un worker que no pudo instalarse.
   if (!reg.active) await new Promise((resolve, reject) => {
     const worker = reg.installing || reg.waiting;

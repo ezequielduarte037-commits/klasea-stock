@@ -251,6 +251,7 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
         .notif-control:hover:not(:disabled), .notif-filter:hover, .notif-row:hover { background: var(--panel-2) !important; }
         .notif-row-open:hover .notif-open-label { text-decoration: underline; text-underline-offset: 3px; }
         .notif-list { scrollbar-width: thin; overscroll-behavior: contain; }
+        .notif-panel-footer:empty { display: none; }
         @media (max-width: 600px) {
           .notif-panel { left: 8px !important; right: 8px; top: calc(var(--notif-viewport-top, 0px) + env(safe-area-inset-top) + 8px) !important;
             bottom: auto !important; height: calc(var(--notif-viewport-height, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
@@ -371,13 +372,14 @@ export default function NotificacionesBell({ profile, size = 28, iconSize = 15, 
             </section>)}
           </div>
 
-          <div className="notif-panel-footer" style={{ flexShrink: 0, maxHeight: "min(40dvh, 300px)", overflowY: "auto", padding: "10px 14px 12px", borderTop: `1px solid ${C.border}`, background: C.panelSolid2 }}>
-            {!!lista.length && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 9 }}>
-              <span style={{ fontSize: 11, color: C.dim }}>{filtered.length} aviso{filtered.length === 1 ? "" : "s"}{hasFilter ? " en esta vista" : " relacionados con vos"}</span>
-              <button type="button" className="notif-control" onClick={markTodoLeido} disabled={!unreadCount} title="Marcar todas las notificaciones como leídas, incluso las filtradas"
-                style={{ ...controls, padding: "0 9px", fontSize: 11, color: unreadCount ? C.blue : C.dim, opacity: unreadCount ? 1 : 0.5 }}><CheckCheck size={14} aria-hidden="true" />Marcar todas leídas</button>
-            </div>}
-            <PushNotificationsControl profile={profile} compacto />
+          {/* Pie de una sola línea: estado de los avisos al celular (se despliega
+              al tocarlo) y marcar todo leído. El contador ya está en el encabezado. */}
+          <div className="notif-panel-footer" style={{ flexShrink: 0, maxHeight: "min(40dvh, 300px)", overflowY: "auto", padding: "4px 8px", borderTop: `1px solid ${C.border}`, background: C.panelSolid2,
+            display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 6 }}>
+            <PushNotificationsControl profile={profile} />
+            {hasFilter && !!lista.length && <span style={{ fontSize: 11, color: C.dim, marginLeft: "auto" }}>{filtered.length} en esta vista</span>}
+            {!!unreadCount && <button type="button" className="notif-control" onClick={markTodoLeido} title="Marcar todas las notificaciones como leídas, incluso las filtradas"
+              style={{ ...controls, marginLeft: hasFilter ? 0 : "auto", padding: "0 10px", fontSize: 12, fontWeight: 600, color: C.blue, border: "1px solid transparent", background: "transparent" }}><CheckCheck size={15} aria-hidden="true" />Marcar todas leídas</button>}
           </div>
         </div>
       </>, document.body)}

@@ -1,5 +1,5 @@
-import { useContext } from "react";
-import { Bell, BellOff, RefreshCw, Share, Smartphone } from "lucide-react";
+import { useContext, useState } from "react";
+import { Bell, BellOff, ChevronDown, RefreshCw, Share, Smartphone } from "lucide-react";
 import { C } from "@/theme";
 import Context from "./PushNotificationsContext";
 
@@ -14,10 +14,12 @@ function esTactil() {
  * Avisos al celular.
  * modo="invitacion": tarjeta arriba del panel para activar (sólo en pantallas
  * táctiles y mientras no se haya dicho "Ahora no").
- * modo="ajustes": estado del dispositivo, prueba, baja y qué avisos recibir.
+ * modo="ajustes": botón chico con el estado para el pie del panel; al tocarlo
+ * despliega prueba, baja y qué avisos recibir (va dentro de un flex con wrap).
  */
-export default function PushNotificationsControl({ profile, compacto = false, modo = "ajustes" }) {
+export default function PushNotificationsControl({ profile, modo = "ajustes" }) {
   const context = useContext(Context);
+  const [abierto, setAbierto] = useState(false);
   if (!context || !profile || profile.role === "cliente" || profile.is_demo) return null;
   const { state, busy, feedback, action, refresh, preferences, invitacionOculta, ocultarInvitacion } = context;
   if (state.phase === "hidden") return null;
@@ -35,15 +37,30 @@ export default function PushNotificationsControl({ profile, compacto = false, mo
     active: paused ? "Los avisos al celular están pausados para tu cuenta." : "Este dispositivo está vinculado a tu cuenta.",
     blocked: "El permiso está bloqueado. Habilitá las notificaciones de Klase A en los ajustes del navegador o del celular y volvé a comprobar.",
   };
-  const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, padding: "7px 11px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, fontFamily: C.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" };
+  // Una sola línea en el pie: el estado como botón chico; lo demás se despliega al tocarlo.
+  const resumen = active ? { texto: paused ? "Avisos pausados" : "Avisos activados", color: paused ? C.dim : C.green, Icono: Smartphone }
+    : state.phase === "ready" ? { texto: busy === "enable" ? "Activando…" : "Activar avisos", color: C.blue, Icono: Bell }
+      : state.phase === "checking" ? { texto: "Comprobando…", color: C.dim, Icono: Smartphone }
+        : state.phase === "blocked" ? { texto: "Avisos bloqueados", color: C.red, Icono: BellOff }
+          : state.phase === "install" ? { texto: "Avisos en iPhone", color: C.dim, Icono: Share }
+            : { texto: "Avisos no disponibles", color: C.dim, Icono: BellOff };
+  const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 40, padding: "0 11px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, fontFamily: C.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" };
   const text = explanations[state.phase] || state.message;
-  return <section aria-label="Notificaciones al celular" style={{ padding: compacto ? "10px 2px 0" : 16, background: compacto ? "transparent" : C.panel, borderTop: `1px solid ${C.border}` }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5, fontSize: 12.5, fontWeight: 650 }}><Smartphone size={16} color={C.blue} aria-hidden="true" />Avisos en este dispositivo
-      <span style={{ marginLeft: "auto", fontSize: 10.5, color: active && !paused ? C.green : C.dim }}>{active ? paused ? "Pausados" : "Activados" : "Sin activar"}</span>
-    </div>
+  const { Icono } = resumen;
+  return <>
+    <button type="button" className="notif-control" aria-expanded={state.phase === "ready" ? undefined : abierto}
+      disabled={state.phase === "checking" || (state.phase === "ready" && !!busy)}
+      onClick={() => state.phase === "ready" ? action("enable") : setAbierto(!abierto)}
+      title={state.phase === "ready" ? "Recibir avisos en este dispositivo aunque Klase A esté cerrada" : "Avisos en este dispositivo"}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 44, padding: "0 10px", borderRadius: 10, border: `1px solid ${state.phase === "ready" ? C.blueB : "transparent"}`,
+        background: state.phase === "ready" ? C.blueL : "transparent", color: resumen.color, fontFamily: C.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+      <Icono size={15} aria-hidden="true" />{resumen.texto}
+      {state.phase !== "ready" && state.phase !== "checking" && <ChevronDown size={14} aria-hidden="true" style={{ transform: abierto ? "rotate(180deg)" : "none", transition: "transform .15s ease" }} />}
+    </button>
+    {feedback && !abierto && <div role={feedback.ok ? "status" : "alert"} style={{ flexBasis: "100%", order: 10, padding: "2px 4px 4px", fontSize: 12, lineHeight: 1.45, color: feedback.ok ? C.green : C.red }}>{feedback.message}</div>}
+    {abierto && <section aria-label="Notificaciones al celular" style={{ flexBasis: "100%", order: 10, padding: "8px 4px 4px", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
     <p style={{ margin: "0 0 9px", color: C.dim, fontSize: 12, lineHeight: 1.5 }}>{text}</p>
     <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-      {state.phase === "ready" && <button type="button" disabled={!!busy} onClick={() => action("enable")} style={{ ...button, background: C.blue, borderColor: C.blue, color: "var(--inverse-text)" }}><Bell size={14} aria-hidden="true" />{busy === "enable" ? "Activando…" : "Activar notificaciones"}</button>}
       {active && <>
         <button type="button" disabled={!!busy || paused} onClick={() => action("test")} style={button}>{busy === "test" ? "Enviando…" : "Enviar prueba"}</button>
         <button type="button" disabled={!!busy} onClick={() => action("disable")} style={button}><BellOff size={14} aria-hidden="true" />Desactivar aquí</button>
@@ -61,7 +78,8 @@ export default function PushNotificationsControl({ profile, compacto = false, mo
       </div>
     </details>}
     {feedback && <div role={feedback.ok ? "status" : "alert"} style={{ marginTop: 9, fontSize: 12, lineHeight: 1.5, color: feedback.ok ? C.green : C.red }}>{feedback.message}</div>}
-  </section>;
+    </section>}
+  </>;
 }
 
 function Invitacion({ state, busy, feedback, action, ocultar }) {
