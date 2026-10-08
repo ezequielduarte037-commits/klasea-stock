@@ -29,7 +29,7 @@ function siguienteSinResponder(items, desde) {
   return -1;
 }
 
-export default function LoteProductos({ items, editable, onItem }) {
+export default function LoteProductos({ items, modelo, editable, onItem }) {
   const [idx, setIdx] = useState(() => Math.max(0, items.findIndex((i) => !i.respuesta)));
   const [enLista, setEnLista] = useState(false);
   const actual = Math.min(idx, items.length - 1);
@@ -80,7 +80,7 @@ export default function LoteProductos({ items, editable, onItem }) {
         <button type="button" className="ui-btn ui-btn-icono" disabled={actual >= items.length - 1} onClick={() => setIdx(actual + 1)} aria-label="Siguiente"><ArrowRight size={16} /></button>
         <button type="button" className="ui-btn ui-btn-icono" onClick={() => setEnLista(true)} title="Ver como lista" aria-label="Ver como lista"><List size={16} /></button>
       </div>
-      <TarjetaProducto key={item.id} item={item} posicion={actual + 1} total={items.length} editable={editable}
+      <TarjetaProducto key={item.id} item={item} modelo={modelo} posicion={actual + 1} total={items.length} editable={editable}
         onRespondido={(nuevo) => {
           onItem(nuevo);
           const resto = items.map((it) => (it.id === nuevo.id ? nuevo : it));
@@ -92,7 +92,7 @@ export default function LoteProductos({ items, editable, onItem }) {
   );
 }
 
-function TarjetaProducto({ item, posicion, total, editable, onRespondido, siguiente, onSiguiente }) {
+function TarjetaProducto({ item, modelo, posicion, total, editable, onRespondido, siguiente, onSiguiente }) {
   const toast = useToast();
   const c = item.contexto || {};
   const [modo, setModo] = useState(null);
@@ -132,10 +132,11 @@ function TarjetaProducto({ item, posicion, total, editable, onRespondido, siguie
         <span className="ui-chip">{c.rubro || "Sin rubro"}</span>
         <span className="rv-ayuda">{posicion} de {total}</span>
       </div>
+      <div className="rv-pregunta">{item.tipo === "falta" ? `¿Lo agregamos a la matriz de la K${modelo}?` : `¿Está bien en la matriz de la K${modelo}?`}</div>
       <h2>{c.descripcion || "Sin descripción"}</h2>
       {c.requisito && <div className="rv-tarjeta-req">Requisito: {c.requisito}</div>}
       <div className="rv-datos">
-        {item.tipo === "matriz" && <div className="rv-dato"><small>Por barco</small><b>{fmtNum(c.cantidad)} {unidadDe(c.unidad, c.cantidad)}</b></div>}
+        {item.tipo === "matriz" && <div className="rv-dato"><small>Lleva cada barco</small><b>{fmtNum(c.cantidad)} {unidadDe(c.unidad, c.cantidad)}</b></div>}
         {item.tipo === "falta" && c.cantidad_sugerida != null && <div className="rv-dato"><small>Se usó por obra</small><b>unos {fmtNum(c.cantidad_sugerida)} {unidadDe(c.unidad, c.cantidad_sugerida)}</b></div>}
         {c.proveedor && <div className="rv-dato"><small>Proveedor</small><b>{c.proveedor}</b></div>}
         {c.codigo && <div className="rv-dato"><small>Código</small><b>{c.codigo}</b></div>}

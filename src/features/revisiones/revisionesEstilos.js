@@ -20,23 +20,32 @@ export const CSS = `
   .rv-hoy-top { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
   .rv-hoy-top h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
   .rv-hoy-top p { margin: 3px 0 0; color: var(--dim); font-size: 13px; }
-  .rv-hoy-linea { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--panel); }
-  .rv-misiones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-  .rv-mision { display: flex; align-items: center; gap: 13px; min-height: 92px; padding: 14px; text-align: left; border-radius: 16px;
-    border: 1px solid var(--border-2); background: color-mix(in srgb, var(--panel-solid) 88%, transparent); color: var(--text); font: inherit; cursor: pointer;
-    transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .15s, background-color .15s; }
-  .rv-mision:hover { transform: translateY(-2px); border-color: var(--blue-border); }
-  .rv-mision.is-hecha { border-color: var(--green-border); background: color-mix(in srgb, var(--green-soft) 60%, var(--panel-solid)); }
-  .rv-mision-txt { min-width: 0; display: grid; gap: 3px; }
-  .rv-mision-txt small { font-size: 11.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
-  .rv-mision-txt b { font-size: 14.5px; font-weight: 600; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .rv-mision-txt span { font-size: 12px; color: var(--muted); }
   .rv-hoy-listo { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--green-border); background: var(--green-soft); color: var(--green); font-size: 13.5px; }
   .rv-hoy-listo div { flex: 1; color: var(--muted); }
   .rv-hoy-listo b { color: var(--green); font-weight: 650; }
   .rv-atrasos { font-size: 12.5px; color: var(--violet); }
-  .rv-aviso { padding: 12px 15px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 13px; line-height: 1.55; }
-  .rv-aviso strong { color: var(--text); font-weight: 600; }
+  .rv-aviso { padding: 11px 15px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .rv-aviso summary { cursor: pointer; color: var(--text); font-weight: 600; min-height: 26px; }
+  .rv-aviso[open] summary { margin-bottom: 6px; }
+  .rv-hoy-eyebrow { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); margin-bottom: 4px; }
+
+  /* Pasos de hoy */
+  .rv-pasos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+  .rv-paso-hoy { width: 100%; height: 100%; display: flex; align-items: center; gap: 14px; padding: 15px 14px 15px 15px; text-align: left; border-radius: 16px;
+    border: 1px solid var(--border-2); background: color-mix(in srgb, var(--panel-solid) 90%, transparent); color: var(--text); font: inherit; cursor: pointer;
+    transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .15s, background-color .15s; }
+  .rv-paso-hoy:hover { transform: translateY(-2px); border-color: var(--blue-border); }
+  .rv-paso-num { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700;
+    color: var(--blue); background: var(--blue-soft); border: 1px solid var(--blue-border); }
+  .rv-paso-hoy-txt { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .rv-paso-hoy-txt small { font-size: 11.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .rv-paso-hoy-txt b { font-size: 15px; font-weight: 650; line-height: 1.3; }
+  .rv-paso-hoy-txt > span { font-size: 12.5px; color: var(--muted); }
+  .rv-paso-hoy-txt .rv-mini { display: block; margin-top: 5px; }
+  .rv-paso-ir { color: var(--dim); flex-shrink: 0; }
+  .rv-paso-hoy.is-hecho { border-color: var(--green-border); background: color-mix(in srgb, var(--green-soft) 55%, var(--panel-solid)); }
+  .rv-paso-hoy.is-hecho .rv-paso-num { color: var(--green); background: var(--green-soft); border-color: var(--green-border); }
+  .rv-paso-hoy.is-hecho .rv-paso-hoy-txt > span { color: var(--green); }
 
   /* Líneas */
   .rv-lineas { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
@@ -48,12 +57,16 @@ export const CSS = `
   .rv-linea-quien small { color: var(--dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rv-chip-ok { color: var(--green); border-color: var(--green-border); background: var(--green-soft); }
   .rv-chip-atraso { color: var(--red); border-color: var(--red-border); background: var(--red-soft); }
-  .rv-flujos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .rv-flujo { display: grid; gap: 5px; padding: 8px 9px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
-  .rv-flujo small { font-size: 11.5px; color: var(--dim); }
-  .rv-flujo b { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; }
   .rv-mini { height: 4px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
   .rv-mini i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--cyan)); transition: width .5s cubic-bezier(.22,1,.36,1); }
+  .rv-avance { display: grid; gap: 9px; }
+  /* Su propia línea: tarjeta de ancho completo, con el avance en dos columnas. */
+  .rv-lineas.is-propia { grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 761px) { .rv-lineas.is-propia .rv-avance { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; row-gap: 12px; } }
+  .rv-avance-fila { display: grid; gap: 5px; }
+  .rv-avance-fila > div:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+  .rv-avance-fila span { color: var(--dim); }
+  .rv-avance-fila b { font-weight: 600; color: var(--text); text-align: right; }
   .rv-linea-lib { margin: 0; font-size: 12.5px; color: var(--green); line-height: 1.45; }
   .rv-liberar { justify-self: start; }
 
@@ -133,6 +146,7 @@ export const CSS = `
     display: grid; gap: 10px; animation: rvEntrar .26s cubic-bezier(.22,1,.36,1); }
   @keyframes rvEntrar { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   .rv-tarjeta-rubro { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rv-pregunta { font-size: 13px; color: var(--blue); font-weight: 600; }
   .rv-tarjeta h2 { margin: 0; font-size: 21px; font-weight: 650; line-height: 1.3; letter-spacing: -.01em; overflow-wrap: anywhere; }
   .rv-tarjeta-req { font-size: 13px; color: var(--muted); }
   .rv-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 4px; }
@@ -169,8 +183,28 @@ export const CSS = `
   .rv-cond-tit { display: grid; gap: 6px; }
   .rv-cond-tit h2 { margin: 0; font-size: 21px; font-weight: 650; letter-spacing: -.01em; }
   .rv-cond-tit p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.5; }
-  .rv-ejemplo { font-size: 12.5px; color: var(--muted); padding: 9px 12px; border-radius: 12px; background: var(--panel); border: 1px dashed var(--border-2); }
   .rv-campo { display: grid; gap: 6px; font-size: 12.5px; color: var(--dim); }
+  .rv-def { display: grid; gap: 14px; padding-top: 4px; border-top: 1px solid var(--border); }
+  .rv-buscador { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .rv-buscador .ui-input { flex: 1; min-width: 0; }
+
+  /* Primera pregunta: semanas desde el desmolde */
+  .rv-linea-tiempo { display: grid; gap: 6px; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); }
+  .rv-lt-barra { display: flex; height: 34px; border-radius: 10px; overflow: hidden; }
+  .rv-lt-barra span { display: grid; place-items: center; min-width: 46px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; transition: width .35s cubic-bezier(.22,1,.36,1); }
+  .rv-lt-antes { background: var(--cyan-soft); color: var(--cyan); border-right: 3px solid var(--cyan); }
+  .rv-lt-despues { background: linear-gradient(90deg, var(--blue-soft), color-mix(in srgb, var(--teal-soft) 80%, transparent)); color: var(--blue); }
+  .rv-lt-marcas { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--dim); }
+  .rv-lt-arriba { position: relative; height: 16px; font-size: 11.5px; }
+  .rv-lt-desmolde { position: absolute; transform: translateX(-50%); color: var(--cyan); font-weight: 600; white-space: nowrap; transition: left .35s cubic-bezier(.22,1,.36,1); }
+  .rv-paso { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel-solid); }
+  .rv-paso-txt { flex: 1; min-width: 180px; display: grid; gap: 2px; }
+  .rv-paso-txt b { font-size: 14px; font-weight: 600; }
+  .rv-paso-txt small { font-size: 12px; color: var(--dim); }
+  .rv-stepper { display: flex; align-items: center; gap: 6px; }
+  .rv-stepper .ui-input { width: 64px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; }
+  .rv-total { font-size: 13.5px; color: var(--muted); }
+  .rv-total b { color: var(--text); font-weight: 650; }
   .rv-segmentos { display: flex; flex-wrap: wrap; gap: 5px; }
   .rv-seg { min-height: 36px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--panel); color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
   .rv-seg[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); font-weight: 600; }
@@ -207,14 +241,12 @@ export const CSS = `
   .rv-mini-input { width: 72px; min-height: 36px; }
 
   @media (max-width: 760px) {
-    .rv-misiones { grid-template-columns: 1fr; }
-    .rv-mision { min-height: 74px; }
+    .rv-pasos { grid-template-columns: 1fr; }
   }
   @media (max-width: 640px) {
     .rv-cuerpo { padding: 12px 14px 44px; gap: 18px; }
     .rv-hoy-dentro { padding: 16px; }
     .rv-hoy-top h2 { font-size: 19px; }
-    .rv-hoy-linea { margin-left: 0; }
     .rv-vista-top { padding: 10px 12px; }
     .rv-vista-cuerpo { padding: 12px 12px 52px; }
     .rv-tarjeta { padding: 18px 16px 16px; }

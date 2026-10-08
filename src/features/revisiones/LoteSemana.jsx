@@ -16,12 +16,16 @@ function textoSemana(item) {
   return item.respuesta || "";
 }
 
-const nombreSemana = (w, ultima) => (w === 0 ? "Semana 0 · desmolde" : w === ultima ? `Semana ${w} · botada` : `Semana ${w}`);
+// Siempre contando desde el desmolde, como se trabaja en el astillero.
+const nombreSemana = (w, hasta) => (w === 0 ? "Semana del desmolde"
+  : w < 0 ? `${Math.abs(w)} ${w === -1 ? "semana" : "semanas"} antes del desmolde`
+    : w === hasta ? "Semana de la botadura" : `Semana ${w} después del desmolde`);
 
 export default function LoteSemana({ item, modelo, editable, onItem }) {
   const toast = useToast();
   const semana = Number(item.contexto?.semana ?? item.semana ?? 0);
-  const ultima = Number(item.contexto?.ultima ?? 20);
+  const desde = Number(item.contexto?.desde ?? -3);
+  const ultima = Number(item.contexto?.hasta ?? item.contexto?.ultima ?? 20);
   const [viendo, setViendo] = useState(semana);
   const [plan, setPlan] = useState(null);
   const [error, setError] = useState("");
@@ -68,14 +72,14 @@ export default function LoteSemana({ item, modelo, editable, onItem }) {
   return (
     <div className="rv-foco">
       <div className="rv-plan-riel">
-        <RielSemanas desde={-3} hasta={ultima} activa={viendo} densidad={densidad} onElegir={setViendo} />
+        <RielSemanas desde={desde} hasta={ultima} activa={viendo} densidad={densidad} onElegir={setViendo} />
       </div>
       <div className="rv-cond-tit">
-        <span className="rv-etapa-sub">K{modelo} · plan desde el desmolde</span>
+        <span className="rv-etapa-sub">Plan de producción · K{modelo}</span>
         <h2 style={{ margin: 0, fontSize: 21, fontWeight: 650 }}>{nombreSemana(viendo, ultima)}</h2>
         {viendo !== semana
           ? <p className="rv-ayuda">Estás mirando otra semana. <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => setViendo(semana)}>Volver a la {nombreSemana(semana, ultima).toLowerCase()}</button></p>
-          : <p className="rv-ayuda">¿Qué se hace esta semana y qué materiales hacen falta? Mové las etapas que no estén bien ubicadas y sumá los materiales de cada una.</p>}
+          : <p className="rv-ayuda">Estas son las etapas que, según el plan, se hacen esta semana. Fijate si está bien: si una etapa no va acá, movela con el lápiz; y sumá los materiales que necesita cada una.</p>}
       </div>
 
       {error && <div className="rv-error" role="alert">{error}</div>}
@@ -138,7 +142,7 @@ function EtapaCard({ etapa, matriz, editable, onCambio }) {
     <article className="rv-etapa">
       <div className="rv-etapa-top">
         <h3>{etapa.nombre}</h3>
-        <span className="rv-etapa-span">{span.desde === span.hasta ? `Semana ${span.desde}` : `Semana ${span.desde} → ${span.hasta}`} · {fmtNum(etapa.dias_estimados) || "?"} días</span>
+        <span className="rv-etapa-span">{span.desde === span.hasta ? `Semana ${span.desde}` : `Semanas ${span.desde} a ${span.hasta}`} · {fmtNum(etapa.dias_estimados) || "?"} días</span>
         {editable && <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={() => setEditando(!editando)} aria-label="Mover o cambiar duración" title="Mover o cambiar duración"><Pencil size={15} /></button>}
       </div>
       {editando && (
@@ -203,8 +207,8 @@ function SinUbicar({ etapas, semanaSugerida, editable, onCambio }) {
   }
   return (
     <section className="rv-sin-ubicar">
-      <div className="rv-etapa-sub" style={{ color: "var(--violet)" }}>Etapas sin ubicar ({etapas.length})</div>
-      <p className="rv-ayuda">Decí en qué semana respecto del desmolde arranca cada una (−3 = tres semanas antes) y cuántos días dura.</p>
+      <div className="rv-etapa-sub" style={{ color: "var(--violet)" }}>Etapas que todavía no tienen semana ({etapas.length})</div>
+      <p className="rv-ayuda">Poné en qué semana arranca cada una contando desde el desmolde (−3 = tres semanas antes, 2 = dos semanas después) y cuántos días dura.</p>
       {etapas.map((e) => (
         <div key={e.id} className="rv-sin-ubicar-fila">
           <span>{e.nombre}</span>

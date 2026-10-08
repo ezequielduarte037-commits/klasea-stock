@@ -27,8 +27,8 @@ export function Anillo({ valor = 0, total = 1, size = 54, grosor = 5, children, 
 }
 
 /**
- * Riel del plan: de la semana -3 a la botada. Cada semana es un punto; el
- * desmolde (semana 0) y la botada van marcados.
+ * Riel del plan, contado desde el desmolde (semana 0) hasta la botadura.
+ * Cada semana es un punto; el desmolde y la botadura van marcados.
  * estados: Map semana -> "ok" | "corregir" | "pendiente"; activa: semana resaltada.
  */
 export function RielSemanas({ desde = -3, hasta, estados, activa, densidad, onElegir, compacto }) {
@@ -40,7 +40,7 @@ export function RielSemanas({ desde = -3, hasta, estados, activa, densidad, onEl
       <div className="rv-riel-linea" aria-hidden="true" />
       {semanas.map((w) => {
         const estado = estados?.get(w) || "pendiente";
-        const marca = w === 0 ? "Desmolde" : w === hasta ? "Botada" : null;
+        const marca = w === 0 ? "Desmolde" : w === hasta ? "Botadura" : null;
         const Tag = onElegir ? "button" : "span";
         return (
           <Tag key={w} type={onElegir ? "button" : undefined} role={onElegir ? "tab" : undefined} aria-selected={onElegir ? activa === w : undefined}
@@ -55,8 +55,8 @@ export function RielSemanas({ desde = -3, hasta, estados, activa, densidad, onEl
     </div>
     {!compacto && (
       <div className="rv-riel-leyenda" aria-hidden="true">
-        <span><i className="is-desmolde" />Desmolde · semana 0</span>
-        <span><i className="is-botada" />Botada · semana {hasta}</span>
+        <span><i className="is-desmolde" />Desmolde (semana 0)</span>
+        <span><i className="is-botada" />Botadura (semana {hasta})</span>
       </div>
     )}
     </div>

@@ -8,9 +8,10 @@ import { supabase } from "@/supabaseClient";
 export const LINEAS = ["55", "37", "52"];
 
 export const FLUJOS = {
-  productos: { nombre: "Productos de la matriz", corto: "Productos" },
+  inicio: { nombre: "Semanas de producción", corto: "Inicio" },
   condicionante: { nombre: "Condicionante del día", corto: "Condicionantes" },
-  semana: { nombre: "Semana del plan", corto: "Plan" },
+  semana: { nombre: "Plan de producción", corto: "Plan" },
+  productos: { nombre: "Productos de la matriz", corto: "Productos" },
 };
 
 export const TIPOS_CONDICIONANTE = [
@@ -70,6 +71,21 @@ export async function liberar(modelo, nota = null) {
   const { data, error } = await supabase.rpc("revision_liberar", { p_modelo: modelo, p_nota: nota });
   if (error) throw errorLegible(error, "No se pudo liberar la lista. Reintentá.");
   return data;
+}
+
+/** Primera pregunta: semanas de laminado antes del desmolde y del desmolde a la botadura. */
+export async function guardarSemanasLinea(itemId, antes, despues) {
+  const { data, error } = await supabase.rpc("revision_linea_semanas", { p_item: itemId, p_antes: antes, p_despues: despues });
+  if (error) throw errorLegible(error, "No se pudieron guardar las semanas. Reintentá.");
+  return data;
+}
+
+/** Condicionantes que la línea ya tiene definidos (para no repetir). */
+export async function cargarCondicionantesLinea(modelo) {
+  const { data, error } = await supabase.from("panol_matriz_condicionantes").select("id, nombre, tipo, activo")
+    .eq("modelo", modelo).order("orden");
+  if (error) throw errorLegible(error, "No pudimos cargar los condicionantes de la línea.");
+  return (data || []).filter((c) => c.activo !== false);
 }
 
 export async function guardarCondicionante(itemId, { nombre, tipo, porDefecto, items }) {
