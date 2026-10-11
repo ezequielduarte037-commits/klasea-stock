@@ -189,8 +189,8 @@ export default function PanolOperativoHome({ profile }) {
       descripcion: "Buscar, escanear o abrir el carrito" },
     { to: "/stock-panol?tab=sobrantes", Icono: ClipboardList, titulo: "Sobrantes de obra", tono: "cian",
       descripcion: sobrantesPendientes ? `${plural(sobrantesPendientes, "obra", "obras")} por conciliar` : "Materiales de obras terminadas" },
-    { to: "/recepcion-panol?tab=consumibles", Icono: Scale, titulo: "Consumibles", tono: "teal",
-      descripcion: "Ingreso, egreso y registro por peso" },
+    { to: "/consumibles?tab=mostrador", Icono: Scale, titulo: "Consumibles", tono: "teal",
+      descripcion: "Mostrador: nada sale sin registro" },
     { to: "/inicio-panol/tarjetas", Icono: Nfc, titulo: "Asignar tarjeta NFC", tono: "neutro",
       descripcion: "Vincular una tarjeta a un empleado de RRHH" },
   ];

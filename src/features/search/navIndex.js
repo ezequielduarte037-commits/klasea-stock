@@ -65,8 +65,8 @@ export const NAV_SECTIONS = [
     roles: PANOL,
   },
   {
-    id: "panol-consumibles", label: "Consumibles", modulo: "Pañol", path: "/recepcion-panol?tab=consumibles", Icon: Boxes,
-    hint: "Ingresos, egresos por peso y movimientos de consumibles.",
+    id: "panol-consumibles", label: "Consumibles", modulo: "Pañol", path: "/consumibles?tab=stock", Icon: Boxes,
+    hint: "Stock, conteo, ingresos, precios de Rebollar y consumo de consumibles.",
     keywords: "consumible consumibles lija guantes masilla cinta descartable peso balanza",
     roles: PANOL,
   },
@@ -95,7 +95,12 @@ export const NAV_SECTIONS = [
     roles: PANOL_COMPRAS,
   },
   {
-    id: "panol-caja", label: "Caja de consumibles", modulo: "Pañol", path: "/consumibles-caja", Icon: Wallet,
+    id: "panol-pedido-manana", label: "Pedido para mañana", modulo: "Pañol", path: "/pedido-panol", Icon: Wallet,
+    hint: "La lista de consumibles que la cuadrilla retira mañana a las 7.",
+    keywords: "pedido lista mañana consumibles encargado planificado solicitud panol",
+  },
+  {
+    id: "panol-caja", label: "Mostrador de consumibles", modulo: "Pañol", path: "/consumibles?tab=mostrador", Icon: Wallet,
     hint: "Tarjeta o nombre, se escanean los productos y salen del stock.",
     keywords: "caja consumibles autoservicio tarjeta nfc escanear salida rapida",
     roles: ["admin", "panol", "oficina", "tecnica", "compras"],

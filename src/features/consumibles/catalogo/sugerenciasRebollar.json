@@ -1,0 +1,811 @@
+{
+  "77791b28-1b55-4408-ae38-fb7b6f26d80a": [
+    {
+      "codigo": "C0037",
+      "puntaje": 50
+    },
+    {
+      "codigo": "C0023",
+      "puntaje": 50
+    },
+    {
+      "codigo": "C0030",
+      "puntaje": 50
+    }
+  ],
+  "66b569ee-dec7-4f23-a7e3-efccc23787f3": [
+    {
+      "codigo": "C001721",
+      "puntaje": 67
+    },
+    {
+      "codigo": "C0031",
+      "puntaje": 67
+    },
+    {
+      "codigo": "C0032",
+      "puntaje": 67
+    }
+  ],
+  "5bdab902-0448-4658-9614-3da512ea7cce": [
+    {
+      "codigo": "C0034",
+      "puntaje": 50
+    },
+    {
+      "codigo": "C0031",
+      "puntaje": 50
+    },
+    {
+      "codigo": "C0013",
+      "puntaje": 50
+    }
+  ],
+  "9ba95d2f-d05b-4bd0-b6e5-7b9213b6c400": [
+    {
+      "codigo": "F0028",
+      "puntaje": 50
+    },
+    {
+      "codigo": "F0029",
+      "puntaje": 50
+    },
+    {
+      "codigo": "F0030",
+      "puntaje": 50
+    }
+  ],
+  "10497673-2538-44fa-b474-52ce2815adba": [
+    {
+      "codigo": "F0029",
+      "puntaje": 67
+    },
+    {
+      "codigo": "F0028",
+      "puntaje": 33
+    },
+    {
+      "codigo": "F0030",
+      "puntaje": 33
+    }
+  ],
+  "83e8f83f-ce02-4682-8220-9493654c3e20": [
+    {
+      "codigo": "F0028",
+      "puntaje": 50
+    },
+    {
+      "codigo": "F0029",
+      "puntaje": 50
+    },
+    {
+      "codigo": "F0030",
+      "puntaje": 50
+    }
+  ],
+  "24a61407-64c1-4660-879e-f99ec396edf8": [
+    {
+      "codigo": "B0007",
+      "puntaje": 50
+    },
+    {
+      "codigo": "B007-3TEL",
+      "puntaje": 50
+    },
+    {
+      "codigo": "E0011",
+      "puntaje": 50
+    }
+  ],
+  "b16be4a1-3090-4a78-b0ab-df85950ef3e9": [
+    {
+      "codigo": "B0007",
+      "puntaje": 50
+    },
+    {
+      "codigo": "B007-3TEL",
+      "puntaje": 50
+    },
+    {
+      "codigo": "TEROSON",
+      "puntaje": 50
+    }
+  ],
+  "fe494cb6-e39e-4572-b201-214afc42a7f9": [
+    {
+      "codigo": "M00001",
+      "puntaje": 100
+    },
+    {
+      "codigo": "M0001",
+      "puntaje": 100
+    },
+    {
+      "codigo": "M0001REF",
+      "puntaje": 100
+    }
+  ],
+  "a65e1e97-8481-4e24-8ee5-65b32ad1ab9c": [
+    {
+      "codigo": "GROW0008",
+      "puntaje": 100
+    },
+    {
+      "codigo": "PLA0008",
+      "puntaje": 100
+    },
+    {
+      "codigo": "GROW0002",
+      "puntaje": 50
+    }
+  ],
+  "fb4cdac6-a6bd-4a7d-a9bb-ada02928d6b8": [
+    {
+      "codigo": "GROW0006",
+      "puntaje": 100
+    },
+    {
+      "codigo": "PLA0006",
+      "puntaje": 100
+    },
+    {
+      "codigo": "PLACHA0004",
+      "puntaje": 100
+    }
+  ],
+  "bf55435a-1b4d-49f1-bf4d-7b4add8c7239": [
+    {
+      "codigo": "PLA0003",
+      "puntaje": 100
+    },
+    {
+      "codigo": "GROW0002",
+      "puntaje": 50
+    },
+    {
+      "codigo": "GROW0004",
+      "puntaje": 50
+    }
+  ],
+  "3d8f9702-46e9-4f07-a204-5d62d0e2e5ab": [
+    {
+      "codigo": "PARFIJ0017",
+      "puntaje": 67
+    },
+    {
+      "codigo": "PARFIJ0025",
+      "puntaje": 67
+    },
+    {
+      "codigo": "PARFIJ0035",
+      "puntaje": 67
+    }
+  ],
+  "fbf791e6-3ae0-418c-a08e-c8b726b4a0af": [
+    {
+      "codigo": "PARFRE0017",
+      "puntaje": 67
+    },
+    {
+      "codigo": "PARFRE0025",
+      "puntaje": 67
+    },
+    {
+      "codigo": "PARFRE0035",
+      "puntaje": 67
+    }
+  ],
+  "dd870c31-60f9-4490-b900-3fb480137232": [
+    {
+      "codigo": "F00171",
+      "puntaje": 67
+    },
+    {
+      "codigo": "F0017",
+      "puntaje": 67
+    },
+    {
+      "codigo": "F0019",
+      "puntaje": 67
+    }
+  ],
+  "a72ebd4f-56b3-4261-bdbb-e64b47be4373": [
+    {
+      "codigo": "TCA0003",
+      "puntaje": 67
+    },
+    {
+      "codigo": "TCA0006",
+      "puntaje": 67
+    },
+    {
+      "codigo": "TCAAUT006",
+      "puntaje": 67
+    }
+  ],
+  "236d2850-ec62-48bc-be3e-6f410260001b": [
+    {
+      "codigo": "TCA0002",
+      "puntaje": 67
+    },
+    {
+      "codigo": "TCA0005",
+      "puntaje": 67
+    },
+    {
+      "codigo": "TCAAUT005",
+      "puntaje": 67
+    }
+  ],
+  "7349230d-efc9-4d11-b6ef-5638c0698f04": [
+    {
+      "codigo": "C0053",
+      "puntaje": 100
+    },
+    {
+      "codigo": "C0054",
+      "puntaje": 100
+    }
+  ],
+  "34cfb062-7313-41e1-8ddc-f09d91190880": [
+    {
+      "codigo": "E0014",
+      "puntaje": 67
+    },
+    {
+      "codigo": "E0002",
+      "puntaje": 33
+    },
+    {
+      "codigo": "E0003",
+      "puntaje": 33
+    }
+  ],
+  "7ee3f743-c66f-4402-b13a-35fe9dfd4aab": [
+    {
+      "codigo": "G0003",
+      "puntaje": 33
+    },
+    {
+      "codigo": "G0004",
+      "puntaje": 33
+    },
+    {
+      "codigo": "CENTROCHIC",
+      "puntaje": 33
+    }
+  ],
+  "f8084528-574d-4ad0-928e-0a09083aeb3a": [
+    {
+      "codigo": "L0005",
+      "puntaje": 100
+    }
+  ],
+  "693fa687-bbb1-48f6-b330-eb28f4e288ca": [
+    {
+      "codigo": "LIJA100XMT",
+      "puntaje": 100
+    },
+    {
+      "codigo": "LIJA36XMTS",
+      "puntaje": 100
+    },
+    {
+      "codigo": "LIJA60XMTS",
+      "puntaje": 100
+    }
+  ],
+  "5890cf0b-b915-4af6-a9b6-091bb79bb250": [
+    {
+      "codigo": "P00391",
+      "puntaje": 50
+    },
+    {
+      "codigo": "PISTOLA310",
+      "puntaje": 50
+    },
+    {
+      "codigo": "PISTOLA600",
+      "puntaje": 50
+    }
+  ],
+  "26784f4b-5141-4d29-985f-745d2f9123c6": [
+    {
+      "codigo": "T0002",
+      "puntaje": 33
+    },
+    {
+      "codigo": "MANG0332",
+      "puntaje": 33
+    },
+    {
+      "codigo": "MANG034",
+      "puntaje": 33
+    }
+  ],
+  "ba21b540-ae5b-4be5-91b3-8fdf6cb5dd08": [
+    {
+      "codigo": "H0016",
+      "puntaje": 75
+    },
+    {
+      "codigo": "H00161",
+      "puntaje": 75
+    },
+    {
+      "codigo": "H0003",
+      "puntaje": 50
+    }
+  ],
+  "a9a03466-da1d-424b-9627-3ce464009924": [
+    {
+      "codigo": "D0063",
+      "puntaje": 67
+    },
+    {
+      "codigo": "D0061",
+      "puntaje": 67
+    },
+    {
+      "codigo": "D00611",
+      "puntaje": 67
+    }
+  ],
+  "0229b616-2006-4c13-99e5-b5f2cc03d8a9": [
+    {
+      "codigo": "D0065",
+      "puntaje": 50
+    },
+    {
+      "codigo": "CENTROCHIC",
+      "puntaje": 25
+    },
+    {
+      "codigo": "D00041",
+      "puntaje": 25
+    }
+  ],
+  "b4d55b9b-1ead-40c4-8a3a-d6329a713a2b": [
+    {
+      "codigo": "D0019",
+      "puntaje": 95
+    },
+    {
+      "codigo": "D0020",
+      "puntaje": 95
+    },
+    {
+      "codigo": "D00041",
+      "puntaje": 50
+    }
+  ],
+  "fb32dc55-1704-4943-af87-f7ede783c4a3": [
+    {
+      "codigo": "F0042",
+      "puntaje": 50
+    },
+    {
+      "codigo": "F0043",
+      "puntaje": 50
+    },
+    {
+      "codigo": "D00041",
+      "puntaje": 50
+    }
+  ],
+  "286b97e7-094e-41e0-93de-5822700fa03c": [
+    {
+      "codigo": "D00041",
+      "puntaje": 100
+    },
+    {
+      "codigo": "D0012",
+      "puntaje": 100
+    },
+    {
+      "codigo": "D0005",
+      "puntaje": 67
+    }
+  ],
+  "0452f284-448b-478e-92d2-97989337480a": [
+    {
+      "codigo": "D0005",
+      "puntaje": 100
+    },
+    {
+      "codigo": "D0013",
+      "puntaje": 100
+    },
+    {
+      "codigo": "L0037",
+      "puntaje": 67
+    }
+  ],
+  "7fc70f74-9bd7-434f-9883-94fa2a654633": [
+    {
+      "codigo": "D0051",
+      "puntaje": 80
+    },
+    {
+      "codigo": "D0033",
+      "puntaje": 60
+    },
+    {
+      "codigo": "D0041",
+      "puntaje": 60
+    }
+  ],
+  "de502f64-feb8-4ede-aa64-8d5b0f2fcd49": [
+    {
+      "codigo": "D0053",
+      "puntaje": 80
+    },
+    {
+      "codigo": "D0041",
+      "puntaje": 60
+    },
+    {
+      "codigo": "D0042",
+      "puntaje": 60
+    }
+  ],
+  "695bc121-2f56-4793-89fb-961bff28cdf8": [
+    {
+      "codigo": "M0018",
+      "puntaje": 33
+    },
+    {
+      "codigo": "D00041",
+      "puntaje": 33
+    },
+    {
+      "codigo": "D0005",
+      "puntaje": 33
+    }
+  ],
+  "117d9743-eb3d-4854-9ac1-f6daaeb6ddc6": [
+    {
+      "codigo": "D0005",
+      "puntaje": 67
+    },
+    {
+      "codigo": "D0013",
+      "puntaje": 67
+    },
+    {
+      "codigo": "L0037",
+      "puntaje": 67
+    }
+  ],
+  "e8c26055-8c23-4b86-8970-30662aff9a70": [
+    {
+      "codigo": "D0051",
+      "puntaje": 80
+    },
+    {
+      "codigo": "D0033",
+      "puntaje": 60
+    },
+    {
+      "codigo": "D0041",
+      "puntaje": 60
+    }
+  ],
+  "b490aca8-25c5-46a3-b022-732cd9f45924": [
+    {
+      "codigo": "D0053",
+      "puntaje": 80
+    },
+    {
+      "codigo": "D0041",
+      "puntaje": 60
+    },
+    {
+      "codigo": "D0042",
+      "puntaje": 60
+    }
+  ],
+  "2e16623a-be26-4651-a24b-8b6a7e54bb5e": [
+    {
+      "codigo": "L0041",
+      "puntaje": 75
+    },
+    {
+      "codigo": "L00433",
+      "puntaje": 75
+    },
+    {
+      "codigo": "L0025",
+      "puntaje": 50
+    }
+  ],
+  "db406dda-1c39-44bd-a8ac-804d5cc3a0ee": [
+    {
+      "codigo": "L0025",
+      "puntaje": 75
+    },
+    {
+      "codigo": "L0042",
+      "puntaje": 75
+    },
+    {
+      "codigo": "L0028",
+      "puntaje": 50
+    }
+  ],
+  "fe40fafa-fda0-4a48-849c-25be471876fb": [
+    {
+      "codigo": "B00241",
+      "puntaje": 50
+    },
+    {
+      "codigo": "B002421",
+      "puntaje": 50
+    },
+    {
+      "codigo": "B00245",
+      "puntaje": 50
+    }
+  ],
+  "444936c5-3b5a-4142-9963-314cf656caaf": [
+    {
+      "codigo": "B00241",
+      "puntaje": 33
+    },
+    {
+      "codigo": "B002421",
+      "puntaje": 33
+    },
+    {
+      "codigo": "B00245",
+      "puntaje": 33
+    }
+  ],
+  "31650173-7fa1-458a-aabd-f702c6326de2": [
+    {
+      "codigo": "T0009",
+      "puntaje": 100
+    },
+    {
+      "codigo": "T0010",
+      "puntaje": 100
+    }
+  ],
+  "d2ad7b2d-4c19-4d23-b644-b718a33b73d1": [
+    {
+      "codigo": "M0048",
+      "puntaje": 100
+    },
+    {
+      "codigo": "TCACIE002",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0023",
+      "puntaje": 50
+    }
+  ],
+  "7054be96-324b-4ea0-b1c5-e6192452b9aa": [
+    {
+      "codigo": "M0048",
+      "puntaje": 100
+    },
+    {
+      "codigo": "TCACIE002",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0023",
+      "puntaje": 50
+    }
+  ],
+  "80251a9c-d4a6-4f78-9fd3-535a23d0ad84": [
+    {
+      "codigo": "P0053",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P0053BOSCH",
+      "puntaje": 100
+    },
+    {
+      "codigo": "A0005",
+      "puntaje": 50
+    }
+  ],
+  "59185545-5d1c-4822-bb43-24c6430c4f2a": [
+    {
+      "codigo": "P0055",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P0056BOSCH",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P00561",
+      "puntaje": 100
+    }
+  ],
+  "c709fc08-3f4e-4e10-9399-2df6dab24833": [
+    {
+      "codigo": "F00371",
+      "puntaje": 67
+    },
+    {
+      "codigo": "F0037",
+      "puntaje": 67
+    },
+    {
+      "codigo": "P0043",
+      "puntaje": 30
+    }
+  ],
+  "51ca07ea-9e35-4e0d-a380-37918dffca55": [
+    {
+      "codigo": "P0021",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P00161",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P0013",
+      "puntaje": 50
+    }
+  ],
+  "f6a98209-d1bf-4280-807c-0c12a75de4d6": [
+    {
+      "codigo": "ALCOHOL96",
+      "puntaje": 50
+    },
+    {
+      "codigo": "ALCOHOLBID",
+      "puntaje": 50
+    }
+  ],
+  "72c3be6f-bcfa-4a5c-aaf2-890ea0195804": [
+    {
+      "codigo": "F0024",
+      "puntaje": 100
+    },
+    {
+      "codigo": "F0025",
+      "puntaje": 100
+    },
+    {
+      "codigo": "D000111",
+      "puntaje": 50
+    }
+  ],
+  "ceffe38a-24aa-48be-b577-f3d49bcc7ffd": [
+    {
+      "codigo": "MANG0332",
+      "puntaje": 33
+    },
+    {
+      "codigo": "MANG034",
+      "puntaje": 33
+    },
+    {
+      "codigo": "MANG036",
+      "puntaje": 33
+    }
+  ],
+  "8fc2e426-f1de-4903-ba0e-36dcb3934e12": [
+    {
+      "codigo": "F0024",
+      "puntaje": 67
+    },
+    {
+      "codigo": "F0025",
+      "puntaje": 67
+    },
+    {
+      "codigo": "F0022",
+      "puntaje": 67
+    }
+  ],
+  "54940499-ae84-484b-bb21-a906a882a5bf": [
+    {
+      "codigo": "M0015",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0016",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0017",
+      "puntaje": 50
+    }
+  ],
+  "1f646a75-13c4-4624-b150-8922f21e2c69": [
+    {
+      "codigo": "M0015",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0016",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0017",
+      "puntaje": 50
+    }
+  ],
+  "416f03d7-9b43-40ad-a23e-01fd7f642e76": [
+    {
+      "codigo": "P0041GRIS",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P0041TRANS",
+      "puntaje": 100
+    },
+    {
+      "codigo": "P0043",
+      "puntaje": 100
+    }
+  ],
+  "641cd2f6-34ea-46c6-9214-22c18d6bcb4f": [
+    {
+      "codigo": "T0005",
+      "puntaje": 100
+    },
+    {
+      "codigo": "T0005X1",
+      "puntaje": 100
+    },
+    {
+      "codigo": "T0006",
+      "puntaje": 100
+    }
+  ],
+  "8f8209e6-fd7e-4d76-b8ba-6f48bd1fdefd": [
+    {
+      "codigo": "TEROSON",
+      "puntaje": 50
+    },
+    {
+      "codigo": "D00221",
+      "puntaje": 50
+    },
+    {
+      "codigo": "FIXDRYW812",
+      "puntaje": 50
+    }
+  ],
+  "c77572c2-61c4-4150-9799-824fc6e39272": [
+    {
+      "codigo": "H0002",
+      "puntaje": 40
+    },
+    {
+      "codigo": "H00022",
+      "puntaje": 40
+    },
+    {
+      "codigo": "H00023",
+      "puntaje": 40
+    }
+  ],
+  "cf2441fb-ade0-45fb-a680-370c7f10dee3": [],
+  "03f203dc-d775-4d48-961c-f11e8c70510a": [
+    {
+      "codigo": "E0011",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0001",
+      "puntaje": 50
+    },
+    {
+      "codigo": "M0001REF",
+      "puntaje": 50
+    }
+  ],
+  "41bf570e-80ea-44ca-b854-3701d211f5dc": [],
+  "6bee16cb-6af2-4e6a-a9f0-653f2d6e7e17": []
+}

@@ -697,7 +697,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
       </div>
       {consumiblesOcultos > 0 && (
         <div style={{ marginBottom: 9, color: C.dim, fontSize: 10.5 }}>
-          Los consumibles siguen en su circuito propio. <a href="/recepcion-panol?tab=consumibles" style={{ color: C.violet, fontWeight: 700, textDecoration: "none" }}>Ver {consumiblesOcultos} movimientos de consumibles</a>
+          Los consumibles siguen en su circuito propio. <a href="/consumibles?tab=stock" style={{ color: C.violet, fontWeight: 700, textDecoration: "none" }}>Ver {consumiblesOcultos} movimientos de consumibles</a>
         </div>
       )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>

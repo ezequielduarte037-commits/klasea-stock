@@ -183,7 +183,7 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
       <path d="M8 5.5V1M5.8 3.2L8 1l2.2 2.2" {...p}/>
     </>,
-    "/recepcion-panol?tab=consumibles": <>
+    "/consumibles": <>
       <path d="M3.5 3.5c0-1.1 2-2 4.5-2s4.5.9 4.5 2" {...p}/>
       <path d="M3.5 3.5v9c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-9" {...p}/>
       <path d="M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2" {...p}/>
@@ -248,6 +248,10 @@ function Icon({ id, color = "currentColor", size = 14 }) {
     // renglones.
     // Salvavidas: el aro, el centro y los cuatro tirantes. Es el único icono
     // redondo del menú, así que se encuentra sin leer.
+    "/pedido-panol": <>
+      <rect x="3" y="2" width="10" height="12" rx="1.5" {...p}/>
+      <path d="M5.5 5.5h5M5.5 8h5M5.5 10.5l1 1 2-2" {...p}/>
+    </>,
     "/tickets": <>
       <circle cx="8" cy="8" r="6.2" {...p}/>
       <circle cx="8" cy="8" r="2.4" {...p}/>
@@ -817,12 +821,9 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.operacion, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
           {item("/egresos-panol", "Egresar materiales", SC.operacion, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
           {item("/solicitudes-panol", "Solicitudes", SC.operacion, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
-          {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.operacion, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
-          {/* Se llamaba "Egreso de consumibles" y quedaba pegado a
-              "Consumibles": dos renglones casi iguales, uno arriba del otro.
-              "Caja" es como le dicen en el pañol y ademas describe mejor lo
-              que hace, porque por aca tambien entra mercaderia. */}
-          {item("/consumibles-caja", "Caja de consumibles", SC.operacion, true, 106, "La caja del pañol: tarjeta o nombre, se escanean los productos y sale del stock. También entra mercadería por acá.")}
+          {/* Consumibles reúne lo que antes eran dos renglones (Consumibles y Caja de
+              consumibles): mostrador, conteo, ingresos y stock en un solo lugar. */}
+          {item("/consumibles", "Consumibles", SC.operacion, true, 105, "El mostrador del pañol: nada sale sin registro. También conteo, ingresos y stock.")}
 
           {divider("panol-consulta")}
           {group("Consultar", SC.consulta, 120)}
@@ -885,6 +886,8 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {group("Pañol", SC.panol, 216)}
           {item("/recepcion-panol", "Recepción y egresos", SC.panol, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
           {item("/solicitudes-panol", "Solicitudes", SC.panol, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
+          {item("/consumibles", "Consumibles", SC.panol, true, 218, "Stock, reposición, precios de Rebollar y consumo por obra y por persona.")}
+          {item("/pedido-panol", "Pedido para mañana", SC.panol, true, 219, "La lista de consumibles que tu cuadrilla retira mañana a las 7, armada hasta las 15.")}
           {item("/stock-panol", "Stock", SC.panol, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
           {item("/motores-y-grupos", "Motores y grupos", SC.panol, true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
         </>}
@@ -938,6 +941,14 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {divider("ins")}
           {group("Instrucciones", SC.instrucciones, 450)}
           {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
+        </>}
+
+        {/* El carril planificado de consumibles: cada encargado arma desde el
+            celular lo que su cuadrilla retira mañana. Pañol y clientes no lo usan. */}
+        {!esGestion && !esPanol && role !== "cliente" && <>
+          {divider("pedido-panol")}
+          {group("Pañol", SC.panol, 440)}
+          {item("/pedido-panol", "Pedido para mañana", SC.panol, true, 445, "La lista de consumibles que tu cuadrilla retira mañana a las 7, armada hasta las 15.")}
         </>}
 
         {/* Sin condición de rol: pedirle algo al sistema lo tiene que poder

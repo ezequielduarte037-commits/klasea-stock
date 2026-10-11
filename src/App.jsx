@@ -205,7 +205,8 @@ const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/Solicitud
 const StockPanolScreen = pantalla(() => import("@/features/panol/StockPanolScreen"));
 const CatalogoMaestroScreen = pantalla(() => import("@/features/catalogo/CatalogoMaestroScreen"));
 const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolScreen"));
-const EgresoConsumiblesScreen = pantalla(() => import("@/features/panol/EgresoConsumiblesScreen"));
+const ConsumiblesScreen = pantalla(() => import("@/features/consumibles/ConsumiblesScreen"));
+const ListaManianaScreen = pantalla(() => import("@/features/consumibles/lista/ListaManianaScreen"));
 const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
 const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
 const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
@@ -705,7 +706,11 @@ export default function App() {
           <Route path="/motores-y-grupos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><EquiposScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/sobrantes-obra/:cierreId" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/sobrantes-obra" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
-          <Route path="/consumibles-caja" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><EgresoConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* La caja vieja quedó adentro de Consumibles, en la pestaña Mostrador. */}
+          <Route path="/consumibles-caja" element={<Navigate to="/consumibles?tab=mostrador" replace />} />
+          <Route path="/consumibles" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><ConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* La lista del día siguiente la arma cada encargado desde el celular: abierta a cualquier usuario con sesión. */}
+          <Route path="/pedido-panol" element={<RequireAuth session={session}><ListaManianaScreen {...A} /></RequireAuth>} />
           <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
           {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
           <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
