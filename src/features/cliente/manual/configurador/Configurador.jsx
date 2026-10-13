@@ -1,0 +1,326 @@
+/* ═══════════════════════════════════════════════════════════════
+   Configurador · pantalla
+   El barco en el mar, para jugar: colores de casco, cubierta, teca y
+   tapizados, hora del día y clima, balcones que se abren, luces y una
+   navegación. Barra de vidrio abajo (Cámara · Clima · Abrir ·
+   Configurar · Zarpar) y la elección queda guardada en este equipo.
+═══════════════════════════════════════════════════════════════ */
+import { useEffect, useRef, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import * as THREE from "three";
+import {
+  Aperture, Cloud, CloudRain, Download, DoorOpen, Lightbulb, Moon, Palette, RotateCcw, Sailboat, Sun, Sunrise, Video, X,
+} from "lucide-react";
+import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
+import { leerJson, guardarJson } from "../almacen";
+import { modelo3dDe, partesModelo } from "../unidad";
+import { cargarModelo } from "../recorrido/barco";
+import Escena from "./Escena";
+import { CAPAS, ESTILOS, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, textoHora } from "./opciones";
+
+function hayWebGL() {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+const PESTANAS = [
+  { id: "camara", t: "Cámara", i: Video },
+  { id: "clima", t: "Clima", i: Sun },
+  { id: "abrir", t: "Abrir", i: DoorOpen },
+  { id: "color", t: "Configurar", i: Palette },
+];
+
+export default function Configurador({ modelo, onCerrar }) {
+  // Las líneas sin modelo 3D propio ven el K43 como referencia.
+  const propio = modelo3dDe(modelo);
+  const cfg = propio || modelo3dDe("K43");
+  const nombre = propio ? partesModelo(modelo).base : "K43";
+  const clave = `ka_config_${nombre}`;
+  const [guardado] = useState(() => leerJson(clave, null));
+
+  const [geo, setGeo] = useState(null);
+  const [error, setError] = useState(() => (hayWebGL() ? null : "webgl"));
+  const [pestana, setPestana] = useState(null);
+  const [vista, setVista] = useState("tres");
+  const [eleccion, setEleccion] = useState(() => ({ ...ELECCION_INICIAL, ...(guardado?.eleccion || {}) }));
+  const [capa, setCapa] = useState("estilos");
+  const [hora, setHora] = useState(() => guardado?.hora ?? 18.4);
+  const [clima, setClima] = useState(() => guardado?.clima ?? "sol");
+  const [balcones, setBalcones] = useState(false);
+  const [luces, setLuces] = useState(false);
+  const [navegando, setNavegando] = useState(false);
+  const [aviso, setAviso] = useState(null);
+  const indicador = useRef(null);
+  // Alto del panel abierto: la vista sube esa mitad para que el barco no quede tapado.
+  const [altoPanel, setAltoPanel] = useState(0);
+  const observador = useRef(null);
+  const medirPanel = el => {
+    observador.current?.disconnect();
+    if (!el) { setAltoPanel(0); return; }
+    observador.current = new ResizeObserver(([e]) => setAltoPanel(e.contentRect.height));
+    observador.current.observe(el);
+  };
+  const tres = useRef(null);
+  const [intro] = useState(() => !leerMovimientoReducido());
+
+  useEffect(() => {
+    if (error) return undefined;
+    let vivo = true;
+    cargarModelo({ ...cfg, interior: null })
+      .then(m => { if (vivo) setGeo(m); })
+      .catch(() => { if (vivo) setError("modelo"); });
+    return () => { vivo = false; };
+  }, [cfg, error]);
+
+  useEffect(() => { guardarJson(clave, { eleccion, hora, clima }); }, [clave, eleccion, hora, clima]);
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === "Escape") (pestana ? setPestana(null) : onCerrar()); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pestana, onCerrar]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Rótulo grande abajo a la izquierda: lo último que se tocó.
+  const avisar = (eyebrow, t) => setAviso(a => ({ eyebrow, t, k: (a?.k ?? 0) + 1 }));
+
+  const elegir = (capaId, opId) => {
+    setEleccion(e => ({ ...e, [capaId]: opId }));
+    const c = CAPAS.find(x => x.id === capaId);
+    avisar(c.t, opcionDe(capaId, opId).t);
+  };
+  const aplicarEstilo = est => { setEleccion({ ...ELECCION_INICIAL, ...est.e }); avisar("Estilo", est.t); };
+  const irVista = v => { setVista(v.id); avisar("Cámara", v.t); };
+  const abrirBalcones = () => {
+    const nuevo = !balcones;
+    setBalcones(nuevo);
+    setVista("balcones");
+    avisar("Balcones", nuevo ? "Abiertos" : "Cerrados");
+  };
+  const zarpar = () => {
+    const nuevo = !navegando;
+    setNavegando(nuevo);
+    if (nuevo) { setBalcones(false); setVista("popa"); setPestana(null); }
+    avisar(nuevo ? "Zarpando" : "Fondeado", nuevo ? "Rumbo al horizonte" : "Motores en neutro");
+  };
+
+  // Foto: el cuadro actual con la firma de la marca abajo.
+  const foto = () => {
+    const t = tres.current;
+    if (!t) return;
+    t.gl.render(t.scene, t.camera);
+    const src = t.gl.domElement;
+    const c = document.createElement("canvas");
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(src, 0, 0);
+    const s = c.width / 1440;
+    ctx.fillStyle = "rgba(255,255,255,.92)";
+    ctx.font = `500 ${Math.round(16 * s)}px Outfit, system-ui, sans-serif`;
+    ctx.letterSpacing = `${Math.round(6 * s)}px`;
+    ctx.fillText("KLASE A", 40 * s, c.height - 46 * s);
+    ctx.font = `300 ${Math.round(13 * s)}px Outfit, system-ui, sans-serif`;
+    ctx.letterSpacing = `${Math.round(2 * s)}px`;
+    ctx.fillText(`${nombre} · MARCANDO TENDENCIA`, 40 * s, c.height - 24 * s);
+    c.toBlob(b => {
+      if (!b) return;
+      const url = URL.createObjectURL(b);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Klase-A-${nombre}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }, "image/png");
+    avisar("Foto", "Guardada en descargas");
+  };
+
+  const restablecer = () => {
+    setEleccion(ELECCION_INICIAL); setHora(18.4); setClima("sol"); setBalcones(false); setLuces(false); setNavegando(false); setVista("tres");
+    avisar("Configurador", "Como sale de fábrica");
+  };
+
+  const noche = hora < 6.3 || hora > 19.6;
+  const tieneBalcones = !!geo?.balcones?.length;
+
+  return (
+    <div className="kx-cfg" role="dialog" aria-modal="true" aria-label={`Configurador ${nombre}`}>
+      <div className="kx-cfg-lienzo">
+        {error ? (
+          <div className="kx-cfg-aviso">
+            <p>{error === "webgl"
+              ? "Este dispositivo no puede mostrar gráficos 3D."
+              : "No pudimos cargar el modelo. Probá de nuevo en un rato."}</p>
+          </div>
+        ) : !geo ? (
+          <div className="kx-cfg-aviso"><span className="kx-eyebrow">Preparando el configurador</span><i className="kx-rec-carga" /></div>
+        ) : (
+          <Canvas dpr={[1, 1.75]} camera={{ fov: 32, near: 0.3, far: 9000, position: [-20, 12, 26] }} gl={{ antialias: true }}
+            onCreated={({ gl, scene, camera }) => {
+              gl.toneMapping = THREE.ACESFilmicToneMapping;
+              gl.toneMappingExposure = 0.55;
+              tres.current = { gl, scene, camera };
+            }}>
+            <Escena modelo={geo} eleccion={eleccion} vista={vista} hora={hora} clima={clima}
+              balcones={balcones} luces={luces} navegando={navegando} indicador={indicador} intro={intro}
+              subir={pestana ? altoPanel / 2 + 24 : 0} />
+          </Canvas>
+        )}
+      </div>
+
+      {/* Entrada: nombre del modelo, se va solo. */}
+      {geo && intro && (
+        <div className="kx-cfg-intro" aria-hidden>
+          <span className="kx-eyebrow">Configurador · Marcando tendencia</span>
+          <strong><span>{nombre}</span></strong>
+        </div>
+      )}
+
+      <header className="kx-cfg-top">
+        <span className="kx-marca-k">KLASE A</span>
+        <span className="kx-eyebrow kx-solo-ancho" style={{ marginLeft: 18 }}>Configurador · {nombre}{propio ? "" : " (referencia)"}</span>
+        <div className="kx-cfg-acciones">
+          <button type="button" className="kx-cfg-redondo" onClick={restablecer} aria-label="Volver a la configuración de fábrica" title="Restablecer"><RotateCcw size={16} strokeWidth={1.5} /></button>
+          <button type="button" className="kx-cfg-redondo" onClick={foto} disabled={!geo} aria-label="Guardar foto" title="Guardar foto"><Download size={16} strokeWidth={1.5} /></button>
+          <button type="button" className="kx-cfg-redondo" onClick={onCerrar} aria-label="Cerrar el configurador"><X size={18} strokeWidth={1.5} /></button>
+        </div>
+      </header>
+
+      {/* Rótulo de lo último elegido y velocímetro */}
+      <div className="kx-cfg-rotulo" aria-live="polite">
+        {aviso && (
+          <div key={aviso.k}>
+            <span className="kx-eyebrow">{aviso.eyebrow}</span>
+            <strong>{aviso.t}</strong>
+          </div>
+        )}
+      </div>
+      <div className="kx-cfg-velocidad" data-activo={navegando} aria-hidden={!navegando}>
+        <strong ref={indicador}>0</strong><span>nudos</span>
+      </div>
+
+      {geo && (
+        <div className="kx-cfg-abajo">
+          {pestana && (
+            <section className="kx-cfg-panel" key={pestana} ref={medirPanel} aria-label={PESTANAS.find(p => p.id === pestana)?.t}>
+              {pestana === "camara" && (
+                <div className="kx-cfg-chips">
+                  {VISTAS.filter(v => v.id !== "balcones" || tieneBalcones).map((v, i) => (
+                    <button key={v.id} type="button" style={{ "--i": i }} aria-pressed={vista === v.id} onClick={() => irVista(v)}>{v.t}</button>
+                  ))}
+                </div>
+              )}
+
+              {pestana === "clima" && (
+                <div className="kx-cfg-clima">
+                  <div className="kx-cfg-climas">
+                    {CLIMAS.map((c, i) => {
+                      const Icono = c.id === "sol" ? (noche ? Moon : Sun) : c.id === "nubes" ? Cloud : CloudRain;
+                      return (
+                        <button key={c.id} type="button" style={{ "--i": i }} aria-pressed={clima === c.id}
+                          onClick={() => { setClima(c.id); avisar("Clima", c.id === "sol" && noche ? "Despejado" : c.t); }}>
+                          <Icono size={22} strokeWidth={1.25} /><span>{c.id === "sol" && noche ? "Despejado" : c.t}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="kx-cfg-hora">
+                    <span className="kx-eyebrow">Hora</span>
+                    <strong>{textoHora(hora)}</strong>
+                    <Sunrise size={15} strokeWidth={1.5} aria-hidden />
+                    <input type="range" min={HORA_MIN} max={HORA_MAX} step={0.05} value={hora}
+                      onChange={e => setHora(+e.target.value)} aria-label="Hora del día" />
+                    <Moon size={15} strokeWidth={1.5} aria-hidden />
+                  </label>
+                  <div className="kx-cfg-momentos">
+                    {[["Amanecer", 6.6], ["Mediodía", 13], ["Atardecer", 19.1], ["Noche", 21.3]].map(([t, h]) => (
+                      <button key={t} type="button" onClick={() => { setHora(h); avisar("Hora", t); }}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {pestana === "abrir" && (
+                <div className="kx-cfg-tarjetas">
+                  {tieneBalcones && (
+                    <button type="button" className="kx-cfg-tarjeta" aria-pressed={balcones} onClick={abrirBalcones} style={{ "--i": 0 }}>
+                      <Aperture size={20} strokeWidth={1.25} />
+                      <span><strong>Balcones de popa</strong><small>Se rebaten a los costados y suman cubierta junto al agua.</small></span>
+                      <i aria-hidden />
+                    </button>
+                  )}
+                  <button type="button" className="kx-cfg-tarjeta" aria-pressed={luces} style={{ "--i": 1 }}
+                    onClick={() => { setLuces(!luces); avisar("Luces", luces ? "Apagadas" : "Encendidas"); if (!luces && !noche) setHora(20.6); }}>
+                    <Lightbulb size={20} strokeWidth={1.25} />
+                    <span><strong>Luces</strong><small>Subacuáticas en la popa, cockpit y luz de tope. Mejor de noche.</small></span>
+                    <i aria-hidden />
+                  </button>
+                </div>
+              )}
+
+              {pestana === "color" && (
+                <div className="kx-cfg-config">
+                  <div className="kx-cfg-capas" role="tablist">
+                    {[{ id: "estilos", t: "Estilos" }, ...CAPAS].map(c => (
+                      <button key={c.id} type="button" role="tab" aria-selected={capa === c.id} onClick={() => setCapa(c.id)}>{c.t}</button>
+                    ))}
+                  </div>
+                  {capa === "estilos" ? (
+                    <div className="kx-cfg-estilos" key="estilos">
+                      {ESTILOS.map((est, i) => {
+                        const activo = CAPAS.every(c => (est.e[c.id] ?? ELECCION_INICIAL[c.id]) === eleccion[c.id]);
+                        return (
+                          <button key={est.id} type="button" style={{ "--i": i }} aria-pressed={activo} onClick={() => aplicarEstilo(est)}>
+                            <span className="kx-cfg-mini">
+                              {["casco", "cubierta", "teca", "tapizado"].map(id => {
+                                const op = opcionDe(id, est.e[id]);
+                                return <i key={id} style={{ background: op.muestra || op.c }} />;
+                              })}
+                            </span>
+                            <strong>{est.t}</strong>
+                            <small>{est.d}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="kx-cfg-muestras" key={capa}>
+                      {CAPAS.find(c => c.id === capa).ops.map((op, i) => (
+                        <button key={op.id} type="button" style={{ "--i": i, "--c": op.muestra || op.c }} aria-pressed={eleccion[capa] === op.id}
+                          onClick={() => elegir(capa, op.id)} aria-label={op.t}>
+                          <i /><span>{op.t}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          <nav className="kx-cfg-dock" aria-label="Configurador">
+            {PESTANAS.map(p => {
+              const Icono = p.i;
+              return (
+                <button key={p.id} type="button" aria-expanded={pestana === p.id} onClick={() => setPestana(pestana === p.id ? null : p.id)}>
+                  <Icono size={16} strokeWidth={1.5} /><span>{p.t}</span>
+                </button>
+              );
+            })}
+            <button type="button" className="kx-cfg-zarpar" aria-pressed={navegando} onClick={zarpar}>
+              <Sailboat size={16} strokeWidth={1.5} /><span>{navegando ? "Detener" : "Zarpar"}</span>
+            </button>
+          </nav>
+        </div>
+      )}
+    </div>
+  );
+}
