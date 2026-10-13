@@ -5,11 +5,11 @@
    navegación. Barra de vidrio abajo (Cámara · Clima · Abrir ·
    Configurar · Zarpar) y la elección queda guardada en este equipo.
 ═══════════════════════════════════════════════════════════════ */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import {
-  Aperture, Cloud, CloudRain, Download, DoorOpen, Lightbulb, Moon, Palette, RotateCcw, Sailboat, Sun, Sunrise, Video, X,
+  Aperture, Cloud, CloudRain, Download, DoorOpen, LampCeiling, Lightbulb, Moon, Navigation, Palette, RotateCcw, Sailboat, Sun, Sunrise, Video, Waves, X,
 } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { leerJson, guardarJson } from "../almacen";
@@ -31,8 +31,16 @@ const PESTANAS = [
   { id: "camara", t: "Cámara", i: Video },
   { id: "clima", t: "Clima", i: Sun },
   { id: "abrir", t: "Abrir", i: DoorOpen },
+  { id: "luces", t: "Luces", i: Lightbulb },
   { id: "color", t: "Configurar", i: Palette },
 ];
+
+const LUCES = [
+  { id: "navegacion", t: "Navegación", i: Navigation, d: "Roja a babor, verde a estribor y blanca de tope. Cada una se ve sólo desde su sector, como en el agua." },
+  { id: "cortesia", t: "Cortesía", i: LampCeiling, d: "Tiras LED del hardtop y luces bajas en el cockpit y la popa." },
+  { id: "agua", t: "Subacuáticas", i: Waves, d: "El agua de popa se ilumina de celeste." },
+];
+const APAGADAS = { navegacion: false, cortesia: false, agua: false };
 
 export default function Configurador({ modelo, onCerrar }) {
   // Las líneas sin modelo 3D propio ven el K43 como referencia.
@@ -51,26 +59,28 @@ export default function Configurador({ modelo, onCerrar }) {
   const [hora, setHora] = useState(() => guardado?.hora ?? 18.4);
   const [clima, setClima] = useState(() => guardado?.clima ?? "sol");
   const [balcones, setBalcones] = useState(false);
-  const [luces, setLuces] = useState(false);
+  const [luces, setLuces] = useState(APAGADAS);
   const [navegando, setNavegando] = useState(false);
   const [aviso, setAviso] = useState(null);
   const indicador = useRef(null);
   // Alto del panel abierto: la vista sube esa mitad para que el barco no quede tapado.
   const [altoPanel, setAltoPanel] = useState(0);
   const observador = useRef(null);
-  const medirPanel = el => {
+  // Estable (useCallback): una ref nueva en cada render la desconectaba y
+  // reconectaba sin parar, y la imagen temblaba con el panel abierto.
+  const medirPanel = useCallback(el => {
     observador.current?.disconnect();
-    if (!el) { setAltoPanel(0); return; }
+    if (!el) return;
     observador.current = new ResizeObserver(([e]) => setAltoPanel(e.contentRect.height));
     observador.current.observe(el);
-  };
+  }, []);
   const tres = useRef(null);
   const [intro] = useState(() => !leerMovimientoReducido());
 
   useEffect(() => {
     if (error) return undefined;
     let vivo = true;
-    cargarModelo({ ...cfg, interior: null })
+    cargarModelo(cfg)
       .then(m => { if (vivo) setGeo(m); })
       .catch(() => { if (vivo) setError("modelo"); });
     return () => { vivo = false; };
@@ -106,10 +116,18 @@ export default function Configurador({ modelo, onCerrar }) {
     setVista("balcones");
     avisar("Balcones", nuevo ? "Abiertos" : "Cerrados");
   };
+  // De noche, para navegar van las luces de navegación (como manda el reglamento).
+  const prender = (id, valor) => setLuces(l => ({ ...l, [id]: valor }));
+  const cambiarLuz = luz => {
+    const nuevo = !luces[luz.id];
+    prender(luz.id, nuevo);
+    avisar(luz.t, nuevo ? "Encendidas" : "Apagadas");
+    if (nuevo && !noche) setHora(20.6);
+  };
   const zarpar = () => {
     const nuevo = !navegando;
     setNavegando(nuevo);
-    if (nuevo) { setBalcones(false); setVista("popa"); setPestana(null); }
+    if (nuevo) { setBalcones(false); setVista("popa"); setPestana(null); if (noche) prender("navegacion", true); }
     avisar(nuevo ? "Zarpando" : "Fondeado", nuevo ? "Rumbo al horizonte" : "Motores en neutro");
   };
 
@@ -144,7 +162,7 @@ export default function Configurador({ modelo, onCerrar }) {
   };
 
   const restablecer = () => {
-    setEleccion(ELECCION_INICIAL); setHora(18.4); setClima("sol"); setBalcones(false); setLuces(false); setNavegando(false); setVista("tres");
+    setEleccion(ELECCION_INICIAL); setHora(18.4); setClima("sol"); setBalcones(false); setLuces(APAGADAS); setNavegando(false); setVista("tres");
     avisar("Configurador", "Como sale de fábrica");
   };
 
@@ -257,12 +275,22 @@ export default function Configurador({ modelo, onCerrar }) {
                       <i aria-hidden />
                     </button>
                   )}
-                  <button type="button" className="kx-cfg-tarjeta" aria-pressed={luces} style={{ "--i": 1 }}
-                    onClick={() => { setLuces(!luces); avisar("Luces", luces ? "Apagadas" : "Encendidas"); if (!luces && !noche) setHora(20.6); }}>
-                    <Lightbulb size={20} strokeWidth={1.25} />
-                    <span><strong>Luces</strong><small>Subacuáticas en la popa, cockpit y luz de tope. Mejor de noche.</small></span>
-                    <i aria-hidden />
-                  </button>
+                  {!tieneBalcones && <p className="kx-cfg-nada">Este modelo no tiene partes que se abran.</p>}
+                </div>
+              )}
+
+              {pestana === "luces" && (
+                <div className="kx-cfg-tarjetas">
+                  {LUCES.map((luz, i) => {
+                    const Icono = luz.i;
+                    return (
+                      <button key={luz.id} type="button" className="kx-cfg-tarjeta" aria-pressed={luces[luz.id]} style={{ "--i": i }} onClick={() => cambiarLuz(luz)}>
+                        <Icono size={20} strokeWidth={1.25} />
+                        <span><strong>{luz.t}</strong><small>{luz.d}</small></span>
+                        <i aria-hidden />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

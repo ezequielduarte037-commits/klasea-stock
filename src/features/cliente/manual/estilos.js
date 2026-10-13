@@ -780,7 +780,8 @@ export const CSS_MANUAL = `
 .kx .kx-cfg-momentos button { padding: 6px 12px; border-radius: 999px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--kx-mute); border: 1px solid transparent; }
 .kx .kx-cfg-momentos button:hover { color: var(--kx-fg); border-color: var(--kx-line); }
 
-.kx .kx-cfg-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.kx .kx-cfg-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.kx .kx-cfg-nada { margin: 0; color: var(--kx-mute); font-size: 14px; text-align: center; }
 .kx .kx-cfg-tarjeta { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--kx-line); }
 .kx .kx-cfg-tarjeta:hover { border-color: var(--kx-line-2); }
 .kx .kx-cfg-tarjeta strong { display: block; font-weight: 500; font-size: 15px; }

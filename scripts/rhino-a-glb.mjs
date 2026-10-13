@@ -45,6 +45,8 @@ const REGLAS = [
   [/amtifouling|antifouling/i, "fondo"],
   // Interior, por material (cada uno lleva su textura en la web)
   [/INTERIOR::FLOOR|PISO/i, "piso"],
+  // Tiras LED del techo del hardtop: se prenden como luz de cortesía.
+  [/led stripes/i, "led"],
   [/INTERIOR::CIELING|CONTRA TECHOS|ceeling/i, "techo"],
   [/COUNTERTOP|MESADA/i, "piedra"],
   [/::WC$|SYSTEMS::SINK|SHOWER PAINI/i, "loza"],
@@ -77,6 +79,9 @@ const ANCLAS = [
   [/COMPANIONWAY|ACCESORIOS::puertas/i, "bajada"],
   [/MAST::RADAR/i, "radar"],
   [/NAVIGATION-LIGHT HEAD/i, "tope"],
+  [/NAVIGATION-LIGHT PORTSIDE/i, "nav-babor"],
+  [/NAVIGATION-LIGHT STARBOARDSIDE/i, "nav-estribor"],
+  [/led stripes/i, "led"],
 ];
 const cajasAncla = {};
 const vistos = new Set();
@@ -303,8 +308,15 @@ function caraHorizontal(m, donde) {
 }
 
 function balconCerrado(capa, geo) {
-  if (!/EXTERIOR DESIGN::DECK$/i.test(capa) || geo.constructor.name !== "Brep" || geo.faces().count !== 19) return false;
   const b = geo.getBoundingBox();
+  // La tapa de teca del balcón cerrado viene como otra pieza: una pared vertical
+  // de teca de ~1 m junto a la bisagra. Con el balcón abierto quedaba parada a
+  // la vista, cruzada con el balcón (se veía como una textura rota).
+  if (/EXTERIOR DESIGN::TEAK$/i.test(capa)) {
+    const ay = Math.min(Math.abs(b.min[1]), Math.abs(b.max[1]));
+    return b.min[0] > -200 && b.max[0] < 2600 && Math.abs(b.max[1] - b.min[1]) < 150 && ay > 1600 && b.max[2] - b.min[2] > 900;
+  }
+  if (!/EXTERIOR DESIGN::DECK$/i.test(capa) || geo.constructor.name !== "Brep" || geo.faces().count !== 19) return false;
   return b.max[0] < 2700 && Math.max(-b.min[1], b.max[1]) < 2200 && b.max[2] > 2400;
 }
 // Bisagras de los balcones (calculadas comparando la copia abierta con la

@@ -31,6 +31,8 @@ export const ACABADOS = {
   // Almohadones sueltos de camas y sillones: lino claro, como afuera.
   cojin:    { color: "#ece6dc", roughness: 0.95, relieve: "poly_wool_herringbone", m: 0.2, sheen: 0.8, n: 0.5 },
   techo:    { color: "#f6f4f0", roughness: 0.8 },
+  // Tiras LED del techo del hardtop (el configurador las prende de noche).
+  led:      { color: "#eeeae2", roughness: 0.4 },
   // Mesada: cuarzo blanco liso (la foto de mármol se repetía como baldosas).
   piedra:   { color: "#f2f0ec", roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.1 },
   loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
