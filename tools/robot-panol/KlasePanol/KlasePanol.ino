@@ -14,6 +14,7 @@
 #include "esp_adc/adc_continuous.h"
 #include "cloud_ca.h"
 #include "logo.h"
+#include "voice_sample_pcm.h"
 
 /* Robot del pañol.
    - Avisos de ingreso (feed de panol_robot_feed).
@@ -114,6 +115,7 @@ struct Contestacion { String texto, oido; bool confirmar; int status; size_t pcm
 // Audio de salida
 // ════════════════════════════════════════════════════════════════
 volatile int16_t audioTestAmplitude = 3200;
+volatile uint8_t voiceTestPercent = 30;
 void playChime(int16_t amplitude = 1600) {
   // Aviso sin palabras: dos notas suaves; la prueba permite variar el nivel.
   for (int note = 0; note < 2; note++) {
@@ -150,6 +152,23 @@ void playRespuesta() {
   vozNivel = 0;
   reproduciendo = false;
 }
+void playVoiceTest() {
+  // La muestra local ya es estéreo a 24 kHz. Atenuarla permite comparar
+  // la voz con el tono de diagnóstico sin depender del Wi-Fi.
+  reproduciendo = true;
+  const uint8_t percent = voiceTestPercent;
+  int16_t samples[512];
+  for (size_t offset = 0; offset < voice_sample_pcm_size; offset += sizeof(samples)) {
+    const size_t bytes = min(sizeof(samples), voice_sample_pcm_size - offset);
+    for (size_t i = 0; i < bytes / 2; i++) {
+      const size_t p = offset + i * 2;
+      const int16_t source = (int16_t)((uint16_t)voice_sample_pcm[p] | ((uint16_t)voice_sample_pcm[p + 1] << 8));
+      samples[i] = (int32_t)source * percent / 100;
+    }
+    audio.write((uint8_t *)samples, bytes);
+  }
+  reproduciendo = false;
+}
 void audioWorker(void *) {
   pinMode(AMP_SD, OUTPUT);
   digitalWrite(AMP_SD, HIGH);
@@ -169,6 +188,10 @@ void audioWorker(void *) {
       Serial0.println("KLASE_AUDIO_TEST_DONE");
     }
     else if (event == 3 && respuestaPcm && respuestaLen) playRespuesta();
+    else if (event == 5) {
+      playVoiceTest();
+      Serial0.println("KLASE_VOICE_TEST_DONE");
+    }
     const uint8_t silence[1024] = {};
     audio.write(silence, sizeof(silence));
   }
@@ -733,6 +756,14 @@ void serialCommand(String &line) {
     }
     audioTestAmplitude = constrain(doc["percent"] | 10, 1, 15) * 32767 / 100;
     requestAudio(4);
+  }
+  else if(doc["type"]=="test_voice") {
+    if(!audioReady || reproduciendo || grabando || modoVoz==V_PIENSA || pedidoRed!=R_NADA) {
+      Serial0.println("KLASE_VOICE_TEST_BUSY");
+      return;
+    }
+    voiceTestPercent = constrain(doc["percent"] | 30, 1, 100);
+    requestAudio(5);
   }
   else if(doc["type"]=="record_local") {
     if(!wav || grabando || reproduciendo || modoVoz==V_PIENSA || pedidoRed!=R_NADA) {

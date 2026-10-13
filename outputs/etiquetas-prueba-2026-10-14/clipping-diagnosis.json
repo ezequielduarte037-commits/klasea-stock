@@ -1,0 +1,20 @@
+{
+  "before": {
+    "boxSizing": "content-box",
+    "labelMm": {
+      "width": 42.991,
+      "height": 32.395
+    },
+    "qrClipped": true,
+    "barsClipped": true
+  },
+  "after": {
+    "boxSizing": "border-box",
+    "labelMm": {
+      "width": 39.998,
+      "height": 29.997
+    },
+    "qrClipped": false,
+    "barsClipped": false
+  }
+}

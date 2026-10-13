@@ -68,7 +68,9 @@ export function aUnidadesDeCompra(cantidadEntrega, { factor, lote } = {}) {
 /** Un renglón del pedido sugerido, o null si ese producto no hace falta. */
 export function lineaDePedido(item, sede) {
   const cfg = item.config ?? {};
-  const stock = num(item.stockPorSede?.[sede]?.stock ?? item.stock) ?? 0;
+  // Sin contar se pide como si no hubiera (igual que antes), pero se avisa.
+  const crudo = num(item.stockPorSede?.[sede]?.stock ?? item.stock);
+  const stock = crudo ?? 0;
   const minimo = num(item.stockMinimo);
   const maximo = num(cfg.stock_maximo);
   const reponer = cantidadAReponer({ stock, minimo, maximo });
@@ -89,6 +91,7 @@ export function lineaDePedido(item, sede) {
     factor,
     lote,
     stock,
+    sinContar: crudo == null,
     minimo,
     maximo,
     reponer,
@@ -236,7 +239,7 @@ export function filasExcel(grupo) {
       l.unidadesCompra,
       unidadDeCompraTexto(l),
       `${fmt(l.cantidadEntrega)} ${unidadEnTexto(l.unidad, l.cantidadEntrega)}`,
-      l.stock,
+      l.sinContar ? "sin contar" : l.stock,
       l.minimo ?? "",
       l.maximo ?? "",
       l.costoCompra ?? "",

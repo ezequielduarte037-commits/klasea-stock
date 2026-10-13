@@ -21,6 +21,8 @@ const TABS = [
   // El carril planificado: la hoja de papel o la solicitud desde el celular,
   // hasta las 15; se prepara a la tarde y se entrega a las 7 con tarjeta.
   { key: "solicitudes", label: "Solicitudes", Comp: lazy(() => import("./solicitudes/SolicitudesTab")) },
+  // Todo lo que entró, salió y se contó, por día; lo de antes del conteo, marcado.
+  { key: "movimientos", label: "Movimientos", Comp: lazy(() => import("./movimientos/MovimientosTab")) },
   { key: "stock", label: "Stock y reposición", Comp: lazy(() => import("./stock/StockTab")) },
   { key: "conteo", label: "Conteo", Comp: lazy(() => import("./conteo/ConteoTab")) },
   { key: "ingresos", label: "Ingresos", Comp: lazy(() => import("./ingresos/IngresosTab")) },

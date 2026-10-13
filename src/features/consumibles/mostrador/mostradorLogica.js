@@ -186,13 +186,17 @@ export function agregarCodigoAlCatalogo(catalogo = [], materialId, codigo) {
     : i));
 }
 
-/** Descuenta (o suma) en el stock local lo que se acaba de registrar. */
+/**
+ * Descuenta (o suma) en el stock local lo que se acaba de registrar. Un
+ * producto sin contar sigue sin stock: lo que sale antes del primer conteo es
+ * pre-conteo y no descuenta.
+ */
 export function aplicarStockLocal(catalogo = [], filas = []) {
   const delta = new Map();
   for (const f of filas) delta.set(f.material_id, (delta.get(f.material_id) ?? 0) + Number(f.cantidad || 0));
   if (!delta.size) return catalogo;
-  return catalogo.map((i) => (delta.has(i.id)
-    ? { ...i, stock: redondear((i.stock ?? 0) + delta.get(i.id), 3) }
+  return catalogo.map((i) => (delta.has(i.id) && i.stock != null
+    ? { ...i, stock: redondear(i.stock + delta.get(i.id), 3) }
     : i));
 }
 
@@ -434,9 +438,16 @@ export function repartoDeDestino(destino) {
   }
   if (destino.tipo === "sector") {
     const sector = limpio(destino.sector) || null;
-    return { reparto: [], sector, ok: Boolean(sector) };
+    // "Otro" a secas no dice nada después: se pide para qué o para quién es.
+    const comentario = sector === "Otro" ? limpio(destino.comentario) || null : null;
+    return { reparto: [], sector, comentario, ok: Boolean(sector) && (sector !== "Otro" || Boolean(comentario)) };
   }
   return { reparto: [], sector: null, ok: false };
+}
+
+/** Elegido "Otro" y todavía sin el comentario. */
+export function faltaComentarioOtro(destino) {
+  return destino?.tipo === "sector" && limpio(destino.sector) === "Otro" && !limpio(destino.comentario);
 }
 
 export function textoDestino(destino, obrasPorId = new Map()) {
@@ -447,7 +458,10 @@ export function textoDestino(destino, obrasPorId = new Map()) {
     const ids = [...new Set(destino.obraIds ?? [])];
     return ids.length ? `${ids.map(cod).join(" · ")} (repartido)` : "";
   }
-  if (destino.tipo === "sector") return limpio(destino.sector);
+  if (destino.tipo === "sector") {
+    const comentario = limpio(destino.sector) === "Otro" ? limpio(destino.comentario) : "";
+    return comentario ? `Otro: ${comentario}` : limpio(destino.sector);
+  }
   return "";
 }
 
@@ -477,7 +491,8 @@ export function datosParaRetiro({
   if (!empleado?.id && !limpio(empleado?.nombre)) throw new Error("Falta quién retira.");
   const lineas = carrito.filter((l) => l.materialId && Number(l.cantidad) > 0);
   if (!lineas.length) throw new Error("El carrito está vacío.");
-  const { reparto, sector, ok } = repartoDeDestino(destino);
+  const { reparto, sector, comentario, ok } = repartoDeDestino(destino);
+  if (faltaComentarioOtro(destino)) throw new Error("Con «Otro», escribí para qué o para quién es.");
   if (!ok) throw new Error("Falta elegir la obra o el sector.");
 
   const fueraDeCupo = new Set(excedidos.map((e) => e.materialId));
@@ -490,7 +505,9 @@ export function datosParaRetiro({
     }
     const fueraCupo = fueraDeCupo.has(l.materialId);
     const autorizadoPor = autorizantes(l.canje === "sin_usado" ? l.autorizaCanje : "", fueraCupo ? autorizaCupo : "");
-    const nota = item?.formaEntrega === "prestamo" ? "Préstamo: tiene que volver al pañol" : null;
+    // El comentario de "Otro" va en la nota de cada renglón (Movimientos lo muestra como destino).
+    const nota = [item?.formaEntrega === "prestamo" ? "Préstamo: tiene que volver al pañol" : null, comentario]
+      .filter(Boolean).join(" · ") || null;
     return { materialId: l.materialId, cantidad: Number(l.cantidad), gramos: l.gramos,
       canje: l.canje ?? null, fueraCupo, autorizadoPor, nota };
   });
@@ -676,7 +693,7 @@ export function agruparMovimientos(movs = [], max = 20) {
   }
   return grupos.slice(0, max).map((g) => {
     const obras = [...new Set(g.filas.map((f) => f.obra?.codigo).filter(Boolean))];
-    const sectores = [...new Set(g.filas.map((f) => f.sector).filter(Boolean))];
+    const sectores = [...new Set(g.filas.map((f) => (f.sector === "Otro" && f.nota ? `Otro: ${f.nota}` : f.sector)).filter(Boolean))];
     const activas = g.filas.filter((f) => !f.anulado_at);
     return {
       ...g,

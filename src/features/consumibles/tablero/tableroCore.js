@@ -97,6 +97,50 @@ function incidencias(retiros, acepta) {
   return [...grupos.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
 
+/**
+ * Ritmo con que sale un producto, sobre los días en que hubo retiros (así los
+ * fines de semana y feriados no cuentan). Con menos de 3 días no hay ritmo.
+ */
+export function ritmoDeRetiro(diasConRetiro, diasActivos) {
+  if (!(diasActivos >= 3) || !(diasConRetiro > 0)) return null;
+  const parte = diasConRetiro / diasActivos;
+  if (parte >= 0.8) return "diario";
+  if (parte >= 0.4) return "seguido";
+  return "a veces";
+}
+
+/**
+ * Frecuencia de retiro por producto: en cuántos días salió, cuántas veces
+ * (retiros distintos, como los viajes) y cuánto se lleva por vez. Lo que sale
+ * todos los días conviene pedirlo en la solicitud del día anterior.
+ */
+export function frecuenciaDeRetiro(retiros = []) {
+  const diasActivos = new Set();
+  const productos = new Map();
+  for (const m of retiros) {
+    const f = datosFila(m);
+    const dia = diaArgentina(m.created_at);
+    diasActivos.add(dia);
+    const p = productos.get(m.material_id) ?? { id: m.material_id, nombre: f.material, unidad: f.unidad, dias: new Set(), veces: new Set(), personas: new Set(), cantidad: 0 };
+    p.dias.add(dia);
+    p.veces.add(claveViaje(m));
+    p.personas.add(personaDe(m).id);
+    p.cantidad += f.cantidad;
+    productos.set(m.material_id, p);
+  }
+  const total = diasActivos.size;
+  return {
+    diasActivos: total,
+    productos: [...productos.values()].map((p) => ({
+      id: p.id, nombre: p.nombre, unidad: p.unidad,
+      dias: p.dias.size, veces: p.veces.size, personas: p.personas.size,
+      cantidad: Math.round(p.cantidad * 1000) / 1000,
+      porVez: Math.round((p.cantidad / p.veces.size) * 1000) / 1000,
+      ritmo: ritmoDeRetiro(p.dias.size, total),
+    })).sort((a, b) => b.veces - a.veces || b.dias - a.dias || comparar(a.nombre, b.nombre)),
+  };
+}
+
 export function construirTablero({ movimientos = [], conteos = [], inicio, fin }) {
   const activas = movimientos.filter((m) => !m.anulado_at && diaArgentina(m.created_at) >= inicio && diaArgentina(m.created_at) <= fin);
   const retiros = activas.filter((m) => m.tipo === "retiro");
@@ -149,6 +193,7 @@ export function construirTablero({ movimientos = [], conteos = [], inicio, fin }
     p.dias[v.dia] = (p.dias[v.dia] ?? 0) + 1;
     personas.set(p.id, p);
   }
+  const frecuencia = frecuenciaDeRetiro(retiros);
   // El orden cronológico permite reconocer la primera fila de cada producto
   // y sede incluso cuando ese conteo ocurrió antes del rango elegido.
   const primeros = new Map();
@@ -173,6 +218,7 @@ export function construirTablero({ movimientos = [], conteos = [], inicio, fin }
     sectores: [...sectores.values()].map(proporciones).sort((a, b) => b.total - a.total || comparar(a.nombre, b.nombre)),
     dias: [...dias.values()].map(proporciones),
     personas: [...personas.values()].sort((a, b) => b.total - a.total || comparar(a.nombre, b.nombre)),
+    frecuencia,
     fueraCupo: incidencias(retiros, (m) => m.fuera_cupo === true),
     sinUsado: incidencias(retiros, (m) => m.canje === "sin_usado"),
     mermas: [...mermas].sort((a, b) => b.created_at.localeCompare(a.created_at)),

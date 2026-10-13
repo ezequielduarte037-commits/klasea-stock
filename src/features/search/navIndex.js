@@ -100,6 +100,12 @@ export const NAV_SECTIONS = [
     keywords: "pedido lista mañana consumibles encargado planificado solicitud panol",
   },
   {
+    id: "panol-consumibles-movimientos", label: "Movimientos de consumibles", modulo: "Pañol", path: "/consumibles?tab=movimientos", Icon: Boxes,
+    hint: "Todo lo que salió, entró y se contó en el pañol, por día, con quién y para qué obra.",
+    keywords: "movimientos historial retiros egresos ingresos conteos consumibles anular pre conteo",
+    roles: ["admin", "panol", "oficina", "tecnica", "compras"],
+  },
+  {
     id: "panol-caja", label: "Mostrador de consumibles", modulo: "Pañol", path: "/consumibles?tab=mostrador", Icon: Wallet,
     hint: "Tarjeta o nombre, se escanean los productos y salen del stock.",
     keywords: "caja consumibles autoservicio tarjeta nfc escanear salida rapida",

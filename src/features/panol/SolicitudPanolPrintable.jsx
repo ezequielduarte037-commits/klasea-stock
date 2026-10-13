@@ -39,7 +39,7 @@ const ITEM_COUNT = 27;
 const FILAS_HOJA_COMPLETA = 25;
 const ITEM_ROW_H = "6mm";
 
-const SECTORES = ["Laminación", "Pintura", "Mecánica", "Electricidad", "Carpintería", "Sanitarios", "Otro"];
+const SECTORES = ["Laminación", "Pintura", "Mecánica", "Electricidad", "Carpintería", "Sanitarios", "Tapicería", "Otro"];
 const TIPOS = ["Consumibles", "Materiales", "Herramientas"];
 const ESTADO_PANOL = ["Preparado", "Parcial", "Falta stock", "Consultar"];
 

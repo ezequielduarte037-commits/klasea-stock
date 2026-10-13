@@ -1,0 +1,527 @@
+[
+  {
+    "alias": "Lija Orbital Grande 80",
+    "cantidad_movimientos": 7,
+    "codigoEtiqueta": "D0043",
+    "config": {
+      "proveedor_codigo": "D0043",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "Disco orbital 154mm # 80",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "f00af2d7-244d-4869-b156-373ba84cc12b",
+    "largo_codigo": 5,
+    "rubro": "Lijas y abrasivos",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-10-01 14:05:05.23823+00",
+    "unidad": "unidad",
+    "orden": 56,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-056.png"
+  },
+  {
+    "alias": "Lija Orbital Grande 240",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "D0049",
+    "config": {
+      "proveedor_codigo": "D0049",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "Disco orbital 154mm # 240",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "1b1ab73d-5991-4299-9f12-9baec388a311",
+    "largo_codigo": 5,
+    "rubro": "Lijas y abrasivos",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-30 11:39:38.098874+00",
+    "unidad": "unidad",
+    "orden": 57,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-057.png"
+  },
+  {
+    "alias": "Ph3",
+    "cantidad_movimientos": 1,
+    "codigoEtiqueta": "P0059",
+    "config": {
+      "proveedor_codigo": "P0059",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "PUNTAS PH3 X 50MM",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "63c0b9b2-bb24-4aa0-a493-c7c0eea9d035",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 12:24:25.824241+00",
+    "unidad": "unidad",
+    "orden": 58,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-058.png"
+  },
+  {
+    "alias": "Parafuso 4.5 X 60",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "F0016",
+    "config": {
+      "proveedor_codigo": "F0016",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "4,5 X 60 FIX",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "92ee2f1b-52bf-4dd0-9f1b-2569907f397f",
+    "largo_codigo": 5,
+    "rubro": "Fijaciones",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 12:24:25.824241+00",
+    "unidad": "unidad",
+    "orden": 59,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-059.png"
+  },
+  {
+    "alias": "Parafuso 4 X 50",
+    "cantidad_movimientos": 4,
+    "codigoEtiqueta": "F0015",
+    "config": {
+      "proveedor_codigo": "F0015",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "4 X 50 FIX",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "b55cda81-8158-44c9-800c-4f19bc12cdc9",
+    "largo_codigo": 5,
+    "rubro": "Fijaciones",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 12:24:25.824241+00",
+    "unidad": "unidad",
+    "orden": 60,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-060.png"
+  },
+  {
+    "alias": "Parafuso 4 X 30",
+    "cantidad_movimientos": 4,
+    "codigoEtiqueta": "F0011",
+    "config": {
+      "proveedor_codigo": "F0011",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "4 X 30 FIX",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "78b47ac2-5e45-4894-966d-d22e7738a125",
+    "largo_codigo": 5,
+    "rubro": "Fijaciones",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 11:53:11.317038+00",
+    "unidad": "unidad",
+    "orden": 61,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-061.png"
+  },
+  {
+    "alias": "Parafuso 4 X 25",
+    "cantidad_movimientos": 1,
+    "codigoEtiqueta": "F0010",
+    "config": {
+      "proveedor_codigo": "F0010",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "4 X 25 FIX",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "cf156009-67b8-4f38-91bb-9a9f813d4319",
+    "largo_codigo": 5,
+    "rubro": "Fijaciones",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 11:53:11.317038+00",
+    "unidad": "unidad",
+    "orden": 62,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-062.png"
+  },
+  {
+    "alias": "Parafuso 4 X 40",
+    "cantidad_movimientos": 3,
+    "codigoEtiqueta": "F0013",
+    "config": {
+      "proveedor_codigo": "F0013",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "4 X 40 FIX",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "ea4338f3-b971-4e32-8412-5d1ed1f54d93",
+    "largo_codigo": 5,
+    "rubro": "Fijaciones",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 11:53:11.317038+00",
+    "unidad": "unidad",
+    "orden": 63,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-063.png"
+  },
+  {
+    "alias": "Mecha 6",
+    "cantidad_movimientos": 5,
+    "codigoEtiqueta": "M0039",
+    "config": {
+      "proveedor_codigo": "M0039",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 6",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "ed27abd7-7c8d-40d3-b918-f711ebc3fc8f",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 11:47:05.98733+00",
+    "unidad": "unidad",
+    "orden": 64,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-064.png"
+  },
+  {
+    "alias": "Lija Al Agua 220",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "L0013",
+    "config": {
+      "proveedor_codigo": "L0013",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "LIJA AL AGUA AA #220",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "de60eee1-6711-4901-81df-0912caa2ab95",
+    "largo_codigo": 5,
+    "rubro": "Lijas y abrasivos",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-24 11:40:42.504473+00",
+    "unidad": "unidad",
+    "orden": 65,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-065.png"
+  },
+  {
+    "alias": "Mecha 8",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "M0047",
+    "config": {
+      "proveedor_codigo": "M0047",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 8",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "0806abbc-339d-49e4-83f7-d5720c704145",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 66,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-066.png"
+  },
+  {
+    "alias": "Mecha 11",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "M0053",
+    "config": {
+      "proveedor_codigo": "M0053",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 11",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "269d3010-8c76-4a73-835f-95c9b1e16641",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 67,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-067.png"
+  },
+  {
+    "alias": "Mecha 13",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "M0057",
+    "config": {
+      "proveedor_codigo": "M0057",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 13",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "273efba0-d07b-4295-bd25-855a14242952",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 68,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-068.png"
+  },
+  {
+    "alias": "Parafuso 3.5 X 16",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "F0002",
+    "config": {
+      "proveedor_codigo": "F0002",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "3,5 X 16 FIX",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "28f984cd-c62f-4819-875c-1bfc5832f217",
+    "largo_codigo": 5,
+    "rubro": "Fijaciones",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 69,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-069.png"
+  },
+  {
+    "alias": "Mecha 12",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "M0055",
+    "config": {
+      "proveedor_codigo": "M0055",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 12",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "2ef47738-76b6-465d-bb2a-8175ba11a553",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 70,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-070.png"
+  },
+  {
+    "alias": "Lapiz Carpintero",
+    "cantidad_movimientos": 8,
+    "codigoEtiqueta": "L0005",
+    "config": {
+      "proveedor_codigo": "L0005",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "Lapiz Carpintero IMPOR NEGRO",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "62b57b9c-6438-4344-8f51-83a1160ec3f6",
+    "largo_codigo": 5,
+    "rubro": "Herramientas menores",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 71,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-071.png"
+  },
+  {
+    "alias": "Mecha 5",
+    "cantidad_movimientos": 3,
+    "codigoEtiqueta": "M0035",
+    "config": {
+      "proveedor_codigo": "M0035",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 5",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "6b209144-b074-4c66-ae6e-c00c2173144b",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 72,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-072.png"
+  },
+  {
+    "alias": "Hoja Caladora 101Ao",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "H0003",
+    "config": {
+      "proveedor_codigo": "H0003",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "T101AO Hoja calar Blister",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "79b259eb-50ef-45c0-827b-ed7d39a6f6d1",
+    "largo_codigo": 5,
+    "rubro": "Hojas caladora y serrucho",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 73,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-073.png"
+  },
+  {
+    "alias": "Hoja Caladora T118B",
+    "cantidad_movimientos": 3,
+    "codigoEtiqueta": "H0010",
+    "config": {
+      "proveedor_codigo": "H0010",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "T118B Hoja calar Blister",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "83d8bec2-4adb-419a-8c40-41d6f59302a0",
+    "largo_codigo": 5,
+    "rubro": "Hojas caladora y serrucho",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 74,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-074.png"
+  },
+  {
+    "alias": "Mecha 9",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "M0049",
+    "config": {
+      "proveedor_codigo": "M0049",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 9",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "8d16a78d-b216-42e9-ba9e-243f539eb6af",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 75,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-075.png"
+  },
+  {
+    "alias": "Hoja Caladora T 301",
+    "cantidad_movimientos": 4,
+    "codigoEtiqueta": "H0020",
+    "config": {
+      "proveedor_codigo": "H0020",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "T301CD Hoja calar Blister",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "9456ce41-659c-4aac-9877-ce614ea2fb31",
+    "largo_codigo": 5,
+    "rubro": "Hojas caladora y serrucho",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 76,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-076.png"
+  },
+  {
+    "alias": "Mecha 7",
+    "cantidad_movimientos": 2,
+    "codigoEtiqueta": "M0043",
+    "config": {
+      "proveedor_codigo": "M0043",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 7",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "aa8fc913-c26a-485c-960f-4cb5d16049d4",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 77,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-077.png"
+  },
+  {
+    "alias": "Mecha 10",
+    "cantidad_movimientos": 3,
+    "codigoEtiqueta": "M0051",
+    "config": {
+      "proveedor_codigo": "M0051",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "MECHA DIAM 10",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "c08aed36-691c-4b41-80c6-6ec8245a984a",
+    "largo_codigo": 5,
+    "rubro": "Mechas",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-22 13:42:24.65744+00",
+    "unidad": "unidad",
+    "orden": 78,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-078.png"
+  },
+  {
+    "alias": "Disco Orbital Grande 320 · Lija Orbital Grande 320",
+    "cantidad_movimientos": 6,
+    "codigoEtiqueta": "D0051",
+    "config": {
+      "proveedor_codigo": "D0051",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "Disco orbital 154mm # 320",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "fb93aaed-f971-5e28-9be8-52897a768450",
+    "largo_codigo": 5,
+    "rubro": "Lijas y abrasivos",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-18 18:21:51.780976+00",
+    "unidad": "unidad",
+    "orden": 79,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-079.png"
+  },
+  {
+    "alias": "Pincel N 25",
+    "cantidad_movimientos": 1,
+    "codigoEtiqueta": "P0019",
+    "config": {
+      "proveedor_codigo": "P0019",
+      "proveedor_nombre": "Rebollar"
+    },
+    "descripcion": "Pincel Nº 25 - Cerda CHINA",
+    "fuentes": [
+      "retiro_historico"
+    ],
+    "id": "84583c11-0060-4540-874c-d1a972e0482c",
+    "largo_codigo": 5,
+    "rubro": "Pintura y aplicación",
+    "ubicacion": null,
+    "ultimo_movimiento": "2026-09-17 10:40:16.306081+00",
+    "unidad": "unidad",
+    "orden": 80,
+    "bitmap": "C:/klasea-stock/outputs/etiquetas-prueba-2026-10-14/lote-180-2026-10-13/etiqueta-080.png"
+  }
+]

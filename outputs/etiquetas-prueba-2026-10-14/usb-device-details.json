@@ -1,0 +1,122 @@
+[
+  {
+    "Status": "OK",
+    "Class": "USB",
+    "Name": "Compatibilidad con impresoras USB",
+    "InstanceId": "USB\\VID_3533&PID_5A11&MI_00\\6&32AC4F4B&0&0000",
+    "Problem": 0,
+    "Properties": [
+      {
+        "KeyName": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "Data": "DeTong DothanTech P1 Label Printer @ P1S-60100972"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_Manufacturer",
+        "Data": "Microsoft"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_DeviceDesc",
+        "Data": "Compatibilidad con impresoras USB"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_HardwareIds",
+        "Data": [
+          "USB\\VID_3533&PID_5A11&REV_374=&MI_00",
+          "USB\\VID_3533&PID_5A11&MI_00"
+        ]
+      },
+      {
+        "KeyName": "DEVPKEY_Device_DriverInfPath",
+        "Data": "usbprint.inf"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_Service",
+        "Data": "usbprint"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_ProblemCode",
+        "Data": 0
+      }
+    ]
+  },
+  {
+    "Status": "OK",
+    "Class": "HIDClass",
+    "Name": "Dispositivo de entrada USB",
+    "InstanceId": "USB\\VID_3533&PID_5A11&MI_01\\6&32AC4F4B&0&0001",
+    "Problem": 0,
+    "Properties": [
+      {
+        "KeyName": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "Data": "DeTong P1 Label Printer HID Port @ P1S-60100972"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_Manufacturer",
+        "Data": "(Dispositivos de sistema estándar)"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_DeviceDesc",
+        "Data": "Dispositivo de entrada USB"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_HardwareIds",
+        "Data": [
+          "USB\\VID_3533&PID_5A11&REV_374=&MI_01",
+          "USB\\VID_3533&PID_5A11&MI_01"
+        ]
+      },
+      {
+        "KeyName": "DEVPKEY_Device_DriverInfPath",
+        "Data": "input.inf"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_Service",
+        "Data": "HidUsb"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_ProblemCode",
+        "Data": 0
+      }
+    ]
+  },
+  {
+    "Status": "OK",
+    "Class": "USB",
+    "Name": "Dispositivo compuesto USB",
+    "InstanceId": "USB\\VID_3533&PID_5A11\\35335A115348",
+    "Problem": 0,
+    "Properties": [
+      {
+        "KeyName": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "Data": "P1 Label Printer"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_Manufacturer",
+        "Data": "(Controladora de host USB estándar)"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_DeviceDesc",
+        "Data": "Dispositivo compuesto USB"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_HardwareIds",
+        "Data": [
+          "USB\\VID_3533&PID_5A11&REV_374=",
+          "USB\\VID_3533&PID_5A11"
+        ]
+      },
+      {
+        "KeyName": "DEVPKEY_Device_DriverInfPath",
+        "Data": "usb.inf"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_Service",
+        "Data": "usbccgp"
+      },
+      {
+        "KeyName": "DEVPKEY_Device_ProblemCode",
+        "Data": 0
+      }
+    ]
+  }
+]

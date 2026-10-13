@@ -1,0 +1,7 @@
+{
+  "Status": "Valid",
+  "Message": "Signature verified.",
+  "Signer": "CN=德佟电子科技（上海）有限公司, O=德佟电子科技（上海）有限公司, L=上海, S=上海, C=CN",
+  "Issuer": "CN=GlobalSign GCC R45 CodeSigning CA 2020, O=GlobalSign nv-sa, C=BE",
+  "Sha256": "97DCEEB5F854CDEC2CBE7DD87B8B16984273EB7BAF630F7B4B6C3B77D1A97AC5"
+}

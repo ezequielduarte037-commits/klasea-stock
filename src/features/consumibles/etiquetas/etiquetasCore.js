@@ -37,22 +37,27 @@ export const FORMATOS = {
     // El ancho incluye ambos márgenes: no se recorta ni se estira el SVG.
     barras: { altoMm: 8, moduloMaxMm: 0.42, anchoMaxMm: 53 },
   },
-  // Etiqueta suelta para la térmica que llega el miércoles 14/10.
+  // Etiqueta suelta de 40 × 30 para la térmica que llega el miércoles 14/10:
+  // es el rollo que hay en el pañol (de 60 × 40 no hay y 80 × 50 es grande
+  // para el estante).
   termica: {
     key: "termica",
-    nombre: "Térmica 60 × 40",
+    nombre: "Térmica 40 × 30",
     detalle: "Una etiqueta por página",
-    pagina: { ancho: 60, alto: 40 },
-    etiqueta: { ancho: 60, alto: 40 },
+    pagina: { ancho: 40, alto: 30 },
+    etiqueta: { ancho: 40, alto: 30 },
     columnas: 1,
     filas: 1,
     porHoja: 1,
     margenSuperior: 0,
-    relleno: { v: 2.5, h: 2.5 },
-    qrMm: 14,
+    relleno: { v: 1.2, h: 1.5 },
+    qrMm: 11,
     // 0,375 mm = 3 puntos de una térmica de 203 ppp: barras parejas, sin
-    // puntos repartidos a medias entre una barra y la siguiente.
-    barras: { altoMm: 9, moduloMaxMm: 0.375, anchoMaxMm: 55, pasoMm: 0.125 },
+    // puntos repartidos a medias entre una barra y la siguiente. Un código de
+    // Rebollar de 10 letras mide 145 módulos sin la zona blanca: a 0,25 mm
+    // solo entra usando el ancho entero, así que las barras van de borde a
+    // borde (`alBorde`) y en los más largos la zona blanca baja a 7 módulos.
+    barras: { altoMm: 6.5, moduloMaxMm: 0.375, anchoMaxMm: 40, pasoMm: 0.125, zonaMinima: 7, alBorde: true },
   },
 };
 
@@ -119,34 +124,39 @@ const cacheBarras = new Map();
  *
  * El ancho del módulo es el máximo del formato salvo que el código no entre en
  * `anchoMaxMm`; `pasoMm` lo redondea hacia abajo a puntos enteros de la
- * impresora (térmica). `legible` avisa si quedó por debajo del mínimo.
+ * impresora (térmica). Si ni así entra con módulos legibles, la zona blanca se
+ * achica de a un módulo hasta `zonaMinima` (por defecto no se achica).
  */
-export function codigoDeBarras(texto, { altoMm = 8, moduloMaxMm = 0.4, anchoMaxMm = 60, pasoMm = null } = {}) {
-  const clave = `${texto}|${altoMm}|${moduloMaxMm}|${anchoMaxMm}|${pasoMm}`;
+export function codigoDeBarras(texto, { altoMm = 8, moduloMaxMm = 0.4, anchoMaxMm = 60, pasoMm = null, zonaMinima = ZONA_BLANCA_MODULOS } = {}) {
+  const clave = `${texto}|${altoMm}|${moduloMaxMm}|${anchoMaxMm}|${pasoMm}|${zonaMinima}`;
   if (cacheBarras.has(clave)) return cacheBarras.get(clave);
 
   const patron = patronCode128(texto);
   if (!patron) return null;
-  const modulos = patron.length + 2 * ZONA_BLANCA_MODULOS;
-  let modulo = Math.min(moduloMaxMm, anchoMaxMm / modulos);
-  if (pasoMm) modulo = Math.floor(modulo / pasoMm + 1e-9) * pasoMm;
+  for (let zona = ZONA_BLANCA_MODULOS; zona >= Math.min(zonaMinima, ZONA_BLANCA_MODULOS); zona -= 1) {
+    const modulos = patron.length + 2 * zona;
+    let modulo = Math.min(moduloMaxMm, anchoMaxMm / modulos);
+    if (pasoMm) modulo = Math.floor(modulo / pasoMm + 1e-9) * pasoMm;
+    if (modulo < MODULO_MINIMO_MM - 1e-9) continue;
+
+    const resultado = {
+      texto: String(texto).trim(),
+      patron,
+      modulos,
+      zona,
+      moduloMm: redondear(modulo, 4),
+      anchoMm: redondear(modulos * modulo, 4),
+      altoMm,
+      viewBox: `0 0 ${modulos} 1`,
+      d: pathDeBarras(patron, zona),
+      legible: true,
+    };
+    cacheBarras.set(clave, resultado);
+    return resultado;
+  }
   // No fabricamos una etiqueta que parezca válida si el código no cabe con
   // dos puntos térmicos por módulo. La pestaña bloquea esa impresión.
-  if (modulo < MODULO_MINIMO_MM - 1e-9) return null;
-
-  const resultado = {
-    texto: String(texto).trim(),
-    patron,
-    modulos,
-    moduloMm: redondear(modulo, 4),
-    anchoMm: redondear(modulos * modulo, 4),
-    altoMm,
-    viewBox: `0 0 ${modulos} 1`,
-    d: pathDeBarras(patron, ZONA_BLANCA_MODULOS),
-    legible: modulo >= MODULO_MINIMO_MM - 1e-9,
-  };
-  cacheBarras.set(clave, resultado);
-  return resultado;
+  return null;
 }
 
 // ── QR ──────────────────────────────────────────────────────────────────────
@@ -248,15 +258,25 @@ export function contenidoEtiqueta(item) {
 
 /**
  * Tamaño del nombre en puntos según el largo: corto, grande y en una línea;
- * largo, más chico y en dos. Los 222 consumibles de hoy miden hasta 41
- * caracteres (el 90 % menos de 23).
+ * largo, más chico y en dos (en la térmica de 40 × 30, hasta tres). Los 649
+ * de la lista de Rebollar miden hasta 45 caracteres (la mitad, más de 28).
  */
 export function tamanoNombre(nombre, formatoKey = "a4") {
   const n = limpio(nombre).length;
   const escala = formatoKey === "termica"
-    ? [[14, 14], [22, 12], [32, 10.5], [Infinity, 9.5]]
+    ? [[16, 10], [24, 9], [34, 8], [Infinity, 7.5]]
     : [[14, 13], [22, 11.5], [32, 10], [Infinity, 9]];
   return escala.find(([max]) => n <= max)[1];
+}
+
+/**
+ * Tamaño del código impreso en puntos. En la térmica de 40 × 30 quedan unos
+ * 24 mm al lado del QR: 10 caracteres de JetBrains Mono entran a 10,5 pt.
+ */
+export function tamanoCodigo(codigo, formatoKey = "a4") {
+  if (formatoKey !== "termica") return 15;
+  const n = limpio(codigo).length;
+  return n <= 6 ? 14 : n <= 8 ? 12 : 10.5;
 }
 
 /** Estantería de una ubicación "C2-03" → "C" (las letras del principio). */

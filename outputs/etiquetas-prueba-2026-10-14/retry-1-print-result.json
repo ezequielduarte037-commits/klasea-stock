@@ -1,0 +1,16 @@
+{
+  "Printer": "P1S Label Printer",
+  "Code": "L0072",
+  "Copies": 1,
+  "StartedAt": "2026-10-13T10:07:33.0418181-03:00",
+  "Success": true,
+  "Message": "One page submitted via Windows PrintDocument; 203 dpi, 320 x 240 bitmap, driver paper D 40 x 30 mm, zero margins, no image scaling.",
+  "DefaultBefore": [
+    "P1S Label Printer"
+  ],
+  "DefaultAfter": [
+    "P1S Label Printer"
+  ],
+  "Jobs": [],
+  "FinishedAt": "2026-10-13T10:07:34.4886541-03:00"
+}

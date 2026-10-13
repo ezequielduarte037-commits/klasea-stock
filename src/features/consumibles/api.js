@@ -7,7 +7,10 @@ import { normalizarCodigo } from "@/features/panol/kioscoApi";
  * El registro vive en `consumibles_movimientos` (migración
  * 20261010120000_consumibles_base.sql) y NO en panol_obra_materiales_snapshot:
  * hasta el 13/10/2026 los consumibles no tenían stock, y este apartado arranca
- * de cero. El stock es la suma de `cantidad` (vista `consumibles_stock`).
+ * de cero. El stock sale de la vista `consumibles_stock`: lo contado en el
+ * último conteo más lo que se movió después. Sin conteo en la sede es null
+ * ("sin contar"), y lo que salió antes del primer conteo se informa aparte
+ * como pre-conteo (migración 20261013160000).
  *
  * Reglas que no se discuten en cada pantalla:
  *   - Todo movimiento lleva sede. La del mostrador se guarda por equipo.
@@ -170,12 +173,15 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
     const actual = stockById.get(s.material_id) ?? {};
     const valor = Number(s.stock);
     actual[s.sede] = {
-      // Un stock que no es un número es un error de datos: se muestra vacío,
-      // nunca como cero.
-      stock: Number.isFinite(valor) ? valor : null,
+      // Sin conteo la vista da null: es "sin contar", nunca cero.
+      stock: s.stock != null && Number.isFinite(valor) ? valor : null,
       ultimoConteoAt: s.ultimo_conteo_at,
       ultimoRetiroAt: s.ultimo_retiro_at,
       ultimoIngresoAt: s.ultimo_ingreso_at,
+      primerConteoAt: s.primer_conteo_at ?? null,
+      // Lo que salió antes del primer conteo: registrado, pero no descuenta.
+      preConteoRetirado: num(s.pre_conteo_retirado) ?? 0,
+      preConteoRetiros: Number(s.pre_conteo_retiros) || 0,
     };
     stockById.set(s.material_id, actual);
   }
@@ -211,6 +217,7 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
       enMostrador: config ? config.activo_mostrador !== false : true,
       stock: deSede ? deSede.stock : null,
       ultimoConteoAt: deSede?.ultimoConteoAt ?? null,
+      preConteoRetirado: deSede?.preConteoRetirado ?? 0,
       stockPorSede: porSede,
       // En orden de confianza: la etiqueta propia primero, el código del
       // proveedor al final (es el que más se repite entre productos).

@@ -41,16 +41,58 @@ select json_agg(t order by t.fecha, t.numero) as filas from (
     coalesce(cfg.unidad_entrega, m.unidad_medida, s.unidad) as unidad,
     coalesce(c.nombre, '(sin rubro)') as rubro,
     abs(coalesce(nullif(s.cantidad_egresada, 0), s.cantidad, 0)) as cantidad,
-    cfg.proveedor_codigo as codigo_rebollar,
-    cfg.costo_unitario_ars as costo_unitario
+    coalesce(cfg.proveedor_codigo, fus.proveedor_codigo) as codigo_rebollar,
+    coalesce(cfg.costo_unitario_ars, fus.costo_unitario_ars) as costo_unitario,
+    fus.descripcion as fusionado_en,
+    m.activo as producto_activo,
+    cfg.notas as notas_config,
+    cfg.factor_compra as factor
   from public.panol_obra_materiales_snapshot s
   left join public.panol_solicitudes sol on sol.id = s.panol_solicitud_id
   left join public.produccion_obras o on o.id = coalesce(s.obra_id, sol.obra_id)
   left join public.panol_materiales m on m.id = s.material_id
   left join public.panol_categorias c on c.id = m.categoria_id
   left join public.consumibles_config cfg on cfg.material_id = s.material_id
+  -- Un producto viejo que se unió a uno de Rebollar quedó inactivo, pero su
+  -- nombre está en el alias del nuevo: se valoriza con ese.
+  left join lateral (
+    select a.descripcion, c2.costo_unitario_ars, c2.proveedor_codigo
+      from public.panol_materiales a
+      join public.consumibles_config c2 on c2.material_id = a.id
+     where m.activo = false
+       and a.activo is distinct from false
+       and a.es_consumible
+       and (' · ' || lower(coalesce(a.alias, '')) || ' · ') like ('% · ' || lower(btrim(m.descripcion)) || ' · %')
+     limit 1
+  ) fus on true
   where s.source = 'solicitud_consumible_retiro'
     and lower(coalesce(s.notas, '') || ' ' || coalesce(s.egreso_nota, '')) not like '%[anulado]%'
+) t;
+`;
+
+
+const SQL_REGISTRO = `
+select json_agg(t order by t.fecha) as filas from (
+  select
+    m.created_at as fecha,
+    m.tipo,
+    m.carril,
+    coalesce(m.empleado_nombre, '') as persona,
+    coalesce(m.metodo_firma, '') as firma,
+    coalesce(o.codigo, '') as obra,
+    coalesce(m.sector, '') as sector,
+    m.sede,
+    p.descripcion as producto,
+    coalesce(c.proveedor_codigo, '') as codigo_rebollar,
+    coalesce(c.unidad_entrega, p.unidad_medida) as unidad,
+    -m.cantidad as cantidad,
+    m.costo_unitario_ars as costo_unitario,
+    m.nota
+  from public.consumibles_movimientos m
+  join public.panol_materiales p on p.id = m.material_id
+  left join public.consumibles_config c on c.material_id = m.material_id
+  left join public.produccion_obras o on o.id = m.obra_id
+  where m.anulado_at is null and m.tipo in ('retiro', 'devolucion', 'merma')
 ) t;
 `;
 
@@ -93,8 +135,19 @@ function agrupar(filas, clave) {
     .sort((x, y) => y.valorizado - x.valorizado || y.renglones - x.renglones);
 }
 
+const FORMATO_PESOS = '"$" #,##0.00';
+const FORMATO_CANTIDAD = "#,##0.##";
+
 function hoja(filas, columnas) {
   const ws = XLSX.utils.json_to_sheet(filas, { header: columnas.map((c) => c.k) });
+  // Pesos con signo y separador de miles; cantidades sin decimales de más.
+  columnas.forEach((c, col) => {
+    if (!c.fmt) return;
+    for (let fila = 1; fila <= filas.length; fila++) {
+      const celda = ws[XLSX.utils.encode_cell({ r: fila, c: col })];
+      if (celda && typeof celda.v === "number") celda.z = c.fmt === "pesos" ? FORMATO_PESOS : FORMATO_CANTIDAD;
+    }
+  });
   XLSX.utils.sheet_add_aoa(ws, [columnas.map((c) => c.t)], { origin: "A1" });
   ws["!cols"] = columnas.map((c) => ({ wch: c.w ?? 14 }));
   ws["!autofilter"] = { ref: ws["!ref"] };
@@ -120,6 +173,11 @@ const filas = crudas.map((r) => {
     cantidad,
     codigo_rebollar: r.codigo_rebollar || "",
     costo_unitario: costo,
+    motivo_sin_valor: costo != null ? ""
+      : !r.material_id ? "Escrito a mano, sin producto"
+      : r.producto_activo === false && !r.fusionado_en ? "Fuera de la lista de Rebollar: conciliar en Catálogo"
+      : !r.codigo_rebollar ? "Sin código de Rebollar"
+      : "Sin factor de compra (unidad distinta a la de Rebollar)",
     valor: costo == null ? null : redondear(costo * cantidad),
   };
 });
@@ -154,14 +212,15 @@ XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
 XLSX.utils.book_append_sheet(wb, hoja(filas, [
   { k: "fecha", t: "Fecha", w: 11 }, { k: "hora", t: "Hora", w: 7 }, { k: "numero", t: "Solicitud", w: 9 },
   { k: "retira", t: "Retira", w: 24 }, { k: "sector", t: "Sector", w: 14 }, { k: "obra", t: "Obra", w: 10 },
-  { k: "rubro", t: "Rubro", w: 20 }, { k: "producto", t: "Producto", w: 32 }, { k: "cantidad", t: "Cantidad", w: 9 },
+  { k: "rubro", t: "Rubro", w: 20 }, { k: "producto", t: "Producto", w: 32 }, { k: "cantidad", t: "Cantidad", w: 9, fmt: "cantidad" },
   { k: "unidad", t: "Unidad", w: 9 }, { k: "codigo_rebollar", t: "Código Rebollar", w: 14 },
-  { k: "costo_unitario", t: "Costo unitario", w: 13 }, { k: "valor", t: "Valor", w: 12 },
+  { k: "costo_unitario", t: "Costo unitario", w: 13, fmt: "pesos" }, { k: "valor", t: "Valor", w: 14, fmt: "pesos" },
+  { k: "motivo_sin_valor", t: "Por qué no tiene valor", w: 44 },
 ]), "Detalle");
 
 const cols = (titulo) => [
   { k: "k", t: titulo, w: 32 }, { k: "renglones", t: "Renglones", w: 11 },
-  { k: "valorizado", t: "Valorizado ($)", w: 15 }, { k: "sinValor", t: "Renglones sin valor", w: 18 },
+  { k: "valorizado", t: "Valorizado ($)", w: 16, fmt: "pesos" }, { k: "sinValor", t: "Renglones sin valor", w: 18 },
 ];
 XLSX.utils.book_append_sheet(wb, hoja(agrupar(filas, (f) => f.sector || null), cols("Sector")), "Por sector");
 XLSX.utils.book_append_sheet(wb, hoja(agrupar(filas, (f) => f.rubro), cols("Rubro")), "Por rubro");
@@ -182,13 +241,49 @@ XLSX.utils.book_append_sheet(wb, hoja(
     .sort((a, b) => b.renglones - a.renglones),
   [
     { k: "producto", t: "Producto", w: 32 }, { k: "rubro", t: "Rubro", w: 20 }, { k: "codigo", t: "Código Rebollar", w: 14 },
-    { k: "renglones", t: "Veces pedido", w: 12 }, { k: "cantidad", t: "Cantidad total", w: 13 }, { k: "unidad", t: "Unidad", w: 9 },
-    { k: "valor", t: "Valorizado ($)", w: 15 },
+    { k: "renglones", t: "Veces pedido", w: 12 }, { k: "cantidad", t: "Cantidad total", w: 13, fmt: "cantidad" }, { k: "unidad", t: "Unidad", w: 9 },
+    { k: "valor", t: "Valorizado ($)", w: 16, fmt: "pesos" },
   ],
 ), "Por producto");
 
+// Lo que falta para valorizar todo: agrupado por producto y motivo.
+const faltan = new Map();
+for (const f of filas.filter((x) => x.valor == null)) {
+  const k = `${f.producto}|${f.motivo_sin_valor}`;
+  const a = faltan.get(k) ?? { producto: f.producto, motivo: f.motivo_sin_valor, renglones: 0, cantidad: 0, unidad: f.unidad };
+  a.renglones += 1;
+  a.cantidad += f.cantidad;
+  faltan.set(k, a);
+}
+XLSX.utils.book_append_sheet(wb, hoja(
+  [...faltan.values()].map((x) => ({ ...x, cantidad: redondear(x.cantidad) })).sort((a, b) => b.renglones - a.renglones),
+  [
+    { k: "producto", t: "Producto", w: 34 }, { k: "motivo", t: "Por qué no tiene valor", w: 48 },
+    { k: "renglones", t: "Veces pedido", w: 12 }, { k: "cantidad", t: "Cantidad total", w: 13, fmt: "cantidad" }, { k: "unidad", t: "Unidad", w: 9 },
+  ],
+), "Sin valorizar");
+
+// Lo registrado en el sistema nuevo (mostrador y solicitudes), desde el 13/10.
+const registro = consultar(SQL_REGISTRO).map((r) => {
+  const cantidad = Number(r.cantidad) || 0;
+  const costo = r.costo_unitario == null ? null : Number(r.costo_unitario);
+  return {
+    fecha: String(r.fecha || "").slice(0, 10),
+    hora: new Date(r.fecha).toLocaleTimeString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit" }),
+    tipo: r.tipo, carril: r.carril || "", persona: r.persona, firma: r.firma, obra: r.obra, sector: r.sector, sede: r.sede,
+    producto: r.producto, codigo_rebollar: r.codigo_rebollar, cantidad, unidad: r.unidad || "",
+    costo_unitario: costo, valor: costo == null ? null : redondear(costo * cantidad), nota: r.nota || "",
+  };
+});
+XLSX.utils.book_append_sheet(wb, hoja(registro, [
+  { k: "fecha", t: "Fecha", w: 11 }, { k: "hora", t: "Hora", w: 7 }, { k: "tipo", t: "Tipo", w: 10 }, { k: "carril", t: "Carril", w: 12 },
+  { k: "persona", t: "Persona", w: 24 }, { k: "firma", t: "Firma", w: 11 }, { k: "obra", t: "Obra", w: 9 }, { k: "sector", t: "Sector", w: 13 }, { k: "sede", t: "Sede", w: 8 },
+  { k: "producto", t: "Producto", w: 34 }, { k: "codigo_rebollar", t: "Código Rebollar", w: 14 }, { k: "cantidad", t: "Cantidad", w: 9, fmt: "cantidad" }, { k: "unidad", t: "Unidad", w: 9 },
+  { k: "costo_unitario", t: "Costo unitario", w: 13, fmt: "pesos" }, { k: "valor", t: "Valor", w: 14, fmt: "pesos" }, { k: "nota", t: "Nota", w: 30 },
+]), "Registro nuevo (desde 13-10)");
+
 mkdirSync(salida, { recursive: true });
-const archivo = join(salida, `historico-consumibles-${hasta}.xlsx`);
+const archivo = join(salida, `consumo-consumibles-${new Date().toISOString().slice(0, 10)}.xlsx`);
 XLSX.writeFile(wb, archivo);
 console.log(`Listo: ${archivo}`);
 console.log(`${filas.length} renglones, ${desde} a ${hasta}; valorizado $ ${redondear(total).toLocaleString("es-AR")}; sin valorizar ${sinValor.length}.`);

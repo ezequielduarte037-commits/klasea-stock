@@ -47,7 +47,7 @@ export const PRIORIDADES = [
 
 // Los mismos que están tildados en el papel: si se cambian acá, hay que
 // cambiarlos también en SolicitudPanolPrintable o dejan de coincidir.
-export const SECTORES = ["Laminación", "Pintura", "Mecánica", "Electricidad", "Carpintería", "Sanitarios", "Otro"];
+export const SECTORES = ["Laminación", "Pintura", "Mecánica", "Electricidad", "Carpintería", "Sanitarios", "Tapicería", "Otro"];
 export const TIPOS = ["Consumibles", "Materiales", "Herramientas"];
 
 export const estadoMeta = (value) =>

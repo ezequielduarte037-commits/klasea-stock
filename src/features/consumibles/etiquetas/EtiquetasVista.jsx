@@ -3,6 +3,7 @@ import {
   HOJA_MOSTRADOR,
   codigoDeBarras,
   codigoQR,
+  tamanoCodigo,
   tamanoNombre,
 } from "./etiquetasCore";
 
@@ -24,7 +25,7 @@ const AJUSTE_ALTO_MM = 0.3;
 
 const mm = (v) => `${v}mm`;
 
-export function Barras({ grafico, className = "" }) {
+export function Barras({ grafico, className = "", style = null }) {
   if (!grafico) return null;
   return (
     <svg
@@ -32,7 +33,7 @@ export function Barras({ grafico, className = "" }) {
       viewBox={grafico.viewBox}
       width={mm(grafico.anchoMm)}
       height={mm(grafico.altoMm)}
-      style={{ width: mm(grafico.anchoMm), height: mm(grafico.altoMm) }}
+      style={{ ...style, width: mm(grafico.anchoMm), height: mm(grafico.altoMm) }}
       preserveAspectRatio="none"
       shapeRendering="crispEdges"
       role="img"
@@ -82,17 +83,23 @@ export function Etiqueta({ etiqueta, formato }) {
         {etiqueta.nombre}
       </div>
       <div className="cns-etq-datos">
-        <div className="cns-etq-codigo">{etiqueta.codigo}</div>
+        <div className="cns-etq-codigo" style={{ fontSize: `${tamanoCodigo(etiqueta.codigo, f.key)}pt` }}>{etiqueta.codigo}</div>
         {etiqueta.proveedorCodigo && (
           <div className="cns-etq-linea">Prov. <b>{etiqueta.proveedorCodigo}</b></div>
         )}
+        {/* En la de 40 × 30 «Sin ubicación» no entra: va solo la unidad. */}
         <div className="cns-etq-linea">
           Por {etiqueta.unidad}
-          {" · "}<b>{etiqueta.ubicacion || "Sin ubicación"}</b>
+          {(etiqueta.ubicacion || !termica) && <>{" · "}<b>{etiqueta.ubicacion || "Sin ubicación"}</b></>}
         </div>
       </div>
       <QR grafico={qr} className="cns-etq-qr" />
-      <Barras grafico={barras} className="cns-etq-barras" />
+      {/* Barras de borde a borde: el blanco del papel completa la zona blanca. */}
+      <Barras
+        grafico={barras}
+        className="cns-etq-barras"
+        style={f.barras.alBorde ? { marginInline: `-${f.relleno.h}mm` } : null}
+      />
     </div>
   );
 }
@@ -231,8 +238,10 @@ const CSS_ETIQUETAS = `
   .cns-etq-linea b { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 600; }
   .cns-etq-qr { grid-area: qr; align-self: center; display: block; }
   .cns-etq-barras { grid-area: barras; justify-self: center; display: block; }
-  .cns-etq.is-termica .cns-etq-codigo { font-size: 16pt; }
-  .cns-etq.is-termica .cns-etq-linea { font-size: 7.5pt; }
+  .cns-etq.is-termica { column-gap: 1.5mm; row-gap: 0.6mm; }
+  .cns-etq.is-termica .cns-etq-nombre { line-height: 1.05; -webkit-line-clamp: 3; line-clamp: 3; }
+  .cns-etq.is-termica .cns-etq-codigo { margin-bottom: 0.6mm; letter-spacing: 0; }
+  .cns-etq.is-termica .cns-etq-linea { font-size: 6.5pt; }
 
   .cns-etq-pagina.is-mostrador { display: flex; flex-direction: column; }
   .cns-etq-mos-titulo {

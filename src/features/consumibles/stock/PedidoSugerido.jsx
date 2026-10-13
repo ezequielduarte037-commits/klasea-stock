@@ -164,7 +164,7 @@ export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProduct
                     <span className="stk-dim">{[l.codigoProveedor ? `Cód. ${l.codigoProveedor}` : "Sin código de proveedor", l.codigoEtiqueta].filter(Boolean).join(" · ")}</span>
                   </span>
                   <span role="cell" className="is-num stk-num" data-lbl="Stock / mín.">
-                    <span className={l.stock < 0 ? "is-negativo" : ""}>{fmtCantidad(l.stock)}</span> / {fmtCantidad(l.minimo)}
+                    {l.sinContar ? <span className="stk-dim">sin contar</span> : <span className={l.stock < 0 ? "is-negativo" : ""}>{fmtCantidad(l.stock)}</span>} / {fmtCantidad(l.minimo)}
                   </span>
                   <span role="cell" className="is-num stk-num" data-lbl="Faltan">{fmtCantidad(l.reponer)} <small>{l.unidad}</small></span>
                   <span role="cell" className="is-num" data-lbl="Pedir">

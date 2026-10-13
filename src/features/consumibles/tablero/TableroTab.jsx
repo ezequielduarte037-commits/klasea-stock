@@ -4,6 +4,7 @@ import { BarChart3, RefreshCw } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { EmptyState } from "@/components/ui/motion";
 import { SEDES, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
+import { unidadEnTexto } from "../conteo/conteoCalculos";
 import { fetchDatosTablero } from "./tableroApi";
 import { construirTablero, datosFila, diaArgentina, moverDia, ranking, resolverPeriodo } from "./tableroCore";
 
@@ -98,7 +99,7 @@ export default function TableroTab({ sede }) {
                   {resumen.otrosCarriles > 0 && <p className="cns-tab-contexto">Quedan fuera de esta comparación {fmtCantidad(resumen.otrosCarriles)} retiros de punto de sector o sin carril.</p>}
                   <div className="cns-tab-grid"><Panel titulo="Por sector"><Carriles filas={resumen.sectores} /></Panel><Panel titulo="Evolución por día"><Carriles filas={resumen.dias} diario /></Panel></div>
                 </section>
-                <Panel titulo="Quién va más veces" detalle="Retiros distintos por persona. Abrí el detalle para ver cuántas veces fue cada día."><Viajes personas={resumen.personas} /></Panel>
+                <Panel titulo="Frecuencia de retiro" detalle="Qué sale seguido y cada cuánto, contado sobre los días con retiros. Lo que sale todos los días conviene pedirlo en la solicitud del día anterior."><Frecuencia frecuencia={resumen.frecuencia} personas={resumen.personas} /></Panel>
                 <Panel titulo="Retiros a revisar" detalle="Se agrupa cada consumible de un retiro, aunque su cantidad esté repartida entre obras."><Incidencias fueraCupo={resumen.fueraCupo} sinUsado={resumen.sinUsado} /></Panel>
               </>}
               <Panel titulo="Mermas de conteo" detalle="Diferencias negativas de inventario después del primer conteo de cada producto y sede."><Mermas filas={resumen.mermas} resumen={resumen.resumenMermas} conteos={resumen.conteosPeriodo} /></Panel>
@@ -174,11 +175,29 @@ function Carriles({ filas, diario = false }) {
   </>;
 }
 
-function Viajes({ personas }) {
+const RITMO = { diario: "Casi todos los días", seguido: "Seguido", "a veces": "A veces" };
+
+function Frecuencia({ frecuencia, personas }) {
+  const [vista, setVista] = useState("productos");
   const [todas, setTodas] = useState(false);
-  return <div className="cns-tab-viajes">{(todas ? personas : personas.slice(0, 10)).map((p) => <details key={p.id} className="cns-tab-persona"><summary><span>{p.nombre}</span><b>{fmtCantidad(p.total)} viajes</b></summary><ul>{Object.entries(p.dias).sort(([a], [b]) => b.localeCompare(a)).map(([dia, n]) => <li key={dia}><span>{fecha(dia)}</span><b>{fmtCantidad(n)} {n === 1 ? "retiro" : "retiros"}</b></li>)}</ul></details>)}
-    {personas.length > 10 && <button type="button" className="ui-btn ui-btn-fantasma cns-tab-ver" onClick={() => setTodas((v) => !v)}>{todas ? "Ver las primeras personas" : "Ver todas las personas"}</button>}
-  </div>;
+  const { diasActivos, productos } = frecuencia;
+  const lista = vista === "productos" ? productos : personas;
+  return <>
+    <div className="cns-tab-periodos cns-tab-interno" role="group" aria-label="Frecuencia por">
+      <button type="button" aria-pressed={vista === "productos"} onClick={() => { setVista("productos"); setTodas(false); }}>Por producto</button>
+      <button type="button" aria-pressed={vista === "personas"} onClick={() => { setVista("personas"); setTodas(false); }}>Viajes por persona</button>
+    </div>
+    {vista === "productos" && <p className="cns-tab-contexto cns-tab-interno">{diasActivos < 3 ? `Con ${fmtCantidad(diasActivos)} ${diasActivos === 1 ? "día" : "días"} de retiros todavía no hay ritmo: ampliá el período.` : `${fmtCantidad(diasActivos)} días con retiros en el período.`}</p>}
+    <div className="cns-tab-viajes">
+      {vista === "productos"
+        ? (todas ? productos : productos.slice(0, 10)).map((p) => <div key={p.id} className="cns-tab-frec">
+          <div><span>{p.nombre}</span><small>Salió {fmtCantidad(p.dias)} de {fmtCantidad(diasActivos)} {diasActivos === 1 ? "día" : "días"} · {fmtCantidad(p.veces)} {p.veces === 1 ? "vez" : "veces"} · {fmtCantidad(Math.round(p.porVez * 10) / 10)} {unidadEnTexto(p.unidad, Math.round(p.porVez * 10) / 10)} por vez · {fmtCantidad(p.personas)} {p.personas === 1 ? "persona" : "personas"}</small></div>
+          {p.ritmo && <em data-ritmo={p.ritmo}>{RITMO[p.ritmo]}</em>}
+        </div>)
+        : (todas ? personas : personas.slice(0, 10)).map((p) => <details key={p.id} className="cns-tab-persona"><summary><span>{p.nombre}</span><b>{fmtCantidad(p.total)} {p.total === 1 ? "viaje" : "viajes"} en {fmtCantidad(Object.keys(p.dias).length)} {Object.keys(p.dias).length === 1 ? "día" : "días"}</b></summary><ul>{Object.entries(p.dias).sort(([a], [b]) => b.localeCompare(a)).map(([dia, n]) => <li key={dia}><span>{fecha(dia)}</span><b>{fmtCantidad(n)} {n === 1 ? "viaje" : "viajes"}</b></li>)}</ul></details>)}
+      {lista.length > 10 && <button type="button" className="ui-btn ui-btn-fantasma cns-tab-ver" onClick={() => setTodas((v) => !v)}>{todas ? "Ver los primeros 10" : `Ver ${vista === "productos" ? "todos los productos" : "todas las personas"} (${fmtCantidad(lista.length)})`}</button>}
+    </div>
+  </>;
 }
 
 function Incidencias({ fueraCupo, sinUsado }) {
@@ -265,6 +284,13 @@ const CSS = `
   .cns-tab-root .cns-tab-persona b { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; white-space: nowrap; }
   .cns-tab-root .cns-tab-persona ul { list-style: none; padding: 0 0 10px 18px; margin: 0; }
   .cns-tab-root .cns-tab-persona li { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; padding: 6px 0; }
+  .cns-tab-root .cns-tab-frec { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .cns-tab-root .cns-tab-frec > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .cns-tab-root .cns-tab-frec span { font-size: 14px; overflow-wrap: anywhere; }
+  .cns-tab-root .cns-tab-frec small { font-size: 12px; color: var(--dim); line-height: 1.4; }
+  .cns-tab-root .cns-tab-frec em { font-style: normal; font-size: 11.5px; font-weight: 600; white-space: nowrap; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-2); color: var(--muted); background: var(--panel); }
+  .cns-tab-root .cns-tab-frec em[data-ritmo="diario"] { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-border); }
+  .cns-tab-root .cns-tab-frec em[data-ritmo="seguido"] { color: var(--cyan); background: var(--cyan-soft); border-color: var(--cyan-border); }
   .cns-tab-root .cns-tab-eventos { list-style: none; padding: 0; margin: 0; }
   .cns-tab-root .cns-tab-eventos li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 14px 16px; border-top: 1px solid var(--border); }
   .cns-tab-root .cns-tab-eventos li > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }

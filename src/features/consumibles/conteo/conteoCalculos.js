@@ -136,12 +136,27 @@ export function estadoConteoDeHoy(movimientos = []) {
   return mapa;
 }
 
-/** Stock al empezar el día: el de ahora menos lo que se movió hoy. */
+/**
+ * Stock al empezar el día, o null si a esa hora el producto no tenía conteo.
+ *
+ * El stock parte del último conteo, así que si hoy hubo un conteo el de ahora
+ * no sirve para volver atrás: se usa el teórico de ese primer conteo de hoy
+ * (el stock justo antes de contar) menos lo que se movió hoy antes de él. Un
+ * teórico vacío es el primer conteo de su historia: antes no había stock.
+ */
 export function stockAlInicioDelDia(stockActual, movimientosDeHoy = []) {
-  const hoy = movimientosDeHoy
+  const vivos = movimientosDeHoy
     .filter((m) => !m.anulado_at)
-    .reduce((s, m) => s + (num(m.cantidad) ?? 0), 0);
-  return (num(stockActual) ?? 0) - hoy;
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+  const suma = (filas) => filas.reduce((s, m) => s + (num(m.cantidad) ?? 0), 0);
+  const conteo = vivos.find((m) => m.tipo === "inventario");
+  if (conteo) {
+    const teorico = num(conteo.teorico);
+    if (teorico == null) return null;
+    return teorico - suma(vivos.filter((m) => m.tipo !== "inventario" && String(m.created_at) < String(conteo.created_at)));
+  }
+  const stock = num(stockActual);
+  return stock == null ? null : stock - suma(vivos);
 }
 
 /**

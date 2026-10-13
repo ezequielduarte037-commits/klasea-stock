@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+const dir='outputs/etiquetas-prueba-2026-10-14';
+const oldDom=fs.readFileSync(`${dir}/chrome-missing-reset-dom.html`,'utf8');
+const old=JSON.parse(oldDom.match(/<script type="application\/json" id="label-geometry">(.*?)<\/script>/s)[1])[0];
+const fixed=JSON.parse(fs.readFileSync(`${dir}/label-geometry.json`,'utf8'))[0];
+const mm=v=>Math.round(v*25.4/96*1000)/1000;
+const describe=r=>({boxSizing:r.boxSizing,labelMm:{width:mm(r.label.width),height:mm(r.label.height)},qrClipped:r.qr.right>r.page.width,barsClipped:r.bars.bottom>r.page.height});
+const result={before:describe(old),after:describe(fixed)};
+if(!result.before.qrClipped||!result.before.barsClipped||result.after.qrClipped||result.after.barsClipped)throw Error('Geometry comparison did not show the expected clipping correction');
+fs.writeFileSync(`${dir}/clipping-diagnosis.json`,JSON.stringify(result,null,2));
+console.log(JSON.stringify(result,null,2));

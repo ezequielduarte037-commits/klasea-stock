@@ -1,0 +1,219 @@
+{
+  "Name": "P1S Label Printer",
+  "IsValid": true,
+  "IsDefault": false,
+  "Papers": [
+    {
+      "PaperName": "A 50 x  300 mm",
+      "Width": 189,
+      "Height": 1182,
+      "RawKind": 162
+    },
+    {
+      "PaperName": "A 50 x 2000 mm",
+      "Width": 189,
+      "Height": 7881,
+      "RawKind": 163
+    },
+    {
+      "PaperName": "B 25 x 75 mm",
+      "Width": 98,
+      "Height": 295,
+      "RawKind": 164
+    },
+    {
+      "PaperName": "C 30 x 20 mm",
+      "Width": 118,
+      "Height": 79,
+      "RawKind": 165
+    },
+    {
+      "PaperName": "C 30 x 60 mm",
+      "Width": 118,
+      "Height": 236,
+      "RawKind": 166
+    },
+    {
+      "PaperName": "C 30 x 80 mm",
+      "Width": 118,
+      "Height": 315,
+      "RawKind": 167
+    },
+    {
+      "PaperName": "C 30 x 90 mm",
+      "Width": 118,
+      "Height": 354,
+      "RawKind": 168
+    },
+    {
+      "PaperName": "C 35 x 70 mm",
+      "Width": 138,
+      "Height": 276,
+      "RawKind": 169
+    },
+    {
+      "PaperName": "C 35 x 80 mm",
+      "Width": 138,
+      "Height": 315,
+      "RawKind": 170
+    },
+    {
+      "PaperName": "C 38 x 60 mm",
+      "Width": 150,
+      "Height": 236,
+      "RawKind": 171
+    },
+    {
+      "PaperName": "D 40 x 30 mm",
+      "Width": 157,
+      "Height": 118,
+      "RawKind": 172
+    },
+    {
+      "PaperName": "D 40 x 60 mm",
+      "Width": 157,
+      "Height": 236,
+      "RawKind": 173
+    },
+    {
+      "PaperName": "D 40 x 70 mm",
+      "Width": 157,
+      "Height": 276,
+      "RawKind": 174
+    },
+    {
+      "PaperName": "D 40 x 80 mm",
+      "Width": 157,
+      "Height": 315,
+      "RawKind": 175
+    },
+    {
+      "PaperName": "D 40 x 90 mm",
+      "Width": 157,
+      "Height": 354,
+      "RawKind": 176
+    },
+    {
+      "PaperName": "D 45 x 30 mm",
+      "Width": 177,
+      "Height": 118,
+      "RawKind": 177
+    },
+    {
+      "PaperName": "D 45 x 60 mm",
+      "Width": 177,
+      "Height": 236,
+      "RawKind": 178
+    },
+    {
+      "PaperName": "D 45 x 80 mm",
+      "Width": 177,
+      "Height": 315,
+      "RawKind": 179
+    },
+    {
+      "PaperName": "D 45 x 100 mm",
+      "Width": 177,
+      "Height": 394,
+      "RawKind": 180
+    },
+    {
+      "PaperName": "E 50 x 30 mm",
+      "Width": 189,
+      "Height": 118,
+      "RawKind": 181
+    },
+    {
+      "PaperName": "E 50 x 40 mm",
+      "Width": 189,
+      "Height": 157,
+      "RawKind": 182
+    },
+    {
+      "PaperName": "E 50 x 70 mm",
+      "Width": 189,
+      "Height": 276,
+      "RawKind": 183
+    },
+    {
+      "PaperName": "E 50 x 80 mm",
+      "Width": 189,
+      "Height": 315,
+      "RawKind": 184
+    },
+    {
+      "PaperName": "E 50 x 90 mm",
+      "Width": 189,
+      "Height": 354,
+      "RawKind": 185
+    },
+    {
+      "PaperName": "TV 38-25+40 mm",
+      "Width": 98,
+      "Height": 307,
+      "RawKind": 186
+    },
+    {
+      "PaperName": "TV 45-30+35 mm",
+      "Width": 118,
+      "Height": 315,
+      "RawKind": 187
+    },
+    {
+      "PaperName": "TV 64-32+35 mm",
+      "Width": 126,
+      "Height": 390,
+      "RawKind": 188
+    }
+  ],
+  "Resolutions": [
+    {
+      "Kind": -4,
+      "X": -4,
+      "Y": -1
+    },
+    {
+      "Kind": -3,
+      "X": -3,
+      "Y": -1
+    },
+    {
+      "Kind": -2,
+      "X": -2,
+      "Y": -1
+    },
+    {
+      "Kind": -1,
+      "X": -1,
+      "Y": -1
+    },
+    {
+      "Kind": 0,
+      "X": 203,
+      "Y": 203
+    }
+  ],
+  "DefaultPaper": {
+    "PaperName": "A 50 x  300 mm",
+    "Width": 189,
+    "Height": 1182
+  },
+  "DefaultResolution": {
+    "Kind": 0,
+    "X": 203,
+    "Y": 203
+  },
+  "HardMargins": {
+    "HardMarginX": 0.0,
+    "HardMarginY": 0.0
+  },
+  "Driver": {
+    "Name": "P1 Label Printer",
+    "Manufacturer": "DeTong, Shanghai, Inc.",
+    "InfPath": "C:\\Windows\\System32\\DriverStore\\FileRepository\\p1.inf_amd64_f1a5b50a68beb42b\\p1.inf",
+    "DriverVersion": 562954381165052
+  },
+  "Defaults": [
+    "HPI90D15F (HP Color LaserJet Pro MFP 3303)"
+  ]
+}

@@ -94,3 +94,26 @@ test("sin movimientos hay ceros, listas vacías y días sin actividad", () => {
   assert.equal(r.dias.length, 3);
   assert.equal(r.dias.every((d) => d.planificadoPct === null), true);
 });
+
+test("frecuencia de retiro: días con retiro, veces, cantidad por vez y ritmo", () => {
+  const filas = [
+    retiro({ id: "1", lote: "a", created_at: "2026-10-13T10:00:00Z" }),
+    retiro({ id: "2", lote: "a", obra_id: "o2", obra: { codigo: "KA-02" }, created_at: "2026-10-13T10:00:00Z" }),
+    retiro({ id: "3", lote: "b", created_at: "2026-10-14T10:00:00Z", empleado_id: "e2", empleado_nombre: "Beto" }),
+    retiro({ id: "4", lote: "c", created_at: "2026-10-15T10:00:00Z" }),
+    retiro({ id: "5", lote: "d", material_id: "adhesivo", material: material("adhesivo", "litro"), cantidad: -1, created_at: "2026-10-15T11:00:00Z" }),
+  ];
+  const { frecuencia } = construirTablero({ ...rango, movimientos: filas });
+  assert.equal(frecuencia.diasActivos, 3);
+  const [disco, adhesivo] = frecuencia.productos;
+  assert.equal(disco.id, "disco");
+  assert.equal(disco.dias, 3);
+  assert.equal(disco.veces, 3); // el carrito repartido entre dos obras es una sola vez
+  assert.equal(disco.cantidad, 8);
+  assert.equal(disco.porVez, 2.667);
+  assert.equal(disco.personas, 2);
+  assert.equal(disco.ritmo, "diario");
+  assert.equal(adhesivo.ritmo, "a veces");
+  // Con un solo día no hay ritmo que medir.
+  assert.equal(construirTablero({ inicio: "2026-10-13", fin: "2026-10-13", movimientos: filas.slice(0, 2) }).frecuencia.productos[0].ritmo, null);
+});

@@ -85,6 +85,10 @@ export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo3
 
   const stockSede = item.stockPorSede?.[sede]?.stock;
   const stockOtra = item.stockPorSede?.[otraSede]?.stock;
+  const preConteo = item.stockPorSede?.[sede]?.preConteoRetirado ?? 0;
+  // Lo que se movió antes del primer conteo de la sede no descuenta del stock.
+  // Sale de la vista: la lista trae sólo los últimos movimientos.
+  const primerConteoAt = item.stockPorSede?.[sede]?.primerConteoAt ?? null;
 
   return (
     <Hoja
@@ -100,12 +104,25 @@ export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo3
         <div className="stk-ficha-stocks">
           <div className="stk-ficha-stock">
             <span className="stk-lbl">Stock {sede}</span>
-            <span className={`stk-num stk-ficha-grande${stockSede < 0 ? " is-negativo" : ""}`}>{stockSede == null ? "—" : fmtCantidad(stockSede)}</span>
-            <span className="stk-dim">{unidadEnTexto(item.unidad, stockSede ?? 0)}</span>
+            {stockSede == null ? (
+              <>
+                <span className="stk-ficha-media stk-dim">Sin contar</span>
+                <span className="stk-dim">
+                  {preConteo > 0
+                    ? `Salió ${fmtCantidad(preConteo)} ${unidadEnTexto(item.unidad, preConteo)} antes del conteo. Está registrado, pero el stock arranca con el primer conteo.`
+                    : "El stock arranca con el primer conteo."}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className={`stk-num stk-ficha-grande${stockSede < 0 ? " is-negativo" : ""}`}>{fmtCantidad(stockSede)}</span>
+                <span className="stk-dim">{unidadEnTexto(item.unidad, stockSede)}</span>
+              </>
+            )}
           </div>
           <div className="stk-ficha-stock">
             <span className="stk-lbl">{otraSede}</span>
-            <span className="stk-num stk-ficha-media">{stockOtra == null ? "—" : fmtCantidad(stockOtra)}</span>
+            <span className={`stk-ficha-media${stockOtra == null ? " stk-dim" : " stk-num"}`}>{stockOtra == null ? "Sin contar" : fmtCantidad(stockOtra)}</span>
           </div>
           <div className="stk-ficha-stock">
             <span className="stk-lbl">Consumo</span>
@@ -150,6 +167,7 @@ export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo3
               const anulado = !!m.anulado_at;
               const quien = m.empleado_nombre || nombres.get(m.created_by) || null;
               const cant = Number(m.cantidad) || 0;
+              const preConteoFila = m.tipo !== "inventario" && (!primerConteoAt || m.created_at < primerConteoAt);
               const detalle = [
                 quien,
                 m.obra?.codigo ? `Obra ${m.obra.codigo}` : m.sector || null,
@@ -160,12 +178,16 @@ export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo3
                 <li key={m.id} className={`stk-mov${anulado ? " is-anulado" : ""}`}>
                   <div className="stk-mov-fila">
                     <span className="stk-tag" data-tono={TONO_TIPO[m.tipo] || "azul"}>{TIPOS_MOVIMIENTO[m.tipo] || m.tipo}</span>
+                    {preConteoFila && <span className="stk-tag" data-tono="gris" title="Antes del primer conteo: registrado, no descuenta del stock">Pre-conteo</span>}
                     <span className="stk-mov-fecha stk-num">{fecha(m.created_at)}</span>
                     <span className={`stk-mov-cant stk-num${cant < 0 ? " is-resta" : " is-suma"}`}>{cant > 0 ? "+" : ""}{fmtCantidad(cant)}</span>
                   </div>
                   {detalle.length > 0 && <div className="stk-mov-detalle">{detalle.join(" · ")}</div>}
                   {m.tipo === "inventario" && (
-                    <div className="stk-mov-detalle">Contó {fmtCantidad(m.contado)}; el sistema decía {fmtCantidad(m.teorico)}{m.gramos ? ` · ${fmtCantidad(m.gramos)} g` : ""}</div>
+                    <div className="stk-mov-detalle">
+                      {m.teorico == null ? `Conteo inicial: contó ${fmtCantidad(m.contado)}` : `Contó ${fmtCantidad(m.contado)}; el sistema decía ${fmtCantidad(m.teorico)}`}
+                      {m.gramos ? ` · ${fmtCantidad(m.gramos)} g` : ""}
+                    </div>
                   )}
                   {m.fuera_cupo && <div className="stk-mov-detalle">Fuera de cupo{m.autorizado_por ? `, autorizó ${m.autorizado_por}` : ""}</div>}
                   {m.nota && <div className="stk-mov-nota">{m.nota}</div>}

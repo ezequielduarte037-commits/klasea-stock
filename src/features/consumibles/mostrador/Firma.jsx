@@ -3,7 +3,7 @@ import { ArrowLeft, Check, LoaderCircle, Nfc, Search, ShieldAlert, Split, Triang
 import Cargando from "@/components/ui/Cargando";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import CampoTexto from "./CampoTexto";
-import { agruparRetirosDeHoy, fmtNum, normalizarTexto, totalUnidades } from "./mostradorLogica";
+import { agruparRetirosDeHoy, faltaComentarioOtro, fmtNum, normalizarTexto, totalUnidades } from "./mostradorLogica";
 import { Avatar } from "./Piezas";
 
 /**
@@ -81,9 +81,10 @@ export default function Firma({
 
   const faltaAutorizar = excedidos.length > 0 && !String(autorizaCupo || "").trim();
   const bloqueado = guardando || Boolean(operacion) || info?.cargando || problemas.length > 0 || faltaAutorizar;
+  const faltaComentario = !devolucion && faltaComentarioOtro(destino);
   const puedeConfirmar = devolucion
     ? !bloqueado
-    : Boolean(persona) && Boolean(destino) && !bloqueado;
+    : Boolean(persona) && Boolean(destino) && !faltaComentario && !bloqueado;
 
   function elegirPersona(emp) {
     setBuscando(false);
@@ -108,6 +109,8 @@ export default function Firma({
         ? "Falta la tarjeta"
         : !destino
           ? "Elegí la obra o el sector"
+          : faltaComentario
+            ? "Escribí para qué es"
           : faltaAutorizar
             ? "Falta quién autoriza"
             : `Confirmar · ${destinoTexto}`;
@@ -278,6 +281,7 @@ export default function Firma({
               onCambiar={setCambiando}
               onDestino={onDestino}
               onElegirYConfirmar={onElegirYConfirmar}
+              onRafaga={onRafaga}
               bloqueado={bloqueado}
             />
           ) : null}
@@ -349,7 +353,7 @@ export default function Firma({
   );
 }
 
-function Destino({ devolucion, cargando, errorObras, obras, obrasActivas, destino, cambiando, onCambiar, onDestino, onElegirYConfirmar, bloqueado }) {
+function Destino({ devolucion, cargando, errorObras, obras, obrasActivas, destino, cambiando, onCambiar, onDestino, onElegirYConfirmar, onRafaga, bloqueado }) {
   const esObra = (id) => destino?.tipo === "obra" && destino.obraId === id;
 
   if (cargando) {
@@ -442,11 +446,26 @@ function Destino({ devolucion, cargando, errorObras, obras, obrasActivas, destin
       <div className="mst-bloque-titulo" style={{ marginTop: 4 }}>Sector</div>
       <div className="mst-opciones">
         {SECTORES.map((s) => (
-          <button key={s} type="button" className={`mst-opcion${destino?.tipo === "sector" && destino.sector === s ? " is-elegida" : ""}`} onClick={() => onDestino({ tipo: "sector", sector: s })}>
+          <button key={s} type="button" className={`mst-opcion${destino?.tipo === "sector" && destino.sector === s ? " is-elegida" : ""}`} onClick={() => onDestino({ tipo: "sector", sector: s, comentario: destino?.comentario ?? "" })}>
             {s}
           </button>
         ))}
       </div>
+      {/* "Otro" a secas no dice nada después: se escribe para qué o para quién. */}
+      {destino?.tipo === "sector" && destino.sector === "Otro" ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <label className="mst-bloque-titulo" htmlFor="mst-otro-comentario">¿Para qué o para quién es?</label>
+          <CampoTexto
+            id="mst-otro-comentario"
+            value={destino.comentario ?? ""}
+            onChange={(v) => onDestino({ ...destino, comentario: v })}
+            onRafaga={onRafaga}
+            maxLength={160}
+            autoFocus
+            placeholder="Ej.: mantenimiento del galpón, visita de proveedor…"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

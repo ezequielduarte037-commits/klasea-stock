@@ -1,0 +1,16 @@
+{
+  "labels": 101,
+  "pages": 101,
+  "sizeMm": [
+    40,
+    30
+  ],
+  "bitmapPx": [
+    320,
+    240
+  ],
+  "dpi": 203,
+  "fontsLoaded": true,
+  "qrAndBarsInside": true,
+  "graphicsUnscaled": true
+}

@@ -19,6 +19,7 @@ import {
   proximaPosicion,
   productoParaPrueba,
   svgDe,
+  tamanoCodigo,
   tamanoNombre,
 } from "./etiquetasCore.js";
 
@@ -286,7 +287,8 @@ test("la tabla Code128 del lector coincide con la de JsBarcode", () => {
 const CODIGOS = ["M0047", "PARFIJ0016", "B007-3TEL", "KA0650", "KA12345"];
 const MEDIDAS = [
   ["A4 70 × 37", FORMATOS.a4.barras, FORMATOS.a4.etiqueta.ancho - 2 * FORMATOS.a4.relleno.h],
-  ["térmica 60 × 40", FORMATOS.termica.barras, FORMATOS.termica.etiqueta.ancho - 2 * FORMATOS.termica.relleno.h],
+  // En la térmica las barras van de borde a borde: el límite es la etiqueta.
+  ["térmica 40 × 30", FORMATOS.termica.barras, FORMATOS.termica.etiqueta.ancho],
   ["hoja de mostrador", HOJA_MOSTRADOR.barras, HOJA_MOSTRADOR.barras.anchoMaxMm],
 ];
 
@@ -318,6 +320,24 @@ test("en la térmica el módulo cae en puntos enteros de 203 ppp", () => {
   assert.equal(codigoDeBarras("M0047", FORMATOS.termica.barras).moduloMm, 0.375);
   assert.equal(codigoDeBarras("PARFIJ0016", FORMATOS.termica.barras).moduloMm, 0.25);
 });
+
+// Los 37 códigos de Rebollar de 10 letras (145 módulos sin zona blanca) son
+// los únicos que en 40 mm no entran con los 10 módulos de blanco.
+for (const codigo of ["LIJA100XMT", "CENTROCHIC", "ALLFREME22"]) {
+  test(`${codigo} en la térmica 40 × 30: entra a 0,25 mm con al menos 7 módulos de blanco`, () => {
+    const barras = codigoDeBarras(codigo, FORMATOS.termica.barras);
+    assert.ok(barras, "se generan");
+    const leido = leerCode128(modulosDesdeSvgBarras(svgDe(barras)));
+    assert.equal(leido.texto, codigo);
+    assert.equal(barras.moduloMm, MODULO_MINIMO_MM);
+    assert.ok(barras.anchoMm <= FORMATOS.termica.etiqueta.ancho + 1e-9, `mide ${barras.anchoMm} mm`);
+    const blancoMm = (FORMATOS.termica.etiqueta.ancho - (barras.modulos - 2 * barras.zona) * barras.moduloMm) / 2;
+    assert.ok(leido.zonaIzq >= 7 && leido.zonaDer >= 7 && blancoMm >= 7 * barras.moduloMm, `blanco de ${blancoMm} mm por lado`);
+    assert.ok(barras.altoMm >= barras.anchoMm * 0.15, "alto de al menos el 15 % del ancho");
+    // En la A4 entra igual con la zona completa: no se achica si no hace falta.
+    assert.equal(codigoDeBarras(codigo, FORMATOS.a4.barras).zona, ZONA_BLANCA_MODULOS);
+  });
+}
 
 test("un código que no cabe con módulos legibles no produce barras recortadas", () => {
   assert.equal(codigoDeBarras("PRODUCTO-DEMASIADO-LARGO-PARA-LA-ETIQUETA", FORMATOS.termica.barras), null);
@@ -397,7 +417,21 @@ test("sin código de la base no hay etiqueta: no se inventa uno", () => {
 
 test("el nombre se achica con el largo", () => {
   assert.ok(tamanoNombre("Lija 80") > tamanoNombre("Hoja Serrucho Electrico P/Plastico Blanca"));
-  assert.ok(tamanoNombre("Lija 80", "termica") >= tamanoNombre("Lija 80", "a4"));
+  // En la de 40 × 30 el más largo (45 caracteres) baja hasta 7,5 pt, no menos.
+  assert.equal(tamanoNombre("x".repeat(45), "termica"), 7.5);
+});
+
+test("el código impreso entra al lado del QR en la de 40 × 30", () => {
+  assert.equal(tamanoCodigo("PARFIJ0016", "a4"), 15);
+  assert.equal(tamanoCodigo("M0047", "termica"), 14);
+  assert.equal(tamanoCodigo("PARFIJ0016", "termica"), 10.5);
+  // JetBrains Mono avanza 0,6 em por carácter; 1 pt = 0,3528 mm.
+  const f = FORMATOS.termica;
+  const libre = f.etiqueta.ancho - 2 * f.relleno.h - f.qrMm - 1.5;
+  for (const codigo of ["M0047", "B007-3TEL", "PARFIJ0016"]) {
+    const ancho = codigo.length * 0.6 * tamanoCodigo(codigo, "termica") * 0.3528;
+    assert.ok(ancho <= libre, `${codigo} mide ${ancho.toFixed(1)} mm de ${libre} mm`);
+  }
 });
 
 test("la etiqueta de prueba usa el Rebollar más largo o PARFIJ0016", () => {

@@ -1,0 +1,14 @@
+{
+  "pages": 5,
+  "sizeMm": [
+    40,
+    30
+  ],
+  "fonts": [
+    "Outfit",
+    "JetBrains Mono"
+  ],
+  "fontsLoadedConfirmed": true,
+  "componentGraphicsUnchanged": true,
+  "pageBoxCorrectionOnly": true
+}

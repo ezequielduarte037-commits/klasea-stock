@@ -1,0 +1,217 @@
+{
+  "dataCellsPreserved": 25119,
+  "sheets": 10,
+  "tables": 9,
+  "charts": [
+    {
+      "part": "xl/drawings/charts/chart1.xml",
+      "bindings": [
+        "'Por sector'!$A$2:$A$7",
+        "'Por sector'!$C$2:$C$7"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart2.xml",
+      "bindings": [
+        "'Por rubro'!$A$2:$A$7",
+        "'Por rubro'!$C$2:$C$7"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart3.xml",
+      "bindings": [
+        "'Resumen'!$B$50:$B$52",
+        "'Resumen'!$E$50:$E$52"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart4.xml",
+      "bindings": [
+        "'Resumen'!$K$50:$K$51",
+        "'Resumen'!$O$50:$O$51"
+      ],
+      "seriesColors": [],
+      "doughnut": true,
+      "varyColors": []
+    },
+    {
+      "part": "xl/drawings/charts/chart5.xml",
+      "bindings": [
+        "'Por sector'!$A$2:$A$7",
+        "'Por sector'!$C$2:$C$7"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart6.xml",
+      "bindings": [
+        "'Por rubro'!$A$2:$A$11",
+        "'Por rubro'!$C$2:$C$11"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart7.xml",
+      "bindings": [
+        "'Por persona'!$A$2:$A$9",
+        "'Por persona'!$C$2:$C$9"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart8.xml",
+      "bindings": [
+        "'Por obra'!$A$2:$A$9",
+        "'Por obra'!$C$2:$C$9"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart9.xml",
+      "bindings": [
+        "'Resumen'!$B$50:$B$52",
+        "'Resumen'!$E$50:$E$52"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart10.xml",
+      "bindings": [
+        "'Por producto'!$A$2:$A$11",
+        "'Por producto'!$D$2:$D$11"
+      ],
+      "seriesColors": [
+        "2563A6"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    },
+    {
+      "part": "xl/drawings/charts/chart11.xml",
+      "bindings": [
+        "'Sin valorizar'!$A$2:$A$11",
+        "'Sin valorizar'!$C$2:$C$11"
+      ],
+      "seriesColors": [
+        "C88516"
+      ],
+      "doughnut": false,
+      "varyColors": [
+        "0"
+      ]
+    }
+  ],
+  "panes": {
+    "Detalle": {
+      "xSplit": "4",
+      "ySplit": "1",
+      "topLeftCell": "E2",
+      "activePane": "bottomRight",
+      "state": "frozen"
+    },
+    "Por sector": {
+      "ySplit": "1",
+      "topLeftCell": "A2",
+      "activePane": "bottomLeft",
+      "state": "frozen"
+    },
+    "Por rubro": {
+      "ySplit": "1",
+      "topLeftCell": "A2",
+      "activePane": "bottomLeft",
+      "state": "frozen"
+    },
+    "Por persona": {
+      "ySplit": "1",
+      "topLeftCell": "A2",
+      "activePane": "bottomLeft",
+      "state": "frozen"
+    },
+    "Por obra": {
+      "ySplit": "1",
+      "topLeftCell": "A2",
+      "activePane": "bottomLeft",
+      "state": "frozen"
+    },
+    "Por mes y rubro": {
+      "ySplit": "1",
+      "topLeftCell": "A2",
+      "activePane": "bottomLeft",
+      "state": "frozen"
+    },
+    "Por producto": {
+      "xSplit": "1",
+      "ySplit": "1",
+      "topLeftCell": "B2",
+      "activePane": "bottomRight",
+      "state": "frozen"
+    },
+    "Sin valorizar": {
+      "ySplit": "1",
+      "topLeftCell": "A2",
+      "activePane": "bottomLeft",
+      "state": "frozen"
+    },
+    "Registro nuevo (desde 13-10)": {
+      "xSplit": "1",
+      "ySplit": "1",
+      "topLeftCell": "B2",
+      "activePane": "bottomRight",
+      "state": "frozen"
+    }
+  },
+  "bytes": 177351
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "Path": "C:\\klasea-stock\\src\\features\\consumibles\\etiquetas\\EtiquetasTab.jsx",
+    "Hash": "C2F346F4B17F774B8656E18A8279EC83B1DA1ED6EF01637AA40FA97C16DEF462"
+  },
+  {
+    "Path": "C:\\klasea-stock\\src\\features\\consumibles\\etiquetas\\EtiquetasVista.jsx",
+    "Hash": "57823A3ECA780AB5375847221473033CFDD2317E92CECAAFAD1F354E54611F53"
+  },
+  {
+    "Path": "C:\\klasea-stock\\src\\features\\consumibles\\etiquetas\\etiquetasCore.js",
+    "Hash": "F2B700A20DDEDD145BDB2EC23ECC400FF65876686E1A4FFFF23826C6D763AAD1"
+  },
+  {
+    "Path": "C:\\klasea-stock\\src\\features\\consumibles\\etiquetas\\etiquetasCore.test.mjs",
+    "Hash": "44465DA66DA662B9FF63E1905D04217EED29C145252C85B60C200296A5465E2E"
+  }
+]

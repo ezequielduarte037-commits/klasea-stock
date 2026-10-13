@@ -77,6 +77,8 @@ export const CSS_STOCK = `
   .stk .stk-stock { font-size: 15px; font-weight: 600; color: var(--teal); }
   .stk .stk-stock.is-bajo { color: var(--cyan); }
   .stk .stk-stock.is-negativo { color: var(--red); }
+  .stk .stk-sin-contar { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 12.5px; color: var(--dim); }
+  .stk .stk-sin-contar small { font-size: 11px; color: var(--violet); }
   .stk .c-conteo { font-size: 12.5px; }
   .stk .c-cons { font-size: 13.5px; }
   .stk .stk-sin { padding: 28px; text-align: center; color: var(--dim); }
@@ -167,6 +169,7 @@ export const CSS_STOCK = `
   .stk .stk-tag[data-tono="verde"] { border-color: var(--green-border); background: var(--green-soft); color: var(--green); }
   .stk .stk-tag[data-tono="teal"] { border-color: var(--teal-border); background: var(--teal-soft); color: var(--teal); }
   .stk .stk-tag[data-tono="rojo"] { border-color: var(--red-border); background: var(--red-soft); color: var(--red); }
+  .stk .stk-tag[data-tono="gris"] { border-color: var(--border-2); background: var(--panel-2); color: var(--muted); font-weight: 500; }
 
   /* ── Celular ───────────────────────────────────────────────────────── */
   @media (max-width: 899px) {

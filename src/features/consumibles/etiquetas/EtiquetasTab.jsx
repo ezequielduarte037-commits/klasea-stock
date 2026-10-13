@@ -30,7 +30,7 @@ import { Escala, Etiqueta, EstilosEtiquetas, PaginaEtiquetas, PaginaMostrador } 
  * barras Code128 y QR, todo generado acá (sin servicios externos). Se usa el
  * domingo 11 y el lunes 12/10 para etiquetar el pañol antes del arranque.
  *
- * Tres trabajos: etiquetas de estante (hoja A4 de 24 o térmica 60 × 40), la
+ * Tres trabajos: etiquetas de estante (hoja A4 de 24 o térmica 40 × 30), la
  * hoja de mostrador (40 consumibles con barras grandes para una carpeta) y una
  * etiqueta de prueba con un probador del lector.
  *
@@ -80,7 +80,7 @@ const plural = (n, uno, varios) => `${n.toLocaleString("es-AR")} ${n === 1 ? uno
 
 const AYUDA_IMPRESION = {
   a4: "En el diálogo de impresión: papel A4, márgenes «Ninguno», escala 100 % y sin encabezado ni pie de página.",
-  termica: "En el diálogo de impresión: la térmica con papel de 60 × 40 mm, márgenes «Ninguno» y escala 100 %.",
+  termica: "En el diálogo de impresión: la térmica con papel de 40 × 30 mm, márgenes «Ninguno» y escala 100 %.",
   mostrador: "En el diálogo de impresión: papel A4, márgenes «Ninguno» y escala 100 %.",
 };
 
@@ -580,7 +580,7 @@ function PreviaEtiquetas({ hojas, formato }) {
       {visibles.map((hoja) => (
         <div key={hoja.numero} className="cns-etq-hoja-envoltura">
           {!termica && <div className="cns-etq-hoja-num">Hoja {hoja.numero} de {hojas.length}</div>}
-          <Escala anchoMm={formato.pagina.ancho} altoMm={formato.pagina.alto} max={termica ? 1.25 : 1}>
+          <Escala anchoMm={formato.pagina.ancho} altoMm={formato.pagina.alto} max={termica ? 1.5 : 1}>
             <PaginaEtiquetas hoja={hoja} formato={formato} pantalla />
           </Escala>
         </div>
@@ -865,7 +865,7 @@ const CSS = `
   }
   .cns-etq-root .cns-etq-hojas.is-termica { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 12px; }
   .cns-etq-root .cns-etq-hoja-envoltura { width: 100%; max-width: 820px; }
-  .cns-etq-root .cns-etq-hojas.is-termica .cns-etq-hoja-envoltura { width: min(100%, 284px); }
+  .cns-etq-root .cns-etq-hojas.is-termica .cns-etq-hoja-envoltura { width: min(100%, 228px); }
   .cns-etq-root .cns-etq-hoja-num { margin: 0 0 6px; font-size: 12px; color: var(--dim); }
   .cns-etq-root .cns-etq-resto { width: 100%; text-align: center; }
 

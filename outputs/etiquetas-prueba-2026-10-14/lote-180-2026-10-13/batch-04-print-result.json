@@ -1,0 +1,42 @@
+{
+  "Printer": "P1S Label Printer",
+  "Codes": [
+    "L0064",
+    "S0005",
+    "R0032",
+    "D0042",
+    "F0006",
+    "C00101",
+    "C0053",
+    "R0035",
+    "A0006",
+    "L0015",
+    "F0014",
+    "L0068",
+    "L0069",
+    "PEROXIDO10",
+    "D0041",
+    "M0030",
+    "M0024",
+    "M0026",
+    "F0022",
+    "PARGOT0025",
+    "PARFRE0025"
+  ],
+  "CopiesEach": 1,
+  "Count": 21,
+  "StartedAt": "2026-10-13T10:44:40.8635044-03:00",
+  "State": "Submitted",
+  "Success": true,
+  "SubmittedPages": 21,
+  "Jobs": [
+    {
+      "ID": 13,
+      "DocumentName": "KlaseA - Etiquetas 40x30 - batch-04-print-result.json",
+      "JobStatus": 8208,
+      "TotalPages": 16,
+      "PagesPrinted": 5
+    }
+  ],
+  "FinishedAt": "2026-10-13T10:44:42.4201176-03:00"
+}

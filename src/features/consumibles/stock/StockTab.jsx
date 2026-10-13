@@ -104,6 +104,7 @@ export default function StockTab({ sede }) {
         stockSede: deSede ? deSede.stock : null,
         stockOtra: i.stockPorSede?.[otraSede] ? i.stockPorSede[otraSede].stock : null,
         ultimoConteo: deSede?.ultimoConteoAt ?? null,
+        preConteo: deSede?.preConteoRetirado ?? 0,
         maximo: i.config?.stock_maximo != null ? Number(i.config.stock_maximo) : null,
         consumo7: c7.get(i.id) ?? 0,
         consumo30,
@@ -170,7 +171,8 @@ export default function StockTab({ sede }) {
     // Se corrige al toque y después se trae todo de nuevo.
     actualizarItem(mov.material_id, (i) => {
       const deSede = i.stockPorSede?.[sede];
-      if (!deSede) return {};
+      // Sin contar no hay stock que corregir; la recarga trae el pre-conteo al día.
+      if (!deSede || deSede.stock == null) return {};
       return { stockPorSede: { ...i.stockPorSede, [sede]: { ...deSede, stock: deSede.stock - Number(mov.cantidad || 0) } } };
     });
     cargar().catch(() => {});
@@ -179,17 +181,17 @@ export default function StockTab({ sede }) {
   const ordenarPor = (campo) => setOrden((o) => (o.campo === campo ? { campo, asc: !o.asc } : { campo, asc: campo === "descripcion" || campo === "ubicacion" }));
 
   const exportar = () => {
-    const cab = ["Código", "Producto", "Rubro", "Ubicación", "Unidad", `Stock ${sede}`, `Stock ${otraSede}`, "Mínimo", "Máximo", "Último conteo", "Consumo 7 días"];
+    const cab = ["Código", "Producto", "Rubro", "Ubicación", "Unidad", `Stock ${sede}`, `Stock ${otraSede}`, "Mínimo", "Máximo", "Último conteo", "Consumo 7 días", "Salió antes del conteo"];
     descargarXlsx(`stock-consumibles-${sede.toLowerCase()}-${claveDia(new Date())}.xlsx`, [{
       nombre: "Stock",
-      anchos: [10, 44, 22, 11, 10, 12, 12, 10, 10, 14, 14],
+      anchos: [10, 44, 22, 11, 10, 12, 12, 10, 10, 14, 14, 14],
       congelar: { fila: 1, col: 2 },
       filas: [
         cab.map((v) => ({ v, s: { fuente: { b: true }, fondo: "E8EEF8" } })),
         ...visibles.map((f) => [
           f.codigoEtiqueta || "", f.descripcion, f.rubro || "", f.ubicacion || "", f.unidad,
-          f.stockSede ?? "", f.stockOtra ?? "", f.stockMinimo ?? "", f.maximo ?? "",
-          f.ultimoConteo ? new Date(f.ultimoConteo) : "", f.consumo7,
+          f.stockSede ?? "sin contar", f.stockOtra ?? "sin contar", f.stockMinimo ?? "", f.maximo ?? "",
+          f.ultimoConteo ? { v: new Date(f.ultimoConteo), s: { formatoNumero: "dd/mm/yyyy" } } : "", f.consumo7, f.preConteo || "",
         ]),
       ],
     }]);
@@ -291,8 +293,18 @@ export default function StockTab({ sede }) {
                   </button>
                   <span role="cell" className="c-ubic stk-num" data-lbl="Ubicación">{f.ubicacion || <span className="stk-dim">—</span>}</span>
                   <span role="cell" className="c-stock is-num" data-lbl={sede}>
-                    <span className={`stk-num stk-stock${negativo ? " is-negativo" : bajo ? " is-bajo" : ""}`}>{f.stockSede == null ? "—" : fmtCantidad(f.stockSede)}</span>
-                    <small className="stk-dim"> {unidadEnTexto(f.unidad, f.stockSede ?? 0)}</small>
+                    {f.stockSede == null ? (
+                      // Sin conteo no hay stock: lo que salió antes es pre-conteo y no descuenta.
+                      <span className="stk-sin-contar" title={f.preConteo ? "Registrado, pero no descuenta: el stock arranca con el primer conteo." : undefined}>
+                        sin contar
+                        {f.preConteo > 0 && <small className="stk-num">salió {fmtCantidad(f.preConteo)} antes</small>}
+                      </span>
+                    ) : (
+                      <>
+                        <span className={`stk-num stk-stock${negativo ? " is-negativo" : bajo ? " is-bajo" : ""}`}>{fmtCantidad(f.stockSede)}</span>
+                        <small className="stk-dim"> {unidadEnTexto(f.unidad, f.stockSede)}</small>
+                      </>
+                    )}
                   </span>
                   <span role="cell" className="c-otra is-num stk-num stk-dim" data-lbl={otraSede}>{f.stockOtra == null ? "—" : fmtCantidad(f.stockOtra)}</span>
                   <span role="cell" className="c-min is-num" data-lbl="Mín.">

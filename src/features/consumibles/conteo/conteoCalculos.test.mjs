@@ -84,7 +84,17 @@ test("el último conteo del día gana y cuenta las veces", () => {
 
 test("stock al inicio del día descuenta lo movido hoy (sin anulados)", () => {
   assert.equal(stockAlInicioDelDia(10, [{ cantidad: -5 }, { cantidad: 3 }, { cantidad: -100, anulado_at: "x" }]), 12);
-  assert.equal(stockAlInicioDelDia(null, []), 0);
+  // Sin contar no hay stock al inicio del día (y no aparece como negativo).
+  assert.equal(stockAlInicioDelDia(null, []), null);
+  assert.equal(stockAlInicioDelDia(null, [{ tipo: "retiro", cantidad: -4 }]), null);
+});
+
+test("stock al inicio del día con un conteo hoy: sale del teórico de ese conteo", () => {
+  const retiro = (h, c) => ({ tipo: "retiro", cantidad: c, created_at: `2026-10-14T${h}:00:00Z` });
+  // Primer conteo de su historia (teórico vacío): a la mañana no había stock.
+  assert.equal(stockAlInicioDelDia(38, [retiro("10", -5), { tipo: "inventario", cantidad: 40, teorico: null, created_at: "2026-10-14T12:00:00Z" }, retiro("13", -2)]), null);
+  // Ya tenía conteo: teórico 20 a las 12, con 5 retirados antes ⇒ arrancó en 25.
+  assert.equal(stockAlInicioDelDia(16, [retiro("13", -2), { tipo: "inventario", cantidad: -2, teorico: 20, created_at: "2026-10-14T12:00:00Z" }, retiro("10", -5)]), 25);
 });
 
 test("reconteo: reemplaza o suma a lo ya contado hoy", () => {

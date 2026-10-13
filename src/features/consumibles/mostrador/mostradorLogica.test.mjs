@@ -165,7 +165,8 @@ test("el stock local se descuenta con el signo de cada fila", () => {
     { material_id: "trapo", cantidad: -3 },
     { material_id: "x", cantidad: 2 },
   ]);
-  assert.deepEqual(out.map((i) => i.stock), [7, 2]);
+  // Sin contar sigue sin stock: el retiro es pre-conteo.
+  assert.deepEqual(out.map((i) => i.stock), [7, null]);
 });
 
 // ── Carrito ──────────────────────────────────────────────────────────────────
@@ -290,8 +291,13 @@ test("las obras terminadas no cuentan como obra asignada", () => {
 test("el destino se traduce a reparto o sector", () => {
   assert.deepEqual(repartoDeDestino({ tipo: "obra", obraId: "o1" }).reparto, [{ obraId: "o1", proporcion: 1 }]);
   assert.equal(repartoDeDestino({ tipo: "repartir", obraIds: ["o1", "o2", "o1"] }).reparto.length, 2);
-  assert.deepEqual(repartoDeDestino({ tipo: "sector", sector: " Pintura " }), { reparto: [], sector: "Pintura", ok: true });
+  assert.deepEqual(repartoDeDestino({ tipo: "sector", sector: " Pintura " }), { reparto: [], sector: "Pintura", comentario: null, ok: true });
   assert.equal(repartoDeDestino(null).ok, false);
+  // "Otro" pide para qué es; los demás sectores no.
+  assert.equal(repartoDeDestino({ tipo: "sector", sector: "Otro" }).ok, false);
+  assert.equal(repartoDeDestino({ tipo: "sector", sector: "Otro", comentario: "  " }).ok, false);
+  assert.deepEqual(repartoDeDestino({ tipo: "sector", sector: "Otro", comentario: " visita de proveedor " }), { reparto: [], sector: "Otro", comentario: "visita de proveedor", ok: true });
+  assert.equal(repartoDeDestino({ tipo: "sector", sector: "Tapicería", comentario: "no se usa" }).comentario, null);
   const obras = new Map([["o1", { codigo: "52-27" }], ["o2", { codigo: "43-30" }]]);
   assert.equal(textoDestino({ tipo: "repartir", obraIds: ["o1", "o2"] }, obras), "52-27 · 43-30 (repartido)");
 });
@@ -329,6 +335,24 @@ test("repartir entre obras usa el contrato: gramos enteros en la primera parte",
   assert.deepEqual(filas.map((f) => f.cantidad), [-1, -1, -1]);
   assert.deepEqual(filas.map((f) => f.gramos), [120, null, null]);
   assert.ok(filas.every((f) => f.lote === "L"));
+});
+
+test("sector «Otro»: sin comentario no se registra; con comentario va en la nota de cada renglón", () => {
+  const base = { porId, empleado: EMPLEADO, metodoFirma: "sin_tarjeta", sede: "Chubut", lote: "L" };
+  assert.throws(
+    () => armarFilasRetiro({ ...base, carrito: agregarAlCarrito([], TRAPO), destino: { tipo: "sector", sector: "Otro" } }, { nuevoId: idsEnSerie(), repartir }),
+    /para qué o para quién/,
+  );
+  let c = agregarAlCarrito([], TRAPO);
+  c = agregarAlCarrito(c, TIJERA);
+  const filas = armarFilasRetiro({ ...base, carrito: c, destino: { tipo: "sector", sector: "Otro", comentario: " lata de fana para el galpón " } }, { nuevoId: idsEnSerie(), repartir });
+  const trapo = filas.find((f) => f.material_id === "trapo");
+  const tijera = filas.find((f) => f.material_id === "tijera");
+  assert.equal(trapo.sector, "Otro");
+  assert.equal(trapo.nota, "lata de fana para el galpón");
+  assert.equal(tijera.nota, "Préstamo: tiene que volver al pañol · lata de fana para el galpón");
+  assert.equal(textoDestino({ tipo: "sector", sector: "Otro", comentario: "lata de fana" }), "Otro: lata de fana");
+  assert.equal(textoDestino({ tipo: "sector", sector: "Tapicería" }), "Tapicería");
 });
 
 test("a un sector: sin obra y con el sector", () => {
