@@ -7,8 +7,9 @@ import { saludoSegunHora, primerNombre } from "@/lib/saludo";
 import { CAPITULOS, ESENCIAL } from "./contenido";
 import { Reveal, Mascara } from "./piezas";
 import { planoDe, partesModelo } from "./unidad";
+import { CAPAS } from "./configurador/opciones";
 
-export default function Inicio({ cliente, onIr, onRecorrido }) {
+export default function Inicio({ cliente, onIr, onRecorrido, onConfigurador }) {
   const plano = planoDe(cliente?.modelo_barco);
   const { base, sufijo } = partesModelo(cliente?.modelo_barco);
   const nombre = primerNombre(cliente?.nombre_completo);
@@ -62,6 +63,7 @@ export default function Inicio({ cliente, onIr, onRecorrido }) {
           <Reveal d={2} style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 40 }}>
             <button type="button" className="kx-btn" onClick={() => onIr("tu-barco")}>Empezar por el principio <ArrowRight size={15} strokeWidth={1.5} /></button>
             {onRecorrido && <button type="button" className="kx-btn kx-btn-linea" onClick={onRecorrido}>Recorrido 3D</button>}
+            {onConfigurador && <button type="button" className="kx-btn kx-btn-linea" onClick={onConfigurador}>Configurador</button>}
           </Reveal>
 
           <div className="kx-esencial">
@@ -78,6 +80,8 @@ export default function Inicio({ cliente, onIr, onRecorrido }) {
           </div>
         </div>
       </section>
+
+      {onConfigurador && <Personalizar base={base} onAbrir={onConfigurador} />}
 
       <section className="kx-bloque">
         <div className="kx-wrap">
@@ -105,6 +109,41 @@ export default function Inicio({ cliente, onIr, onRecorrido }) {
 
       <Condiciones />
     </>
+  );
+}
+
+/* Invitación al configurador: una franja oscura con un horizonte que respira
+   y los colores de casco que van apareciendo. */
+const MUESTRAS = CAPAS.find(c => c.id === "casco").ops;
+const QUE = ["Colores de casco, cubierta y tapizados", "Del amanecer a la noche, con sol o lluvia", "Balcones que se abren sobre el agua", "Zarpar y ver la estela"];
+
+function Personalizar({ base, onAbrir }) {
+  return (
+    <section className="kx-bloque kx-ink kx-pers">
+      <i className="kx-pers-horizonte" aria-hidden />
+      <div className="kx-wrap kx-pers-grid">
+        <div>
+          <Reveal className="kx-eyebrow">Configurador · {base}</Reveal>
+          <h2 className="kx-declaracion" style={{ marginTop: 20 }}><Mascara texto="Hacelo tuyo." /></h2>
+          <Reveal as="p" d={2} className="kx-p" style={{ marginTop: 24, maxWidth: 460 }}>
+            Probá combinaciones, cambiá la hora y el clima, abrí los balcones y salí a navegar. Todo en 3D, sobre el mar.
+          </Reveal>
+          <Reveal d={3} style={{ marginTop: 36 }}>
+            <button type="button" className="kx-btn" onClick={onAbrir}>Abrir el configurador <ArrowRight size={15} strokeWidth={1.5} /></button>
+          </Reveal>
+        </div>
+        <div className="kx-pers-lado">
+          <Reveal className="kx-pers-muestras" d={1}>
+            {MUESTRAS.map((m, i) => <i key={m.id} title={m.t} style={{ "--c": m.c, "--i": i }} />)}
+          </Reveal>
+          <ul className="kx-pers-lista">
+            {QUE.map((q, i) => (
+              <Reveal as="li" key={q} d={i + 2}><span className="kx-mono">{String(i + 1).padStart(2, "0")}</span>{q}</Reveal>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -16,7 +16,7 @@ function useEscape(activo, onCerrar) {
   }, [activo, onCerrar]);
 }
 
-export function Indice({ actual, onIr, onCerrar, onSalir, onTono, tono, onRecorrido }) {
+export function Indice({ actual, onIr, onCerrar, onSalir, onTono, tono, onRecorrido, onConfigurador }) {
   const [hover, setHover] = useState(actual || null);
   const cap = CAPITULOS.find(c => c.id === hover) || CAPITULOS[0];
   useEscape(true, onCerrar);
@@ -47,6 +47,7 @@ export function Indice({ actual, onIr, onCerrar, onSalir, onTono, tono, onRecorr
           </div>
           <div className="kx-indice-pie">
             {onRecorrido && <button type="button" className="kx-link" onClick={onRecorrido}>Recorrido 3D <ArrowRight size={13} strokeWidth={1.5} /></button>}
+            {onConfigurador && <button type="button" className="kx-link" onClick={onConfigurador}>Configurador <ArrowRight size={13} strokeWidth={1.5} /></button>}
             <button type="button" className="kx-link" onClick={onTono}>
               {tono === "noche" ? <><Sun size={13} strokeWidth={1.5} /> Modo día</> : <><Moon size={13} strokeWidth={1.5} /> Modo noche</>}
             </button>

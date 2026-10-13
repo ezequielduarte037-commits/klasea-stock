@@ -10,6 +10,9 @@
 //   npm i --no-save rhino3dm@8 earcut@3 poly2tri @gltf-transform/core@4 \
 //     @gltf-transform/functions@4 @gltf-transform/extensions@4 meshoptimizer
 //   node scripts/rhino-a-glb.mjs k64.3dm public/models/k64.glb [pasoMm=70]
+// K43 (exterior e interior por separado, el interior viene en otro .3dm):
+//   PERFIL=exterior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43.3dm public/models/k43.glb 60
+//   PERFIL=interior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43-interior.3dm public/models/k43-interior.glb 40
 // Después sumar la línea en MODELOS_3D (src/features/cliente/manual/unidad.js).
 import rhino3dm from "rhino3dm";
 import earcut from "earcut";
@@ -30,8 +33,15 @@ const objs = doc.objects(), capas = doc.layers();
 // Los mamparos estructurales vienen como planchas sin recortar: atraviesan el
 // casco y sobresalen, así que no se exportan (los tabiques de madera sí).
 const SALTEAR = [/HERRAJES/i, /Picaportes/i, /ICEMAKER/i, /^Default$/i, /ENGINE DISPLAY/i, /BULKHEADS/i, /MAMAPAROS ESTR TRANSV/i];
+// PERFIL=interior: modelo del interior solo, visto desde arriba. Sin cielorraso
+// ni lo que cuelga de él, y con más detalle (se mira de cerca).
+const INTERIOR_SOLO = process.env.PERFIL === "interior";
+// PERFIL=exterior: el interior va en su propio .glb, acá no se exporta.
+if (process.env.PERFIL === "exterior") SALTEAR.push(/^INTERIOR/i, /^LEATHER$/i, /^INOX$/i, /^BLACK-PAINT$/i, /^COUNTERTOP$/i, /^COMPANIONWAY DOOR$/i);
+if (INTERIOR_SOLO) SALTEAR.push(/CIELING/i, /::LED$/i, /QUICK AG1K/i, /LEWMAR FLUSH HATCH/i, /OSCURANTE/i, /SHOWER PAINI/i);
 // Grupo por capa: cada grupo es un material en la web. El orden importa.
 const REGLAS = [
+  ...(INTERIOR_SOLO ? [[/HULL-OFFSET/i, "forro"]] : []),
   [/amtifouling|antifouling/i, "fondo"],
   // Interior, por material (cada uno lleva su textura en la web)
   [/INTERIOR::FLOOR|PISO/i, "piso"],
@@ -56,7 +66,8 @@ const grupoDe = c => (REGLAS.find(([r]) => r.test(c)) || [null, "detalle"])[1];
 // la cámara y los puntos a estos lugares cuando el modelo los tiene.
 const ANCLAS = [
   [/STEERING WHEEL|^CONSOLA$|ACCESORIOS::CONSOLA/i, "timon"],
-  [/VHF Garmin|::VHF/i, "vhf"],
+  // La radio de la consola (no la antena del mástil, que también dice VHF).
+  [/VHF Garmin|CONSOL[AE][^:]*::VHF/i, "vhf"],
   [/GPSMAP|DISPLAY GARMIN/i, "gps"],
   [/BOWTRUSTER|BOW THRUSTER/i, "bow"],
   [/::WC$|BAÑO PRINCIPAL/i, "wc"],
@@ -279,6 +290,32 @@ function mallarCara(brep, face, grupo, caja) {
   tris += triIdx.length / 3;
 }
 
+// Cara horizontal (normal por área de sus triángulos) cuyas alturas cumplen "donde".
+function caraHorizontal(m, donde) {
+  const v = m.vertices(), fc = m.faces();
+  let n = [0, 0, 0], zmax = -Infinity, zmin = Infinity;
+  for (let t = 0; t < fc.count; t++) {
+    const q = fc.get(t), a = v.get(q[0]), b = v.get(q[1]), c = v.get(q[2]);
+    n = n.map((x, k) => x + cross(sub(b, a), sub(c, a))[k]);
+  }
+  for (let j = 0; j < v.count; j++) { zmax = Math.max(zmax, v.get(j)[2]); zmin = Math.min(zmin, v.get(j)[2]); }
+  return Math.abs(n[2]) / (Math.hypot(...n) || 1) > 0.9 && donde(zmax, zmin);
+}
+
+function balconCerrado(capa, geo) {
+  if (!/EXTERIOR DESIGN::DECK$/i.test(capa) || geo.constructor.name !== "Brep" || geo.faces().count !== 19) return false;
+  const b = geo.getBoundingBox();
+  return b.max[0] < 2700 && Math.max(-b.min[1], b.max[1]) < 2200 && b.max[2] > 2400;
+}
+// Bisagras de los balcones (calculadas comparando la copia abierta con la
+// cerrada del .3dm): punto sobre el eje y giro de abierto a cerrado, en grados.
+const BISAGRAS = { babor: { p: [1200, 1818, 1231], angulo: 84.88 }, estribor: { p: [1200, -1817, 1230], angulo: -84.74 } };
+const base = n => n.split("@")[0];
+
+// Posavasos de acrílico (placas finas con agujeros sobre los asoleadores).
+const esAcrilico = (capa, b) => /BLACK PAINT PARTS/i.test(capa) && b.max[2] - b.min[2] < 25
+  && Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) > 300 && Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) < 700 && b.min[2] > 2400;
+
 const t0 = Date.now();
 for (let i = 0; i < objs.count; i++) {
   const o = objs.get(i), geo = o.geometry(), tipo = geo.constructor.name;
@@ -292,6 +329,10 @@ for (let i = 0; i < objs.count; i++) {
     const lado = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
     if (lado < 650 && /CUSHION/i.test(capa)) grupo = "almohadon";
   }
+  if (esAcrilico(capa, geo.getBoundingBox())) grupo = "acrilico";
+  // Los balcones vienen dos veces: abiertos y cerrados. Queda la copia abierta
+  // (la web los cierra girándolos sobre la bisagra).
+  if (balconCerrado(capa, geo)) continue;
   // Superficies duplicadas en el .3dm (misma caja, misma capa) pelean en pantalla.
   const bb0 = geo.getBoundingBox();
   const firma = `${capa}|${tipo}|${bb0.min.map(v => v.toFixed(1))}|${bb0.max.map(v => v.toFixed(1))}|${tipo === "Brep" ? geo.faces().count : ""}`;
@@ -312,7 +353,20 @@ for (let i = 0; i < objs.count; i++) {
   const caraMallas = [];
   const fl0 = geo.faces();
   for (let k = 0; k < fl0.count; k++) { const m = fl0.get(k).getMesh(rh.MeshType.Any); if (m) caraMallas.push(m); }
-  if (caraMallas.length === fl0.count && caraMallas.length) { caraMallas.forEach(m => agregarMalla(m, grupo)); caras += caraMallas.length; continue; }
+  if (caraMallas.length === fl0.count && caraMallas.length) {
+    // Balcones rebatibles (piezas de cubierta que salen de la manga): la cara
+    // de arriba es de teca, como en los renders.
+    // Se exportan aparte (grupo@lado) para poder rebatirlos en la web.
+    const balcon = /EXTERIOR DESIGN::DECK$/i.test(capa) && Math.max(-bb0.min[1], bb0.max[1]) > 2500 && bb0.max[0] < 3000;
+    const lado = balcon ? (bb0.max[1] > 2500 ? "@babor" : "@estribor") : "";
+    // La cara de abajo, con el balcón cerrado, es el costado: va como casco.
+    let tope = -Infinity, piso = Infinity;
+    if (balcon) caraMallas.forEach(m => { const v = m.vertices(); for (let j = 0; j < v.count; j++) { tope = Math.max(tope, v.get(j)[2]); piso = Math.min(piso, v.get(j)[2]); } });
+    const grupoCara = m => !balcon ? grupo : caraHorizontal(m, z => z > tope - 30) ? "teca" : caraHorizontal(m, (z, zmin) => zmin < piso + 30) ? "casco" : grupo;
+    caraMallas.forEach(m => agregarMalla(m, grupoCara(m) + lado));
+    caras += caraMallas.length;
+    continue;
+  }
   const fl = geo.faces();
   const bb = geo.getBoundingBox();
   const caja = { min: bb.min, max: bb.max };
@@ -332,6 +386,8 @@ for (const [id, c] of Object.entries(cajasAncla)) {
   const centro = T([(c.min[0] + c.max[0]) / 2, (c.min[1] + c.max[1]) / 2, (c.min[2] + c.max[2]) / 2]);
   escena.addChild(gdoc.createNode(`ancla:${id}`).setTranslation(centro));
 }
+if (Object.keys(grupos).some(n => n.includes("@"))) for (const [lado, b] of Object.entries(BISAGRAS))
+  escena.addChild(gdoc.createNode(`bisagra:${lado}`).setTranslation(T(b.p)).setExtras({ angulo: b.angulo }));
 console.error("anclas:", Object.keys(cajasAncla).join(", ") || "ninguna");
 const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5], fondo: [0.15, 0.15, 0.15, 1], teca: [0.55, 0.4, 0.27, 1], cromo: [0.8, 0.8, 0.8, 1], tapizado: [0.9, 0.88, 0.84, 1], negro: [0.05, 0.05, 0.05, 1] };
 // UV por caja: cada triángulo se proyecta según hacia dónde mira (pisos desde
@@ -362,7 +418,7 @@ for (const [nombre, g0] of Object.entries(grupos)) {
     .setAttribute("NORMAL", gdoc.createAccessor().setType("VEC3").setArray(new Float32Array(g.nor)).setBuffer(buf))
     .setIndices(gdoc.createAccessor().setType("SCALAR").setArray(new Uint32Array(g.idx)).setBuffer(buf))
 
-    .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[nombre] || [0.8, 0.8, 0.8, 1]).setDoubleSided(true));
+    .setMaterial(gdoc.createMaterial(nombre).setBaseColorFactor(COLORES[base(nombre)] || [0.8, 0.8, 0.8, 1]).setDoubleSided(true));
   const mesh = gdoc.createMesh(nombre).addPrimitive(prim);
   escena.addChild(gdoc.createNode(nombre).setMesh(mesh));
   console.error(`${nombre}: ${g.pos.length / 3} vértices, ${g.idx.length / 3} triángulos`);
@@ -378,23 +434,23 @@ await gdoc.transform(
 // cara): sin normales, el weld los une por posición y la simplificación normal
 // conserva las formas. El visor recalcula un sombreado suave.
 for (const mesh of gdoc.getRoot().listMeshes()) {
-  if (["tapizado", "almohadon"].includes(mesh.getName())) mesh.listPrimitives().forEach(p => p.setAttribute("NORMAL", null));
+  if (["tapizado", "almohadon"].includes(base(mesh.getName()))) mesh.listPrimitives().forEach(p => p.setAttribute("NORMAL", null));
 }
 await gdoc.transform(weld());
 // Tope de triángulos por grupo: lo que más se ve (casco, cubierta) conserva detalle.
-const TOPE = { casco: 45000, cubierta: 35000, negro: 40000, cromo: 25000, tapizado: 110000, almohadon: 40000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
+const TOPE = { casco: 45000, cubierta: 35000, negro: 80000, cromo: 40000, acrilico: 20000, tapizado: 110000, almohadon: 40000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
 for (const mesh of gdoc.getRoot().listMeshes()) {
   for (const prim of mesh.listPrimitives()) {
     const n = prim.getIndices().getCount() / 3;
-    const tope = TOPE[mesh.getName()] ?? 20000;
+    const tope = (TOPE[base(mesh.getName())] ?? 20000) * (mesh.getName().includes("@") ? 0.25 : 1) * (INTERIOR_SOLO ? 2.5 : 1);
     const ratio = Math.min(1, tope / n);
-    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(mesh.getName()) ? 0.004 : ["tapizado", "almohadon"].includes(mesh.getName()) ? 0.003 : 0.03, lockBorder: false });
+    if (ratio < 1) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: ["casco", "cubierta", "vidrios"].includes(base(mesh.getName())) ? 0.004 : ["tapizado", "almohadon"].includes(base(mesh.getName())) ? 0.003 : 0.005, lockBorder: false });
   }
 }
 // UV por caja después de simplificar (antes, cada triángulo con vértices
 // propios impedía simplificar). Se reescriben posiciones, normales e índices.
 for (const mesh of gdoc.getRoot().listMeshes()) {
-  if (!CON_TEXTURA.has(mesh.getName())) continue;
+  if (!CON_TEXTURA.has(base(mesh.getName()))) continue;
   for (const prim of mesh.listPrimitives()) {
     const P = prim.getAttribute("POSITION"), Nn = prim.getAttribute("NORMAL"), I = prim.getIndices();
     const g = { pos: [], nor: [], idx: [] };

@@ -248,7 +248,11 @@ function piezasDe(raiz) {
 
 /* Mallas que no son un acabado propio sino parte de otro. */
 export const MATERIAL_DE = { costado: "casco" };
-export const materialDe = nombre => MATERIAL_DE[nombre] ?? nombre;
+// Las piezas que se mueven aparte llevan el lado en el nombre (teca@babor).
+export const materialDe = nombre => {
+  const base = nombre.split("@")[0];
+  return MATERIAL_DE[base] ?? base;
+};
 
 /* Cada superficie del .3dm llega como un parche suelto dentro de su malla.
    Arma los parches (union-find por vértices compartidos), le pasa a `datos`
@@ -378,6 +382,18 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null, 
     if (n?.startsWith("ancla:")) anclas[n.slice(6)] ??= o.getWorldPosition(new THREE.Vector3()).toArray();
   });
   anotarAnclas(raiz);
+  // Balcones rebatibles: sus piezas (grupo@lado) cuelgan de un pivote en la
+  // bisagra. El .glb los trae abiertos; "cerrado" es el giro hasta la borda.
+  const balcones = [];
+  raiz.children.filter(o => nombreGltf(o)?.startsWith("bisagra:")).forEach(nodo => {
+    const lado = nombreGltf(nodo).slice(8);
+    const pivote = new THREE.Group();
+    pivote.position.copy(nodo.position);
+    raiz.add(pivote);
+    pivote.updateMatrixWorld(true);
+    Object.entries(piezas).filter(([n]) => n.endsWith(`@${lado}`)).forEach(([, m]) => pivote.attach(m));
+    balcones.push({ lado, pivote, cerrado: THREE.MathUtils.degToRad(nodo.userData?.angulo ?? 0) });
+  });
   let aparte = null;
   if (raizInterior) {
     raizInterior.scale.copy(raiz.scale);
@@ -437,7 +453,12 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null, 
     const costado = separarCostado(piezas.cubierta, piezas.casco, escala);
     if (costado) piezas.costado = costado;
   }
-  return { raiz, piezas, anclas, corte, centroInterior, D, manga: Math.max(...media), enU, real: true, lineas, aparte };
+  return { raiz, piezas, anclas, corte, centroInterior, D, manga: Math.max(...media), enU, real: true, lineas, aparte, balcones };
+}
+
+/* Apertura de los balcones: 1 abiertos (como vienen), 0 cerrados contra la borda. */
+export function abrirBalcones(modelo, t) {
+  modelo.balcones?.forEach(b => { b.pivote.rotation.x = b.cerrado * (1 - t); });
 }
 
 /* Texturas fotográficas (Poly Haven, CC0) en public/textures/recorrido.
@@ -492,8 +513,9 @@ export function texturaRoble(metros) {
 }
 
 /* Teca de cubierta: la veta real del roble cortada en tablas de 10 cm, cada
-   una con su tono, y las juntas negras de calafateo. 1 textura = 1 m. */
-export function texturaTeca() {
+   una con su tono, y las juntas negras de calafateo. 1 textura = 1 m.
+   variante: "natural", "gris" (teca lavada por el sol) u "oscura" (sintética). */
+export function texturaTeca(variante = "natural") {
   const T = 1024;
   const c = document.createElement("canvas");
   c.width = c.height = T;
@@ -526,8 +548,28 @@ export function texturaTeca() {
       ctx.fillRect(0, y, T, 6);
       ctx.fillRect(Math.floor(azar() * T), y, 6, tabla);
     }
+    if (variante !== "natural") tonoTeca(ctx, T, variante);
     tex.needsUpdate = true;
   };
   img.src = `${RUTA_TEX}oak_veneer_01_diff.jpg`;
   return tex;
+}
+
+/* Variantes de la teca, píxel a píxel (ctx.filter no está en todos los Safari). */
+function tonoTeca(ctx, T, variante) {
+  const img = ctx.getImageData(0, 0, T, T);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+    if (variante === "gris") {
+      // plateada: casi sin color y más clara
+      d[i] = Math.min(255, (l * 0.85 + d[i] * 0.15) * 1.22);
+      d[i + 1] = Math.min(255, (l * 0.85 + d[i + 1] * 0.15) * 1.22);
+      d[i + 2] = Math.min(255, (l * 0.85 + d[i + 2] * 0.15) * 1.2);
+    } else {
+      // sintética oscura: café profundo, poco contraste
+      d[i] = l * 0.42 + 18; d[i + 1] = l * 0.36 + 14; d[i + 2] = l * 0.3 + 12;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
 }

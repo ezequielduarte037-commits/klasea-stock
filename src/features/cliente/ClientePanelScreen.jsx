@@ -23,6 +23,7 @@ import {
 
 // El recorrido 3D arrastra three.js (~660 kB): sólo se baja si lo piden.
 const Recorrido3D = lazy(() => import("@/features/cliente/manual/recorrido/Recorrido3D"));
+const Configurador = lazy(() => import("@/features/cliente/manual/configurador/Configurador"));
 
 const TONO_KEY = "ka_manual_tono";
 
@@ -40,6 +41,8 @@ export default function ClientePanelScreen({ session, onSignOut }) {
   const [sos, setSos] = useState(null);
   const [recorrido, setRecorrido] = useState(false);
   const [params, setParams] = useSearchParams();
+  // ?ver=configurador abre el configurador directo (para compartir el link).
+  const [configurador, setConfigurador] = useState(() => params.get("ver") === "configurador");
   const cap = capituloPorId(params.get("cap"));
   const ancla = params.get("a");
 
@@ -121,6 +124,7 @@ export default function ClientePanelScreen({ session, onSignOut }) {
   const idx = cap ? CAPITULOS.findIndex(c => c.id === cap.id) : -1;
   const siguiente = cap ? CAPITULOS[idx + 1] || null : null;
   const abrirRecorrido = () => { setMenu(false); setRecorrido(true); };
+  const abrirConfigurador = () => { setMenu(false); setConfigurador(true); };
 
   return (
     <div className="kx" data-tono={tono}>
@@ -141,7 +145,7 @@ export default function ClientePanelScreen({ session, onSignOut }) {
 
       <main key={cap?.id || "inicio"} className="kx-page">
         {!cap ? (
-          <Inicio cliente={cliente} onIr={ir} onRecorrido={abrirRecorrido} />
+          <Inicio cliente={cliente} onIr={ir} onRecorrido={abrirRecorrido} onConfigurador={abrirConfigurador} />
         ) : (
           <>
             <CabeceraCapitulo cap={cap} total={CAPITULOS.length} />
@@ -170,6 +174,7 @@ export default function ClientePanelScreen({ session, onSignOut }) {
           onTono={cambiarTono}
           tono={tono}
           onRecorrido={abrirRecorrido}
+          onConfigurador={abrirConfigurador}
         />
       )}
       {buscar && (
@@ -184,6 +189,11 @@ export default function ClientePanelScreen({ session, onSignOut }) {
       {recorrido && (
         <Suspense fallback={<div className="kx-rec"><div className="kx-rec-aviso"><span className="kx-eyebrow">Preparando el recorrido</span><i className="kx-rec-carga" /></div></div>}>
           <Recorrido3D modelo={cliente?.modelo_barco} tono={tono} onCerrar={() => setRecorrido(false)} />
+        </Suspense>
+      )}
+      {configurador && !cargando && (
+        <Suspense fallback={<div className="kx-cfg"><div className="kx-cfg-aviso"><span className="kx-eyebrow">Preparando el configurador</span><i className="kx-rec-carga" /></div></div>}>
+          <Configurador modelo={cliente?.modelo_barco} onCerrar={() => setConfigurador(false)} />
         </Suspense>
       )}
       {sos && <ModoEmergencia inicial={sos} nombreBarco={cliente?.nombre_barco} onCerrar={() => setSos(null)} />}
