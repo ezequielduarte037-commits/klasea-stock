@@ -1,16 +1,17 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowRight, Ban, FileSpreadsheet, History, RefreshCw, Search, X } from "lucide-react";
+import { ArrowRight, Ban, FileSpreadsheet, History, MapPin, RefreshCw, Search, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { EmptyState } from "@/components/ui/motion";
 import { useToast } from "@/components/ui/Toast";
 import { supabase } from "@/supabaseClient";
 import { descargarXlsx } from "@/features/compras/xlsx";
-import { SEDES, anularMovimiento, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
+import { SEDES, anularMovimiento, fetchObrasActivas, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
+import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import Hoja from "../conteo/Hoja";
 import { fetchNombresDePerfiles } from "../conteo/conteoApi";
 import { unidadEnTexto } from "../conteo/conteoCalculos";
 import { diaArgentina as hoyArgentina, moverDia, resolverPeriodo } from "../tablero/tableroCore";
-import { TOPE_FILAS, fetchMovimientosPeriodo, fetchPrimerosConteos } from "./movimientosApi";
+import { TOPE_FILAS, corregirDestino, fetchMovimientosPeriodo, fetchPrimerosConteos } from "./movimientosApi";
 import {
   ETIQUETA_TIPO,
   FILTROS_TIPO,
@@ -346,6 +347,8 @@ function Fila({ e, onAbrir }) {
 
 function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
   const [anulando, setAnulando] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const corregible = e.tipo === "retiro" || e.tipo === "devolucion";
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const deSolicitud = e.origen === "solicitud" || !!e.solicitudId;
@@ -372,7 +375,9 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
       : ["Cantidad", `${cantidadTexto(e, fmtCantidad)} ${unidad(Math.abs(e.cantidad))}${e.gramos ? ` · ${fmtCantidad(e.gramos)} g en la balanza` : ""}`],
     e.persona ? [e.tipo === "devolucion" ? "Devolvió" : "Retiró", `${e.persona}${e.metodoFirma && FIRMA[e.metodoFirma] ? ` · ${FIRMA[e.metodoFirma]}` : ""}`] : null,
     e.externo ? ["Externo", `${e.empresa}${e.autorizadoPor ? ` · autorizó ${e.autorizadoPor}` : " · sin autorización registrada"}`] : null,
-    e.obras.length > 1 ? ["Repartido", e.reparto.map((r) => `${r.obra || "sin obra"}: ${fmtCantidad(r.cantidad)}`).join(" · ")] : null,
+    e.obras.length > 4
+      ? ["Repartido", `Entre ${e.obras.length} obras: ${e.reparto.slice(0, 4).map((r) => `${r.obra || "sin obra"} ${fmtCantidad(r.cantidad)}`).join(" · ")} y ${e.obras.length - 4} más`]
+      : e.obras.length > 1 ? ["Repartido", e.reparto.map((r) => `${r.obra || "sin obra"}: ${fmtCantidad(r.cantidad)}`).join(" · ")] : null,
     e.obras.length === 1 ? ["Obra", e.obras[0]] : null,
     e.sector ? ["Sector", e.sector] : null,
     ["Origen", origenTexto(e)],
@@ -402,6 +407,9 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
             Salió antes del primer conteo de este producto en {e.sede}. Queda registrado y cuenta como consumo, pero no descuenta del stock: el stock arranca con el conteo.
           </p>
         )}
+        {!e.anulado && !deSolicitud && e.obras.length > 4 && (
+          <p className="mov-nota-anulado">Quedó repartido entre {e.obras.length} obras. Si era para una sola, corregí la obra: se junta en un renglón con la misma hora y persona.</p>
+        )}
         {e.anulado && (
           <p className="mov-nota-anulado">Anulado{e.anuladoAt ? ` el ${fechaHora(e.anuladoAt)}` : ""}{e.motivoAnulacion ? `: ${e.motivoAnulacion}` : ""}.</p>
         )}
@@ -420,6 +428,8 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
               </button>
             )}
           </div>
+        ) : corrigiendo ? (
+          <CorregirDestino e={e} toast={toast} onListo={onAnulado} onCancelar={() => setCorrigiendo(false)} />
         ) : anulando ? (
           <div className="mov-accion">
             <input
@@ -441,14 +451,77 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
           </div>
         ) : (
           <div className="mov-accion">
-            <button type="button" className="ui-btn ui-btn-fantasma mov-anular" onClick={() => setAnulando(true)}>
-              <Ban size={15} /> Anular este movimiento
-            </button>
+            <div className="mov-accion-btns is-izq">
+              {corregible && (
+                <button type="button" className="ui-btn" onClick={() => setCorrigiendo(true)}>
+                  <MapPin size={15} /> Corregir obra o sector
+                </button>
+              )}
+              <button type="button" className="ui-btn ui-btn-fantasma mov-anular" onClick={() => setAnulando(true)}>
+                <Ban size={15} /> Anular este movimiento
+              </button>
+            </div>
             <p className="mov-dim">El registro no se borra: queda tachado con el motivo. Si hacía falta, se vuelve a cargar bien.</p>
           </div>
         ))}
       </div>
     </Hoja>
+  );
+}
+
+/**
+ * Corregir la obra o el sector: la base anula los renglones de este producto
+ * y lo vuelve a cargar en uno, con la misma persona, hora y costo.
+ */
+function CorregirDestino({ e, toast, onListo, onCancelar }) {
+  const [obras, setObras] = useState(null);
+  const [obraId, setObraId] = useState("");
+  const [sector, setSector] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    fetchObrasActivas().then((o) => { if (vivo) setObras(o); }, () => { if (vivo) setObras([]); });
+    return () => { vivo = false; };
+  }, []);
+
+  const guardar = async () => {
+    if (enviando || (!obraId && !sector)) return;
+    setEnviando(true);
+    try {
+      const r = await corregirDestino({ ids: e.activas.map((f) => f.id), obraId: obraId || null, sector: obraId ? null : sector, motivo: "Destino corregido" });
+      toast.success(`Listo: pasa a ${r?.ahora ?? "el nuevo destino"}.`);
+      onListo();
+    } catch (err) {
+      toast.error(`No se pudo corregir: ${err.message || err}`);
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="mov-accion">
+      <label className="mov-campo">
+        <span>Obra</span>
+        <select className="ui-input" value={obraId} onChange={(ev) => { setObraId(ev.target.value); if (ev.target.value) setSector(""); }} disabled={!obras}>
+          <option value="">{obras ? "Elegí la obra" : "Trayendo obras…"}</option>
+          {(obras ?? []).map((o) => <option key={o.id} value={o.id}>{o.codigo}{o.descripcion ? ` · ${o.descripcion}` : ""}</option>)}
+        </select>
+      </label>
+      <label className="mov-campo">
+        <span>O un sector, sin obra</span>
+        <select className="ui-input" value={sector} onChange={(ev) => { setSector(ev.target.value); if (ev.target.value) setObraId(""); }}>
+          <option value="">Elegí el sector</option>
+          {SECTORES.filter((s) => s !== "Otro").map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </label>
+      <div className="mov-accion-btns">
+        <button type="button" className="ui-btn" onClick={onCancelar} disabled={enviando}>Cancelar</button>
+        <button type="button" className="ui-btn ui-btn-primario" onClick={guardar} disabled={enviando || (!obraId && !sector)}>
+          {enviando ? "Corrigiendo…" : "Corregir"}
+        </button>
+      </div>
+      <p className="mov-dim">{e.activas.length > 1 ? `Los ${e.activas.length} renglones quedan anulados y se cargan en uno solo.` : "El renglón queda anulado y se vuelve a cargar con el destino nuevo."} Misma persona, hora y valor.</p>
+    </div>
   );
 }
 
@@ -540,6 +613,8 @@ const CSS = `
   .mov .mov-accion p { margin: 0; font-size: 12.5px; line-height: 1.5; }
   .mov .mov-accion-btns { display: flex; justify-content: flex-end; gap: 8px; }
   .mov .mov-anular { align-self: flex-start; color: var(--red); }
+  .mov .mov-accion-btns.is-izq { justify-content: flex-start; flex-wrap: wrap; }
+  .mov .mov-campo { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
 
   @media (max-width: 1099px) {
     .mov .mov-fila { grid-template-columns: 52px 92px minmax(180px, 1fr) 110px 140px 120px 90px; }

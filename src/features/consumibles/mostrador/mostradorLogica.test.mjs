@@ -35,6 +35,7 @@ import {
   quitarDeCola,
   rankingMasRetirados,
   repartoDeDestino,
+  puedeRepartir,
   resumenDelRegistro,
   retirosPendientesDe,
   separarRafaga,
@@ -322,6 +323,18 @@ test("un retiro a una obra arma una fila por consumible, con signo y lote", () =
   assert.equal(trapo.empleado_dni, "30111222");
   assert.equal(tijera.nota, "Préstamo: tiene que volver al pañol");
   assert.deepEqual(filas.map((f) => f.id), ["id-1", "id-2"]);
+});
+
+test("repartir: hasta 4 obras; con más (cuadrillas asignadas a todas) se elige una", () => {
+  const ids = (n) => Array.from({ length: n }, (_, i) => `o${i + 1}`);
+  assert.equal(puedeRepartir(ids(2).map((id) => ({ id }))), true);
+  assert.equal(puedeRepartir(ids(4).map((id) => ({ id }))), true);
+  assert.equal(puedeRepartir(ids(21).map((id) => ({ id }))), false);
+  assert.equal(repartoDeDestino({ tipo: "repartir", obraIds: ids(21) }).ok, false);
+  assert.throws(
+    () => armarFilasRetiro({ carrito: agregarAlCarrito([], TRAPO), porId, empleado: EMPLEADO, sede: "Chubut", lote: "L", destino: { tipo: "repartir", obraIds: ids(21) } }, { nuevoId: idsEnSerie(), repartir }),
+    /más de 4 obras/,
+  );
 });
 
 test("repartir entre obras usa el contrato: gramos enteros en la primera parte", () => {

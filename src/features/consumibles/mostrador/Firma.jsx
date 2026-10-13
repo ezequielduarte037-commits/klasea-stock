@@ -3,7 +3,7 @@ import { ArrowLeft, Check, HardHat, LoaderCircle, Nfc, Search, ShieldAlert, Spli
 import Cargando from "@/components/ui/Cargando";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import CampoTexto from "./CampoTexto";
-import { agruparRetirosDeHoy, faltaComentarioOtro, fmtNum, normalizarTexto, totalUnidades } from "./mostradorLogica";
+import { agruparRetirosDeHoy, faltaComentarioOtro, fmtNum, normalizarTexto, puedeRepartir, totalUnidades } from "./mostradorLogica";
 import { Avatar } from "./Piezas";
 
 /**
@@ -11,7 +11,8 @@ import { Avatar } from "./Piezas";
  * lo que ya se llevó hoy y adónde se carga:
  *   - con una sola obra en RRHH, ahí, sin preguntar (y si no falta nada, se
  *     confirma solo a los 3 s: el pañolero puede cortarlo tocando la pantalla);
- *   - con varias, un botón por obra o "Repartir entre las N": tocarlo confirma;
+ *   - con varias, un botón por obra o "Repartir entre las N" (hasta 4): tocarlo
+ *     confirma; si figura en muchas (cuadrillas asignadas a todas), se elige una;
  *   - sin obra, se elige una obra activa o un sector.
  * Pasarse del cupo no bloquea: pide quién autoriza.
  * Un externo (herrero, vidriero) se da de alta acá si no está en RRHH, y su
@@ -437,6 +438,26 @@ function Destino({ devolucion, cargando, errorObras, obras, obrasActivas, destin
           <strong>{o.codigo}</strong>
           <span>{o.descripcion || "Su obra en RRHH"}</span>
         </div>
+      </div>
+    );
+  }
+
+  // Figura en muchas obras (cuadrillas asignadas a todas): se elige una, sin repartir.
+  if (obras.length > 1 && !puedeRepartir(obras) && !cambiando) {
+    return (
+      <div className="mst-bloque">
+        <div className="mst-bloque-titulo">
+          Figura en {obras.length} obras: ¿para cuál es?
+          <button type="button" onClick={() => onCambiar(true)}>Otra obra o sector</button>
+        </div>
+        <div className="mst-opciones">
+          {obras.map((o) => (
+            <button key={o.id} type="button" className={`mst-opcion is-mono${esObra(o.id) ? " is-elegida" : ""}`} onClick={() => onElegirYConfirmar({ tipo: "obra", obraId: o.id })} title={o.descripcion || ""}>
+              {o.codigo}
+            </button>
+          ))}
+        </div>
+        {bloqueado ? <div style={{ fontSize: 12, color: "var(--dim)" }}>Tocar una la deja elegida; confirmá cuando esté todo.</div> : null}
       </div>
     );
   }

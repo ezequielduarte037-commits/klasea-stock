@@ -422,6 +422,17 @@ export function obrasVigentes(obras = []) {
   return obras.filter((o) => o?.id && !OBRA_CERRADA.has(String(o.estado || "").toLowerCase()) && !vistas.has(o.id) && vistas.add(o.id));
 }
 
+/**
+ * Repartir en partes iguales tiene sentido entre pocas obras. Hay cuadrillas
+ * asignadas en RRHH a todas las obras activas (21 el 13/10): repartir entre
+ * todas dejó dos rodillos en 42 renglones de 0,095. Con más, se elige una.
+ */
+export const MAX_OBRAS_REPARTIR = 4;
+
+export function puedeRepartir(obras = []) {
+  return obras.length >= 2 && obras.length <= MAX_OBRAS_REPARTIR;
+}
+
 /** Con una sola obra se carga ahí sin preguntar. Con varias o ninguna, se elige. */
 export function destinoInicial(obras = []) {
   return obras.length === 1 ? { tipo: "obra", obraId: obras[0].id } : null;
@@ -434,7 +445,7 @@ export function repartoDeDestino(destino) {
   }
   if (destino.tipo === "repartir") {
     const ids = [...new Set((destino.obraIds ?? []).filter(Boolean))];
-    return { reparto: ids.map((obraId) => ({ obraId, proporcion: 1 })), sector: null, ok: ids.length > 0 };
+    return { reparto: ids.map((obraId) => ({ obraId, proporcion: 1 })), sector: null, ok: ids.length > 0 && ids.length <= MAX_OBRAS_REPARTIR };
   }
   if (destino.tipo === "sector") {
     const sector = limpio(destino.sector) || null;
@@ -494,6 +505,9 @@ export function datosParaRetiro({
   if (!lineas.length) throw new Error("El carrito está vacío.");
   const { reparto, sector, comentario, ok } = repartoDeDestino(destino);
   if (faltaComentarioOtro(destino)) throw new Error("Con «Otro», escribí para qué o para quién es.");
+  if (destino?.tipo === "repartir" && new Set(destino.obraIds ?? []).size > MAX_OBRAS_REPARTIR) {
+    throw new Error(`Repartir entre más de ${MAX_OBRAS_REPARTIR} obras no: elegí para cuál es.`);
+  }
   if (!ok) throw new Error("Falta elegir la obra o el sector.");
 
   const fueraDeCupo = new Set(excedidos.map((e) => e.materialId));

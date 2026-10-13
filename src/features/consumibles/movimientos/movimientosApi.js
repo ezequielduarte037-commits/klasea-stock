@@ -65,3 +65,19 @@ export async function fetchPrimerosConteos({ sede = null, signal } = {}) {
   }
   return filas;
 }
+
+/**
+ * Corrige la obra o el sector de un producto de un retiro: la base anula sus
+ * renglones y lo vuelve a cargar en uno, con la misma persona, hora y costo.
+ * Pasar `obraId` o `sector`, no los dos.
+ */
+export async function corregirDestino({ ids, obraId = null, sector = null, motivo = null }) {
+  const { data, error } = await supabase.rpc("consumibles_corregir_destino", {
+    p_ids: ids,
+    p_obra_id: obraId,
+    p_sector: sector,
+    p_motivo: motivo,
+  });
+  if (error) throw error;
+  return data;
+}
