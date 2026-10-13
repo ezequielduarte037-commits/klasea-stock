@@ -16,6 +16,7 @@ import { LARGO, abrirBalcones, texturaTeca, materialDe } from "../recorrido/barc
 import { crearMateriales } from "../recorrido/acabados";
 import { CAPAS, VISTAS, opcionDe } from "./opciones";
 import { ambiente, texturaNubes, texturaEspuma, texturaEstela, texturaBrillo } from "./ambiente";
+import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, crearEspumaCasco } from "./luces";
 
 // Azar con semilla: estrellas y gotas siempre en el mismo lugar.
 function azar(semilla) {
@@ -66,8 +67,18 @@ function Mundo({ objetivo, comun }) {
       .replace("getNoise( worldPosition.xz * size )", "getNoise( ( worldPosition.xz + avance ) * size )")
       // Menos espejo y más color de mar (el original refleja como un lago quieto).
       .replace("float rf0 = 0.3;", "float rf0 = reflejo;")
-      .replace("uniform vec3 waterColor;", "uniform vec3 waterColor;\nuniform float reflejo;");
+      .replace("uniform vec3 waterColor;", "uniform vec3 waterColor;\nuniform float reflejo;\nuniform float oleaje;")
+      // Mar de fondo: dos trenes de olas largas que inclinan la superficie (el
+      // reflejo del cielo se ondula en franjas anchas, como en mar abierto).
+      .replace("vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) );", `
+        vec2 sp = worldPosition.xz + avance;
+        vec2 d1 = vec2( 0.92, 0.39 ), d2 = vec2( 0.28, -0.96 ), d3 = vec2( -0.6, 0.8 );
+        vec2 g = d1 * 0.9 * cos( dot( sp, d1 ) * 0.23 + time * 1.3 )
+          + d2 * 0.55 * cos( dot( sp, d2 ) * 0.37 + time * 1.7 )
+          + d3 * 0.3 * cos( dot( sp, d3 ) * 0.61 + time * 2.3 );
+        vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) + vec3( g.x, 0.0, g.y ) * oleaje );`);
     agua.material.uniforms.reflejo = { value: 0.1 };
+    agua.material.uniforms.oleaje = { value: 0.25 };
     agua.material.uniforms.size.value = 4;
 
     const texNubes = texturaNubes();
@@ -205,6 +216,7 @@ function Mundo({ objetivo, comun }) {
     u.sunColor.value.copy(a.solColor).multiplyScalar(a.dia * (0.35 + a.sol * 0.3) + a.noche * 0.15);
     u.waterColor.value.copy(a.aguaColor).multiplyScalar(0.35 + a.dia * 0.65);
     u.distortionScale.value = a.ola;
+    u.oleaje.value = 0.12 + a.ola * 0.05;
     u.avance.value.x += c.vel * dt;
 
     const un = o.nubes.material.uniforms;
@@ -254,8 +266,8 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     const m = crearMateriales();
     // Con el reflejo del mar ya hay dos pasadas por cuadro: el vidrio va como
     // transparencia común (la transmisión sumaría una tercera).
-    Object.assign(m.lista.vidrios, { transmission: 0, transparent: true, opacity: 0.62 });
-    m.lista.vidrios.color.set("#1d2428");
+    Object.assign(m.lista.vidrios, { transmission: 0, transparent: true, opacity: 0.74 });
+    m.lista.vidrios.color.set("#151b1f");
     // Contornos de los modelos sin materiales (K64): grafito suave sobre el blanco.
     m.linea.color.set("#2a2d30");
     m.linea.opacity = 0.35;
@@ -264,8 +276,18 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
   useEffect(() => () => mats.dispose(), [mats]);
   // Cada pieza con el material de su acabado (el costado va como casco, los
   // balcones como su grupo). Sin contornos: acá manda el material.
+  const get = useThree(st => st.get);
   useEffect(() => {
     Object.entries(modelo.piezas).forEach(([nombre, m]) => { m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle; });
+    // El interior va adentro del casco: se ve por ventanas y parabrisas (sin
+    // él, el barco se veía hueco, "transparente"). Va en la capa 1, que la
+    // cámara del reflejo del agua no dibuja: no suma costo al reflejo.
+    if (modelo.aparte) {
+      Object.entries(modelo.aparte.piezas).forEach(([nombre, m]) => { m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle; });
+      modelo.aparte.raiz.visible = true;
+      modelo.aparte.raiz.traverse(o => o.layers.set(1));
+      get().camera.layers.enable(1);
+    }
     if (modelo.lineas) {
       const extras = Object.values(modelo.piezas).map(m => {
         const b = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 32), mats.linea);
@@ -275,7 +297,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
       return () => extras.forEach(b => { b.removeFromParent(); b.geometry.dispose(); });
     }
     return undefined;
-  }, [modelo, mats]);
+  }, [modelo, mats, get]);
 
   const extras = useMemo(() => {
     const espuma = texturaEspuma();
@@ -312,19 +334,33 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     });
     const luzPopa = new THREE.PointLight("#3fd6ff", 0, LARGO * 0.6, 1.6);
     luzPopa.position.set(-LARGO / 2 - 0.4, 0.15, 0);
-    const luzCockpit = new THREE.PointLight("#ffcf9a", 0, LARGO * 0.45, 1.8);
-    const a = modelo.anclas?.timon || [0, 1.6, 0];
-    luzCockpit.position.set(a[0] - LARGO * 0.08, a[1] + 0.45, a[2] * 0.4);
-    const tope = new THREE.Sprite(new THREE.SpriteMaterial({ map: brillo, color: "#ffffff", transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-    if (modelo.anclas?.tope) tope.position.set(...modelo.anclas.tope);
-    tope.scale.setScalar(0.5);
-    tope.visible = !!modelo.anclas?.tope;
-    return { espuma, forma, estela, costado, brillo, subacuaticas, luzPopa, luzCockpit, tope };
+
+    // Cortesía: las tiras LED del hardtop iluminan el cockpit desde arriba,
+    // LEDs bajos en la borda y en el espejo de popa.
+    const led = modelo.anclas?.led || modelo.anclas?.timon || [-LARGO * 0.1, 1.8, 0];
+    const techo = [-1, 1].map(k => {
+      const l = new THREE.PointLight("#ffc98c", 0, LARGO * 0.42, 1.7);
+      l.position.set(led[0] + k * LARGO * 0.09, led[1] - 0.12, led[2]);
+      return l;
+    });
+    const espejo = new THREE.PointLight("#ffc98c", 0, LARGO * 0.25, 1.8);
+    espejo.position.set(-LARGO / 2 + 0.1, 0.45, 0);
+    const cortesia = crearCortesia(ubicarCortesia(modelo), brillo);
+    const navegacion = crearNavegacion(modelo, brillo);
+    const espumaCasco = crearEspumaCasco(modelo, espuma);
+    return { espuma, forma, estela, costado, brillo, subacuaticas, luzPopa, techo, espejo, cortesia, navegacion, espumaCasco };
   }, [modelo]);
   useEffect(() => () => {
     const e = extras;
-    [e.estela, e.costado, ...e.subacuaticas].forEach(m => { m.geometry.dispose(); m.material.dispose(); });
-    e.tope.material.dispose();
+    const mallas = [e.estela, e.costado, ...e.subacuaticas, ...e.cortesia.charcos];
+    if (e.espumaCasco) {
+      mallas.push(e.espumaCasco.malla, e.espumaCasco.sombra);
+      e.espumaCasco.forma.dispose();
+      e.espumaCasco.formaSombra.dispose();
+    }
+    mallas.forEach(m => { m.geometry.dispose(); m.material.dispose(); });
+    e.cortesia.puntos.forEach(s => s.material.dispose());
+    e.navegacion.forEach(({ g }) => g.children.forEach(s => s.material.dispose()));
     [e.espuma, e.forma, e.brillo].forEach(t => t.dispose());
   }, [extras]);
 
@@ -352,7 +388,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
   useEffect(() => { vivo.current = { modelo, mats, balcones, luces, navegando, extras, comun, indicador }; }, [modelo, mats, balcones, luces, navegando, extras, comun, indicador]);
   const apertura = useRef(balcones ? 1 : 0);
 
-  useFrame(({ clock }, dt) => {
+  useFrame(({ clock, camera }, dt) => {
     if (!vivo.current || !grupo.current) return;
     const v = vivo.current;
     const k = 1 - Math.exp(-dt * 4);
@@ -371,20 +407,43 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     c.vel += (metaVel - c.vel) * (1 - Math.exp(-dt * (v.navegando ? 0.45 : 0.7)));
     const f = c.vel / CRUCERO;
     const t = clock.elapsedTime;
-    grupo.current.position.y = Math.sin(t * 0.8) * 0.025 * (1 - f) + f * 0.06 + Math.sin(t * 2.4) * 0.01 * f;
-    grupo.current.rotation.z = Math.sin(t * 0.55) * 0.006 + f * 0.05 + Math.sin(t * 1.9) * 0.004 * f;
-    grupo.current.rotation.x = Math.sin(t * 0.43) * 0.012 * (1 - f * 0.5);
+    // Al planear la proa sube pero la popa no se hunde: el barco gira sobre la
+    // popa y sube entero (antes giraba sobre el centro y la planchada quedaba
+    // bajo el agua).
+    // Parado, el mar de fondo lo mece: sube y baja, cabecea y rola, con
+    // frecuencias que no coinciden (así nunca se repite igual).
+    const quieto = 1 - f * 0.6;
+    const cabeceo = (Math.sin(t * 0.5 + 0.4) * 0.008 + Math.sin(t * 0.93) * 0.004) * quieto + f * 0.045 + Math.sin(t * 1.9) * 0.003 * f;
+    grupo.current.rotation.z = cabeceo;
+    grupo.current.position.y = (Math.sin(t * 0.62) * 0.035 + Math.sin(t * 1.07 + 1.3) * 0.015) * quieto
+      + Math.max(0, cabeceo - 0.012) * (LARGO / 2) + f * 0.05 + Math.sin(t * 2.4) * 0.008 * f;
+    grupo.current.rotation.x = (Math.sin(t * 0.41) * 0.018 + Math.sin(t * 0.77 + 2.1) * 0.008) * quieto;
 
     const e = v.extras;
     e.estela.material.opacity = Math.min(1, f * 1.3);
     e.costado.material.opacity = f * 0.75;
     e.espuma.offset.x -= dt * c.vel * 0.14;
     e.estela.visible = e.costado.visible = f > 0.01;
-    const prendidas = v.luces ? 0.3 + 0.7 * c.noche : 0;
-    e.subacuaticas.forEach(m => { m.material.opacity += (prendidas * 0.9 - m.material.opacity) * k; });
-    e.luzPopa.intensity += (prendidas * 6 - e.luzPopa.intensity) * k;
-    e.luzCockpit.intensity += ((v.luces ? c.noche * 5 : 0) - e.luzCockpit.intensity) * k;
-    e.tope.material.opacity = c.noche * 0.95;
+    // Luces: se encienden y apagan con un fundido corto; de día casi no se notan.
+    const L = v.luces;
+    const nivel = prendida => (prendida ? 0.3 + 0.7 * c.noche : 0);
+    const fx = e.fx ||= { agua: 0, nav: 0, cort: 0 };
+    fx.agua += (nivel(L.agua) - fx.agua) * k;
+    fx.nav += (nivel(L.navegacion) - fx.nav) * k;
+    fx.cort += (nivel(L.cortesia) - fx.cort) * k;
+    e.subacuaticas.forEach(m => { m.material.opacity = fx.agua * 0.9; });
+    e.luzPopa.intensity = fx.agua * 6;
+    prenderNavegacion(e.navegacion, camera, fx.nav);
+    prenderCortesia(e.cortesia, fx.cort);
+    e.techo.forEach(l => { l.intensity = fx.cort * 3.2; });
+    e.espejo.intensity = fx.cort * 1.6;
+    const led = v.mats.lista.led;
+    if (led) { led.emissive.set("#ffd2a0"); led.emissiveIntensity = fx.cort * 2.4; }
+    if (e.espumaCasco) {
+      const m = e.espumaCasco.malla.material;
+      m.opacity = 0.45 + f * 0.45;
+      m.color.setScalar(0.25 + 0.75 * c.dia);
+    }
 
     if (v.indicador?.current) {
       const nudos = (c.vel / v.modelo.raiz.scale.x) * 1.944;
@@ -397,9 +456,14 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     <>
       <group ref={grupo}>
         <primitive object={modelo.raiz} />
-        <primitive object={extras.luzCockpit} />
-        <primitive object={extras.tope} />
+        {modelo.aparte && <primitive object={modelo.aparte.raiz} />}
+        {extras.techo.map((l, i) => <primitive key={i} object={l} />)}
+        <primitive object={extras.espejo} />
+        <primitive object={extras.cortesia.grupo} />
+        {extras.navegacion.map(({ g }, i) => <primitive key={`n${i}`} object={g} />)}
       </group>
+      {extras.espumaCasco && <primitive object={extras.espumaCasco.sombra} />}
+      {extras.espumaCasco && <primitive object={extras.espumaCasco.malla} />}
       <primitive object={extras.estela} />
       <primitive object={extras.costado} />
       {extras.subacuaticas.map((m, i) => <primitive key={i} object={m} />)}
@@ -444,8 +508,12 @@ function Camara({ modelo, vista, intro, subir }) {
     const { controls } = get();
     if (!controls) return undefined;
     const tocar = () => { quieto.current = 0; controls.autoRotate = false; viaje.current = null; };
+    // Tocar los paneles también cuenta: el barco no se pone a girar mientras
+    // alguien elige colores.
+    const usar = () => { quieto.current = 0; controls.autoRotate = false; };
     controls.addEventListener("start", tocar);
-    return () => controls.removeEventListener("start", tocar);
+    window.addEventListener("pointerdown", usar);
+    return () => { controls.removeEventListener("start", tocar); window.removeEventListener("pointerdown", usar); };
   });
 
   useFrame(({ camera, controls, size }, dt) => {
