@@ -18,6 +18,9 @@ import { SEDES, guardarSedeDelEquipo, sedeDelEquipo } from "@/features/consumibl
 
 const TABS = [
   { key: "mostrador", label: "Mostrador", Comp: lazy(() => import("./mostrador/MostradorTab")) },
+  // El carril planificado: la hoja de papel o la solicitud desde el celular,
+  // hasta las 15; se prepara a la tarde y se entrega a las 7 con tarjeta.
+  { key: "solicitudes", label: "Solicitudes", Comp: lazy(() => import("./solicitudes/SolicitudesTab")) },
   { key: "stock", label: "Stock y reposición", Comp: lazy(() => import("./stock/StockTab")) },
   { key: "conteo", label: "Conteo", Comp: lazy(() => import("./conteo/ConteoTab")) },
   { key: "ingresos", label: "Ingresos", Comp: lazy(() => import("./ingresos/IngresosTab")) },

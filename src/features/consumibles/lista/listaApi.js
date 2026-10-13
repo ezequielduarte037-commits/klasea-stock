@@ -127,7 +127,7 @@ export async function enviarLista({ cabecera, items }) {
     tarea: cabecera.tarea || null,
     observaciones: cabecera.observaciones || null,
     tipo: ["Consumibles"],
-    prioridad: "normal",
+    prioridad: cabecera.prioridad === "urgente" ? "urgente" : "normal",
     origen: "digital",
     estado: "enviada",
   });

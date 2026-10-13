@@ -95,8 +95,8 @@ export const NAV_SECTIONS = [
     roles: PANOL_COMPRAS,
   },
   {
-    id: "panol-pedido-manana", label: "Pedido para mañana", modulo: "Pañol", path: "/pedido-panol", Icon: Wallet,
-    hint: "La lista de consumibles que la cuadrilla retira mañana a las 7.",
+    id: "panol-pedido-manana", label: "Solicitud a pañol", modulo: "Pañol", path: "/pedido-panol", Icon: Wallet,
+    hint: "Pedir consumibles a pañol: hasta las 15, se retiran al día siguiente a las 7.",
     keywords: "pedido lista mañana consumibles encargado planificado solicitud panol",
   },
   {

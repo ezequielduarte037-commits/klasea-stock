@@ -112,7 +112,7 @@ export default function CatalogoTab({ profile, sede }) {
   }, [activos, selId, costoCompraDe]);
 
   // Después de guardar se actualizan solo los campos confirmados por la base.
-  const aplicarCambio = (id, { config, stockMinimo, ubicacion, alias }) => {
+  const aplicarCambio = (id, { config, stockMinimo, ubicacion, alias, info, imagenUrl }) => {
     setCatalogo((cat) => cat.map((i) => (i.id !== id ? i : {
       ...i,
       config: config ?? i.config,
@@ -124,6 +124,8 @@ export default function CatalogoTab({ profile, sede }) {
       stockMinimo: stockMinimo === undefined ? i.stockMinimo : stockMinimo,
       ubicacion: ubicacion === undefined ? i.ubicacion : ubicacion,
       alias: alias === undefined ? i.alias : alias,
+      info: info === undefined ? i.info : info,
+      imagenUrl: imagenUrl === undefined ? i.imagenUrl : imagenUrl,
     })));
   };
 
@@ -215,6 +217,7 @@ export default function CatalogoTab({ profile, sede }) {
                 puedeEditar={puedeEditar}
                 onCerrar={() => setSelId(null)}
                 onGuardado={(id, cambios) => { aplicarCambio(id, cambios); setSelId(null); }}
+                onFoto={(id, imagenUrl) => aplicarCambio(id, { imagenUrl })}
               />
             </div>
           )}
@@ -280,6 +283,16 @@ const CSS = `
   .cat-root .cat-check input { width: 18px; height: 18px; accent-color: var(--blue); }
   .cat-root .cat-check-chico { min-height: 30px; margin-left: auto; }
   .cat-root .cat-peso { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .cat-root .cat-fotos { display: grid; gap: 8px; }
+  .cat-root .cat-foto-principal { aspect-ratio: 4 / 3; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); display: grid; place-items: center; overflow: hidden; }
+  .cat-root .cat-foto-principal img { width: 100%; height: 100%; object-fit: contain; }
+  .cat-root .cat-fotos-tira { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .cat-root .cat-foto-mini { position: relative; flex: 0 0 72px; height: 72px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
+  .cat-root .cat-foto-mini.is-principal { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .cat-root .cat-foto-mini img { width: 100%; height: 100%; object-fit: cover; }
+  .cat-root .cat-foto-acciones { position: absolute; right: 2px; bottom: 2px; display: flex; gap: 2px; }
+  .cat-root .cat-foto-acciones .ui-btn { min-height: 26px; width: 26px; padding: 0; background: var(--panel-solid); }
+  .cat-root .cat-fotos-botones { display: flex; gap: 8px; flex-wrap: wrap; }
   .cat-root .cat-peso a { margin-left: auto; }
   .cat-root .cat-prov { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
   .cat-root .cat-notas { min-height: 64px; padding: 8px 12px; resize: vertical; }

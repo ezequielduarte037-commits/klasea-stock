@@ -236,6 +236,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M9.2 2.2v3.4H13" {...p}/>
       <path d="M5.5 9h5M5.5 11.6h3" {...p}/>
     </>,
+    "/consumibles?tab=solicitudes": <>
+      <path d="M3 2.2h6.2L13 5.6v8.2a1.2 1.2 0 0 1-1.2 1.2H4.2A1.2 1.2 0 0 1 3 13.8z" {...p}/>
+      <path d="M9.2 2.2v3.4H13" {...p}/>
+      <path d="M5.5 9h5M5.5 11.6h3" {...p}/>
+    </>,
     // Escalera ascendente: las tandas de compra de una obra, una tras otra.
     // Se probaron tres cajas apiladas (leía como torta) y un carrito con flecha
     // (a 14px quedaba hecho un borrón); la escalera es la única que se entiende
@@ -820,7 +825,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.operacion, true, 80, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
           {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.operacion, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
           {item("/egresos-panol", "Egresar materiales", SC.operacion, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
-          {item("/solicitudes-panol", "Solicitudes", SC.operacion, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
+          {item("/consumibles?tab=solicitudes", "Solicitudes", SC.operacion, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
           {/* Consumibles reúne lo que antes eran dos renglones (Consumibles y Caja de
               consumibles): mostrador, conteo, ingresos y stock en un solo lugar. */}
           {item("/consumibles", "Consumibles", SC.operacion, true, 105, "El mostrador del pañol: nada sale sin registro. También conteo, ingresos y stock.")}
@@ -871,7 +876,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {group(comprasGroup, SC.compras, 205)}
           {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
           {/* Atajos de Compras: una cuenta Compras con admin ya los tiene en Producción y Pañol. */}
-          {esCompras && !esGestion && item("/solicitudes-panol", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
+          {esCompras && !esGestion && item("/consumibles?tab=solicitudes", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
           {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
           {esCompras && !esGestion && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
           {esCompras && !esGestion && item("/muebles", "Muebles y herrajes", SC.compras, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
@@ -885,9 +890,9 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {divider("panol-rec")}
           {group("Pañol", SC.panol, 216)}
           {item("/recepcion-panol", "Recepción y egresos", SC.panol, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
-          {item("/solicitudes-panol", "Solicitudes", SC.panol, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
+          {item("/consumibles?tab=solicitudes", "Solicitudes", SC.panol, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
           {item("/consumibles", "Consumibles", SC.panol, true, 218, "Stock, reposición, precios de Rebollar y consumo por obra y por persona.")}
-          {item("/pedido-panol", "Pedido para mañana", SC.panol, true, 219, "La lista de consumibles que tu cuadrilla retira mañana a las 7, armada hasta las 15.")}
+          {item("/pedido-panol", "Solicitud a pañol", SC.panol, true, 219, "Los consumibles que tu cuadrilla necesita: cargada hasta las 15, se retira al día siguiente a las 7.")}
           {item("/stock-panol", "Stock", SC.panol, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
           {item("/motores-y-grupos", "Motores y grupos", SC.panol, true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
         </>}
@@ -948,7 +953,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
         {!esGestion && !esPanol && role !== "cliente" && <>
           {divider("pedido-panol")}
           {group("Pañol", SC.panol, 440)}
-          {item("/pedido-panol", "Pedido para mañana", SC.panol, true, 445, "La lista de consumibles que tu cuadrilla retira mañana a las 7, armada hasta las 15.")}
+          {item("/pedido-panol", "Solicitud a pañol", SC.panol, true, 445, "Los consumibles que tu cuadrilla necesita: cargada hasta las 15, se retira al día siguiente a las 7.")}
         </>}
 
         {/* Sin condición de rol: pedirle algo al sistema lo tiene que poder

@@ -135,6 +135,14 @@ export async function reactivarFueraDeRebollar(materialId) {
   return data;
 }
 
+/** Información del producto (marca, medidas, uso). Va en panol_materiales.notas. */
+export async function guardarInfo(materialId, info) {
+  const { data, error } = await supabase.from("panol_materiales")
+    .update({ notas: info }).eq("id", materialId).select("notas").single();
+  if (error) throw error;
+  return data.notas;
+}
+
 export async function guardarAlias(materialId, alias) {
   const { data, error } = await supabase.from("panol_materiales")
     .update({ alias }).eq("id", materialId).select("alias").single();

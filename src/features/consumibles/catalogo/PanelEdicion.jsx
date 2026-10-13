@@ -11,7 +11,8 @@ import {
   guardarUbicacion,
 } from "@/features/consumibles/api";
 import { UNIDADES_ENTREGA } from "./reglas";
-import { guardarAlias } from "./catalogoApi";
+import { guardarAlias, guardarInfo } from "./catalogoApi";
+import FotosProducto from "./FotosProducto";
 import { cambiosDeFicha, estadoInicial } from "./edicion";
 
 /**
@@ -21,7 +22,7 @@ import { cambiosDeFicha, estadoInicial } from "./edicion";
  * panol_materiales.
  */
 
-export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado }) {
+export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, onFoto }) {
   const toast = useToast();
   const [inicial] = useState(() => estadoInicial(item));
   const [f, setF] = useState(inicial);
@@ -51,6 +52,7 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado }
       }
       if ("ubicacion" in cambios) guardados.ubicacion = await guardarUbicacion(item.id, cambios.ubicacion);
       if ("alias" in cambios) guardados.alias = await guardarAlias(item.id, cambios.alias);
+      if ("info" in cambios) guardados.info = await guardarInfo(item.id, cambios.info);
       onGuardado(item.id, guardados);
       toast.success("Guardado.");
     } catch (e) {
@@ -77,12 +79,21 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado }
       </header>
 
       <div className="cat-panel-cuerpo">
+        <section>
+          <h4>Fotos</h4>
+          <FotosProducto materialId={item.id} principal={item.imagenUrl} puedeEditar={puedeEditar} onPrincipal={(url) => onFoto?.(item.id, url)} />
+        </section>
         <fieldset disabled={!puedeEditar || guardando}>
           <section>
             <label className="cat-campo">
               <span>Alias / nombre del pañol</span>
               <textarea className="ui-input cat-notas" rows={2} value={f.alias} onChange={set("alias")} placeholder="Cómo lo conocen en el pañol" />
               <small>También se usa al buscar. Podés separar los nombres con ·.</small>
+            </label>
+            <label className="cat-campo">
+              <span>Información del producto</span>
+              <textarea className="ui-input cat-notas" rows={3} value={f.info} onChange={set("info")} placeholder="Marca, medidas, para qué se usa, cómo se reconoce" />
+              <small>La ve cualquiera que busque el producto.</small>
             </label>
           </section>
           <section>
@@ -174,7 +185,7 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado }
 
           <section>
             <label className="cat-campo">
-              <span>Notas</span>
+              <span>Nota interna del pañol</span>
               <textarea className="ui-input cat-notas" rows={2} value={f.notas} onChange={set("notas")} />
             </label>
           </section>

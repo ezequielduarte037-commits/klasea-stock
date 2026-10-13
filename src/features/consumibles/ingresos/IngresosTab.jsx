@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, PackageCheck, Plus, RefreshCw, ScanLine, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FileScan, PackageCheck, Plus, RefreshCw, ScanLine, Trash2, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -19,6 +19,9 @@ import { agregarAlRemito, agruparIngresos, calcularLinea, cambiosDeConfig, remit
 import { CSS_INGRESOS } from "./ingresosEstilos";
 import { prepararIngreso } from "./ingresoRegistro";
 import { conPlazoLectura } from "../lecturas";
+import { leerPresupuestoConIA } from "@/features/materiales/api";
+import { lineaDesdeItem } from "./ingresoCalculos";
+import { emparejarRenglones } from "./remitoIA";
 
 /**
  * Ingresos — cargar un remito del proveedor (el primero, de Rebollar, llega el
@@ -120,6 +123,59 @@ function Ingresos({ sede }) {
   const cambiar = (cambio) => setBorrador((b) => ({ ...b, ...cambio }));
   const cambiarLinea = (key, cambio) => setBorrador((b) => ({ ...b, lineas: b.lineas.map((l) => (l.key === key ? { ...l, ...cambio } : l)) }));
   const quitarLinea = (key) => setBorrador((b) => ({ ...b, lineas: b.lineas.filter((l) => l.key !== key) }));
+
+  // Remito leído por IA: lo emparejado entra solo; lo dudoso queda en esta lista
+  // hasta que alguien elige el producto o lo descarta.
+  const [leyendo, setLeyendo] = useState(false);
+  const [sinEmparejar, setSinEmparejar] = useState([]);
+  const archivoRemitoRef = useRef(null);
+
+  const leerRemito = async (archivo) => {
+    if (!archivo) return;
+    setLeyendo(true);
+    try {
+      const leido = await leerPresupuestoConIA({ file: archivo, tipoEsperado: "remito", proveedor: borrador.proveedor || "Rebollar" });
+      const filas = emparejarRenglones(leido?.items ?? [], catalogo ?? []);
+      if (!filas.length) {
+        toast.warning("La IA no encontró renglones en ese archivo. Probá con una foto más derecha y con luz, o cargalo a mano.");
+        return;
+      }
+      const ok = filas.filter((x) => x.item);
+      setBorrador((b) => {
+        let lineas = b.lineas;
+        for (const x of ok) {
+          const cantidad = x.renglon.cantidad != null && x.renglon.cantidad > 0 ? x.renglon.cantidad : 1;
+          const i = lineas.findIndex((l) => l.materialId === x.item.id);
+          lineas = i < 0
+            ? [...lineas, lineaDesdeItem(x.item, cantidad)]
+            : lineas.map((l, k) => (k === i ? { ...l, cantidad: String((Number(String(l.cantidad).replace(",", ".")) || 0) + cantidad) } : l));
+        }
+        return {
+          ...b,
+          remito: b.remito || String(leido?.numero || "").trim(),
+          proveedor: b.proveedor || String(leido?.proveedor || "").trim(),
+          lineas,
+        };
+      });
+      setSinEmparejar(filas.filter((x) => !x.item));
+      const dudas = filas.length - ok.length;
+      toast.success(`Remito leído: ${ok.length} de ${filas.length} renglones cargados${dudas ? `, ${dudas} para revisar` : ""}. Revisá cantidades antes de confirmar.`);
+    } catch (e) {
+      toast.error(e?.message || "No se pudo leer el remito.");
+    } finally {
+      setLeyendo(false);
+      if (archivoRemitoRef.current) archivoRemitoRef.current.value = "";
+    }
+  };
+
+  const resolverRenglon = (idx, item) => {
+    const x = sinEmparejar[idx];
+    if (item) {
+      const cantidad = x.renglon.cantidad != null && x.renglon.cantidad > 0 ? x.renglon.cantidad : 1;
+      setBorrador((b) => ({ ...b, lineas: [...b.lineas, lineaDesdeItem(item, cantidad)] }));
+    }
+    setSinEmparejar((l) => l.filter((_, k) => k !== idx));
+  };
 
   const agregar = (item) => {
     setBorrador((b) => ({ ...b, lineas: agregarAlRemito(b.lineas, item) }));
@@ -252,6 +308,38 @@ function Ingresos({ sede }) {
             <h2><PackageCheck size={18} /> Cargar un remito</h2>
             <span className="ing-dim">Entra al stock de {sede}</span>
           </header>
+
+          <div className="ing-ia">
+            <button type="button" className="ui-btn ui-btn-primario" disabled={leyendo || guardando || !!borrador.envio} onClick={() => archivoRemitoRef.current?.click()}>
+              <FileScan size={17} /> {leyendo ? "Leyendo el remito…" : "Leer remito con IA"}
+            </button>
+            <span className="ing-dim">Foto o PDF del remito: los productos se cargan solos por su código de Rebollar.</span>
+            <input ref={archivoRemitoRef} type="file" accept="image/*,application/pdf" hidden onChange={(e) => leerRemito(e.target.files?.[0])} />
+          </div>
+
+          {sinEmparejar.length > 0 && (
+            <div className="ing-revisar" role="region" aria-label="Renglones del remito para revisar">
+              <h3>Para revisar ({sinEmparejar.length})</h3>
+              <p className="ing-dim">La IA los leyó pero no está claro qué producto son. Elegí el que corresponde o descartalo.</p>
+              <ul>
+                {sinEmparejar.map((x, idx) => (
+                  <li key={`${x.renglon.codigo}-${x.renglon.descripcion}-${idx}`}>
+                    <div className="ing-revisar-txt">
+                      <strong>{x.renglon.descripcion || "Sin descripción"}</strong>
+                      <small className="ing-dim">{[x.renglon.codigo ? `Cód. ${x.renglon.codigo}` : null, x.renglon.cantidad != null ? `Cant. ${fmtCantidad(x.renglon.cantidad)}` : null].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <div className="ing-revisar-opciones">
+                      {x.candidatos.map((c) => (
+                        <button key={c.id} type="button" className="ui-btn ui-btn-suave" onClick={() => resolverRenglon(idx, c)}>{c.descripcion}</button>
+                      ))}
+                      <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => { setBusqueda(x.renglon.codigo || x.renglon.descripcion); buscarRef.current?.focus(); }}>Buscar otro</button>
+                      <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => resolverRenglon(idx, null)}>Descartar</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {borrador.envio && <p className="ing-alerta" role="status">Este remito tiene un envío por confirmar. Reintentá: se conservan los mismos renglones y no se duplica el stock.</p>}
           <fieldset disabled={guardando || !!borrador.envio} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>

@@ -309,12 +309,14 @@ export function margenPiezas(pesoUnitarioG, divisionG = 5) {
 }
 
 /**
- * El aviso de stock de una línea. Nunca bloquea: el inventario inicial se hace
- * el lunes y hasta que esté completo el sistema va a decir cosas raras.
+ * El aviso de stock de una línea. Nunca bloquea. Hasta que un producto tenga
+ * su primer conteo en la sede, el stock no significa nada (los retiros lo
+ * dejan negativo antes del inventario inicial): se avisa "sin contar", sin
+ * alarma, y se retira igual.
  */
 export function avisoStock(item, enCarrito = 0) {
   if (!item) return null;
-  if (item.stock == null) return { nivel: "sin_conteo", texto: "Sin contar en esta sede" };
+  if (item.stock == null || !item.ultimoConteoAt) return { nivel: "sin_conteo", texto: "Sin contar en esta sede" };
   const stock = Number(item.stock);
   const queda = redondear(stock - (Number(enCarrito) || 0), 3);
   if (stock <= 0) return { nivel: "sin_stock", texto: `El sistema dice ${fmtNum(stock)}`, queda };

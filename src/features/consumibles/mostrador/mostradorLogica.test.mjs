@@ -227,11 +227,14 @@ test("el margen de error de la Kretz en piezas", () => {
 
 test("el stock avisa pero no decide", () => {
   assert.equal(avisoStock({ stock: null }, 1).nivel, "sin_conteo");
-  assert.equal(avisoStock({ stock: 0 }, 1).nivel, "sin_stock");
-  assert.equal(avisoStock({ stock: 2 }, 3).nivel, "negativo");
-  assert.equal(avisoStock({ stock: 2 }, 3).queda, -1);
-  assert.equal(avisoStock({ stock: 5, stockMinimo: 4 }, 1).nivel, "bajo");
-  assert.equal(avisoStock({ stock: 5 }, 1).nivel, "ok");
+  // Antes del primer conteo de la sede, un negativo no es alarma: se retira igual.
+  assert.equal(avisoStock({ stock: -3 }, 1).nivel, "sin_conteo");
+  const contado = "2026-10-12T10:00:00Z";
+  assert.equal(avisoStock({ stock: 0, ultimoConteoAt: contado }, 1).nivel, "sin_stock");
+  assert.equal(avisoStock({ stock: 2, ultimoConteoAt: contado }, 3).nivel, "negativo");
+  assert.equal(avisoStock({ stock: 2, ultimoConteoAt: contado }, 3).queda, -1);
+  assert.equal(avisoStock({ stock: 5, stockMinimo: 4, ultimoConteoAt: contado }, 1).nivel, "bajo");
+  assert.equal(avisoStock({ stock: 5, ultimoConteoAt: contado }, 1).nivel, "ok");
 });
 
 test("problemas antes de firmar: falta pesar y canje sin autorizar", () => {

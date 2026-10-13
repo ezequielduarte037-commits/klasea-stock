@@ -143,7 +143,7 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
   const materiales = () => {
     let q = supabase
       .from("panol_materiales")
-      .select("id,codigo,codigo_barra,descripcion,alias,unidad_medida,categoria_id,imagen_url,ubicacion,stock_minimo,peso_unitario_g,peso_calibrado_at,proveedor,activo")
+      .select("id,codigo,codigo_barra,descripcion,alias,notas,unidad_medida,categoria_id,imagen_url,ubicacion,stock_minimo,peso_unitario_g,peso_calibrado_at,proveedor,activo")
       .eq("es_consumible", true)
       .order("descripcion")
       .order("id");
@@ -190,6 +190,8 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
       id: m.id,
       descripcion: m.descripcion,
       alias: m.alias,
+      // Información del producto (marca, medidas, uso): la ve todo el que lo busca.
+      info: m.notas ?? null,
       codigo: m.codigo,
       rubro: cat?.nombre ?? null,
       rubroPadre: padre?.nombre ?? null,

@@ -60,6 +60,12 @@ export default function ListaManianaScreen({ profile }) {
   const [sede, setSede] = useState("");
   const [fechaRetiro, setFechaRetiro] = useState(() => diaRetiroDefault(fechaAR()));
   const [tarea, setTarea] = useState("");
+  // Lo mismo que pedía la hoja de papel: quién la pide, quién la retira si es
+  // otro, si es urgente y una observación para pañol.
+  const [urgente, setUrgente] = useState(false);
+  const [solicita, setSolicita] = useState("");
+  const [retira, setRetira] = useState("");
+  const [observaciones, setObservaciones] = useState("");
   const [carrito, setCarrito] = useState([]);
   const [editandoDestino, setEditandoDestino] = useState(true);
   const [q, setQ] = useState("");
@@ -385,18 +391,23 @@ export default function ListaManianaScreen({ profile }) {
           sede_origen: sede,
           fecha_pedido: fechaAR(),
           fecha_retiro: fechaRetiro,
-          solicita: profile?.username || (modo === "obra" ? "" : "Encargado"),
+          solicita: solicita.trim() || profile?.username || (modo === "obra" ? "" : "Encargado"),
+          retira: retira.trim() || null,
+          prioridad: urgente ? "urgente" : "normal",
           tarea: tarea.trim() || null,
-          observaciones: llegaTarde ? "Llegó después de las 15. Prepararla a la mañana." : null,
+          observaciones: [observaciones.trim(), llegaTarde ? "Llegó después de las 15. Prepararla a la mañana." : ""].filter(Boolean).join(" · ") || null,
         },
         items: ok,
       });
       setCarrito([]);
       setTarea("");
+      setUrgente(false);
+      setRetira("");
+      setObservaciones("");
       setQ("");
       toastRef.current.success(llegaTarde
-        ? `Lista N° ${creada.numero} enviada. Quedó para preparar a la mañana.`
-        : `Lista N° ${creada.numero} enviada. La retiran ${fraseRetiro(fechaRetiro, fechaAR())} a las 7.`);
+        ? `Solicitud N° ${creada.numero} enviada. Quedó para preparar a la mañana.`
+        : `Solicitud N° ${creada.numero} enviada. La retiran ${fraseRetiro(fechaRetiro, fechaAR())} a las 7.`);
       setVista("enviadas");
       scrollRef.current?.scrollTo(0, 0);
       await refrescarListas();
@@ -432,7 +443,7 @@ export default function ListaManianaScreen({ profile }) {
     setAccionId(lista.id);
     try {
       await enviarSolicitud(lista.id);
-      toastRef.current.success(`Lista N° ${lista.numero} enviada.`);
+      toastRef.current.success(`Solicitud N° ${lista.numero} enviada.`);
       await refrescarListas();
     } catch (err) {
       toastRef.current.error(mensajeError(err));
@@ -461,8 +472,8 @@ export default function ListaManianaScreen({ profile }) {
       <PageHeader
         icon={ClipboardList}
         eyebrow="Consumibles"
-        title="Para mañana"
-        subtitle="La armás hoy y la retiran a las 7, sin cola."
+        title="Solicitud a pañol"
+        subtitle="Cargala hasta las 15 y se retira al día siguiente a las 7, sin cola."
       >
         <div className="ui-tabs" role="tablist" aria-label="Lista de consumibles">
           <button type="button" role="tab" className="ui-tab" aria-selected={vista === "armar"} onClick={() => irA("armar")}>
@@ -608,6 +619,27 @@ export default function ListaManianaScreen({ profile }) {
                         placeholder="Ej: lijar cubierta"
                         maxLength={80}
                       />
+                    </label>
+
+                    <div className="lm-dos">
+                      <label className="lm-campo">
+                        <span className="lm-etiqueta">Solicita</span>
+                        <input className="ui-input" value={solicita} onChange={(e) => setSolicita(e.target.value.slice(0, 60))} placeholder={profile?.username || "Quién la pide"} maxLength={60} />
+                      </label>
+                      <label className="lm-campo">
+                        <span className="lm-etiqueta">Retira, si es otro</span>
+                        <input className="ui-input" value={retira} onChange={(e) => setRetira(e.target.value.slice(0, 60))} placeholder="Opcional" maxLength={60} />
+                      </label>
+                    </div>
+
+                    <label className="lm-campo">
+                      <span className="lm-etiqueta">Observaciones para pañol</span>
+                      <textarea className="ui-input" rows={2} value={observaciones} onChange={(e) => setObservaciones(e.target.value.slice(0, 300))} placeholder="Opcional" maxLength={300} />
+                    </label>
+
+                    <label className="lm-check">
+                      <input type="checkbox" checked={urgente} onChange={(e) => setUrgente(e.target.checked)} />
+                      <span>Es urgente</span>
                     </label>
 
                     {completo && (
@@ -783,7 +815,7 @@ export default function ListaManianaScreen({ profile }) {
             <p className="lm-ayuda" aria-live="polite">{ayuda}</p>
             <button type="button" className="ui-btn ui-btn-primario lm-enviar" disabled={!puedeEnviar} onClick={enviar}>
               {enviando ? <Loader2 size={18} className="lm-gira" aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
-              {enviando ? "Enviando…" : carrito.length ? `Enviar · ${carrito.length} ${carrito.length === 1 ? "ítem" : "ítems"}` : "Enviar lista"}
+              {enviando ? "Enviando…" : carrito.length ? `Enviar · ${carrito.length} ${carrito.length === 1 ? "ítem" : "ítems"}` : "Enviar solicitud"}
             </button>
           </div>
         </footer>
@@ -1189,6 +1221,10 @@ const CSS = `
   white-space: nowrap;
 }
 .lm-root .lm-campo { display: flex; flex-direction: column; }
+.lm-root .lm-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 380px) { .lm-root .lm-dos { grid-template-columns: 1fr; } }
+.lm-root .lm-check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; cursor: pointer; }
+.lm-root .lm-check input { width: 20px; height: 20px; accent-color: var(--red); }
 .lm-root .lm-nota { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--dim); }
 .lm-root .lm-fecha-nativa {
   position: absolute;

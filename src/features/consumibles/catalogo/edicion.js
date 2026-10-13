@@ -24,6 +24,7 @@ export function estadoInicial(item) {
     stockMinimo: aTexto(item.stockMinimo),
     ubicacion: item.ubicacion ?? "",
     alias: item.alias ?? "",
+    info: item.info ?? "",
   };
 }
 
@@ -51,6 +52,7 @@ export function cambiosDeFicha(f, inicial) {
   }
   if (texto(f.ubicacion).toUpperCase() !== texto(inicial.ubicacion).toUpperCase()) cambios.ubicacion = texto(f.ubicacion).toUpperCase() || null;
   if (texto(f.alias) !== texto(inicial.alias)) cambios.alias = texto(f.alias) || null;
+  if (texto(f.info) !== texto(inicial.info)) cambios.info = texto(f.info) || null;
   if (Object.keys(config).length) cambios.config = config;
   return cambios;
 }

@@ -103,4 +103,15 @@ export const CSS_INGRESOS = `
     .ing .ing-pie-btns { width: 100%; }
     .ing .ing-pie-btns .ui-btn-primario { flex: 1; }
   }
+
+.ing .ing-ia { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.ing .ing-ia .ui-btn { min-height: 42px; }
+.ing .ing-revisar { border: 1px solid var(--violet-border); background: var(--violet-soft); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.ing .ing-revisar h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+.ing .ing-revisar ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.ing .ing-revisar li { display: grid; gap: 6px; padding: 8px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--border); }
+.ing .ing-revisar-txt { display: grid; gap: 2px; min-width: 0; }
+.ing .ing-revisar-txt strong { font-weight: 600; overflow-wrap: anywhere; }
+.ing .ing-revisar-opciones { display: flex; flex-wrap: wrap; gap: 6px; }
+.ing .ing-revisar-opciones .ui-btn { min-height: 36px; font-size: 13px; }
 `;
