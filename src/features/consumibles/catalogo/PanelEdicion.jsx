@@ -10,7 +10,7 @@ import {
   guardarStockMinimo,
   guardarUbicacion,
 } from "@/features/consumibles/api";
-import { UNIDADES_ENTREGA } from "./reglas";
+import { UNIDADES_ENTREGA, motivoRevisarUnidad } from "./reglas";
 import { guardarAlias, guardarInfo } from "./catalogoApi";
 import FotosProducto from "./FotosProducto";
 import { cambiosDeFicha, estadoInicial } from "./edicion";
@@ -98,6 +98,7 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
           </section>
           <section>
             <h4>Entrega</h4>
+            {motivoRevisarUnidad(item) && <p className="cat-aviso">{motivoRevisarUnidad(item)} Con retiros vigentes la unidad no se puede cambiar: primero se anulan en Movimientos y después se vuelven a cargar.</p>}
             <label className="cat-campo">
               <span>Forma de entrega</span>
               <select className="ui-input" value={f.forma_entrega} onChange={set("forma_entrega")}>

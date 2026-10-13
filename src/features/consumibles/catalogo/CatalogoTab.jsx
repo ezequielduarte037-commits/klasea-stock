@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/motion";
 import { FORMAS_ENTREGA, fetchCatalogo, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
 import { esGestorDeListas, esOperador, fetchListaVigente, fetchRetirosHistoricos } from "./catalogoApi";
 import { esPendienteRebollar } from "./conciliacion";
+import { motivoRevisarUnidad } from "./reglas";
 import PanelEdicion from "./PanelEdicion";
 import ConciliarRebollar from "./ConciliarRebollar";
 
@@ -28,6 +29,8 @@ const FALTANTES = [
   { key: "sinCodigo", label: "Sin código de proveedor", test: (i) => !i.config?.proveedor_codigo },
   { key: "sinUbicacion", label: "Sin ubicación", test: (i) => !i.ubicacion },
   { key: "sinPeso", label: "Sin peso", test: (i) => !i.pesoUnitarioG },
+  // Blíster, rollo que se corta o caja por N con la unidad "una": cada retiro valdría el envase entero.
+  { key: "revisarUnidad", label: "Revisar unidad", test: (i) => Boolean(motivoRevisarUnidad(i)) },
 ];
 
 const sinTildes = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

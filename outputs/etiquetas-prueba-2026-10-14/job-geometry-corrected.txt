@@ -1,1 +1,0 @@
-Original DEVMODE paper=172; Requested paper=D 40 x 30 mm; RawKind=172; PageBounds={X=0,Y=0,Width=157,Height=118}; Corrected DEVMODE paper=172; PaperLengthTenthMm=300; PaperWidthTenthMm=399; Device printable=320x240; Device physical=320x240; Device DPI=203x203; Device origin=0,0; Graphics DPI=203x203; Unit=Display; Scale=1; Pixel Unit Scale=1

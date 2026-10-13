@@ -73,6 +73,33 @@ export function unidadEntregaSugerida(descripcion, contenido) {
   return "unidad";
 }
 
+/**
+ * Por qué conviene revisar la unidad de entrega de un consumible, o null. El
+ * precio de Rebollar es por lo que se compra (el blíster, el rollo, la caja);
+ * si en el pañol se entrega una parte y la unidad quedó "una", cada retiro se
+ * valoriza como el envase entero (pasó con la lija en rollo de 45 m el 13/10).
+ *
+ * item: { descripcion, unidad, formaEntrega, config: { factor_compra } }
+ */
+export function motivoRevisarUnidad(item) {
+  const d = sinTildes(item?.descripcion);
+  const unidad = sinTildes(item?.unidad || "unidad");
+  const factor = Number(item?.config?.factor_compra) || 1;
+  if (/\bblister\b/.test(d) && factor <= 1) {
+    return "Viene en blíster: si se entregan las hojas sueltas, la unidad es «hoja» y el factor, cuántas trae.";
+  }
+  // Lo que se corta del rollo (lija, pluribol, cartón, nylon) sale por metro.
+  if (/\b(lija|pluribol|carton|nylon)\b/.test(d) && /\brollo\b|\d+\s*mts?\b/.test(d) && unidad !== "metro") {
+    return "Se corta del rollo: si se entrega por metro, la unidad es «metro» y el factor, los metros del rollo.";
+  }
+  // "x 100unid", "x 10 u": una caja que se reparte suelta.
+  const pack = /(?<![\d,.]\s*)\bx\s*(\d+)\s*(u|un|unid|unidades|pzas?|piezas)\b/.exec(d);
+  if (pack && Number(pack[1]) > 1 && factor <= 1) {
+    return `Viene por ${pack[1]}: si se entrega suelto, el factor es ${pack[1]}.`;
+  }
+  return null;
+}
+
 export function descRenglon(r) {
   return r.medida ? `${r.descripcion} · ${r.medida}` : r.descripcion;
 }
