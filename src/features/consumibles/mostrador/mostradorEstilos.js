@@ -109,8 +109,15 @@ export const CSS_MOSTRADOR = `
 .mst .mst-tile:hover { border-color: var(--blue-border); }
 .mst .mst-tile:active { transform: scale(.97); }
 .mst .mst-tile.is-devolucion:hover { border-color: var(--teal-border); }
-.mst .mst-tile-foto { position: relative; height: 76px; display: grid; place-items: center; background: var(--panel-2); overflow: hidden; flex-shrink: 0; }
-.mst .mst-tile-foto img, .mst .mst-res-foto img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.mst .mst-tile-foto { position: relative; height: 92px; display: grid; place-items: center; background: var(--panel-2); overflow: hidden; flex-shrink: 0; }
+/* Las fotos de los productos vienen en cualquier proporción (un rollo de
+   cinta, una lija larga): se muestran enteras sobre blanco, sin recortar.
+   El fondo blanco también tapa las iniciales que quedan detrás. */
+.mst .mst-tile-foto img, .mst .mst-res-foto img {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box;
+  padding: 6px; object-fit: contain; background: #fff;
+}
+.mst .mst-res-foto img { padding: 3px; }
 .mst .mst-inicial { color: var(--dim); font-size: 21px; font-weight: 600; letter-spacing: .02em; }
 .mst .mst-tile-cuerpo { display: flex; flex-direction: column; gap: 5px; flex: 1; padding: 8px 10px 9px; }
 .mst .mst-tile-nombre {
@@ -412,8 +419,8 @@ export const CSS_MOSTRADOR = `
 .mst.is-angosto .mst-car-pie { display: none; }
 .mst.is-angosto .mst-car-vacio { padding: 14px 16px; }
 .mst.is-angosto .mst-tiles { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; }
-.mst.is-angosto .mst-tile { min-height: 132px; }
-.mst.is-angosto .mst-tile-foto { height: 64px; }
+.mst.is-angosto .mst-tile { min-height: 144px; }
+.mst.is-angosto .mst-tile-foto { height: 78px; }
 .mst.is-angosto .mst-barra-firmar {
   display: grid; gap: 6px; flex-shrink: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border); background: var(--panel-solid);

@@ -292,7 +292,7 @@ const CSS = `
   .cat-root .cat-fotos-tira { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
   .cat-root .cat-foto-mini { position: relative; flex: 0 0 72px; height: 72px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
   .cat-root .cat-foto-mini.is-principal { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
-  .cat-root .cat-foto-mini img { width: 100%; height: 100%; object-fit: cover; }
+  .cat-root .cat-foto-mini img { width: 100%; height: 100%; box-sizing: border-box; padding: 3px; object-fit: contain; background: #fff; }
   .cat-root .cat-foto-acciones { position: absolute; right: 2px; bottom: 2px; display: flex; gap: 2px; }
   .cat-root .cat-foto-acciones .ui-btn { min-height: 26px; width: 26px; padding: 0; background: var(--panel-solid); }
   .cat-root .cat-fotos-botones { display: flex; gap: 8px; flex-wrap: wrap; }
