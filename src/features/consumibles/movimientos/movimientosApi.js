@@ -10,7 +10,7 @@ const PAGINA = 1000;
 export const TOPE_FILAS = 10000;
 
 const CAMPOS = `id,material_id,sede,tipo,cantidad,gramos,contado,teorico,
-  empleado_id,empleado_nombre,metodo_firma,obra_id,sector,carril,lote,solicitud_id,
+  empleado_id,empleado_nombre,empleado_empresa,empleado_externo,metodo_firma,obra_id,sector,carril,lote,solicitud_id,
   costo_unitario_ars,canje,fuera_cupo,autorizado_por,remito,origen,nota,
   anulado_at,anulado_motivo,created_by,created_at,
   obra:produccion_obras(id,codigo),

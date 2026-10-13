@@ -134,6 +134,9 @@ export function agruparFilas(filas = [], { primeros = new Map(), nombres = new M
       teorico: num(base.teorico),
       gramos: num(base.gramos),
       persona: persona || null,
+      // Externo (herrero, vidriero): la empresa congelada al retirar.
+      externo: base.empleado_externo === true,
+      empresa: texto(base.empleado_empresa) || null,
       registro: registro || null,
       metodoFirma: base.metodo_firma ?? null,
       obras,
@@ -166,7 +169,7 @@ export function destinoTexto(e) {
 /** Lo que se busca: producto, código, persona, obra, sector, remito o N° de solicitud. */
 export function textoDeBusqueda(e) {
   return normalizar([
-    e.descripcion, e.codigo, e.persona, e.registro, ...e.obras, e.sector, e.remito,
+    e.descripcion, e.codigo, e.persona, e.registro, e.externo ? `externo ${e.empresa ?? ""}` : "", ...e.obras, e.sector, e.remito,
     e.solicitudNumero ? `solicitud ${e.solicitudNumero} n ${e.solicitudNumero}` : "", e.nota,
   ].filter(Boolean).join(" "));
 }
@@ -175,7 +178,7 @@ export function textoDeBusqueda(e) {
  * Filtra los renglones. `tipo`: key de FILTROS_TIPO. Los anulados se ven sólo
  * con `verAnulados` (y en el filtro "anulados" se ven sólo ellos).
  */
-export function filtrarEntradas(entradas = [], { tipo = "todos", q = "", soloPreConteo = false, verAnulados = false, soloAnulados = false } = {}) {
+export function filtrarEntradas(entradas = [], { tipo = "todos", q = "", soloPreConteo = false, soloExternos = false, verAnulados = false, soloAnulados = false } = {}) {
   const def = FILTROS_TIPO.find((f) => f.key === tipo);
   const palabras = normalizar(q).split(" ").filter(Boolean);
   return entradas.filter((e) => {
@@ -183,6 +186,7 @@ export function filtrarEntradas(entradas = [], { tipo = "todos", q = "", soloPre
     else if (e.anulado && !verAnulados) return false;
     if (def?.tipos && !def.tipos.includes(e.tipo)) return false;
     if (soloPreConteo && !e.preConteo) return false;
+    if (soloExternos && !e.externo) return false;
     if (!palabras.length) return true;
     const t = textoDeBusqueda(e);
     return palabras.every((p) => t.includes(p));
@@ -194,12 +198,14 @@ export function cuentas(entradas = []) {
   const out = Object.fromEntries(FILTROS_TIPO.map((f) => [f.key, 0]));
   out.anulados = 0;
   out.preConteo = 0;
+  out.externos = 0;
   for (const e of entradas) {
     if (e.anulado) { out.anulados += 1; continue; }
     out.todos += 1;
     const f = FILTROS_TIPO.find((x) => x.tipos?.includes(e.tipo));
     if (f) out[f.key] += 1;
     if (e.preConteo) out.preConteo += 1;
+    if (e.externo) out.externos += 1;
   }
   return out;
 }
@@ -237,7 +243,7 @@ export function cantidadTexto(e, fmt = (n) => String(n)) {
 
 /** Filas para la planilla (descargarXlsx de compras). */
 export function filasParaExcel(entradas = []) {
-  const cab = ["Fecha", "Tipo", "Código", "Producto", "Cantidad", "Unidad", "Quién", "Obra o sector", "Origen", "Sede", "Valor sin IVA", "Antes del conteo", "Anulado", "Motivo", "Nota"];
+  const cab = ["Fecha", "Tipo", "Código", "Producto", "Cantidad", "Unidad", "Quién", "Empresa (externo)", "Autorizó", "Obra o sector", "Origen", "Sede", "Valor sin IVA", "Antes del conteo", "Anulado", "Motivo", "Nota"];
   const filas = entradas.map((e) => [
     new Date(e.createdAt),
     ETIQUETA_TIPO[e.tipo] ?? e.tipo,
@@ -246,6 +252,8 @@ export function filasParaExcel(entradas = []) {
     e.tipo === "inventario" ? e.contado ?? "" : e.cantidad,
     e.unidad,
     e.persona || e.registro || "",
+    e.externo ? e.empresa || "" : "",
+    e.autorizadoPor || "",
     destinoTexto(e) || "",
     origenTexto(e),
     e.sede,

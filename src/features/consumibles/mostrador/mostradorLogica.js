@@ -483,6 +483,7 @@ export function datosParaRetiro({
   destino = null,
   excedidos = [],
   autorizaCupo = "",
+  externo = false,
   lote,
   carril = "mostrador",
   origen = "mostrador",
@@ -497,6 +498,8 @@ export function datosParaRetiro({
 
   const fueraDeCupo = new Set(excedidos.map((e) => e.materialId));
   if (fueraDeCupo.size && !limpio(autorizaCupo)) throw new Error("Se pasa del cupo: falta quién autoriza.");
+  // Un externo (herrero, vidriero) no es del astillero: alguien de acá autoriza lo que se lleva.
+  if (externo && !limpio(autorizaCupo)) throw new Error("Es externo: falta quién del astillero autoriza.");
 
   const items = lineas.map((l) => {
     const item = porId.get(l.materialId);
@@ -504,7 +507,7 @@ export function datosParaRetiro({
       throw new Error(`${item?.descripcion ?? "Un canje"} sin el usado: falta quién autoriza.`);
     }
     const fueraCupo = fueraDeCupo.has(l.materialId);
-    const autorizadoPor = autorizantes(l.canje === "sin_usado" ? l.autorizaCanje : "", fueraCupo ? autorizaCupo : "");
+    const autorizadoPor = autorizantes(l.canje === "sin_usado" ? l.autorizaCanje : "", fueraCupo || externo ? autorizaCupo : "");
     // El comentario de "Otro" va en la nota de cada renglón (Movimientos lo muestra como destino).
     const nota = [item?.formaEntrega === "prestamo" ? "Préstamo: tiene que volver al pañol" : null, comentario]
       .filter(Boolean).join(" · ") || null;
@@ -778,7 +781,7 @@ export function resumenDelRegistro({ tipo = "retiro", carrito = [], porId = new 
     });
   return {
     tipo,
-    quien: persona?.nombre ?? "",
+    quien: persona?.empresa ? `${persona.nombre} (${persona.empresa})` : persona?.nombre ?? "",
     metodo: persona?.metodo ?? null,
     destino: destinoTexto,
     items,

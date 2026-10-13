@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, LoaderCircle, Nfc, Search, ShieldAlert, Split, TriangleAlert, UserRound, X } from "lucide-react";
+import { ArrowLeft, Check, HardHat, LoaderCircle, Nfc, Search, ShieldAlert, Split, TriangleAlert, UserRound, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import CampoTexto from "./CampoTexto";
@@ -14,6 +14,8 @@ import { Avatar } from "./Piezas";
  *   - con varias, un botón por obra o "Repartir entre las N": tocarlo confirma;
  *   - sin obra, se elige una obra activa o un sector.
  * Pasarse del cupo no bloquea: pide quién autoriza.
+ * Un externo (herrero, vidriero) se da de alta acá si no está en RRHH, y su
+ * retiro pide quién del astillero lo autoriza.
  *
  * El foco queda en el panel (no en un campo) para que el lector de tarjetas
  * que escribe como teclado no termine tipeando el UID adentro de un input.
@@ -51,8 +53,11 @@ export default function Firma({
   notaDevolucion,
   onNotaDevolucion,
   onRafaga,
+  empresasExternas = [],
+  onAltaExterno,
 }) {
   const devolucion = modo === "devolucion";
+  const [altaExterno, setAltaExterno] = useState(false);
   const raizRef = useRef(null);
   const [buscando, setBuscando] = useState(false);
   const [texto, setTexto] = useState("");
@@ -79,7 +84,8 @@ export default function Firma({
       .slice(0, 8);
   }, [empleados, texto]);
 
-  const faltaAutorizar = excedidos.length > 0 && !String(autorizaCupo || "").trim();
+  const pideAutorizacion = excedidos.length > 0 || (!devolucion && Boolean(persona?.externo));
+  const faltaAutorizar = pideAutorizacion && !String(autorizaCupo || "").trim();
   const bloqueado = guardando || Boolean(operacion) || info?.cargando || problemas.length > 0 || faltaAutorizar;
   const faltaComentario = !devolucion && faltaComentarioOtro(destino);
   const puedeConfirmar = devolucion
@@ -88,6 +94,7 @@ export default function Firma({
 
   function elegirPersona(emp) {
     setBuscando(false);
+    setAltaExterno(false);
     setTexto("");
     onElegirPersona(emp);
   }
@@ -194,13 +201,27 @@ export default function Firma({
                         <button key={emp.id} type="button" className={`mst-persona-res${i === 0 ? " is-activa" : ""}`} onClick={() => elegirPersona(emp)}>
                           <span>{emp.nombre}</span>
                           <small className="mst-num">{emp.dni ? `DNI ${emp.dni}` : ""}</small>
-                          <small>{emp.sede || ""}</small>
+                          <small>{emp.externo ? `Externo · ${emp.empresa}` : emp.sede || ""}</small>
                         </button>
                       ))}
                     </div>
                   ) : texto.trim() ? (
                     <div className="mst-vacio" style={{ padding: 12 }}>Nadie coincide en RRHH.</div>
                   ) : null}
+                  {!devolucion && onAltaExterno ? (altaExterno ? (
+                    <AltaExterno
+                      texto={texto}
+                      empresas={empresasExternas}
+                      onRafaga={onRafaga}
+                      onAlta={onAltaExterno}
+                      onListo={elegirPersona}
+                      onCancelar={() => setAltaExterno(false)}
+                    />
+                  ) : (
+                    <button type="button" className="ui-btn" style={{ justifySelf: "start", borderStyle: "dashed" }} onClick={() => setAltaExterno(true)}>
+                      <HardHat size={15} /> No es del astillero (herrero, vidriero…): darlo de alta
+                    </button>
+                  )) : null}
                   <div style={{ fontSize: 12, color: "var(--dim)" }}>Queda registrado como firmado sin tarjeta.</div>
                 </div>
               ) : (
@@ -217,7 +238,7 @@ export default function Firma({
                 <div className="mst-persona-sub">
                   {persona.dni ? <span>DNI <span className="mst-num">{persona.dni}</span></span> : null}
                   <span>{persona.metodo === "nfc" ? "con tarjeta" : "sin tarjeta"}</span>
-                  {persona.sede ? <span>{persona.sede}</span> : null}
+                  {persona.externo ? <span className="mst-externo">Externo · {persona.empresa}</span> : persona.sede ? <span>{persona.sede}</span> : null}
                 </div>
               </div>
               <button type="button" className="ui-btn" onClick={onQuitarPersona}>
@@ -257,13 +278,34 @@ export default function Firma({
                     {e.descripcion}: cupo <span className="mst-num">{fmtNum(e.cupo)}</span>, hoy <span className="mst-num">{fmtNum(e.ya)}</span> + <span className="mst-num">{fmtNum(e.enCarrito)}</span>
                   </span>
                 ))}
+                {/* Con un externo, el mismo «quién autoriza» de abajo cubre el cupo. */}
+                {persona?.externo ? <span>La autorización del externo cubre también el cupo.</span> : (
+                  <CampoTexto
+                    value={autorizaCupo}
+                    onChange={onAutorizaCupo}
+                    onRafaga={onRafaga}
+                    onEnter={(e) => { e.preventDefault(); raizRef.current?.focus(); }}
+                    placeholder="¿Quién autoriza?"
+                    aria-label="Quién autoriza pasarse del cupo"
+                  />
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {persona?.externo && !devolucion ? (
+            <div className="mst-aviso is-externo">
+              <HardHat size={17} />
+              <div className="mst-aviso-texto">
+                <strong>No es del astillero: ¿quién lo autoriza?</strong>
+                <span>Va como costo de la obra y queda sumado a {persona.empresa}.</span>
                 <CampoTexto
                   value={autorizaCupo}
                   onChange={onAutorizaCupo}
                   onRafaga={onRafaga}
                   onEnter={(e) => { e.preventDefault(); raizRef.current?.focus(); }}
-                  placeholder="¿Quién autoriza?"
-                  aria-label="Quién autoriza pasarse del cupo"
+                  placeholder="Encargado o jefe de obra que lo autoriza"
+                  aria-label="Quién del astillero autoriza el retiro del externo"
                 />
               </div>
             </div>
@@ -466,6 +508,58 @@ function Destino({ devolucion, cargando, errorObras, obras, obrasActivas, destin
           />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Alta de un externo: apellido y nombre, empresa (las que ya hay se sugieren)
+ * y DNI si lo tiene a mano. Queda en RRHH como contratista que no ficha; RRHH
+ * completa el resto después.
+ */
+function AltaExterno({ texto = "", empresas = [], onRafaga, onAlta, onListo, onCancelar }) {
+  const soloNumeros = /^\d[\d.\s]*$/.test(texto.trim());
+  const [nombre, setNombre] = useState(soloNumeros ? "" : texto.trim());
+  const [empresa, setEmpresa] = useState("");
+  const [dni, setDni] = useState(soloNumeros ? texto.replace(/\D/g, "") : "");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState("");
+  const listaId = "mst-empresas-externas";
+
+  async function enviar() {
+    if (enviando) return;
+    if (nombre.trim().length < 3) { setError("Escribí el apellido y el nombre."); return; }
+    if (empresa.trim().length < 2) { setError("Escribí la empresa (o quién lo manda)."); return; }
+    setEnviando(true);
+    setError("");
+    try {
+      const emp = await onAlta({ nombre: nombre.trim(), empresa: empresa.trim(), dni: dni.trim() });
+      onListo(emp);
+    } catch (e) {
+      setError(e?.message || "No se pudo dar de alta.");
+      setEnviando(false);
+    }
+  }
+
+  const alEnter = (e) => { e.preventDefault(); enviar(); };
+  return (
+    <div className="mst-alta-externo">
+      <div className="mst-bloque-titulo">Externo: no está en RRHH</div>
+      <label className="mst-etiqueta" htmlFor="mst-ext-nombre">Apellido y nombre</label>
+      <CampoTexto id="mst-ext-nombre" value={nombre} onChange={setNombre} onRafaga={onRafaga} onEnter={alEnter} autoFocus maxLength={80} placeholder="Ej.: Gómez Carlos" />
+      <label className="mst-etiqueta" htmlFor="mst-ext-empresa">Empresa o quién lo manda</label>
+      <CampoTexto id="mst-ext-empresa" value={empresa} onChange={setEmpresa} onRafaga={onRafaga} onEnter={alEnter} list={listaId} maxLength={80} placeholder="Ej.: Herrería Gómez, Vidrios del Sur" />
+      <datalist id={listaId}>{empresas.map((x) => <option key={x.id ?? x.nombre} value={x.nombre} />)}</datalist>
+      <label className="mst-etiqueta" htmlFor="mst-ext-dni">DNI (si lo tiene a mano)</label>
+      <CampoTexto id="mst-ext-dni" value={dni} onChange={setDni} onRafaga={onRafaga} onEnter={alEnter} inputMode="numeric" maxLength={12} placeholder="Opcional" />
+      {error ? <div className="mst-error">{error}</div> : null}
+      <div className="mst-fila">
+        <button type="button" className="ui-btn" onClick={onCancelar} disabled={enviando}>Cancelar</button>
+        <button type="button" className="ui-btn ui-btn-primario" onClick={enviar} disabled={enviando}>
+          {enviando ? <LoaderCircle size={15} className="mst-gira" /> : <Check size={15} />} Darlo de alta y seguir
+        </button>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--dim)" }}>Queda en RRHH como externo que no ficha. Si vuelve, se lo busca por nombre.</div>
     </div>
   );
 }

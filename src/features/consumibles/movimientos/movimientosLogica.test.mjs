@@ -130,7 +130,22 @@ test("resumen de retiros y agrupado por día argentino", () => {
 test("la planilla lleva una fila por renglón con valor, pre-conteo y anulación", () => {
   const { cab, filas } = filasParaExcel(entradas);
   assert.equal(cab.length, filas[0].length);
-  const fx = filas.find((f) => f[3] === "LIJA AL AGUA AA #600" && f[12] === "sí");
-  assert.equal(fx[13], "Cargado por error");
+  const fx = filas.find((f) => f[3] === "LIJA AL AGUA AA #600" && f[cab.indexOf("Anulado")] === "sí");
+  assert.equal(fx[cab.indexOf("Motivo")], "Cargado por error");
   assert.ok(filas[0][0] instanceof Date);
+});
+
+test("externos: marca, filtro, búsqueda por empresa y columnas de la planilla", () => {
+  const externo = fila({ id: "e1", lote: "LX", empleado_nombre: "Gómez Carlos", empleado_empresa: "Herrería Gómez", empleado_externo: true, autorizado_por: "Encargado Pérez", obra: { codigo: "55-1" } });
+  const lista = agruparFilas([...carrito, externo], { primeros });
+  const e = lista.find((x) => x.ids.includes("e1"));
+  assert.equal(e.externo, true);
+  assert.equal(e.empresa, "Herrería Gómez");
+  assert.equal(cuentas(lista).externos, 1);
+  assert.deepEqual(filtrarEntradas(lista, { soloExternos: true }).map((x) => x.ids[0]), ["e1"]);
+  assert.equal(filtrarEntradas(lista, { q: "herreria gomez" }).length, 1);
+  const { cab, filas } = filasParaExcel([e]);
+  assert.equal(filas[0][cab.indexOf("Empresa (externo)")], "Herrería Gómez");
+  assert.equal(filas[0][cab.indexOf("Autorizó")], "Encargado Pérez");
+  assert.equal(lista.find((x) => x.ids.includes("a1")).externo, false);
 });

@@ -339,6 +339,11 @@ export const CSS_MOSTRADOR = `
 .mst .mst-aviso.is-cian > svg { color: var(--cyan); }
 .mst .mst-aviso.is-rojo { border-color: var(--red-border); background: var(--red-soft); }
 .mst .mst-aviso.is-rojo > svg { color: var(--red); }
+.mst .mst-aviso.is-externo { border-color: var(--teal-border); background: var(--teal-soft); }
+.mst .mst-aviso.is-externo > svg { color: var(--teal); }
+.mst .mst-externo { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--teal-border); background: var(--teal-soft); color: var(--teal); font-weight: 600; }
+.mst .mst-alta-externo { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--teal-border); border-radius: 14px; background: var(--panel); }
+.mst .mst-alta-externo .mst-etiqueta { margin: 6px 0 0; }
 .mst .mst-aviso-texto { flex: 1; min-width: 0; display: grid; gap: 6px; }
 .mst .mst-aviso-texto strong { font-weight: 600; }
 

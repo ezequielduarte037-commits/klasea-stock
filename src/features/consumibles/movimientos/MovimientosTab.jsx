@@ -61,6 +61,7 @@ export default function MovimientosTab({ sede, irA }) {
   const [tipo, setTipo] = useState("todos");
   const [q, setQ] = useState("");
   const [soloPre, setSoloPre] = useState(false);
+  const [soloExternos, setSoloExternos] = useState(false);
   const [verAnulados, setVerAnulados] = useState(false);
   const [limite, setLimite] = useState(PASO_LISTA);
   const [selClave, setSelClave] = useState(null);
@@ -119,8 +120,8 @@ export default function MovimientosTab({ sede, irA }) {
   );
   const conteoTipos = useMemo(() => cuentas(entradas), [entradas]);
   const visibles = useMemo(
-    () => filtrarEntradas(entradas, { tipo, q, soloPreConteo: soloPre, verAnulados }),
-    [entradas, tipo, q, soloPre, verAnulados],
+    () => filtrarEntradas(entradas, { tipo, q, soloPreConteo: soloPre, soloExternos, verAnulados }),
+    [entradas, tipo, q, soloPre, soloExternos, verAnulados],
   );
   const dias = useMemo(() => agruparPorDia(visibles.slice(0, limite)), [visibles, limite]);
   const resumen = useMemo(() => resumenRetiros(visibles), [visibles]);
@@ -136,11 +137,11 @@ export default function MovimientosTab({ sede, irA }) {
     const pesos = { formatoNumero: '"$" #,##0' };
     descargarXlsx(`movimientos-consumibles-${sedeTxt}-${fechas.inicio}-a-${fechas.fin}.xlsx`, [{
       nombre: "Movimientos",
-      anchos: [16, 12, 12, 42, 10, 9, 24, 18, 20, 9, 14, 10, 9, 24, 30],
+      anchos: [16, 12, 12, 42, 10, 9, 24, 20, 20, 18, 20, 9, 14, 10, 9, 24, 30],
       congelar: { fila: 1, col: 0 },
       filas: [
         cab.map((v) => ({ v, s: { fuente: { b: true }, fondo: "E8EEF8" } })),
-        ...filas.map((f) => f.map((v, i) => (i === 0 ? { v, s: fecha } : i === 10 && v !== "" ? { v, s: pesos } : v))),
+        ...filas.map((f) => f.map((v, i) => (i === 0 ? { v, s: fecha } : i === cab.indexOf("Valor sin IVA") && v !== "" ? { v, s: pesos } : v))),
       ],
     }]);
   };
@@ -212,6 +213,17 @@ export default function MovimientosTab({ sede, irA }) {
             >
               Antes del conteo <span className="mov-num">{conteoTipos.preConteo.toLocaleString("es-AR")}</span>
             </button>
+            {conteoTipos.externos > 0 && (
+              <button
+                type="button"
+                className={`mov-chip is-externo${soloExternos ? " is-activa" : ""}`}
+                aria-pressed={soloExternos}
+                onClick={conFiltro(() => setSoloExternos((v) => !v))}
+                title="Herreros, vidrieros y otros que no son del astillero."
+              >
+                Externos <span className="mov-num">{conteoTipos.externos.toLocaleString("es-AR")}</span>
+              </button>
+            )}
             {conteoTipos.anulados > 0 && (
               <button type="button" className={`mov-chip${verAnulados ? " is-activa" : ""}`} aria-pressed={verAnulados} onClick={conFiltro(() => setVerAnulados((v) => !v))}>
                 Ver anulados <span className="mov-num">{conteoTipos.anulados.toLocaleString("es-AR")}</span>
@@ -313,6 +325,7 @@ function Fila({ e, onAbrir }) {
         <span className="mov-meta">
           {e.codigo && <span className="mov-num">{e.codigo}</span>}
           {e.preConteo && <span className="mov-tag" data-tono="gris">Antes del conteo</span>}
+          {e.externo && <span className="mov-tag" data-tono="teal">Externo · {e.empresa}</span>}
           {e.fueraCupo && <span className="mov-tag" data-tono="rojo">Fuera de cupo</span>}
           {e.anulado && <span className="mov-anulado">Anulado{e.motivoAnulacion ? `: ${e.motivoAnulacion}` : ""}</span>}
           {e.parcial && <span className="mov-anulado">Parte anulada</span>}
@@ -358,6 +371,7 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
       ? ["Contó", `${fmtCantidad(e.contado)} ${unidad(e.contado)}${e.teorico == null ? " · conteo inicial" : ` · el sistema decía ${fmtCantidad(e.teorico)} (${e.cantidad > 0 ? "+" : ""}${fmtCantidad(e.cantidad)})`}`]
       : ["Cantidad", `${cantidadTexto(e, fmtCantidad)} ${unidad(Math.abs(e.cantidad))}${e.gramos ? ` · ${fmtCantidad(e.gramos)} g en la balanza` : ""}`],
     e.persona ? [e.tipo === "devolucion" ? "Devolvió" : "Retiró", `${e.persona}${e.metodoFirma && FIRMA[e.metodoFirma] ? ` · ${FIRMA[e.metodoFirma]}` : ""}`] : null,
+    e.externo ? ["Externo", `${e.empresa}${e.autorizadoPor ? ` · autorizó ${e.autorizadoPor}` : " · sin autorización registrada"}`] : null,
     e.obras.length > 1 ? ["Repartido", e.reparto.map((r) => `${r.obra || "sin obra"}: ${fmtCantidad(r.cantidad)}`).join(" · ")] : null,
     e.obras.length === 1 ? ["Obra", e.obras[0]] : null,
     e.sector ? ["Sector", e.sector] : null,
@@ -473,6 +487,8 @@ const CSS = `
   .mov .mov-chip.is-activa .mov-num { color: var(--blue); }
   .mov .mov-chip.is-pre.is-activa { background: var(--violet-soft); border-color: var(--violet-border); color: var(--violet); }
   .mov .mov-chip.is-pre.is-activa .mov-num { color: var(--violet); }
+  .mov .mov-chip.is-externo.is-activa { background: var(--teal-soft); border-color: var(--teal-border); color: var(--teal); }
+  .mov .mov-chip.is-externo.is-activa .mov-num { color: var(--teal); }
   .mov .mov-resumen { margin: 0; font-size: 13px; color: var(--muted); }
   .mov .mov-resumen b { color: var(--text); font-weight: 600; }
 

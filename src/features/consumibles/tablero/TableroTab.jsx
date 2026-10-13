@@ -100,6 +100,7 @@ export default function TableroTab({ sede }) {
                   <div className="cns-tab-grid"><Panel titulo="Por sector"><Carriles filas={resumen.sectores} /></Panel><Panel titulo="Evolución por día"><Carriles filas={resumen.dias} diario /></Panel></div>
                 </section>
                 <Panel titulo="Frecuencia de retiro" detalle="Qué sale seguido y cada cuánto, contado sobre los días con retiros. Lo que sale todos los días conviene pedirlo en la solicitud del día anterior."><Frecuencia frecuencia={resumen.frecuencia} personas={resumen.personas} /></Panel>
+                <Panel titulo="Externos por empresa" detalle="Herreros, vidrieros y otros que no son del astillero. Lo que se llevan va como costo de la obra; acá se suma por empresa por si corresponde descontarlo."><Externos filas={resumen.externos} /></Panel>
                 <Panel titulo="Retiros a revisar" detalle="Se agrupa cada consumible de un retiro, aunque su cantidad esté repartida entre obras."><Incidencias fueraCupo={resumen.fueraCupo} sinUsado={resumen.sinUsado} /></Panel>
               </>}
               <Panel titulo="Mermas de conteo" detalle="Diferencias negativas de inventario después del primer conteo de cada producto y sede."><Mermas filas={resumen.mermas} resumen={resumen.resumenMermas} conteos={resumen.conteosPeriodo} /></Panel>
@@ -198,6 +199,11 @@ function Frecuencia({ frecuencia, personas }) {
       {lista.length > 10 && <button type="button" className="ui-btn ui-btn-fantasma cns-tab-ver" onClick={() => setTodas((v) => !v)}>{todas ? "Ver los primeros 10" : `Ver ${vista === "productos" ? "todos los productos" : "todas las personas"} (${fmtCantidad(lista.length)})`}</button>}
     </div>
   </>;
+}
+
+function Externos({ filas }) {
+  if (!filas.length) return <p className="cns-tab-vacio">En este período no retiró ningún externo.</p>;
+  return <ul className="cns-tab-eventos">{filas.map((g) => <li key={g.id}><div><b>{g.nombre}</b><small>{fmtCantidad(g.viajes)} {g.viajes === 1 ? "retiro" : "retiros"} · {fmtCantidad(g.personas)} {g.personas === 1 ? "persona" : "personas"} · {g.obras.join(", ")}</small><small>{g.porUnidad.map(([u, c]) => `${fmtCantidad(c)} ${u}`).join(" · ")}</small></div><strong>{g.pesos || !g.sinCosto ? `${fmtPesos(g.pesos)}${g.sinCosto ? "+" : ""}` : "Sin costo"}<small>sin IVA</small></strong></li>)}</ul>;
 }
 
 function Incidencias({ fueraCupo, sinUsado }) {

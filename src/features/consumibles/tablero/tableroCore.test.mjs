@@ -117,3 +117,21 @@ test("frecuencia de retiro: días con retiro, veces, cantidad por vez y ritmo", 
   // Con un solo día no hay ritmo que medir.
   assert.equal(construirTablero({ inicio: "2026-10-13", fin: "2026-10-13", movimientos: filas.slice(0, 2) }).frecuencia.productos[0].ritmo, null);
 });
+
+test("externos por empresa: valor, retiros, personas y obras; los de casa no entran", () => {
+  const filas = [
+    retiro({ id: "x1", lote: "a", empleado_id: "h1", empleado_nombre: "Gómez", empleado_empresa: "Herrería Gómez", empleado_externo: true, cantidad: -2 }),
+    retiro({ id: "x2", lote: "a", empleado_id: "h1", empleado_nombre: "Gómez", empleado_empresa: "Herrería Gómez", empleado_externo: true, cantidad: -1, obra_id: "o2", obra: { codigo: "KA-02" } }),
+    retiro({ id: "x3", lote: "b", empleado_id: "h2", empleado_nombre: "Ruiz", empleado_empresa: "Herrería Gómez", empleado_externo: true, cantidad: -1, costo_unitario_ars: null }),
+    retiro({ id: "c1", lote: "c" }),
+  ];
+  const { externos } = construirTablero({ ...rango, movimientos: filas });
+  assert.equal(externos.length, 1);
+  const [g] = externos;
+  assert.equal(g.nombre, "Herrería Gómez");
+  assert.equal(g.pesos, 300);
+  assert.equal(g.sinCosto, 1);
+  assert.equal(g.viajes, 2);
+  assert.equal(g.personas, 2);
+  assert.deepEqual(g.obras, ["KA-01", "KA-02"]);
+});

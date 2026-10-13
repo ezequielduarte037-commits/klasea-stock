@@ -109,7 +109,7 @@ export async function buscarEmpleadoPorNfc(uid) {
 export async function fetchContratistas() {
   const { data, error } = await supabase
     .from("rrhh_contratistas")
-    .select("id, nombre, dni, celular, activo")
+    .select("id, nombre, dni, celular, activo, externo")
     .order("nombre");
   if (error) throw error;
   return data ?? [];

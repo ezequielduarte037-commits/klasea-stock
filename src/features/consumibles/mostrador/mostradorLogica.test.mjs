@@ -355,6 +355,15 @@ test("sector «Otro»: sin comentario no se registra; con comentario va en la no
   assert.equal(textoDestino({ tipo: "sector", sector: "Tapicería" }), "Tapicería");
 });
 
+test("externo: sin quién autoriza no se registra; con autorización queda en cada renglón", () => {
+  const base = { porId, empleado: { id: "ext-1", nombre: "Herrero Juan" }, metodoFirma: "sin_tarjeta", sede: "Chubut", lote: "L", destino: { tipo: "obra", obraId: "o1" }, externo: true };
+  assert.throws(() => armarFilasRetiro({ ...base, carrito: agregarAlCarrito([], TRAPO) }, { nuevoId: idsEnSerie(), repartir }), /externo: falta quién del astillero autoriza/);
+  const filas = armarFilasRetiro({ ...base, carrito: agregarAlCarrito([], TRAPO), autorizaCupo: " Encargado Pérez " }, { nuevoId: idsEnSerie(), repartir });
+  assert.equal(filas[0].autorizado_por, "Encargado Pérez");
+  assert.equal(filas[0].fuera_cupo, false);
+  assert.equal(filas[0].obra_id, "o1");
+});
+
 test("a un sector: sin obra y con el sector", () => {
   const filas = armarFilasRetiro({
     carrito: agregarAlCarrito([], TRAPO), porId, empleado: EMPLEADO, metodoFirma: "sin_tarjeta", sede: "Chubut",

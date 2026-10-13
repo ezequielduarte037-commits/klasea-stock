@@ -4,7 +4,7 @@ import { supabase } from "@/supabaseClient";
 // ocupado no dé totales menores sin avisar; también incluye productos inactivos.
 const PAGINA = 500;
 const CAMPOS = `id,material_id,sede,tipo,cantidad,costo_unitario_ars,created_at,
-  empleado_id,empleado_nombre,empleado_dni,obra_id,sector,carril,lote,solicitud_id,
+  empleado_id,empleado_nombre,empleado_dni,empleado_empresa,empleado_externo,obra_id,sector,carril,lote,solicitud_id,
   fuera_cupo,canje,autorizado_por,contado,teorico,
   obra:produccion_obras(id,codigo),
   material:panol_materiales(id,descripcion,unidad_medida,

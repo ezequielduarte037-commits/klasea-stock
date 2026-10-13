@@ -333,7 +333,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <option value="casa">Gente de la casa</option>
           <option value="contratistas">Todos los contratistas</option>
           <option value="sin_asignar">⚠ Sin asignar</option>
-          {(contratistas ?? []).map(c => <option key={c.id} value={`c:${c.id}`}>↳ {c.nombre}</option>)}
+          {(contratistas ?? []).map(c => <option key={c.id} value={`c:${c.id}`}>↳ {c.nombre}{c.externo ? " (externo)" : ""}</option>)}
         </select>
         <select style={{ ...INP, minWidth: 140 }} value={filtroSede} onChange={e => setFiltroSede(e.target.value)}>
           <option value="todas">Todas las sedes</option>
@@ -389,7 +389,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
               {bulkGrupo === "contratista" && (
                 <select style={{ ...INP, padding: "5px 8px", minWidth: 150 }} value={bulkContratistaId} onChange={e => setBulkContratistaId(e.target.value)}>
                   <option value="">Elegir contratista</option>
-                  {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}{c.externo ? " (externo)" : ""}</option>)}
                 </select>
               )}
               <button type="button" disabled={bulkLoading || !selIds.size || (bulkGrupo === "contratista" && !bulkContratistaId)} onClick={aplicarGrupo} style={{ ...BTN_PRIMARY, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>
@@ -797,7 +797,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
             <label style={LBL}>Contratista (jefe)</label>
             <select style={{ ...INP, width: "100%", marginBottom: 10 }} value={form.contratista_id} onChange={e => set("contratista_id", e.target.value)}>
               <option value="">— Sin asignar —</option>
-              {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}{c.externo ? " (externo)" : ""}</option>)}
             </select>
           </>
         )}
@@ -869,6 +869,8 @@ function ContratistasModal({ contratistas, onClose, onChanged }) {
           {(contratistas ?? []).map(c => (
             <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, padding: "7px 12px" }}>
               <span style={{ fontSize: 13, color: C.t0, flex: 1 }}>{c.nombre}</span>
+              {/* Externo: empresa que viene a trabajos puntuales; el pañol la da de alta al retirar consumibles. */}
+              {c.externo && <span title="Dado de alta desde el mostrador de consumibles" style={{ fontSize: 11, color: C.t2, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 8px" }}>externo</span>}
               {c.dni && <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{c.dni}</span>}
               {c.celular && <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>📱{c.celular}</span>}
               <button style={{ ...BTN, padding: "3px 9px", fontSize: 11 }}

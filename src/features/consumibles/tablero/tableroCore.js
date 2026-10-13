@@ -153,6 +153,8 @@ export function construirTablero({ movimientos = [], conteos = [], inicio, fin }
     dias.set(dia, { id: dia, nombre: dia, planificado: new Set(), mostrador: new Set() });
   }
   let sinLote = 0;
+  // Externos (herreros, vidrieros): lo suyo va a la obra, y acá se suma por empresa.
+  const externos = new Map();
   const otrosCarriles = new Set();
   for (const m of retiros) {
     const f = datosFila(m);
@@ -171,6 +173,17 @@ export function construirTablero({ movimientos = [], conteos = [], inicio, fin }
     const dia = diaArgentina(m.created_at);
     if (!viajes.has(viaje)) viajes.set(viaje, { id: viaje, persona, dia, sede: m.sede });
     if (!m.lote && !m.solicitud_id) sinLote += 1;
+    if (m.empleado_externo === true) {
+      const nombre = texto(m.empleado_empresa, "Externo sin empresa");
+      const g = externos.get(nombre) ?? { id: nombre, nombre, pesos: 0, sinCosto: 0, cantidades: {}, personas: new Set(), obras: new Set(), viajes: new Set() };
+      g.pesos += f.pesos;
+      g.sinCosto += f.tieneCosto ? 0 : 1;
+      g.cantidades[f.unidad] = (g.cantidades[f.unidad] ?? 0) + f.cantidad;
+      g.personas.add(persona.id);
+      g.obras.add(texto(obra?.codigo, sector));
+      g.viajes.add(viaje);
+      externos.set(nombre, g);
+    }
     if (m.carril === "planificado" || m.carril === "mostrador") {
       const s = sectores.get(sector) ?? { id: sector, nombre: sector, planificado: new Set(), mostrador: new Set() };
       s[m.carril].add(viaje);
@@ -219,6 +232,10 @@ export function construirTablero({ movimientos = [], conteos = [], inicio, fin }
     dias: [...dias.values()].map(proporciones),
     personas: [...personas.values()].sort((a, b) => b.total - a.total || comparar(a.nombre, b.nombre)),
     frecuencia,
+    externos: [...externos.values()]
+      .map((g) => ({ id: g.id, nombre: g.nombre, pesos: g.pesos, sinCosto: g.sinCosto, porUnidad: porUnidad(g.cantidades),
+        personas: g.personas.size, viajes: g.viajes.size, obras: [...g.obras].sort(comparar) }))
+      .sort((a, b) => b.pesos - a.pesos || comparar(a.nombre, b.nombre)),
     fueraCupo: incidencias(retiros, (m) => m.fuera_cupo === true),
     sinUsado: incidencias(retiros, (m) => m.canje === "sin_usado"),
     mermas: [...mermas].sort((a, b) => b.created_at.localeCompare(a.created_at)),

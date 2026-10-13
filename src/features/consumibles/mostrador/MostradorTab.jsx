@@ -21,7 +21,7 @@ import {
   piezasDesdeGramos,
   rangoDeHoyArgentina,
 } from "@/features/consumibles/api";
-import { enviarFilas, fetchEmpleadosMostrador, fetchFilasPorIds, fetchHoyMostrador, fetchMasRetirados, guardarDatosMostrador, leerDatosMostrador } from "./mostradorApi";
+import { altaExterno, enviarFilas, fetchEmpleadosMostrador, fetchExternos, fetchFilasPorIds, fetchHoyMostrador, fetchMasRetirados, guardarDatosMostrador, leerDatosMostrador } from "./mostradorApi";
 import {
   agregarAlCarrito,
   agregarCodigoAlCatalogo,
@@ -136,6 +136,10 @@ export default function MostradorTab({ sede }) {
   const [ranking, setRanking] = useState([]);
   const [obrasActivas, setObrasActivas] = useState([]);
   const [empleados, setEmpleados] = useState([]);
+  // Externos (herreros, vidrieros): empresa por persona, para pedir quién autoriza.
+  const [externos, setExternos] = useState(() => ({ empresas: [], porEmpleado: new Map() }));
+  const externosRef = useRef(externos);
+  useEffect(() => { externosRef.current = externos; }, [externos]);
   const [recarga, setRecarga] = useState(0);
   const [refrescando, setRefrescando] = useState(false);
   const [versionMovs, setVersionMovs] = useState(0);
@@ -230,12 +234,18 @@ export default function MostradorTab({ sede }) {
     const cache = leerDatosMostrador(sede);
     setObrasActivas(cache.obras ?? []);
     setEmpleados(cache.empleados ?? []);
-    Promise.allSettled([conTimeout(fetchMasRetirados({ sede }), 7000), conTimeout(fetchObrasActivas(), 7000), conTimeout(fetchEmpleadosMostrador(), 7000)]).then(([r, o, e]) => {
+    if (cache.externos) setExternos({ empresas: cache.externos.empresas ?? [], porEmpleado: new Map(cache.externos.personas ?? []) });
+    Promise.allSettled([conTimeout(fetchMasRetirados({ sede }), 7000), conTimeout(fetchObrasActivas(), 7000), conTimeout(fetchEmpleadosMostrador(), 7000), conTimeout(fetchExternos(), 7000)]).then(([r, o, e, x]) => {
       if (!vivo) return;
       if (r.status === "fulfilled") setRanking(r.value);
       if (o.status === "fulfilled") setObrasActivas(o.value);
       if (e.status === "fulfilled") setEmpleados(e.value);
-      guardarDatosMostrador(sede, { ...(o.status === "fulfilled" ? { obras: o.value } : {}), ...(e.status === "fulfilled" ? { empleados: e.value } : {}) });
+      if (x.status === "fulfilled") setExternos(x.value);
+      guardarDatosMostrador(sede, {
+        ...(o.status === "fulfilled" ? { obras: o.value } : {}),
+        ...(e.status === "fulfilled" ? { empleados: e.value } : {}),
+        ...(x.status === "fulfilled" ? { externos: { empresas: x.value.empresas, personas: [...x.value.porEmpleado] } } : {}),
+      });
     });
     return () => { vivo = false; };
   }, [sede, recarga]);
@@ -335,7 +345,12 @@ export default function MostradorTab({ sede }) {
     [devolucion, persona, carrito, porId, hoyMap, infoPersona.errorHoy],
   );
   const destinoTexto = textoDestino(destino, obrasPorId);
-  const bloqueadoFirma = guardando || Boolean(operacion) || infoPersona.cargando || problemas.length > 0 || (excedidos.length > 0 && !autorizaCupo.trim());
+  const bloqueadoFirma = guardando || Boolean(operacion) || infoPersona.cargando || problemas.length > 0
+    || ((excedidos.length > 0 || (persona?.externo && !devolucion)) && !autorizaCupo.trim());
+  const empleadosConEmpresa = useMemo(
+    () => empleados.map((e) => (externos.porEmpleado.has(e.id) ? { ...e, empresa: externos.porEmpleado.get(e.id), externo: true } : e)),
+    [empleados, externos],
+  );
 
   // ── La pantalla del operario (/pantalla-egreso) ───────────────────────────
   useEffect(() => {
@@ -547,6 +562,20 @@ export default function MostradorTab({ sede }) {
     setPaso("marcar");
   }
 
+  /** Alta de un externo desde la firma: queda en RRHH y se sigue con él. */
+  async function darDeAltaExterno({ nombre, empresa, dni }) {
+    const emp = await conTimeout(altaExterno({ id: nuevoId(), nombre, empresa, dni, sede }), 10000, "La red no contestó a tiempo. Probá de nuevo.");
+    if (emp.activo === false) throw new Error(`${emp.nombre} figura dado de baja en RRHH.`);
+    setEmpleados((prev) => (prev.some((e) => e.id === emp.id) ? prev : [...prev, emp]));
+    if (emp.externo) {
+      setExternos((prev) => ({
+        empresas: prev.empresas.some((x) => x.nombre === emp.empresa) ? prev.empresas : [...prev.empresas, { id: null, nombre: emp.empresa }],
+        porEmpleado: new Map(prev.porEmpleado).set(emp.id, emp.empresa),
+      }));
+    }
+    return emp;
+  }
+
   function quitarPersona() {
     if (!editable()) return;
     controlRef.current = transicionControl(controlRef.current, { tipo: "tarjeta" });
@@ -565,12 +594,15 @@ export default function MostradorTab({ sede }) {
     controlRef.current = transicionControl(controlRef.current, { tipo: "identificar", auto: metodo === "nfc" && !devolucion });
     const consulta = tokenConsulta(controlRef.current);
     const { desde, hasta } = rangoDeHoyArgentina();
+    const empresaExterna = externosRef.current.porEmpleado.get(emp.id) ?? (emp.externo ? emp.empresa : null);
     setPersona({
       id: emp.id,
       nombre: emp.nombre,
       dni: emp.dni ?? null,
       fotoUrl: emp.foto_url ?? "",
       sede: emp.sede ?? "",
+      empresa: empresaExterna ?? null,
+      externo: Boolean(empresaExterna),
       metodo,
       uid,
       carritoId: controlRef.current.carritoId,
@@ -704,7 +736,7 @@ export default function MostradorTab({ sede }) {
           setInfoPersona((i) => ({ ...i, ...rango, ...lectura, errorHoy: incierto ? "No se pudo verificar el cupo. Hace falta autorización." : "" }));
         }
         const lote = nuevoId();
-        const datos = devolucion ? null : datosParaRetiro({ carrito, porId, empleado, metodoFirma, sede, lote, destino: dest, excedidos: cupoActual, autorizaCupo });
+        const datos = devolucion ? null : datosParaRetiro({ carrito, porId, empleado, metodoFirma, sede, lote, destino: dest, excedidos: cupoActual, autorizaCupo, externo: Boolean(persona?.externo) });
         const filas = devolucion
           ? armarFilasDevolucion({ carrito, porId, empleado, metodoFirma, sede, lote, obraId: dest?.tipo === "obra" ? dest.obraId : null, nota: notaDevolucion }, { nuevoId })
           : notasDelRetiro(armarFilasRetiro(datos), datos);
@@ -1158,8 +1190,10 @@ export default function MostradorTab({ sede }) {
           onConfirmar={() => confirmar()}
           onVolver={volverAMarcar}
           onQuitarPersona={quitarPersona}
-          empleados={empleados}
+          empleados={empleadosConEmpresa}
           onElegirPersona={(emp) => identificar(emp, "sin_tarjeta")}
+          empresasExternas={externos.empresas}
+          onAltaExterno={darDeAltaExterno}
           lectorEstado={nfc.status}
           notaDevolucion={notaDevolucion}
           onNotaDevolucion={(v) => { if (editable()) setNotaDevolucion(v); }}

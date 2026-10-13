@@ -79,6 +79,37 @@ export async function fetchEmpleadosMostrador() {
   return (data ?? []).filter((e) => !e.fecha_baja || String(e.fecha_baja).slice(0, 10) > hoy);
 }
 
+/**
+ * Externos (herreros, vidrieros, instaladores): empresas marcadas `externo` en
+ * RRHH y quiénes son de cada una. El pañol no lee rrhh_contratistas: llega por
+ * RPC. Devuelve { empresas: [{ id, nombre }], porEmpleado: Map id → empresa }.
+ */
+export async function fetchExternos() {
+  const { data, error } = await supabase.rpc("consumibles_externos");
+  if (error) throw error;
+  return {
+    empresas: data?.empresas ?? [],
+    porEmpleado: new Map((data?.personas ?? []).map((p) => [p.id, p.empresa])),
+  };
+}
+
+/**
+ * Alta de un externo desde el mostrador: queda en RRHH como contratista que no
+ * ficha, con su empresa. Con el mismo id (o el mismo DNI, o el mismo nombre en
+ * la misma empresa) devuelve el que ya estaba en vez de duplicarlo.
+ */
+export async function altaExterno({ id, nombre, empresa, dni = null, sede = null }) {
+  const { data, error } = await supabase.rpc("consumibles_alta_externo", {
+    p_id: id,
+    p_nombre: nombre,
+    p_empresa: empresa,
+    p_dni: dni || null,
+    p_sede: sede || null,
+  });
+  if (error) throw error;
+  return data;
+}
+
 /** Los últimos retiros y devoluciones de esta sede, anulados incluidos (se ven tachados). */
 export function fetchUltimosMovimientos({ sede, limite = 60 } = {}) {
   return fetchMovimientos({ sede, tipos: ["retiro", "devolucion"], incluirAnulados: true, limite });
