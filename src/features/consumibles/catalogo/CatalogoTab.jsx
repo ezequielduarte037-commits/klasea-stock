@@ -7,6 +7,7 @@ import { esGestorDeListas, esOperador, fetchListaVigente, fetchRetirosHistoricos
 import { esPendienteRebollar } from "./conciliacion";
 import { motivoRevisarUnidad } from "./reglas";
 import PanelEdicion from "./PanelEdicion";
+import { FotoItem } from "../mostrador/Piezas";
 import ConciliarRebollar from "./ConciliarRebollar";
 
 /**
@@ -186,12 +187,14 @@ export default function CatalogoTab({ profile, sede }) {
                 {filtrados.map((i) => (
                   <li key={i.id}>
                     <button type="button" className={`cat-fila${i.id === selId ? " is-sel" : ""}`} onClick={() => setSelId(i.id === selId ? null : i.id)}>
-                      <span className="cat-mono cat-ka">{i.codigoEtiqueta ?? "—"}</span>
+                      {/* La foto principal (la misma de la botonera del mostrador); sin foto, las iniciales. */}
+                      <span className="cat-thumb"><FotoItem item={i} /></span>
                       <span className="cat-fila-txt">
                         <span className="cat-fila-desc">{i.descripcion}</span>
                         {i.alias && <span className="cat-alias">Alias: {i.alias}</span>}
                         <span className="cat-dim">
-                          {i.rubro ?? "Sin rubro"} · {FORMAS_ENTREGA[i.formaEntrega]?.label ?? i.formaEntrega} · {i.unidad}
+                          <span className="cat-mono cat-ka">{i.codigoEtiqueta ?? "Sin código"}</span>
+                          {" · "}{i.rubro ?? "Sin rubro"} · {FORMAS_ENTREGA[i.formaEntrega]?.label ?? i.formaEntrega} · {i.unidad}
                           {i.config?.favorito_orden ? ` · favorito ${i.config.favorito_orden}` : ""}
                           {i.enMostrador ? "" : " · fuera del mostrador"}
                         </span>
@@ -256,10 +259,14 @@ const CSS = `
 
   .cat-root .cat-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--panel-solid); overflow: hidden; }
   .cat-root .cat-lista li + li { border-top: 1px solid var(--border); }
-  .cat-root .cat-fila { width: 100%; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; }
+  .cat-root .cat-fila { width: 100%; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; }
   .cat-root .cat-fila:hover { background: var(--panel-2); }
   .cat-root .cat-fila.is-sel { background: var(--blue-soft); }
   .cat-root .cat-ka { font-size: 12.5px; color: var(--muted); }
+  .cat-root .cat-thumb { position: relative; width: 52px; height: 52px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--border); }
+  .cat-root .cat-thumb .mst-inicial { color: var(--dim); font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+  /* Entera sobre blanco, como en el mostrador: el blanco tapa las iniciales de atrás. */
+  .cat-root .cat-thumb img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box; padding: 3px; object-fit: contain; background: #fff; }
   .cat-root .cat-fila-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .cat-root .cat-fila-desc { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cat-root .cat-fila-datos { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
@@ -329,7 +336,7 @@ const CSS = `
 
   @media (max-width: 1100px) {
     .cat-root .cat-cuerpo.con-panel { grid-template-columns: minmax(0, 1fr) 360px; }
-    .cat-root .cat-fila { grid-template-columns: 56px minmax(0, 1fr); }
+    .cat-root .cat-fila { grid-template-columns: 52px minmax(0, 1fr); }
     .cat-root .cat-fila-datos { grid-column: 2; justify-content: flex-start; }
   }
   @media (max-width: 899px) {
