@@ -24,7 +24,7 @@ export function formaEntregaSugerida(descripcion, rubro = null) {
   return "unidad";
 }
 
-export const UNIDADES_ENTREGA = ["unidad", "par", "rollo", "pack", "litro", "kg", "metro"];
+export const UNIDADES_ENTREGA = ["unidad", "par", "hoja", "rollo", "pack", "litro", "kg", "metro"];
 
 /** Nombre del producto: el de Rebollar más la medida (si no, los 31 "Parker cab fijadora AISI304" serían iguales). */
 export function nombreProducto(renglon) {
@@ -87,6 +87,13 @@ export function motivoRevisarUnidad(item) {
   const factor = Number(item?.config?.factor_compra) || 1;
   if (/\bblister\b/.test(d) && factor <= 1) {
     return "Viene en blíster: si se entregan las hojas sueltas, la unidad es «hoja» y el factor, cuántas trae.";
+  }
+  // Fraccionado en otra unidad que la de compra y sin factor: cada metro (o
+  // kilo) vale el envase entero.
+  const sinPlural = (v) => v.replace(/(es|s)$/, "");
+  const compra = sinTildes(item?.config?.unidad_compra || "");
+  if (item?.formaEntrega === "fraccionado" && compra && sinPlural(compra) !== sinPlural(unidad) && factor <= 1) {
+    return `Se entrega por ${unidad} y se compra por ${compra}, sin factor: cada ${unidad} vale el envase entero. Cargá cuántos ${unidad} trae cada ${compra}.`;
   }
   // Lo que se corta del rollo (lija, pluribol, cartón, nylon) sale por metro.
   if (/\b(lija|pluribol|carton|nylon)\b/.test(d) && /\brollo\b|\d+\s*mts?\b/.test(d) && unidad !== "metro") {

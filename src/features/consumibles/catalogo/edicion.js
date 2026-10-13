@@ -46,6 +46,18 @@ export function cambiosDeFicha(f, inicial) {
     }
     config[k] = k === "favorito_orden" && n != null ? Math.round(n) : n;
   }
+  // Al cambiar la unidad o pasar a fraccionado: si se entrega en otra unidad
+  // que la de compra, sin factor cada metro (o hoja, o kilo) valdría el envase
+  // entero. Pasó con el cartón en rollo el 13/10.
+  if ("unidad_entrega" in config || config.forma_entrega === "fraccionado") {
+    const sinPlural = (v) => texto(v).toLowerCase().replace(/(es|s)$/, "");
+    const entrega = texto(f.unidad_entrega) || "unidad";
+    const compra = texto(f.unidad_compra) || "unidad";
+    const factor = numero(f.factor_compra) ?? 1;
+    if (sinPlural(entrega) !== sinPlural(compra) && factor <= 1) {
+      throw new Error(`Se entrega por ${entrega} y se compra por ${compra}: cargá el factor (cuántos ${entrega} trae cada ${compra}). Si se entrega entero, poné la misma unidad en los dos.`);
+    }
+  }
   if (f.stockMinimo !== inicial.stockMinimo) {
     const n = numero(f.stockMinimo);
     if (n !== numero(inicial.stockMinimo)) cambios.stockMinimo = n;

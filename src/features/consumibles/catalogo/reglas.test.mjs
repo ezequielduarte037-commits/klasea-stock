@@ -12,6 +12,10 @@ test("revisar unidad: blíster sin factor, rollos que se cortan y cajas por N", 
   assert.match(motivoRevisarUnidad(item("PLURIBOL x25mts", "rollo")), /metro/);
   assert.match(motivoRevisarUnidad(item("GUANTES DE NITRILO X 100unid", "unidad")), /factor es 100/);
   assert.equal(motivoRevisarUnidad(item("PRECINTOS X 15cm x100unid", "unidad", 100)), null);
+  // El cartón pasado a metro sin decir cuántos metros trae el rollo.
+  const carton = { descripcion: "CARTON ROLLO", unidad: "metro", formaEntrega: "fraccionado", config: { unidad_compra: "unidad", factor_compra: 1 } };
+  assert.match(motivoRevisarUnidad(carton), /cada metro vale el envase entero/);
+  assert.equal(motivoRevisarUnidad({ ...carton, config: { unidad_compra: "rollo", factor_compra: 50 } }), null);
 });
 
 test("revisar unidad: no marca medidas ni rollos que se entregan enteros", () => {
