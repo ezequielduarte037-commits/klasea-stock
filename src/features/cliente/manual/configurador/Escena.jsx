@@ -12,6 +12,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import * as THREE from "three";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
@@ -62,7 +63,19 @@ function Efectos({ renderRef }) {
     const destino = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
     const composer = new EffectComposer(gl, destino);
     const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.55, 3.2);
-    const pasadas = [new RenderPass(escena, camara), bloom, new OutputPass()];
+    // Antes del resplandor se limpian píxeles inválidos (NaN o infinito): el
+    // bloom los agrandaba en cuadraditos negros al mover la cámara.
+    const limpiar = new ShaderPass({
+      uniforms: { tDiffuse: { value: null } },
+      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }",
+      fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D( tDiffuse, vUv );
+          if ( any( isnan( c ) ) || any( isinf( c ) ) ) c = vec4( 0.0, 0.0, 0.0, 1.0 );
+          gl_FragColor = clamp( c, 0.0, 60.0 );
+        }`,
+    });
+    const pasadas = [new RenderPass(escena, camara), limpiar, bloom, new OutputPass()];
     pasadas.forEach(p => composer.addPass(p));
     return { composer, pasadas, bloom };
   }, [gl, escena, camara]);
@@ -155,13 +168,22 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
       ruidoEspuma: { value: ruidoTex }, anchoCasco: { value: anchoTex },
       cascoX0: { value: flot.x0 }, cascoX1: { value: flot.x1 }, anchoMax: { value: anchoTex ? flot.max : 0 },
       popa: { value: flot.popa }, mangaPopa: { value: flot.mangaPopa },
-      velocidad: { value: 0 }, luzEspuma: { value: new THREE.Color(1, 1, 1) },
+      velocidad: { value: 0 }, luzEspuma: { value: new THREE.Color(1, 1, 1) }, desenfoque: { value: 0 },
     });
     agua.material.fragmentShader = agua.material.fragmentShader
       .replace("uniform vec2 avance;", `uniform vec2 avance;
         uniform sampler2D ruidoEspuma; uniform sampler2D anchoCasco;
         uniform float cascoX0; uniform float cascoX1; uniform float anchoMax; uniform float popa; uniform float mangaPopa;
-        uniform float velocidad; uniform vec3 luzEspuma;`)
+        uniform float velocidad; uniform vec3 luzEspuma; uniform float desenfoque;`)
+      // Desenfoque de movimiento: a velocidad el agua cercana se ve barrida en
+      // el sentido de la marcha (varias muestras del relieve a lo largo de x).
+      .replace("vec4 noise = getNoise( ( worldPosition.xz + avance ) * size );", `vec2 uvAgua = ( worldPosition.xz + avance ) * size;
+        vec4 noise = getNoise( uvAgua );
+        if ( desenfoque > 0.001 ) {
+          vec2 paso = vec2( desenfoque * size, 0.0 );
+          noise = ( noise + getNoise( uvAgua + paso ) + getNoise( uvAgua - paso ) + getNoise( uvAgua + paso * 2.0 ) + getNoise( uvAgua - paso * 2.0 ) ) / 5.0;
+          noise.xz *= 1.0 + desenfoque * 1.2;
+        }`)
       .replace("vec3 outgoingLight = albedo;", "vec3 outgoingLight = mix( mix( albedo, luzEspuma * vec3( 0.42, 0.62, 0.6 ), aireada * 0.32 ), luzEspuma * ( 0.72 + 0.28 * rC ), espuma * 0.94 );");
     agua.material.fragmentShader = agua.material.fragmentShader.replace(
       "+ vec3( g.x, 0.0, g.y ) * oleaje );", `+ vec3( g.x, 0.0, g.y ) * oleaje );
@@ -330,6 +352,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     u.oleaje.value = 0.12 + m.ola * 0.05;
     u.avance.value.x += c.vel * dt;
     u.velocidad.value = c.vel / CRUCERO;
+    u.desenfoque.value = (c.vel / CRUCERO) * 0.22;
     // La espuma toma la luz del momento: blanca de día, apagada de noche.
     // Casi blanca: sólo un toque del color de la luz (si no, al atardecer quedaba rosada, como sucia).
     const le = u.luzEspuma.value.copy(luz.horizonte).multiplyScalar(0.45).add(luz.solColor.clone().multiplyScalar(luz.fuerza * 0.9)).addScalar(0.015);
