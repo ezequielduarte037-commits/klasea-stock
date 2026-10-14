@@ -152,7 +152,9 @@ export function prenderCortesia(c, intensidad) {
 
 /* Espuma donde el casco toca el agua: se mide el ancho del casco en la
    flotación, franja por franja, y se pinta un borde blanco suave alrededor. */
-export function crearEspumaCasco(modelo, espuma) {
+/* Ancho del casco en la flotación, franja por franja a lo largo de la eslora
+   (lo usan la sombra del casco y la espuma del agua). */
+export function anchoFlotacion(modelo) {
   const mallas = ["casco", "costado", "fondo"].map(n => modelo.piezas[n]).filter(Boolean);
   if (!mallas.length) return null;
   modelo.raiz.updateMatrixWorld(true);
@@ -176,8 +178,29 @@ export function crearEspumaCasco(modelo, espuma) {
     for (let j = -3; j <= 3; j++) m = Math.max(m, ancho[Math.min(N - 1, Math.max(0, k + j))]);
     liso[k] = m;
   }
-  const maxAncho = Math.max(...liso);
-  if (!maxAncho) return null;
+  const max = Math.max(...liso);
+  if (!max) return null;
+  // Popa: donde empieza el casco desde atrás; su manga ahí abre la estela.
+  const kPopa = liso.findIndex(w => w > max * 0.2);
+  const popa = x0 + (kPopa / (N - 1)) * (x1 - x0);
+  const mangaPopa = liso[Math.min(N - 1, kPopa + 4)];
+  return { liso, N, x0, x1, max, popa, mangaPopa };
+}
+
+/* El mismo ancho como textura de una fila (para el shader del agua). */
+export function texturaAncho(a) {
+  const datos = new Uint8Array(a.N * 4);
+  for (let k = 0; k < a.N; k++) datos.set([Math.round((a.liso[k] / a.max) * 255), 0, 0, 255], k * 4);
+  const t = new THREE.DataTexture(datos, a.N, 1, THREE.RGBAFormat);
+  t.magFilter = t.minFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+export function crearEspumaCasco(modelo, espuma) {
+  const a = anchoFlotacion(modelo);
+  if (!a) return null;
+  const { liso, N, x0, x1, max: maxAncho } = a;
   const alto = maxAncho * 2 + 1.2;
   const W = 512, H = 160;
   const c = document.createElement("canvas");
