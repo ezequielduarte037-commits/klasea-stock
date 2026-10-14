@@ -1,7 +1,7 @@
 import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileSpreadsheet, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import {
@@ -71,6 +71,7 @@ import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
 import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
 import { obraThemeScope } from "./obra/obraListaPresentation";
+import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney, textoTooltip } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
@@ -91,7 +92,7 @@ import MatrizCondicionantesTab from "./MatrizCondicionantes";
 import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
-import { proveedorMeta, PROVEEDOR_TIPOS } from "./proveedorMeta";
+import { proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
 import { coincideProveedor, esProveedorAlternativo, nombreProveedorVisible, nombresProveedor } from "./proveedorNombre";
 import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
@@ -4555,6 +4556,54 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
+  // Sale lo que se ve: mismos filtros y mismo agrupado que la pantalla. Sin
+  // filtros es la lista completa de la obra. Los filtros puestos quedan
+  // escritos arriba del papel, para que nadie lo tome por la lista entera.
+  function exportarExcel() {
+    const tipos = { base: "Base", addon: "Adicionales", condicionante: "Condicionantes", linea_eje: "Línea eje", variante: "Variantes", sin_precio: "Sin precio", revisar: "A revisar" };
+    const etapaElegida = etapasObra.find((etapa) => etapa.id === etapaFilter);
+    const filtros = [
+      deferredQ.trim() ? `búsqueda “${deferredQ.trim()}”` : "",
+      proveedorFilter ? `proveedor ${proveedorFilter}` : "",
+      rubroFilter ? `rubro ${rubroFilter}` : "",
+      tipoFilter !== "todos" ? (tipos[tipoFilter] || tipoFilter) : "",
+      estadosSel.size ? `estado ${[...estadosSel].join(" / ")}` : "",
+      etapaFilter === "sin_asignar" ? "sin etapa de compra" : etapaElegida ? `etapa ${etapaElegida.nombre}` : "",
+    ].filter(Boolean);
+    const grupos = groupedRows.map((group) => ({
+      nombre: group.label,
+      filas: group.rows.map((row) => {
+        const cant = cantidadesDeFila(row);
+        const accion = accionDeFila(row).texto;
+        return {
+          descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion,
+          requisito: row.requisitoDescripcion && norm(row.requisitoDescripcion) !== norm(row.descripcion) ? row.requisitoDescripcion : "",
+          codigo: row.codigo || "",
+          proveedor: row.proveedor || "Sin proveedor",
+          rubro: row.rubro || "Sin rubro",
+          origen: snapshotOnlyForRow(row) ? "Fuera de matriz" : row.bucket?.label || "Base",
+          cantidad: cant.necesita,
+          unidad: row.unidad || "",
+          recibido: cant.panol,
+          entregado: cant.entregado,
+          faltaComprar: cant.faltaComprar,
+          faltaEntregar: cant.faltaEntregar,
+          estado: estadoMetaDeFila(row).label,
+          accion: accion === "—" ? "" : accion,
+          etapas: etapasDeRow(row).map((etapa) => etapa.nombre).filter(Boolean).join(", "),
+          precio: row.precio?.amount || 0,
+          moneda: row.precio?.moneda || "",
+          obs: row.obs || "",
+        };
+      }),
+    }));
+    try {
+      exportarListaObraXlsx({ obra: obra.codigo, linea: lineaNombre, grupos, agrupadoPor: groupBy, filtros });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo armar el Excel." });
+    }
+  }
+
   async function copiarOrden() {
     const text = buildOrdenTexto({ obra, lineaNombre, rows: orderRows, groupBy });
     await navigator.clipboard?.writeText(text);
@@ -5465,6 +5514,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         <button type="button" aria-pressed={tipoFilter === "addon"} onClick={() => setTipoFilter(tipoFilter === "addon" ? "todos" : "addon")} style={{ ...obraButton, color: tipoFilter === "addon" ? C.violet : C.muted }}>Adicionales · {addonStats.total}</button>
         {snapshotActivo && <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...obraButton, color: C.muted }}><RefreshCw size={12} />Regenerar lista</button>}
         <div style={{ flex: 1 }} />
+        <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={obraButton} title="Descargar la lista en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos. Sale lo que se ve con los filtros puestos."><FileSpreadsheet size={13} />Exportar Excel</button>
         <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}><Plus size={13} />Adicional</button>
         {obraPanel && <button type="button" onClick={() => setObraPanel("")} style={obraButton} aria-label="Cerrar configuración"><X size={13} /></button>}
       </div>
@@ -6178,6 +6228,50 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     });
   }
 
+  // Igual que en la obra: sale lo que se ve. "Todo" es el barco estándar, así
+  // que el paquete de línea de eje queda afuera y el papel lo dice.
+  function exportarExcel() {
+    const tipos = { sin_precio: "Sin precio", revisar: "A revisar", secundario: "Producción", base: "Base", linea_eje: "Línea eje", variante: "Variantes" };
+    const filtros = [
+      deferredQ.trim() ? `búsqueda “${deferredQ.trim()}”` : "",
+      proveedoresSel.size ? `proveedor ${[...proveedoresSel].join(" / ")}` : "",
+      rubrosSel.size ? `rubro ${[...rubrosSel].join(" / ")}` : "",
+      proveedorTipoFilter !== "todos" ? `proveedor ${proveedorTipoUi(proveedorTipoFilter)?.label || proveedorTipoFilter}` : "",
+      tipoFilter !== "todos" ? (tipos[tipoFilter] || tipoFilter) : "",
+    ].filter(Boolean);
+    const extra = tipoFilter === "todos" && ocultosLineaEje
+      ? [`barco estándar, sin los ${ocultosLineaEje} de línea de eje`]
+      : [];
+    const grupos = groupedRows.map((group) => ({
+      nombre: group.label,
+      filas: group.rows.map((row) => {
+        const maderas = row.secundario && row.circuito === "maderas";
+        return {
+          descripcion: row.descripcion,
+          requisito: row.requisitoDescripcion || "",
+          codigo: row.codigo || "",
+          proveedor: row.proveedor || "Sin proveedor",
+          rubro: row.rubro || "Sin rubro",
+          tipo: row.bucket.label,
+          esBase: row.bucket.key === "base",
+          cantidad: maderas ? Number(row.cantidadConsumida || 0) : (toNum(row.cantidad) || 1),
+          unidad: row.unidad || "",
+          precio: row.precio.amount || 0,
+          moneda: row.precio.moneda || "",
+          // Maderas toma el consumo de referencia: en pantalla tampoco suma total.
+          total: maderas ? null : undefined,
+          precioNota: row.conjunto ? "En conjunto" : row.especificado ? "No lleva" : "Sin precio",
+          obs: [row.conjunto ? `Conjunto: ${row.conjunto.nombre}` : "", row.especificado || "", row.obs].filter(Boolean).join(" · "),
+        };
+      }),
+    }));
+    try {
+      exportarMatrizLineaXlsx({ linea: title, grupos, agrupadoPor: groupBy, filtros, extra });
+    } catch (e) {
+      window.alert(e?.message || "No se pudo armar el Excel.");
+    }
+  }
+
   async function copiarOrden() {
     const text = buildOrdenTexto({ obra: { codigo: title }, lineaNombre: title, rows: orderRows, groupBy });
     await navigator.clipboard?.writeText(text);
@@ -6379,6 +6473,9 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             ) : null}
             <button type="button" onClick={() => setStatsOpen((v) => !v)} style={{ ...BTN, height: 32, padding: "0 10px" }} title="Ver estadisticas">
               {statsOpen ? "Ocultar stats" : "Stats"}
+            </button>
+            <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={{ ...BTN, height: 32, padding: "0 11px" }} title="Descargar la matriz en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos y precios. Sale lo que se ve con los filtros puestos.">
+              <FileSpreadsheet size={14} /> Exportar Excel
             </button>
             <button type="button" onClick={() => setShowAddItem((v) => !v)} style={{ ...BTN_GREEN, height: 32, padding: "0 11px" }}>
               <Plus size={14} /> Agregar item

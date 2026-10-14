@@ -150,15 +150,56 @@ function hojaXml(hoja, estilos) {
   const filtro = hoja.autofiltro ? `<autoFilter ref="${hoja.autofiltro}"/>` : "";
   const ultima = celdaRef(Math.max(0, hoja.filas.length - 1), Math.max(0, (hoja.anchos?.length || 1) - 1));
 
+  // Hojas pensadas para imprimir. Sin `imprimir` la hoja sale como siempre.
+  // fitToWidth sola no hace nada: Excel la ignora si la hoja no dice
+  // fitToPage en sheetPr, y la planilla sale cortada en dos hojas de ancho.
+  const imp = hoja.imprimir;
+  const sheetPr = imp?.ajustarAncho ? "<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>" : "";
+  const pageSetup = imp
+    ? `<printOptions horizontalCentered="1"/><pageMargins left="0.35" right="0.35" top="0.45" bottom="0.55" header="0.25" footer="0.25"/><pageSetup paperSize="9" orientation="${imp.orientacion || "landscape"}"${imp.ajustarAncho ? ' fitToWidth="1" fitToHeight="0"' : ""}/>`
+    // En el pie, & es un código (&P = página): el texto propio lo lleva doble.
+      + (imp.pie ? `<headerFooter><oddFooter>${esc(`&L&8${String(imp.pie).replace(/&/g, "&&")}&R&8Página &P de &N`)}</oddFooter></headerFooter>` : "")
+    : "<pageMargins left=\"0.4\" right=\"0.4\" top=\"0.5\" bottom=\"0.5\" header=\"0.3\" footer=\"0.3\"/><pageSetup orientation=\"landscape\" fitToWidth=\"1\" fitToHeight=\"0\"/>";
+
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${ultima}"/><sheetViews><sheetView workbookViewId="0"${hoja.activa ? ' tabSelected="1"' : ""}>${panes}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${filas}</sheetData>${filtro}${merges}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${sheetPr}<dimension ref="A1:${ultima}"/><sheetViews><sheetView workbookViewId="0"${hoja.activa ? ' tabSelected="1"' : ""}>${panes}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${filas}</sheetData>${filtro}${merges}${pageSetup}</worksheet>`;
+}
+
+const nombreHoja = (h) => String(h.nombre ?? "").replace(/[:\\/?*[\]]/g, " ").slice(0, 31);
+
+/**
+ * Las filas que se repiten arriba de cada página al imprimir (el encabezado de
+ * la tabla). Excel lo guarda como un nombre definido del libro, no en la hoja.
+ */
+function nombresDefinidos(hojas) {
+  const nombres = hojas.map((h, i) => {
+    const filas = h.imprimir?.repetirFilas;
+    if (!filas) return "";
+    const [desde, hasta = desde] = filas;
+    const nombre = nombreHoja(h).replace(/'/g, "''");
+    return `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${esc(`'${nombre}'!$${desde + 1}:$${hasta + 1}`)}</definedName>`;
+  }).join("");
+  return nombres ? `<definedNames>${nombres}</definedNames>` : "";
 }
 
 /**
  * Arma el libro y lo descarga.
- * hojas: [{ nombre, filas, anchos, merges, congelar, autofiltro, altos }]
+ * hojas: [{ nombre, filas, anchos, merges, congelar, autofiltro, altos, imprimir }]
+ * imprimir: { orientacion, ajustarAncho, repetirFilas: [desde, hasta], pie }
  */
 export function descargarXlsx(nombreArchivo, hojas) {
+  const zip = armarXlsx(hojas);
+  const blob = new Blob([zip], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombreArchivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Los bytes del .xlsx, sin descargarlo (se usa también para probarlo). */
+export function armarXlsx(hojas) {
   const estilos = new Estilos();
   const cuerpos = hojas.map((h) => hojaXml(h, estilos));
 
@@ -168,7 +209,7 @@ export function descargarXlsx(nombreArchivo, hojas) {
     "_rels/.rels": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
     "xl/workbook.xml": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${hojas.map((h, i) => `<sheet name="${esc(h.nombre).slice(0, 31)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`),
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${hojas.map((h, i) => `<sheet name="${esc(nombreHoja(h))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets>${nombresDefinidos(hojas)}</workbook>`),
     "xl/_rels/workbook.xml.rels": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hojas.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${hojas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
     // styles.xml se arma AL FINAL: recien ahi se sabe que formatos se usaron.
@@ -176,12 +217,5 @@ export function descargarXlsx(nombreArchivo, hojas) {
   };
   cuerpos.forEach((xml, i) => { archivos[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(xml); });
 
-  const zip = zipSync(archivos, { level: 6 });
-  const blob = new Blob([zip], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nombreArchivo;
-  a.click();
-  URL.revokeObjectURL(url);
+  return zipSync(archivos, { level: 6 });
 }
