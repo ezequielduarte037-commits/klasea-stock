@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   ChevronLeft, X, Pencil, Trash2, Plus, Check, Search, Send,
-  CheckCircle2, AlertTriangle, Layers,
+  CheckCircle2, AlertTriangle, Layers, Printer,
 } from "lucide-react";
 import {
   T, PANEL, EYEBROW, INP, INP_SM, TXT, ICON_BTN, ESTADOS, ESTADO_META,
@@ -17,6 +17,7 @@ export default function BoatDetail({
   onRenameUnidad, onDeleteUnidad,
   onSetEstado, onOpenPieza, onDeletePieza,
   onCambiarColorSector, onAddPieza, onAddPiezaPlantilla,
+  onPrintEtiquetas, printingEtiquetas,
   sectoresSugeridos,
 }) {
   const [q, setQ] = useState("");
@@ -181,6 +182,16 @@ export default function BoatDetail({
             <input style={{ ...INP_SM, paddingLeft:28 }} placeholder="Buscar pieza, sector o color…"
               value={q} onChange={e => setQ(e.target.value)} />
           </div>
+          <button onClick={onPrintEtiquetas} disabled={loading || printingEtiquetas || !stats.total}
+            title="Una etiqueta por pieza de esta embarcación, excepto las marcadas No lleva"
+            style={{ marginTop:10, width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+              border:"1px solid var(--blue-border)", background:"var(--blue-soft)", color:"var(--blue)",
+              padding:"9px 12px", borderRadius:8, fontFamily:T.sans, fontSize:12, fontWeight:600,
+              cursor:loading || printingEtiquetas || !stats.total ? "default" : "pointer",
+              opacity:loading || printingEtiquetas || !stats.total ? 0.5 : 1 }}>
+            <Printer size={14} />
+            {printingEtiquetas ? "Preparando etiquetas…" : `Imprimir etiquetas (${stats.total}) · 50 × 80`}
+          </button>
           {esAdmin && (
             <button onClick={() => setShowAddPieza(v => !v)} className="mrm-btn-ghost" style={{
               marginTop:8, width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:6,

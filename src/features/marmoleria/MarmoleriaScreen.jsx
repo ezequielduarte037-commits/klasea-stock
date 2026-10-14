@@ -25,6 +25,7 @@ import PlantillaView from "./PlantillaView";
 import HistorialView from "./HistorialView";
 import GeneralView from "./GeneralView";
 import { construirPdfMarmoleria, nombreArchivoMarmoleria } from "./marmoleriaPdf";
+import { construirHtmlEtiquetasMarmoleria } from "./etiquetasMarmoleria";
 
 // ── CENTRO DE CONTROL DE MARMOLERÍA ───────────────────────────────
 export default function MarmoleriaScreen({ profile }) {
@@ -58,6 +59,7 @@ export default function MarmoleriaScreen({ profile }) {
   const [plantillaLoading, setPlantillaLoading] = useState(false);
   const [historialLoading, setHistorialLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [printingEtiquetas, setPrintingEtiquetas] = useState(false);
   const [err, setErr] = useState("");
 
   // ── CARGA (consultas Supabase — mismas tablas y filtros) ──────
@@ -691,6 +693,38 @@ export default function MarmoleriaScreen({ profile }) {
     }
   }
 
+  async function imprimirEtiquetas() {
+    if (!unidadSel || printingEtiquetas) return;
+    // Se abre con el clic, antes de consultar, para que el navegador no bloquee
+    // la ventana. Las etiquetas salen de una lectura nueva del barco completo.
+    const win = window.open("", "_blank", "width=1040,height=820");
+    if (!win) { setErr("Habilitá las ventanas emergentes para imprimir las etiquetas."); return; }
+    win.document.write('<!doctype html><html lang="es"><title>Etiquetas de marmolería</title><body style="font:16px Arial;padding:24px">Preparando etiquetas…</body></html>');
+    win.document.close();
+    setPrintingEtiquetas(true);
+    setErr("");
+    try {
+      const [barco, detalle] = await Promise.all([
+        supabase.from("marm_unidades").select("id,codigo").eq("id", unidadSel.id).eq("activa", true).single(),
+        supabase.from("marm_unidad_piezas").select("*").eq("unidad_id", unidadSel.id).order("sector").order("created_at"),
+      ]);
+      if (barco.error) throw barco.error;
+      if (detalle.error) throw detalle.error;
+      if (win.closed) return;
+      const html = construirHtmlEtiquetasMarmoleria({ unidad: barco.data, piezas: detalle.data ?? [] });
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      // La vista de impresión no necesita acceso a la ventana del sistema.
+      win.opener = null;
+    } catch (e) {
+      if (!win.closed) win.close();
+      setErr(e.message || "No se pudieron preparar las etiquetas.");
+    } finally {
+      setPrintingEtiquetas(false);
+    }
+  }
+
   // ── RENDER ────────────────────────────────────────────────────
   const enCentro = viewMode === "centro";
   const mostrarDetalle = !!unidadSel;
@@ -921,6 +955,8 @@ export default function MarmoleriaScreen({ profile }) {
                     onAddPieza={agregarPiezaManual}
                     onAddPiezaPlantilla={agregarPiezaAPlantilla}
                     sectoresSugeridos={sectoresSugeridos}
+                    onPrintEtiquetas={imprimirEtiquetas}
+                    printingEtiquetas={printingEtiquetas}
                   />
                 </div>
               )}
@@ -987,6 +1023,8 @@ export default function MarmoleriaScreen({ profile }) {
             onAddPieza={agregarPiezaManual}
             onAddPiezaPlantilla={agregarPiezaAPlantilla}
             sectoresSugeridos={sectoresSugeridos}
+            onPrintEtiquetas={imprimirEtiquetas}
+            printingEtiquetas={printingEtiquetas}
           />
         </div>
       )}
