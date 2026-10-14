@@ -205,6 +205,16 @@ export const CSS_LAMINACION = `
 .lam-sel-libre b { color: var(--text); font-weight: 600; }
 .lam-sel-nada { padding: 14px 12px; font-size: 12.5px; color: var(--dim); }
 
+/* ── Quién retira (empleados de RRHH o texto libre) ── */
+.lam-persona { position: relative; min-width: 0; }
+.lam-persona .ui-input { width: 100%; padding-right: 84px; }
+.lam-persona-marca {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none;
+  display: inline-flex; align-items: center; gap: 4px; min-height: 20px; padding: 0 7px; border-radius: 6px;
+  border: 1px solid var(--t-borde); background: var(--t-soft); color: var(--t);
+  font-size: 10.5px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+}
+
 /* ── Tablas y filas ── */
 .lam-tabla { overflow-x: auto; }
 .lam-t { width: 100%; border-collapse: collapse; font-size: 13px; }

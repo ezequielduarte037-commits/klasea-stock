@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, ArrowUpFromLine, Check, History, Search, ShoppingCart } from "lucide-react";
 import SelectorObra from "@/features/laminacion/SelectorObra";
+import SelectorPersona from "@/features/laminacion/SelectorPersona";
+import { normNombre, useEmpleadosRrhh } from "@/features/laminacion/empleadosRrhh";
 import { buscarObra, fmtFecha, fmtNum, hoyISO, num } from "@/features/laminacion/obras";
 import { Aviso, Bloque, Cifra, Estado, Vacio } from "@/features/laminacion/ui";
 import { destinosFrecuentes } from "../datos";
 import TarjetaRetiro from "../TarjetaRetiro";
-import { etiquetaEmpleado } from "../retiroNfc";
 
 function horaDe(ts) {
   return ts ? new Date(ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "";
@@ -14,9 +15,10 @@ function horaDe(ts) {
 // El formulario vive en el contenedor (así la tarjeta NFC puede completar
 // "quién retira" aunque se lea mientras se elige otra cosa).
 export default function EgresosTab({
-  materiales, movs, stockPorMaterial, enCaminoPorMaterial, obras, puedeCargar,
+  materiales, movs, stockPorMaterial, enCaminoPorMaterial, obras, puedeCargar, sedePreferida,
   form, setForm, nfc, onLimpiarNfc, onCrearEgreso,
 }) {
+  const empleados = useEmpleadosRrhh();
   const [intento, setIntento] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [q, setQ] = useState("");
@@ -29,15 +31,17 @@ export default function EgresosTab({
       .filter((m) => !qq || [m._material, m.obra, m.destino, m._persona, m._obs].filter(Boolean).join(" ").toLowerCase().includes(qq));
   }, [movs, q]);
 
-  // Personas que ya retiraron: se sugieren para no escribir el nombre de cero.
+  // Personas que ya retiraron, de la más reciente a la más vieja: además de
+  // RRHH se sugieren las que se escribieron antes. Las de la tarjeta NFC vienen
+  // como "Nombre (DNI …)": se usa sólo el nombre.
   const personas = useMemo(() => {
     const vistos = new Map();
     for (const m of movs) {
       if (m._tipo !== "egreso") continue;
-      const p = String(m._persona || "").trim();
-      if (p && p !== "." && !vistos.has(p.toUpperCase())) vistos.set(p.toUpperCase(), p);
+      const p = String(m._persona || "").replace(/\s*\(DNI[^)]*\)\s*$/i, "").trim();
+      if (p && !vistos.has(normNombre(p))) vistos.set(normNombre(p), p);
     }
-    return [...vistos.values()].sort((a, b) => a.localeCompare(b, "es"));
+    return [...vistos.values()];
   }, [movs]);
 
   const otrosDestinos = useMemo(() => destinosFrecuentes(movs, obras), [movs, obras]);
@@ -104,18 +108,17 @@ export default function EgresosTab({
                 <input className="ui-input num" type="number" step="1" min="1" inputMode="numeric" placeholder="0" value={form.cantidad} onChange={(e) => setForm((f) => ({ ...f, cantidad: e.target.value }))} />
               </label>
               <label className="lam-campo c4"><span>Persona que retira</span>
-                <input
-                  className="ui-input"
-                  list="mad-personas"
-                  placeholder="Nombre del operario…"
+                <SelectorPersona
                   value={form.nombre_persona}
-                  onChange={(e) => {
-                    // Si se cambia a mano el nombre que puso la tarjeta, la tarjeta deja de valer.
-                    if (nfc.empleado && e.target.value !== etiquetaEmpleado(nfc.empleado)) nfc.clear();
-                    setForm((f) => ({ ...f, nombre_persona: e.target.value }));
+                  onChange={(texto) => {
+                    // Si se cambia el nombre que puso la tarjeta, la tarjeta deja de valer.
+                    if (nfc.empleado && normNombre(texto) !== normNombre(nfc.empleado.nombre)) nfc.clear();
+                    setForm((f) => ({ ...f, nombre_persona: texto }));
                   }}
+                  empleados={empleados}
+                  recientes={personas}
+                  sede={sedePreferida}
                 />
-                <datalist id="mad-personas">{personas.map((p) => <option key={p} value={p} />)}</datalist>
               </label>
               <label className="lam-campo c2"><span>Fecha</span>
                 <input className="ui-input" type="date" value={form.fecha} onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))} />

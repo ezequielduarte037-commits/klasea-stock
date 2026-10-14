@@ -6,12 +6,6 @@ import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
 // Quién retira, validado con la tarjeta NFC del empleado (lector por puente o
 // lector que escribe como teclado). Si no hay tarjeta, se escribe el nombre.
 
-export function etiquetaEmpleado(emp) {
-  const nombre = String(emp?.nombre ?? "").trim();
-  const dni = String(emp?.dni ?? "").trim();
-  return [nombre, dni ? `(DNI ${dni})` : ""].filter(Boolean).join(" ");
-}
-
 export function useRetiroNfc({ enabled, onEmpleado, onError }) {
   const [empleado, setEmpleado] = useState(null);
   const [code, setCode] = useState("");

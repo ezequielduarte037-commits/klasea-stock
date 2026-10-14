@@ -20,7 +20,7 @@ import {
 } from "./datos";
 import { borradorVacio } from "./pedidos/borrador";
 import { cargarListasMuebles } from "./pedidos/listasMuebles";
-import { etiquetaEmpleado, useRetiroNfc } from "./retiroNfc";
+import { useRetiroNfc } from "./retiroNfc";
 import StockTab from "./tabs/StockTab";
 import IngresosTab from "./tabs/IngresosTab";
 import EgresosTab from "./tabs/EgresosTab";
@@ -318,8 +318,10 @@ export default function MaderasScreen({ profile }) {
   }
 
   // ── Egreso ─────────────────────────────────────────────────────────────
+  // La tarjeta completa el nombre tal cual está en RRHH (el DNI y la tarjeta
+  // quedan en la nota del movimiento).
   const alLeerTarjeta = useCallback((emp) => {
-    setFormEgreso((f) => ({ ...f, nombre_persona: etiquetaEmpleado(emp) }));
+    setFormEgreso((f) => ({ ...f, nombre_persona: String(emp.nombre || "").trim() }));
     toast.success(`Retira: ${emp.nombre}`);
   }, [toast]);
   const alFallarTarjeta = useCallback((texto) => toast.error(texto), [toast]);
@@ -762,6 +764,7 @@ export default function MaderasScreen({ profile }) {
                   enCaminoPorMaterial={enCaminoPorMaterial}
                   obras={obras}
                   puedeCargar={puedeCargar}
+                  sedePreferida={["Pampa", "Chubut"].includes(profile?.sede) ? profile.sede : null}
                   form={formEgreso}
                   setForm={setFormEgreso}
                   nfc={nfc}

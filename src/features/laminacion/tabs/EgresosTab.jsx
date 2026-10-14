@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeftRight, ArrowUpFromLine, Check, History, Search, ShoppingCart } from "lucide-react";
 import SelectorObra from "../SelectorObra";
+import SelectorPersona from "../SelectorPersona";
+import { useEmpleadosRrhh } from "../empleadosRrhh";
 import { buscarObra, destinosFrecuentes, desmoldeDe, fmtFecha, fmtNum, hoyISO, num } from "../obras";
 import { Aviso, Bloque, Cifra, Estado, Mini, Vacio } from "../ui";
 
@@ -15,6 +17,7 @@ export default function EgresosTab({
   planDeObra, onCrearEgreso, onIrTraslados,
 }) {
   const [form, setForm] = useState(FORM_VACIO);
+  const empleados = useEmpleadosRrhh();
   const [intento, setIntento] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [q, setQ] = useState("");
@@ -27,14 +30,16 @@ export default function EgresosTab({
       .filter((m) => !qq || [m.laminacion_materiales?.nombre, m.destino, m.obra, m.nombre_persona, m.observaciones].filter(Boolean).join(" ").toLowerCase().includes(qq));
   }, [movimientos, q]);
 
-  // Personas que ya retiraron: se sugieren para no escribir el nombre de cero.
+  // Personas que ya retiraron: además de RRHH, se sugieren las que se
+  // escribieron antes (contratistas, gente que no está cargada), de la más
+  // reciente a la más vieja.
   const personas = useMemo(() => {
     const vistos = new Map();
     for (const m of movimientos) {
       const p = String(m.nombre_persona || "").trim();
       if (p && !vistos.has(p.toUpperCase())) vistos.set(p.toUpperCase(), p);
     }
-    return [...vistos.values()].sort((a, b) => a.localeCompare(b, "es"));
+    return [...vistos.values()];
   }, [movimientos]);
 
   const otrosDestinos = useMemo(() => {
@@ -111,14 +116,19 @@ export default function EgresosTab({
               <label className="lam-campo c2"><span>Cantidad <span className="req">*</span></span>
                 <input className="ui-input num" type="number" step="0.01" min="0" placeholder="0" value={form.cantidad} onChange={(e) => setForm((f) => ({ ...f, cantidad: e.target.value }))} />
               </label>
-              <label className="lam-campo c2"><span>Persona que retira</span>
-                <input className="ui-input" list="lam-personas" placeholder="Nombre…" value={form.nombre_persona} onChange={(e) => setForm((f) => ({ ...f, nombre_persona: e.target.value }))} />
-                <datalist id="lam-personas">{personas.map((p) => <option key={p} value={p} />)}</datalist>
+              <label className="lam-campo c4"><span>Persona que retira</span>
+                <SelectorPersona
+                  value={form.nombre_persona}
+                  onChange={(texto) => setForm((f) => ({ ...f, nombre_persona: texto }))}
+                  empleados={empleados}
+                  recientes={personas}
+                  sede={sede}
+                />
               </label>
               <label className="lam-campo c2"><span>Fecha</span>
                 <input className="ui-input" type="date" value={form.fecha} onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))} />
               </label>
-              <label className="lam-campo c2"><span>Observaciones</span>
+              <label className="lam-campo c6"><span>Observaciones</span>
                 <input className="ui-input" placeholder="Reemplazo, remito…" value={form.observaciones} onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))} />
               </label>
               <div className="lam-form-pie">
