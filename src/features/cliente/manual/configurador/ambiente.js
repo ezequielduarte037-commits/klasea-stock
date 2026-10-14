@@ -78,19 +78,42 @@ function lienzo(T, pintar) {
   return tex;
 }
 
+/* Encaje de espuma (ruido celular): líneas blancas entre "burbujas", como
+   la espuma que queda flotando detrás de un barco. Se repite sin costura. */
+function encaje(T, celdas, semilla) {
+  let s = semilla;
+  const azar = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const pts = Array.from({ length: celdas * celdas }, () => [azar(), azar()]);
+  const out = new Float32Array(T * T);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const fx = (x / T) * celdas, fy = (y / T) * celdas;
+    const cx = Math.floor(fx), cy = Math.floor(fy);
+    let f1 = 9, f2 = 9;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const gx = cx + i, gy = cy + j;
+      const p = pts[((gy + celdas) % celdas) * celdas + ((gx + celdas) % celdas)];
+      const d = Math.hypot(gx + p[0] - fx, gy + p[1] - fy);
+      if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
+    }
+    out[y * T + x] = 1 - Math.min(1, (f2 - f1) / 0.22);
+  }
+  return out;
+}
+
 /* Ruido para la espuma del agua: rojo fino (burbujas y vetas), verde grueso
-   (manchas). Se repite sin costura. */
+   (manchas), azul el encaje de espuma. Se repite sin costura. */
 export function texturaRuido() {
-  const T = 256;
+  const T = 512;
   const fino = ruido(T, [[16, 1], [32, 0.8], [64, 0.55]], 5);
   const grueso = ruido(T, [[4, 1], [8, 0.6], [16, 0.35]], 9);
+  const lazoA = encaje(T, 14, 3), lazoB = encaje(T, 34, 8);
   const tex = lienzo(T, ctx => {
     const img = ctx.createImageData(T, T);
     const estirar = v => Math.max(0, Math.min(1, (v - 0.5) * 2.2 + 0.5));
     for (let i = 0; i < T * T; i++) {
       img.data[i * 4] = Math.round(255 * estirar(fino[i]));
       img.data[i * 4 + 1] = Math.round(255 * estirar(grueso[i]));
-      img.data[i * 4 + 2] = 0;
+      img.data[i * 4 + 2] = Math.round(255 * Math.min(1, Math.max(lazoA[i] ** 1.6, lazoB[i] ** 2.2 * 0.85)));
       img.data[i * 4 + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);

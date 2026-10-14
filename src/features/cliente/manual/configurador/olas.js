@@ -53,14 +53,18 @@ export const OLAS_GLSL = /* glsl */`
   uniform float frecuencias[ N_OLAS ];
   uniform float tiempoOla;
   uniform float fuerzaOla;
-  vec3 gerstner( vec2 p, float apagado, out vec3 normal ) {
+  // paso: separación local de la malla. Una ola más corta que unos pocos
+  // pasos no se puede dibujar (salían franjas barridas): se apaga y queda el
+  // relieve fino del mapa de normales.
+  vec3 gerstner( vec2 p, float apagado, float paso, out vec3 normal ) {
     vec3 d = vec3( 0.0 );
     vec3 tx = vec3( 1.0, 0.0, 0.0 );
     vec3 tz = vec3( 0.0, 0.0, 1.0 );
     for ( int i = 0; i < N_OLAS; i++ ) {
       vec2 dir = olas[ i ].xy;
       float k = olas[ i ].z;
-      float a = olas[ i ].w * fuerzaOla * apagado;
+      float L = 6.2831853 / k;
+      float a = olas[ i ].w * fuerzaOla * apagado * ( 1.0 - smoothstep( L * 0.12, L * 0.28, paso ) );
       float f = k * dot( dir, p ) - frecuencias[ i ] * tiempoOla;
       float q = ${AFILADO.toFixed(2)} / ( k * max( olas[ i ].w * fuerzaOla, 1e-4 ) * float( N_OLAS ) );
       q = min( q, 1.0 / ( k * max( a, 1e-4 ) * float( N_OLAS ) ) );
@@ -82,12 +86,16 @@ export const OLAS_GLSL = /* glsl */`
 export function mallaAgua(n) {
   const A = 70, B = 4430;
   const g = u => Math.sign(u) * (A * Math.abs(u) + B * Math.abs(u) ** 4);
+  // Separación de la grilla en cada columna/fila (para apagar las olas que no entran).
+  const sep = Array.from({ length: n + 1 }, (_, i) => Math.abs(g(Math.min(n, i + 1) / n * 2 - 1) - g(Math.max(0, i - 1) / n * 2 - 1)) / 2);
+  const paso = new Float32Array((n + 1) * (n + 1));
   const pos = new Float32Array((n + 1) * (n + 1) * 3);
   const uv = new Float32Array((n + 1) * (n + 1) * 2);
   for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
     const k = j * (n + 1) + i;
     pos.set([g(i / n * 2 - 1), g(j / n * 2 - 1), 0], k * 3);
     uv.set([i / n, j / n], k * 2);
+    paso[k] = Math.max(sep[i], sep[j]);
   }
   const idx = new Uint32Array(n * n * 6);
   let o = 0;
@@ -99,6 +107,7 @@ export function mallaAgua(n) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute("pasoMalla", new THREE.BufferAttribute(paso, 1));
   geo.setAttribute("normal", new THREE.BufferAttribute(new Float32Array((n + 1) * (n + 1) * 3).map((_, i) => (i % 3 === 2 ? 1 : 0)), 3));
   geo.setIndex(new THREE.BufferAttribute(idx, 1));
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
