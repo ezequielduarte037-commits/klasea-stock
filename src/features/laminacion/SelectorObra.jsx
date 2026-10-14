@@ -9,6 +9,9 @@ import { buscarObra, claveObra, desmoldeDe, fmtFecha } from "./obras";
 //
 //   <SelectorObra obras={obras} value={destino} onChange={(valor, obra) => …}
 //     otros={[{ valor: "Stock Pampa 1050", label: "Stock Pampa 1050", detalle: "sin obra" }]} />
+//
+// `conDesmolde={false}` lo usa Maderas: ahí la fecha de desmolde no dice nada y
+// en su lugar se muestra la línea.
 export default function SelectorObra({
   obras = [],
   value = "",
@@ -18,6 +21,7 @@ export default function SelectorObra({
   placeholder = "Elegí la obra…",
   id,
   invalido = false,
+  conDesmolde = true,
 }) {
   const idLista = useId();
   const [abierto, setAbierto] = useState(false);
@@ -161,7 +165,10 @@ export default function SelectorObra({
           <>
             <span className="lam-sel-cod">{obraSel.codigo}</span>
             <span className="lam-sel-meta">
-              {obraSel.lineaLabel}{desm ? ` · desmolde ${fmtFecha(desm)}${obraSel.desmoldeReal ? "" : " (est.)"}` : " · sin fecha de desmolde"}
+              {obraSel.lineaLabel}
+              {conDesmolde
+                ? (desm ? ` · desmolde ${fmtFecha(desm)}${obraSel.desmoldeReal ? "" : " (est.)"}` : " · sin fecha de desmolde")
+                : (obraSel.estado !== "activa" ? ` · ${obraSel.estado}` : "")}
             </span>
           </>
         ) : otroSel ? (
@@ -238,8 +245,12 @@ export default function SelectorObra({
                         onClick={() => elegir(it)}
                       >
                         <span className="cod">{o.codigo}</span>
-                        <span className="det">{o.estado === "pausada" ? "pausada" : o.estado === "terminada" ? "terminada" : f ? (o.desmoldeReal ? "desmoldada" : "desmolde estimado") : "sin fecha de desmolde"}</span>
-                        <span className="fec">{f ? fmtFecha(f) : ""}</span>
+                        <span className="det">
+                          {o.estado === "pausada" ? "pausada" : o.estado === "terminada" ? "terminada"
+                            : !conDesmolde ? "en curso"
+                            : f ? (o.desmoldeReal ? "desmoldada" : "desmolde estimado") : "sin fecha de desmolde"}
+                        </span>
+                        <span className="fec">{conDesmolde && f ? fmtFecha(f) : ""}</span>
                       </button>
                     );
                   }
