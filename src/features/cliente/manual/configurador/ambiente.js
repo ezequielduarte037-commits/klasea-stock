@@ -93,25 +93,24 @@ export function texturaEspuma() {
   });
 }
 
-/* Forma de la estela vista desde arriba: una V que se abre y se apaga hacia
-   atrás. u: a lo largo (0 popa del barco → 1 lejos), v: a lo ancho. */
-export function texturaEstela() {
-  const tex = lienzo(256, (ctx, T) => {
+/* Ruido para la espuma del agua: rojo fino (burbujas y vetas), verde grueso
+   (manchas). Se repite sin costura. */
+export function texturaRuido() {
+  const T = 256;
+  const fino = ruido(T, [[16, 1], [32, 0.8], [64, 0.55]], 5);
+  const grueso = ruido(T, [[4, 1], [8, 0.6], [16, 0.35]], 9);
+  const tex = lienzo(T, ctx => {
     const img = ctx.createImageData(T, T);
-    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-      const u = x / T, v = (y / T) * 2 - 1;
-      const abre = 0.16 + u * 0.84;
-      const borde = Math.abs(Math.abs(v) - abre * 0.92);
-      const centro = Math.max(0, 1 - Math.abs(v) / (0.14 + u * 0.32)) * Math.pow(1 - u, 1.4) * 1.5;
-      const brazo = Math.max(0, 1 - borde / (0.05 + u * 0.08)) * (1 - u * 0.85);
-      const a = Math.min(1, centro + brazo * 0.8) * suave(0, 0.04, u) * (Math.abs(v) < abre ? 1 : 0.4);
-      const k = (y * T + x) * 4;
-      img.data[k] = img.data[k + 1] = img.data[k + 2] = 255;
-      img.data[k + 3] = Math.round(255 * a);
+    const estirar = v => Math.max(0, Math.min(1, (v - 0.5) * 2.2 + 0.5));
+    for (let i = 0; i < T * T; i++) {
+      img.data[i * 4] = Math.round(255 * estirar(fino[i]));
+      img.data[i * 4 + 1] = Math.round(255 * estirar(grueso[i]));
+      img.data[i * 4 + 2] = 0;
+      img.data[i * 4 + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
   });
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.colorSpace = THREE.NoColorSpace;
   return tex;
 }
 
