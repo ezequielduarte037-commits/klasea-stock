@@ -363,14 +363,15 @@ function separarCostado(cubierta, casco, escala) {
 
 /* interior: .glb aparte con el interior solo (mismas coordenadas del .3dm).
    La vista interior pasa a ese modelo en lugar de cortar el exterior. */
-export async function cargarModelo({ url, lineas = false, corte: corteM = null, interior: urlInterior = null }) {
+export async function cargarModelo({ url, lineas = false, corte: corteM = null, interior: urlInterior = null, flotacion: sobreQuilla = 0.9 }) {
   const [raiz, raizInterior] = await Promise.all([leerGlb(url), urlInterior ? leerGlb(urlInterior).catch(() => null) : null]);
   raiz.updateMatrixWorld(true);
   const caja = new THREE.Box3().setFromObject(raiz);
   const tam = caja.getSize(new THREE.Vector3());
   const escala = LARGO / tam.x;
-  // Flotación aproximada: el casco se sumerge ~0,9 m desde el punto más bajo.
-  const flotacion = caja.min.y + 0.9;
+  // Flotación: metros sobre el punto más bajo del casco (la del modelo si la
+  // trae; si no, una estimación).
+  const flotacion = caja.min.y + sobreQuilla;
   raiz.scale.setScalar(escala);
   raiz.position.set(-(caja.min.x + tam.x / 2) * escala, -flotacion * escala, 0);
   raiz.updateMatrixWorld(true);

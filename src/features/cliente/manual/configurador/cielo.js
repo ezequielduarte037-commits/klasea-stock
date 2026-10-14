@@ -90,7 +90,8 @@ export function crearMaterialCielo() {
       varying vec3 vDir;
       const float PI = 3.14159265;
       vec3 leer( sampler2D m, float g, vec3 d ) {
-        float u = ( atan( d.z, d.x ) - g ) / ( 2.0 * PI ) + 0.5;
+        // En el cenit atan(0, 0) no está definido (daba píxeles inválidos).
+        float u = ( abs( d.x ) + abs( d.z ) < 1e-5 ? 0.0 : atan( d.z, d.x ) - g ) / ( 2.0 * PI ) + 0.5;
         float e = asin( clamp( d.y, -1.0, 1.0 ) );
         float v = 1.0 - clamp( ( 0.5 * PI - e ) / PI / fondo, 0.0, 0.999 );
         return texture2D( m, vec2( u, v ) ).rgb * ${K.toFixed(1)};
@@ -99,7 +100,7 @@ export function crearMaterialCielo() {
         vec3 d = normalize( vDir );
         vec3 c = mix( leer( mapaA, giro.x, d ) * brillo.x, leer( mapaB, giro.y, d ) * brillo.y, t );
         if ( tc > 0.001 ) c = mix( c, leer( mapaC, giro.z, d ) * brillo.z, tc );
-        gl_FragColor = vec4( c, 1.0 );
+        gl_FragColor = vec4( max( c, vec3( 0.0 ) ), 1.0 );
         #include <colorspace_fragment>
       }`,
   });
