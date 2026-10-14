@@ -22,7 +22,7 @@ import { CAPAS, VISTAS, opcionDe } from "./opciones";
 import { ambiente, texturaBrillo, texturaRuido } from "./ambiente";
 import { OLAS_GLSL, uniformsOlas, alturaOla, mallaAgua } from "./olas";
 import { CIELOS_CLIMA, cielosDeHora, crearMaterialCielo, aplicarCielo, luzDelCielo } from "./cielo";
-import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, anchoFlotacion, texturaAncho } from "./luces";
+import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, anchoFlotacion, texturaAncho } from "./luces";
 
 // Azar con semilla: estrellas y gotas siempre en el mismo lugar.
 function azar(semilla) {
@@ -568,24 +568,20 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     const luzPopa = new THREE.PointLight("#3fd6ff", 0, LARGO * 0.6, 1.6);
     luzPopa.position.set(-LARGO / 2 - 0.4, 0.15, 0);
 
-    // Cortesía: las tiras LED del hardtop iluminan el cockpit desde arriba,
-    // LEDs bajos en la borda y en el espejo de popa.
-    const led = modelo.anclas?.led || modelo.anclas?.timon || [-LARGO * 0.1, 1.8, 0];
-    const techo = [-1, 1].map(k => {
-      const l = new THREE.PointLight("#ffc98c", 0, LARGO * 0.42, 1.7);
-      l.position.set(led[0] + k * LARGO * 0.09, led[1] - 0.12, led[2]);
-      return l;
-    });
-    const espejo = new THREE.PointLight("#ffc98c", 0, LARGO * 0.25, 1.8);
-    espejo.position.set(-LARGO / 2 + 0.1, 0.45, 0);
-    const cortesia = crearCortesia(ubicarCortesia(modelo), brillo);
+    // Cortesía: LEDs bajos en la borda y en el espejo de popa y las tiras
+    // del hardtop; su luz se calcula dentro de los materiales del barco.
+    const cortesia = crearCortesia(ubicarCortesia(modelo), modelo);
     const navegacion = crearNavegacion(modelo, brillo);
-    return { brillo, luzPopa, techo, espejo, cortesia, navegacion };
+    return { brillo, luzPopa, cortesia, navegacion };
   }, [modelo]);
+  useEffect(() => {
+    ["teca", "cubierta", "casco", "tapizado", "almohadon", "negro", "detalle", "acrilico", "cromo", "piedra", "madera"]
+      .forEach(n => { if (mats.lista[n]) iluminarConCortesia(mats.lista[n], extras.cortesia.uniforms); });
+  }, [mats, extras]);
   useEffect(() => () => {
     const e = extras;
-    e.cortesia.charcos.forEach(m => { m.geometry.dispose(); m.material.dispose(); });
-    e.cortesia.puntos.forEach(s => s.material.dispose());
+    e.cortesia.geo.dispose();
+    e.cortesia.mat.dispose();
     e.navegacion.forEach(({ g }) => g.children.forEach(s => s.material.dispose()));
     e.brillo.dispose();
   }, [extras]);
@@ -625,10 +621,6 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     apertura.current = metaAp > apertura.current ? Math.min(metaAp, apertura.current + paso) : Math.max(metaAp, apertura.current - paso);
     const x = apertura.current;
     abrirBalcones(v.modelo, x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-    // Cerrado, la tapa de teca del balcón queda mirando hacia el cockpit: ahí
-    // es el plástico de la borda. La teca aparece cuando empieza a abrirse.
-    const tapa = x > 0.12 ? v.mats.lista.teca : v.mats.lista.cubierta;
-    Object.entries(v.modelo.piezas).forEach(([n, m]) => { if (n.startsWith("teca@") && m.material !== tapa) m.material = tapa; });
 
     // Navegación: acelera y frena de a poco; la proa sube con la velocidad.
     const c = v.comun.current;
@@ -669,9 +661,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     c.subacuatica = fx.agua;
     e.luzPopa.intensity = fx.agua * 6;
     prenderNavegacion(e.navegacion, camera, fx.nav);
-    prenderCortesia(e.cortesia, fx.cort);
-    e.techo.forEach(l => { l.intensity = fx.cort * 3.2; });
-    e.espejo.intensity = fx.cort * 1.6;
+    prenderCortesia(e.cortesia, fx.cort, grupo.current);
     const led = v.mats.lista.led;
     if (led) { led.emissive.set("#ffd2a0"); led.emissiveIntensity = fx.cort * 2.4; }
 
@@ -687,8 +677,6 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
       <group ref={grupo}>
         <primitive object={modelo.raiz} />
         {modelo.aparte && <primitive object={modelo.aparte.raiz} />}
-        {extras.techo.map((l, i) => <primitive key={i} object={l} />)}
-        <primitive object={extras.espejo} />
         <primitive object={extras.cortesia.grupo} />
         {extras.navegacion.map(({ g }, i) => <primitive key={`n${i}`} object={g} />)}
       </group>
