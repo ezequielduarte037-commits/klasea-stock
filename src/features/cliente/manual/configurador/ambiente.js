@@ -12,7 +12,7 @@ const suave = (a, b, x) => {
 
 /* Parámetros del cielo por clima (Sky de three: turbidez, Rayleigh, Mie). */
 const CIELOS = {
-  sol:    { turbidez: 2.2, rayleigh: 1.1, mie: 0.004, mieG: 0.82, nubes: 0.22, lluvia: 0, luz: 1, niebla: 0.0009, agua: "#0e3a48", ola: 2.2 },
+  sol:    { turbidez: 1.6, rayleigh: 2.4, mie: 0.003, mieG: 0.86, nubes: 0.22, lluvia: 0, luz: 1, niebla: 0.0006, agua: "#0a3a52", ola: 2.2 },
   nubes:  { turbidez: 9, rayleigh: 2.6, mie: 0.02, mieG: 0.7, nubes: 0.85, lluvia: 0, luz: 0.42, niebla: 0.0035, agua: "#22363b", ola: 3.2 },
   lluvia: { turbidez: 16, rayleigh: 3.4, mie: 0.045, mieG: 0.62, nubes: 1, lluvia: 1, luz: 0.24, niebla: 0.009, agua: "#202a2a", ola: 4.6 },
 };
@@ -37,7 +37,7 @@ export function ambiente(hora, clima) {
     ambiente: 0.12 + noche * 0.3 + dia * (0.55 + (1 - c.luz) * 0.35),
     luna: noche * 1.1,
     niebla: c.niebla * (1 + noche * 0.6),
-    nieblaColor: new THREE.Color(clima === "sol" ? "#cfdbe3" : clima === "nubes" ? "#a8b1b6" : "#8a9397")
+    nieblaColor: new THREE.Color(clima === "sol" ? "#bcd0de" : clima === "nubes" ? "#a8b1b6" : "#8a9397")
       .lerp(new THREE.Color("#e8b38d"), clima === "sol" ? dorado * 0.7 * dia : 0)
       .lerp(new THREE.Color("#0b1018"), noche),
     exposicion: 0.52 + noche * 0.3,
@@ -78,19 +78,6 @@ function lienzo(T, pintar) {
   return tex;
 }
 
-/* Nubes: blanco con alfa de ruido fractal. "cobertura" sube en nublado. */
-export function texturaNubes() {
-  return lienzo(512, (ctx, T) => {
-    const n = ruido(T, [[4, 1], [8, 0.55], [16, 0.3], [32, 0.15]], 7);
-    const img = ctx.createImageData(T, T);
-    for (let i = 0; i < n.length; i++) {
-      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255;
-      img.data[i * 4 + 3] = Math.round(255 * n[i]);
-    }
-    ctx.putImageData(img, 0, 0);
-  });
-}
-
 /* Espuma: manchas blancas de ruido fino, para la estela (se desplaza). */
 export function texturaEspuma() {
   return lienzo(256, (ctx, T) => {
@@ -128,15 +115,21 @@ export function texturaEstela() {
   return tex;
 }
 
-/* Brillo redondo (luces subacuáticas, luna, luz de tope). */
+/* Brillo redondo (luces, luna, charcos de luz). Caída suave como la de una
+   luz real: un núcleo gaussiano más una cola larga que llega a cero sin
+   borde (el degradé lineal de antes dejaba anillos y un canto visible). */
 export function texturaBrillo() {
-  const tex = lienzo(128, (ctx, T) => {
-    const g = ctx.createRadialGradient(T / 2, T / 2, 0, T / 2, T / 2, T / 2);
-    g.addColorStop(0, "rgba(255,255,255,1)");
-    g.addColorStop(0.25, "rgba(255,255,255,.55)");
-    g.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, T, T);
+  const tex = lienzo(256, (ctx, T) => {
+    const img = ctx.createImageData(T, T);
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      const r = Math.hypot(x + 0.5 - T / 2, y + 0.5 - T / 2) / (T / 2);
+      const borde = Math.max(0, 1 - r);
+      const a = (Math.exp(-r * r * 14) * 0.75 + 0.25 / (1 + (r * 7) ** 2)) * borde * borde;
+      const o = (y * T + x) * 4;
+      img.data[o] = img.data[o + 1] = img.data[o + 2] = 255;
+      img.data[o + 3] = Math.round(255 * Math.min(1, a));
+    }
+    ctx.putImageData(img, 0, 0);
   });
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
   return tex;

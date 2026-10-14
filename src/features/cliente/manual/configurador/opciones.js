@@ -4,8 +4,7 @@
    Los colores se aplican sobre los acabados del modelo (acabados.js).
 ═══════════════════════════════════════════════════════════════ */
 
-/* Cada capa de color pinta un grupo del modelo. "tex" decide si se conserva la
-   textura fotográfica del acabado (el cuero caramelo es la foto del cuero). */
+/* Cada capa de color pinta un grupo del modelo. */
 export const CAPAS = [
   {
     id: "casco", t: "Casco", grupo: "casco",
@@ -38,10 +37,12 @@ export const CAPAS = [
   },
   {
     id: "tapizado", t: "Tapizados", grupo: "tapizado",
+    // Cuero náutico en grises (el color cuero no se ofrece).
     ops: [
-      { id: "caramelo", t: "Cuero caramelo", c: "#efe4d8", muestra: "#a5683a", tex: true },
-      { id: "marfil", t: "Marfil", c: "#efeae1" },
-      { id: "piedra", t: "Piedra", c: "#9b958c" },
+      { id: "piedra", t: "Gris piedra", c: "#a19e98" },
+      { id: "perla", t: "Gris perla", c: "#cfcdc8" },
+      { id: "grafito", t: "Grafito", c: "#4b4d50" },
+      { id: "marfil", t: "Marfil", c: "#ece7dd" },
       { id: "marino", t: "Azul marino", c: "#27324a" },
       { id: "negro", t: "Negro", c: "#26272a" },
     ],
@@ -69,11 +70,11 @@ export const ELECCION_INICIAL = Object.fromEntries(CAPAS.map(c => [c.id, c.ops[0
 
 /* Estilos completos: un toque y cambia todo el barco. */
 export const ESTILOS = [
-  { id: "klasea", t: "Klase A", d: "Blanco, teca y cuero caramelo. El clásico de la casa.", e: { casco: "artico", cubierta: "blanco", teca: "natural", tapizado: "caramelo", almohadon: "blanco", negro: "negro" } },
+  { id: "klasea", t: "Klase A", d: "Blanco, teca clara y tapizados gris piedra. El clásico de la casa.", e: { casco: "artico", cubierta: "blanco", teca: "natural", tapizado: "piedra", almohadon: "blanco", negro: "negro" } },
   { id: "tendencia", t: "Marcando tendencia", d: "Casco negro piano, cubierta grafito y tapizados marfil.", e: { casco: "piano", cubierta: "grafito", teca: "carbon", tapizado: "marfil", almohadon: "blanco", negro: "negro" } },
-  { id: "riviera", t: "Riviera", d: "Azul medianoche con teca natural, como en la Costa Azul.", e: { casco: "medianoche", cubierta: "blanco", teca: "natural", tapizado: "marfil", almohadon: "marino", negro: "titanio" } },
-  { id: "explorer", t: "Explorer", d: "Oliva, teca plateada y piedra. Para salir lejos.", e: { casco: "oliva", cubierta: "hueso", teca: "plata", tapizado: "piedra", almohadon: "arena", negro: "negro" } },
-  { id: "costa", t: "Costa", d: "Arena y hueso, todo claro y cálido.", e: { casco: "arena", cubierta: "hueso", teca: "natural", tapizado: "marfil", almohadon: "arena", negro: "titanio" } },
+  { id: "riviera", t: "Riviera", d: "Azul medianoche con teca natural, como en la Costa Azul.", e: { casco: "medianoche", cubierta: "blanco", teca: "natural", tapizado: "perla", almohadon: "marino", negro: "titanio" } },
+  { id: "explorer", t: "Explorer", d: "Oliva, teca plateada y piedra. Para salir lejos.", e: { casco: "oliva", cubierta: "hueso", teca: "plata", tapizado: "grafito", almohadon: "arena", negro: "negro" } },
+  { id: "costa", t: "Costa", d: "Arena y hueso, todo claro y cálido.", e: { casco: "arena", cubierta: "hueso", teca: "natural", tapizado: "perla", almohadon: "arena", negro: "titanio" } },
 ];
 
 export function opcionDe(capa, id) {
