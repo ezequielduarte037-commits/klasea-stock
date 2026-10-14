@@ -78,21 +78,6 @@ function lienzo(T, pintar) {
   return tex;
 }
 
-/* Espuma: manchas blancas de ruido fino, para la estela (se desplaza). */
-export function texturaEspuma() {
-  return lienzo(256, (ctx, T) => {
-    const n = ruido(T, [[8, 1], [16, 0.7], [32, 0.5], [64, 0.3]], 3);
-    const img = ctx.createImageData(T, T);
-    for (let i = 0; i < n.length; i++) {
-      // Nunca transparente del todo: la espuma es un manto con manchas más densas.
-      const v = 0.4 + 0.6 * Math.max(0, Math.min(1, (n[i] - 0.3) * 2.6));
-      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = Math.round(255 * v);
-      img.data[i * 4 + 3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
-  });
-}
-
 /* Ruido para la espuma del agua: rojo fino (burbujas y vetas), verde grueso
    (manchas). Se repite sin costura. */
 export function texturaRuido() {

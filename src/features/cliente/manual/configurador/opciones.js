@@ -20,11 +20,15 @@ export const CAPAS = [
   },
   {
     id: "cubierta", t: "Cubierta", grupo: "cubierta",
+    // Tonos bien separados: los claros muy parecidos (blanco, hueso, gris
+    // niebla) al sol se veían todos blancos y parecía que no cambiaba nada.
     ops: [
       { id: "blanco", t: "Blanco", c: "#f6f6f3" },
-      { id: "hueso", t: "Hueso", c: "#ebe5d9" },
-      { id: "niebla", t: "Gris Niebla", c: "#c9cbcb" },
+      { id: "hueso", t: "Arena", c: "#d6c3a2" },
+      { id: "niebla", t: "Gris perla", c: "#aeb3b6" },
+      { id: "acero", t: "Gris acero", c: "#6f767b" },
       { id: "grafito", t: "Grafito", c: "#3d4044" },
+      { id: "negro", t: "Negro", c: "#17181b" },
     ],
   },
   {

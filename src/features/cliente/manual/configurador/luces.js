@@ -3,8 +3,8 @@
    Luces de navegación con sus sectores reales (roja a babor, verde a
    estribor: se ven sólo desde proa hasta 22,5° detrás del través; la de
    tope en todo el horizonte), luces de cortesía ubicadas sobre el modelo
-   (se buscan el piso y la borda del cockpit con rayos) y la espuma donde
-   el casco toca el agua.
+   (se buscan el piso y la borda del cockpit con rayos) y el ancho del casco
+   en la flotación (para la espuma del agua).
 ═══════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
 import { LARGO } from "../recorrido/barco";
@@ -195,57 +195,4 @@ export function texturaAncho(a) {
   t.magFilter = t.minFilter = THREE.LinearFilter;
   t.needsUpdate = true;
   return t;
-}
-
-export function crearEspumaCasco(modelo, espuma) {
-  const a = anchoFlotacion(modelo);
-  if (!a) return null;
-  const { liso, N, x0, x1, max: maxAncho } = a;
-  const alto = maxAncho * 2 + 1.2;
-  const W = 512, H = 160;
-  const c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const ctx = c.getContext("2d");
-  const img = ctx.createImageData(W, H);
-  // Segundo lienzo: la sombra del casco sobre el agua (más oscura pegada al
-  // casco y se abre hacia afuera). Es lo que hace que el barco "apoye".
-  const cs = document.createElement("canvas");
-  cs.width = W; cs.height = H;
-  const ctxS = cs.getContext("2d");
-  const imgS = ctxS.createImageData(W, H);
-  for (let px = 0; px < W; px++) {
-    const k = Math.round((px / (W - 1)) * (N - 1));
-    const w = liso[k];
-    for (let py = 0; py < H; py++) {
-      const z = Math.abs((py / (H - 1) - 0.5) * alto);
-      // Pegada al casco y un poco hacia afuera; nada adentro del casco.
-      const d = z - w;
-      const a = w > 0.02 ? Math.max(0, 1 - Math.abs(d - 0.04) / 0.16) * (d > -0.02 ? 1 : 0) : 0;
-      const o = (py * W + px) * 4;
-      img.data[o] = img.data[o + 1] = img.data[o + 2] = 255;
-      img.data[o + 3] = Math.round(255 * a);
-      // Sombra: hacia los extremos (proa y popa) se apaga con el ancho.
-      const sAlfa = w > 0.02 ? Math.exp(-Math.max(0, d) / 0.3) * Math.min(1, w / 0.6) : 0;
-      imgS.data[o + 3] = Math.round(255 * 0.5 * sAlfa);
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  ctxS.putImageData(imgS, 0, 0);
-  const formaSombra = new THREE.CanvasTexture(cs);
-  const sombra = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, alto), new THREE.MeshBasicMaterial({
-    map: formaSombra, color: "#000000", transparent: true, opacity: 0.55, depthWrite: false,
-    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
-  }));
-  sombra.rotation.x = -Math.PI / 2;
-  sombra.position.set((x0 + x1) / 2, 0.04, 0);
-  sombra.renderOrder = 1;
-  const forma = new THREE.CanvasTexture(c);
-  const malla = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, alto), new THREE.MeshBasicMaterial({
-    map: forma, alphaMap: espuma, transparent: true, opacity: 0.5, depthWrite: false, color: "#e9f1f3",
-    polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
-  }));
-  malla.rotation.x = -Math.PI / 2;
-  malla.position.set((x0 + x1) / 2, 0.05, 0);
-  malla.renderOrder = 2;
-  return { malla, forma, sombra, formaSombra };
 }
