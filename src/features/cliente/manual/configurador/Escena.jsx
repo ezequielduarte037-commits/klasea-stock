@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    Configurador · escena
-   Mar y cielo de verdad (Water y Sky de three), nubes, lluvia y
+   Mar de verdad (Water de three) bajo cielos fotográficos (cielo.js), lluvia y
    estrellas, el barco con sus colores, balcones que se rebaten y una
    navegación con estela. Todo cambia con transiciones: cada cuadro se
    acerca un poco al estado pedido.
@@ -8,14 +8,18 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import * as THREE from "three";
-import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { LARGO, abrirBalcones, texturaTeca, materialDe } from "../recorrido/barco";
 import { crearMateriales } from "../recorrido/acabados";
 import { CAPAS, VISTAS, opcionDe } from "./opciones";
-import { ambiente, texturaNubes, texturaEspuma, texturaEstela, texturaBrillo } from "./ambiente";
+import { ambiente, texturaEspuma, texturaEstela, texturaBrillo } from "./ambiente";
+import { CIELOS_CLIMA, cielosDeHora, crearMaterialCielo, aplicarCielo, luzDelCielo } from "./cielo";
 import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, crearEspumaCasco } from "./luces";
 
 // Azar con semilla: estrellas y gotas siempre en el mismo lugar.
@@ -28,30 +32,84 @@ const chico = () => typeof window !== "undefined" && window.innerWidth < 900;
 // Velocidad de crucero en unidades de escena por segundo (≈ 22 nudos en un 43').
 const CRUCERO = 9.5;
 
-export default function Escena({ modelo, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0 }) {
-  const objetivo = useMemo(() => ambiente(hora, clima), [hora, clima]);
+export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef }) {
   // Estado compartido entre el mundo y el barco (velocidad, factor de noche).
   const comun = useRef({ vel: 0, noche: 0, dia: 1 });
   return (
     <>
-      <Mundo objetivo={objetivo} comun={comun} />
+      <Mundo hora={hora} clima={clima} cielos={cielos} comun={comun} />
       <Barco modelo={modelo} eleccion={eleccion} balcones={balcones} luces={luces} navegando={navegando} comun={comun} indicador={indicador} />
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.07}
         minDistance={LARGO * 0.22} maxDistance={LARGO * 4} maxPolarAngle={Math.PI / 2 - 0.05} />
       <Camara modelo={modelo} vista={vista} intro={intro} subir={subir} />
+      <Efectos renderRef={renderRef} />
     </>
   );
 }
 
-/* ─────────────── Cielo, mar, nubes, lluvia, estrellas ─────────────── */
-function Mundo({ objetivo, comun }) {
+/* ─────────────── Imagen final ─────────────── */
+/* Se dibuja en HDR y recién al final pasa por el tone mapping: así lo que
+   brilla de verdad (luces, destellos del sol en el agua, el sol mismo) se
+   abre en un resplandor suave, como en una cámara. renderRef.current queda
+   apuntando a esta función (para la foto). */
+function Efectos({ renderRef }) {
+  const gl = useThree(st => st.gl);
+  const escena = useThree(st => st.scene);
+  const camara = useThree(st => st.camera);
+  const size = useThree(st => st.size);
+  const efecto = useMemo(() => {
+    // MSAA en el destino: al dibujar en un render target se pierde el antialias del lienzo.
+    const destino = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    const composer = new EffectComposer(gl, destino);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.55, 3.2);
+    const pasadas = [new RenderPass(escena, camara), bloom, new OutputPass()];
+    pasadas.forEach(p => composer.addPass(p));
+    return { composer, pasadas, bloom };
+  }, [gl, escena, camara]);
+  useEffect(() => {
+    const pr = gl.getPixelRatio();
+    efecto.composer.setPixelRatio(pr);
+    efecto.composer.setSize(size.width, size.height);
+    // El resplandor no necesita resolución completa.
+    efecto.bloom.setSize(size.width * pr / 2, size.height * pr / 2);
+  }, [efecto, gl, size]);
+  useEffect(() => {
+    if (renderRef) renderRef.current = () => efecto.composer.render();
+    return () => {
+      if (renderRef) renderRef.current = null;
+      efecto.pasadas.forEach(p => p.dispose?.());
+      efecto.composer.dispose();
+    };
+  }, [efecto, renderRef]);
+  // Prioridad 1: desde acá se dibuja cada cuadro (R3F deja de hacerlo solo).
+  useFrame((_, dt) => efecto.composer.render(dt), 1);
+  return null;
+}
+
+/* ─────────────── Cielo, mar, lluvia, estrellas ─────────────── */
+function Mundo({ hora, clima, cielos, comun }) {
   const get = useThree(st => st.get);
   const obj = useMemo(() => {
-    const cielo = new Sky();
-    cielo.scale.setScalar(4500);
-    const cieloEnv = new Sky();
+    // Cúpula con los cielos fotográficos. La misma va en la escena de los
+    // reflejos (de ahí salen la luz ambiente y lo que reflejan casco y cromados).
+    const matCielo = crearMaterialCielo();
+    const seguir = function (r, sc, camara) { this.matrixWorld.makeTranslation(camara.position.x, camara.position.y, camara.position.z); };
+    const cupula = (radio) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(radio, 64, 32), matCielo);
+      m.frustumCulled = false;
+      m.onBeforeRender = seguir;
+      m.renderOrder = -10;
+      return m;
+    };
+    const domo = cupula(10);
+    const domoEnv = cupula(10);
     const escenaEnv = new THREE.Scene();
-    escenaEnv.add(cieloEnv);
+    escenaEnv.add(domoEnv);
+    // El mar en los reflejos: abajo agua, arriba cielo.
+    const marEnv = new THREE.Mesh(new THREE.CircleGeometry(400, 48), new THREE.MeshBasicMaterial({ color: "#0e3a48" }));
+    marEnv.rotation.x = -Math.PI / 2;
+    marEnv.position.y = -3;
+    escenaEnv.add(marEnv);
 
     const normales = new THREE.TextureLoader().load("/textures/recorrido/waternormals.jpg", t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
     const res = chico() ? 512 : 1024;
@@ -60,6 +118,8 @@ function Mundo({ objetivo, comun }) {
       sunDirection: new THREE.Vector3(0, 1, 0), sunColor: 0xffffff, waterColor: 0x06222c, distortionScale: 2.2, fog: true,
     });
     agua.rotation.x = -Math.PI / 2;
+    // Recibe la sombra del barco (Water ya trae la máscara de sombras).
+    agua.receiveShadow = true;
     // El barco no se mueve: navegar es correr el dibujo del agua hacia atrás.
     agua.material.uniforms.avance = { value: new THREE.Vector2() };
     agua.material.fragmentShader = agua.material.fragmentShader
@@ -68,7 +128,7 @@ function Mundo({ objetivo, comun }) {
       // Menos espejo y más color de mar (el original refleja como un lago quieto).
       .replace("float rf0 = 0.3;", "float rf0 = reflejo;")
       .replace("uniform vec3 waterColor;", "uniform vec3 waterColor;\nuniform float reflejo;\nuniform float oleaje;")
-      // Mar de fondo: dos trenes de olas largas que inclinan la superficie (el
+      // Mar de fondo: trenes de olas largas que inclinan la superficie (el
       // reflejo del cielo se ondula en franjas anchas, como en mar abierto).
       .replace("vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) );", `
         vec2 sp = worldPosition.xz + avance;
@@ -76,33 +136,23 @@ function Mundo({ objetivo, comun }) {
         vec2 g = d1 * 0.9 * cos( dot( sp, d1 ) * 0.23 + time * 1.3 )
           + d2 * 0.55 * cos( dot( sp, d2 ) * 0.37 + time * 1.7 )
           + d3 * 0.3 * cos( dot( sp, d3 ) * 0.61 + time * 2.3 );
-        vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) + vec3( g.x, 0.0, g.y ) * oleaje );`);
+        vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) + vec3( g.x, 0.0, g.y ) * oleaje );`)
+      // Destellos del sol más finos e intensos (el bloom los hace brillar).
+      .replace("sunLight( surfaceNormal, eyeDirection, 100.0, 2.0, 0.5, diffuseLight, specularLight );",
+        "sunLight( surfaceNormal, eyeDirection, 380.0, 7.0, 0.5, diffuseLight, specularLight );")
+      // Cerca de la cámara el agua deja ver un poco de color (turquesa en
+      // las caras de las olas); lejos manda el reflejo del cielo.
+      .replace("vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor;",
+        "vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor * ( 1.0 + vec3( 0.25, 0.9, 0.75 ) * ( 1.0 - smoothstep( 6.0, 45.0, distance ) ) * ( 0.5 + 0.5 * surfaceNormal.x ) );");
+    agua.material.fragmentShader = agua.material.fragmentShader
+      // El reflejo del cielo un poco más tenue: el mar abierto es más oscuro que el cielo que refleja.
+      .replace("vec3( 0.1 ) + reflectionSample * 0.9 + reflectionSample * specularLight", "reflectionSample * 0.8 + reflectionSample * specularLight");
     agua.material.uniforms.reflejo = { value: 0.1 };
     agua.material.uniforms.oleaje = { value: 0.25 };
     agua.material.uniforms.size.value = 4;
 
-    const texNubes = texturaNubes();
-    const nubes = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      uniforms: {
-        mapa: { value: texNubes }, cobertura: { value: 0.2 }, color: { value: new THREE.Color("#ffffff") },
-        corrimiento: { value: new THREE.Vector2() },
-      },
-      vertexShader: `varying vec2 vUv; varying float vD;
-        void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vD = length(w.xz); gl_Position = projectionMatrix * viewMatrix * w; }`,
-      fragmentShader: `uniform sampler2D mapa; uniform float cobertura; uniform vec3 color; uniform vec2 corrimiento;
-        varying vec2 vUv; varying float vD;
-        void main() {
-          float n = texture2D(mapa, vUv * 5.0 + corrimiento).a * 0.7 + texture2D(mapa, vUv * 13.0 - corrimiento * 1.7).a * 0.3;
-          float a = smoothstep(1.0 - cobertura, 1.25 - cobertura * 0.6, n);
-          a *= 1.0 - smoothstep(1400.0, 4200.0, vD);
-          gl_FragColor = vec4(color * (0.82 + n * 0.25), a * 0.92);
-        }`,
-    }));
-    nubes.rotation.x = Math.PI / 2;
-    nubes.position.y = 260;
-
-    // Estrellas en la media esfera de arriba.
+    // Estrellas en la media esfera de arriba (el cielo de noche las trae
+    // finitas; éstas las marcan un poco más).
     const r = azar(11);
     const N = 1400;
     const pos = new Float32Array(N * 3);
@@ -112,11 +162,7 @@ function Mundo({ objetivo, comun }) {
     }
     const geoEst = new THREE.BufferGeometry();
     geoEst.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const estrellas = new THREE.Points(geoEst, new THREE.PointsMaterial({ color: "#ffffff", size: 1.7, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
-
-    const brillo = texturaBrillo();
-    const luna = new THREE.Sprite(new THREE.SpriteMaterial({ map: brillo, color: "#e9eef7", transparent: true, opacity: 0, fog: false, depthWrite: false }));
-    luna.scale.setScalar(150);
+    const estrellas = new THREE.Points(geoEst, new THREE.PointsMaterial({ color: "#ffffff", size: 1.5, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
 
     // Lluvia: segmentos que caen en una caja alrededor del barco.
     const G = 2600;
@@ -130,23 +176,30 @@ function Mundo({ objetivo, comun }) {
     const lluvia = new THREE.LineSegments(geoLl, new THREE.LineBasicMaterial({ color: "#d4dde2", transparent: true, opacity: 0, fog: false, depthWrite: false }));
     lluvia.frustumCulled = false;
 
+    // Sol con sombra: el hardtop sombrea el cockpit y el casco el agua.
     const sol = new THREE.DirectionalLight("#ffffff", 2);
+    sol.castShadow = true;
+    sol.shadow.mapSize.setScalar(chico() ? 1024 : 2048);
+    Object.assign(sol.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 20, far: 110 });
+    sol.shadow.bias = -0.0004;
+    sol.shadow.normalBias = 0.03;
+    sol.shadow.radius = 3;
     const lunaLuz = new THREE.DirectionalLight("#9fb3ff", 0);
-    const hemi = new THREE.HemisphereLight("#dfe9f2", "#29363c", 0.6);
+    const hemi = new THREE.HemisphereLight("#dfe9f2", "#29363c", 0.2);
 
     const pmrem = new THREE.PMREMGenerator(get().gl);
-    return { cielo, cieloEnv, escenaEnv, agua, normales, nubes, texNubes, estrellas, luna, brillo, lluvia, sol, lunaLuz, hemi, pmrem, env: null };
+    return { matCielo, domo, domoEnv, escenaEnv, marEnv, agua, normales, estrellas, lluvia, sol, lunaLuz, hemi, pmrem, env: null };
   }, [get]);
 
-  // Estado actual (interpolado) del ambiente.
+  // Estado actual (interpolado): la hora corre hacia la elegida como un
+  // time-lapse, pasando por los cielos intermedios.
   const act = useRef(null);
   const vivo = useRef(null);
-  useEffect(() => { vivo.current = { obj, objetivo, comun }; }, [obj, objetivo, comun]);
+  useEffect(() => { vivo.current = { obj, hora, clima, cielos, comun }; }, [obj, hora, clima, cielos, comun]);
 
   useEffect(() => {
     const { scene: escena } = get();
-    const niebla = new THREE.FogExp2("#cfdbe3", 0.001);
-    escena.fog = niebla;
+    escena.fog = new THREE.FogExp2("#cfdbe3", 0.0008);
     escena.background = null;
     return () => {
       escena.fog = null;
@@ -154,80 +207,71 @@ function Mundo({ objetivo, comun }) {
       obj.env?.dispose();
       obj.pmrem.dispose();
       obj.agua.geometry.dispose(); obj.agua.material.dispose(); obj.normales.dispose();
-      obj.nubes.geometry.dispose(); obj.nubes.material.dispose(); obj.texNubes.dispose();
       obj.estrellas.geometry.dispose(); obj.estrellas.material.dispose();
-      obj.luna.material.dispose(); obj.brillo.dispose();
       obj.lluvia.geometry.dispose(); obj.lluvia.material.dispose();
-      obj.cielo.material.dispose(); obj.cieloEnv.material.dispose();
+      obj.domo.geometry.dispose(); obj.domoEnv.geometry.dispose(); obj.matCielo.dispose();
+      obj.marEnv.geometry.dispose(); obj.marEnv.material.dispose();
     };
   }, [get, obj]);
 
   useFrame(({ scene: escena, gl, clock }, dt) => {
     if (!vivo.current) return;
-    const { obj: o, objetivo: meta } = vivo.current;
+    const { obj: o, hora: metaHora, clima: metaClima, cielos: cs } = vivo.current;
     const c = vivo.current.comun.current;
-    const k = 1 - Math.exp(-dt * 1.8);
-    if (!act.current) act.current = { ...meta, solColor: meta.solColor.clone(), nieblaColor: meta.nieblaColor.clone(), aguaColor: new THREE.Color(meta.agua), ultimoEnv: -1, envElev: null, envTurb: null };
+    const k = 1 - Math.exp(-dt * 1.6);
+    if (!act.current) act.current = { hora: metaHora, tc: CIELOS_CLIMA[metaClima] ? 1 : 0, cUltimo: CIELOS_CLIMA[metaClima] || null, amb: ambiente(metaHora, metaClima), ultimoEnv: -1, envClave: "" };
     const a = act.current;
-    ["elev", "azim", "dia", "noche", "dorado", "turbidez", "rayleigh", "mie", "mieG", "nubes", "lluvia", "sol", "ambiente", "luna", "niebla", "exposicion", "ola"]
-      .forEach(n => { a[n] += (meta[n] - a[n]) * k; });
-    a.solColor.lerp(meta.solColor, k);
-    a.nieblaColor.lerp(meta.nieblaColor, k);
-    a.aguaColor.lerp(new THREE.Color(meta.agua), k);
-    c.noche = a.noche;
-    c.dia = a.dia;
+    a.hora += (metaHora - a.hora) * k;
+    if (Math.abs(metaHora - a.hora) < 0.002) a.hora = metaHora;
+    const cClima = CIELOS_CLIMA[metaClima] || null;
+    if (cClima) a.cUltimo = cClima;
+    a.tc += ((cClima ? 1 : 0) - a.tc) * k;
+    // Lo demás del ambiente (noche, lluvia, olas, niebla) sigue a la hora actual.
+    const meta = ambiente(a.hora, metaClima);
+    ["dia", "noche", "lluvia", "ola", "niebla", "exposicion"].forEach(n => { a.amb[n] += (meta[n] - a.amb[n]) * k; });
+    const m = a.amb;
+    c.noche = m.noche;
+    c.dia = m.dia;
 
-    const dir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - a.elev), THREE.MathUtils.degToRad(a.azim));
-    [o.cielo, o.cieloEnv].forEach(s => {
-      const u = s.material.uniforms;
-      u.turbidity.value = a.turbidez;
-      u.rayleigh.value = a.rayleigh;
-      u.mieCoefficient.value = a.mie;
-      u.mieDirectionalG.value = a.mieG;
-      u.sunPosition.value.copy(dir);
-    });
+    const hc = cielosDeHora(a.hora);
+    aplicarCielo(o.matCielo, hc, a.tc, cs.texturas, cs.datos, a.cUltimo);
+    const luz = luzDelCielo(hc, a.cUltimo, a.tc, cs.datos);
 
-    // Reflejos: se regeneran cuando el cielo cambió lo suficiente (y no más de ~3 por segundo).
+    const agua = new THREE.Color("#0b3b50").multiplyScalar(0.12 + 0.88 * m.dia * (1 - a.tc * 0.35));
+    // Reflejos: se regeneran cuando el cielo cambió (no más de ~3 por segundo).
     const t = clock.elapsedTime;
-    if (t - a.ultimoEnv > 0.33 && (a.envElev === null || Math.abs(a.envElev - a.elev) > 0.35 || Math.abs(a.envTurb - a.turbidez) > 0.3)) {
+    const clave = `${a.hora.toFixed(2)}|${a.tc.toFixed(2)}`;
+    if (t - a.ultimoEnv > 0.33 && clave !== a.envClave) {
+      o.marEnv.material.color.copy(agua).multiplyScalar(1.4).add(luz.horizonte.clone().multiplyScalar(0.12));
       const nuevo = o.pmrem.fromScene(o.escenaEnv).texture;
       o.env?.dispose();
       o.env = nuevo;
       escena.environment = nuevo;
       a.ultimoEnv = t;
-      a.envElev = a.elev;
-      a.envTurb = a.turbidez;
+      a.envClave = clave;
     }
-    escena.environmentIntensity = 0.25 + a.dia * 0.55;
+    escena.environmentIntensity = 1;
 
-    o.sol.position.copy(dir).multiplyScalar(60);
-    o.sol.intensity = a.sol;
-    o.sol.color.copy(a.solColor);
-    const dirLuna = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(55), THREE.MathUtils.degToRad(a.azim + 160));
-    o.lunaLuz.position.copy(dirLuna).multiplyScalar(60);
-    o.lunaLuz.intensity = a.luna;
-    o.luna.position.copy(dirLuna).multiplyScalar(2600);
-    o.luna.material.opacity = a.noche * (1 - a.nubes * 0.7);
-    o.hemi.intensity = a.ambiente;
+    o.sol.position.copy(luz.dir).multiplyScalar(60);
+    o.sol.intensity = luz.fuerza * 3.4;
+    o.sol.color.copy(luz.solColor);
+    o.lunaLuz.position.copy(luz.dir).multiplyScalar(60);
+    o.lunaLuz.intensity = m.noche * 0.55;
+    o.hemi.intensity = 0.08 + 0.12 * m.dia;
 
     const u = o.agua.material.uniforms;
     u.time.value += dt * (0.55 + c.vel * 0.04);
-    u.sunDirection.value.copy(dir);
-    u.sunColor.value.copy(a.solColor).multiplyScalar(a.dia * (0.35 + a.sol * 0.3) + a.noche * 0.15);
-    u.waterColor.value.copy(a.aguaColor).multiplyScalar(0.35 + a.dia * 0.65);
-    u.distortionScale.value = a.ola;
-    u.oleaje.value = 0.12 + a.ola * 0.05;
+    u.sunDirection.value.copy(luz.dir);
+    u.sunColor.value.copy(luz.solColor).multiplyScalar(luz.fuerza * 1.3 + m.noche * 0.1);
+    u.waterColor.value.copy(agua);
+    u.distortionScale.value = m.ola;
+    u.oleaje.value = 0.12 + m.ola * 0.05;
     u.avance.value.x += c.vel * dt;
 
-    const un = o.nubes.material.uniforms;
-    un.cobertura.value = a.nubes;
-    un.color.value.set("#ffffff").lerp(a.solColor, a.dorado * 0.6).multiplyScalar(0.18 + a.dia * 0.82 * (1 - a.lluvia * 0.45));
-    un.corrimiento.value.x += dt * (0.004 + c.vel * 0.0006);
+    o.estrellas.material.opacity = m.noche * (1 - a.tc) * 0.6;
 
-    o.estrellas.material.opacity = a.noche * (1 - a.nubes * 0.85);
-
-    o.lluvia.material.opacity = a.lluvia * 0.5;
-    if (a.lluvia > 0.02) {
+    o.lluvia.material.opacity = m.lluvia * 0.45;
+    if (m.lluvia > 0.02) {
       const p = o.lluvia.geometry.attributes.position;
       for (let i = 0; i < p.count; i += 2) {
         let y = p.getY(i) - dt * 26;
@@ -240,18 +284,17 @@ function Mundo({ objetivo, comun }) {
       p.needsUpdate = true;
     }
 
-    escena.fog.color.copy(a.nieblaColor);
-    escena.fog.density = a.niebla;
-    gl.toneMappingExposure = a.exposicion;
+    // La niebla toma el color del horizonte del cielo: el mar se funde con él.
+    escena.fog.color.copy(luz.horizonte).multiplyScalar(0.92);
+    escena.fog.density = m.niebla;
+    gl.toneMappingExposure = 0.5 + m.noche * 0.35;
   });
 
   return (
     <>
-      <primitive object={obj.cielo} />
+      <primitive object={obj.domo} />
       <primitive object={obj.agua} />
-      <primitive object={obj.nubes} />
       <primitive object={obj.estrellas} />
-      <primitive object={obj.luna} />
       <primitive object={obj.lluvia} />
       <primitive object={obj.sol} />
       <primitive object={obj.lunaLuz} />
@@ -278,12 +321,20 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
   // balcones como su grupo). Sin contornos: acá manda el material.
   const get = useThree(st => st.get);
   useEffect(() => {
-    Object.entries(modelo.piezas).forEach(([nombre, m]) => { m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle; });
+    Object.entries(modelo.piezas).forEach(([nombre, m]) => {
+      m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle;
+      // Sombras del sol: todo el exterior las da y las recibe (el vidrio sólo las recibe).
+      m.castShadow = materialDe(nombre) !== "vidrios";
+      m.receiveShadow = true;
+    });
     // El interior va adentro del casco: se ve por ventanas y parabrisas (sin
     // él, el barco se veía hueco, "transparente"). Va en la capa 1, que la
     // cámara del reflejo del agua no dibuja: no suma costo al reflejo.
     if (modelo.aparte) {
-      Object.entries(modelo.aparte.piezas).forEach(([nombre, m]) => { m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle; });
+      Object.entries(modelo.aparte.piezas).forEach(([nombre, m]) => {
+        m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle;
+        m.receiveShadow = true;
+      });
       modelo.aparte.raiz.visible = true;
       modelo.aparte.raiz.traverse(o => o.layers.set(1));
       get().camera.layers.enable(1);
@@ -306,7 +357,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     const largo = LARGO * 3.4;
     const estela = new THREE.Mesh(
       new THREE.PlaneGeometry(largo, LARGO * 1.5),
-      new THREE.MeshBasicMaterial({ map: forma, alphaMap: espuma, transparent: true, opacity: 0, depthWrite: false, color: "#e9f1f3", toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+      new THREE.MeshBasicMaterial({ map: forma, alphaMap: espuma, transparent: true, opacity: 0, depthWrite: false, color: new THREE.Color("#e9f1f3").multiplyScalar(1.7), polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     );
     // u = 0 en la popa: el plano se da vuelta para que la V abra hacia atrás.
     estela.rotation.set(-Math.PI / 2, 0, Math.PI);
@@ -315,7 +366,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     // Espuma a los costados del casco (bigotes de proa) mientras navega.
     const costado = new THREE.Mesh(
       new THREE.PlaneGeometry(LARGO * 1.05, LARGO * 0.5),
-      new THREE.MeshBasicMaterial({ map: forma, alphaMap: espuma, transparent: true, opacity: 0, depthWrite: false, color: "#e9f1f3", toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+      new THREE.MeshBasicMaterial({ map: forma, alphaMap: espuma, transparent: true, opacity: 0, depthWrite: false, color: new THREE.Color("#e9f1f3").multiplyScalar(1.7), polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     );
     costado.rotation.set(-Math.PI / 2, 0, Math.PI);
     costado.position.set(0.1, 0.07, 0);
@@ -371,13 +422,11 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
       const op = opcionDe(capa.id, eleccion[capa.id]);
       const m = mats.lista[capa.grupo];
       if (!m || !op) return;
-      metas.current[capa.grupo] = new THREE.Color(op.c);
+      // La teca trae el color en la textura (cada variante es otra textura):
+      // el color de la muestra es sólo para el botón.
+      metas.current[capa.grupo] = new THREE.Color(capa.id === "teca" ? "#ffffff" : op.c);
       if (capa.id === "teca") {
         const mapa = mats.tex(`teca-${op.teca}`, () => texturaTeca(op.teca));
-        if (m.map !== mapa) { m.map = mapa; m.needsUpdate = true; }
-      }
-      if (capa.id === "tapizado") {
-        const mapa = op.tex ? mats.tex("fabric_leather_02-c-0.8", () => null) : null;
         if (m.map !== mapa) { m.map = mapa; m.needsUpdate = true; }
       }
     });
@@ -442,7 +491,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     if (e.espumaCasco) {
       const m = e.espumaCasco.malla.material;
       m.opacity = 0.45 + f * 0.45;
-      m.color.setScalar(0.25 + 0.75 * c.dia);
+      m.color.setScalar((0.25 + 0.75 * c.dia) * 1.7);
     }
 
     if (v.indicador?.current) {

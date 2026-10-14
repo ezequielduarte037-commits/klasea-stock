@@ -14,28 +14,27 @@ const suave = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-function sprite(mapa, color, escala, opacidad = 1) {
+/* Sprite aditivo con color en HDR (intensidad > 1): el bloom de la escena
+   hace el resplandor, como la lente de una cámara. pantalla: tamaño fijo en
+   pantalla (un punto de luz se ve igual de cerca que de lejos). */
+function sprite(mapa, color, escala, { intensidad = 1, pantalla = false } = {}) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: mapa, color, transparent: true, opacity: opacidad, depthWrite: false,
-    blending: THREE.AdditiveBlending, fog: false, toneMapped: false,
+    map: mapa, color: new THREE.Color(color).multiplyScalar(intensidad), transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.AdditiveBlending, fog: false, sizeAttenuation: !pantalla,
   }));
   s.scale.setScalar(escala);
   return s;
 }
 
-/* Una luz: núcleo chico y muy brillante, halo amplio y un destello horizontal
-   finito (como lo ve una cámara de noche). */
-function foco(mapa, color, pos, { nucleo = 0.05, halo = 0.75, destello = 1.4 } = {}) {
+/* Una luz de navegación: el punto de la lámpara (casi blanco al centro, como
+   se ve una luz roja muy fuerte) y un halo tenue del color de la luz. */
+function foco(mapa, color, pos, { halo = 0.42 } = {}) {
   const g = new THREE.Group();
   g.position.set(...pos);
-  const n = sprite(mapa, "#ffffff", nucleo);
-  const h = sprite(mapa, color, halo, 0.5);
-  const d = sprite(mapa, color, 1, 0.22);
-  d.scale.set(destello, destello * 0.035, 1);
-  // El núcleo blanco se tiñe apenas: una luz roja muy brillante se ve casi blanca al centro.
-  n.material.color.set(color).lerp(new THREE.Color("#ffffff"), 0.6);
-  g.add(h, d, n);
-  g.userData.partes = { n, h, d };
+  const n = sprite(mapa, new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.5), 0.011, { intensidad: 28, pantalla: true });
+  const h = sprite(mapa, color, halo, { intensidad: 2.4 });
+  g.add(h, n);
+  g.userData.partes = { n, h };
   return g;
 }
 
@@ -46,7 +45,7 @@ export function crearNavegacion(modelo, mapa) {
   const luces = [];
   if (a["nav-babor"]) luces.push({ sector: "babor", g: foco(mapa, "#ff2a1c", a["nav-babor"]) });
   if (a["nav-estribor"]) luces.push({ sector: "estribor", g: foco(mapa, "#19ff7a", a["nav-estribor"]) });
-  if (a.tope) luces.push({ sector: "todo", g: foco(mapa, "#fff6e6", a.tope, { halo: 0.9, destello: 1.8 }) });
+  if (a.tope) luces.push({ sector: "todo", g: foco(mapa, "#fff3df", a.tope, { halo: 0.5 }) });
   return luces;
 }
 
@@ -65,10 +64,9 @@ export function prenderNavegacion(luces, camara, intensidad) {
   luces.forEach(({ sector, g }) => {
     g.getWorldPosition(p);
     const v = visibilidad(sector, p, camara.position) * intensidad;
-    const { n, h, d } = g.userData.partes;
+    const { n, h } = g.userData.partes;
     n.material.opacity = v;
-    h.material.opacity = v * 0.55;
-    d.material.opacity = v * 0.22;
+    h.material.opacity = v * 0.35;
     g.visible = v > 0.005;
   });
 }
@@ -126,13 +124,13 @@ export function crearCortesia(leds, mapa) {
   const charcos = [];
   const puntos = [];
   leds.forEach(({ pos, piso, lado }) => {
-    const p = sprite(mapa, "#ffd29a", 0.05, 0);
+    const p = sprite(mapa, "#ffd9a8", 0.006, { intensidad: 14, pantalla: true });
     p.position.set(...pos);
-    const h = sprite(mapa, "#ffb862", 0.32, 0);
+    const h = sprite(mapa, "#ffb862", 0.16, { intensidad: 2 });
     h.position.set(...pos);
     const c = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-      map: mapa, color: "#ffbf73", transparent: true, opacity: 0, depthWrite: false,
-      blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6,
+      map: mapa, color: new THREE.Color("#ffbf73").multiplyScalar(1.3), transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6,
     }));
     c.rotation.x = -Math.PI / 2;
     // El charco cae delante del LED, hacia el centro del barco (o hacia popa en el espejo).
@@ -147,8 +145,8 @@ export function crearCortesia(leds, mapa) {
 }
 
 export function prenderCortesia(c, intensidad) {
-  c.puntos.forEach((s, i) => { s.material.opacity = intensidad * (i % 2 ? 0.45 : 1); });
-  c.charcos.forEach(m => { m.material.opacity = intensidad * 0.75; });
+  c.puntos.forEach((s, i) => { s.material.opacity = intensidad * (i % 2 ? 0.3 : 1); });
+  c.charcos.forEach(m => { m.material.opacity = intensidad * 0.7; });
   c.grupo.visible = intensidad > 0.005;
 }
 
@@ -221,7 +219,7 @@ export function crearEspumaCasco(modelo, espuma) {
   const forma = new THREE.CanvasTexture(c);
   const malla = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, alto), new THREE.MeshBasicMaterial({
     map: forma, alphaMap: espuma, transparent: true, opacity: 0.5, depthWrite: false, color: "#e9f1f3",
-    toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
   }));
   malla.rotation.x = -Math.PI / 2;
   malla.position.set((x0 + x1) / 2, 0.05, 0);

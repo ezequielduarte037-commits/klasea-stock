@@ -15,6 +15,7 @@ import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { leerJson, guardarJson } from "../almacen";
 import { modelo3dDe, partesModelo } from "../unidad";
 import { cargarModelo } from "../recorrido/barco";
+import { cargarCielos } from "./cielo";
 import Escena from "./Escena";
 import { CAPAS, ESTILOS, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, textoHora } from "./opciones";
 
@@ -51,12 +52,13 @@ export default function Configurador({ modelo, onCerrar }) {
   const [guardado] = useState(() => leerJson(clave, null));
 
   const [geo, setGeo] = useState(null);
+  const [cielos, setCielos] = useState(null);
   const [error, setError] = useState(() => (hayWebGL() ? null : "webgl"));
   const [pestana, setPestana] = useState(null);
   const [vista, setVista] = useState("tres");
   const [eleccion, setEleccion] = useState(() => ({ ...ELECCION_INICIAL, ...(guardado?.eleccion || {}) }));
   const [capa, setCapa] = useState("estilos");
-  const [hora, setHora] = useState(() => guardado?.hora ?? 18.4);
+  const [hora, setHora] = useState(() => guardado?.hora ?? 18.6);
   const [clima, setClima] = useState(() => guardado?.clima ?? "sol");
   const [balcones, setBalcones] = useState(false);
   const [luces, setLuces] = useState(APAGADAS);
@@ -75,13 +77,16 @@ export default function Configurador({ modelo, onCerrar }) {
     observador.current.observe(el);
   }, []);
   const tres = useRef(null);
+  // La escena deja acá su forma de dibujar un cuadro (con resplandor y tone mapping).
+  const dibujar = useRef(null);
   const [intro] = useState(() => !leerMovimientoReducido());
 
   useEffect(() => {
     if (error) return undefined;
     let vivo = true;
-    cargarModelo(cfg)
-      .then(m => { if (vivo) setGeo(m); })
+    // El barco y los cielos (fotos reales, 1,6 MB) llegan juntos.
+    Promise.all([cargarModelo(cfg), cargarCielos()])
+      .then(([m, c]) => { if (vivo) { setCielos(c); setGeo(m); } })
       .catch(() => { if (vivo) setError("modelo"); });
     return () => { vivo = false; };
   }, [cfg, error]);
@@ -135,7 +140,8 @@ export default function Configurador({ modelo, onCerrar }) {
   const foto = () => {
     const t = tres.current;
     if (!t) return;
-    t.gl.render(t.scene, t.camera);
+    if (dibujar.current) dibujar.current();
+    else t.gl.render(t.scene, t.camera);
     const src = t.gl.domElement;
     const c = document.createElement("canvas");
     c.width = src.width; c.height = src.height;
@@ -162,7 +168,7 @@ export default function Configurador({ modelo, onCerrar }) {
   };
 
   const restablecer = () => {
-    setEleccion(ELECCION_INICIAL); setHora(18.4); setClima("sol"); setBalcones(false); setLuces(APAGADAS); setNavegando(false); setVista("tres");
+    setEleccion(ELECCION_INICIAL); setHora(18.6); setClima("sol"); setBalcones(false); setLuces(APAGADAS); setNavegando(false); setVista("tres");
     avisar("Configurador", "Como sale de fábrica");
   };
 
@@ -181,14 +187,14 @@ export default function Configurador({ modelo, onCerrar }) {
         ) : !geo ? (
           <div className="kx-cfg-aviso"><span className="kx-eyebrow">Preparando el configurador</span><i className="kx-rec-carga" /></div>
         ) : (
-          <Canvas dpr={[1, 1.75]} camera={{ fov: 32, near: 0.3, far: 9000, position: [-20, 12, 26] }} gl={{ antialias: true }}
+          <Canvas dpr={[1, 1.75]} shadows="soft" camera={{ fov: 32, near: 0.3, far: 9000, position: [-20, 12, 26] }} gl={{ antialias: true }}
             onCreated={({ gl, scene, camera }) => {
               gl.toneMapping = THREE.ACESFilmicToneMapping;
               gl.toneMappingExposure = 0.55;
               tres.current = { gl, scene, camera };
             }}>
-            <Escena modelo={geo} eleccion={eleccion} vista={vista} hora={hora} clima={clima}
-              balcones={balcones} luces={luces} navegando={navegando} indicador={indicador} intro={intro}
+            <Escena modelo={geo} cielos={cielos} eleccion={eleccion} vista={vista} hora={hora} clima={clima}
+              balcones={balcones} luces={luces} navegando={navegando} indicador={indicador} intro={intro} renderRef={dibujar}
               subir={pestana ? altoPanel / 2 + 24 : 0} />
           </Canvas>
         )}
@@ -259,7 +265,7 @@ export default function Configurador({ modelo, onCerrar }) {
                     <Moon size={15} strokeWidth={1.5} aria-hidden />
                   </label>
                   <div className="kx-cfg-momentos">
-                    {[["Amanecer", 6.6], ["Mediodía", 13], ["Atardecer", 19.1], ["Noche", 21.3]].map(([t, h]) => (
+                    {[["Amanecer", 6.5], ["Mediodía", 12.6], ["Atardecer", 18.6], ["Noche", 21.2]].map(([t, h]) => (
                       <button key={t} type="button" onClick={() => { setHora(h); avisar("Hora", t); }}>{t}</button>
                     ))}
                   </div>

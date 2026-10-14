@@ -470,7 +470,7 @@ export function texturaFoto(nombre, metros, { color = true } = {}) {
   if (color) tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(1 / metros, 1 / metros);
-  tex.anisotropy = 8;
+  tex.anisotropy = 16;
   return tex;
 }
 
@@ -512,46 +512,29 @@ export function texturaRoble(metros) {
   return tex;
 }
 
-/* Teca de cubierta: la veta real del roble cortada en tablas de 10 cm, cada
-   una con su tono, y las juntas negras de calafateo. 1 textura = 1 m.
+/* Teca de cubierta: foto de teca real (Poly Haven, teak_veneer) armada en
+   tablas de 55 mm con calafateo de 5 mm, cada tabla con su tono y empalmes a
+   tope (ver scripts/teca-cubierta.mjs). 1 textura = 1 m.
    variante: "natural", "gris" (teca lavada por el sol) u "oscura" (sintética). */
 export function texturaTeca(variante = "natural") {
-  const T = 1024;
+  if (variante === "natural") return texturaFoto("teca_cubierta_diff", 1);
+  const T = 2048;
   const c = document.createElement("canvas");
   c.width = c.height = T;
-  const ctx = c.getContext("2d");
-  ctx.fillStyle = "#b8895c";
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = variante === "gris" ? "#b9b3a9" : "#3b3029";
   ctx.fillRect(0, 0, T, T);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.anisotropy = 16;
   const img = new Image();
   img.onload = () => {
-    // La veta de la foto es vertical: se gira para que corra a lo largo de la tabla.
-    const rot = document.createElement("canvas");
-    rot.width = rot.height = T;
-    const r = rot.getContext("2d");
-    r.translate(T, 0);
-    r.rotate(Math.PI / 2);
-    r.drawImage(img, 0, 0, T, T);
-    let semilla = 5;
-    const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
-    const tabla = T / 10;
-    for (let f = 0; f < 10; f++) {
-      const y = f * tabla;
-      const desde = Math.floor(azar() * (T - tabla));
-      ctx.drawImage(rot, 0, desde, T, tabla, 0, y, T, tabla);
-      ctx.fillStyle = `rgba(${azar() > 0.5 ? "120,70,30" : "255,225,180"},${0.06 + azar() * 0.1})`;
-      ctx.fillRect(0, y, T, tabla);
-      ctx.fillStyle = "#23201d";
-      ctx.fillRect(0, y, T, 6);
-      ctx.fillRect(Math.floor(azar() * T), y, 6, tabla);
-    }
-    if (variante !== "natural") tonoTeca(ctx, T, variante);
+    ctx.drawImage(img, 0, 0, T, T);
+    tonoTeca(ctx, T, variante);
     tex.needsUpdate = true;
   };
-  img.src = `${RUTA_TEX}oak_veneer_01_diff.jpg`;
+  img.src = `${RUTA_TEX}teca_cubierta_diff.jpg`;
   return tex;
 }
 

@@ -46,7 +46,7 @@ const RAPIDOS = [
     { n: "Blanco", color: "#f4f4f2" }, { n: "Azul marino", color: "#1d2c45" },
   ] },
   { acabado: "tapizado", opciones: [
-    { n: "Cuero caramelo", color: "#efe4d8", textura: true }, { n: "Blanco", color: "#f1eee8", textura: false },
+    { n: "Gris piedra", color: "#a19e98", textura: false }, { n: "Blanco", color: "#f1eee8", textura: false },
     { n: "Arena", color: "#d8c8ae", textura: false }, { n: "Gris", color: "#9a9ea2", textura: false },
     { n: "Azul marino", color: "#26364f", textura: false }, { n: "Negro", color: "#1c1c1d", textura: false },
   ] },
