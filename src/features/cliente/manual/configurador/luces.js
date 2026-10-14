@@ -100,58 +100,123 @@ export function ubicarCortesia(modelo) {
       const y = yp + 0.09;
       rayo.set(new THREE.Vector3(s.x, y, lado * s.media * 0.2), new THREE.Vector3(0, 0, lado));
       const h = rayo.intersectObjects(piezas, false).find(i => Math.abs(normalDe(i).z) > 0.5);
-      if (!h || h.distance > s.media * 1.1) return;
+      // Sólo en la borda (no en asientos o muebles más adentro).
+      if (!h || h.distance > s.media * 1.1 || Math.abs(h.point.z) < s.media * 0.78) return;
       leds.push({ pos: [h.point.x, y, h.point.z - lado * 0.012], piso: yp, lado });
     });
   }
 
   // Espejo de popa: tres LEDs justo sobre la planchada, mirando hacia atrás.
-  const popa = modelo.enU(0.02);
-  const yPlanchada = piso(popa.x, 0, popa.cubierta + 0.5);
+  const popa = modelo.enU(0.03);
+  rayo.set(new THREE.Vector3(popa.x, 6, 0), new THREE.Vector3(0, -1, 0));
+  const golpes = rayo.intersectObjects(pisos, false).filter(i => i.point.y > 0.08 && normalDe(i).y > 0.7);
+  const yPlanchada = golpes.length ? golpes[golpes.length - 1].point.y : null;
   if (yPlanchada != null) {
     [-0.55, 0, 0.55].forEach(z => {
       rayo.set(new THREE.Vector3(-LARGO, yPlanchada + 0.06, z), new THREE.Vector3(1, 0, 0));
-      const h = rayo.intersectObjects(piezas, false).find(i => normalDe(i).x < -0.5 && i.point.y > yPlanchada);
+      const h = rayo.intersectObjects(piezas, false).find(i => Math.abs(normalDe(i).x) > 0.5 && i.point.y > yPlanchada);
       if (h && h.point.x < 0) leds.push({ pos: [h.point.x - 0.012, yPlanchada + 0.06, h.point.z], piso: yPlanchada, lado: 0 });
     });
   }
   return leds;
 }
 
-/* Cada LED: un punto cálido y el charco de luz que deja en el piso. */
-export function crearCortesia(leds, mapa) {
+/* Luces de cortesía como en un render: el LED es una pieza emisiva chica en
+   la borda (el resplandor lo da el bloom) y su luz ilumina las superficies de
+   verdad, dentro del material (teca, gelcoat, tapizados), con forma de cono
+   hacia el piso. Las tiras LED del hardtop iluminan el cockpit desde arriba.
+   Todo se calcula en coordenadas del barco (se mueve con él). */
+export const MAX_LUCES = 24;
+
+export function crearCortesia(leds, modelo) {
   const grupo = new THREE.Group();
-  const charcos = [];
-  const puntos = [];
-  leds.forEach(({ pos, piso, lado }) => {
-    const p = sprite(mapa, "#ffd9a8", 0.006, { intensidad: 14, pantalla: true });
-    p.position.set(...pos);
-    const h = sprite(mapa, "#ffb862", 0.16, { intensidad: 2 });
-    h.position.set(...pos);
-    const c = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-      map: mapa, color: new THREE.Color("#ffbf73").multiplyScalar(1.3), transparent: true, opacity: 0, depthWrite: false,
-      blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6,
-    }));
-    c.rotation.x = -Math.PI / 2;
-    // El charco cae delante del LED, hacia el centro del barco (o hacia popa en el espejo).
-    if (lado) c.position.set(pos[0], piso + 0.004, pos[2] - lado * 0.2);
-    else c.position.set(pos[0] - 0.2, piso + 0.004, pos[2]);
-    c.scale.set(lado ? 0.7 : 0.55, lado ? 0.45 : 0.6, 1);
-    grupo.add(c, h, p);
-    puntos.push(p, h);
-    charcos.push(c);
+  const geo = new THREE.PlaneGeometry(0.052, 0.016);
+  const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 0, 0), side: THREE.DoubleSide });
+  const luces = [];
+  const adelante = new THREE.Vector3(0, 0, 1);
+  leds.forEach(({ pos, lado }) => {
+    // Hacia dónde alumbra: abajo y hacia el centro (o hacia popa en el espejo).
+    const dir = (lado ? new THREE.Vector3(0, -0.6, -lado) : new THREE.Vector3(-0.8, -0.6, 0)).normalize();
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(...pos);
+    m.quaternion.setFromUnitVectors(adelante, new THREE.Vector3(dir.x, 0, dir.z).normalize());
+    grupo.add(m);
+    luces.push({ pos: new THREE.Vector3(...pos), dir, alcance: lado ? 1.0 : 1.3, cono: 0.1, fuerza: lado ? 1.6 : 2 });
   });
-  return { grupo, puntos, charcos };
+  // Tiras del hardtop: dos líneas de luces hacia abajo, una a cada lado del eje.
+  const led = modelo.anclas?.led;
+  if (led) {
+    [-1, 1].forEach(k => [-0.75, -0.25, 0.25, 0.75].forEach(f => {
+      luces.push({
+        pos: new THREE.Vector3(led[0] + f * LARGO * 0.1, led[1] - 0.04, led[2] + k * 0.3),
+        dir: new THREE.Vector3(0, -1, 0), alcance: 2.6, cono: -0.1, fuerza: 0.55,
+      });
+    }));
+  }
+  const usadas = luces.slice(0, MAX_LUCES);
+  const uniforms = {
+    luzPos: { value: Array.from({ length: MAX_LUCES }, (_, i) => (usadas[i] ? new THREE.Vector4(...usadas[i].pos.toArray(), usadas[i].alcance) : new THREE.Vector4())) },
+    luzDir: { value: Array.from({ length: MAX_LUCES }, (_, i) => (usadas[i] ? new THREE.Vector4(...usadas[i].dir.toArray(), usadas[i].cono) : new THREE.Vector4())) },
+    luzFuerza: { value: Array.from({ length: MAX_LUCES }, (_, i) => usadas[i]?.fuerza ?? 0) },
+    luzN: { value: usadas.length },
+    cortesia: { value: 0 },
+    colorCortesia: { value: new THREE.Color("#ffc58a") },
+    // Del mundo al barco (el barco se mece): se actualiza cada cuadro.
+    alBarco: { value: new THREE.Matrix4() },
+  };
+  return { grupo, geo, mat, uniforms };
 }
 
-export function prenderCortesia(c, intensidad) {
-  c.puntos.forEach((s, i) => { s.material.opacity = intensidad * (i % 2 ? 0.3 : 1); });
-  c.charcos.forEach(m => { m.material.opacity = intensidad * 0.7; });
+/* Inyecta la luz de cortesía en un material estándar o físico. */
+export function iluminarConCortesia(material, uniforms) {
+  material.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vPosMundoCort;")
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvPosMundoCort = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", `#include <common>
+        varying vec3 vPosMundoCort;
+        uniform vec4 luzPos[ ${MAX_LUCES} ];
+        uniform vec4 luzDir[ ${MAX_LUCES} ];
+        uniform float luzFuerza[ ${MAX_LUCES} ];
+        uniform int luzN;
+        uniform float cortesia;
+        uniform vec3 colorCortesia;
+        uniform mat4 alBarco;`)
+      .replace("#include <opaque_fragment>", `
+        if ( cortesia > 0.001 ) {
+          vec3 pB = ( alBarco * vec4( vPosMundoCort, 1.0 ) ).xyz;
+          vec3 nB = normalize( mat3( alBarco ) * ( vec4( normal, 0.0 ) * viewMatrix ).xyz );
+          float total = 0.0;
+          for ( int i = 0; i < ${MAX_LUCES}; i++ ) {
+            if ( i >= luzN ) break;
+            vec3 L = pB - luzPos[ i ].xyz;
+            float d = length( L );
+            vec3 Ld = L / max( d, 1e-4 );
+            float alc = luzPos[ i ].w;
+            float cono = smoothstep( luzDir[ i ].w, luzDir[ i ].w + 0.55, dot( Ld, luzDir[ i ].xyz ) );
+            float r0 = alc * 0.16;
+            float caida = 1.0 / ( 1.0 + ( d * d ) / ( r0 * r0 ) ) * ( 1.0 - smoothstep( alc * 0.55, alc, d ) );
+            float lambert = max( dot( nB, -Ld ), 0.0 );
+            total += cono * caida * lambert * luzFuerza[ i ];
+          }
+          outgoingLight += diffuseColor.rgb * colorCortesia * total * cortesia * 7.0;
+        }
+        #include <opaque_fragment>`);
+  };
+  material.customProgramCacheKey = () => "cortesia";
+  material.needsUpdate = true;
+}
+
+export function prenderCortesia(c, intensidad, barco) {
+  c.uniforms.cortesia.value = intensidad;
+  if (barco) c.uniforms.alBarco.value.copy(barco.matrixWorld).invert();
+  // El LED: blanco cálido intenso (el bloom lo abre apenas).
+  c.mat.color.set("#ffd7a6").multiplyScalar(intensidad * 9);
   c.grupo.visible = intensidad > 0.005;
 }
 
-/* Espuma donde el casco toca el agua: se mide el ancho del casco en la
-   flotación, franja por franja, y se pinta un borde blanco suave alrededor. */
 /* Ancho del casco en la flotación, franja por franja a lo largo de la eslora
    (lo usan la sombra del casco y la espuma del agua). */
 export function anchoFlotacion(modelo) {
