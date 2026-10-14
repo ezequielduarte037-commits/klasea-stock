@@ -5,8 +5,9 @@ import { etapaMeta } from "@/features/muebles/mueblesProduccion";
 import { nuevoUid } from "./borrador";
 
 // Lista estándar de maderas de cada barco, la misma que usa Muebles para la OT
-// de maderas (Muebles → Plantillas OT y herrajes): placas y terciados más los
-// tablones de lenga y okumé. Se toma, en este orden:
+// de maderas (Muebles → Plantillas OT y herrajes): placas y terciados. Los
+// tablones de lenga y okumé de la OT NO van: Ezequiel pidió dejarlos afuera
+// (se piden por otro lado). Se toma, en este orden:
 //   1. la OT de maderas de la obra (si Muebles la cargó para ese lote),
 //   2. la plantilla de la línea guardada en Muebles,
 //   3. la plantilla fija de la línea (la que Muebles muestra si nunca se guardó).
@@ -31,9 +32,7 @@ export async function cargarListasMuebles() {
 function configUtil(config) {
   if (!config || typeof config !== "object") return null;
   const placas = Array.isArray(config.placas) ? config.placas.filter((p) => String(p).trim()) : [];
-  const tablones = config.tablones && typeof config.tablones === "object" ? config.tablones : {};
-  const hayTablones = Object.values(tablones).some((v) => num(v) > 0);
-  return placas.length || hayTablones ? { placas, tablones } : null;
+  return placas.length ? { placas } : null;
 }
 
 // Lista de una obra y de dónde salió. null si su línea no tiene lista.
@@ -87,8 +86,6 @@ export function materialPorTexto(texto, materiales) {
   return mejor;
 }
 
-const NOMBRE_TABLON = { lenga: "Tablón Lenga", okume: "Tablón Okumé", okumé: "Tablón Okumé" };
-
 // Renglones listos para el pedido: { material_id, descripcion, cantidad, unidad }.
 export function renglonesDeLista(lista, materiales) {
   const filas = [];
@@ -100,15 +97,6 @@ export function renglonesDeLista(lista, materiales) {
     filas.push(mat
       ? { material_id: mat.id, descripcion: mat.nombre, cantidad, unidad: mat.unidad_medida || "u" }
       : { material_id: null, descripcion, cantidad, unidad: "placa" });
-  }
-  for (const [clave, valor] of Object.entries(lista?.tablones ?? {})) {
-    const cantidad = num(valor);
-    if (cantidad <= 0) continue;
-    const nombre = NOMBRE_TABLON[clave.toLowerCase()] || `Tablón ${clave}`;
-    const mat = materialPorTexto(nombre, materiales);
-    filas.push(mat
-      ? { material_id: mat.id, descripcion: mat.nombre, cantidad, unidad: mat.unidad_medida || "tablón" }
-      : { material_id: null, descripcion: nombre, cantidad, unidad: "tablón" });
   }
   // Si dos textos caen en el mismo material, se suman.
   const unidos = [];

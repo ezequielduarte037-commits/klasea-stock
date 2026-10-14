@@ -12,11 +12,13 @@ export default function BarcosPorPedir({ obras, pedidos, muebles, materiales, bo
   const [filtro, setFiltro] = useState("por_pedir");
 
   // Pedidos de maderas hechos para cada obra (por renglón: un pedido puede
-  // llevar varias obras y stock).
+  // llevar varias obras y stock). Lo cancelado en Compras no cuenta: esa obra
+  // vuelve a estar por pedir.
   const pedidosPorObra = useMemo(() => {
     const map = new Map();
     for (const p of pedidos) {
       for (const it of p.items) {
+        if (it._cancelado) continue;
         const obra = obraDeCategoria(it.categoria);
         if (!obra) continue;
         const clave = claveObra(obra);
@@ -70,7 +72,7 @@ export default function BarcosPorPedir({ obras, pedidos, muebles, materiales, bo
       icono={Ship}
       tono="azul"
       titulo="Barcos que faltan pedir"
-      texto="Obras sin pedido de maderas, con la lista estándar de su línea que usa Muebles (Plantillas OT). Cargala entera al pedido y ajustá lo que cambie."
+      texto="Obras sin pedido de maderas, con las placas y terciados estándar de su línea que usa Muebles (Plantillas OT). Cargalos enteros al pedido y ajustá lo que cambie."
       der={(
         <div className="lam-scroll-x">
           {[["por_pedir", "Por pedir", porPedir.length, "violeta"], ["sin", "Todas sin pedido", sinPedido.length], ["todas", "Todas", filas.length]].map(([k, label, n, tono]) => (

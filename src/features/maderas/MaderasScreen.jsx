@@ -29,7 +29,9 @@ import PedidosTab from "./tabs/PedidosTab";
 
 const ICONOS = { Stock: Boxes, Ingresos: ArrowDownToLine, Egresos: ArrowUpFromLine, Movimientos: Layers, Pedidos: ShoppingCart };
 const CORTO = { Movimientos: "Movim." };
-const EGRESO_VACIO = (fecha = hoyISO()) => ({ material_id: "", cantidad: "", fecha, destino: "", nombre_persona: "", observaciones: "" });
+// Estados de Compras en los que todavía no se compró nada.
+const SIN_COMPRAR = new Set(["nuevo", "en_revision", "cotizando"]);
+const EGRESO_VACIO =(fecha = hoyISO()) => ({ material_id: "", cantidad: "", fecha, destino: "", nombre_persona: "", observaciones: "" });
 
 // Dos tablones con su veta: el mismo dibujo del menú lateral.
 function Tablones({ size = 17 }) {
@@ -76,6 +78,7 @@ export default function MaderasScreen({ profile }) {
   const [pedidos, setPedidos] = useState([]);
   const [pedidoItems, setPedidoItems] = useState([]);
   const [estadoCompras, setEstadoCompras] = useState({});
+  const [estadoRenglonesCompras, setEstadoRenglonesCompras] = useState({});
   const [obrasProduccion, setObrasProduccion] = useState([]);
   const [muebles, setMuebles] = useState({ lineas: [], ots: [], lotes: [] });
   const [cargando, setCargando] = useState(true);
@@ -117,9 +120,15 @@ export default function MaderasScreen({ profile }) {
       ids.length ? supabase.from("pedido_items").select("*").in("pedido_id", ids).order("creado_en") : { data: [] },
       prIds.length ? supabase.from("purchase_requests").select("id,status").in("id", prIds) : { data: [] },
     ]);
+    // Estado de cada renglón en Compras: si Compras cancela uno (o el pedido
+    // entero), acá deja de esperarse. Sólo hacen falta los de pedidos abiertos.
+    const abiertos = new Set(filas.filter((p) => PEDIDO_ABIERTO.has(String(p.estado || "").toLowerCase())).map((p) => p.id));
+    const priIds = (items.data ?? []).filter((it) => abiertos.has(it.pedido_id) && it.purchase_request_item_id).map((it) => it.purchase_request_item_id);
+    const pris = priIds.length ? await supabase.from("purchase_request_items").select("id,status").in("id", priIds) : { data: [] };
     setPedidos(filas);
     setPedidoItems(items.data ?? []);
     setEstadoCompras(Object.fromEntries((prs.data ?? []).map((r) => [r.id, r.status])));
+    setEstadoRenglonesCompras(Object.fromEntries((pris.data ?? []).map((r) => [r.id, r.status])));
   }, []);
 
   // Obras de Producción y, de Muebles, las listas estándar de maderas por
@@ -168,6 +177,7 @@ export default function MaderasScreen({ profile }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => programar("pedidos"))
       .on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, () => programar("pedidos"))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "purchase_requests" }, () => programar("pedidos"))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "purchase_request_items" }, () => programar("pedidos"))
       .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, () => programar("obras"))
       .subscribe();
     return () => {
@@ -212,10 +222,16 @@ export default function MaderasScreen({ profile }) {
       porPedido.get(it.pedido_id).push(it);
     }
     return pedidos.map((p) => {
-      const items = porPedido.get(p.id) ?? [];
+      const pedidoCancelado = estadoCompras[p.purchase_request_id] === "cancelado";
+      const items = (porPedido.get(p.id) ?? []).map((it) => {
+        const enCompras = estadoRenglonesCompras[it.purchase_request_item_id];
+        // Lo que ya llegó entero no se "cancela": quedó recibido.
+        const cancelado = (pedidoCancelado || enCompras === "cancelado") && itemFalta(it) > 0 && !it.nota_recepcion;
+        return cancelado ? { ...it, _cancelado: true } : it;
+      });
       return { ...p, items, estadoVisto: estadoPedido(p, items) };
     });
-  }, [pedidos, pedidoItems]);
+  }, [pedidos, pedidoItems, estadoCompras, estadoRenglonesCompras]);
 
   const pedidosParaRecibir = useMemo(() => pedidosVistos
     .filter((p) => PEDIDO_ABIERTO.has(String(p.estado || "").toLowerCase()))
@@ -421,9 +437,10 @@ export default function MaderasScreen({ profile }) {
       if (cant > falta) { toast.error(`Llegó más de lo que falta (${fmtNum(falta)}). Si vino de más, registrá el resto como ingreso manual.`); return; }
       entregas = [{ item: conf.item, cantidad: cant }];
     } else if (tipo === "pedido_completo") {
-      entregas = pedido.pendientes.filter((it) => it.material_id).map((it) => ({ item: it, cantidad: itemFalta(it) }));
+      // conf.items: los renglones de la tarjeta (un destino del pedido).
+      entregas = (conf.items ?? pedido.pendientes).filter((it) => it.material_id).map((it) => ({ item: it, cantidad: itemFalta(it) }));
     } else if (tipo === "pedido_parcial") {
-      for (const it of pedido.pendientes.filter((x) => x.material_id)) {
+      for (const it of (conf.items ?? pedido.pendientes).filter((x) => x.material_id)) {
         const cant = num(conf.cantidades[it.id]);
         if (cant <= 0) continue;
         if (!Number.isInteger(cant)) { toast.error(`${it.descripcion}: la cantidad va en números enteros.`); return; }
@@ -576,24 +593,60 @@ export default function MaderasScreen({ profile }) {
     void cargarPedidos();
   }
 
+  // Si Compras todavía no lo compró, borrar acá también lo cancela allá: si no,
+  // Compras compraría algo que ya no se necesita. Si ya lo compró, no se toca
+  // (hay que avisarles).
   async function eliminarPedido(p) {
     const recibidos = p.items.filter((it) => itemRecibido(it) > 0).length;
+    const estadoPr = estadoCompras[p.purchase_request_id];
+    const cancelaEnCompras = Boolean(p.purchase_request_id) && SIN_COMPRAR.has(estadoPr);
     const ok = await confirmar({
       title: "¿Eliminar el pedido?",
       message: [
         `Se borra el pedido del ${new Date(`${p.fecha_pedido}T00:00:00`).toLocaleDateString("es-AR")} con sus ${p.items.length} ${p.items.length === 1 ? "material" : "materiales"}.`,
         recibidos ? `Ya se recibieron ${recibidos}: lo que sumaron al stock no se toca.` : "",
-        p.purchase_request_id ? "El pedido en Compras sigue como está." : "",
+        cancelaEnCompras ? "Compras todavía no lo compró: el pedido también queda cancelado en Compras." : "",
+        estadoPr === "comprado" ? "Ojo: Compras ya lo compró. Allá sigue como está; avisales." : "",
         "No se puede deshacer.",
       ].filter(Boolean).join(" "),
-      confirmLabel: "Eliminar",
+      confirmLabel: cancelaEnCompras ? "Eliminar y cancelar en Compras" : "Eliminar",
       tone: "danger",
     });
     if (!ok) return;
+    if (cancelaEnCompras) {
+      const { error: errPr } = await supabase.from("purchase_requests").update({ status: "cancelado" }).eq("id", p.purchase_request_id);
+      if (errPr) { toast.error(`No se pudo cancelar en Compras: ${errPr.message}. El pedido no se borró.`); return; }
+    }
     const { data, error } = await supabase.from("pedidos").delete().eq("id", p.id).select("id");
     if (error) { toast.error(error.message); return; }
     if (!data?.length) { toast.error("No se pudo eliminar el pedido."); return; }
-    toast.success("Pedido eliminado");
+    toast.success(cancelaEnCompras ? "Pedido eliminado y cancelado en Compras" : "Pedido eliminado");
+    void cargarPedidos();
+  }
+
+  // Sacar un renglón que no va (por ejemplo, algo que se cargó de más). En
+  // Compras el renglón queda cancelado para que no lo compren.
+  async function quitarRenglon(p, item) {
+    const vivos = p.items.filter((it) => !it._cancelado);
+    if (vivos.length <= 1) { void eliminarPedido(p); return; }
+    const estadoPr = estadoCompras[p.purchase_request_id];
+    const avisoCompras = !item.purchase_request_item_id ? ""
+      : estadoPr === "comprado" ? " Compras ya compró el pedido: el renglón queda cancelado allá, pero avisales."
+      : " En Compras el renglón queda cancelado.";
+    const ok = await confirmar({
+      title: `¿Sacar ${item.descripcion} del pedido?`,
+      message: `${fmtNum(item.cantidad)} ${item.unidad} · ${obraDeCategoria(item.categoria) ? `obra ${obraDeCategoria(item.categoria)}` : "stock"}.${avisoCompras}`,
+      confirmLabel: "Sacar del pedido",
+      tone: "danger",
+    });
+    if (!ok) return;
+    if (item.purchase_request_item_id) {
+      const { error: errPri } = await supabase.from("purchase_request_items").update({ status: "cancelado" }).eq("id", item.purchase_request_item_id);
+      if (errPri) { toast.error(`No se pudo cancelar en Compras: ${errPri.message}. El renglón no se sacó.`); return; }
+    }
+    const { error } = await supabase.from("pedido_items").delete().eq("id", item.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${item.descripcion} salió del pedido`);
     void cargarPedidos();
   }
 
@@ -735,6 +788,7 @@ export default function MaderasScreen({ profile }) {
                   onCerrar={cerrarPedido}
                   onReabrir={reabrirPedido}
                   onEliminar={eliminarPedido}
+                  onQuitarRenglon={quitarRenglon}
                   onEnviarACompras={mandarACompras}
                   onIrIngresos={() => irA("Ingresos")}
                 />
@@ -783,18 +837,21 @@ function ModalRecepcion({ conf, setConf, materiales, stockPorMaterial, recibiend
   const matDe = (it) => materiales.find((m) => String(m.id) === String(it.material_id));
   const cerrar = () => setConf(null);
   const ref = `Pedido del ${new Date(`${pedido.fecha_pedido}T00:00:00`).toLocaleDateString("es-AR")}`;
+  // La tarjeta de Ingresos es un destino del pedido (una obra o el stock).
+  const renglones = conf.items ?? pedido.pendientes;
+  const destino = conf.destino || pedido.nota || "maderas";
 
   if (tipo === "pedido_completo") {
-    const recibibles = pedido.pendientes.filter((it) => it.material_id);
-    const sinVinculo = pedido.pendientes.length - recibibles.length;
+    const recibibles = renglones.filter((it) => it.material_id);
+    const sinVinculo = renglones.length - recibibles.length;
     return (
       <Modal
         onCerrar={cerrar}
         bloqueado={recibiendo}
         icono={ArrowDownToLine}
         tono="verde"
-        titulo="Llegó todo el pedido"
-        sub={`${ref} · ${pedido.nota || "maderas"}`}
+        titulo={`Llegó todo · ${destino}`}
+        sub={ref}
         pie={(
           <>
             <button type="button" className="ui-btn" onClick={cerrar} disabled={recibiendo}>Cancelar</button>
@@ -823,7 +880,7 @@ function ModalRecepcion({ conf, setConf, materiales, stockPorMaterial, recibiend
   }
 
   if (tipo === "pedido_parcial") {
-    const recibibles = pedido.pendientes.filter((it) => it.material_id);
+    const recibibles = renglones.filter((it) => it.material_id);
     const alguna = Object.values(conf.cantidades).some((v) => num(v) > 0);
     return (
       <Modal
@@ -832,8 +889,8 @@ function ModalRecepcion({ conf, setConf, materiales, stockPorMaterial, recibiend
         bloqueado={recibiendo}
         icono={Package}
         tono="cian"
-        titulo="Llegó una parte"
-        sub="Cargá lo que llegó de cada material. Dejá vacío lo que no llegó."
+        titulo={`Llegó una parte · ${destino}`}
+        sub={`${ref}. Cargá lo que llegó de cada material; dejá vacío lo que no llegó.`}
         pie={(
           <>
             <button type="button" className="ui-btn" onClick={cerrar} disabled={recibiendo}>Cancelar</button>

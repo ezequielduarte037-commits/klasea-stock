@@ -1,19 +1,21 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronRight, Copy, Download, Inbox, Lock, RotateCcw, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { Boxes, Check, ChevronRight, Copy, Download, Inbox, Lock, RotateCcw, Search, Ship, ShoppingCart, Trash2, X } from "lucide-react";
 import { buscarObra, descargarCSV, fmtFecha, fmtNum, num } from "@/features/laminacion/obras";
 import { Bloque, Estado, Mini, Tag, Vacio } from "@/features/laminacion/ui";
-import { ESTADO_COMPRAS, destinosDePedido, itemPendiente, itemRecibido, obraDeCategoria, textoMailDePedido } from "../datos";
+import { ESTADO_COMPRAS, itemPendiente, itemRecibido, obraDeCategoria, porDestino, textoMailDePedido } from "../datos";
 
 const FILTROS = [
   { k: "abiertos", label: "Abiertos", tono: "cian", es: (e) => e === "pendiente" || e === "parcial" },
   { k: "recibido", label: "Recibidos", tono: "verde", es: (e) => e === "recibido" },
   { k: "cerrado", label: "Cerrados sin completar", tono: "neutro", es: (e) => e === "cerrado" },
+  { k: "cancelado", label: "Cancelados en Compras", tono: "rojo", es: (e) => e === "cancelado" },
 ];
 
 export default function ListaPedidos({
   pedidos, obras, estadoCompras, puedeGestionar, recienCreado,
-  onCerrar, onReabrir, onEliminar, onEnviarACompras, onIrIngresos,
+  onCerrar, onReabrir, onEliminar, onQuitarRenglon, onEnviarACompras, onIrIngresos,
 }) {
+  const nombreDestino = (obra) => (obra ? `Obra ${buscarObra(obras, obra)?.codigo || obra}` : "Stock");
   const [filtro, setFiltro] = useState("abiertos");
   const [q, setQ] = useState("");
   const [abiertos, setAbiertos] = useState(() => new Set());
@@ -88,7 +90,7 @@ export default function ListaPedidos({
     >
       <div className="lam-filtros" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
         <div className="lam-scroll-x">
-          {FILTROS.filter((f) => f.k !== "cerrado" || cuenta.cerrado > 0).map((f) => (
+          {FILTROS.filter((f) => !["cerrado", "cancelado"].includes(f.k) || cuenta[f.k] > 0).map((f) => (
             <button key={f.k} type="button" className={`lam-chip${filtro === f.k ? " on" : ""}`} data-tono={f.tono} onClick={() => { setFiltro(f.k); setLimite(25); }} aria-pressed={filtro === f.k}>
               <span className="pto" /> {f.label} <span className="n">{cuenta[f.k]}</span>
             </button>
@@ -115,12 +117,12 @@ export default function ListaPedidos({
           {filtrados.slice(0, limite).map((p, i) => {
             const abierto = abiertos.has(p.id);
             const est = p.estadoVisto;
-            const { obras: obrasPed, stock } = destinosDePedido(p.items);
+            const destinos = porDestino(p.items);
+            const vivos = p.items.filter((it) => !it._cancelado);
             const compras = p.purchase_request_id ? ESTADO_COMPRAS[estadoCompras[p.purchase_request_id]] : null;
-            const totalCant = p.items.reduce((s, it) => s + num(it.cantidad), 0);
-            const recibidoCant = p.items.reduce((s, it) => s + itemRecibido(it), 0);
+            const totalCant = vivos.reduce((s, it) => s + num(it.cantidad), 0);
+            const recibidoCant = vivos.reduce((s, it) => s + itemRecibido(it), 0);
             const abiertoPedido = est.clave === "pendiente" || est.clave === "parcial";
-            const preview = p.items.slice(0, 3).map((it) => `${it.descripcion} ×${fmtNum(it.cantidad)}`).join(" · ");
             return (
               <article key={p.id} className={`lam-orden${abierto ? " abierta" : ""}`} style={{ "--i": Math.min(i, 10) }}>
                 <div className="lam-orden-cab">
@@ -131,15 +133,31 @@ export default function ListaPedidos({
                     <div className="lam-orden-l1">
                       <span className="lam-orden-ref">{fmtFecha(p.fecha_pedido || p.creado_en)}</span>
                       <Estado tono={est.tono}>{est.label}</Estado>
-                      {obrasPed.map((o) => <Tag key={o} tono="azul">Obra {buscarObra(obras, o)?.codigo || o}</Tag>)}
-                      {stock && <Tag tono="teal">Stock</Tag>}
                       {compras
                         ? <Estado tono={compras.tono} punto={false}>{compras.label}</Estado>
                         : !p.purchase_request_id && <Tag tono="neutro">No está en Compras</Tag>}
                     </div>
-                    <div className="lam-orden-tit">{preview}{p.items.length > 3 ? "…" : ""}</div>
+                    {/* Qué va para cada destino, en su propia línea. */}
+                    <div className="lam-orden-tit" style={{ display: "grid", gap: 3 }}>
+                      {destinos.map((g) => {
+                        const vivosG = g.items.filter((it) => !it._cancelado);
+                        return (
+                          <div key={g.clave} style={{ display: "flex", gap: 8, alignItems: "baseline", minWidth: 0 }}>
+                            <Tag tono={g.obra ? "azul" : "teal"}>{nombreDestino(g.obra)}</Tag>
+                            <span style={{ fontSize: 13.5, minWidth: 0 }}>
+                              {vivosG.length
+                                ? `${vivosG.slice(0, 4).map((it) => `${it.descripcion} ×${fmtNum(it.cantidad)}`).join(" · ")}${vivosG.length > 4 ? "…" : ""}`
+                                : <span style={{ color: "var(--dim)" }}>cancelado en Compras</span>}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                     <div className="lam-orden-meta">
-                      <span>{p.items.length} {p.items.length === 1 ? "material" : "materiales"} · {est.completos}/{est.total} recibidos</span>
+                      {est.clave === "cancelado"
+                        ? <span>{est.cancelados} {est.cancelados === 1 ? "material cancelado" : "materiales cancelados"} en Compras: no se espera nada</span>
+                        : <span>{est.total} {est.total === 1 ? "material" : "materiales"} · {est.completos}/{est.total} recibidos</span>}
+                      {est.cancelados > 0 && est.clave !== "cancelado" && <span style={{ color: "var(--red)" }}>{est.cancelados} cancelado{est.cancelados === 1 ? "" : "s"} en Compras</span>}
                       {p.recibido_en && est.clave === "recibido" && <span>cerrado el <span className="mono">{fmtFecha(p.recibido_en)}</span></span>}
                     </div>
                     {totalCant > 0 && <Mini pct={(recibidoCant / totalCant) * 100} style={{ maxWidth: 260, marginTop: 7 }} />}
@@ -172,32 +190,44 @@ export default function ListaPedidos({
                 </div>
                 {abierto && (
                   <div className="lam-orden-items">
-                    {p.items.map((it) => {
-                      const recibido = itemRecibido(it);
-                      const pendiente = itemPendiente(it);
-                      const obra = obraDeCategoria(it.categoria);
-                      const estItem = !pendiente
-                        ? (recibido >= num(it.cantidad) ? { label: "Recibido", tono: "verde" } : { label: "Cerrado", tono: "neutro" })
-                        : est.clave === "cerrado" ? { label: recibido > 0 ? "Llegó una parte" : "No llegó", tono: "neutro" }
-                        : recibido > 0 ? { label: "Parcial", tono: "violeta" } : { label: "Esperando", tono: "cian" };
-                      return (
-                        <div key={it.id} className="lam-item">
-                          <div style={{ minWidth: 0 }}>
-                            <div className="lam-item-nom">
-                              {it.descripcion}
-                              {!it.material_id && <span className="lam-tag" data-tono="violeta" style={{ marginLeft: 7 }}>Fuera del catálogo</span>}
-                            </div>
-                            <div className="lam-item-meta">
-                              <span>Pedido <b>{fmtNum(it.cantidad)}</b> {it.unidad}</span>
-                              {recibido > 0 && <span data-tono="verde">Llegó <b>{fmtNum(recibido)}</b></span>}
-                              <span>{obra ? `Obra ${buscarObra(obras, obra)?.codigo || obra}` : "Stock"}</span>
-                            </div>
-                          </div>
-                          <Estado tono={estItem.tono}>{estItem.label}</Estado>
-                          <span />
+                    {destinos.map((g) => (
+                      <div key={g.clave}>
+                        <div className="mad-sub-destino" data-tono={g.obra ? "azul" : "teal"}>
+                          {g.obra ? <Ship size={13} /> : <Boxes size={13} />} {nombreDestino(g.obra)}
                         </div>
-                      );
-                    })}
+                        {g.items.map((it) => {
+                          const recibido = itemRecibido(it);
+                          const pendiente = itemPendiente(it);
+                          const estItem = it._cancelado ? { label: "Cancelado en Compras", tono: "rojo" }
+                            : !pendiente
+                              ? (recibido >= num(it.cantidad) ? { label: "Recibido", tono: "verde" } : { label: "Cerrado", tono: "neutro" })
+                              : est.clave === "cerrado" ? { label: recibido > 0 ? "Llegó una parte" : "No llegó", tono: "neutro" }
+                                : recibido > 0 ? { label: "Parcial", tono: "violeta" } : { label: "Esperando", tono: "cian" };
+                          // Se puede sacar lo que todavía no llegó nada.
+                          const sePuedeSacar = puedeGestionar && abiertoPedido && pendiente && recibido <= 0;
+                          return (
+                            <div key={it.id} className={`lam-item${it._cancelado ? " cancelado" : ""}`}>
+                              <div style={{ minWidth: 0 }}>
+                                <div className="lam-item-nom">
+                                  {it.descripcion}
+                                  {!it.material_id && <span className="lam-tag" data-tono="violeta" style={{ marginLeft: 7 }}>Fuera del catálogo</span>}
+                                </div>
+                                <div className="lam-item-meta">
+                                  <span>Pedido <b>{fmtNum(it.cantidad)}</b> {it.unidad}</span>
+                                  {recibido > 0 && <span data-tono="verde">Llegó <b>{fmtNum(recibido)}</b></span>}
+                                </div>
+                              </div>
+                              <Estado tono={estItem.tono}>{estItem.label}</Estado>
+                              {sePuedeSacar ? (
+                                <button type="button" className="lam-btn-ic chico peligro" title="Sacar del pedido (en Compras queda cancelado)" aria-label={`Sacar ${it.descripcion} del pedido`} onClick={() => onQuitarRenglon(p, it)}>
+                                  <X size={14} />
+                                </button>
+                              ) : <span />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </article>

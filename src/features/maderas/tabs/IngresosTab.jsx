@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, Check, ChevronRight, History, Inbox, Link2, Package, Plus, Search } from "lucide-react";
+import { ArrowDownToLine, Boxes, Check, ChevronRight, History, Inbox, Link2, Package, Plus, Search, Ship } from "lucide-react";
 import SelectorObra from "@/features/laminacion/SelectorObra";
 import { buscarObra, fmtFecha, fmtNum, hoyISO, num } from "@/features/laminacion/obras";
 import { Bloque, Cifra, Estado, Mini, Tag, Vacio } from "@/features/laminacion/ui";
-import { ESTADO_COMPRAS, STOCK_MADERAS, destinosDePedido, itemFalta, itemPendiente, itemRecibido } from "../datos";
+import { ESTADO_COMPRAS, STOCK_MADERAS, itemFalta, itemPendiente, itemRecibido, porDestino } from "../datos";
 
 const FORM_VACIO = () => ({ material_id: "", cantidad: "", fecha: hoyISO(), proveedor: "", obra: "", observaciones: "" });
 
@@ -15,13 +15,32 @@ export default function IngresosTab({
   materiales, movs, pedidosParaRecibir, stockPorMaterial, obras, estadoCompras, puedeCargar,
   onRecibir, onVincular, onCrearIngreso,
 }) {
-  const [abiertos, setAbiertos] = useState(() => new Set());
+  // Las tarjetas arrancan abiertas (para recibir hay que ver qué llegó); acá
+  // quedan las que se plegaron.
+  const [plegados, setPlegados] = useState(() => new Set());
   const [form, setForm] = useState(FORM_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [q, setQ] = useState("");
   const [limite, setLimite] = useState(60);
 
   const matDe = (id) => materiales.find((m) => String(m.id) === String(id));
+
+  // Una tarjeta por destino de cada pedido: lo de la 55-6 por un lado y lo del
+  // stock por otro, aunque hayan salido en el mismo pedido. Así se recibe y se
+  // separa físicamente sin mezclar.
+  const tarjetas = useMemo(() => {
+    const out = [];
+    for (const p of pedidosParaRecibir) {
+      const grupos = porDestino(p.items.filter((it) => !it._cancelado));
+      for (const g of grupos) {
+        const pendientes = g.items.filter(itemPendiente);
+        if (!pendientes.length) continue;
+        const otrosDestinos = grupos.filter((x) => x !== g).map((x) => (x.obra ? `obra ${buscarObra(obras, x.obra)?.codigo || x.obra}` : "stock"));
+        out.push({ key: `${p.id}|${g.clave}`, pedido: p, obra: g.obra, items: g.items, pendientes, otrosDestinos });
+      }
+    }
+    return out;
+  }, [pedidosParaRecibir, obras]);
 
   const ingresos = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -42,7 +61,8 @@ export default function IngresosTab({
 
   const hoy = hoyISO();
   const ingresosHoy = movs.filter((m) => m._tipo === "ingreso" && String(m._fecha).slice(0, 10) === hoy).length;
-  const renglones = pedidosParaRecibir.reduce((s, p) => s + p.pendientes.length, 0);
+  const renglones = tarjetas.reduce((s, t) => s + t.pendientes.length, 0);
+  const destinosObra = new Set(tarjetas.filter((t) => t.obra).map((t) => t.obra)).size;
   const matSel = matDe(form.material_id);
 
   async function registrar(e) {
@@ -55,7 +75,7 @@ export default function IngresosTab({
   }
 
   function alternar(id) {
-    setAbiertos((prev) => {
+    setPlegados((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -70,8 +90,11 @@ export default function IngresosTab({
           <div className="lam-eyebrow">Maderas · Recepción</div>
           <h1 className="lam-h1">Ingresos de <span className="acento">maderas</span></h1>
           <p className="lam-sub">
-            {pedidosParaRecibir.length
-              ? <><b className="mono">{pedidosParaRecibir.length}</b> {pedidosParaRecibir.length === 1 ? "pedido" : "pedidos"} para recibir · <b className="mono">{renglones}</b> {renglones === 1 ? "material" : "materiales"}</>
+            {renglones
+              ? <>
+                  <b className="mono">{renglones}</b> {renglones === 1 ? "material para recibir" : "materiales para recibir"}
+                  {destinosObra > 0 && <> · para <b className="mono">{destinosObra}</b> {destinosObra === 1 ? "obra" : "obras"}{tarjetas.some((t) => !t.obra) ? " y el stock" : ""}</>}
+                </>
               : "Nada pendiente de recibir"}
             {ingresosHoy > 0 && <> · <b className="mono">{ingresosHoy}</b> ingresos hoy</>}
           </p>
@@ -80,53 +103,56 @@ export default function IngresosTab({
 
       <Bloque
         icono={Inbox}
-        tono={pedidosParaRecibir.length ? "cian" : "verde"}
+        tono={tarjetas.length ? "cian" : "verde"}
         titulo="Para recibir"
-        texto="Maderas pedidas que todavía no entraron al stock. Al recibirlas se suman solas y Compras se entera."
+        texto="Separado por destino: lo de cada obra y lo del stock, aunque hayan venido en el mismo pedido. Al recibirlo se suma al stock y Compras se entera."
         sinPad
       >
-        {!pedidosParaRecibir.length ? (
+        {!tarjetas.length ? (
           <Vacio icono={Check} titulo="Todo recibido" texto="Cuando se pida madera desde Pedidos, va a aparecer acá para recibirla." />
         ) : (
           <div className="lam-ordenes" style={{ padding: 12 }}>
-            {pedidosParaRecibir.map((p, i) => {
-              const abierto = abiertos.has(p.id);
-              const { obras: obrasPed, stock } = destinosDePedido(p.items);
+            {tarjetas.map((t, i) => {
+              const p = t.pedido;
+              const abierto = !plegados.has(t.key);
+              const obra = t.obra ? buscarObra(obras, t.obra) : null;
+              const destino = t.obra ? `Obra ${obra?.codigo || t.obra}` : "Stock";
               const compras = p.purchase_request_id ? ESTADO_COMPRAS[estadoCompras[p.purchase_request_id]] : null;
-              const conEntregas = p.items.filter((it) => itemRecibido(it) > 0).length;
-              const sinVinculo = p.pendientes.filter((it) => !it.material_id).length;
-              const recibibles = p.pendientes.filter((it) => it.material_id);
-              const preview = p.pendientes.slice(0, 3).map((it) => it.descripcion).join(" · ");
+              const conEntregas = t.items.filter((it) => itemRecibido(it) > 0).length;
+              const sinVinculo = t.pendientes.filter((it) => !it.material_id).length;
+              const recibibles = t.pendientes.filter((it) => it.material_id);
+              const otros = t.otrosDestinos;
               return (
-                <article key={p.id} className={`lam-orden${abierto ? " abierta" : ""}`} style={{ "--i": Math.min(i, 10) }}>
+                <article key={t.key} className={`lam-orden mad-destino${abierto ? " abierta" : ""}`} data-tono={t.obra ? "azul" : "teal"} style={{ "--i": Math.min(i, 10) }}>
                   <div className="lam-orden-cab">
-                    <button type="button" className="plegar" onClick={() => alternar(p.id)} aria-expanded={abierto} aria-label={abierto ? "Ocultar materiales" : "Ver materiales"}>
+                    <button type="button" className="plegar" onClick={() => alternar(t.key)} aria-expanded={abierto} aria-label={abierto ? "Ocultar materiales" : "Ver materiales"}>
                       <ChevronRight size={16} style={{ transform: abierto ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
                     </button>
                     <div style={{ minWidth: 0 }}>
-                      <div className="lam-orden-l1">
-                        <span className="lam-orden-ref">Pedido del {fmtFecha(p.fecha_pedido || p.creado_en)}</span>
-                        {obrasPed.map((o) => <Tag key={o} tono="azul">Obra {buscarObra(obras, o)?.codigo || o}</Tag>)}
-                        {stock && <Tag tono="teal">Stock</Tag>}
-                        {conEntregas > 0 && <Tag tono="violeta">Parcial · {conEntregas}/{p.items.length}</Tag>}
-                        {compras && <Estado tono={compras.tono} punto={false}>{compras.label}</Estado>}
+                      <div className="mad-destino-tit">
+                        <span className="mad-destino-ic">{t.obra ? <Ship size={15} /> : <Boxes size={15} />}</span>
+                        <span>{t.obra ? <>Obra <span className="mono">{obra?.codigo || t.obra}</span></> : "Stock"}</span>
+                        <span className="lam-ayuda">{t.obra ? (obra?.lineaLabel || "") : STOCK_MADERAS}</span>
                       </div>
-                      <div className="lam-orden-tit">{preview}{p.pendientes.length > 3 ? "…" : ""}</div>
                       <div className="lam-orden-meta">
-                        <span>{p.pendientes.length} {p.pendientes.length === 1 ? "material por recibir" : "materiales por recibir"}</span>
+                        <span className="mono">Pedido del {fmtFecha(p.fecha_pedido || p.creado_en)}</span>
+                        <span>{t.pendientes.length} {t.pendientes.length === 1 ? "material por recibir" : "materiales por recibir"}</span>
+                        {conEntregas > 0 && <Tag tono="violeta">Parcial · {conEntregas}/{t.items.length}</Tag>}
+                        {compras && <Estado tono={compras.tono} punto={false}>{compras.label}</Estado>}
                         {sinVinculo > 0 && <span style={{ color: "var(--violet)" }}>{sinVinculo} fuera del catálogo</span>}
+                        {otros.length > 0 && <span>· en el mismo pedido: {otros.join(", ")}</span>}
                       </div>
                     </div>
                     {puedeCargar && (
                       <div className="lam-orden-acc">
-                        <button type="button" className="ui-btn chico" data-tono="verde" disabled={!recibibles.length} onClick={() => onRecibir({ tipo: "pedido_completo", pedido: p })}><Check size={14} /> Llegó todo</button>
-                        <button type="button" className="ui-btn chico" data-tono="cian" disabled={!recibibles.length} onClick={() => onRecibir({ tipo: "pedido_parcial", pedido: p, cantidades: {} })}><Package size={14} /> Llegó una parte</button>
+                        <button type="button" className="ui-btn chico" data-tono="verde" disabled={!recibibles.length} onClick={() => onRecibir({ tipo: "pedido_completo", pedido: p, items: t.pendientes, destino })}><Check size={14} /> Llegó todo</button>
+                        <button type="button" className="ui-btn chico" data-tono="cian" disabled={!recibibles.length} onClick={() => onRecibir({ tipo: "pedido_parcial", pedido: p, items: t.pendientes, destino, cantidades: {} })}><Package size={14} /> Llegó una parte</button>
                       </div>
                     )}
                   </div>
                   {abierto && (
                     <div className="lam-orden-items">
-                      {p.items.map((it) => {
+                      {t.items.filter((it) => !it._cancelado).map((it) => {
                         const mat = matDe(it.material_id);
                         const recibido = itemRecibido(it);
                         const falta = itemFalta(it);
@@ -159,8 +185,8 @@ export default function IngresosTab({
                             </div>
                             {puedeCargar && pendiente && mat ? (
                               <>
-                                <button type="button" className="ui-btn chico" data-tono="verde" onClick={() => onRecibir({ tipo: "entero", pedido: p, item: it })}><Check size={13} /> Llegó</button>
-                                <button type="button" className="ui-btn chico" data-tono="cian" onClick={() => onRecibir({ tipo: "parcial", pedido: p, item: it, cantidad: "" })}>Parte</button>
+                                <button type="button" className="ui-btn chico" data-tono="verde" onClick={() => onRecibir({ tipo: "entero", pedido: p, item: it, destino })}><Check size={13} /> Llegó</button>
+                                <button type="button" className="ui-btn chico" data-tono="cian" onClick={() => onRecibir({ tipo: "parcial", pedido: p, item: it, destino, cantidad: "" })}>Parte</button>
                               </>
                             ) : <><span /><span /></>}
                           </div>

@@ -128,8 +128,10 @@ export function itemFalta(item) {
   return Math.max(0, itemTotal(item) - itemRecibido(item));
 }
 
+// `_cancelado` lo pone el contenedor: el renglón (o el pedido entero) quedó
+// cancelado en Compras, así que ya no se espera.
 export function itemPendiente(item) {
-  return !item?.nota_recepcion && itemFalta(item) > 0;
+  return !item?._cancelado && !item?.nota_recepcion && itemFalta(item) > 0;
 }
 
 // "Obra: 55-5" → "55-5"; "Stock" → null.
@@ -138,33 +140,38 @@ export function obraDeCategoria(categoria) {
   return m ? m[1].trim() : null;
 }
 
-// Estado que se ve del pedido, armado con sus renglones: el de la cabecera se
-// tocaba a mano y quedaba desfasado (hay uno "parcial" con todo recibido).
-export function estadoPedido(pedido, items = []) {
-  const total = items.length;
-  const completos = items.filter((it) => !itemPendiente(it)).length;
-  const conAlgo = items.filter((it) => itemRecibido(it) > 0).length;
-  const abierto = PEDIDO_ABIERTO.has(String(pedido?.estado || "").toLowerCase());
-  // Hay pedidos viejos sin renglones: no esperan nada.
-  if (!total) return { clave: abierto ? "pendiente" : "recibido", label: "Sin materiales", tono: "neutro", completos, total };
-  if (completos === total) return { clave: "recibido", label: "Recibido", tono: "verde", completos, total };
-  if (!abierto) {
-    return { clave: "cerrado", label: "Cerrado sin completar", tono: "neutro", completos, total };
-  }
-  if (conAlgo > 0) return { clave: "parcial", label: `Parcial · ${completos}/${total}`, tono: "violeta", completos, total };
-  return { clave: "pendiente", label: "Esperando", tono: "cian", completos, total };
-}
-
-// Destinos de un pedido, en el orden del mail: obras primero, stock al final.
-export function destinosDePedido(items = []) {
-  const obras = [];
-  let stock = false;
+// Renglones separados por destino: cada obra y el stock, obras primero (como
+// en el mail). Es lo que permite recibir "lo de la 55-6" aparte de lo del stock.
+export function porDestino(items = []) {
+  const grupos = new Map();
   for (const it of items) {
     const obra = obraDeCategoria(it.categoria);
-    if (obra) { if (!obras.includes(obra)) obras.push(obra); }
-    else stock = true;
+    const clave = obra ? `obra:${obra}` : "stock";
+    if (!grupos.has(clave)) grupos.set(clave, { clave, obra, items: [] });
+    grupos.get(clave).items.push(it);
   }
-  return { obras, stock };
+  return [...grupos.values()].sort((a, b) => (a.obra ? 0 : 1) - (b.obra ? 0 : 1)
+    || String(a.obra || "").localeCompare(String(b.obra || ""), "es", { numeric: true }));
+}
+
+// Estado que se ve del pedido, armado con sus renglones: el de la cabecera se
+// tocaba a mano y quedaba desfasado (hay uno "parcial" con todo recibido). Lo
+// cancelado en Compras no se espera ni cuenta para completar.
+export function estadoPedido(pedido, items = []) {
+  const vivos = items.filter((it) => !it._cancelado);
+  const cancelados = items.length - vivos.length;
+  const total = vivos.length;
+  const completos = vivos.filter((it) => !itemPendiente(it)).length;
+  const conAlgo = vivos.filter((it) => itemRecibido(it) > 0).length;
+  const abierto = PEDIDO_ABIERTO.has(String(pedido?.estado || "").toLowerCase());
+  const base = { completos, total, cancelados };
+  if (items.length && !total) return { ...base, clave: "cancelado", label: "Cancelado en Compras", tono: "rojo" };
+  // Hay pedidos viejos sin renglones: no esperan nada.
+  if (!total) return { ...base, clave: abierto ? "pendiente" : "recibido", label: "Sin materiales", tono: "neutro" };
+  if (completos === total) return { ...base, clave: "recibido", label: "Recibido", tono: "verde" };
+  if (!abierto) return { ...base, clave: "cerrado", label: "Cerrado sin completar", tono: "neutro" };
+  if (conAlgo > 0) return { ...base, clave: "parcial", label: `Parcial · ${completos}/${total}`, tono: "violeta" };
+  return { ...base, clave: "pendiente", label: "Esperando", tono: "cian" };
 }
 
 // Estados de Compras: mismos colores que en Compras.
@@ -211,6 +218,7 @@ export function textoMailDePedido(items = []) {
   const grupos = [];
   const stockItems = [];
   for (const it of items) {
+    if (it._cancelado) continue;
     const obra = obraDeCategoria(it.categoria);
     const linea = { descripcion: it.descripcion, cantidad: num(it.cantidad), unidad: it.unidad };
     if (!obra) { stockItems.push(linea); continue; }

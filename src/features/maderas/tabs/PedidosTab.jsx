@@ -17,7 +17,7 @@ function irAlArmado() {
 export default function PedidosTab({
   materiales, movimientos, stockPorMaterial, enCaminoPorMaterial, obras, pedidos, estadoCompras, muebles, puedeGestionar,
   borrador, setBorrador, recienCreado,
-  onGenerar, onCerrar, onReabrir, onEliminar, onEnviarACompras, onIrIngresos,
+  onGenerar, onCerrar, onReabrir, onEliminar, onQuitarRenglon, onEnviarACompras, onIrIngresos,
 }) {
   const toast = useToast();
 
@@ -98,6 +98,7 @@ export default function PedidosTab({
         onCerrar={onCerrar}
         onReabrir={onReabrir}
         onEliminar={onEliminar}
+        onQuitarRenglon={onQuitarRenglon}
         onEnviarACompras={onEnviarACompras}
         onIrIngresos={onIrIngresos}
       />

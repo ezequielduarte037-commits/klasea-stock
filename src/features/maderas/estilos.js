@@ -5,6 +5,19 @@
 export const CSS_MADERAS = `
 .mad .lam-nav-marca svg { color: var(--teal); }
 .mad [data-tono="naranja"] { --t: var(--orange); --t-soft: var(--orange-soft); --t-borde: var(--orange-border); }
+/* Aire abajo: el aviso flotante de la app (abajo a la derecha) tapaba los
+   botones de la última tarjeta. */
+.mad .lam-pagina { padding-bottom: 112px; }
+
+/* ── Recepción por destino (una obra o el stock) ── */
+/* Más específico que .lam-orden.abierta, que pisa el color del borde. */
+.lam-orden.mad-destino[data-tono] { border-left: 3px solid var(--t); }
+.mad-destino-tit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; font-weight: 650; line-height: 1.25; }
+.mad-destino-tit .mono { font-weight: 650; }
+.mad-destino-ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--t-borde); background: var(--t-soft); color: var(--t); }
+.mad-sub-destino { display: flex; align-items: center; gap: 8px; padding: 8px 14px 6px 44px; border-top: 1px solid var(--border); background: var(--panel); font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--t); }
+.mad-sub-destino:first-child { border-top: 0; }
+.lam-item.cancelado .lam-item-nom { text-decoration: line-through; color: var(--dim); }
 
 /* ── Armar pedido ── */
 .mad-armar { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
@@ -69,5 +82,6 @@ export const CSS_MADERAS = `
   .mad-recibir { width: 100%; }
   .mad-grupo-cab .der { margin-left: 0; width: 100%; }
   .mad-sumar-obra { grid-template-columns: minmax(0, 1fr); }
+  .mad-sub-destino { padding-left: 14px; }
 }
 `;
