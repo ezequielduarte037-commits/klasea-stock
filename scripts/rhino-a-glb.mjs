@@ -335,6 +335,13 @@ for (let i = 0; i < objs.count; i++) {
   const capa = capas.get(o.attributes().layerIndex).fullPath;
   if (SALTEAR.some(r => r.test(capa))) continue;
   let grupo = grupoDe(capa);
+  // Paneles verticales de teca al final de los balcones, junto a la mesa: en el
+  // barco son de plástico (la teca se veía pegada en el costado).
+  if (grupo === "teca") {
+    const b = geo.getBoundingBox();
+    const ay = Math.min(Math.abs(b.min[1]), Math.abs(b.max[1]));
+    if (b.min[0] > 2200 && b.max[0] < 3400 && Math.abs(b.max[1] - b.min[1]) < 150 && ay > 1600 && b.max[2] - b.min[2] > 600) grupo = "cubierta";
+  }
   // Almohadones: las piezas chicas de los tapizados van claras, como en los renders.
   if (grupo === "tapizado") {
     const b = geo.getBoundingBox();
