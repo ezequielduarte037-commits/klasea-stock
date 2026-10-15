@@ -37,17 +37,35 @@ test("el pedido guarda solo ids, cantidades y material, sin aceptar barco/pieza 
   assert.equal(numeroRemitoMarmoleria(42), "MAR-000042");
 });
 
-test("el PDF contiene original y duplicado con idéntico folio, material y espacio para firma", async () => {
+test("un remito breve imprime original y duplicado completos en una sola A4", async () => {
   const doc = construirPdfRemitoMarmoleria({ remito:remito() });
-  assert.equal(doc.getNumberOfPages(), 2);
+  assert.equal(doc.getNumberOfPages(), 1);
   const saved = await PDFDocument.load(doc.output("arraybuffer"));
-  assert.equal(saved.getPageCount(), 2);
-  for (const page of Object.values(doc.internal.pages).filter(Array.isArray)) {
+  assert.equal(saved.getPageCount(), 1);
+  const { width, height } = saved.getPage(0).getSize();
+  assert.ok(Math.abs(width - 595.28) < 0.1 && Math.abs(height - 841.89) < 0.1);
+  const text = doc.internal.pages[1].join(" ");
+  assert.match(text, /ORIGINAL/);
+  assert.match(text, /DUPLICADO/);
+  for (const dato of ["Desert Black", "Firma de quien retira", "DNI", "55-2", "Juan Pérez"]) {
+    assert.equal(text.split(dato).length - 1, 2, `${dato} debe aparecer en ambas copias`);
+  }
+  assert.equal(text.split("MAR-000042").length - 1, 4); // Encabezado y pie de cada copia.
+});
+
+test("la distribución considera el texto real y conserva las notas largas completas", () => {
+  const nota = "OBSERVACION_UNICA_FIN";
+  const r = remito({
+    observaciones:`${"Verificar la orientación de las plantillas antes de fabricar. ".repeat(14)}${nota}`,
+    items:[pieza("p", { material:"Purastone Travertino Navona", observaciones:"Detalle de la bacha y el encuentro con el mamparo. ".repeat(10) })],
+  });
+  const doc = construirPdfRemitoMarmoleria({ remito:r });
+  assert.equal(doc.getNumberOfPages(), 2);
+  for (const page of doc.internal.pages.slice(1)) {
     const text = page.join(" ");
-    assert.match(text, /MAR-000042/);
-    assert.match(text, /Desert Black/);
+    assert.ok(text.includes(nota));
     assert.match(text, /Firma de quien retira/);
-    assert.match(text, /55-2/);
+    assert.match(text, /Travertino Navona/);
   }
 });
 
@@ -67,7 +85,8 @@ test("los remitos extensos repiten datos de entrega y firmas sin perder filas en
     assert.match(text, /MAR-000042/);
     assert.match(text, /Firma de quien retira/);
     assert.match(text, /Juan/);
-    assert.match(text, /Cant\./);
+    if (text.includes("CONTINUACIÓN DEL REMITO")) assert.match(text, /OBSERVACIONES DE LA ENTREGA/);
+    else assert.match(text, /Cant\./);
   }
   for (const conjunto of [pages.slice(0, mitad), pages.slice(mitad)]) {
     const text = conjunto.map((p) => p.join(" ")).join(" ");

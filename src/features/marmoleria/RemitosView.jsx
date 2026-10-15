@@ -159,7 +159,7 @@ export default function RemitosView({ profile, piezas, unidades, lineas, unidadI
         <div style={{ flex:1, minWidth:200 }}>
           <div style={EYEBROW}>Entrega de plantillas</div>
           <h1 style={{ fontSize:21, margin:"4px 0 6px", fontWeight:650 }}>Remitos de marmolería</h1>
-          <div style={{ color:"var(--muted)", fontSize:13 }}>Original para conservar firmado y duplicado para quien retira.</div>
+          <div style={{ color:"var(--muted)", fontSize:13 }}>Original para conservar firmado y duplicado para quien retira. Si entran, ambas copias se imprimen en una hoja A4.</div>
         </div>
         <button style={modo === "nuevo" ? PRIMARY : BTN} onClick={() => setModo("nuevo")} disabled={ocupado}><Plus size={14} /> Nuevo remito{items.length ? ` (${items.length})` : ""}</button>
         <button style={modo === "emitidos" ? PRIMARY : BTN} onClick={() => setModo("emitidos")} disabled={ocupado}><FileText size={14} /> Emitidos</button>

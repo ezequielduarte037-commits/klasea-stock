@@ -8,4 +8,6 @@ Completar destinatario, fecha, responsable, material y cantidades. El nombre de 
 
 Cada emisión guarda una captura de barco, línea, pieza, sector, material, cantidad y observaciones. La numeración `MAR-000001` la asigna la base y los reintentos de la misma solicitud usan el mismo identificador. **Emitidos** permite ver y descargar nuevamente ambas copias con la información original. Emitir el documento no modifica los estados del checklist; se siguen gestionando en el detalle del barco.
 
+La impresión usa un formato de remito con destinatario y responsables en recuadros, tabla de plantillas y materiales, y campos separados para firma, aclaración y DNI debajo del detalle. Cuando el contenido entra a tamaño legible, original y duplicado comparten una hoja A4 con línea de corte. Los documentos más extensos usan hojas A4 completas, con encabezado y firmas en cada hoja; las observaciones generales aparecen al final de cada copia. La distribución se calcula con el contenido real, sin reducir la letra para hacerla entrar.
+
 Validación: `node --test src/features/marmoleria/*.test.mjs`, ESLint de los archivos modificados, compilación de producción, prueba SQL aislada en PostgreSQL/PGlite y prueba de navegador con API simulada (selección entre barcos, materiales, cantidades, vista previa, respuesta perdida, reimpresión, celular y ambos temas).
