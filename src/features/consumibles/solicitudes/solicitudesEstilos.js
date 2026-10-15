@@ -162,7 +162,7 @@ export const CSS_SOLICITUDES = `
   font-size: 15px; outline: none;
 }
 .sol .sol-lector input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
-.sol .sol-resultados { display: grid; gap: 4px; }
+.sol .sol-resultados { display: grid; gap: 4px; max-height: 360px; overflow-y: auto; }
 .sol .sol-resultado {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
   min-height: 48px; padding: 6px 10px; width: 100%; text-align: left;

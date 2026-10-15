@@ -15,7 +15,7 @@ const CAMPOS = `id,material_id,sede,tipo,cantidad,gramos,contado,teorico,
   anulado_at,anulado_motivo,created_by,created_at,
   obra:produccion_obras(id,codigo),
   solicitud:panol_solicitudes(id,numero),
-  material:panol_materiales(id,descripcion,unidad_medida,config:consumibles_config(codigo_etiqueta,unidad_entrega))`;
+  material:panol_materiales(id,descripcion,imagen_url,unidad_medida,config:consumibles_config(codigo_etiqueta,unidad_entrega))`;
 
 /** Movimientos de un período (desde inclusive, hasta exclusivo), del más nuevo al más viejo. */
 export async function fetchMovimientosPeriodo({ sede = null, desde, hasta, signal } = {}) {
@@ -77,6 +77,31 @@ export async function corregirDestino({ ids, obraId = null, sector = null, motiv
     p_obra_id: obraId,
     p_sector: sector,
     p_motivo: motivo,
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** Trae el carrito completo: nunca se corrige una lista cortada por el período o el filtro. */
+export async function fetchOperacionMovimiento(fila) {
+  const filas = [];
+  for (;;) {
+    let q = supabase.from("consumibles_movimientos").select(CAMPOS)
+      .eq("sede", fila.sede).eq("tipo", fila.tipo).is("anulado_at", null)
+      .order("id").range(filas.length, filas.length + PAGINA - 1);
+    q = fila.lote ? q.eq("lote", fila.lote) : q.eq("id", fila.id);
+    const { data, error } = await q;
+    if (error) throw error;
+    if (!data?.length) break;
+    filas.push(...data);
+  }
+  if (!filas.length) throw new Error("El retiro ya fue corregido o anulado. Actualizá los movimientos.");
+  return filas;
+}
+
+export async function corregirOperacion({ id, ids, items, motivo, autorizadoPor }) {
+  const { data, error } = await supabase.rpc("consumibles_corregir_operacion", {
+    p_id: id, p_ids: ids, p_items: items, p_motivo: motivo, p_autorizado_por: autorizadoPor || null,
   });
   if (error) throw error;
   return data;

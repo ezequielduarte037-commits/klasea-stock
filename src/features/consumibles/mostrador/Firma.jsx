@@ -3,6 +3,7 @@ import { ArrowLeft, Check, HardHat, LoaderCircle, Nfc, Search, ShieldAlert, Spli
 import Cargando from "@/components/ui/Cargando";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import CampoTexto from "./CampoTexto";
+import { LineaCarrito } from "./Carrito";
 import { agruparRetirosDeHoy, faltaComentarioOtro, fmtNum, normalizarTexto, puedeRepartir, totalUnidades } from "./mostradorLogica";
 import { Avatar } from "./Piezas";
 
@@ -56,6 +57,7 @@ export default function Firma({
   onRafaga,
   empresasExternas = [],
   onAltaExterno,
+  edicionCarrito,
 }) {
   const devolucion = modo === "devolucion";
   const [altaExterno, setAltaExterno] = useState(false);
@@ -136,7 +138,7 @@ export default function Firma({
     >
       <div className="mst-firma-cab">
         <button type="button" className="ui-btn" disabled={guardando || Boolean(operacion)} onClick={onVolver}>
-          <ArrowLeft size={15} /> Seguir marcando
+          <ArrowLeft size={15} /> Agregar o editar productos
         </button>
         <h2>{devolucion ? "¿Quién lo devuelve?" : persona ? "Firmado con " + (persona.metodo === "nfc" ? "tarjeta" : "nombre") : "Firmá el retiro"}</h2>
         <span className="mst-num" style={{ fontSize: 15, fontWeight: 700, color: devolucion ? "var(--teal)" : "var(--blue)" }}>
@@ -375,21 +377,10 @@ export default function Firma({
             <span className="mst-bloque-titulo" style={{ flex: 1 }}>{devolucion ? "Vuelve" : "Se lleva"}</span>
             <span style={{ fontSize: 12, color: "var(--dim)" }}>{carrito.length === 1 ? "1 producto" : `${carrito.length} productos`}</span>
           </div>
-          {carrito.map((l) => {
-            const item = porId.get(l.materialId);
-            return (
-              <div key={l.key} className={`mst-resumen-fila${devolucion ? " is-devolucion" : ""}`}>
-                <span className="mst-num">{l.cantidad > 0 ? fmtNum(l.cantidad) : "—"}</span>
-                <span>
-                  {item?.descripcion ?? "Consumible"}
-                  {l.gramos ? <small> · <span className="mst-num">{fmtNum(l.gramos)}</span> g</small> : null}
-                  {l.canje === "sin_usado" ? <small> · sin el usado</small> : null}
-                  {item?.formaEntrega === "prestamo" ? <small> · préstamo</small> : null}
-                </span>
-                <small>{item?.unidad ?? ""}</small>
-              </div>
-            );
-          })}
+          <fieldset disabled={guardando || Boolean(operacion)} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+            <button type="button" className="ui-btn" style={{ margin: "8px 0", width: "100%" }} onClick={onVolver}>Agregar productos</button>
+            {carrito.map((l) => <LineaCarrito key={l.key} linea={l} item={porId.get(l.materialId)} devolucion={devolucion} {...edicionCarrito} />)}
+          </fieldset>
         </aside>
       </div>
     </div>

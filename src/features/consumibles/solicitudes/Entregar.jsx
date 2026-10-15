@@ -200,6 +200,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
       panelRef={panelRef}
       onKeyDown={alTeclear}
     >
+      <button type="button" className="ui-btn" disabled={enviando} onClick={onCerrar}>Editar cantidades o agregar productos</button>
       {problemas.length ? (
         <div className="sol-aviso is-rojo" role="alert">
           <TriangleAlert size={17} />

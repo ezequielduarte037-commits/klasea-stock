@@ -64,6 +64,8 @@ import Listo from "./Listo";
 import PesoBalanza from "./PesoBalanza";
 import TecladoNumerico from "./TecladoNumerico";
 import UltimosMovimientos from "./UltimosMovimientos";
+import HojaMovimiento from "../conteo/Hoja";
+import EditarMovimiento from "../movimientos/EditarMovimiento";
 
 /**
  * Mostrador de consumibles — la caja tipo ferretería del pañol.
@@ -160,6 +162,7 @@ export default function MostradorTab({ sede }) {
   const [autorizaCupo, setAutorizaCupo] = useState(inicial.autorizaCupo ?? "");
   const [notaDevolucion, setNotaDevolucion] = useState(inicial.notaDevolucion ?? "");
   const [guardando, setGuardando] = useState(false);
+  const [corrigiendoMovimiento, setCorrigiendoMovimiento] = useState(false);
   const [autoConfirmar, setAutoConfirmar] = useState(false);
   const [listo, setListo] = useState(null);
   const [operacion, setOperacion] = useState(null);
@@ -482,11 +485,11 @@ export default function MostradorTab({ sede }) {
       if (carrito.length) irAFirmar();
       return;
     }
-    cambiarTexto("");
     const item = indice.get(normalizarCodigo(v));
-    if (item) { marcar(item); return; }
+    if (item) { cambiarTexto(""); marcar(item); return; }
     const n = cantidadTipeada(v);
     if (n != null) {
+      cambiarTexto("");
       if (carrito.length) modificarCarrito((c) => (c.length ? fijarCantidad(c, c[0].key, n) : c));
       return;
     }
@@ -495,6 +498,7 @@ export default function MostradorTab({ sede }) {
       marcar(encontrados[textoBusqueda === valor ? Math.min(resaltado, encontrados.length - 1) : 0]);
       return;
     }
+    cambiarTexto("");
     procesarCodigo(v);
   }
 
@@ -535,7 +539,6 @@ export default function MostradorTab({ sede }) {
 
   function elegirDeBotonera(item) {
     marcar(item);
-    if (textoRef.current) cambiarTexto("");
   }
 
   // ── Firmar ────────────────────────────────────────────────────────────────
@@ -977,6 +980,12 @@ export default function MostradorTab({ sede }) {
     capaVista = (
       <AnularMovimiento grupo={capa.grupo} onAnular={anularFilas} onCerrar={() => setCapa(null)} />
     );
+  } else if (capa?.tipo === "editarMovimiento") {
+    capaVista = (
+      <HojaMovimiento abierta clase="mst" ancho={600} titulo="Editar cantidades o agregar productos" onCerrar={corrigiendoMovimiento ? undefined : () => setCapa(null)}>
+        <EditarMovimiento fila={capa.grupo.activas[0]} toast={toast} onOcupado={setCorrigiendoMovimiento} onCancelar={() => setCapa(null)} onListo={() => { setCapa(null); setVersionMovs((v) => v + 1); setRecarga((v) => v + 1); }} />
+      </HojaMovimiento>
+    );
   } else if (capa?.tipo === "cola") {
     capaVista = (
       <ColaSinConexion cola={cola.cola} enviando={cola.enviando} onReintentar={cola.intentar} onRevisar={cola.revisar} onCerrar={() => setCapa(null)} />
@@ -992,6 +1001,7 @@ export default function MostradorTab({ sede }) {
               pendientes={cola.cola.length}
               onAbrirCola={() => setCapa({ tipo: "cola" })}
               onAnular={(grupo) => setCapa({ tipo: "anular", grupo })}
+              onEditar={(grupo) => setCapa({ tipo: "editarMovimiento", grupo })}
             />
           </div>
           <div className="mst-hoja-pie">
@@ -1151,6 +1161,7 @@ export default function MostradorTab({ sede }) {
               pendientes={cola.cola.length}
               onAbrirCola={() => setCapa({ tipo: "cola" })}
               onAnular={(grupo) => setCapa({ tipo: "anular", grupo })}
+              onEditar={(grupo) => setCapa({ tipo: "editarMovimiento", grupo })}
             />
           </div>
         ) : null}
@@ -1169,6 +1180,7 @@ export default function MostradorTab({ sede }) {
           porId={porId}
           persona={persona}
           info={{ ...infoPersona, hoy: hoyReconciliado }}
+          edicionCarrito={carritoProps}
           obrasActivas={obrasActivas}
           destino={destino}
           destinoTexto={destinoTexto}

@@ -34,7 +34,7 @@ export function Hoja({ titulo, subtitulo, etiqueta, bloqueada = false, onCerrar,
 }
 
 /** Deshacer una entrega: anula los retiros y la deja lista para retirar otra vez. */
-export function DeshacerEntrega({ solicitud, onCerrar, onHecho }) {
+export function DeshacerEntrega({ solicitud, corregir = false, onCerrar, onHecho }) {
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
@@ -58,18 +58,18 @@ export function DeshacerEntrega({ solicitud, onCerrar, onHecho }) {
 
   return (
     <Hoja
-      titulo={`Deshacer la entrega N° ${solicitud.numero}`}
-      subtitulo={`Se anulan los retiros registrados${solicitud.retirado_por_nombre ? ` a nombre de ${solicitud.retirado_por_nombre}` : ""} y vuelve a "Lista para retirar".`}
+      titulo={`${corregir ? "Corregir" : "Deshacer"} la entrega N° ${solicitud.numero}`}
+      subtitulo={corregir ? "Se reabre la solicitud y se anula la entrega anterior. Podés editar cantidades, quitar o agregar productos y volver a confirmar el retiro." : `Se anulan los retiros registrados${solicitud.retirado_por_nombre ? ` a nombre de ${solicitud.retirado_por_nombre}` : ""} y vuelve a "Lista para retirar".`}
       bloqueada={enviando}
       onCerrar={onCerrar}
     >
       <label className="sol-campo">
-        <span>¿Por qué se deshace?</span>
+        <span>{corregir ? "¿Qué hay que corregir?" : "¿Por qué se deshace?"}</span>
         <textarea
           className="ui-input"
           value={motivo}
           maxLength={300}
-          placeholder="Se firmó con la tarjeta de otro, no se la llevó…"
+          placeholder={corregir ? "Cantidad equivocada, faltó agregar una cinta…" : "Se firmó con la tarjeta de otro, no se la llevó…"}
           onChange={(e) => setMotivo(e.target.value)}
           autoFocus
         />
@@ -78,7 +78,7 @@ export function DeshacerEntrega({ solicitud, onCerrar, onHecho }) {
       <div className="sol-hoja-acciones">
         <button type="button" className="ui-btn" disabled={enviando} onClick={onCerrar}>Volver</button>
         <button type="button" className="ui-btn ui-btn-peligro" disabled={enviando || !motivo.trim()} onClick={confirmar} style={{ minHeight: 44 }}>
-          {enviando ? <LoaderCircle size={16} className="sol-gira" /> : <Undo2 size={16} />} Deshacer la entrega
+          {enviando ? <LoaderCircle size={16} className="sol-gira" /> : <Undo2 size={16} />} {corregir ? "Reabrir para corregir" : "Deshacer la entrega"}
         </button>
       </div>
     </Hoja>

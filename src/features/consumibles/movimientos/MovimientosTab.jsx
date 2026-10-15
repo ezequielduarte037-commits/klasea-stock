@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowRight, Ban, FileSpreadsheet, History, MapPin, RefreshCw, Search, X } from "lucide-react";
+import { ArrowRight, Ban, FileSpreadsheet, History, MapPin, Pencil, RefreshCw, Search, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { EmptyState } from "@/components/ui/motion";
 import { useToast } from "@/components/ui/Toast";
@@ -8,6 +8,8 @@ import { descargarXlsx } from "@/features/compras/xlsx";
 import { SEDES, anularMovimiento, fetchObrasActivas, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import Hoja from "../conteo/Hoja";
+import FotoConsumible from "../FotoConsumible";
+import EditarMovimiento from "./EditarMovimiento";
 import { fetchNombresDePerfiles } from "../conteo/conteoApi";
 import { unidadEnTexto } from "../conteo/conteoCalculos";
 import { diaArgentina as hoyArgentina, moverDia, resolverPeriodo } from "../tablero/tableroCore";
@@ -322,7 +324,7 @@ function Fila({ e, onAbrir }) {
         <span className="mov-tag" data-tono={TONO[e.tipo] || "azul"}>{ETIQUETA_TIPO[e.tipo] ?? e.tipo}</span>
       </span>
       <span className="c-prod">
-        <span className="mov-prod">{e.descripcion}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}><FotoConsumible item={e} /><span className="mov-prod">{e.descripcion}</span></span>
         <span className="mov-meta">
           {e.codigo && <span className="mov-num">{e.codigo}</span>}
           {e.preConteo && <span className="mov-tag" data-tono="gris">Antes del conteo</span>}
@@ -348,6 +350,7 @@ function Fila({ e, onAbrir }) {
 function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
   const [anulando, setAnulando] = useState(false);
   const [corrigiendo, setCorrigiendo] = useState(false);
+  const [editando, setEditando] = useState(false);
   const corregible = e.tipo === "retiro" || e.tipo === "devolucion";
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -396,12 +399,13 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
       abierta
       lateral
       clase="mov"
-      ancho={480}
+      ancho={editando ? 600 : 480}
       titulo={e.descripcion}
       sub={[ETIQUETA_TIPO[e.tipo], e.codigo].filter(Boolean).join(" · ")}
-      onCerrar={onCerrar}
+      onCerrar={enviando ? undefined : onCerrar}
     >
       <div className="mov-detalle">
+        <FotoConsumible item={e} size={72} />
         {e.preConteo && (
           <p className="mov-nota-pre">
             Salió antes del primer conteo de este producto en {e.sede}. Queda registrado y cuenta como consumo, pero no descuenta del stock: el stock arranca con el conteo.
@@ -424,10 +428,12 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
             <p className="mov-dim">Lo entregado por una solicitud se corrige desde la solicitud (deshacer la entrega), así queda igual en los dos lados.</p>
             {irA && (
               <button type="button" className="ui-btn" onClick={() => irA("solicitudes")}>
-                Ir a Solicitudes <ArrowRight size={15} />
+                Corregir desde la solicitud <ArrowRight size={15} />
               </button>
             )}
           </div>
+        ) : editando ? (
+          <EditarMovimiento fila={e.activas[0]} toast={toast} onListo={onAnulado} onCancelar={() => setEditando(false)} onOcupado={setEnviando} />
         ) : corrigiendo ? (
           <CorregirDestino e={e} toast={toast} onListo={onAnulado} onCancelar={() => setCorrigiendo(false)} />
         ) : anulando ? (
@@ -452,6 +458,11 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
         ) : (
           <div className="mov-accion">
             <div className="mov-accion-btns is-izq">
+              {corregible && (
+                <button type="button" className="ui-btn ui-btn-primario" onClick={() => setEditando(true)}>
+                  <Pencil size={15} /> Editar cantidades o agregar productos
+                </button>
+              )}
               {corregible && (
                 <button type="button" className="ui-btn" onClick={() => setCorrigiendo(true)}>
                   <MapPin size={15} /> Corregir obra o sector

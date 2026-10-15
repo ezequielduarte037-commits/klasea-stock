@@ -4,6 +4,7 @@ import Cargando from "@/components/ui/Cargando";
 import { fetchUltimosMovimientos } from "./mostradorApi";
 import { agruparMovimientos, fmtNum } from "./mostradorLogica";
 import { claveDia } from "../conteo/conteoCalculos";
+import FotoConsumible from "../FotoConsumible";
 
 const hora = (iso) => {
   const d = new Date(iso);
@@ -21,7 +22,7 @@ const hora = (iso) => {
  * tachada (el registro no se borra). Lo que vino de la lista planificada se
  * corrige en la solicitud, no acá.
  */
-export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, onAbrirCola, onAnular }) {
+export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, onAbrirCola, onAnular, onEditar }) {
   const [movs, setMovs] = useState(null);
   const [error, setError] = useState("");
   const [tic, setTic] = useState(0);
@@ -70,7 +71,7 @@ export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, 
         const porMaterial = new Map();
         for (const f of filas) {
           const k = f.material_id;
-          const actual = porMaterial.get(k) ?? { descripcion: f.material?.descripcion ?? "Consumible", cantidad: 0 };
+          const actual = porMaterial.get(k) ?? { descripcion: f.material?.descripcion ?? "Consumible", imagenUrl: f.material?.imagen_url, cantidad: 0 };
           actual.cantidad += Math.abs(Number(f.cantidad) || 0);
           porMaterial.set(k, actual);
         }
@@ -85,13 +86,14 @@ export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, 
               </span>
               <span className="mst-mov-hora">{hora(g.createdAt)}</span>
               <span className="mst-mov-quien">{g.empleado || (devolucion ? "Sin nombre" : "—")}</span>
+              {g.anulable && onEditar ? <button type="button" className="mst-mov-anular" style={{ color: "var(--blue)" }} onClick={() => onEditar(g)}>Editar</button> : null}
               {g.anulable ? (
                 <button type="button" className="mst-mov-anular" onClick={() => onAnular(g)}>Anular</button>
               ) : null}
             </div>
             <div className="mst-mov-items">
               {items.slice(0, 4).map((it, i) => (
-                <span key={i}>{i ? " · " : ""}<span className="mst-num">{fmtNum(it.cantidad)}</span> {it.descripcion}</span>
+                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, marginRight: 6 }}><FotoConsumible item={it} size={24} /><span className="mst-num">{fmtNum(it.cantidad)}</span> {it.descripcion}</span>
               ))}
               {items.length > 4 ? <span> y {items.length - 4} más</span> : null}
             </div>

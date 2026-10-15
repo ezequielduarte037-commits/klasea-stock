@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Check, Minus, PackageSearch, Plus, ScanLine, Search, Trash2, X } from "lucide-react";
 import { fmtCantidad } from "@/features/consumibles/api";
+import FotoConsumible from "../FotoConsumible";
 import { avisoStock } from "../mostrador/mostradorLogica";
+import useRafagaLector from "../mostrador/useRafagaLector";
 import { FormaTag, Ubicacion } from "./Piezas";
 import { buscarProductos, candidatosPara, cantidadParaCampo, cantidadValida, codigoVisible } from "./solicitudesLogica";
 
@@ -72,7 +74,10 @@ export function Renglon({ r, editable, mostrarStock, onCantidad, onListo, onQuit
     <div className={`sol-renglon${listo ? " is-listo" : ""}`}>
       <Ubicacion valor={r.ubicacion} />
       <div className="sol-renglon-info">
-        <div className="sol-renglon-nombre">{nombre}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <FotoConsumible item={item || r.material} />
+          <div className="sol-renglon-nombre">{nombre}</div>
+        </div>
         <div className="sol-renglon-sub">
           {codigo ? <span className="sol-num">{codigo}</span> : null}
           {item ? <FormaTag forma={item.formaEntrega} /> : <span className="sol-tag is-violeta">fuera del catálogo activo</span>}
@@ -148,6 +153,7 @@ export function Libre({ r, catalogo, editable, buscando, onElegir, onBuscar, onC
           <div className="sol-candidatos">
             {candidatos.map((c) => (
               <button key={c.id} type="button" className="sol-candidato" onClick={() => onElegir(c)}>
+                <FotoConsumible item={c} size={32} />
                 <Ubicacion valor={c.ubicacion} chica />
                 <span>{c.descripcion}</span>
               </button>
@@ -169,20 +175,35 @@ export function Libre({ r, catalogo, editable, buscando, onElegir, onBuscar, onC
  * mano). El lector de códigos escribe acá y manda Enter: por código exacto
  * entra directo; si no, el primero de la lista.
  */
-export function Agregar({ catalogo, porCodigo, resolviendo, onElegir, onCancelarResolver, inputRef, deshabilitado }) {
+export function Agregar({ catalogo, porCodigo, resolviendo, onElegir, onCancelarResolver, inputRef, deshabilitado, cantidades = new Map() }) {
   const [texto, setTexto] = useState("");
-  const resultados = useMemo(() => buscarProductos(catalogo ?? [], texto, 8), [catalogo, texto]);
+  const resultados = useMemo(() => buscarProductos(catalogo ?? [], texto, 40), [catalogo, texto]);
 
-  function elegir(item) {
-    setTexto("");
+  function elegir(item, escaneado = false) {
+    if (resolviendo || escaneado) setTexto("");
     onElegir(item);
   }
 
   function alEnter() {
-    const exacto = porCodigo(texto);
-    if (exacto) { elegir(exacto); return; }
+    const exacto = porCodigo?.(texto);
+    if (exacto) { elegir(exacto, true); return; }
     if (resultados[0]) elegir(resultados[0]);
   }
+
+  const lector = useRafagaLector({
+    onRafaga: (codigo, previo) => {
+      const exacto = porCodigo?.(codigo);
+      if (exacto) {
+        setTexto(resolviendo ? "" : previo);
+        onElegir(exacto);
+      } else {
+        setTexto(codigo);
+        const primero = buscarProductos(catalogo ?? [], codigo, 1)[0];
+        if (primero) onElegir(primero);
+      }
+    },
+    onEnter: (e) => { e.preventDefault(); alEnter(); },
+  });
 
   return (
     <div className="sol-agregar">
@@ -200,8 +221,9 @@ export function Agregar({ catalogo, porCodigo, resolviendo, onElegir, onCancelar
           value={texto}
           disabled={deshabilitado}
           onChange={(e) => setTexto(e.target.value)}
+          onPaste={lector.onPaste}
           onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); alEnter(); }
+            lector.onKeyDown(e);
             if (e.key === "Escape") { setTexto(""); if (resolviendo) onCancelarResolver(); }
           }}
           placeholder={deshabilitado ? "Trayendo el catálogo…" : resolviendo ? "Nombre, código o escaneá" : "Agregar: escaneá o escribí nombre o código"}
@@ -209,17 +231,23 @@ export function Agregar({ catalogo, porCodigo, resolviendo, onElegir, onCancelar
           autoComplete="off"
         />
       </div>
+      {texto.trim() && !resolviendo ? (
+        <div className="sol-fila" style={{ justifyContent: "space-between", fontSize: 12, color: "var(--dim)" }}>
+          <span>Podés agregar varias variantes de esta búsqueda.</span>
+          <button type="button" className="sol-enlace" onClick={() => setTexto("")}>Terminar búsqueda</button>
+        </div>
+      ) : null}
       {texto.trim() ? (
         resultados.length ? (
           <div className="sol-resultados" role="listbox" aria-label="Productos encontrados">
             {resultados.map((item, i) => (
               <button key={item.id} type="button" role="option" aria-selected={i === 0} className={`sol-resultado${i === 0 ? " is-activo" : ""}`} onClick={() => elegir(item)}>
-                <Ubicacion valor={item.ubicacion} chica />
+                <FotoConsumible item={item} />
                 <span className="sol-resultado-nombre">
                   <span>{item.descripcion}</span>
-                  <small className="sol-num">{[codigoVisible(item), item.unidad].filter(Boolean).join(" · ")}</small>
+                  <small className="sol-num">{[codigoVisible(item), item.ubicacion ? `Ubic. ${item.ubicacion}` : null, item.unidad].filter(Boolean).join(" · ")}</small>
                 </span>
-                {i === 0 ? <span className="sol-tag is-azul">Enter</span> : <span />}
+                {cantidades.get(item.id) ? <span className="sol-tag is-verde">×{fmtCantidad(cantidades.get(item.id))}</span> : i === 0 ? <span className="sol-tag is-azul">Enter</span> : <Plus size={16} />}
               </button>
             ))}
           </div>

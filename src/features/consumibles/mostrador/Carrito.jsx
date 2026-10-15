@@ -3,6 +3,7 @@ import { BadgeCheck, Minus, PenLine, Plus, Scale, ShoppingBasket, Undo2, X } fro
 import CampoTexto from "./CampoTexto";
 import { avisoStock, fmtNum, totalUnidades } from "./mostradorLogica";
 import { FormaEtiqueta } from "./Piezas";
+import FotoConsumible from "../FotoConsumible";
 
 /**
  * El carrito: lo que se marcó, con su cantidad y lo que cada forma de entrega
@@ -70,7 +71,7 @@ export default function Carrito({
             Pasá los productos por el lector o tocá los de la botonera. La tarjeta va al final, para firmar.
           </div>
         ) : carrito.map((l) => (
-          <Linea
+          <LineaCarrito
             key={l.key}
             linea={l}
             item={porId.get(l.materialId)}
@@ -125,7 +126,7 @@ export function PieFirmar({ carrito = [], problemas = [], modo, persona, onFirma
   );
 }
 
-function Linea({ linea: l, item, devolucion, onSumar, onTeclado, onQuitar, onPeso, onCanje, onAutorizaCanje, onRafaga }) {
+export function LineaCarrito({ linea: l, item, devolucion, onSumar, onTeclado, onQuitar, onPeso, onCanje, onAutorizaCanje, onRafaga }) {
   const forma = item?.formaEntrega ?? "unidad";
   const aviso = devolucion ? null : avisoStock(item, l.cantidad);
   const esPeso = forma === "peso";
@@ -135,6 +136,7 @@ function Linea({ linea: l, item, devolucion, onSumar, onTeclado, onQuitar, onPes
     <div className="mst-linea">
       <span className="mst-destello" key={l.agregadoAt} aria-hidden="true" />
       <div className="mst-linea-fila">
+        <FotoConsumible item={item} size={32} />
         <div className="mst-linea-texto">
           <div className="mst-linea-nombre">{item?.descripcion ?? "Consumible"}</div>
           <div className="mst-linea-sub">

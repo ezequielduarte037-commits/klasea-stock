@@ -17,6 +17,7 @@ export default function Botonera({ favoritos = [], resultados = [], buscando = f
           <Search size={12} aria-hidden="true" />
           {resultados.length ? <>Resultados <span className="mst-num">{resultados.length}</span></> : "Sin resultados"}
         </div>
+        <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--dim)" }}>Podés agregar varias variantes sin volver a buscar. Cada toque suma una.</p>
         {resultados.length ? (
           <div className="mst-resultados" role="listbox" aria-label="Consumibles encontrados">
             {resultados.map((item, i) => {

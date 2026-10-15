@@ -76,7 +76,7 @@ export async function buscarEnHistorial({ sede, q, limite = 60 } = {}) {
 
 const ITEM_COLS =
   "id, solicitud_id, material_id, descripcion, codigo, cantidad, unidad, observacion, estado, orden, es_consumible, " +
-  "material:panol_materiales(id, es_consumible, descripcion, ubicacion, unidad_medida)";
+  "material:panol_materiales(id, es_consumible, descripcion, imagen_url, ubicacion, unidad_medida)";
 
 /** La solicitud con sus renglones y las fotos del papel. */
 export async function fetchDetalle(id) {

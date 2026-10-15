@@ -350,7 +350,7 @@ export async function fetchMovimientos({ sede = null, desde = null, hasta = null
   const consultar = () => {
   let q = supabase
     .from("consumibles_movimientos")
-    .select("*, material:panol_materiales(id,descripcion,unidad_medida), obra:produccion_obras(id,codigo)")
+    .select("*, material:panol_materiales(id,descripcion,imagen_url,unidad_medida), obra:produccion_obras(id,codigo)")
     .order("created_at", { ascending: false })
     .order("id");
   if (sede) q = q.eq("sede", sede);

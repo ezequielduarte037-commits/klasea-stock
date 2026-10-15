@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, Ban, Camera, CheckCheck, CircleCheck, Clock3, LoaderCircle, PackageCheck, Play, Printer, RotateCcw,
-  Sparkles, TriangleAlert, Undo2, X, Zap,
+  Pencil, Sparkles, TriangleAlert, Undo2, X, Zap,
 } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
@@ -137,6 +137,7 @@ export default function Detalle({
   const fotos = datos?.fotos ?? [];
   const { libres, deObra, consumibles } = useMemo(() => clasificarRenglones(items, porId), [items, porId]);
   const resumen = useMemo(() => resumenItems(items), [items]);
+  const cantidades = useMemo(() => new Map(items.filter((i) => i.material_id).map((i) => [i.material_id, i.cantidad])), [items]);
   const problemas = useMemo(() => problemasParaEntregar(s, items), [s, items]);
   const activa = Boolean(s && ESTADOS_ACTIVOS.includes(s.estado));
   const editable = Boolean(puedeOperar && activa);
@@ -574,6 +575,7 @@ export default function Detalle({
               onCancelarResolver={() => setResolviendo(null)}
               inputRef={buscarRef}
               deshabilitado={!catalogo}
+              cantidades={cantidades}
             />
             {resumenIA ? (
               <div className="sol-aviso is-verde" role="status">
@@ -703,6 +705,9 @@ export default function Detalle({
             </>
           ) : s.estado === "entregado" ? (
             <>
+              <button type="button" className="ui-btn ui-btn-primario" style={{ minHeight: 44 }} onClick={() => setHoja({ tipo: "deshacer", corregir: true })}>
+                <Pencil size={16} /> Corregir cantidades o agregar
+              </button>
               <span className="sol-espacio" />
               <button type="button" className="ui-btn ui-btn-peligro" style={{ minHeight: 44 }} onClick={() => setHoja({ tipo: "deshacer" })}>
                 <Undo2 size={16} /> Deshacer entrega
@@ -730,7 +735,7 @@ export default function Detalle({
           onEntregada={alEntregar}
         />
       ) : null}
-      {hoja?.tipo === "deshacer" ? <DeshacerEntrega solicitud={s} onCerrar={cerrarHoja} onHecho={alDeshacer} /> : null}
+      {hoja?.tipo === "deshacer" ? <DeshacerEntrega solicitud={s} corregir={hoja.corregir} onCerrar={cerrarHoja} onHecho={alDeshacer} /> : null}
       {trabajo ? <CapaImpresion trabajo={trabajo} /> : null}
     </section>
   );

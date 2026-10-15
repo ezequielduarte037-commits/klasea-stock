@@ -127,6 +127,7 @@ export function agruparFilas(filas = [], { primeros = new Map(), nombres = new M
       createdAt: filasOrdenadas.reduce((max, f) => (f.created_at > max ? f.created_at : max), base.created_at),
       materialId: base.material_id,
       descripcion: texto(material.descripcion) || "Consumible sin descripción",
+      imagenUrl: material.imagen_url || null,
       codigo: texto(config.codigo_etiqueta) || null,
       unidad: texto(config.unidad_entrega ?? material.unidad_medida) || "unidad",
       cantidad: redondear(cuentan.reduce((s, f) => s + (num(f.cantidad) ?? 0), 0)),

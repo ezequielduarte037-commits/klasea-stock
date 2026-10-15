@@ -79,10 +79,10 @@ export default function TableroTab({ sede }) {
                   <small>{resumen.totales.sinCosto > 0 ? `${fmtCantidad(resumen.totales.sinCosto)} filas de retiro sin costo registrado.` : "Costo congelado al retirar."}</small>
                 </div>
                 <div className="ui-card cns-tab-kpi"><span>Cantidad entregada</span><Cantidades filas={resumen.totales.porUnidad} vacio="Sin retiros" /><small>Cada unidad de entrega se suma por separado.</small></div>
-                <div className="ui-card cns-tab-kpi"><span>Viajes al pañol</span><strong>{fmtCantidad(resumen.viajes)}</strong><small>Un retiro por persona, día y sede; los artículos y obras repartidas comparten el viaje.</small></div>
+                <div className="ui-card cns-tab-kpi"><span>Visitas al pañol</span><strong>{fmtCantidad(resumen.viajes)}</strong><small>Un retiro por persona, día y sede; los artículos y obras repartidas cuentan como una sola visita.</small></div>
               </div>
-              {resumen.sinLote > 0 && <p className="cns-tab-aviso">Hay {fmtCantidad(resumen.sinLote)} filas sin lote ni solicitud: se cuenta cada fila como un viaje. El total puede quedar sobreestimado.</p>}
-              {!resumen.retiros && <EmptyState icon={BarChart3} title="Todavía no hay retiros en este período" subtitle="Cuando registres las primeras entregas, acá vas a ver el consumo y los viajes al pañol. Probá otra sede o ampliá el período." />}
+              {resumen.sinLote > 0 && <p className="cns-tab-aviso">Hay {fmtCantidad(resumen.sinLote)} filas sin lote ni solicitud: se cuenta cada fila como una visita. El total puede quedar sobreestimado.</p>}
+              {!resumen.retiros && <EmptyState icon={BarChart3} title="Todavía no hay retiros en este período" subtitle="Cuando registres las primeras entregas, acá vas a ver el consumo y las visitas al pañol. Probá otra sede o ampliá el período." />}
               {resumen.retiros > 0 && <>
                 <section aria-label="Rankings de consumo">
                   <div className="cns-tab-seccion"><div><h2>Consumo</h2><p>Compará por obra, sector, persona y rubro.</p></div>
@@ -186,7 +186,7 @@ function Frecuencia({ frecuencia, personas }) {
   return <>
     <div className="cns-tab-periodos cns-tab-interno" role="group" aria-label="Frecuencia por">
       <button type="button" aria-pressed={vista === "productos"} onClick={() => { setVista("productos"); setTodas(false); }}>Por producto</button>
-      <button type="button" aria-pressed={vista === "personas"} onClick={() => { setVista("personas"); setTodas(false); }}>Viajes por persona</button>
+      <button type="button" aria-pressed={vista === "personas"} onClick={() => { setVista("personas"); setTodas(false); }}>Visitas por persona</button>
     </div>
     {vista === "productos" && <p className="cns-tab-contexto cns-tab-interno">{diasActivos < 3 ? `Con ${fmtCantidad(diasActivos)} ${diasActivos === 1 ? "día" : "días"} de retiros todavía no hay ritmo: ampliá el período.` : `${fmtCantidad(diasActivos)} días con retiros en el período.`}</p>}
     <div className="cns-tab-viajes">
@@ -195,7 +195,7 @@ function Frecuencia({ frecuencia, personas }) {
           <div><span>{p.nombre}</span><small>Salió {fmtCantidad(p.dias)} de {fmtCantidad(diasActivos)} {diasActivos === 1 ? "día" : "días"} · {fmtCantidad(p.veces)} {p.veces === 1 ? "vez" : "veces"} · {fmtCantidad(Math.round(p.porVez * 10) / 10)} {unidadEnTexto(p.unidad, Math.round(p.porVez * 10) / 10)} por vez · {fmtCantidad(p.personas)} {p.personas === 1 ? "persona" : "personas"}</small></div>
           {p.ritmo && <em data-ritmo={p.ritmo}>{RITMO[p.ritmo]}</em>}
         </div>)
-        : (todas ? personas : personas.slice(0, 10)).map((p) => <details key={p.id} className="cns-tab-persona"><summary><span>{p.nombre}</span><b>{fmtCantidad(p.total)} {p.total === 1 ? "viaje" : "viajes"} en {fmtCantidad(Object.keys(p.dias).length)} {Object.keys(p.dias).length === 1 ? "día" : "días"}</b></summary><ul>{Object.entries(p.dias).sort(([a], [b]) => b.localeCompare(a)).map(([dia, n]) => <li key={dia}><span>{fecha(dia)}</span><b>{fmtCantidad(n)} {n === 1 ? "viaje" : "viajes"}</b></li>)}</ul></details>)}
+        : (todas ? personas : personas.slice(0, 10)).map((p) => <details key={p.id} className="cns-tab-persona"><summary><span>{p.nombre}</span><b>{fmtCantidad(p.total)} {p.total === 1 ? "visita" : "visitas"} en {fmtCantidad(Object.keys(p.dias).length)} {Object.keys(p.dias).length === 1 ? "día" : "días"}</b></summary><ul>{Object.entries(p.dias).sort(([a], [b]) => b.localeCompare(a)).map(([dia, n]) => <li key={dia}><span>{fecha(dia)}</span><b>{fmtCantidad(n)} {n === 1 ? "visita" : "visitas"}</b></li>)}</ul></details>)}
       {lista.length > 10 && <button type="button" className="ui-btn ui-btn-fantasma cns-tab-ver" onClick={() => setTodas((v) => !v)}>{todas ? "Ver los primeros 10" : `Ver ${vista === "productos" ? "todos los productos" : "todas las personas"} (${fmtCantidad(lista.length)})`}</button>}
     </div>
   </>;
