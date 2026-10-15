@@ -43,6 +43,7 @@ export default function BoatDetail({
     total:     piezas.filter(p => p.estado !== "No lleva").length,
     recibido:  piezas.filter(p => p.estado === "Recibido").length,
     rehacer:   piezas.filter(p => p.estado === "Rehacer").length,
+    pendientes: piezas.filter(p => p.estado === "Pendiente").length,
   }), [piezas]);
 
   const porSector = useMemo(() => {
@@ -183,11 +184,13 @@ export default function BoatDetail({
             <input style={{ ...INP_SM, paddingLeft:28 }} placeholder="Buscar pieza, sector o color…"
               value={q} onChange={e => setQ(e.target.value)} />
           </div>
-          {esAdmin && <button onClick={onCrearRemito} disabled={loading || !stats.total}
+          {stats.total > 0 && stats.recibido === stats.total && <p style={{ margin:"10px 0 0", color:"var(--green)", fontSize:12 }}>Archivado: todas las piezas están recibidas.</p>}
+          {esAdmin && <button onClick={onCrearRemito} disabled={loading || !stats.pendientes}
+            title={stats.pendientes ? "Seleccionar plantillas pendientes de envío" : "Este barco no tiene plantillas pendientes de envío"}
             style={{ marginTop:10, width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:7,
               border:"1px solid var(--blue-border)", background:"var(--blue-soft)", color:"var(--blue)",
               padding:"9px 12px", borderRadius:8, fontFamily:T.sans, fontSize:12, fontWeight:600,
-              cursor:loading || !stats.total ? "default" : "pointer", opacity:loading || !stats.total ? 0.5 : 1 }}>
+              cursor:loading || !stats.pendientes ? "default" : "pointer", opacity:loading || !stats.pendientes ? 0.5 : 1 }}>
             <FileText size={14} /> Crear remito de plantillas
           </button>}
           <button onClick={onPrintEtiquetas} disabled={loading || printingEtiquetas || !stats.total}

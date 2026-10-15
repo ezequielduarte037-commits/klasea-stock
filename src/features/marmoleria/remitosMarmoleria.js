@@ -1,6 +1,20 @@
 const limpiar = (valor) => String(valor ?? "").replace(/\s+/g, " ").trim();
 export const MAX_PLANTILLAS_REMITO = 100;
 
+export function plantillasPendientesRemito(piezas, unidades, lineas) {
+  const modelos = new Map(lineas.filter(l => l.activa !== false).map(l => [l.id, l.nombre]));
+  const barcos = new Map(unidades.filter(u => u.activa !== false && modelos.has(u.linea_id)).map(u => [u.id, u]));
+  return piezas.filter(p => p.estado === "Pendiente" && barcos.has(p.unidad_id))
+    .map(p => ({ ...p, codigo_barco:barcos.get(p.unidad_id).codigo, linea:modelos.get(barcos.get(p.unidad_id).linea_id) }))
+    .sort((a, b) => `${a.codigo_barco} ${a.sector} ${a.pieza}`.localeCompare(`${b.codigo_barco} ${b.sector} ${b.pieza}`, "es", { numeric:true }));
+}
+
+export function depurarSeleccionRemito(seleccion, catalogo) {
+  const disponibles = new Set(catalogo.map(p => p.id));
+  const vigentes = Object.entries(seleccion).filter(([id]) => disponibles.has(id));
+  return vigentes.length === Object.keys(seleccion).length ? seleccion : Object.fromEntries(vigentes);
+}
+
 export function numeroRemitoMarmoleria(numero) {
   return numero == null ? "BORRADOR" : `MAR-${String(numero).padStart(6, "0")}`;
 }

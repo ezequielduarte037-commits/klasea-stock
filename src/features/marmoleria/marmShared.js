@@ -216,6 +216,7 @@ export function statsDePiezas(piezas) {
   const materiales = uniqueSorted(piezas.map(p => p.color ?? ""));
   return {
     total: activas.length,
+    archivada: activas.length > 0 && recibidas === activas.length,
     recibidas, enviadas, pendientes, rehacer,
     demoradas,
     pct: pct(piezas),

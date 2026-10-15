@@ -224,15 +224,17 @@ export function texturaRuido() {
 }
 
 /* Brillo redondo (luces, luna, charcos de luz). Caída suave como la de una
-   luz real: un núcleo gaussiano más una cola larga que llega a cero sin
-   borde (el degradé lineal de antes dejaba anillos y un canto visible). */
+   luz real: un núcleo gaussiano concentrado más un halo de inversa al cuadrado
+   que llega a cero con curva quíntica antes del borde (sin anillos ni cantos). */
 export function texturaBrillo() {
   const tex = lienzo(256, (ctx, T) => {
     const img = ctx.createImageData(T, T);
     for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
       const r = Math.hypot(x + 0.5 - T / 2, y + 0.5 - T / 2) / (T / 2);
-      const borde = Math.max(0, 1 - r);
-      const a = (Math.exp(-r * r * 14) * 0.75 + 0.25 / (1 + (r * 7) ** 2)) * borde * borde;
+      if (r >= 1) continue;
+      const u = 1 - r;
+      const borde = u * u * u * (u * (u * 6 - 15) + 10);
+      const a = (Math.exp(-r * r * 18) * 0.72 + 0.28 / (1 + r * r * 22)) * borde;
       const o = (y * T + x) * 4;
       img.data[o] = img.data[o + 1] = img.data[o + 2] = 255;
       img.data[o + 3] = Math.round(255 * Math.min(1, a));

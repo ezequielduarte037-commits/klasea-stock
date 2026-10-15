@@ -3,7 +3,7 @@ import { ArrowLeft, Check, Download, Eye, FileText, Plus, RefreshCw, Search, X }
 import { loadNavyLogo } from "@/lib/pdfLogo";
 import { T, PANEL, INP, INP_SM, EYEBROW, fmtFecha } from "./marmShared";
 import { hoyISO } from "./marmoleriaPdf";
-import { alternarPlantillaRemito, datosSolicitudRemito, MAX_PLANTILLAS_REMITO, numeroRemitoMarmoleria, validarRemitoMarmoleria } from "./remitosMarmoleria";
+import { alternarPlantillaRemito, datosSolicitudRemito, depurarSeleccionRemito, MAX_PLANTILLAS_REMITO, numeroRemitoMarmoleria, plantillasPendientesRemito, validarRemitoMarmoleria } from "./remitosMarmoleria";
 import { emitirRemitoMarmoleria, errorRemitosMarmoleria, listarRemitosMarmoleria } from "./remitosMarmoleriaApi";
 import { construirPdfRemitoMarmoleria, nombreArchivoRemitoMarmoleria } from "./remitoMarmoleriaPdf";
 
@@ -65,16 +65,27 @@ export default function RemitosView({ profile, piezas, unidades, lineas, unidadI
     return () => { activo = false; };
   }, []);
 
-  const catalogo = useMemo(() => {
-    const barcos = new Map(unidades.map((u) => [u.id, u]));
-    const modelos = new Map(lineas.map((l) => [l.id, l.nombre]));
-    return piezas.filter((p) => p.estado !== "No lleva" && modelos.has(barcos.get(p.unidad_id)?.linea_id))
-      .map((p) => ({ ...p, codigo_barco:barcos.get(p.unidad_id).codigo, linea:modelos.get(barcos.get(p.unidad_id).linea_id) }))
-      .sort((a, b) => `${a.codigo_barco} ${a.sector} ${a.pieza}`.localeCompare(`${b.codigo_barco} ${b.sector} ${b.pieza}`, "es", { numeric:true }));
-  }, [piezas, unidades, lineas]);
-  const sectores = useMemo(() => [...new Set(catalogo.filter((p) => !barco || p.unidad_id === barco).map((p) => p.sector))].sort(), [catalogo, barco]);
-  const visibles = useMemo(() => catalogo.filter((p) => (!barco || p.unidad_id === barco) && (!sector || p.sector === sector)
-    && `${p.codigo_barco} ${p.linea} ${p.sector} ${p.pieza} ${p.color ?? ""}`.toLocaleLowerCase("es").includes(q.trim().toLocaleLowerCase("es"))), [catalogo, barco, sector, q]);
+  const catalogo = useMemo(() => plantillasPendientesRemito(piezas, unidades, lineas), [piezas, unidades, lineas]);
+  const barcosDisponibles = useMemo(() => {
+    const ids = new Set(catalogo.map(p => p.unidad_id));
+    return unidades.filter(u => ids.has(u.id));
+  }, [catalogo, unidades]);
+  const barcoFiltro = barcosDisponibles.some(u => u.id === barco) ? barco : "";
+  const sectores = useMemo(() => [...new Set(catalogo.filter((p) => !barcoFiltro || p.unidad_id === barcoFiltro).map((p) => p.sector))].sort(), [catalogo, barcoFiltro]);
+  const sectorFiltro = sectores.includes(sector) ? sector : "";
+  const visibles = useMemo(() => catalogo.filter((p) => (!barcoFiltro || p.unidad_id === barcoFiltro) && (!sectorFiltro || p.sector === sectorFiltro)
+    && `${p.codigo_barco} ${p.linea} ${p.sector} ${p.pieza} ${p.color ?? ""}`.toLocaleLowerCase("es").includes(q.trim().toLocaleLowerCase("es"))), [catalogo, barcoFiltro, sectorFiltro, q]);
+  const [catalogoAnterior, setCatalogoAnterior] = useState(catalogo);
+  // Si llega un cambio de estado por realtime, quitar la selección antes de
+  // mostrarla o emitirla; cambiar un filtro de búsqueda no cambia el catálogo.
+  if (catalogoAnterior !== catalogo) {
+    setCatalogoAnterior(catalogo);
+    const vigentes = depurarSeleccionRemito(seleccion, catalogo);
+    if (vigentes !== seleccion) {
+      setSeleccion(vigentes);
+      setError("Se quitaron de la selección las plantillas que ya no están pendientes de envío.");
+    }
+  }
   const items = Object.values(seleccion);
   const todosMarcados = visibles.length > 0 && visibles.every((p) => !!seleccion[p.id]);
   const sinMaterial = items.filter((i) => !i.material.trim()).length;
@@ -159,7 +170,7 @@ export default function RemitosView({ profile, piezas, unidades, lineas, unidadI
         <div style={{ flex:1, minWidth:200 }}>
           <div style={EYEBROW}>Entrega de plantillas</div>
           <h1 style={{ fontSize:21, margin:"4px 0 6px", fontWeight:650 }}>Remitos de marmolería</h1>
-          <div style={{ color:"var(--muted)", fontSize:13 }}>Original para conservar firmado y duplicado para quien retira.</div>
+          <div style={{ color:"var(--muted)", fontSize:13 }}>Original para conservar firmado y duplicado para quien retira. Si entran, ambas copias se imprimen en una hoja A4.</div>
         </div>
         <button style={modo === "nuevo" ? PRIMARY : BTN} onClick={() => setModo("nuevo")} disabled={ocupado}><Plus size={14} /> Nuevo remito{items.length ? ` (${items.length})` : ""}</button>
         <button style={modo === "emitidos" ? PRIMARY : BTN} onClick={() => setModo("emitidos")} disabled={ocupado}><FileText size={14} /> Emitidos</button>
@@ -172,11 +183,12 @@ export default function RemitosView({ profile, piezas, unidades, lineas, unidadI
           <div style={{ display:"grid", gridTemplateColumns:isMobile ? "1fr" : "minmax(280px, .9fr) minmax(340px, 1.1fr)", gap:16, alignItems:"start" }}>
             <section style={{ ...PANEL, padding:16 }} aria-label="Seleccionar plantillas">
               <h2 style={{ margin:"0 0 12px", fontSize:15 }}>1. Seleccioná las plantillas</h2>
+              <p style={{ margin:"0 0 12px", color:"var(--muted)", fontSize:12, lineHeight:1.5 }}>Solo pendientes de envío. Las enviadas y recibidas quedan disponibles para consulta en el historial.</p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-                <label style={LABEL}>Barco<select aria-label="Barco" style={INP_SM} value={barco} onChange={(e) => { setBarco(e.target.value); setSector(""); }}>
-                  <option value="">Todos los barcos</option>{unidades.filter((u) => lineas.some((l) => l.id === u.linea_id)).map((u) => <option key={u.id} value={u.id}>{u.codigo}</option>)}
+                <label style={LABEL}>Barco<select aria-label="Barco" style={INP_SM} value={barcoFiltro} onChange={(e) => { setBarco(e.target.value); setSector(""); }}>
+                  <option value="">Todos con pendientes</option>{barcosDisponibles.map((u) => <option key={u.id} value={u.id}>{u.codigo}</option>)}
                 </select></label>
-                <label style={LABEL}>Sector<select aria-label="Sector" style={INP_SM} value={sector} onChange={(e) => setSector(e.target.value)}><option value="">Todos los sectores</option>{sectores.map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+                <label style={LABEL}>Sector<select aria-label="Sector" style={INP_SM} value={sectorFiltro} onChange={(e) => setSector(e.target.value)}><option value="">Todos los sectores</option>{sectores.map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
               </div>
               <label style={{ ...LABEL, position:"relative" }}><span style={{ position:"absolute", top:9, left:10 }}><Search size={14} /></span>
                 <input style={{ ...INP, paddingLeft:32 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plantilla, barco o material…" aria-label="Buscar plantilla, barco o material" />
@@ -193,7 +205,7 @@ export default function RemitosView({ profile, piezas, unidades, lineas, unidadI
                     <span style={{ fontSize:12, color:p.color ? "var(--muted)" : "var(--red)" }}>{p.color || "Material a completar"}</span>
                   </span>
                 </label>)}
-                {!visibles.length && <p style={{ color:"var(--dim)", fontSize:13 }}>No hay plantillas con estos filtros.</p>}
+                {!visibles.length && <p style={{ color:"var(--dim)", fontSize:13 }}>No hay plantillas pendientes de envío con estos filtros.</p>}
               </div>
             </section>
             <section style={{ ...PANEL, padding:16 }} aria-label="Preparar remito">

@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { materialDeSector, materialHeredable } from "./marmShared.js";
+import { materialDeSector, materialHeredable, statsDePiezas } from "./marmShared.js";
+
+test("archiva solo barcos con todas las piezas aplicables recibidas y los reabre si hay trabajo", () => {
+  assert.equal(statsDePiezas([]).archivada, false);
+  assert.equal(statsDePiezas([{ estado:"No lleva" }]).archivada, false);
+  assert.equal(statsDePiezas([{ estado:"Recibido" }, { estado:"No lleva" }]).archivada, true);
+  for (const estado of ["Pendiente", "Enviado", "Rehacer", null]) {
+    assert.equal(statsDePiezas([{ estado:"Recibido" }, { estado }]).archivada, false);
+  }
+  const casiTerminado = [...Array.from({ length:199 }, () => ({ estado:"Recibido" })), { estado:"Pendiente" }];
+  assert.equal(statsDePiezas(casiTerminado).pct, 100);
+  assert.equal(statsDePiezas(casiTerminado).archivada, false);
+});
 
 // Lo que pasó en el 85-2: el Salón tenía material en las piezas viejas y las
 // tres cargadas el 01/10 quedaron vacías.

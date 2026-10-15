@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  AlertTriangle, Check, Layers, Pencil, Plus, RotateCcw, Trash2, X,
+  AlertTriangle, Archive, Check, Layers, Pencil, Plus, RotateCcw, Trash2, X,
 } from "lucide-react";
 import {
   T, PANEL, EYEBROW, INP_SM, ICON_BTN, bucketMeta, ESTADO_META,
@@ -28,7 +28,7 @@ function BarraSegmentada({ stats }) {
 
 function BarcoCard({ unidad, stats, desmoldeRow, selected, onClick }) {
   const bucket = desmoldeRow ? bucketMeta(desmoldeRow.bucket) : null;
-  const requierePedido = desmoldeRow && ["ahora", "proximos"].includes(desmoldeRow.bucket);
+  const requierePedido = !stats?.archivada && desmoldeRow && ["ahora", "proximos"].includes(desmoldeRow.bucket);
   const sinActividad = !stats || stats.total === 0;
 
   return (
@@ -47,6 +47,7 @@ function BarcoCard({ unidad, stats, desmoldeRow, selected, onClick }) {
           {unidad.codigo}
         </span>
         <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+          {stats?.archivada && <span style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:10, color:"var(--green)" }}><Archive size={11} /> Archivado</span>}
           {stats?.rehacer > 0 && (
             <span title={`${stats.rehacer} a rehacer`} style={{
               display:"inline-flex", alignItems:"center", gap:3,
@@ -117,8 +118,10 @@ export default function FleetBoard({
   const [addLineaId, setAddLineaId] = useState(null);
   const [addCodigo, setAddCodigo] = useState("");
   const [newLinea, setNewLinea] = useState("");
+  const [verArchivados, setVerArchivados] = useState(false);
 
   const totalBarcos = lineas.reduce((total, linea) => total + (unidadesPorLinea[linea.id]?.length ?? 0), 0);
+  const totalArchivados = lineas.reduce((total, linea) => total + (unidadesPorLinea[linea.id] ?? []).filter(u => statsPorUnidad[u.id]?.archivada).length, 0);
 
   const confirmRename = () => {
     onRenameLinea(renameId, renameNombre);
@@ -138,16 +141,29 @@ export default function FleetBoard({
 
   return (
     <section>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:12 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <Layers size={14} style={{ color:"var(--muted)" }} />
           <span style={EYEBROW}>Barcos por línea</span>
         </div>
-        <span style={{ fontSize:11, color:"var(--dim)" }}>{totalBarcos} activos</span>
+        <div style={{ display:"flex", gap:6 }}>
+          {[{ archivados:false, label:"Activos", total:totalBarcos - totalArchivados }, { archivados:true, label:"Archivados", total:totalArchivados }].map(opcion => (
+            <button key={opcion.label} type="button" aria-pressed={verArchivados === opcion.archivados} onClick={() => setVerArchivados(opcion.archivados)}
+              className="mrm-chip-btn" style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 9px", borderRadius:7, cursor:"pointer",
+                border:`1px solid ${verArchivados === opcion.archivados ? "var(--blue-border)" : "var(--border)"}`,
+                background:verArchivados === opcion.archivados ? "var(--blue-soft)" : "transparent",
+                color:verArchivados === opcion.archivados ? "var(--blue)" : "var(--muted)", fontFamily:T.sans, fontSize:11 }}>
+              {opcion.archivados && <Archive size={12} />}{opcion.label} ({opcion.total})
+            </button>
+          ))}
+        </div>
       </div>
+      {verArchivados && <p style={{ margin:"0 0 14px", fontSize:12, color:"var(--muted)", lineHeight:1.5 }}>Barcos con todas sus piezas recibidas. Conservan el detalle y el historial; si se agrega o reabre una pieza, vuelven a Activos.</p>}
+      {verArchivados && totalArchivados === 0 && <div style={{ ...PANEL, padding:16, color:"var(--dim)", fontSize:12 }}>Todavía no hay barcos con todas sus piezas recibidas.</div>}
 
       {lineas.map(linea => {
-        const unidades = unidadesPorLinea[linea.id] ?? [];
+        const unidades = (unidadesPorLinea[linea.id] ?? []).filter(u => !!statsPorUnidad[u.id]?.archivada === verArchivados);
+        if (verArchivados && !unidades.length) return null;
 
         return (
           <div key={linea.id} style={{ marginBottom:20 }}>
@@ -191,7 +207,7 @@ export default function FleetBoard({
                 <Layers size={10} /> Plantilla
               </button>
 
-              {esAdmin && renameId !== linea.id && (
+              {esAdmin && !verArchivados && renameId !== linea.id && (
                 <span style={{ display:"inline-flex", gap:1 }}>
                   <button
                     className="mrm-icon-btn"
@@ -227,7 +243,7 @@ export default function FleetBoard({
               )}
             </div>
 
-            {esAdmin && addLineaId === linea.id && (
+            {esAdmin && !verArchivados && addLineaId === linea.id && (
               <div style={{ display:"flex", gap:6, marginBottom:8, maxWidth:320 }}>
                 <input
                   autoFocus
@@ -255,7 +271,7 @@ export default function FleetBoard({
 
             {unidades.length === 0 ? (
               <div style={{ ...PANEL, padding:"14px 16px", borderStyle:"dashed", color:"var(--dim)", fontSize:11 }}>
-                Sin barcos activos
+                Sin barcos activos en esta línea
               </div>
             ) : (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(210px, 1fr))", gap:8 }}>
@@ -275,7 +291,7 @@ export default function FleetBoard({
         );
       })}
 
-      {esAdmin && (
+      {esAdmin && !verArchivados && (
         <div style={{ display:"flex", gap:6, maxWidth:320, paddingTop:2 }}>
           <input
             style={{ ...INP_SM, flex:1 }}

@@ -75,6 +75,9 @@ function Efectos({ renderRef }) {
     const destino = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
     const composer = new EffectComposer(gl, destino);
     const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.55, 3.2);
+    // Transición gradual en el umbral del bloom: evita que luces chicas parpadeen
+    // al cruzar un píxel cuando el barco se mece sobre las olas.
+    bloom.highPassUniforms.smoothWidth.value = 1.2;
     // Antes del resplandor se limpian píxeles inválidos (NaN o infinito): el
     // bloom los agrandaba en cuadraditos negros al mover la cámara.
     const limpiar = new ShaderPass({
@@ -95,8 +98,6 @@ function Efectos({ renderRef }) {
     const pr = gl.getPixelRatio();
     efecto.composer.setPixelRatio(pr);
     efecto.composer.setSize(size.width, size.height);
-    // El resplandor no necesita resolución completa.
-    efecto.bloom.setSize(size.width * pr / 2, size.height * pr / 2);
   }, [efecto, gl, size]);
   useEffect(() => {
     if (renderRef) renderRef.current = () => efecto.composer.render();
@@ -263,7 +264,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     const u = o.agua.material.uniforms;
     u.time.value += dt * (0.55 + c.vel * 0.04);
     u.sunDirection.value.copy(luz.dir);
-    u.sunColor.value.copy(luz.solColor).multiplyScalar(luz.fuerza * 1.3 + m.noche * 0.1);
+    u.sunColor.value.copy(luz.solColor).multiplyScalar(luz.fuerza * 1.3 * (1 - m.noche));
     u.waterColor.value.copy(agua);
     // Olas: más altas con nublado y lluvia; espuma en las crestas con viento.
     const fuerzaOla = m.ola / 2.2;
@@ -434,10 +435,16 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
   useEffect(() => {
     ["teca", "cubierta", "casco", "tapizado", "almohadon", "negro", "detalle", "acrilico", "cromo", "piedra", "madera"]
       .forEach(n => { if (mats.lista[n]) iluminarConCortesia(mats.lista[n], extras.cortesia.uniforms); });
+    if (mats.lista.led) {
+      mats.lista.led.polygonOffset = true;
+      mats.lista.led.polygonOffsetFactor = -1;
+      mats.lista.led.polygonOffsetUnits = -2;
+    }
   }, [mats, extras]);
   useEffect(() => () => {
     const e = extras;
     e.cortesia.geo.dispose();
+    e.cortesia.halos?.forEach(({ m }) => m.material.dispose());
     e.rocio.geo.dispose();
     e.rocio.mat.dispose();
     e.cortesia.mat.dispose();
@@ -530,9 +537,9 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     e.luzPopa.intensity = fx.agua * 6;
     e.luzPopa.color.copy(c.colorSub);
     prenderNavegacion(e.navegacion, camera, fx.nav);
-    prenderCortesia(e.cortesia, fx.cort, grupo.current);
+    prenderCortesia(e.cortesia, fx.cort, grupo.current, camera);
     const led = v.mats.lista.led;
-    if (led) { led.emissive.set("#ffd2a0"); led.emissiveIntensity = fx.cort * 2.4; }
+    if (led) { led.emissive.set("#ffd6a4"); led.emissiveIntensity = fx.cort * 2.6; }
     // Plafones del interior: suaves de día (entra luz por las ventanas), más de noche.
     e.interior.forEach(l => { l.intensity = fx.int * (0.35 + 1.1 * c.noche); });
     // Desde adentro los vidrios se ven claros (afuera van ahumados): por las

@@ -1,11 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument } from "pdf-lib";
-import { alternarPlantillaRemito, datosSolicitudRemito, numeroRemitoMarmoleria, validarRemitoMarmoleria } from "./remitosMarmoleria.js";
+import { alternarPlantillaRemito, datosSolicitudRemito, depurarSeleccionRemito, numeroRemitoMarmoleria, plantillasPendientesRemito, validarRemitoMarmoleria } from "./remitosMarmoleria.js";
 import { construirPdfRemitoMarmoleria } from "./remitoMarmoleriaPdf.js";
 
 const pieza = (id = "pieza-a", extra = {}) => ({ id, pieza_id:id, codigo_barco:"55-2", linea:"K55", sector:"Cocina", pieza:"Mesada", color:"Purastone Desert Black", material:"Purastone Desert Black", cantidad:1, ...extra });
 const remito = (extra = {}) => ({ numero:42, fecha:"2026-10-15", destinatario:"Marmolería de prueba", entregado_por:"Juan Pérez", retira:"", observaciones:"", items:[pieza()], ...extra });
+
+test("el selector solo ofrece pendientes de barcos y líneas vigentes", () => {
+  const lineas = [{ id:"l", nombre:"K55" }, { id:"inactiva", nombre:"K52", activa:false }];
+  const unidades = [{ id:"u", codigo:"55-2", linea_id:"l" }, { id:"u2", codigo:"55-3", linea_id:"l", activa:false }, { id:"u3", codigo:"52-2", linea_id:"inactiva" }];
+  const piezas = ["Pendiente", "Enviado", "Recibido", "Rehacer", "No lleva", null].map((estado, i) => pieza(`p${i}`, { unidad_id:"u", estado }));
+  piezas.push(pieza("u-borrada", { unidad_id:"u2", estado:"Pendiente" }), pieza("linea-borrada", { unidad_id:"u3", estado:"Pendiente" }));
+  const catalogo = plantillasPendientesRemito(piezas, unidades, lineas);
+  assert.deepEqual(catalogo.map(p => p.id), ["p0"]);
+  assert.equal(catalogo[0].codigo_barco, "55-2");
+  assert.equal(catalogo[0].linea, "K55");
+});
+
+test("una pieza que deja de estar pendiente sale de la selección sin perder cantidades de las otras", () => {
+  const seleccion = { p1:pieza("p1", { cantidad:3, material:"Dekton Laurent" }), p2:pieza("p2") };
+  assert.equal(depurarSeleccionRemito(seleccion, [{ id:"p1" }, { id:"p2" }]), seleccion);
+  const vigente = depurarSeleccionRemito(seleccion, [{ id:"p1" }]);
+  assert.deepEqual(Object.keys(vigente), ["p1"]);
+  assert.equal(vigente.p1.cantidad, 3);
+  assert.equal(vigente.p1.material, "Dekton Laurent");
+  assert.deepEqual(depurarSeleccionRemito(vigente, [{ id:"p1" }, { id:"p2" }]), vigente);
+});
 
 test("selección por id conserva otros barcos y no mezcla plantillas homónimas", () => {
   const p1 = pieza("p1");
@@ -37,17 +58,35 @@ test("el pedido guarda solo ids, cantidades y material, sin aceptar barco/pieza 
   assert.equal(numeroRemitoMarmoleria(42), "MAR-000042");
 });
 
-test("el PDF contiene original y duplicado con idéntico folio, material y espacio para firma", async () => {
+test("un remito breve imprime original y duplicado completos en una sola A4", async () => {
   const doc = construirPdfRemitoMarmoleria({ remito:remito() });
-  assert.equal(doc.getNumberOfPages(), 2);
+  assert.equal(doc.getNumberOfPages(), 1);
   const saved = await PDFDocument.load(doc.output("arraybuffer"));
-  assert.equal(saved.getPageCount(), 2);
-  for (const page of Object.values(doc.internal.pages).filter(Array.isArray)) {
+  assert.equal(saved.getPageCount(), 1);
+  const { width, height } = saved.getPage(0).getSize();
+  assert.ok(Math.abs(width - 595.28) < 0.1 && Math.abs(height - 841.89) < 0.1);
+  const text = doc.internal.pages[1].join(" ");
+  assert.match(text, /ORIGINAL/);
+  assert.match(text, /DUPLICADO/);
+  for (const dato of ["Desert Black", "Firma de quien retira", "DNI", "55-2", "Juan Pérez"]) {
+    assert.equal(text.split(dato).length - 1, 2, `${dato} debe aparecer en ambas copias`);
+  }
+  assert.equal(text.split("MAR-000042").length - 1, 4); // Encabezado y pie de cada copia.
+});
+
+test("la distribución considera el texto real y conserva las notas largas completas", () => {
+  const nota = "OBSERVACION_UNICA_FIN";
+  const r = remito({
+    observaciones:`${"Verificar la orientación de las plantillas antes de fabricar. ".repeat(14)}${nota}`,
+    items:[pieza("p", { material:"Purastone Travertino Navona", observaciones:"Detalle de la bacha y el encuentro con el mamparo. ".repeat(10) })],
+  });
+  const doc = construirPdfRemitoMarmoleria({ remito:r });
+  assert.equal(doc.getNumberOfPages(), 2);
+  for (const page of doc.internal.pages.slice(1)) {
     const text = page.join(" ");
-    assert.match(text, /MAR-000042/);
-    assert.match(text, /Desert Black/);
+    assert.ok(text.includes(nota));
     assert.match(text, /Firma de quien retira/);
-    assert.match(text, /55-2/);
+    assert.match(text, /Travertino Navona/);
   }
 });
 
@@ -67,7 +106,8 @@ test("los remitos extensos repiten datos de entrega y firmas sin perder filas en
     assert.match(text, /MAR-000042/);
     assert.match(text, /Firma de quien retira/);
     assert.match(text, /Juan/);
-    assert.match(text, /Cant\./);
+    if (text.includes("CONTINUACIÓN DEL REMITO")) assert.match(text, /OBSERVACIONES DE LA ENTREGA/);
+    else assert.match(text, /Cant\./);
   }
   for (const conjunto of [pages.slice(0, mitad), pages.slice(mitad)]) {
     const text = conjunto.map((p) => p.join(" ")).join(" ");
