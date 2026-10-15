@@ -195,7 +195,7 @@ export default function Configurador({ modelo, onCerrar }) {
         ) : !geo ? (
           <div className="kx-cfg-aviso"><span className="kx-eyebrow">Preparando el configurador</span><i className="kx-rec-carga" /></div>
         ) : (
-          <Canvas dpr={[1, 1.75]} shadows="soft" camera={{ fov: 32, near: 0.3, far: 9000, position: [-20, 12, 26] }} gl={{ antialias: true }}
+          <Canvas dpr={[1, 1.75]} shadows="soft" camera={{ fov: 32, near: 0.5, far: 5000, position: [-20, 12, 26] }} gl={{ antialias: true }}
             onCreated={({ gl, scene, camera }) => {
               gl.toneMapping = THREE.ACESFilmicToneMapping;
               gl.toneMappingExposure = 0.55;
