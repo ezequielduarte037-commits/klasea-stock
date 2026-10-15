@@ -14,15 +14,17 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import * as THREE from "three";
-import { Water } from "three/examples/jsm/objects/Water.js";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { LARGO, abrirBalcones, texturaTeca, materialDe } from "../recorrido/barco";
 import { crearMateriales } from "../recorrido/acabados";
 import { CAPAS, VISTAS, opcionDe } from "./opciones";
 import { ambiente, texturaBrillo, texturaRuido } from "./ambiente";
-import { OLAS_GLSL, uniformsOlas, alturaOla, mallaAgua } from "./olas";
+import { alturaOla } from "./olas";
+import { crearAgua } from "./agua";
+import { crearEstela } from "./estela";
 import { CIELOS_CLIMA, cielosDeHora, crearMaterialCielo, aplicarCielo, luzDelCielo } from "./cielo";
-import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, crearRocio, anchoFlotacion, texturaAncho } from "./luces";
+import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, anchoFlotacion, texturaAncho } from "./luces";
+import { crearRocio } from "./rocio";
 
 // Azar con semilla: estrellas y gotas siempre en el mismo lugar.
 function azar(semilla) {
@@ -36,7 +38,7 @@ const CRUCERO = 9.5;
 
 export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef, colorSubacuatica = "#2f8dff" }) {
   // Estado compartido entre el mundo y el barco (velocidad, factor de noche).
-  const comun = useRef({ vel: 0, noche: 0, dia: 1, fuerzaOla: 1, tiempoOla: 0, avanceX: 0, colorSub: new THREE.Color("#2f8dff") });
+  const comun = useRef({ vel: 0, noche: 0, dia: 1, fuerzaOla: 1, tiempoOla: 0, avanceX: 0, colorSub: new THREE.Color("#2f8dff"), luzEspuma: new THREE.Color(1, 1, 1), sol: new THREE.Vector3(0, 1, 0) });
   useEffect(() => { comun.current.colorSub.set(colorSubacuatica); }, [colorSubacuatica]);
   return (
     <>
@@ -126,222 +128,17 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     marEnv.position.y = -3;
     escenaEnv.add(marEnv);
 
+    const gl = get().gl;
     const normales = new THREE.TextureLoader().load("/textures/recorrido/waternormals.jpg", t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
-    const res = chico() ? 512 : 1024;
-    // Malla densa cerca de la cámara (la sigue) para las olas en 3D.
-    const malla = mallaAgua(chico() ? 220 : 340);
-    const agua = new Water(malla.geo, {
-      textureWidth: res, textureHeight: res, waterNormals: normales,
-      sunDirection: new THREE.Vector3(0, 1, 0), sunColor: 0xffffff, waterColor: 0x06222c, distortionScale: 2.2, fog: true,
-    });
-    agua.rotation.x = -Math.PI / 2;
-    agua.frustumCulled = false;
-    agua.userData.paso = malla.paso;
-    // Olas de Gerstner en el vértice: la superficie sube y baja de verdad.
-    Object.assign(agua.material.uniforms, uniformsOlas());
-    agua.material.vertexShader = `
-      uniform mat4 textureMatrix;
-      uniform vec2 avance;
-      uniform sampler2D anchoCasco;
-      uniform float cascoX0; uniform float cascoX1; uniform float anchoMax;
-      uniform float popa; uniform float mangaPopa; uniform float velocidad;
-      attribute float pasoMalla;
-      varying vec4 mirrorCoord;
-      varying vec4 worldPosition;
-      varying vec3 vNormalOla;
-      varying float vAltura;
-      varying float vEstela;
-      #include <common>
-      #include <fog_pars_vertex>
-      #include <shadowmap_pars_vertex>
-      #include <logdepthbuf_pars_vertex>
-      ${OLAS_GLSL}
-      float anchoEn( float x ) {
-        float fx = ( x - cascoX0 ) / ( cascoX1 - cascoX0 );
-        return ( anchoMax > 0.0 && fx > 0.0 && fx < 1.0 ) ? texture2D( anchoCasco, vec2( fx, 0.5 ) ).r * anchoMax : 0.0;
-      }
-      // El agua que mueve el barco al navegar (alto, en unidades de escena):
-      // ola de proa pegada al casco, seno y lomo de agua detrás del espejo y
-      // las olas divergentes de la estela en V (ángulo de Kelvin), con sus
-      // crestas escalonadas.
-      float alturaEstela( vec2 p ) {
-        if ( velocidad < 0.01 ) return 0.0;
-        float az = abs( p.y );
-        float h = 0.0;
-        float wC = anchoEn( p.x );
-        if ( wC > 0.02 ) {
-          float fx = ( p.x - cascoX0 ) / ( cascoX1 - cascoX0 );
-          float dC = max( az - wC, 0.0 );
-          h += 0.16 * smoothstep( 0.35, 0.75, fx ) * exp( -dC / 0.45 ) * ( 1.0 - smoothstep( 0.8, 0.95, fx ) );
-        }
-        float dx = popa - p.x;
-        if ( dx > 0.0 ) {
-          float abre = mangaPopa * 0.85 + dx * 0.05;
-          float lado = az / max( abre, 0.01 );
-          h -= 0.1 * exp( -dx / 1.6 ) * exp( -lado * lado * 1.5 );
-          h += 0.17 * exp( -( dx - 3.2 ) * ( dx - 3.2 ) / 7.0 ) * exp( -lado * lado * 1.2 );
-          float lineaV = mangaPopa * 0.95 + dx * 0.34;
-          float t = ( az - lineaV ) / ( 0.32 + dx * 0.035 );
-          float brazo = exp( -t * t * 2.2 ) - 0.4 * exp( -( t + 1.4 ) * ( t + 1.4 ) * 2.2 );
-          h += 0.2 * exp( -dx / 32.0 ) * smoothstep( 0.0, 2.0, dx ) * brazo * ( 0.72 + 0.28 * sin( dx * 1.15 - az * 0.5 ) );
-        }
-        return h * velocidad;
-      }
-      void main() {
-        vec4 wp = modelMatrix * vec4( position, 1.0 );
-        float apagado = 1.0 - smoothstep( 120.0, 420.0, distance( wp.xz, cameraPosition.xz ) );
-        // Junto al casco el mar se calma un poco (el barco lo "aplana"): las
-        // crestas no suben a la planchada.
-        float wC = anchoEn( wp.x );
-        apagado *= wC > 0.02 ? mix( 0.6, 1.0, smoothstep( 0.0, 1.4, abs( wp.z ) - wC ) ) : 1.0;
-        vec3 n;
-        vec3 d = gerstner( wp.xz + avance, apagado, pasoMalla, n );
-        float he = alturaEstela( wp.xz );
-        float ex = alturaEstela( wp.xz + vec2( 0.15, 0.0 ) ) - he;
-        float ez = alturaEstela( wp.xz + vec2( 0.0, 0.15 ) ) - he;
-        d.y += he;
-        n = normalize( n + vec3( -ex, 0.0, -ez ) / 0.15 );
-        wp.xyz += d;
-        vNormalOla = n;
-        vAltura = d.y;
-        vEstela = he;
-        worldPosition = wp;
-        mirrorCoord = textureMatrix * wp;
-        vec4 mvPosition = viewMatrix * wp;
-        gl_Position = projectionMatrix * mvPosition;
-        #include <beginnormal_vertex>
-        #include <defaultnormal_vertex>
-        #include <logdepthbuf_vertex>
-        #include <fog_vertex>
-        #include <shadowmap_vertex>
-      }`;
-    // Recibe la sombra del barco (Water ya trae la máscara de sombras).
-    agua.receiveShadow = true;
-    // El barco no se mueve: navegar es correr el dibujo del agua hacia atrás.
-    agua.material.uniforms.avance = { value: new THREE.Vector2() };
-    agua.material.fragmentShader = agua.material.fragmentShader
-      .replace("uniform float size;", "uniform float size;\nuniform vec2 avance;")
-      .replace("getNoise( worldPosition.xz * size )", "getNoise( ( worldPosition.xz + avance ) * size )")
-      // Menos espejo y más color de mar (el original refleja como un lago quieto).
-      .replace("float rf0 = 0.3;", "float rf0 = reflejo;")
-      .replace("uniform vec3 waterColor;", "uniform vec3 waterColor;\nuniform float reflejo;\nuniform float oleaje;\nuniform float fuerzaOla;\nuniform float crestas;\nuniform vec3 colorSSS;\nvarying vec3 vNormalOla;\nvarying float vAltura;")
-      // Mar de fondo: trenes de olas largas que inclinan la superficie (el
-      // reflejo del cielo se ondula en franjas anchas, como en mar abierto).
-      .replace("vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) );", `
-        // Normal de las olas (geometría) más el detalle fino del mapa de relieve.
-        vec3 detalle = noise.xzy * vec3( 1.5, 1.0, 1.5 );
-        vec3 surfaceNormal = normalize( vNormalOla + vec3( detalle.x, 0.0, detalle.z ) * oleaje );`)
-      // Destellos del sol más finos e intensos (el bloom los hace brillar).
-      .replace("sunLight( surfaceNormal, eyeDirection, 100.0, 2.0, 0.5, diffuseLight, specularLight );",
-        "sunLight( surfaceNormal, eyeDirection, 380.0, 7.0, 0.5, diffuseLight, specularLight );")
-      // Cerca de la cámara el agua deja ver un poco de color (turquesa en
-      // las caras de las olas); lejos manda el reflejo del cielo.
-      .replace("vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor;",
-        `vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor * ( 1.0 + vec3( 0.25, 0.9, 0.75 ) * ( 1.0 - smoothstep( 6.0, 45.0, distance ) ) * ( 0.5 + 0.5 * surfaceNormal.x ) );
-        // Luz que atraviesa las crestas a contraluz (verde agua), como en el mar real.
-        vec3 haciaSol = normalize( vec3( sunDirection.x, 0.0, sunDirection.z ) + vec3( 0.0, 1e-4, 0.0 ) );
-        float contraluz = pow( max( 0.0, dot( normalize( vec3( -eyeDirection.x, 0.0, -eyeDirection.z ) ), haciaSol ) ), 3.0 );
-        scatter += colorSSS * contraluz * smoothstep( -0.02, 0.12 * fuerzaOla, vAltura ) * ( 0.6 + 0.4 * ( 1.0 - surfaceNormal.y ) * 4.0 );`);
-    // Espuma dentro del agua (no planos pegados encima): contacto con el
-    // casco, ola de proa, agua blanca detrás de la popa y los brazos de la
-    // estela en V. Usa el ancho real del casco en la flotación y se mueve con
-    // el agua; la superficie se pica donde hay espuma.
+    // Filtrado anisotrópico: sin él, mirando el mar de costado el relieve se
+    // promediaba en franjas borrosas (el agua se veía "barrida").
+    normales.anisotropy = gl.capabilities.getMaxAnisotropy();
+    // El casco en la flotación: la espuma y la estela nacen de su forma real.
     const flot = anchoFlotacion(modelo) || { x0: -LARGO / 2, x1: LARGO / 2, max: LARGO * 0.15, popa: -LARGO / 2, mangaPopa: LARGO * 0.12 };
     const anchoTex = flot.liso ? texturaAncho(flot) : null;
     const ruidoTex = texturaRuido();
-    Object.assign(agua.material.uniforms, {
-      ruidoEspuma: { value: ruidoTex }, anchoCasco: { value: anchoTex },
-      cascoX0: { value: flot.x0 }, cascoX1: { value: flot.x1 }, anchoMax: { value: anchoTex ? flot.max : 0 },
-      popa: { value: flot.popa }, mangaPopa: { value: flot.mangaPopa },
-      velocidad: { value: 0 }, luzEspuma: { value: new THREE.Color(1, 1, 1) }, subacuatica: { value: 0 }, colorSub: { value: new THREE.Color("#2f8dff") },
-    });
-    agua.material.fragmentShader = agua.material.fragmentShader
-      .replace("uniform vec2 avance;", `uniform vec2 avance;
-        uniform sampler2D ruidoEspuma; uniform sampler2D anchoCasco;
-        uniform float cascoX0; uniform float cascoX1; uniform float anchoMax; uniform float popa; uniform float mangaPopa;
-        uniform float velocidad; uniform vec3 luzEspuma; uniform float subacuatica; uniform vec3 colorSub;
-        varying float vEstela;`)
-      .replace("vec3 outgoingLight = albedo;", `vec3 outgoingLight = mix( mix( albedo * ( 1.0 - sombraCasco ), luzEspuma * vec3( 0.3, 0.62, 0.6 ) * 0.75, aireada * 0.42 ), luzEspuma * ( 0.72 + 0.28 * rC ), espuma * 0.94 );
-        // Luces subacuáticas: el agua de popa se ilumina desde abajo.
-        if ( subacuatica > 0.001 ) {
-          float lx = bp.x - ( popa - 0.35 );
-          float brilloSub = exp( -( lx * lx * 0.9 + ( az - 0.55 ) * ( az - 0.55 ) * 1.6 ) );
-          outgoingLight += colorSub * brilloSub * subacuatica * 2.4 * ( 1.0 - espuma );
-        }`);
-    agua.material.fragmentShader = agua.material.fragmentShader.replace(
-      "+ vec3( detalle.x, 0.0, detalle.z ) * oleaje );", `+ vec3( detalle.x, 0.0, detalle.z ) * oleaje );
-        vec2 bp = worldPosition.xz;
-        vec2 fp = bp + avance;
-        float az = abs( bp.y );
-        float fx = ( bp.x - cascoX0 ) / ( cascoX1 - cascoX0 );
-        float wC = ( anchoMax > 0.0 && fx > 0.0 && fx < 1.0 ) ? texture2D( anchoCasco, vec2( fx, 0.5 ) ).r * anchoMax : 0.0;
-        float rA = texture2D( ruidoEspuma, fp * 0.16 + vec2( time * 0.012, 0.0 ) ).g;
-        float rB = texture2D( ruidoEspuma, fp * 0.55 - vec2( 0.0, time * 0.025 ) ).r;
-        float rC = texture2D( ruidoEspuma, fp * 1.7 + vec2( time * 0.04 ) ).r;
-        // Vetas: el agua revuelta se estira en el sentido de la marcha.
-        float rV = texture2D( ruidoEspuma, fp * vec2( 0.09, 0.85 ) + vec2( 0.0, time * 0.02 ) ).r;
-        float ruido = rA * 0.4 + rB * 0.35 + rC * 0.25;
-        float proa = smoothstep( 0.42, 0.8, fx );
-        float banda = 0.09 + velocidad * ( 0.3 + 0.55 * proa );
-        float dC = az - wC;
-        float contacto = wC > 0.02 ? ( 1.0 - smoothstep( 0.0, banda, dC ) ) * step( -0.06, dC ) : 0.0;
-        contacto *= 0.5 + 0.6 * velocidad;
-        float dx = popa - bp.x;
-        float centro = 0.0, brazo = 0.0, turbio = 0.0;
-        if ( dx > 0.0 && velocidad > 0.01 ) {
-          // Agua de hélice: casi la manga de la popa, blanca al salir y
-          // rompiéndose en vetas a medida que queda atrás.
-          float abre = mangaPopa * 0.85 + dx * 0.05;
-          centro = exp( -dx / 16.0 ) * ( 1.0 - smoothstep( abre * 0.35, abre, az ) ) * smoothstep( 0.0, 0.35, dx );
-          centro *= mix( 1.0, 0.25 + 1.0 * rV, smoothstep( 1.5, 9.0, dx ) );
-          // Brazos de la V (ángulo de Kelvin, ~19°): olas con espuma sólo en las crestas.
-          float lineaV = mangaPopa * 0.95 + dx * 0.34;
-          brazo = exp( -dx / 26.0 ) * ( 1.0 - smoothstep( 0.0, 0.18 + dx * 0.02, abs( az - lineaV ) ) );
-          // Agua revuelta desde el mismo espejo de popa (rompe el reflejo del casco).
-          turbio = exp( -dx / 14.0 ) * ( 1.0 - smoothstep( abre * 0.45, abre * 1.15, az ) ) * velocidad;
-          centro *= velocidad;
-          brazo *= velocidad;
-        }
-        float mascara = clamp( contacto + centro * 1.9, 0.0, 1.8 );
-        // El agua pegada al casco queda en su sombra (más oscura).
-        float sombraCasco = wC > 0.02 ? ( 1.0 - smoothstep( -0.05, 0.7, dC ) ) * 0.35 * ( 1.0 - velocidad * 0.5 ) : 0.0;
-        // Espuma en las crestas cuando hay viento (nublado, lluvia).
-        float cresta = crestas * smoothstep( 0.55, 1.0, vAltura / ( 0.14 * fuerzaOla ) ) * smoothstep( 0.45, 0.8, rA );
-        // Encaje de espuma (dos escalas) que queda flotando en el agua.
-        float lazo = max( texture2D( ruidoEspuma, fp * 0.42 + vec2( time * 0.01, 0.0 ) ).b,
-          texture2D( ruidoEspuma, fp * 0.19 - vec2( 0.0, time * 0.008 ) ).b * 0.9 );
-        // Donde la espuma es densa (recién salida de la hélice) es blanca
-        // casi entera; al alejarse quedan sólo las líneas del encaje.
-        float fresca = dx > 0.0 ? exp( -dx / 4.0 ) : 1.0;
-        float densa = smoothstep( 0.55, 1.1, ( contacto + centro * 1.9 * fresca ) * ( 0.55 + ruido * 0.7 ) );
-        float rala = smoothstep( 0.55, 0.9, lazo * ( 0.3 + mascara * 0.75 ) * ( 0.6 + 0.6 * rV ) ) * smoothstep( 0.05, 0.3, mascara );
-        // Crestas de las olas de la estela: espuma rota sobre lo más alto.
-        float crestaEstela = smoothstep( 0.05, 0.13, vEstela ) * smoothstep( 0.45, 0.8, lazo * 0.7 + rB * 0.5 );
-        float espuma = max( max( densa, rala ), crestaEstela * 0.9 )
-          + smoothstep( 0.55, 0.85, brazo * ( 0.2 + lazo * 1.1 ) ) * 0.6;
-        espuma = clamp( espuma + cresta * smoothstep( 0.3, 0.7, rB ), 0.0, 1.0 );
-        // Agua aireada (turquesa lechoso) bajo la estela.
-        float aireada = clamp( turbio * 1.3 + centro * 0.6 + brazo * 0.35 + contacto * 0.3, 0.0, 1.0 );
-        surfaceNormal = normalize( surfaceNormal + vec3( rB - 0.5, 0.0, rC - 0.5 ) * 1.8 * clamp( centro + brazo * 0.7 + contacto * 0.4, 0.0, 1.0 ) );`);
-    agua.material.fragmentShader = agua.material.fragmentShader
-      // El reflejo del cielo un poco más tenue: el mar abierto es más oscuro que el cielo que refleja.
-      // En el agua revuelta de la estela el reflejo se rompe.
-      .replace("vec3( 0.1 ) + reflectionSample * 0.9 + reflectionSample * specularLight", "reflectionSample * 0.8 * ( 1.0 - aireada * 0.75 ) + reflectionSample * specularLight")
-      // Reflejo suave, estirado en vertical como en el agua real (el espejo
-      // nítido del casco hacía parecer que el barco flotaba en el aire).
-      .replace("vec3 reflectionSample = vec3( texture2D( mirrorSampler, mirrorCoord.xy / mirrorCoord.w + distortion ) );", `
-        vec2 rUv = mirrorCoord.xy / mirrorCoord.w + distortion;
-        float rr = 0.0025 + 0.02 * clamp( length( surfaceNormal.xz ), 0.0, 1.0 );
-        vec3 reflectionSample = ( texture2D( mirrorSampler, rUv ).rgb * 2.0
-          + texture2D( mirrorSampler, rUv + vec2( rr, 0.0 ) ).rgb + texture2D( mirrorSampler, rUv - vec2( rr, 0.0 ) ).rgb
-          + texture2D( mirrorSampler, rUv + vec2( 0.0, rr * 2.2 ) ).rgb + texture2D( mirrorSampler, rUv - vec2( 0.0, rr * 2.2 ) ).rgb
-          + texture2D( mirrorSampler, rUv + vec2( 0.0, rr * 4.4 ) ).rgb + texture2D( mirrorSampler, rUv - vec2( 0.0, rr * 4.4 ) ).rgb ) / 8.0;`);
-    // Fresnel del agua real (2%): oscura mirando hacia abajo, espejo en el horizonte.
-    agua.material.uniforms.reflejo = { value: 0.02 };
-    agua.material.uniforms.oleaje = { value: 0.35 };
-    agua.material.uniforms.crestas = { value: 0 };
-    agua.material.uniforms.colorSSS = { value: new THREE.Color("#1f8a7c") };
-    agua.material.uniforms.size.value = 4;
+    const estela = crearEstela(gl, flot, ruidoTex, anchoTex, { chico: chico() });
+    const agua = crearAgua({ normales, ruido: ruidoTex, flot, anchoTex, estela, chico: chico() });
 
     // Estrellas en la media esfera de arriba (el cielo de noche las trae
     // finitas; éstas las marcan un poco más).
@@ -379,8 +176,8 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     const lunaLuz = new THREE.DirectionalLight("#9fb3ff", 0);
     const hemi = new THREE.HemisphereLight("#dfe9f2", "#29363c", 0.2);
 
-    const pmrem = new THREE.PMREMGenerator(get().gl);
-    return { matCielo, domo, domoEnv, escenaEnv, marEnv, agua, normales, anchoTex, ruidoTex, estrellas, lluvia, sol, lunaLuz, hemi, pmrem, env: null };
+    const pmrem = new THREE.PMREMGenerator(gl);
+    return { matCielo, domo, domoEnv, escenaEnv, marEnv, agua, normales, anchoTex, ruidoTex, estela, estrellas, lluvia, sol, lunaLuz, hemi, pmrem, env: null };
   }, [get, modelo]);
 
   // Estado actual (interpolado): la hora corre hacia la elegida como un
@@ -399,7 +196,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
       obj.env?.dispose();
       obj.pmrem.dispose();
       obj.agua.geometry.dispose(); obj.agua.material.dispose(); obj.normales.dispose();
-      obj.anchoTex?.dispose(); obj.ruidoTex.dispose();
+      obj.anchoTex?.dispose(); obj.ruidoTex.dispose(); obj.estela.dispose();
       obj.estrellas.geometry.dispose(); obj.estrellas.material.dispose();
       obj.lluvia.geometry.dispose(); obj.lluvia.material.dispose();
       obj.domo.geometry.dispose(); obj.domoEnv.geometry.dispose(); obj.matCielo.dispose();
@@ -430,7 +227,8 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     aplicarCielo(o.matCielo, hc, a.tc, cs.texturas, cs.datos, a.cUltimo);
     const luz = luzDelCielo(hc, a.cUltimo, a.tc, cs.datos);
 
-    const agua = new THREE.Color("#0b3b50").multiplyScalar(0.12 + 0.88 * m.dia * (1 - a.tc * 0.35));
+    // Azul del mar visto desde arriba (el resto del brillo lo pone el reflejo del cielo).
+    const agua = new THREE.Color("#14506e").multiplyScalar(0.1 + 0.9 * m.dia * (1 - a.tc * 0.35));
     // Reflejos: se regeneran cuando el cielo cambió (no más de ~3 por segundo).
     const t = clock.elapsedTime;
     const clave = `${a.hora.toFixed(2)}|${a.tc.toFixed(2)}`;
@@ -457,7 +255,6 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     u.sunDirection.value.copy(luz.dir);
     u.sunColor.value.copy(luz.solColor).multiplyScalar(luz.fuerza * 1.3 + m.noche * 0.1);
     u.waterColor.value.copy(agua);
-    u.distortionScale.value = m.ola * 0.9;
     // Olas: más altas con nublado y lluvia; espuma en las crestas con viento.
     const fuerzaOla = m.ola / 2.2;
     u.fuerzaOla.value = fuerzaOla;
@@ -473,6 +270,10 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     o.agua.position.set(Math.round(camera.position.x / paso) * paso, 0, Math.round(camera.position.z / paso) * paso);
     u.avance.value.x += c.vel * dt;
     u.velocidad.value = c.vel / CRUCERO;
+    // La estela: el agua se lleva la espuma a la misma velocidad que corre.
+    o.estela.actualizar(dt, c.vel, c.vel / CRUCERO, u.avance.value);
+    u.estelaTex.value = o.estela.textura;
+    u.estelaDesfase.value = o.estela.desfase;
     u.subacuatica.value = c.subacuatica || 0;
     // Misma intensidad aparente en todos los colores (el blanco encandilaba).
     const lumSub = c.colorSub.r * 0.2126 + c.colorSub.g * 0.7152 + c.colorSub.b * 0.0722;
@@ -482,6 +283,16 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     const le = u.luzEspuma.value.copy(luz.horizonte).multiplyScalar(0.45).add(luz.solColor.clone().multiplyScalar(luz.fuerza * 0.9)).addScalar(0.015);
     const lum = le.r * 0.2126 + le.g * 0.7152 + le.b * 0.0722;
     le.lerp(new THREE.Color(lum, lum, lum * 1.03), 0.88).multiplyScalar(1.15);
+    // Con el sol bajo la espuma igual queda clara: la ilumina todo el cielo y
+    // sus grumos reciben al sol de costado.
+    const lumCielo = luz.horizonte.r * 0.2126 + luz.horizonte.g * 0.7152 + luz.horizonte.b * 0.0722;
+    const minimo = lumCielo * 0.8 * (1 - m.noche);
+    if (lum * 1.15 < minimo) le.multiplyScalar(minimo / Math.max(lum * 1.15, 1e-3));
+    // El rocío del barco toma la misma luz.
+    c.luzEspuma.copy(le);
+    c.sol.copy(luz.dir);
+    // Agua aireada: turquesa lechoso con la luz del momento.
+    u.colorAireada.value.set("#4fb8b0").multiplyScalar(0.05 + 0.5 * m.dia * (1 - a.tc * 0.3));
 
     o.estrellas.material.opacity = m.noche * (1 - a.tc) * 0.6;
 
@@ -598,7 +409,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     // del hardtop; su luz se calcula dentro de los materiales del barco.
     const cortesia = crearCortesia(ubicarCortesia(modelo), modelo);
     const navegacion = crearNavegacion(modelo, brillo);
-    const rocio = crearRocio(modelo, brillo);
+    const rocio = crearRocio(modelo, { chico: chico() });
     return { brillo, luzPopa, cortesia, navegacion, rocio };
   }, [modelo]);
   useEffect(() => {
@@ -638,7 +449,8 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
   const apertura = useRef(balcones ? 1 : 0);
   const boya = useRef({ alto: 0, cabeceo: 0, rolido: 0 });
 
-  useFrame(({ clock, camera }, dt) => {
+  useFrame((st, dt) => {
+    const { clock, camera } = st;
     if (!vivo.current || !grupo.current) return;
     const v = vivo.current;
     const k = 1 - Math.exp(-dt * 4);
@@ -688,7 +500,9 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     fx.nav += (nivel(L.navegacion) - fx.nav) * k;
     fx.cort += (nivel(L.cortesia) - fx.cort) * k;
     c.subacuatica = fx.agua;
-    e.rocio.actualizar(Math.min(dt, 0.05), f, 0.2 + 1.1 * c.dia);
+    // Rocío: puntos con tamaño en pantalla (píxeles por unidad a distancia 1).
+    const escala = (st.size.height * st.viewport.dpr * camera.projectionMatrix.elements[5]) / 2;
+    e.rocio.actualizar(Math.min(dt, 0.1), f, c.luzEspuma, c.sol, escala);
     e.luzPopa.intensity = fx.agua * 6;
     e.luzPopa.color.copy(c.colorSub);
     prenderNavegacion(e.navegacion, camera, fx.nav);

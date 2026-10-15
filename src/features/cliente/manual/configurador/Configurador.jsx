@@ -16,6 +16,7 @@ import { leerJson, guardarJson } from "../almacen";
 import { modelo3dDe, partesModelo } from "../unidad";
 import { cargarModelo } from "../recorrido/barco";
 import { cargarCielos } from "./cielo";
+import { prepararMar } from "./ambiente";
 import Escena from "./Escena";
 import { CAPAS, ESTILOS, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, textoHora } from "./opciones";
 
@@ -92,8 +93,9 @@ export default function Configurador({ modelo, onCerrar }) {
   useEffect(() => {
     if (error) return undefined;
     let vivo = true;
-    // El barco y los cielos (fotos reales, 1,6 MB) llegan juntos.
-    Promise.all([cargarModelo(cfg), cargarCielos()])
+    // El barco y los cielos (fotos reales, 1,6 MB) llegan juntos; mientras
+    // tanto se dibujan las texturas del mar (espuma, burbujas).
+    Promise.all([cargarModelo(cfg), cargarCielos(), prepararMar()])
       .then(([m, c]) => { if (vivo) { setCielos(c); setGeo(m); } })
       .catch(() => { if (vivo) setError("modelo"); });
     return () => { vivo = false; };
