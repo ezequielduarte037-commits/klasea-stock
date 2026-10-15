@@ -13,6 +13,8 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import * as THREE from "three";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { LARGO, abrirBalcones, texturaTeca, materialDe } from "../recorrido/barco";
@@ -55,7 +57,7 @@ export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, b
         minDistance={adentro ? 0.05 : LARGO * 0.22} maxDistance={adentro ? 0.05 : LARGO * 4}
         minPolarAngle={adentro ? Math.PI * 0.18 : 0} maxPolarAngle={adentro ? Math.PI * 0.82 : Math.PI / 2 - 0.05} />
       <Camara modelo={modelo} vista={vista} intro={intro} subir={subir} adentro={adentro} />
-      <Efectos renderRef={renderRef} />
+      <Efectos renderRef={renderRef} comun={comun} />
     </>
   );
 }
@@ -65,7 +67,7 @@ export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, b
    brilla de verdad (luces, destellos del sol en el agua, el sol mismo) se
    abre en un resplandor suave, como en una cámara. renderRef.current queda
    apuntando a esta función (para la foto). */
-function Efectos({ renderRef }) {
+function Efectos({ renderRef, comun }) {
   const gl = useThree(st => st.gl);
   const escena = useThree(st => st.scene);
   const camara = useThree(st => st.camera);
@@ -90,9 +92,29 @@ function Efectos({ renderRef }) {
           gl_FragColor = clamp( c, 0.0, 60.0 );
         }`,
     });
-    const pasadas = [new RenderPass(escena, camara), limpiar, bloom, new OutputPass()];
+    // Oclusión ambiental (sólo adentro): oscurece rincones, el encuentro de
+    // muebles y piso y lo que queda bajo colchones y almohadones. Sin ella el
+    // interior, iluminado parejo, se veía chato, como un plano de CAD.
+    const ao = new GTAOPass(escena, camara, 1, 1);
+    // Radio en unidades de la escena: unos 50 cm reales.
+    ao.updateGtaoMaterial({ radius: 0.36, distanceExponent: 1.5, thickness: 2, scale: 1.3, samples: chico() ? 8 : 16 });
+    ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: chico() ? 8 : 16 });
+    ao.blendIntensity = 0.9;
+    ao.enabled = false;
+    // El mar no cuenta para la oclusión (adentro se recorta en el shader del
+    // agua, que el pase de normales no usa: si no, tapaba el piso).
+    const fuera = { agua: null };
+    const dibujarAo = ao.render.bind(ao);
+    ao.render = (...args) => {
+      const agua = fuera.agua;
+      const antes = agua?.visible;
+      if (agua) agua.visible = false;
+      dibujarAo(...args);
+      if (agua) agua.visible = antes;
+    };
+    const pasadas = [new RenderPass(escena, camara), ao, limpiar, bloom, new OutputPass()];
     pasadas.forEach(p => composer.addPass(p));
-    return { composer, pasadas, bloom };
+    return { composer, pasadas, bloom, ao, fuera };
   }, [gl, escena, camara]);
   useEffect(() => {
     const pr = gl.getPixelRatio();
@@ -108,7 +130,16 @@ function Efectos({ renderRef }) {
     };
   }, [efecto, renderRef]);
   // Prioridad 1: desde acá se dibuja cada cuadro (R3F deja de hacerlo solo).
-  useFrame((_, dt) => efecto.composer.render(dt), 1);
+  const vivo = useRef(null);
+  useEffect(() => { vivo.current = { efecto, comun }; }, [efecto, comun]);
+  useFrame((_, dt) => {
+    const v = vivo.current;
+    if (!v) return;
+    const c = v.comun.current;
+    v.efecto.ao.enabled = !!c.adentro;
+    v.efecto.fuera.agua = c.agua;
+    v.efecto.composer.render(dt);
+  }, 1);
   return null;
 }
 
@@ -186,7 +217,12 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     const hemi = new THREE.HemisphereLight("#dfe9f2", "#29363c", 0.2);
 
     const pmrem = new THREE.PMREMGenerator(gl);
-    return { matCielo, domo, domoEnv, escenaEnv, marEnv, agua, normales, anchoTex, ruidoTex, estela, estrellas, lluvia, sol, lunaLuz, hemi, pmrem, env: null };
+    // Adentro la luz de ambiente es la de una habitación clara (paredes y
+    // techo blancos que rebotan la luz), no la del cielo abierto.
+    const sala = new RoomEnvironment();
+    const envInterior = pmrem.fromScene(sala, 0.04).texture;
+    sala.traverse(o => { o.geometry?.dispose(); o.material?.dispose?.(); });
+    return { matCielo, domo, domoEnv, escenaEnv, marEnv, agua, normales, anchoTex, ruidoTex, estela, estrellas, lluvia, sol, lunaLuz, hemi, pmrem, envInterior, env: null };
   }, [get, modelo]);
 
   // Estado actual (interpolado): la hora corre hacia la elegida como un
@@ -203,6 +239,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
       escena.fog = null;
       escena.environment = null;
       obj.env?.dispose();
+      obj.envInterior.dispose();
       obj.pmrem.dispose();
       obj.agua.geometry.dispose(); obj.agua.material.dispose(); obj.normales.dispose();
       obj.anchoTex?.dispose(); obj.ruidoTex.dispose(); obj.estela.dispose();
@@ -246,13 +283,14 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
       const nuevo = o.pmrem.fromScene(o.escenaEnv).texture;
       o.env?.dispose();
       o.env = nuevo;
-      escena.environment = nuevo;
       a.ultimoEnv = t;
       a.envClave = clave;
     }
     // Adentro el cielo ilumina menos (entra por las ventanas): así se notan
     // los plafones y los rincones no quedan chatos.
-    escena.environmentIntensity = c.adentro ? 0.7 : 1;
+    escena.environment = c.adentro ? o.envInterior : o.env;
+    escena.environmentIntensity = c.adentro ? 0.55 + 0.3 * m.dia : 1;
+    c.agua = o.agua;
 
     o.sol.position.copy(luz.dir).multiplyScalar(60);
     o.sol.intensity = luz.fuerza * 3.4;
@@ -326,7 +364,9 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     // La niebla toma el color del horizonte del cielo: el mar se funde con él.
     escena.fog.color.copy(luz.horizonte).multiplyScalar(0.92);
     escena.fog.density = m.niebla;
-    gl.toneMappingExposure = 0.5 + m.noche * 0.35 + (c.adentro ? 0.12 : 0);
+    // Adentro, la curva neutra (colores fieles, como un render de interiorismo).
+    gl.toneMapping = c.adentro ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = c.adentro ? 0.9 : 0.5 + m.noche * 0.35;
   });
 
   return (
@@ -342,6 +382,54 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
   );
 }
 
+/* Spots embutidos en el techo del interior: se busca con rayos dónde hay un
+   ambiente (piso con techo encima, a la altura de una persona o de un
+   camarote) y ahí va un aro de luz cada medio metro. Todos en una sola
+   malla instanciada (un dibujo). */
+function crearSpots(modelo) {
+  const geo = new THREE.CircleGeometry(0.024, 20).rotateX(Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false });
+  const lugares = [];
+  const ap = modelo.aparte;
+  if (ap) {
+    ap.raiz.updateMatrixWorld(true);
+    modelo.raiz.updateMatrixWorld(true);
+    // El techo del salón es la cara de abajo de la cubierta (modelo exterior).
+    const mallas = [];
+    [ap.raiz, modelo.raiz].forEach(r => r.traverse(o => { if (o.isMesh && (o.name || "") !== "vidrios") mallas.push(o); }));
+    const pisos = mallas.filter(m => m.name === "piso");
+    const caja = new THREE.Box3().setFromObject(ap.raiz);
+    // Las caras del Rhino vienen orientadas de cualquier manera: los rayos
+    // tienen que pegar de los dos lados.
+    const lados = mallas.map(m => [m, m.material.side]);
+    mallas.forEach(m => { m.material.side = THREE.DoubleSide; });
+    const rayo = new THREE.Raycaster();
+    // El interior va en la capa 1 (fuera del reflejo del agua).
+    rayo.layers.enableAll();
+    const abajo = new THREE.Vector3(0, -1, 0), arriba = new THREE.Vector3(0, 1, 0);
+    for (let x = caja.min.x + 0.35; x <= caja.max.x - 0.3; x += 0.5) {
+      for (let z = -0.6; z <= 0.61; z += 0.6) {
+        rayo.set(new THREE.Vector3(x, caja.max.y + 1, z), abajo);
+        const piso = rayo.intersectObjects(pisos, false)[0];
+        if (!piso) continue;
+        rayo.set(piso.point.clone().add(new THREE.Vector3(0, 0.05, 0)), arriba);
+        const techo = rayo.intersectObjects(mallas, false)[0];
+        const alto = techo ? techo.point.y - piso.point.y : 0;
+        // De pie (salón, cocina) o un camarote bajo; si hay un mueble encima, nada.
+        if (alto > 0.62 && alto < 1.8) lugares.push(techo.point.clone().add(new THREE.Vector3(0, -0.004, 0)));
+      }
+    }
+    lados.forEach(([m, lado]) => { m.material.side = lado; });
+  }
+  const malla = new THREE.InstancedMesh(geo, mat, Math.max(1, lugares.length));
+  malla.count = lugares.length;
+  lugares.forEach((p, i) => malla.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x, p.y, p.z)));
+  malla.frustumCulled = false;
+  malla.visible = false;
+  malla.layers.set(1);
+  return { malla, geo, mat };
+}
+
 /* ─────────────── Barco ─────────────── */
 function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador, plafones }) {
   const mats = useMemo(() => {
@@ -349,6 +437,10 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     // Con el reflejo del mar ya hay dos pasadas por cuadro: el vidrio va como
     // transparencia común (la transmisión sumaría una tercera).
     Object.assign(m.lista.vidrios, { transmission: 0, transparent: true, opacity: 0.74 });
+    // Paneles y muebles del interior: laca blanca satinada, como en los renders
+    // del astillero (el gris de antes apagaba los ambientes).
+    m.lista.interior.color.set("#f3f0eb");
+    m.lista.interior.roughness = 0.42;
     m.lista.vidrios.color.set("#151b1f");
     // Contornos de los modelos sin materiales (K64): grafito suave sobre el blanco.
     m.linea.color.set("#2a2d30");
@@ -430,7 +522,8 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
       l.position.set(...p);
       return l;
     });
-    return { brillo, luzPopa, cortesia, navegacion, rocio, interior };
+    const spots = crearSpots(modelo);
+    return { brillo, luzPopa, cortesia, navegacion, rocio, interior, spots };
   }, [modelo, plafones]);
   useEffect(() => {
     ["teca", "cubierta", "casco", "tapizado", "almohadon", "negro", "detalle", "acrilico", "cromo", "piedra", "madera"]
@@ -450,6 +543,8 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     e.cortesia.mat.dispose();
     e.navegacion.forEach(({ g }) => g.children.forEach(s => s.material.dispose()));
     e.brillo.dispose();
+    e.spots.geo.dispose();
+    e.spots.mat.dispose();
   }, [extras]);
 
   // Colores elegidos → color objetivo de cada material (y la textura que corresponda).
@@ -542,6 +637,9 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     if (led) { led.emissive.set("#ffd6a4"); led.emissiveIntensity = fx.cort * 2.6; }
     // Plafones del interior: suaves de día (entra luz por las ventanas), más de noche.
     e.interior.forEach(l => { l.intensity = fx.int * (0.35 + 1.1 * c.noche); });
+    // Los spots del techo: prendidos adentro (blanco cálido; el resplandor los abre).
+    e.spots.mat.color.set("#fff1dc").multiplyScalar(fx.int * (5 + 7 * c.noche));
+    e.spots.malla.visible = fx.int > 0.01;
     // Desde adentro los vidrios se ven claros (afuera van ahumados): por las
     // ventanas se ve el mar y el cielo.
     const vidrios = v.mats.lista.vidrios;
@@ -562,6 +660,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
         <primitive object={extras.cortesia.grupo} />
         {extras.navegacion.map(({ g }, i) => <primitive key={`n${i}`} object={g} />)}
         {extras.interior.map((l, i) => <primitive key={`p${i}`} object={l} />)}
+        <primitive object={extras.spots.malla} />
       </group>
       <primitive object={extras.luzPopa} />
       <primitive object={extras.rocio.puntos} />

@@ -81,6 +81,7 @@ export const CAPAS = [
     id: "tela", t: "Tapizados", grupo: "tela", zona: "interior",
     // Tela de lana con su trama en relieve; tonos neutros (nada de color cuero).
     ops: [
+      { id: "lino", t: "Lino", c: "#e3dccf", textura: "lisa" },
       { id: "topo", t: "Gris topo", c: "#9d978e", textura: "lisa" },
       { id: "perla", t: "Gris perla", c: "#c9c6c0", textura: "lisa" },
       { id: "marfil", t: "Marfil", c: "#e4ddcf", textura: "lisa" },
@@ -92,8 +93,8 @@ export const CAPAS = [
   {
     id: "cojin", t: "Almohadones", grupo: "cojin", zona: "interior",
     ops: [
-      { id: "lino", t: "Lino", c: "#ece6dc" },
       { id: "arena", t: "Arena", c: "#d3c4ab" },
+      { id: "lino", t: "Lino", c: "#ece6dc" },
       { id: "humo", t: "Humo", c: "#8c8e91" },
       { id: "marino", t: "Marino", c: "#2e3a52" },
       { id: "salvia", t: "Salvia", c: "#9aa596" },
@@ -102,17 +103,20 @@ export const CAPAS = [
   {
     id: "mesada", t: "Mesadas", grupo: "piedra", zona: "interior",
     ops: [
+      { id: "arena", t: "Cuarzo arena", c: "#e2d8c8", textura: "cuarzo-arena",
+        muestra: "radial-gradient(circle at 30% 30%, #f6f1e8 0 1.5px, transparent 2px) 0 0 / 7px 7px, #e2d8c8" },
       { id: "cuarzo", t: "Cuarzo blanco", c: "#f2f0ec", textura: "lisa" },
       { id: "carrara", t: "Mármol Carrara", c: "#e8e7e3", textura: "marmol-carrara", muestra: veta("#e9e8e4", "#9aa0a6", "#b9bdc1") },
       { id: "calacatta", t: "Calacatta oro", c: "#f1eee8", textura: "marmol-calacatta", muestra: veta("#f2efe9", "#857c6e", "#c2a878") },
       { id: "nero", t: "Nero Marquina", c: "#17181a", textura: "marmol-nero", muestra: veta("#1a1b1d", "#e6e4df", "#8b8c8e") },
-      { id: "grafito", t: "Cuarzo grafito", c: "#55575a", textura: "marmol-grafito",
+      { id: "grafito", t: "Cuarzo grafito", c: "#55575a", textura: "cuarzo-grafito",
         muestra: "radial-gradient(circle at 30% 30%, #8a8c8f 0 1.5px, transparent 2px) 0 0 / 7px 7px, #55575a" },
     ],
   },
   {
     id: "madera", t: "Madera", grupo: "madera", zona: "interior",
     ops: [
+      { id: "claro", t: "Roble claro", c: "#d6bda6", textura: "roble-claro", muestra: tablas("#d9c0a8", "#c8ad95") },
       { id: "natural", t: "Roble natural", c: "#b0a088", textura: "roble-natural", muestra: tablas("#b6a68c", "#a08f75") },
       { id: "blanqueado", t: "Roble blanqueado", c: "#d6cec0", textura: "roble-blanqueado", muestra: tablas("#d8d0c2", "#c6bdae") },
       { id: "ahumado", t: "Roble ahumado", c: "#7c746a", textura: "roble-ahumado", muestra: tablas("#80786e", "#6b645b") },
@@ -122,9 +126,9 @@ export const CAPAS = [
   {
     id: "piso", t: "Piso", grupo: "piso", zona: "interior",
     ops: [
-      { id: "roble", t: "Roble claro", c: "#d8c2aa", muestra: tablas("#cdb79c", "#bba487") },
-      { id: "gris", t: "Roble gris", c: "#b9b4ad", muestra: tablas("#aaa59d", "#97928a") },
-      { id: "nogal", t: "Nogal", c: "#8a6c55", muestra: tablas("#7b604b", "#67503d") },
+      { id: "roble", t: "Roble claro", c: "#ceb69a", textura: "piso-claro", muestra: tablas("#cdb79c", "#bba487") },
+      { id: "gris", t: "Roble gris", c: "#b0aaa2", textura: "piso-gris", muestra: tablas("#aaa59d", "#97928a") },
+      { id: "nogal", t: "Nogal", c: "#745842", textura: "piso-nogal", muestra: tablas("#7b604b", "#67503d") },
     ],
   },
 ];
@@ -145,11 +149,12 @@ export const ESTILOS = [
 
 /* Ambientes del interior: un toque y cambia todo adentro. */
 export const AMBIENTES = [
-  { id: "klasea", t: "Klase A", d: "Gris topo, roble natural y cuarzo blanco. Sereno y luminoso.", e: { tela: "topo", cojin: "lino", mesada: "cuarzo", madera: "natural", piso: "roble" } },
+  { id: "klasea", t: "Klase A", d: "Lino, roble claro y cuarzo arena, como en los renders del astillero.", e: { tela: "lino", cojin: "arena", mesada: "arena", madera: "claro", piso: "roble" } },
   { id: "nordico", t: "Nórdico", d: "Gris perla, roble blanqueado y mármol Carrara.", e: { tela: "perla", cojin: "lino", mesada: "carrara", madera: "blanqueado", piso: "roble" } },
   { id: "contemporaneo", t: "Contemporáneo", d: "Grafito, nogal y Nero Marquina. Profundo y elegante.", e: { tela: "grafito", cojin: "humo", mesada: "nero", madera: "nogal", piso: "nogal" } },
   { id: "riviera", t: "Riviera", d: "Azul marino, roble natural y Calacatta oro.", e: { tela: "marino", cojin: "lino", mesada: "calacatta", madera: "natural", piso: "roble" } },
   { id: "costa", t: "Costa", d: "Salvia, roble ahumado y cuarzo grafito.", e: { tela: "salvia", cojin: "arena", mesada: "grafito", madera: "ahumado", piso: "gris" } },
+  { id: "sereno", t: "Sereno", d: "Gris topo, roble natural y cuarzo blanco.", e: { tela: "topo", cojin: "lino", mesada: "cuarzo", madera: "natural", piso: "roble" } },
 ];
 
 export function opcionDe(capa, id) {
