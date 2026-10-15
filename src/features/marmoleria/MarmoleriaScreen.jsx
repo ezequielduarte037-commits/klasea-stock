@@ -4,7 +4,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import {
   Gem, Download, History, CalendarClock, RotateCcw, AlertTriangle, Send,
-  Inbox as InboxIcon, Ship, Table2,
+  Inbox as InboxIcon, Ship, Table2, FileText,
 } from "lucide-react";
 import { loadNavyLogo } from "@/lib/pdfLogo";
 
@@ -24,6 +24,7 @@ import BoatDetail from "./BoatDetail";
 import PlantillaView from "./PlantillaView";
 import HistorialView from "./HistorialView";
 import GeneralView from "./GeneralView";
+import RemitosView from "./RemitosView";
 import { construirPdfMarmoleria, nombreArchivoMarmoleria } from "./marmoleriaPdf";
 import { construirHtmlEtiquetasMarmoleria } from "./etiquetasMarmoleria";
 
@@ -44,7 +45,7 @@ export default function MarmoleriaScreen({ profile }) {
   const [historialEnvios, setHistorialEnvios] = useState([]);
 
   // ── UI ────────────────────────────────────────────────────────
-  // Vista: "centro" | "general" | "historial" | "plantilla"
+  // Vista: "centro" | "general" | "historial" | "plantilla" | "remitos"
   const [viewMode, setViewMode] = useState("centro");
   const [lineaId,  setLineaId]  = useState(null);
   const [unidadId, setUnidadId] = useState(null);
@@ -54,6 +55,7 @@ export default function MarmoleriaScreen({ profile }) {
   const [showPlanning, setShowPlanning] = useState(false);
   const [modalPieza, setModalPieza] = useState(null);
   const [showSQLModal, setShowSQLModal] = useState(false);
+  const [remitoUnidadInicial, setRemitoUnidadInicial] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [plantillaLoading, setPlantillaLoading] = useState(false);
@@ -75,9 +77,17 @@ export default function MarmoleriaScreen({ profile }) {
     setUnidadesAll(unidades);
     if (!unidades.length) { setFlotaPiezas([]); return; }
     const ids = unidades.map(u => u.id);
-    const { data: piezasDB } = await supabase.from("marm_unidad_piezas")
-      .select("id, unidad_id, pieza, sector, color, estado, prioridad, fecha_envio, fecha_regreso, observaciones, foto_ref, opcional")
-      .in("unidad_id", ids);
+    // La selección de un remito debe incluir la flota completa, también cuando
+    // supera el límite de filas por respuesta de PostgREST.
+    const piezasDB = [];
+    for (let desde = 0; ; desde += 500) {
+      const { data, error } = await supabase.from("marm_unidad_piezas")
+        .select("id, unidad_id, pieza, sector, color, estado, prioridad, fecha_envio, fecha_regreso, observaciones, foto_ref, opcional")
+        .in("unidad_id", ids).order("id").range(desde, desde + 499);
+      if (error) { setErr("No se pudieron cargar las plantillas: " + error.message); return; }
+      piezasDB.push(...(data ?? []));
+      if ((data?.length ?? 0) < 500) break;
+    }
     const porCodigo = Object.fromEntries(unidades.map(u => [u.id, u.codigo]));
     setFlotaPiezas((piezasDB ?? []).map(p => ({ ...p, codigo_barco: porCodigo[p.unidad_id] ?? "—" })));
   }
@@ -258,6 +268,12 @@ export default function MarmoleriaScreen({ profile }) {
     setUnidadId(null);
     setLineaId(null);
     setViewMode("general");
+  }
+
+  function irARemitos(uid = "") {
+    setRemitoUnidadInicial(uid);
+    setUnidadId(null);
+    setViewMode("remitos");
   }
 
   function filtrarInbox(kind) {
@@ -800,6 +816,14 @@ export default function MarmoleriaScreen({ profile }) {
 
             <div style={{ flex:1 }} />
 
+            <button onClick={() => irARemitos()} className="mrm-btn-ghost" style={{
+              display:"flex", alignItems:"center", gap:6,
+              border:`1px solid ${viewMode === "remitos" ? "var(--blue-border)" : "var(--border)"}`,
+              background:viewMode === "remitos" ? "var(--blue-soft)" : "transparent",
+              color:viewMode === "remitos" ? "var(--blue)" : "var(--muted)",
+              padding:"6px 10px", borderRadius:7, cursor:"pointer", fontFamily:T.sans, fontSize:12 }}>
+              <FileText size={13} /> Remitos
+            </button>
             <button onClick={irAGeneral} className="mrm-btn-ghost" style={{
               display:"flex", alignItems:"center", gap:6,
               border:`1px solid ${viewMode === "general" ? "var(--blue-border)" : "var(--border)"}`,
@@ -957,9 +981,22 @@ export default function MarmoleriaScreen({ profile }) {
                     sectoresSugeridos={sectoresSugeridos}
                     onPrintEtiquetas={imprimirEtiquetas}
                     printingEtiquetas={printingEtiquetas}
+                    onCrearRemito={() => irARemitos(unidadSel.id)}
                   />
                 </div>
               )}
+            </div>
+          ) : viewMode === "remitos" ? (
+            <div style={{ flex:1, overflowY:"auto", minHeight:0 }}>
+              <RemitosView
+                profile={profile}
+                piezas={flotaPiezas}
+                unidades={unidadesAll}
+                lineas={lineas}
+                unidadInicial={remitoUnidadInicial}
+                isMobile={isMobile}
+                onBack={irACentro}
+              />
             </div>
           ) : viewMode === "general" ? (
             <div style={{ flex:1, overflowY:"auto", minHeight:0 }}>
@@ -1025,6 +1062,7 @@ export default function MarmoleriaScreen({ profile }) {
             sectoresSugeridos={sectoresSugeridos}
             onPrintEtiquetas={imprimirEtiquetas}
             printingEtiquetas={printingEtiquetas}
+            onCrearRemito={() => irARemitos(unidadSel.id)}
           />
         </div>
       )}

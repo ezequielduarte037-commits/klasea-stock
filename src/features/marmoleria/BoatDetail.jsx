@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   ChevronLeft, X, Pencil, Trash2, Plus, Check, Search, Send,
-  CheckCircle2, AlertTriangle, Layers, Printer,
+  CheckCircle2, AlertTriangle, Layers, Printer, FileText,
 } from "lucide-react";
 import {
   T, PANEL, EYEBROW, INP, INP_SM, TXT, ICON_BTN, ESTADOS, ESTADO_META,
@@ -18,6 +18,7 @@ export default function BoatDetail({
   onSetEstado, onOpenPieza, onDeletePieza,
   onCambiarColorSector, onAddPieza, onAddPiezaPlantilla,
   onPrintEtiquetas, printingEtiquetas,
+  onCrearRemito,
   sectoresSugeridos,
 }) {
   const [q, setQ] = useState("");
@@ -182,6 +183,13 @@ export default function BoatDetail({
             <input style={{ ...INP_SM, paddingLeft:28 }} placeholder="Buscar pieza, sector o color…"
               value={q} onChange={e => setQ(e.target.value)} />
           </div>
+          {esAdmin && <button onClick={onCrearRemito} disabled={loading || !stats.total}
+            style={{ marginTop:10, width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+              border:"1px solid var(--blue-border)", background:"var(--blue-soft)", color:"var(--blue)",
+              padding:"9px 12px", borderRadius:8, fontFamily:T.sans, fontSize:12, fontWeight:600,
+              cursor:loading || !stats.total ? "default" : "pointer", opacity:loading || !stats.total ? 0.5 : 1 }}>
+            <FileText size={14} /> Crear remito de plantillas
+          </button>}
           <button onClick={onPrintEtiquetas} disabled={loading || printingEtiquetas || !stats.total}
             title="Una etiqueta por pieza de esta embarcación, excepto las marcadas No lleva"
             style={{ marginTop:10, width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:7,
