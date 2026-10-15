@@ -65,7 +65,10 @@ export function crearMateriales() {
       side: THREE.DoubleSide, clippingPlanes: [plano], clipShadows: true,
       // Teca y piso van apoyados sobre otra superficie: se adelantan apenas
       // (de más, atravesaban el casco y se veían como líneas en el costado).
-      polygonOffset: true, polygonOffsetFactor: a.adelante ? -1 : 1, polygonOffsetUnits: a.adelante ? -1 : 1,
+      // Corrimiento fijo, sin factor de pendiente: con factor, las molduras
+      // vistas de canto se corrían hacia atrás y en GPUs con menos precisión
+      // asomaba la teca del cockpit en líneas sobre el costado.
+      polygonOffset: !!a.adelante, polygonOffsetFactor: 0, polygonOffsetUnits: a.adelante ? -2 : 0,
     })];
   }));
   const linea = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, clippingPlanes: [plano] });
