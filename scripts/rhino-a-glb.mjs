@@ -89,6 +89,25 @@ const grupos = {};
 const G = n => (grupos[n] ||= { pos: [], nor: [], idx: [] });
 
 // Malla de render guardada por Rhino (si el archivo la trae): mejor que mallar de nuevo.
+// Copia en espejo (babor ↔ estribor): para piezas que en el .3dm están de un
+// solo lado. El espejo invierte el sentido de los triángulos.
+function agregarMallaEspejo(mesh, grupo) {
+  const g = G(grupo), base = g.pos.length / 3;
+  const vs = mesh.vertices(), fs_ = mesh.faces(), ns = mesh.normals();
+  const conNormales = ns.count === vs.count;
+  for (let k = 0; k < vs.count; k++) {
+    const p = vs.get(k);
+    g.pos.push(...T([p[0], -p[1], p[2]]));
+    const n = conNormales ? ns.get(k) : [0, 0, 1];
+    g.nor.push(...TN([n[0], -n[1], n[2]]));
+  }
+  for (let k = 0; k < fs_.count; k++) {
+    const [a, b, c, d] = fs_.get(k);
+    g.idx.push(base + a, base + c, base + b);
+    if (c !== d) g.idx.push(base + a, base + d, base + c);
+  }
+}
+
 function agregarMalla(mesh, grupo) {
   const g = G(grupo), base = g.pos.length / 3;
   const vs = mesh.vertices(), fs_ = mesh.faces(), ns = mesh.normals();
@@ -307,6 +326,18 @@ function caraHorizontal(m, donde) {
   return Math.abs(n[2]) / (Math.hypot(...n) || 1) > 0.9 && donde(zmax, zmin);
 }
 
+// Cara vertical que mira hacia el costado y está en la parte más de afuera.
+function caraLateral(m, ext) {
+  const v = m.vertices(), fc = m.faces();
+  let n = [0, 0, 0], suma = 0;
+  for (let t = 0; t < fc.count; t++) {
+    const q = fc.get(t), a = v.get(q[0]), b = v.get(q[1]), c = v.get(q[2]);
+    n = n.map((x, k) => x + cross(sub(b, a), sub(c, a))[k]);
+  }
+  for (let j = 0; j < v.count; j++) suma += Math.abs(v.get(j)[1]);
+  return Math.abs(n[1]) / (Math.hypot(...n) || 1) > 0.85 && suma / v.count > ext - 60;
+}
+
 function balconCerrado(capa, geo) {
   const b = geo.getBoundingBox();
   // La tapa de teca del balcón cerrado viene como otra pieza: una pared vertical
@@ -374,9 +405,11 @@ for (let i = 0; i < elementos.length; i++) {
     if (lado < 650 && /CUSHION/i.test(capa)) grupo = "almohadon";
   }
   if (esAcrilico(capa, geo.getBoundingBox())) grupo = "acrilico";
-  // Los balcones vienen dos veces: abiertos y cerrados. Queda la copia abierta
-  // (la web los cierra girándolos sobre la bisagra).
-  if (balconCerrado(capa, geo)) continue;
+  // Los balcones vienen dos veces: abiertos y cerrados. La copia abierta gira
+  // sobre la bisagra en la web; la cerrada se exporta aparte (grupo@lado-cerrado)
+  // y es la que se ve en reposo: girar la abierta deja rendijas de hasta 6 cm
+  // (las dos copias no coinciden exacto) y quedaba un agujero en la popa.
+  const cerrado = balconCerrado(capa, geo) ? (geo.getBoundingBox().max[1] > 0 ? "@babor-cerrado" : "@estribor-cerrado") : "";
   // Superficies duplicadas en el .3dm (misma caja, misma capa) pelean en pantalla.
   const bb0 = geo.getBoundingBox();
   const firma = `${capa}|${tipo}|${bb0.min.map(v => v.toFixed(1))}|${bb0.max.map(v => v.toFixed(1))}|${tipo === "Brep" ? geo.faces().count : ""}`;
@@ -407,7 +440,17 @@ for (let i = 0; i < elementos.length; i++) {
     let tope = -Infinity, piso = Infinity;
     if (balcon) caraMallas.forEach(m => { const v = m.vertices(); for (let j = 0; j < v.count; j++) { tope = Math.max(tope, v.get(j)[2]); piso = Math.min(piso, v.get(j)[2]); } });
     const grupoCara = m => !balcon ? grupo : caraHorizontal(m, z => z > tope - 30) ? "teca" : caraHorizontal(m, (z, zmin) => zmin < piso + 30) ? "casco" : grupo;
-    caraMallas.forEach(m => agregarMalla(m, grupoCara(m) + lado));
+    // Tapa de la esquina de popa junto al balcón: en el .3dm está sólo a babor
+    // y a estribor quedaba un agujero. Se copia en espejo.
+    if (/EXTERIOR DESIGN::HULL$/i.test(capa) && bb0.min[0] > -250 && bb0.max[0] < 150 && bb0.min[1] > 1650 && bb0.max[1] < 2000 && bb0.min[2] > 1000 && bb0.max[2] < 1400) {
+      caraMallas.forEach(m => agregarMallaEspejo(m, grupo));
+    }
+    if (cerrado) {
+      // Cerrado, la cara que mira hacia afuera es el costado del casco.
+      let ext = 0;
+      caraMallas.forEach(m => { const v = m.vertices(); for (let j = 0; j < v.count; j++) ext = Math.max(ext, Math.abs(v.get(j)[1])); });
+      caraMallas.forEach(m => agregarMalla(m, (grupo !== "teca" && caraLateral(m, ext) ? "casco" : grupo) + cerrado));
+    } else caraMallas.forEach(m => agregarMalla(m, grupoCara(m) + lado));
     caras += caraMallas.length;
     continue;
   }
