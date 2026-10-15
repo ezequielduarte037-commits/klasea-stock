@@ -33,7 +33,20 @@ const MODELOS_3D = {
   // flotacion: la pintura antiincrustante del K43 termina a 0,726 m sobre la
   // quilla (línea de flotación de diseño); el agua va a 0,72 m y la franja
   // oscura asoma apenas, como en las fotos.
-  43: { url: "/models/k43.glb", lineas: false, interior: "/models/k43-interior.glb", flotacion: 0.72 },
+  // pov: lugares del interior para el configurador, como una persona parada
+  // adentro (ojos a 1,55 m del piso; coordenadas de la escena, 1 = 1,36 m).
+  43: {
+    url: "/models/k43.glb", lineas: false, interior: "/models/k43-interior.glb", flotacion: 0.72,
+    pov: [
+      { id: "salon", t: "Salón", ojo: [0.75, 1.17, -0.22], mira: [2.9, 0.5, 0.0] },
+      { id: "cocina", t: "Cocina", ojo: [1.75, 1.15, 0.3], mira: [0.75, 0.42, -0.9] },
+      { id: "proa", t: "Comedor", ojo: [1.95, 1.08, 0.3], mira: [3.4, 0.4, -0.15] },
+      { id: "popa", t: "Hacia popa", ojo: [2.6, 1.05, -0.1], mira: [0.6, 0.6, 0.1] },
+      { id: "camarote", t: "Camarote", ojo: [-0.1, 0.2, 0.0], mira: [-1.4, -0.1, 0.0] },
+    ],
+    // Plafones del interior: salón, comedor de proa y camarote de popa.
+    plafones: [[1.1, 1.12, -0.15], [2.75, 1.05, 0], [-0.75, 0.22, 0]],
+  },
   // corte: altura (m, sobre la base del .3dm) de la vista interior; el K64
   // no tiene piso de camarotes, se corta bajo el salón para ver los de abajo.
   64: { url: "/models/k64.glb", lineas: true, corte: 2.0 },

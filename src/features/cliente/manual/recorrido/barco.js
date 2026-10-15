@@ -487,13 +487,21 @@ export function texturaFoto(nombre, metros, { color = true } = {}) {
 /* Roble de muebles y mamparos. La foto (grey_oak_veneer_01) es rosada y de veta
    casi invisible: de lejos el interior parecía cartón. Se lleva a un roble
    natural neutro y se le sube el contraste a la veta, conservando el dibujo de
-   la foto. El color ya viene en la textura: el material va en blanco. */
-export function texturaRoble(metros) {
+   la foto. El color ya viene en la textura: el material va en blanco.
+   tono: el mismo dibujo en otras maderas (las elige el configurador). */
+const TONOS_ROBLE = {
+  natural: { base: [176, 160, 136], veta: 2.6 },
+  blanqueado: { base: [214, 206, 192], veta: 1.7 },
+  ahumado: { base: [124, 116, 106], veta: 2.2 },
+  nogal: { base: [98, 70, 52], veta: 2.1 },
+};
+export function texturaRoble(metros, tono = "natural") {
+  const { base, veta: contraste } = TONOS_ROBLE[tono] || TONOS_ROBLE.natural;
   const T = 1024;
   const c = document.createElement("canvas");
   c.width = c.height = T;
   const ctx = c.getContext("2d", { willReadFrequently: true });
-  ctx.fillStyle = "#b0a088";
+  ctx.fillStyle = `rgb(${base.join(",")})`;
   ctx.fillRect(0, 0, T, T);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -508,9 +516,8 @@ export function texturaRoble(metros) {
     let suma = 0;
     for (let i = 0; i < d.length; i += 4) suma += d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722;
     const media = suma / (d.length / 4);
-    const base = [176, 160, 136];
     for (let i = 0; i < d.length; i += 4) {
-      const veta = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722 - media) * 2.6;
+      const veta = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722 - media) * contraste;
       d[i] = base[0] + veta;
       d[i + 1] = base[1] + veta * 0.96;
       d[i + 2] = base[2] + veta * 0.88;
