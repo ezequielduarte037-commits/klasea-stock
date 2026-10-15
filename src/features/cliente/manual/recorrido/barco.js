@@ -393,7 +393,11 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null, 
     raiz.add(pivote);
     pivote.updateMatrixWorld(true);
     Object.entries(piezas).filter(([n]) => n.endsWith(`@${lado}`)).forEach(([, m]) => pivote.attach(m));
-    balcones.push({ lado, pivote, cerrado: THREE.MathUtils.degToRad(nodo.userData?.angulo ?? 0) });
+    // Copia cerrada del .3dm: la que se ve en reposo (girar la abierta no
+    // calza exacto). Arranca oculta: el modelo se muestra con los balcones abiertos.
+    const fijas = Object.entries(piezas).filter(([n]) => n.endsWith(`@${lado}-cerrado`)).map(([, m]) => m);
+    fijas.forEach(m => { m.visible = false; });
+    balcones.push({ lado, pivote, fijas, cerrado: THREE.MathUtils.degToRad(nodo.userData?.angulo ?? 0) });
   });
   let aparte = null;
   if (raizInterior) {
@@ -459,7 +463,12 @@ export async function cargarModelo({ url, lineas = false, corte: corteM = null, 
 
 /* Apertura de los balcones: 1 abiertos (como vienen), 0 cerrados contra la borda. */
 export function abrirBalcones(modelo, t) {
-  modelo.balcones?.forEach(b => { b.pivote.rotation.x = b.cerrado * (1 - t); });
+  modelo.balcones?.forEach(b => {
+    b.pivote.rotation.x = b.cerrado * (1 - t);
+    const quieto = t < 0.002 && b.fijas.length > 0;
+    b.pivote.visible = !quieto;
+    b.fijas.forEach(m => { m.visible = quieto; });
+  });
 }
 
 /* Texturas fotográficas (Poly Haven, CC0) en public/textures/recorrido.

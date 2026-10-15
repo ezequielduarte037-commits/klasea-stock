@@ -560,11 +560,16 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     // cámara); ahora detrás de cada rendija hay casco.
     const forros = ["casco", "costado"].map(n => modelo.piezas[n]).filter(Boolean).map(m => {
       const geo = m.geometry.clone();
-      const pos = geo.attributes.position, nor = geo.attributes.normal;
-      if (!nor) return null;
+      const pos = geo.attributes.position;
       m.updateMatrixWorld(true);
       const d = 0.012 / m.matrixWorld.getMaxScaleOnAxis();
-      for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) - nor.getX(i) * d, pos.getY(i) - nor.getY(i) * d, pos.getZ(i) - nor.getZ(i) * d);
+      // Corrimiento sólo horizontal, hacia el eje del barco: siguiendo las
+      // normales, las caras que vienen invertidas del Rhino lo sacaban hacia
+      // afuera (piezas en proa, una placa sobre la plataforma de baño).
+      for (let i = 0; i < pos.count; i++) {
+        const z = pos.getZ(i);
+        if (Math.abs(z) > d * 2) pos.setZ(i, z - Math.sign(z) * d);
+      }
       const f = new THREE.Mesh(geo, m.material);
       f.receiveShadow = true;
       m.add(f);

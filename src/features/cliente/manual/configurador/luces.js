@@ -141,7 +141,8 @@ export function crearCortesia(leds, modelo) {
     m.position.set(...pos);
     m.quaternion.setFromUnitVectors(adelante, new THREE.Vector3(dir.x, 0, dir.z).normalize());
     grupo.add(m);
-    luces.push({ pos: new THREE.Vector3(...pos), dir, alcance: lado ? 1.0 : 1.3, cono: 0.1, fuerza: lado ? 1.6 : 2 });
+    // zmax: la luz no pasa la borda (no ilumina el costado de afuera).
+    luces.push({ pos: new THREE.Vector3(...pos), dir, alcance: lado ? 1.0 : 1.3, cono: 0.1, fuerza: lado ? 1.6 : 2, zmax: lado ? Math.abs(pos[2]) + 0.02 : 1.4 });
   });
   // Tiras del hardtop: dos líneas de luces hacia abajo, una a cada lado del eje.
   const led = modelo.anclas?.led;
@@ -149,7 +150,7 @@ export function crearCortesia(leds, modelo) {
     [-1, 1].forEach(k => [-0.75, -0.25, 0.25, 0.75].forEach(f => {
       luces.push({
         pos: new THREE.Vector3(led[0] + f * LARGO * 0.1, led[1] - 0.04, led[2] + k * 0.3),
-        dir: new THREE.Vector3(0, -1, 0), alcance: 2.6, cono: -0.1, fuerza: 0.55,
+        dir: new THREE.Vector3(0, -1, 0), alcance: 2.6, cono: -0.1, fuerza: 0.55, zmax: 1.2,
       });
     }));
   }
@@ -158,6 +159,7 @@ export function crearCortesia(leds, modelo) {
     luzPos: { value: Array.from({ length: MAX_LUCES }, (_, i) => (usadas[i] ? new THREE.Vector4(...usadas[i].pos.toArray(), usadas[i].alcance) : new THREE.Vector4())) },
     luzDir: { value: Array.from({ length: MAX_LUCES }, (_, i) => (usadas[i] ? new THREE.Vector4(...usadas[i].dir.toArray(), usadas[i].cono) : new THREE.Vector4())) },
     luzFuerza: { value: Array.from({ length: MAX_LUCES }, (_, i) => usadas[i]?.fuerza ?? 0) },
+    luzZmax: { value: Array.from({ length: MAX_LUCES }, (_, i) => usadas[i]?.zmax ?? 0) },
     luzN: { value: usadas.length },
     cortesia: { value: 0 },
     colorCortesia: { value: new THREE.Color("#ffc58a") },
@@ -180,6 +182,7 @@ export function iluminarConCortesia(material, uniforms) {
         uniform vec4 luzPos[ ${MAX_LUCES} ];
         uniform vec4 luzDir[ ${MAX_LUCES} ];
         uniform float luzFuerza[ ${MAX_LUCES} ];
+        uniform float luzZmax[ ${MAX_LUCES} ];
         uniform int luzN;
         uniform float cortesia;
         uniform vec3 colorCortesia;
@@ -191,6 +194,8 @@ export function iluminarConCortesia(material, uniforms) {
           float total = 0.0;
           for ( int i = 0; i < ${MAX_LUCES}; i++ ) {
             if ( i >= luzN ) break;
+            // Del lado de afuera de la borda no llega (el casco la tapa).
+            if ( abs( pB.z ) > luzZmax[ i ] ) continue;
             vec3 L = pB - luzPos[ i ].xyz;
             // Sólo del lado hacia donde mira el LED: la luz no atraviesa la
             // borda (en las costuras del casco se filtraba hacia afuera).
