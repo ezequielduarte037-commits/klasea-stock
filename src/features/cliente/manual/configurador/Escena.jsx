@@ -22,6 +22,7 @@ import { ambiente, texturaBrillo, texturaRuido } from "./ambiente";
 import { alturaOla } from "./olas";
 import { crearAgua } from "./agua";
 import { crearEstela } from "./estela";
+import { texturaInterior } from "./interior";
 import { CIELOS_CLIMA, cielosDeHora, crearMaterialCielo, aplicarCielo, luzDelCielo } from "./cielo";
 import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, anchoFlotacion, texturaAncho } from "./luces";
 import { crearRocio } from "./rocio";
@@ -36,17 +37,24 @@ const chico = () => typeof window !== "undefined" && window.innerWidth < 900;
 // Velocidad de crucero en unidades de escena por segundo (≈ 22 nudos en un 43').
 const CRUCERO = 9.5;
 
-export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef, colorSubacuatica = "#2f8dff" }) {
+/* adentro: el lugar del interior desde donde se mira ({ ojo, mira }), o null
+   afuera. plafones: dónde van las luces del interior. */
+export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef, colorSubacuatica = "#2f8dff", adentro = null, plafones = null }) {
   // Estado compartido entre el mundo y el barco (velocidad, factor de noche).
   const comun = useRef({ vel: 0, noche: 0, dia: 1, fuerzaOla: 1, tiempoOla: 0, avanceX: 0, colorSub: new THREE.Color("#2f8dff"), luzEspuma: new THREE.Color(1, 1, 1), sol: new THREE.Vector3(0, 1, 0) });
   useEffect(() => { comun.current.colorSub.set(colorSubacuatica); }, [colorSubacuatica]);
+  useEffect(() => { comun.current.adentro = !!adentro; }, [adentro]);
   return (
     <>
       <Mundo modelo={modelo} hora={hora} clima={clima} cielos={cielos} comun={comun} />
-      <Barco modelo={modelo} eleccion={eleccion} balcones={balcones} luces={luces} navegando={navegando} comun={comun} indicador={indicador} />
+      <Barco modelo={modelo} eleccion={eleccion} balcones={balcones} luces={luces} navegando={navegando} comun={comun} indicador={indicador} plafones={plafones} />
+      {/* Adentro la cámara queda parada en un lugar y se mira alrededor:
+          arrastrar gira la vista (como mover la cabeza), sin zoom. */}
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.07}
-        minDistance={LARGO * 0.22} maxDistance={LARGO * 4} maxPolarAngle={Math.PI / 2 - 0.05} />
-      <Camara modelo={modelo} vista={vista} intro={intro} subir={subir} />
+        enableZoom={!adentro} rotateSpeed={adentro ? -0.32 : 1}
+        minDistance={adentro ? 0.05 : LARGO * 0.22} maxDistance={adentro ? 0.05 : LARGO * 4}
+        minPolarAngle={adentro ? Math.PI * 0.18 : 0} maxPolarAngle={adentro ? Math.PI * 0.82 : Math.PI / 2 - 0.05} />
+      <Camara modelo={modelo} vista={vista} intro={intro} subir={subir} adentro={adentro} />
       <Efectos renderRef={renderRef} />
     </>
   );
@@ -241,7 +249,9 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
       a.ultimoEnv = t;
       a.envClave = clave;
     }
-    escena.environmentIntensity = 1;
+    // Adentro el cielo ilumina menos (entra por las ventanas): así se notan
+    // los plafones y los rincones no quedan chatos.
+    escena.environmentIntensity = c.adentro ? 0.7 : 1;
 
     o.sol.position.copy(luz.dir).multiplyScalar(60);
     o.sol.intensity = luz.fuerza * 3.4;
@@ -275,6 +285,8 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     u.estelaTex.value = o.estela.textura;
     u.estelaDesfase.value = o.estela.desfase;
     u.subacuatica.value = c.subacuatica || 0;
+    // Dentro del barco no hay agua: se ve el piso de los camarotes.
+    u.adentro.value = c.adentro ? 1 : 0;
     // Misma intensidad aparente en todos los colores (el blanco encandilaba).
     const lumSub = c.colorSub.r * 0.2126 + c.colorSub.g * 0.7152 + c.colorSub.b * 0.0722;
     u.colorSub.value.copy(c.colorSub).multiplyScalar(Math.min(1, 0.32 / Math.max(lumSub, 0.05)));
@@ -313,7 +325,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     // La niebla toma el color del horizonte del cielo: el mar se funde con él.
     escena.fog.color.copy(luz.horizonte).multiplyScalar(0.92);
     escena.fog.density = m.niebla;
-    gl.toneMappingExposure = 0.5 + m.noche * 0.35;
+    gl.toneMappingExposure = 0.5 + m.noche * 0.35 + (c.adentro ? 0.12 : 0);
   });
 
   return (
@@ -330,7 +342,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
 }
 
 /* ─────────────── Barco ─────────────── */
-function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador }) {
+function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador, plafones }) {
   const mats = useMemo(() => {
     const m = crearMateriales();
     // Con el reflejo del mar ya hay dos pasadas por cuadro: el vidrio va como
@@ -410,8 +422,15 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     const cortesia = crearCortesia(ubicarCortesia(modelo), modelo);
     const navegacion = crearNavegacion(modelo, brillo);
     const rocio = crearRocio(modelo, { chico: chico() });
-    return { brillo, luzPopa, cortesia, navegacion, rocio };
-  }, [modelo]);
+    // Plafones del interior: luz cálida que sólo se prende en la vista
+    // interior (están siempre, apagados, para no recompilar los materiales).
+    const interior = (plafones || []).map(p => {
+      const l = new THREE.PointLight("#ffd9b3", 0, 2.8, 2);
+      l.position.set(...p);
+      return l;
+    });
+    return { brillo, luzPopa, cortesia, navegacion, rocio, interior };
+  }, [modelo, plafones]);
   useEffect(() => {
     ["teca", "cubierta", "casco", "tapizado", "almohadon", "negro", "detalle", "acrilico", "cromo", "piedra", "madera"]
       .forEach(n => { if (mats.lista[n]) iluminarConCortesia(mats.lista[n], extras.cortesia.uniforms); });
@@ -433,13 +452,15 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
       const op = opcionDe(capa.id, eleccion[capa.id]);
       const m = mats.lista[capa.grupo];
       if (!m || !op) return;
-      // La teca trae el color en la textura (cada variante es otra textura):
-      // el color de la muestra es sólo para el botón.
-      metas.current[capa.grupo] = new THREE.Color(capa.id === "teca" ? "#ffffff" : op.c);
-      if (capa.id === "teca") {
-        const mapa = mats.tex(`teca-${op.teca}`, () => texturaTeca(op.teca));
-        if (m.map !== mapa) { m.map = mapa; m.needsUpdate = true; }
-      }
+      // La teca, los mármoles y las maderas traen el color en la textura (cada
+      // variante es otra textura): el material va en blanco y el color de la
+      // opción es sólo para el botón. "lisa": sin foto, manda el color.
+      let mapa;
+      if (capa.id === "teca") mapa = mats.tex(`teca-${op.teca}`, () => texturaTeca(op.teca));
+      else if (op.textura === "lisa") mapa = null;
+      else if (op.textura) mapa = mats.tex(op.textura, () => texturaInterior(op.textura));
+      metas.current[capa.grupo] = new THREE.Color(mapa ? "#ffffff" : op.c);
+      if (mapa !== undefined && m.map !== mapa) { m.map = mapa; m.needsUpdate = true; }
     });
   }, [eleccion, mats]);
 
@@ -469,6 +490,11 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     c.vel += (metaVel - c.vel) * (1 - Math.exp(-dt * (v.navegando ? 0.45 : 0.7)));
     const f = c.vel / CRUCERO;
     const t = clock.elapsedTime;
+    // Adentro el barco queda quieto (la cámara está parada en el piso).
+    const e = v.extras;
+    const fx = e.fx ||= { agua: 0, nav: 0, cort: 0, int: 0 };
+    fx.int += ((c.adentro ? 1 : 0) - fx.int) * (c.adentro ? 1 : k);
+    const libre = 1 - fx.int;
     // Al planear la proa sube pero la popa no se hunde: el barco gira sobre la
     // popa y sube entero (antes giraba sobre el centro y la planchada quedaba
     // bajo el agua).
@@ -484,18 +510,16 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     b.alto += ((hProa + hPopa + hBabor + hEstribor) / 4 - b.alto) * kb;
     b.cabeceo += (Math.atan2(hProa - hPopa, LARGO * 0.82) * 0.85 - b.cabeceo) * kb;
     b.rolido += (Math.atan2(hBabor - hEstribor, LARGO * 0.28) * 0.8 - b.rolido) * kb;
-    const quieto = 1 - f * 0.6;
+    const quieto = (1 - f * 0.6) * libre;
     // Al planear la proa sube pero la popa no se hunde: gira sobre la popa.
     const cabeceo = b.cabeceo * quieto + f * 0.045 + Math.sin(t * 1.9) * 0.003 * f;
     grupo.current.rotation.z = cabeceo;
     grupo.current.position.y = b.alto * quieto + Math.max(0, f * 0.045) * (LARGO / 2) + f * 0.05 + Math.sin(t * 2.4) * 0.008 * f;
     grupo.current.rotation.x = b.rolido * quieto;
 
-    const e = v.extras;
     // Luces: se encienden y apagan con un fundido corto; de día casi no se notan.
     const L = v.luces;
     const nivel = prendida => (prendida ? 0.3 + 0.7 * c.noche : 0);
-    const fx = e.fx ||= { agua: 0, nav: 0, cort: 0 };
     fx.agua += (nivel(L.agua) - fx.agua) * k;
     fx.nav += (nivel(L.navegacion) - fx.nav) * k;
     fx.cort += (nivel(L.cortesia) - fx.cort) * k;
@@ -509,6 +533,12 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     prenderCortesia(e.cortesia, fx.cort, grupo.current);
     const led = v.mats.lista.led;
     if (led) { led.emissive.set("#ffd2a0"); led.emissiveIntensity = fx.cort * 2.4; }
+    // Plafones del interior: suaves de día (entra luz por las ventanas), más de noche.
+    e.interior.forEach(l => { l.intensity = fx.int * (0.35 + 1.1 * c.noche); });
+    // Desde adentro los vidrios se ven claros (afuera van ahumados): por las
+    // ventanas se ve el mar y el cielo.
+    const vidrios = v.mats.lista.vidrios;
+    if (vidrios) vidrios.opacity = 0.74 - 0.52 * fx.int;
 
     if (v.indicador?.current) {
       const nudos = (c.vel / v.modelo.raiz.scale.x) * 1.944;
@@ -524,6 +554,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
         {modelo.aparte && <primitive object={modelo.aparte.raiz} />}
         <primitive object={extras.cortesia.grupo} />
         {extras.navegacion.map(({ g }, i) => <primitive key={`n${i}`} object={g} />)}
+        {extras.interior.map((l, i) => <primitive key={`p${i}`} object={l} />)}
       </group>
       <primitive object={extras.luzPopa} />
       <primitive object={extras.rocio.puntos} />
@@ -533,17 +564,41 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
 
 /* ─────────────── Cámara ─────────────── */
 /* Viaja a la vista elegida; si nadie toca nada un rato, gira sola alrededor
-   del barco, como en un salón de exposición. */
-function Camara({ modelo, vista, intro, subir }) {
+   del barco, como en un salón de exposición. Adentro se para en el lugar
+   elegido, a la altura de los ojos, con un lente más abierto (como se ve un
+   ambiente estando en él). Los cambios de adentro a afuera van tapados por
+   un fundido de la pantalla: la cámara salta, no atraviesa paredes. */
+function Camara({ modelo, vista, intro, subir, adentro }) {
   const get = useThree(st => st.get);
   const corrimiento = useRef({ actual: 0, meta: 0 });
   useEffect(() => { corrimiento.current.meta = subir; }, [subir]);
   const viaje = useRef(null);
   const quieto = useRef(0);
   const primera = useRef(true);
+  const estabaAdentro = useRef(false);
+
+  useEffect(() => {
+    const { camera } = get();
+    // Adentro hay muebles a centímetros: el plano cercano baja (y el lejano,
+    // para no perder precisión de profundidad).
+    camera.near = adentro ? 0.02 : 0.5;
+    camera.far = adentro ? 900 : 5000;
+    camera.updateProjectionMatrix();
+  }, [adentro, get]);
 
   useEffect(() => {
     const { camera, controls } = get();
+    if (adentro) {
+      const ojo = new THREE.Vector3(...adentro.ojo);
+      const dir = new THREE.Vector3(...adentro.mira).sub(ojo).normalize();
+      camera.position.copy(ojo);
+      controls?.target.copy(ojo).addScaledVector(dir, 0.05);
+      controls?.update();
+      viaje.current = null;
+      quieto.current = 0;
+      estabaAdentro.current = true;
+      return;
+    }
     const v = VISTAS.find(x => x.id === vista) || VISTAS[0];
     const a = v.foco.ancla && modelo.anclas?.[v.foco.ancla];
     const s = modelo.enU(v.foco.u);
@@ -555,13 +610,17 @@ function Camara({ modelo, vista, intro, subir }) {
     const entrada = primera.current && intro;
     if (entrada) camera.position.copy(foco).add(new THREE.Vector3(-LARGO * 2.2, LARGO * 1.1, LARGO * 2.6));
     primera.current = false;
+    // Saliendo del interior (tapado por el fundido) va directo a la vista.
+    const salto = estabaAdentro.current;
+    estabaAdentro.current = false;
     viaje.current = {
       desde: camera.position.clone(), hasta: destino,
       desdeT: entrada ? foco.clone() : controls?.target?.clone() ?? foco.clone(), hastaT: foco,
-      t: leerMovimientoReducido() ? 1 : 0, dur: entrada ? 3.6 : 2,
+      t: leerMovimientoReducido() || salto ? 1 : 0, dur: entrada ? 3.6 : 2,
     };
+    if (salto) { camera.position.copy(destino); controls?.target.copy(foco); }
     quieto.current = 0;
-  }, [vista, modelo, get, intro]);
+  }, [vista, modelo, get, intro, adentro]);
 
   useEffect(() => {
     const { controls } = get();
@@ -577,6 +636,12 @@ function Camara({ modelo, vista, intro, subir }) {
 
   useFrame(({ camera, controls, size }, dt) => {
     if (!controls) return;
+    // Lente: adentro, abierto como la vista de una persona (en un celular
+    // parado se abre más, para que entre el ambiente de lado a lado).
+    const fov = estabaAdentro.current
+      ? THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(36)) / camera.aspect)), 64, 84)
+      : 32;
+    if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     // La imagen se corre hacia arriba (sin mover la cámara) cuando hay un panel abierto.
     const c = corrimiento.current;
     const antes = c.actual;
@@ -593,7 +658,7 @@ function Camara({ modelo, vista, intro, subir }) {
       if (v.t >= 1) viaje.current = null;
     } else {
       quieto.current += dt;
-      controls.autoRotate = quieto.current > 14 && !leerMovimientoReducido();
+      controls.autoRotate = quieto.current > 14 && !leerMovimientoReducido() && !estabaAdentro.current;
       controls.autoRotateSpeed = 0.35;
     }
     controls.update();

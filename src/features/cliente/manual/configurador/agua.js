@@ -118,6 +118,7 @@ const FRAGMENTO = /* glsl */`
   uniform vec3 colorAireada;
   uniform float subacuatica;
   uniform vec3 colorSub;
+  uniform float adentro;
   varying vec4 worldPosition;
   varying vec3 vNormalOla;
   varying float vAltura;
@@ -172,6 +173,9 @@ const FRAGMENTO = /* glsl */`
     float wC = anchoEn( bp.x );
     float dC = az - wC;
     float dx = popa - bp.x;
+    // Vista interior: dentro del casco no hay agua (el piso de los camarotes
+    // está por debajo de la flotación).
+    if ( adentro > 0.5 && wC > 0.02 && dC < -0.04 ) discard;
 
     // ── Estela: el campo simulado y la forma de sus olas (normal por píxel:
     //    las crestas de la V quedan nítidas aunque la malla sea rala).
@@ -319,7 +323,7 @@ export function crearAgua({ normales, ruido, flot, anchoTex, estela, chico }) {
     popa: { value: flot.popa }, mangaPopa: { value: flot.mangaPopa }, velocidad: { value: 0 },
     estelaTex: { value: estela.textura }, estelaDom: { value: estela.dominio }, estelaDesfase: { value: 0 },
     luzEspuma: { value: new THREE.Color(1, 1, 1) }, colorAireada: { value: new THREE.Color("#3a8f8c") },
-    subacuatica: { value: 0 }, colorSub: { value: new THREE.Color("#2f8dff") },
+    subacuatica: { value: 0 }, colorSub: { value: new THREE.Color("#2f8dff") }, adentro: { value: 0 },
   });
   u.size.value = 4;
   agua.material.vertexShader = VERTICE;

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import {
-  Aperture, Cloud, CloudRain, Download, DoorOpen, LampCeiling, Lightbulb, Moon, Navigation, Palette, RotateCcw, Sailboat, Sun, Sunrise, Video, Waves, X,
+  Aperture, Cloud, CloudRain, Download, DoorOpen, LampCeiling, Lightbulb, Moon, Navigation, Palette, RotateCcw, Sailboat, Sofa, Sun, Sunrise, Video, Waves, X,
 } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { leerJson, guardarJson } from "../almacen";
@@ -18,7 +18,7 @@ import { cargarModelo } from "../recorrido/barco";
 import { cargarCielos } from "./cielo";
 import { prepararMar } from "./ambiente";
 import Escena from "./Escena";
-import { CAPAS, ESTILOS, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, textoHora } from "./opciones";
+import { CAPAS, CAPAS_EXTERIOR, CAPAS_INTERIOR, ESTILOS, AMBIENTES, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, textoHora } from "./opciones";
 
 function hayWebGL() {
   try {
@@ -33,6 +33,7 @@ const PESTANAS = [
   { id: "camara", t: "Cámara", i: Video },
   { id: "clima", t: "Clima", i: Sun },
   { id: "abrir", t: "Abrir", i: DoorOpen },
+  { id: "interior", t: "Interior", i: Sofa },
   { id: "luces", t: "Luces", i: Lightbulb },
   { id: "color", t: "Configurar", i: Palette },
 ];
@@ -66,6 +67,11 @@ export default function Configurador({ modelo, onCerrar }) {
   const [vista, setVista] = useState("tres");
   const [eleccion, setEleccion] = useState(() => ({ ...ELECCION_INICIAL, ...(guardado?.eleccion || {}) }));
   const [capa, setCapa] = useState("estilos");
+  const [capaInterior, setCapaInterior] = useState("ambientes");
+  // Adentro: el lugar del interior desde donde se mira (null = afuera).
+  const [adentro, setAdentro] = useState(null);
+  const [velo, setVelo] = useState(false);
+  const fundido = useRef(null);
   const [hora, setHora] = useState(() => guardado?.hora ?? 18.6);
   const [clima, setClima] = useState(() => guardado?.clima ?? "sol");
   const [balcones, setBalcones] = useState(false);
@@ -123,12 +129,37 @@ export default function Configurador({ modelo, onCerrar }) {
     const c = CAPAS.find(x => x.id === capaId);
     avisar(c.t, opcionDe(capaId, opId).t);
   };
-  const aplicarEstilo = est => { setEleccion({ ...ELECCION_INICIAL, ...est.e }); avisar("Estilo", est.t); };
-  const irVista = v => { setVista(v.id); avisar("Cámara", v.t); };
+  // Los estilos cambian el exterior y los ambientes el interior: cada uno
+  // conserva lo elegido del otro lado.
+  const aplicarEstilo = est => { setEleccion(e => ({ ...e, ...est.e })); avisar("Estilo", est.t); };
+  const aplicarAmbiente = amb => { setEleccion(e => ({ ...e, ...amb.e })); avisar("Ambiente", amb.t); };
+
+  // Entrar, salir o cambiar de lugar adentro: la pantalla se funde a negro,
+  // la cámara salta y vuelve a aparecer (no atraviesa paredes).
+  const conFundido = cambio => {
+    clearTimeout(fundido.current);
+    if (leerMovimientoReducido()) { cambio(); return; }
+    setVelo(true);
+    fundido.current = setTimeout(() => {
+      cambio();
+      fundido.current = setTimeout(() => setVelo(false), 380);
+    }, 320);
+  };
+  useEffect(() => () => clearTimeout(fundido.current), []);
+  const irLugar = lugar => {
+    if (navegando) setNavegando(false);
+    conFundido(() => setAdentro(lugar.id));
+    avisar("Interior", lugar.t);
+  };
+  const salir = (vistaNueva = "tres") => conFundido(() => { setAdentro(null); setVista(vistaNueva); });
+  const irVista = v => {
+    if (adentro) salir(v.id); else setVista(v.id);
+    avisar("Cámara", v.t);
+  };
   const abrirBalcones = () => {
     const nuevo = !balcones;
     setBalcones(nuevo);
-    setVista("balcones");
+    if (adentro) salir("balcones"); else setVista("balcones");
     avisar("Balcones", nuevo ? "Abiertos" : "Cerrados");
   };
   // De noche, para navegar van las luces de navegación (como manda el reglamento).
@@ -142,7 +173,12 @@ export default function Configurador({ modelo, onCerrar }) {
   const zarpar = () => {
     const nuevo = !navegando;
     setNavegando(nuevo);
-    if (nuevo) { setBalcones(false); setVista("popa"); setPestana(null); if (noche) prender("navegacion", true); }
+    if (nuevo) {
+      setBalcones(false);
+      if (adentro) salir("popa"); else setVista("popa");
+      setPestana(null);
+      if (noche) prender("navegacion", true);
+    }
     avisar(nuevo ? "Zarpando" : "Fondeado", nuevo ? "Rumbo al horizonte" : "Motores en neutro");
   };
 
@@ -178,12 +214,21 @@ export default function Configurador({ modelo, onCerrar }) {
   };
 
   const restablecer = () => {
-    setEleccion(ELECCION_INICIAL); setHora(18.6); setClima("sol"); setBalcones(false); setLuces(APAGADAS); setNavegando(false); setVista("tres");
+    setEleccion(ELECCION_INICIAL); setHora(18.6); setClima("sol"); setBalcones(false); setLuces(APAGADAS); setNavegando(false);
+    if (adentro) salir(); else setVista("tres");
     avisar("Configurador", "Como sale de fábrica");
   };
 
   const noche = hora < 6.3 || hora > 19.6;
   const tieneBalcones = !!geo?.balcones?.length;
+  // El interior se recorre en los modelos que traen su interior y sus lugares.
+  const lugares = geo?.aparte && cfg.pov ? cfg.pov : null;
+  const lugar = lugares?.find(l => l.id === adentro) || null;
+  const pestanas = PESTANAS.filter(p => p.id !== "interior" || lugares);
+  const tocarPestana = id => {
+    if (id === "interior" && !adentro && lugares) { irLugar(lugares[0]); setPestana(id); return; }
+    setPestana(pestana === id ? null : id);
+  };
 
   return (
     <div className="kx-cfg" role="dialog" aria-modal="true" aria-label={`Configurador ${nombre}`}>
@@ -206,9 +251,11 @@ export default function Configurador({ modelo, onCerrar }) {
             <Escena modelo={geo} cielos={cielos} eleccion={eleccion} vista={vista} hora={hora} clima={clima}
               balcones={balcones} luces={luces} navegando={navegando} indicador={indicador} intro={intro} renderRef={dibujar}
               colorSubacuatica={(COLORES_SUB.find(c => c.id === colorSub) || COLORES_SUB[1]).c}
+              adentro={lugar} plafones={cfg.plafones}
               subir={pestana ? altoPanel / 2 + 24 : 0} />
           </Canvas>
         )}
+        <div className="kx-cfg-velo" data-activo={velo} aria-hidden />
       </div>
 
       {/* Entrada: nombre del modelo, se va solo. */}
@@ -245,7 +292,7 @@ export default function Configurador({ modelo, onCerrar }) {
       {geo && (
         <div className="kx-cfg-abajo">
           {pestana && (
-            <section className="kx-cfg-panel" key={pestana} ref={medirPanel} aria-label={PESTANAS.find(p => p.id === pestana)?.t}>
+            <section className="kx-cfg-panel" key={pestana} ref={medirPanel} aria-label={pestanas.find(p => p.id === pestana)?.t}>
               {pestana === "camara" && (
                 <div className="kx-cfg-chips">
                   {VISTAS.filter(v => v.id !== "balcones" || tieneBalcones).map((v, i) => (
@@ -322,17 +369,61 @@ export default function Configurador({ modelo, onCerrar }) {
                 </div>
               )}
 
+              {pestana === "interior" && lugares && (
+                <div className="kx-cfg-config">
+                  <div className="kx-cfg-chips kx-cfg-lugares" role="group" aria-label="Lugares del interior">
+                    {lugares.map((l, i) => (
+                      <button key={l.id} type="button" style={{ "--i": i }} aria-pressed={adentro === l.id} onClick={() => irLugar(l)}>{l.t}</button>
+                    ))}
+                    <button type="button" className="kx-cfg-salir" style={{ "--i": lugares.length }} onClick={() => { salir(); setPestana(null); avisar("Cámara", "Exterior"); }}>Exterior</button>
+                  </div>
+                  <div className="kx-cfg-capas" role="tablist">
+                    {[{ id: "ambientes", t: "Ambientes" }, ...CAPAS_INTERIOR].map(c => (
+                      <button key={c.id} type="button" role="tab" aria-selected={capaInterior === c.id} onClick={() => setCapaInterior(c.id)}>{c.t}</button>
+                    ))}
+                  </div>
+                  {capaInterior === "ambientes" ? (
+                    <div className="kx-cfg-estilos" key="ambientes">
+                      {AMBIENTES.map((amb, i) => {
+                        const activo = CAPAS_INTERIOR.every(c => amb.e[c.id] === eleccion[c.id]);
+                        return (
+                          <button key={amb.id} type="button" style={{ "--i": i }} aria-pressed={activo} onClick={() => aplicarAmbiente(amb)}>
+                            <span className="kx-cfg-mini">
+                              {["tela", "mesada", "madera", "cojin"].map(id => {
+                                const op = opcionDe(id, amb.e[id]);
+                                return <i key={id} style={{ background: op.muestra || op.c }} />;
+                              })}
+                            </span>
+                            <strong>{amb.t}</strong>
+                            <small>{amb.d}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="kx-cfg-muestras" key={capaInterior}>
+                      {CAPAS.find(c => c.id === capaInterior).ops.map((op, i) => (
+                        <button key={op.id} type="button" style={{ "--i": i, "--c": op.muestra || op.c }} aria-pressed={eleccion[capaInterior] === op.id}
+                          onClick={() => elegir(capaInterior, op.id)} aria-label={op.t}>
+                          <i /><span>{op.t}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {pestana === "color" && (
                 <div className="kx-cfg-config">
                   <div className="kx-cfg-capas" role="tablist">
-                    {[{ id: "estilos", t: "Estilos" }, ...CAPAS].map(c => (
+                    {[{ id: "estilos", t: "Estilos" }, ...CAPAS_EXTERIOR].map(c => (
                       <button key={c.id} type="button" role="tab" aria-selected={capa === c.id} onClick={() => setCapa(c.id)}>{c.t}</button>
                     ))}
                   </div>
                   {capa === "estilos" ? (
                     <div className="kx-cfg-estilos" key="estilos">
                       {ESTILOS.map((est, i) => {
-                        const activo = CAPAS.every(c => (est.e[c.id] ?? ELECCION_INICIAL[c.id]) === eleccion[c.id]);
+                        const activo = CAPAS_EXTERIOR.every(c => (est.e[c.id] ?? ELECCION_INICIAL[c.id]) === eleccion[c.id]);
                         return (
                           <button key={est.id} type="button" style={{ "--i": i }} aria-pressed={activo} onClick={() => aplicarEstilo(est)}>
                             <span className="kx-cfg-mini">
@@ -363,10 +454,11 @@ export default function Configurador({ modelo, onCerrar }) {
           )}
 
           <nav className="kx-cfg-dock" aria-label="Configurador">
-            {PESTANAS.map(p => {
+            {pestanas.map(p => {
               const Icono = p.i;
               return (
-                <button key={p.id} type="button" aria-expanded={pestana === p.id} onClick={() => setPestana(pestana === p.id ? null : p.id)}>
+                <button key={p.id} type="button" aria-expanded={pestana === p.id} data-dentro={p.id === "interior" && !!adentro}
+                  onClick={() => tocarPestana(p.id)}>
                   <Icono size={16} strokeWidth={1.5} /><span>{p.t}</span>
                 </button>
               );

@@ -752,6 +752,10 @@ export const CSS_MANUAL = `
 .kx .kx-cfg-dock button:hover { color: var(--kx-fg); }
 .kx .kx-cfg-dock button[aria-expanded="true"] { color: #0b0b0b; background: #f4f4f2; }
 .kx .kx-cfg-dock .kx-cfg-zarpar { color: var(--kx-fg); border: 1px solid var(--kx-line-2); margin-left: 4px; }
+.kx .kx-cfg-dock button[data-dentro="true"]:not([aria-expanded="true"]) { color: var(--kx-fg); box-shadow: inset 0 0 0 1px var(--kx-line-2); }
+/* Fundido al entrar o salir del interior (la cámara salta por detrás). */
+.kx .kx-cfg-velo { position: absolute; inset: 0; background: #050607; opacity: 0; pointer-events: none; transition: opacity .32s var(--kx-ez); }
+.kx .kx-cfg-velo[data-activo="true"] { opacity: 1; }
 .kx .kx-cfg-dock .kx-cfg-zarpar[aria-pressed="true"] { color: #0b0b0b; background: #f4f4f2; }
 
 .kx .kx-cfg-panel { width: min(760px, 100%); padding: 18px; border-radius: 22px; background: var(--cfg-vidrio); border: 1px solid var(--kx-line);
@@ -765,6 +769,7 @@ export const CSS_MANUAL = `
 .kx .kx-cfg-chips button { min-height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--kx-line); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--kx-mute); }
 .kx .kx-cfg-chips button:hover { color: var(--kx-fg); border-color: var(--kx-line-2); }
 .kx .kx-cfg-chips button[aria-pressed="true"] { background: #f4f4f2; color: #0b0b0b; border-color: #f4f4f2; }
+.kx .kx-cfg-chips .kx-cfg-salir { border-style: dashed; }
 
 .kx .kx-cfg-clima { display: grid; gap: 16px; }
 .kx .kx-cfg-climas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -830,6 +835,10 @@ export const CSS_MANUAL = `
   .kx .kx-cfg-dock .kx-cfg-zarpar span { display: inline; }
   .kx .kx-cfg-panel { padding: 14px; border-radius: 18px; max-height: 52svh; overflow-y: auto; }
   .kx .kx-cfg-capas { margin: 0 -14px; }
+  /* Lugares del interior en una sola fila que se desliza. */
+  .kx .kx-cfg-lugares { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+  .kx .kx-cfg-lugares::-webkit-scrollbar { display: none; }
+  .kx .kx-cfg-lugares button { flex-shrink: 0; }
   .kx .kx-cfg-rotulo, .kx .kx-cfg-velocidad { bottom: 96px; }
   .kx .kx-cfg-hora { grid-template-columns: auto auto 1fr; }
   .kx .kx-cfg-hora svg { display: none; }
