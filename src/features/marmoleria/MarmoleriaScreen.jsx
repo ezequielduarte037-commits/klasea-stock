@@ -177,6 +177,7 @@ export default function MarmoleriaScreen({ profile }) {
     // La planilla general se rearma al entrar, igual que el historial. Depender
     // solo del realtime la dejaba vieja cada vez que el canal no llegaba.
     if (viewMode === "general") cargarDashboardGeneral();
+    if (viewMode === "remitos") cargarFlota();
   }, [viewMode]);
 
   // Realtime
@@ -225,7 +226,7 @@ export default function MarmoleriaScreen({ profile }) {
   }, [unidadesAll]);
 
   const desmoldesRows = useMemo(() =>
-    DESMOLDES_DATA.map(d => {
+    DESMOLDES_DATA.filter(d => !flotaPorCodigo[d.barco]?.archivada).map(d => {
       const gap = GAP_POR_LINEA[d.linea] ?? 128;
       const estStr = fechaEstPlantilla(d.desmolde, d.linea).toISOString().split("T")[0];
       const dias = diasHastaPlantilla(d.desmolde, d.linea);

@@ -131,7 +131,7 @@ export function ubicarCortesia(modelo) {
       const sg = Math.sign(-lado * n.z) || 1;
       leds.push({
         pos: [h.point.x, y, h.point.z - lado * 0.012],
-        normal: [n.x * sg, n.y * sg, n.z * sg],
+        normal: [n.x * sg, Math.max(0, n.y * sg), n.z * sg],
         piso: yp,
         lado,
       });
@@ -152,7 +152,7 @@ export function ubicarCortesia(modelo) {
         const sg = n.x > 0 ? -1 : 1;
         leds.push({
           pos: [h.point.x - 0.012, yPlanchada + 0.065, h.point.z],
-          normal: [n.x * sg, n.y * sg, n.z * sg],
+          normal: [n.x * sg, Math.max(0, n.y * sg), n.z * sg],
           piso: yPlanchada,
           lado: 0,
         });
@@ -258,7 +258,7 @@ export function crearCortesia(leds, modelo) {
     luzZmax: { value: Array.from({ length: MAX_LUCES }, (_, i) => usadas[i]?.zmax ?? 0) },
     luzN: { value: usadas.length },
     cortesia: { value: 0 },
-    colorCortesia: { value: new THREE.Color("#ffc994") },
+    colorCortesia: { value: new THREE.Color("#ffd9b3") },
     // Del mundo al barco (el barco se mece): se actualiza cada cuadro.
     alBarco: { value: new THREE.Matrix4() },
   };
@@ -319,37 +319,34 @@ export function iluminarConCortesia(material, uniforms) {
               float env = 0.32 + 0.68 * max( ( dot( nGeom, -Ld ) + 0.35 ) / 1.35, 0.0 );
               totalCort += cono * caida * mix( nl, env, 0.65 ) * bajoTecho * zLim * luzFuerza[ i ];
             } else {
-              // Aplique bajo de cortesía: proyecta un abanico elíptico suave
-              // hacia adelante y abajo sobre el piso, sin cortar la pared.
+              // Aplique bajo de cortesía: proyecta un abanico elíptico amplio y
+              // difuso hacia adelante y abajo sobre el piso, sin cortar la pared.
               vec2 hacia = normalize( luzDir[ i ].xz );
               vec2 Lxz = L.xz;
               float xf = dot( Lxz, hacia );
-              if ( xf <= -0.01 || L.y > 0.015 ) continue;
+              if ( xf <= -0.015 || L.y > 0.015 ) continue;
               float xs = Lxz.x * hacia.y - Lxz.y * hacia.x;
-              // Nace suave desde el zócalo hacia afuera (sin borde duro ni mancha
-              // pegada a la pared) y sólo debajo del aplique.
-              float frente = smoothstep( -0.005, 0.085, xf );
-              float debajo = smoothstep( 0.01, -0.038, L.y );
-              // Abanico ancho y suave sobre los tablones de teca.
-              float elipse2 = ( ( xf - 0.14 ) * ( xf - 0.14 ) ) / ( alc * alc * 0.22 )
-                + ( xs * xs ) / ( ( 0.16 + xf * 0.52 ) * ( 0.16 + xf * 0.52 ) )
-                + ( ( L.y + 0.085 ) * ( L.y + 0.085 ) ) * 3.5;
+              float frente = smoothstep( -0.01, 0.075, xf );
+              float debajo = smoothstep( 0.01, -0.032, L.y );
+              // Abanico ancho para que los focos vecinos se fundan en un baño continuo.
+              float elipse2 = ( ( xf - 0.16 ) * ( xf - 0.16 ) ) / ( alc * alc * 0.28 )
+                + ( xs * xs ) / ( ( 0.22 + xf * 0.58 ) * ( 0.22 + xf * 0.58 ) )
+                + ( ( L.y + 0.085 ) * ( L.y + 0.085 ) ) * 2.8;
               float u = clamp( length( L ) / alc, 0.0, 1.0 );
               float ventana = ( 1.0 - u * u ) * ( 1.0 - u * u );
-              float caida = exp( -elipse2 * 1.45 ) * ventana;
-              float orient = 0.55 + 0.45 * clamp( nGeom.y, 0.0, 1.0 );
+              float caida = exp( -elipse2 * 1.15 ) * ventana;
+              float orient = 0.6 + 0.4 * clamp( nGeom.y, 0.0, 1.0 );
               totalCort += frente * debajo * caida * orient * zLim * luzFuerza[ i ];
             }
           }
-          // Compresión suave de altas luces sobre las superficies: la madera y
-          // los tapizados se ven iluminados con calidez pero nunca se queman
-          // ni disparan el bloom por su cuenta.
-          float luzSuave = totalCort / ( 1.0 + totalCort * 0.55 );
-          outgoingLight += diffuseColor.rgb * colorCortesia * luzSuave * cortesia * 3.2;
+          // Compresión suave de altas luces: conserva el contraste de las juntas
+          // y la veta de la teca bajo una luz cálida natural.
+          float luzSuave = totalCort / ( 1.0 + totalCort * 0.85 );
+          outgoingLight += diffuseColor.rgb * colorCortesia * luzSuave * cortesia * 2.4;
         }
         #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => "cortesia-v4";
+  material.customProgramCacheKey = () => "cortesia-v5";
   material.needsUpdate = true;
 }
 

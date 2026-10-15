@@ -254,7 +254,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     const u = o.agua.material.uniforms;
     u.time.value += dt * (0.55 + c.vel * 0.04);
     u.sunDirection.value.copy(luz.dir);
-    u.sunColor.value.copy(luz.solColor).multiplyScalar(luz.fuerza * 1.3 + m.noche * 0.1);
+    u.sunColor.value.copy(luz.solColor).multiplyScalar(luz.fuerza * 1.3 * (1 - m.noche));
     u.waterColor.value.copy(agua);
     // Olas: más altas con nublado y lluvia; espuma en las crestas con viento.
     const fuerzaOla = m.ola / 2.2;

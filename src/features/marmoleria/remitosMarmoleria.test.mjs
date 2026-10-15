@@ -1,11 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument } from "pdf-lib";
-import { alternarPlantillaRemito, datosSolicitudRemito, numeroRemitoMarmoleria, validarRemitoMarmoleria } from "./remitosMarmoleria.js";
+import { alternarPlantillaRemito, datosSolicitudRemito, depurarSeleccionRemito, numeroRemitoMarmoleria, plantillasPendientesRemito, validarRemitoMarmoleria } from "./remitosMarmoleria.js";
 import { construirPdfRemitoMarmoleria } from "./remitoMarmoleriaPdf.js";
 
 const pieza = (id = "pieza-a", extra = {}) => ({ id, pieza_id:id, codigo_barco:"55-2", linea:"K55", sector:"Cocina", pieza:"Mesada", color:"Purastone Desert Black", material:"Purastone Desert Black", cantidad:1, ...extra });
 const remito = (extra = {}) => ({ numero:42, fecha:"2026-10-15", destinatario:"Marmolería de prueba", entregado_por:"Juan Pérez", retira:"", observaciones:"", items:[pieza()], ...extra });
+
+test("el selector solo ofrece pendientes de barcos y líneas vigentes", () => {
+  const lineas = [{ id:"l", nombre:"K55" }, { id:"inactiva", nombre:"K52", activa:false }];
+  const unidades = [{ id:"u", codigo:"55-2", linea_id:"l" }, { id:"u2", codigo:"55-3", linea_id:"l", activa:false }, { id:"u3", codigo:"52-2", linea_id:"inactiva" }];
+  const piezas = ["Pendiente", "Enviado", "Recibido", "Rehacer", "No lleva", null].map((estado, i) => pieza(`p${i}`, { unidad_id:"u", estado }));
+  piezas.push(pieza("u-borrada", { unidad_id:"u2", estado:"Pendiente" }), pieza("linea-borrada", { unidad_id:"u3", estado:"Pendiente" }));
+  const catalogo = plantillasPendientesRemito(piezas, unidades, lineas);
+  assert.deepEqual(catalogo.map(p => p.id), ["p0"]);
+  assert.equal(catalogo[0].codigo_barco, "55-2");
+  assert.equal(catalogo[0].linea, "K55");
+});
+
+test("una pieza que deja de estar pendiente sale de la selección sin perder cantidades de las otras", () => {
+  const seleccion = { p1:pieza("p1", { cantidad:3, material:"Dekton Laurent" }), p2:pieza("p2") };
+  assert.equal(depurarSeleccionRemito(seleccion, [{ id:"p1" }, { id:"p2" }]), seleccion);
+  const vigente = depurarSeleccionRemito(seleccion, [{ id:"p1" }]);
+  assert.deepEqual(Object.keys(vigente), ["p1"]);
+  assert.equal(vigente.p1.cantidad, 3);
+  assert.equal(vigente.p1.material, "Dekton Laurent");
+  assert.deepEqual(depurarSeleccionRemito(vigente, [{ id:"p1" }, { id:"p2" }]), vigente);
+});
 
 test("selección por id conserva otros barcos y no mezcla plantillas homónimas", () => {
   const p1 = pieza("p1");
