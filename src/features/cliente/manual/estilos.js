@@ -781,6 +781,12 @@ export const CSS_MANUAL = `
 .kx .kx-cfg-momentos button:hover { color: var(--kx-fg); border-color: var(--kx-line); }
 
 .kx .kx-cfg-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.kx .kx-cfg-luces { display: grid; gap: 14px; }
+.kx .kx-cfg-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.kx .kx-cfg-sub .kx-eyebrow { margin-right: 6px; }
+.kx .kx-cfg-sub button { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px 0 8px; border-radius: 999px; border: 1px solid var(--kx-line); font-size: 12px; color: var(--kx-mute); transition: border-color .3s var(--kx-ez), color .3s var(--kx-ez); }
+.kx .kx-cfg-sub button i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c), inset 0 0 0 1px rgba(255,255,255,.4); }
+.kx .kx-cfg-sub button[aria-checked="true"] { color: var(--kx-fg); border-color: var(--kx-fg); }
 .kx .kx-cfg-nada { margin: 0; color: var(--kx-mute); font-size: 14px; text-align: center; }
 .kx .kx-cfg-tarjeta { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--kx-line); }
 .kx .kx-cfg-tarjeta:hover { border-color: var(--kx-line-2); }

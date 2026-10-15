@@ -329,10 +329,35 @@ const esAcrilico = (capa, b) => /BLACK PAINT PARTS/i.test(capa) && b.max[2] - b.
   && Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) > 300 && Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) < 700 && b.min[2] > 2400;
 
 const t0 = Date.now();
+// Bloques (InstanceReference): su geometría vive en la definición (en el
+// .3dm, en la capa Default y en el origen); se copia con la transformación de
+// cada inserción. Así entra, por ejemplo, el ancla con su rodillo de proa.
+const idefs = doc.instanceDefinitions();
+function expandirBloque(ref, xf, profundidad = 0) {
+  const def = idefs.findId(ref.parentIdefId);
+  if (!def || profundidad > 4) return [];
+  const t = xf ? rh.Transform.multiply(xf, ref.xform) : ref.xform;
+  return def.getObjectIds().flatMap(id => {
+    const ob = objs.findId(id);
+    if (!ob) return [];
+    const g = ob.geometry();
+    if (g.constructor.name === "InstanceReference") return expandirBloque(g, t, profundidad + 1);
+    const copia = g.duplicate();
+    copia.transform(t);
+    return [copia];
+  });
+}
+const elementos = [];
 for (let i = 0; i < objs.count; i++) {
   const o = objs.get(i), geo = o.geometry(), tipo = geo.constructor.name;
-  if (tipo !== "Brep" && tipo !== "Mesh" && tipo !== "Extrusion") continue;
   const capa = capas.get(o.attributes().layerIndex).fullPath;
+  if (tipo === "InstanceReference") {
+    if (!SALTEAR.some(r => r.test(capa))) expandirBloque(geo).forEach(g => elementos.push({ geo: g, capa }));
+  } else elementos.push({ geo, capa });
+}
+for (let i = 0; i < elementos.length; i++) {
+  const { geo, capa } = elementos[i], tipo = geo.constructor.name;
+  if (tipo !== "Brep" && tipo !== "Mesh" && tipo !== "Extrusion") continue;
   if (SALTEAR.some(r => r.test(capa))) continue;
   let grupo = grupoDe(capa);
   // Paneles verticales de teca al final de los balcones, junto a la mesa: en el
@@ -393,7 +418,7 @@ for (let i = 0; i < objs.count; i++) {
     const f = fl.get(k);
     try { mallarCara(geo, f, grupo, caja); caras++; } catch (e) { fallas++; }
   }
-  if (i % 400 === 0) process.stderr.write(`\r${i}/${objs.count} · ${caras} caras · ${tris} tri · ${((Date.now() - t0) / 1000).toFixed(0)} s   `);
+  if (i % 400 === 0) process.stderr.write(`\r${i}/${elementos.length} · ${caras} caras · ${tris} tri · ${((Date.now() - t0) / 1000).toFixed(0)} s   `);
 }
 console.error(`\ndescartados ${descartados} · caras ${caras} · planas ${planas} · con respaldo ${fallas} · triángulos ${tris} · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 
