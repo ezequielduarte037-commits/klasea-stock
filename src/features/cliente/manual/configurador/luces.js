@@ -192,6 +192,10 @@ export function iluminarConCortesia(material, uniforms) {
           for ( int i = 0; i < ${MAX_LUCES}; i++ ) {
             if ( i >= luzN ) break;
             vec3 L = pB - luzPos[ i ].xyz;
+            // Sólo del lado hacia donde mira el LED: la luz no atraviesa la
+            // borda (en las costuras del casco se filtraba hacia afuera).
+            vec3 hacia = vec3( luzDir[ i ].x, 0.0, luzDir[ i ].z );
+            if ( dot( hacia, hacia ) > 0.01 && dot( L, normalize( hacia ) ) < -0.004 ) continue;
             float d = length( L );
             vec3 Ld = L / max( d, 1e-4 );
             float alc = luzPos[ i ].w;
@@ -260,4 +264,59 @@ export function texturaAncho(a) {
   t.magFilter = t.minFilter = THREE.LinearFilter;
   t.needsUpdate = true;
   return t;
+}
+
+/* Rocío de proa al navegar: gotas que el casco despide hacia los costados y
+   atrás donde corta el agua. Se simulan en el procesador (pocas, baratas). */
+export function crearRocio(modelo, mapa) {
+  const N = 520;
+  const a = anchoFlotacion(modelo);
+  const pos = new Float32Array(N * 3);
+  const col = new Float32Array(N * 4);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 4));
+  const mat = new THREE.PointsMaterial({ map: mapa, size: 0.32, vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true });
+  const puntos = new THREE.Points(geo, mat);
+  puntos.frustumCulled = false;
+  const ancho = x => {
+    if (!a) return LARGO * 0.14;
+    const k = Math.round(((x - a.x0) / (a.x1 - a.x0)) * (a.N - 1));
+    return a.liso[Math.min(a.N - 1, Math.max(0, k))];
+  };
+  const p = Array.from({ length: N }, () => ({ vida: 0, dur: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 }));
+  let semilla = 3;
+  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
+  const G = 9.8 / 1.36;
+  function actualizar(dt, f, brillo) {
+    const nuevas = f > 0.05 ? Math.floor(N * 1.4 * dt * f) + (azar() < N * 1.4 * dt * f % 1 ? 1 : 0) : 0;
+    let creadas = 0;
+    for (let i = 0; i < N; i++) {
+      const q = p[i];
+      if (q.vida <= 0) {
+        if (creadas >= nuevas) { col[i * 4 + 3] = 0; continue; }
+        creadas++;
+        const lado = azar() < 0.5 ? -1 : 1;
+        q.x = -0.4 + azar() * 2.6;
+        q.z = lado * (ancho(q.x) + 0.04);
+        q.y = 0.04;
+        q.vx = -(0.6 + azar() * 2.2) * f;
+        q.vz = lado * (1.2 + azar() * 2.4) * f;
+        q.vy = (0.9 + azar() * 1.8) * f;
+        q.dur = q.vida = 0.45 + azar() * 0.7;
+      }
+      q.vida -= dt;
+      q.vy -= G * dt;
+      q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
+      if (q.y < 0) q.vida = 0;
+      pos[i * 3] = q.x; pos[i * 3 + 1] = q.y; pos[i * 3 + 2] = q.z;
+      const t = 1 - Math.max(0, q.vida) / q.dur;
+      col[i * 4] = col[i * 4 + 1] = col[i * 4 + 2] = brillo;
+      col[i * 4 + 3] = q.vida > 0 ? Math.sin(Math.PI * Math.min(1, t * 1.6)) * 0.55 : 0;
+    }
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+    puntos.visible = f > 0.03;
+  }
+  return { puntos, geo, mat, actualizar };
 }

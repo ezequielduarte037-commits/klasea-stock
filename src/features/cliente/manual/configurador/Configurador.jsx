@@ -39,9 +39,16 @@ const PESTANAS = [
 const LUCES = [
   { id: "navegacion", t: "Navegación", i: Navigation, d: "Roja a babor, verde a estribor y blanca de tope. Cada una se ve sólo desde su sector, como en el agua." },
   { id: "cortesia", t: "Cortesía", i: LampCeiling, d: "Tiras LED del hardtop y luces bajas en el cockpit y la popa." },
-  { id: "agua", t: "Subacuáticas", i: Waves, d: "El agua de popa se ilumina de celeste." },
+  { id: "agua", t: "Subacuáticas", i: Waves, d: "El agua de popa se ilumina desde abajo. Elegí el color." },
 ];
 const APAGADAS = { navegacion: false, cortesia: false, agua: false };
+// Colores de las luces subacuáticas (los LED marinos más comunes).
+const COLORES_SUB = [
+  { id: "blanco", t: "Blanco", c: "#e8f4ff" },
+  { id: "azul", t: "Azul", c: "#2f8dff" },
+  { id: "celeste", t: "Celeste", c: "#25d5ff" },
+  { id: "rojo", t: "Rojo", c: "#ff2a3a" },
+];
 
 export default function Configurador({ modelo, onCerrar }) {
   // Las líneas sin modelo 3D propio ven el K43 como referencia.
@@ -62,6 +69,7 @@ export default function Configurador({ modelo, onCerrar }) {
   const [clima, setClima] = useState(() => guardado?.clima ?? "sol");
   const [balcones, setBalcones] = useState(false);
   const [luces, setLuces] = useState(APAGADAS);
+  const [colorSub, setColorSub] = useState(() => guardado?.colorSub ?? "azul");
   const [navegando, setNavegando] = useState(false);
   const [aviso, setAviso] = useState(null);
   const indicador = useRef(null);
@@ -91,7 +99,7 @@ export default function Configurador({ modelo, onCerrar }) {
     return () => { vivo = false; };
   }, [cfg, error]);
 
-  useEffect(() => { guardarJson(clave, { eleccion, hora, clima }); }, [clave, eleccion, hora, clima]);
+  useEffect(() => { guardarJson(clave, { eleccion, hora, clima, colorSub }); }, [clave, eleccion, hora, clima, colorSub]);
 
   useEffect(() => {
     const onKey = e => { if (e.key === "Escape") (pestana ? setPestana(null) : onCerrar()); };
@@ -195,6 +203,7 @@ export default function Configurador({ modelo, onCerrar }) {
             }}>
             <Escena modelo={geo} cielos={cielos} eleccion={eleccion} vista={vista} hora={hora} clima={clima}
               balcones={balcones} luces={luces} navegando={navegando} indicador={indicador} intro={intro} renderRef={dibujar}
+              colorSubacuatica={(COLORES_SUB.find(c => c.id === colorSub) || COLORES_SUB[1]).c}
               subir={pestana ? altoPanel / 2 + 24 : 0} />
           </Canvas>
         )}
@@ -286,6 +295,7 @@ export default function Configurador({ modelo, onCerrar }) {
               )}
 
               {pestana === "luces" && (
+                <div className="kx-cfg-luces">
                 <div className="kx-cfg-tarjetas">
                   {LUCES.map((luz, i) => {
                     const Icono = luz.i;
@@ -297,6 +307,16 @@ export default function Configurador({ modelo, onCerrar }) {
                       </button>
                     );
                   })}
+                </div>
+                <div className="kx-cfg-sub" role="radiogroup" aria-label="Color de las luces subacuáticas">
+                  <span className="kx-eyebrow">Subacuáticas</span>
+                  {COLORES_SUB.map(c => (
+                    <button key={c.id} type="button" role="radio" aria-checked={colorSub === c.id} style={{ "--c": c.c }}
+                      onClick={() => { setColorSub(c.id); prender("agua", true); avisar("Subacuáticas", c.t); if (!noche) setHora(20.6); }}>
+                      <i aria-hidden />{c.t}
+                    </button>
+                  ))}
+                </div>
                 </div>
               )}
 

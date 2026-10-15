@@ -22,7 +22,7 @@ import { CAPAS, VISTAS, opcionDe } from "./opciones";
 import { ambiente, texturaBrillo, texturaRuido } from "./ambiente";
 import { OLAS_GLSL, uniformsOlas, alturaOla, mallaAgua } from "./olas";
 import { CIELOS_CLIMA, cielosDeHora, crearMaterialCielo, aplicarCielo, luzDelCielo } from "./cielo";
-import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, anchoFlotacion, texturaAncho } from "./luces";
+import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, crearRocio, anchoFlotacion, texturaAncho } from "./luces";
 
 // Azar con semilla: estrellas y gotas siempre en el mismo lugar.
 function azar(semilla) {
@@ -34,9 +34,10 @@ const chico = () => typeof window !== "undefined" && window.innerWidth < 900;
 // Velocidad de crucero en unidades de escena por segundo (≈ 22 nudos en un 43').
 const CRUCERO = 9.5;
 
-export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef }) {
+export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef, colorSubacuatica = "#2f8dff" }) {
   // Estado compartido entre el mundo y el barco (velocidad, factor de noche).
-  const comun = useRef({ vel: 0, noche: 0, dia: 1, fuerzaOla: 1, tiempoOla: 0, avanceX: 0 });
+  const comun = useRef({ vel: 0, noche: 0, dia: 1, fuerzaOla: 1, tiempoOla: 0, avanceX: 0, colorSub: new THREE.Color("#2f8dff") });
+  useEffect(() => { comun.current.colorSub.set(colorSubacuatica); }, [colorSubacuatica]);
   return (
     <>
       <Mundo modelo={modelo} hora={hora} clima={clima} cielos={cielos} comun={comun} />
@@ -252,20 +253,20 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
       ruidoEspuma: { value: ruidoTex }, anchoCasco: { value: anchoTex },
       cascoX0: { value: flot.x0 }, cascoX1: { value: flot.x1 }, anchoMax: { value: anchoTex ? flot.max : 0 },
       popa: { value: flot.popa }, mangaPopa: { value: flot.mangaPopa },
-      velocidad: { value: 0 }, luzEspuma: { value: new THREE.Color(1, 1, 1) }, subacuatica: { value: 0 },
+      velocidad: { value: 0 }, luzEspuma: { value: new THREE.Color(1, 1, 1) }, subacuatica: { value: 0 }, colorSub: { value: new THREE.Color("#2f8dff") },
     });
     agua.material.fragmentShader = agua.material.fragmentShader
       .replace("uniform vec2 avance;", `uniform vec2 avance;
         uniform sampler2D ruidoEspuma; uniform sampler2D anchoCasco;
         uniform float cascoX0; uniform float cascoX1; uniform float anchoMax; uniform float popa; uniform float mangaPopa;
-        uniform float velocidad; uniform vec3 luzEspuma; uniform float subacuatica;
+        uniform float velocidad; uniform vec3 luzEspuma; uniform float subacuatica; uniform vec3 colorSub;
         varying float vEstela;`)
       .replace("vec3 outgoingLight = albedo;", `vec3 outgoingLight = mix( mix( albedo * ( 1.0 - sombraCasco ), luzEspuma * vec3( 0.3, 0.62, 0.6 ) * 0.75, aireada * 0.42 ), luzEspuma * ( 0.72 + 0.28 * rC ), espuma * 0.94 );
         // Luces subacuáticas: el agua de popa se ilumina desde abajo.
         if ( subacuatica > 0.001 ) {
           float lx = bp.x - ( popa - 0.35 );
           float brilloSub = exp( -( lx * lx * 0.9 + ( az - 0.55 ) * ( az - 0.55 ) * 1.6 ) );
-          outgoingLight += vec3( 0.12, 0.75, 1.0 ) * brilloSub * subacuatica * 2.4 * ( 1.0 - espuma );
+          outgoingLight += colorSub * brilloSub * subacuatica * 2.4 * ( 1.0 - espuma );
         }`);
     agua.material.fragmentShader = agua.material.fragmentShader.replace(
       "+ vec3( detalle.x, 0.0, detalle.z ) * oleaje );", `+ vec3( detalle.x, 0.0, detalle.z ) * oleaje );
@@ -281,7 +282,7 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
         float rV = texture2D( ruidoEspuma, fp * vec2( 0.09, 0.85 ) + vec2( 0.0, time * 0.02 ) ).r;
         float ruido = rA * 0.4 + rB * 0.35 + rC * 0.25;
         float proa = smoothstep( 0.42, 0.8, fx );
-        float banda = 0.09 + velocidad * ( 0.18 + 0.5 * proa );
+        float banda = 0.09 + velocidad * ( 0.3 + 0.55 * proa );
         float dC = az - wC;
         float contacto = wC > 0.02 ? ( 1.0 - smoothstep( 0.0, banda, dC ) ) * step( -0.06, dC ) : 0.0;
         contacto *= 0.5 + 0.6 * velocidad;
@@ -473,6 +474,9 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
     u.avance.value.x += c.vel * dt;
     u.velocidad.value = c.vel / CRUCERO;
     u.subacuatica.value = c.subacuatica || 0;
+    // Misma intensidad aparente en todos los colores (el blanco encandilaba).
+    const lumSub = c.colorSub.r * 0.2126 + c.colorSub.g * 0.7152 + c.colorSub.b * 0.0722;
+    u.colorSub.value.copy(c.colorSub).multiplyScalar(Math.min(1, 0.32 / Math.max(lumSub, 0.05)));
     // La espuma toma la luz del momento: blanca de día, apagada de noche.
     // Casi blanca: sólo un toque del color de la luz (si no, al atardecer quedaba rosada, como sucia).
     const le = u.luzEspuma.value.copy(luz.horizonte).multiplyScalar(0.45).add(luz.solColor.clone().multiplyScalar(luz.fuerza * 0.9)).addScalar(0.015);
@@ -550,15 +554,32 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
       modelo.aparte.raiz.traverse(o => o.layers.set(1));
       get().camera.layers.enable(1);
     }
+    // Forro: una copia del casco 1,6 cm hacia adentro con el mismo material.
+    // Las superficies del Rhino no están soldadas en las costuras y por las
+    // micro-rendijas se veía el cielo (una línea de puntitos al mover la
+    // cámara); ahora detrás de cada rendija hay casco.
+    const forros = ["casco", "costado"].map(n => modelo.piezas[n]).filter(Boolean).map(m => {
+      const geo = m.geometry.clone();
+      const pos = geo.attributes.position, nor = geo.attributes.normal;
+      if (!nor) return null;
+      m.updateMatrixWorld(true);
+      const d = 0.012 / m.matrixWorld.getMaxScaleOnAxis();
+      for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) - nor.getX(i) * d, pos.getY(i) - nor.getY(i) * d, pos.getZ(i) - nor.getZ(i) * d);
+      const f = new THREE.Mesh(geo, m.material);
+      f.receiveShadow = true;
+      m.add(f);
+      return f;
+    }).filter(Boolean);
+    const quitarForros = () => forros.forEach(f => { f.removeFromParent(); f.geometry.dispose(); });
     if (modelo.lineas) {
       const extras = Object.values(modelo.piezas).map(m => {
         const b = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 32), mats.linea);
         m.add(b);
         return b;
       });
-      return () => extras.forEach(b => { b.removeFromParent(); b.geometry.dispose(); });
+      return () => { extras.forEach(b => { b.removeFromParent(); b.geometry.dispose(); }); quitarForros(); };
     }
-    return undefined;
+    return quitarForros;
   }, [modelo, mats, get]);
 
   const extras = useMemo(() => {
@@ -572,7 +593,8 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     // del hardtop; su luz se calcula dentro de los materiales del barco.
     const cortesia = crearCortesia(ubicarCortesia(modelo), modelo);
     const navegacion = crearNavegacion(modelo, brillo);
-    return { brillo, luzPopa, cortesia, navegacion };
+    const rocio = crearRocio(modelo, brillo);
+    return { brillo, luzPopa, cortesia, navegacion, rocio };
   }, [modelo]);
   useEffect(() => {
     ["teca", "cubierta", "casco", "tapizado", "almohadon", "negro", "detalle", "acrilico", "cromo", "piedra", "madera"]
@@ -581,6 +603,8 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
   useEffect(() => () => {
     const e = extras;
     e.cortesia.geo.dispose();
+    e.rocio.geo.dispose();
+    e.rocio.mat.dispose();
     e.cortesia.mat.dispose();
     e.navegacion.forEach(({ g }) => g.children.forEach(s => s.material.dispose()));
     e.brillo.dispose();
@@ -659,7 +683,9 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
     fx.nav += (nivel(L.navegacion) - fx.nav) * k;
     fx.cort += (nivel(L.cortesia) - fx.cort) * k;
     c.subacuatica = fx.agua;
+    e.rocio.actualizar(Math.min(dt, 0.05), f, 0.2 + 1.1 * c.dia);
     e.luzPopa.intensity = fx.agua * 6;
+    e.luzPopa.color.copy(c.colorSub);
     prenderNavegacion(e.navegacion, camera, fx.nav);
     prenderCortesia(e.cortesia, fx.cort, grupo.current);
     const led = v.mats.lista.led;
@@ -681,6 +707,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador 
         {extras.navegacion.map(({ g }, i) => <primitive key={`n${i}`} object={g} />)}
       </group>
       <primitive object={extras.luzPopa} />
+      <primitive object={extras.rocio.puntos} />
     </>
   );
 }
