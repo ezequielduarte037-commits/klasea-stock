@@ -5,7 +5,9 @@
    · Mármoles: vetas que siguen las curvas de un ruido con el dominio
      torcido, como la piedra real (no rayas parejas), con nubes de fondo y
      vetas finas. Se repiten sin costura cada 1,2 m.
+   · Cuarzos: un color parejo con grano fino claro y oscuro.
    · Maderas: el roble del recorrido en otros tonos (barco.js).
+   · Pisos: las tablas de la foto del piso, llevadas a otro tono.
 ═══════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
 import { texturaRoble } from "../recorrido/barco";
@@ -84,16 +86,61 @@ function marmol(tipo) {
   };
 }
 
-/* Cuarzo grafito: gris parejo con grano fino claro y oscuro. */
-function grafito() {
-  const base = color("#55575a");
+/* Cuarzos: color parejo con grano fino claro y oscuro. */
+const CUARZOS = {
+  grafito: { base: "#55575a", claro: "#d2d2d0", oscuro: 0.35 },
+  arena: { base: "#e2d8c8", claro: "#f6f1e8", oscuro: 0.12 },
+};
+function cuarzo(tipo) {
+  const p = CUARZOS[tipo];
+  const base = color(p.base), claro = color(p.claro);
   const grano = ruido(256, 31), grano2 = ruido(181, 37), nubes = octavas([2, 4], 41);
   return (u, v, out) => {
     const a = grano(u, v), b = grano2(u, v);
-    const claro = suave(0.82, 0.92, a) * 0.55, oscuro = suave(0.8, 0.92, b) * 0.35;
-    const n = 1 + (nubes(u, v) - 0.5) * 0.08;
-    for (let k = 0; k < 3; k++) out[k] = base[k] * n * (1 - oscuro) + (210 - base[k]) * claro;
+    const cl = suave(0.82, 0.92, a) * 0.55, os = suave(0.8, 0.92, b) * p.oscuro;
+    const n = 1 + (nubes(u, v) - 0.5) * 0.06;
+    for (let k = 0; k < 3; k++) out[k] = base[k] * n * (1 - os) + (claro[k] - base[k]) * cl;
   };
+}
+
+/* Piso de tablas: la foto del piso (laminate_floor_02) con su dibujo de
+   tablas y veta, llevada a otro tono (claro como en los renders, gris, nogal). */
+const TONOS_PISO = {
+  claro: { base: [206, 182, 154], veta: 1.1 },
+  gris: { base: [176, 170, 162], veta: 1.0 },
+  nogal: { base: [116, 88, 66], veta: 1.2 },
+};
+function piso(tono) {
+  const { base, veta: contraste } = TONOS_PISO[tono] || TONOS_PISO.claro;
+  const L = 1024;
+  const c = document.createElement("canvas");
+  c.width = c.height = L;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = `rgb(${base.join(",")})`;
+  ctx.fillRect(0, 0, L, L);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  // Igual que la foto original en el acabado del piso (1,6 m por imagen).
+  tex.repeat.set(1 / 1.6, 1 / 1.6);
+  tex.anisotropy = 8;
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, L, L);
+    const datos = ctx.getImageData(0, 0, L, L);
+    const d = datos.data;
+    let suma = 0;
+    for (let i = 0; i < d.length; i += 4) suma += d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722;
+    const media = suma / (d.length / 4);
+    for (let i = 0; i < d.length; i += 4) {
+      const v = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722 - media) * contraste;
+      d[i] = base[0] + v; d[i + 1] = base[1] + v * 0.95; d[i + 2] = base[2] + v * 0.88;
+    }
+    ctx.putImageData(datos, 0, 0);
+    tex.needsUpdate = true;
+  };
+  img.src = "/textures/recorrido/laminate_floor_02_diff.jpg";
+  return tex;
 }
 
 function lienzoTextura(pintar, metros) {
@@ -120,10 +167,11 @@ function lienzoTextura(pintar, metros) {
   return tex;
 }
 
-/* clave: "marmol-carrara", "marmol-grafito", "roble-nogal"… */
+/* clave: "marmol-carrara", "cuarzo-arena", "roble-nogal", "piso-claro"… */
 export function texturaInterior(clave) {
   const [tipo, variante] = clave.split("-");
   if (tipo === "roble") return texturaRoble(0.6, variante);
-  if (variante === "grafito") return lienzoTextura(grafito(), 0.5);
+  if (tipo === "piso") return piso(variante);
+  if (tipo === "cuarzo") return lienzoTextura(cuarzo(variante), 0.5);
   return lienzoTextura(marmol(variante), 1.2);
 }
