@@ -16,6 +16,43 @@ export const CSS_MUEBLES = `
 .mbl .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .mbl h1, .mbl h2, .mbl h3, .mbl p { margin: 0; }
 
+/* Etiquetas: lista de piezas y muestra de impresión. */
+.mbl-etiquetas { display:flex;flex-direction:column;flex:1;min-height:0; }
+.mbl-et-controles { display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px; }
+.mbl-et-controles .mbl-campo { flex:0 1 260px;min-width:180px; }
+.mbl-et-buscar { display:flex;align-items:center;position:relative;flex:1;min-width:180px; }
+.mbl-et-buscar svg { position:absolute;left:12px;color:var(--dim);pointer-events:none; }
+.mbl-et-buscar input { width:100%;padding-left:35px; }
+.mbl-et-cuerpo { flex:1;min-height:0;overflow-y:auto;padding:4px 24px 28px; }
+.mbl-et-cuerpo > .mbl-aviso { margin-bottom:14px; }
+.mbl-et-grilla { display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:18px;align-items:start; }
+.mbl-et-panel { min-width:0;border:1px solid var(--border);border-radius:14px;background:var(--panel);overflow:hidden; }
+.mbl-et-panel-cab { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--border); }
+.mbl-et-panel-cab b { font-size:14px;font-weight:650; }
+.mbl-et-panel-cab span:not(.mbl-tag) { display:block;font-size:12px;color:var(--dim);margin-top:3px; }
+.mbl-et-seleccion { display:flex;gap:12px;flex-wrap:wrap; }
+.mbl-et-fila { display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background-color .15s; }
+.mbl-et-fila:last-child { border-bottom:0; }
+.mbl-et-fila:hover { background:var(--panel-2); }
+.mbl-et-fila.on { background:var(--blue-soft); }
+.mbl-et-fila label { display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer; }
+.mbl-et-fila input { width:17px;height:17px;accent-color:var(--blue);flex-shrink:0; }
+.mbl-et-nro { color:var(--blue);font-size:16px;font-weight:700;min-width:30px; }
+.mbl-et-nombre { min-width:0; }
+.mbl-et-nombre b { display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere; }
+.mbl-et-nombre small { display:block;font-size:12px;color:var(--dim);margin-top:3px; }
+.mbl-et-preview { position:sticky;top:0;display:grid;gap:12px;min-width:0; }
+.mbl-et-papel { background:var(--panel-2);padding:16px; }
+.mbl-et-papel iframe { display:block;width:100%;height:50mm;border:0;background:white;border-radius:5px; }
+.mbl-et-enchapado { display:flex;align-items:center;gap:10px;padding:12px 16px; }
+.mbl-et-enchapado div { min-width:0; }
+.mbl-et-enchapado small { display:block;font-size:11px;color:var(--dim);margin-bottom:3px; }
+.mbl-et-enchapado b { display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere; }
+.mbl-et-ayuda { font-size:12px;color:var(--dim);line-height:1.6; }
+.mbl-et-nota { padding:12px 16px; }
+@media(max-width:1000px) { .mbl-et-grilla { grid-template-columns:minmax(0,1fr); } .mbl-et-preview { position:static;grid-row:1; } .mbl-et-preview .mbl-et-panel { max-width:420px; } }
+@media(max-width:899px) { .mbl-et-cuerpo { padding:4px 16px 24px; } .mbl-et-controles { gap:10px; } .mbl-et-controles .mbl-campo,.mbl-et-buscar { flex:1 1 100%; } .mbl-et-controles > .ui-btn { margin-left:auto; } .mbl-et-fila { padding:12px;gap:8px; } .mbl-et-seleccion { gap:10px; } }
+
 /* ── Navegación del módulo ── */
 .mbl-nav {
   position: relative; z-index: 20; flex-shrink: 0;

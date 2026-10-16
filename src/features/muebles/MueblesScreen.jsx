@@ -1,21 +1,24 @@
 import { createElement, useState } from "react";
-import { Armchair, ClipboardCheck, Factory, Layers3 } from "lucide-react";
+import { Armchair, ClipboardCheck, Factory, Layers3, Printer } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { hasAdminAccess } from "@/lib/permissions";
 import BotonAyuda from "@/features/ayuda/BotonAyuda";
 import ProduccionTab from "./tabs/ProduccionTab";
 import RecepcionTab from "./tabs/RecepcionTab";
 import StockTab from "./tabs/StockTab";
+import EtiquetasTab from "./tabs/EtiquetasTab";
 import { CSS_MUEBLES } from "./estilos";
 
-// Muebles: un circuito en tres áreas. Seguimiento lleva la fabricación de
+// Muebles: Seguimiento lleva la fabricación de
 // cada conjunto, Recepción controla pieza por pieza lo que llega y Stock
-// guarda lo fabricado sin obra. Esta pantalla sólo arma el contenedor y la
+// guarda lo fabricado sin obra. Etiquetas identifica cada pieza del barco.
+// Esta pantalla sólo arma el contenedor y la
 // barra del módulo; cada área vive en tabs/.
 const AREAS = [
   ["produccion", "Seguimiento", Factory],
   ["recepcion", "Recepción", ClipboardCheck],
   ["stock", "Stock", Layers3],
+  ["etiquetas", "Etiquetas", Printer],
 ];
 
 function normalizeText(value = "") {
@@ -156,6 +159,8 @@ export default function MueblesScreen({ profile }) {
             onEnsureMueblesUnidad={ensureUnidadDesdeEnchapado}
             onOpenChecklist={abrirRecepcion}
           />
+        ) : vista === "etiquetas" ? (
+          <EtiquetasTab />
         ) : vista === "stock" ? (
           <StockTab esAdmin={esAdmin} onOpenRecepcion={abrirRecepcion} />
         ) : (
