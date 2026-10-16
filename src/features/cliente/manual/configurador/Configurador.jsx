@@ -251,7 +251,7 @@ export default function Configurador({ modelo, onCerrar }) {
             <Escena modelo={geo} cielos={cielos} eleccion={eleccion} vista={vista} hora={hora} clima={clima}
               balcones={balcones} luces={luces} navegando={navegando} indicador={indicador} intro={intro} renderRef={dibujar}
               colorSubacuatica={(COLORES_SUB.find(c => c.id === colorSub) || COLORES_SUB[1]).c}
-              adentro={lugar} plafones={cfg.plafones}
+              adentro={lugar} plafones={cfg.plafones} decoracion={cfg.decoracion}
               subir={pestana ? altoPanel / 2 + 24 : 0} />
           </Canvas>
         )}

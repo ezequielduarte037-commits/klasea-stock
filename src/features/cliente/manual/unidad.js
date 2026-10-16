@@ -40,13 +40,53 @@ const MODELOS_3D = {
     pov: [
       { id: "salon", t: "Salón", ojo: [0.75, 1.17, -0.22], mira: [2.9, 0.5, 0.0] },
       { id: "cocina", t: "Cocina", ojo: [1.75, 1.15, 0.3], mira: [0.75, 0.42, -0.9] },
-      { id: "proa", t: "Comedor", ojo: [1.95, 1.08, 0.3], mira: [3.4, 0.4, -0.15] },
+      { id: "proa", t: "Comedor", ojo: [1.72, 1.1, 0.32], mira: [3.2, 0.26, -0.1] },
       { id: "popa", t: "Hacia popa", ojo: [2.6, 1.05, -0.1], mira: [0.6, 0.6, 0.1] },
-      { id: "camarote", t: "Camarote", ojo: [-0.1, 0.2, 0.0], mira: [-1.4, -0.1, 0.0] },
-      { id: "bano", t: "Baño", ojo: [0.2, 0.92, 0.42], mira: [0.85, 0.45, 0.85] },
+      { id: "camarote", t: "Camarote", ojo: [0.05, 0.32, 0.0], mira: [-1.35, -0.08, 0.0] },
+      { id: "bano", t: "Baño", ojo: [0.3, 0.98, 0.45], mira: [0.8, 0.62, 0.98] },
     ],
     // Plafones del interior: salón, comedor de proa y camarote de popa.
     plafones: [[1.1, 1.12, -0.15], [2.75, 1.05, 0], [-0.75, 0.22, 0]],
+    // Decoración del interior (decoracion.js): objetos sueltos (p: dónde
+    // apoyan; r: giro en grados), tiras LED con la luz que dejan en pared y
+    // mesada (o, u, v: cada superficie), el espejo del botiquín y la pantalla.
+    decoracion: {
+      objetos: [
+        // Cocina
+        { q: "orquidea", p: [1.8, 0.526, -0.7], r: 40 },
+        { q: "tabla", p: [1.12, 0.526, -1.021] },
+        { q: "jarra", p: [1.44, 0.526, -0.86] },
+        // Mesa del comedor
+        { q: "vino", p: [2.48, 0.399, 0.0], r: 8 },
+        { q: "libros", p: [2.27, 0.399, 0.215], r: 15 },
+        { q: "frutera", p: [2.3, 0.399, -0.19], semilla: 3 },
+        // Baño
+        { q: "toallitas", p: [0.585, 0.497, 0.95], r: 90 },
+        { q: "jabonera", p: [0.972, 0.497, 0.98], r: -90 },
+        { q: "planta", p: [0.982, 0.497, 0.868], semilla: 5 },
+        // Camarote de popa: camas tendidas y los nichos de las cabeceras.
+        { q: "cama", p: [-1.303, -0.058, 0.25], largo: 1.42, ancho: 0.55, lado: 1, semilla: 5 },
+        { q: "cama", p: [-1.303, -0.058, -0.25], largo: 1.42, ancho: 0.55, lado: -1, semilla: 9 },
+        { q: "difusor", p: [-0.88, 0.256, 0.98], semilla: 4 },
+        { q: "libros", p: [-1.06, 0.256, 0.99], r: 8, pocos: true, tapas: 3 },
+        { q: "florero", p: [-0.9, 0.256, -0.99], semilla: 6 },
+        { q: "estante", p: [-1.13, 0.256, -0.875], n: 5, tapas: 1 },
+      ],
+      leds: [
+        // Bajo las alacenas de la cocina, junto a la pared.
+        { tira: [[0.88, 0.884, -0.995], [1.9, 0.884, -0.995]], banos: [
+          { o: [0.86, 0.526, -1.019], u: [1.06, 0, 0], v: [0, 0.36, 0] },
+          { o: [0.86, 0.5275, -1.02], u: [1.06, 0, 0], v: [0, 0, 0.32], fv: [0, 0.07], sombraV: 0.3 },
+        ] },
+        // Bajo el botiquín del baño.
+        { tira: [[0.575, 0.768, 1.05], [1.015, 0.768, 1.05]], banos: [
+          { o: [0.56, 0.497, 1.0715], u: [0.47, 0, 0], v: [0, 0.272, 0] },
+          { o: [0.52, 0.4985, 1.072], u: [0.51, 0, 0], v: [0, 0, -0.24], fv: [0, 0.05], sombraV: 0.2 },
+        ] },
+      ],
+      espejo: { c: [0.7955, 1.0125, 0.9255], n: [0, 0, -1], ancho: 0.457, alto: 0.475 },
+      pantalla: { c: [1.824, 0.6995, 0.7145], n: [0.962, 0, -0.272], ancho: 0.444, alto: 0.263 },
+    },
   },
   // corte: altura (m, sobre la base del .3dm) de la vista interior; el K64
   // no tiene piso de camarotes, se corta bajo el salón para ver los de abajo.
