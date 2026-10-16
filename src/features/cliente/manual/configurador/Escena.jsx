@@ -28,6 +28,7 @@ import { texturaInterior } from "./interior";
 import { CIELOS_CLIMA, cielosDeHora, crearMaterialCielo, aplicarCielo, luzDelCielo } from "./cielo";
 import { crearNavegacion, prenderNavegacion, ubicarCortesia, crearCortesia, prenderCortesia, iluminarConCortesia, anchoFlotacion, texturaAncho } from "./luces";
 import { crearRocio } from "./rocio";
+import { crearDecoracion } from "./decoracion";
 
 // Azar con semilla: estrellas y gotas siempre en el mismo lugar.
 function azar(semilla) {
@@ -40,8 +41,9 @@ const chico = () => typeof window !== "undefined" && window.innerWidth < 900;
 const CRUCERO = 9.5;
 
 /* adentro: el lugar del interior desde donde se mira ({ ojo, mira }), o null
-   afuera. plafones: dónde van las luces del interior. */
-export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef, colorSubacuatica = "#2f8dff", adentro = null, plafones = null }) {
+   afuera. plafones: dónde van las luces del interior. decoracion: lo que se
+   arma adentro (objetos, tiras LED, espejo; ver decoracion.js). */
+export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, balcones, luces, navegando, indicador, intro, subir = 0, renderRef, colorSubacuatica = "#2f8dff", adentro = null, plafones = null, decoracion = null }) {
   // Estado compartido entre el mundo y el barco (velocidad, factor de noche).
   const comun = useRef({ vel: 0, noche: 0, dia: 1, fuerzaOla: 1, tiempoOla: 0, avanceX: 0, colorSub: new THREE.Color("#2f8dff"), luzEspuma: new THREE.Color(1, 1, 1), sol: new THREE.Vector3(0, 1, 0) });
   useEffect(() => { comun.current.colorSub.set(colorSubacuatica); }, [colorSubacuatica]);
@@ -49,7 +51,7 @@ export default function Escena({ modelo, cielos, eleccion, vista, hora, clima, b
   return (
     <>
       <Mundo modelo={modelo} hora={hora} clima={clima} cielos={cielos} comun={comun} />
-      <Barco modelo={modelo} eleccion={eleccion} balcones={balcones} luces={luces} navegando={navegando} comun={comun} indicador={indicador} plafones={plafones} />
+      <Barco modelo={modelo} eleccion={eleccion} balcones={balcones} luces={luces} navegando={navegando} comun={comun} indicador={indicador} plafones={plafones} decoracion={decoracion} />
       {/* Adentro la cámara queda parada en un lugar y se mira alrededor:
           arrastrar gira la vista (como mover la cabeza), sin zoom. */}
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.07}
@@ -102,15 +104,17 @@ function Efectos({ renderRef, comun }) {
     ao.blendIntensity = 0.9;
     ao.enabled = false;
     // El mar no cuenta para la oclusión (adentro se recorta en el shader del
-    // agua, que el pase de normales no usa: si no, tapaba el piso).
-    const fuera = { agua: null };
+    // agua, que el pase de normales no usa: si no, tapaba el piso). Tampoco
+    // el vidrio, las luces de las tiras LED ni el espejo (sinAo): se verían
+    // como sólidos opacos.
+    const fuera = { agua: null, sinAo: null };
     const dibujarAo = ao.render.bind(ao);
     ao.render = (...args) => {
-      const agua = fuera.agua;
-      const antes = agua?.visible;
-      if (agua) agua.visible = false;
+      const ocultos = [fuera.agua, fuera.sinAo].filter(Boolean);
+      const antes = ocultos.map(o => o.visible);
+      ocultos.forEach(o => { o.visible = false; });
       dibujarAo(...args);
-      if (agua) agua.visible = antes;
+      ocultos.forEach((o, i) => { o.visible = antes[i]; });
     };
     const pasadas = [new RenderPass(escena, camara), ao, limpiar, bloom, new OutputPass()];
     pasadas.forEach(p => composer.addPass(p));
@@ -138,6 +142,7 @@ function Efectos({ renderRef, comun }) {
     const c = v.comun.current;
     v.efecto.ao.enabled = !!c.adentro;
     v.efecto.fuera.agua = c.agua;
+    v.efecto.fuera.sinAo = c.sinAo;
     v.efecto.composer.render(dt);
   }, 1);
   return null;
@@ -431,7 +436,7 @@ function crearSpots(modelo) {
 }
 
 /* ─────────────── Barco ─────────────── */
-function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador, plafones }) {
+function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador, plafones, decoracion }) {
   const mats = useMemo(() => {
     const m = crearMateriales();
     // Con el reflejo del mar ya hay dos pasadas por cuadro: el vidrio va como
@@ -523,8 +528,12 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
       return l;
     });
     const spots = crearSpots(modelo);
-    return { brillo, luzPopa, cortesia, navegacion, rocio, interior, spots };
-  }, [modelo, plafones]);
+    // Lo que hace habitado al interior (objetos, tiras LED, espejo, pantalla):
+    // se arma la primera vez que se entra, tapado por el fundido; así no
+    // demora la carga del configurador.
+    const deco = { datos: decoracion, actual: null };
+    return { brillo, luzPopa, cortesia, navegacion, rocio, interior, spots, deco };
+  }, [modelo, plafones, decoracion]);
   useEffect(() => {
     ["teca", "cubierta", "casco", "tapizado", "almohadon", "negro", "detalle", "acrilico", "cromo", "piedra", "madera"]
       .forEach(n => { if (mats.lista[n]) iluminarConCortesia(mats.lista[n], extras.cortesia.uniforms); });
@@ -545,6 +554,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     e.brillo.dispose();
     e.spots.geo.dispose();
     e.spots.mat.dispose();
+    if (e.deco.actual) { e.deco.actual.grupo.removeFromParent(); e.deco.actual.dispose(); }
   }, [extras]);
 
   // Colores elegidos → color objetivo de cada material (y la textura que corresponda).
@@ -644,6 +654,18 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     // ventanas se ve el mar y el cielo.
     const vidrios = v.mats.lista.vidrios;
     if (vidrios) vidrios.opacity = 0.74 - 0.52 * fx.int;
+    // Decoración: sólo adentro; el pie de cama y el almohadón siguen el color
+    // de los almohadones elegidos.
+    if (c.adentro && e.deco.datos && !e.deco.actual) {
+      e.deco.actual = crearDecoracion(e.deco.datos, { chico: chico() });
+      grupo.current.add(e.deco.actual.grupo);
+    }
+    const deco = e.deco.actual;
+    if (deco) {
+      const lienzo = st.gl.domElement;
+      deco.actualizar({ int: fx.int, noche: c.noche, acento: v.mats.lista.cojin?.color, agua: c.agua, ancho: lienzo.width, alto: lienzo.height });
+    }
+    c.sinAo = deco?.efimeros || null;
 
     if (v.indicador?.current) {
       const nudos = (c.vel / v.modelo.raiz.scale.x) * 1.944;
