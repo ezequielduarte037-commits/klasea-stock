@@ -52,23 +52,27 @@ const MODELOS_3D = {
     // mesada (o, u, v: cada superficie), el espejo del botiquín y la pantalla.
     decoracion: {
       objetos: [
-        // Cocina
-        { q: "orquidea", p: [1.8, 0.526, -0.7], r: 40 },
-        { q: "tabla", p: [1.12, 0.526, -1.021] },
-        { q: "jarra", p: [1.44, 0.526, -0.86] },
-        // Mesa del comedor
-        { q: "vino", p: [2.48, 0.399, 0.0], r: 8 },
-        { q: "libros", p: [2.27, 0.399, 0.215], r: 15 },
-        { q: "frutera", p: [2.3, 0.399, -0.19], semilla: 3 },
+        // Cocina: equipada como las de los astilleros (anafe, bacha con
+        // grifería, cafetera y pava) y una orquídea.
+        { q: "cafetera", p: [0.98, 0.526, -0.9] },
+        { q: "anafe", p: [1.25, 0.526, -0.77] },
+        { q: "pava", p: [1.5, 0.526, -0.945], r: -20 },
+        { q: "bacha", p: [1.66, 0.526, -0.76] },
+        { q: "orquidea", p: [1.86, 0.526, -0.7], r: 40 },
+        // Mesa del comedor puesta para dos, la botella y una frutera.
+        { q: "puesto", p: [2.3, 0.399, 0.175] },
+        { q: "puesto", p: [2.3, 0.399, -0.175], r: 180 },
+        { q: "botella", p: [2.3, 0.399, 0.0] },
+        { q: "frutera", p: [2.62, 0.399, 0.0], semilla: 3 },
         // Baño
-        { q: "toallitas", p: [0.585, 0.497, 0.95], r: 90 },
+        { q: "toallas", p: [0.58, 0.497, 0.95], r: 90 },
         { q: "jabonera", p: [0.972, 0.497, 0.98], r: -90 },
         { q: "planta", p: [0.982, 0.497, 0.868], semilla: 5 },
         // Camarote de popa: camas tendidas y los nichos de las cabeceras.
         { q: "cama", p: [-1.303, -0.058, 0.25], largo: 1.42, ancho: 0.55, lado: 1, semilla: 5 },
         { q: "cama", p: [-1.303, -0.058, -0.25], largo: 1.42, ancho: 0.55, lado: -1, semilla: 9 },
         { q: "difusor", p: [-0.88, 0.256, 0.98], semilla: 4 },
-        { q: "libros", p: [-1.06, 0.256, 0.99], r: 8, pocos: true, tapas: 3 },
+        { q: "libros", p: [-1.06, 0.256, 0.99], r: 8, tapas: 3 },
         { q: "florero", p: [-0.9, 0.256, -0.99], semilla: 6 },
         { q: "estante", p: [-1.13, 0.256, -0.875], n: 5, tapas: 1 },
       ],
