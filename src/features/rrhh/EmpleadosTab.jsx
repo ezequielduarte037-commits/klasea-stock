@@ -78,7 +78,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [bulkGrupo, setBulkGrupo] = useState("casa");
   const [bulkContratistaId, setBulkContratistaId] = useState("");
   const [bulkSede, setBulkSede] = useState("Pampa");
-  const [asignacionesVigentes, setAsignacionesVigentes] = useState([]);
+  const [asignacionesVigentes, setAsignacionesVigentes] = useState(null);
 
   useEffect(() => {
     setQ(initialQuery || "");
@@ -90,13 +90,17 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     let vigente = true;
     fetchAsignacionesVigentes()
       .then((rows) => { if (vigente) setAsignacionesVigentes(rows); })
-      .catch(() => { if (vigente) setAsignacionesVigentes([]); });
+      .catch((error) => {
+        if (!vigente) return;
+        setAsignacionesVigentes(null);
+        setErr(new Error(`No se pudieron consultar las obras asignadas. ${error.message || "Intentá de nuevo."}`));
+      });
     return () => { vigente = false; };
   }, [empleados]);
 
   const obrasPorEmpleado = useMemo(() => {
     const result = new Map();
-    for (const asignacion of asignacionesVigentes) {
+    for (const asignacion of asignacionesVigentes ?? []) {
       if (!asignacion.empleado_id || !asignacion.obra_id) continue;
       const rows = result.get(asignacion.empleado_id) ?? [];
       rows.push(asignacion);
@@ -115,7 +119,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
   const obrasDisponibles = useMemo(() => {
     const unique = new Map();
-    for (const asignacion of asignacionesVigentes) {
+    for (const asignacion of asignacionesVigentes ?? []) {
       if (asignacion.obra_id && asignacion.obra?.codigo) unique.set(asignacion.obra_id, asignacion.obra);
     }
     return [...unique.values()].sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
@@ -126,8 +130,11 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     rows = rows.filter(e => vista === "ex" ? e.activo === false : e.activo !== false);
     if (vista === "activos" && !verNoFichan) rows = rows.filter(e => e.ficha !== false);
     if (filtroSede !== "todas") rows = rows.filter(e => e.sede === filtroSede);
-    if (filtroOficio !== "todos") rows = rows.filter(e => e.oficio_id === filtroOficio);
-    if (filtroObra !== "todas") rows = rows.filter(e => (obrasPorEmpleado.get(e.id) ?? []).some(a => a.obra_id === filtroObra));
+    if (filtroOficio !== "todos") rows = rows.filter(e => filtroOficio === "sin_asignar" ? !e.oficio_id : e.oficio_id === filtroOficio);
+    if (filtroObra !== "todas") rows = asignacionesVigentes === null ? [] : rows.filter(e => {
+      const obras = obrasPorEmpleado.get(e.id) ?? [];
+      return filtroObra === "sin_asignar" ? obras.length === 0 : obras.some(a => a.obra_id === filtroObra);
+    });
     if (filtroGrupo === "casa") rows = rows.filter(e => e.grupo === "casa");
     else if (filtroGrupo === "contratistas") rows = rows.filter(e => e.grupo === "contratista");
     else if (filtroGrupo === "sin_asignar") rows = rows.filter(e => e.grupo === "sin_asignar");
@@ -151,7 +158,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       }
       return searchText(a.nombre).localeCompare(searchText(b.nombre), "es");
     });
-  }, [empleados, q, filtroGrupo, filtroSede, filtroOficio, filtroObra, vista, verNoFichan, obrasPorEmpleado]);
+  }, [empleados, q, filtroGrupo, filtroSede, filtroOficio, filtroObra, vista, verNoFichan, obrasPorEmpleado, asignacionesVigentes]);
 
   const stats = useMemo(() => {
     const act = (empleados ?? []).filter(e => e.activo !== false);
@@ -339,12 +346,14 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <option value="todas">Todas las sedes</option>
           {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select style={{ ...INP, minWidth: 160 }} value={filtroOficio} onChange={e => setFiltroOficio(e.target.value)}>
+        <select aria-label="Filtrar por rubro u oficio" style={{ ...INP, minWidth: 160 }} value={filtroOficio} onChange={e => setFiltroOficio(e.target.value)}>
           <option value="todos">Todos los rubros / oficios</option>
+          <option value="sin_asignar">Sin asignar</option>
           {oficiosDisponibles.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}
         </select>
-        <select style={{ ...INP, minWidth: 150 }} value={filtroObra} onChange={e => setFiltroObra(e.target.value)}>
+        <select aria-label="Filtrar por obra" style={{ ...INP, minWidth: 150 }} value={filtroObra} disabled={asignacionesVigentes === null} onChange={e => setFiltroObra(e.target.value)}>
           <option value="todas">Todas las obras</option>
+          <option value="sin_asignar">Sin asignar</option>
           {obrasDisponibles.map(obra => <option key={obra.id} value={obra.id}>{obra.codigo}{obra.linea_nombre ? ` · ${obra.linea_nombre}` : ""}</option>)}
         </select>
         <input style={{ ...INP, flex: 1, minWidth: 150 }} placeholder="Buscar nombre o DNI…" value={q} onChange={e => setQ(e.target.value)} />
