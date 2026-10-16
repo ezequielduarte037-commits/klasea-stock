@@ -76,7 +76,8 @@ function Efectos({ renderRef, comun }) {
   const size = useThree(st => st.size);
   const efecto = useMemo(() => {
     // MSAA en el destino: al dibujar en un render target se pierde el antialias del lienzo.
-    const destino = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    // Con plantilla (stencil): la bacha de la cocina se ve a través de la mesada.
+    const destino = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });
     const composer = new EffectComposer(gl, destino);
     const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.55, 3.2);
     // Transición gradual en el umbral del bloom: evita que luces chicas parpadeen

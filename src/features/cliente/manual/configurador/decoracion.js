@@ -1,25 +1,30 @@
 /* ═══════════════════════════════════════════════════════════════
    Configurador · decoración del interior
-   Lo que hace que un interior se vea habitado y no un plano de CAD, armado
-   con código sobre el modelo (que no trae nada suelto):
-   · Objetos: orquídea, copas con vino, botella, bandeja, libros, anteojos,
-     frutera con limones, tabla, jarra, toallas, acolchado, almohadas, pie de
-     cama, difusor, florero con eucaliptos, jabonera y una planta. Cada uno
-     se arma en metros, apoyado en y = 0, y va a su lugar (unidad.js); al
-     final se juntan en una malla por material (pocos dibujos por cuadro).
-   · Espejo del botiquín: un reflejo de verdad (Reflector).
-   · Tiras LED bajo las alacenas y el botiquín: la tira y el baño de luz
-     cálida que dejan en la pared y la mesada, calculado en cada punto como
-     la luz de una línea. Se aplica multiplicando lo que ya hay: en una
-     piedra clara se nota más que en una oscura, como en la realidad.
-   · La pantalla del televisor: negro brillante, con reflejos.
-   Todo va en la capa 1 (fuera del reflejo del agua) y sólo se ve adentro.
+   El modelo trae los muebles, pero no lo que tiene un barco equipado y
+   habitado. Esto lo completa con código, siguiendo cómo son y cómo se
+   ambientan los interiores reales (Klase A 42 HT y 43 Fly, Sessa C42,
+   Azimut Atlantis 45):
+   · Cocina: anafe de inducción de dos zonas, bacha de acero con grifería
+     alta, cafetera y pava; una orquídea.
+   · Comedor: la mesa puesta para dos (individual, plato, servilleta,
+     cubiertos y copa), la botella y una frutera con manzanas verdes.
+   · Camarote: camas tendidas con cubrecama acolchado ajustado, almohada con
+     funda a rayas, y almohadón y pie de cama en el color de los almohadones
+     elegidos; en los nichos de las cabeceras, libros, un difusor y un florero.
+   · Baño: toallas de mano dobladas, jabonera y una planta. El botiquín es un
+     espejo de verdad (Reflector).
+   · Tiras LED bajo las alacenas y el botiquín, con la luz que dejan en la
+     pared y la mesada.
+   · La pantalla del televisor.
+   Cada objeto se arma en metros, apoyado en y = 0, y va a su lugar
+   (unidad.js); al final se juntan en una malla por material (pocos dibujos
+   por cuadro). Todo va en la capa 1 (fuera del reflejo del agua) y sólo se
+   ve adentro.
 ═══════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
-import { texturaRoble } from "../recorrido/barco";
 
 // Metros → unidades de la escena (1 = 1,36 m).
 const U = 1 / 1.36;
@@ -51,7 +56,7 @@ function pintar(geo, c) {
 }
 
 // Coordenadas de textura en metros, proyectadas sobre el plano de cada cara
-// (las texturas traen su escala: así la veta y la trama tienen el tamaño real).
+// (las texturas traen su escala: así la trama tiene el tamaño real).
 function uvCaja(geo) {
   const pos = geo.attributes.position;
   const uv = new Float32Array(pos.count * 2);
@@ -69,13 +74,14 @@ function uvCaja(geo) {
   return geo;
 }
 
-// Todas con los mismos atributos y sin índice, para poder juntarlas.
-function preparar(geo) {
+// Todas con los mismos atributos y sin índice, para poder juntarlas. Las que
+// traen sus propias coordenadas de textura (uv) las conservan.
+function preparar(geo, conservarUv = false) {
   const g = geo.index ? geo.toNonIndexed() : geo;
   if (g !== geo) geo.dispose();
   if (!g.attributes.normal) g.computeVertexNormals();
   if (!g.attributes.color) pintar(g, "#ffffff");
-  uvCaja(g);
+  if (!conservarUv || !g.attributes.uv) uvCaja(g);
   Object.keys(g.attributes).forEach(k => { if (!["position", "normal", "uv", "color"].includes(k)) g.deleteAttribute(k); });
   g.morphAttributes = {};
   return g;
@@ -88,13 +94,14 @@ function torno(perfil, seg = 32) {
 }
 
 // Superficie de una función (u, v) ∈ [0, 1]² → [x, y, z]. La cara de adelante
-// es la de ∂v × ∂u; invertir la da vuelta.
-function superficie(ni, nj, punto, { invertir = false, color = null } = {}) {
-  const pos = [], cols = [];
+// es la de ∂v × ∂u; invertir la da vuelta. conUv: (u, v) como coordenadas.
+function superficie(ni, nj, punto, { invertir = false, color = null, conUv = false } = {}) {
+  const pos = [], cols = [], uvs = [];
   const c = new THREE.Color();
   for (let i = 0; i <= ni; i++) for (let j = 0; j <= nj; j++) {
     pos.push(...punto(i / ni, j / nj));
     if (color) { color(i / ni, j / nj, c); cols.push(c.r, c.g, c.b); }
+    if (conUv) uvs.push(i / ni, j / nj);
   }
   const idx = [];
   for (let i = 0; i < ni; i++) for (let j = 0; j < nj; j++) {
@@ -104,6 +111,7 @@ function superficie(ni, nj, punto, { invertir = false, color = null } = {}) {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   if (color) g.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+  if (conUv) g.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
@@ -124,12 +132,82 @@ function rectRedondeado(w, d, r) {
 const tubo = (puntos, radio, seg = 24, lados = 6) =>
   new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntos.map(p => new THREE.Vector3(...p))), seg, radio, lados, false);
 
-const pieza = (g, m, c) => ({ g: c === undefined ? g : pintar(g, c), m });
+// Una pieza: geometría, material y color (fijo o según la posición).
+const pieza = (g, m, c, uv = false) => ({ g: c === undefined ? g : pintar(g, c), m, uv });
 const mover = (piezas, matriz) => { piezas.forEach(p => p.g.applyMatrix4(matriz)); return piezas; };
 
-/* ─────────────── Vajilla y vidrio ─────────────── */
+/* ─────────────── Cocina ─────────────── */
 
-// Copa de vino: el cristal (por fuera y por dentro) y el vino, a un tercio.
+// Anafe de inducción de dos zonas (52 × 29 cm): vidrio negro con la
+// serigrafía de las zonas y los comandos táctiles al frente; sobresale
+// apenas de la mesada.
+function anafe() {
+  const W = 0.52, D = 0.29, E = 0.006;
+  const vidrio = new THREE.PlaneGeometry(W - 0.004, D - 0.004).rotateX(-Math.PI / 2).translate(0, E + 0.0002, 0);
+  return [
+    pieza(new RoundedBoxGeometry(W, E, D, 2, 0.0022).translate(0, E / 2, 0), "brillante", "#060708"),
+    pieza(vidrio, "vitro", undefined, true),
+  ];
+}
+
+// Bacha de acero de 34 × 28 cm y 17 de hondo, con su reborde y la grifería
+// alta detrás. La cubeta se ve a través de la mesada por una plantilla: la
+// boca marca la mesada (donde se ve) y la cubeta sólo se dibuja ahí.
+function bacha() {
+  const W = 0.34, D = 0.28, H = 0.17, R = 0.03;
+  const boca = rectRedondeado(W, D, R);
+  const out = [];
+  out.push(pieza(new THREE.ShapeGeometry(boca, 8).rotateX(-Math.PI / 2).translate(0, 0.0006, 0), "mascara"));
+  // La cubeta, vista por dentro: más oscura hacia el fondo.
+  const cubeta = new THREE.ExtrudeGeometry(boca, { depth: H, bevelEnabled: false, curveSegments: 8 }).rotateX(Math.PI / 2);
+  out.push(pieza(cubeta, "bacha", (p, c) => c.set("#e2e5e7").lerp(C("#7d8184"), suave(0, H, -p.y) * 0.75)));
+  // Desagüe en el fondo, hacia atrás.
+  out.push(pieza(new THREE.CircleGeometry(0.013, 20).rotateX(-Math.PI / 2).translate(0, -H + 0.0012, -0.05), "fondo", "#26282a"));
+  out.push(pieza(new THREE.RingGeometry(0.013, 0.025, 24).rotateX(-Math.PI / 2).translate(0, -H + 0.001, -0.05), "fondo", "#d7dadc"));
+  // Reborde de acero sobre la mesada (tapa la unión con la boca).
+  const borde = rectRedondeado(W + 0.03, D + 0.03, R + 0.012);
+  borde.holes.push(rectRedondeado(W - 0.004, D - 0.004, R - 0.002));
+  const aro = new THREE.ExtrudeGeometry(borde, { depth: 0.0022, bevelEnabled: true, bevelThickness: 0.0008, bevelSize: 0.0008, bevelSegments: 1, curveSegments: 8 });
+  out.push(pieza(aro.rotateX(-Math.PI / 2).translate(0, 0.0008, 0), "metal", "#c9ccce"));
+  // Grifería monocomando de caño alto (cuello de cisne) con la palanca al costado.
+  const zG = -(D / 2 + 0.04);
+  const cromo = "#e9e9e9";
+  out.push(pieza(new THREE.CylinderGeometry(0.023, 0.026, 0.05, 24).translate(0, 0.025, zG), "metal", cromo));
+  out.push(pieza(tubo([[0, 0.04, zG], [0, 0.2, zG], [0, 0.275, zG + 0.012], [0, 0.302, zG + 0.06], [0, 0.288, zG + 0.11], [0, 0.258, zG + 0.124]], 0.0112, 40, 12), "metal", cromo));
+  out.push(pieza(new THREE.CylinderGeometry(0.0128, 0.0122, 0.02, 16).translate(0, 0.249, zG + 0.124), "metal", "#cfcfcf"));
+  out.push(pieza(new RoundedBoxGeometry(0.058, 0.011, 0.013, 2, 0.005).translate(0.038, 0.118, zG), "metal", cromo));
+  return out;
+}
+
+// Cafetera de cápsulas negra con detalles cromados, y un pocillo en la
+// bandeja (el frente mira a +z).
+const PERFIL_POCILLO = [[0, 0], [0.021, 0], [0.023, 0.003], [0.029, 0.048], [0.0285, 0.05], [0.0265, 0.049], [0.0205, 0.006], [0, 0.006]];
+function cafetera() {
+  return [
+    pieza(new RoundedBoxGeometry(0.15, 0.27, 0.3, 4, 0.024).translate(0, 0.135, 0), "brillante", "#141517"),
+    pieza(new RoundedBoxGeometry(0.11, 0.012, 0.13, 2, 0.005).translate(0, 0.271, 0.06), "metal", "#d9d9d9"),
+    pieza(new RoundedBoxGeometry(0.06, 0.03, 0.06, 2, 0.008).translate(0, 0.205, 0.165), "metal", "#cdcdcd"),
+    pieza(new RoundedBoxGeometry(0.13, 0.014, 0.1, 2, 0.005).translate(0, 0.007, 0.185), "metal", "#bdbfc1"),
+    pieza(torno(PERFIL_POCILLO, 28).translate(0, 0.014, 0.185), "brillante", "#f4f2ee"),
+  ];
+}
+
+// Pava eléctrica de línea retro, crema, sobre su base (el pico mira a +x).
+const PERFIL_PAVA = [[0, 0.018], [0.074, 0.018], [0.082, 0.028], [0.088, 0.07], [0.085, 0.13], [0.073, 0.18], [0.06, 0.202], [0.052, 0.21], [0.03, 0.214], [0, 0.215]];
+function pava() {
+  const crema = "#ece5d6";
+  return [
+    pieza(new THREE.CylinderGeometry(0.088, 0.09, 0.018, 36).translate(0, 0.009, 0), "brillante", "#26272a"),
+    pieza(torno(PERFIL_PAVA, 40), "brillante", crema),
+    pieza(new THREE.SphereGeometry(0.013, 16, 10).scale(1, 0.8, 1).translate(0, 0.222, 0), "metal", "#e3e3e3"),
+    pieza(tubo([[0.066, 0.12, 0], [0.1, 0.15, 0], [0.122, 0.185, 0], [0.132, 0.2, 0]], 0.011, 16, 10), "brillante", crema),
+    pieza(tubo([[-0.064, 0.19, 0], [-0.118, 0.182, 0], [-0.13, 0.14, 0], [-0.118, 0.085, 0], [-0.08, 0.06, 0]], 0.011, 24, 10), "brillante", crema),
+  ];
+}
+
+/* ─────────────── Mesa ─────────────── */
+
+// Copa de vino: el cristal (por fuera y por dentro) y el vino.
 const PERFIL_COPA = [[0, 0], [0.034, 0], [0.0362, 0.0015], [0.0345, 0.003], [0.014, 0.0048], [0.0055, 0.008], [0.0032, 0.016], [0.003, 0.062], [0.0036, 0.082], [0.009, 0.0905], [0.021, 0.0975], [0.0325, 0.1075], [0.0405, 0.122], [0.0432, 0.14], [0.0418, 0.16], [0.0378, 0.18], [0.0338, 0.196],
   [0.0328, 0.1962], [0.0368, 0.18], [0.0408, 0.16], [0.0422, 0.14], [0.0395, 0.1225], [0.0315, 0.1085], [0.0198, 0.0988], [0.0075, 0.0925], [0, 0.0915]];
 const PERFIL_VINO = [[0, 0.0925], [0.0072, 0.0935], [0.019, 0.0995], [0.0302, 0.109], [0.0378, 0.12], [0.039, 0.124], [0, 0.124]];
@@ -159,124 +237,100 @@ function botella() {
   ];
 }
 
-const PERFIL_JARRA = [[0, 0.004], [0.04, 0], [0.045, 0.002], [0.047, 0.012], [0.047, 0.135], [0.043, 0.16], [0.033, 0.182], [0.0285, 0.2], [0.029, 0.226], [0.0305, 0.229], [0.0295, 0.2305], [0.0275, 0.227], [0.027, 0.2], [0.0315, 0.182], [0.0415, 0.16], [0.0455, 0.135], [0.0455, 0.014], [0.039, 0.007], [0, 0.007]];
-const PERFIL_AGUA = [[0, 0.0075], [0.0385, 0.0075], [0.0446, 0.014], [0.0446, 0.11], [0, 0.11]];
-const PERFIL_VASO = [[0, 0], [0.032, 0], [0.0335, 0.0015], [0.036, 0.095], [0.0352, 0.0965], [0.0342, 0.0955], [0.032, 0.009], [0, 0.009]];
-const PERFIL_TABLA_REDONDA = [[0, 0], [0.125, 0], [0.13, 0.004], [0.13, 0.01], [0.125, 0.014], [0, 0.014]];
+// Cubiertos de acero: el contorno (vista de arriba, largo en y desde la punta
+// del mango) apenas extruido, acostado con la punta hacia -z.
+function cubierto(forma) {
+  const g = new THREE.ExtrudeGeometry(forma, { depth: 0.0018, bevelEnabled: true, bevelThickness: 0.0004, bevelSize: 0.0003, bevelSegments: 1, curveSegments: 6 });
+  return g.rotateX(-Math.PI / 2).translate(0, 0.0004, 0);
+}
+function tenedor() {
+  const s = new THREE.Shape();
+  const xs = [-0.0115, -0.0074, -0.0052, -0.0011, 0.0011, 0.0052, 0.0074, 0.0115];
+  s.moveTo(0, 0);
+  s.quadraticCurveTo(0.0064, 0, 0.0058, 0.012);
+  s.lineTo(0.0034, 0.098);
+  s.quadraticCurveTo(0.0115, 0.11, 0.0115, 0.135);
+  s.lineTo(xs[7], 0.19);
+  // Los cuatro dientes: se baja y sube por cada ranura.
+  for (let k = 6; k >= 1; k -= 2) { s.lineTo(xs[k], 0.19); s.lineTo(xs[k], 0.15); s.lineTo(xs[k - 1], 0.15); s.lineTo(xs[k - 1], 0.19); }
+  s.lineTo(xs[0], 0.19);
+  s.lineTo(-0.0115, 0.135);
+  s.quadraticCurveTo(-0.0115, 0.11, -0.0034, 0.098);
+  s.lineTo(-0.0058, 0.012);
+  s.quadraticCurveTo(-0.0064, 0, 0, 0);
+  return cubierto(s).translate(0, 0, 0.095);
+}
+function cuchillo() {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.quadraticCurveTo(0.0068, 0, 0.0065, 0.012);
+  s.lineTo(0.006, 0.098);
+  s.lineTo(0.0075, 0.104);
+  s.lineTo(0.0075, 0.2);
+  s.quadraticCurveTo(0.0072, 0.215, 0, 0.215);
+  s.quadraticCurveTo(-0.0085, 0.19, -0.0095, 0.13);
+  s.lineTo(-0.0085, 0.104);
+  s.lineTo(-0.006, 0.098);
+  s.lineTo(-0.0065, 0.012);
+  s.quadraticCurveTo(-0.0068, 0, 0, 0);
+  return cubierto(s).translate(0, 0, 0.1075);
+}
 
-// Jarra con agua y dos vasos sobre una tabla redonda de nogal.
-function jarra() {
-  const out = [pieza(torno(PERFIL_TABLA_REDONDA, 48), "madera")];
-  const sobre = (piezas, x, z) => mover(piezas, new THREE.Matrix4().makeTranslation(x, 0.014, z));
-  out.push(...sobre([pieza(torno(PERFIL_JARRA, 40), "vidrio"), pieza(torno(PERFIL_AGUA, 40), "vidrio")], -0.035, -0.02));
-  out.push(...sobre([pieza(torno(PERFIL_VASO, 32), "vidrio")], 0.065, 0.03));
-  out.push(...sobre([pieza(torno(PERFIL_VASO, 32), "vidrio")], 0.075, -0.05));
+// Puesto en la mesa para el comensal del lado +z: individual de trama, plato
+// playo, la servilleta de lino doblada a la izquierda con el tenedor encima,
+// el cuchillo a la derecha y la copa servida arriba a la derecha, ya sobre la
+// mesa.
+const PERFIL_PLATO = [[0, 0], [0.085, 0], [0.09, 0.004], [0.1, 0.0065], [0.124, 0.0145], [0.134, 0.0175], [0.1335, 0.019], [0.123, 0.0165], [0.1, 0.0085], [0.09, 0.0075], [0, 0.0075]];
+function puesto(d) {
+  const out = [];
+  out.push(pieza(new RoundedBoxGeometry(0.38, 0.003, 0.28, 2, 0.0012).translate(0, 0.0015, 0), "tela", d.individual || "#38393c"));
+  out.push(pieza(torno(PERFIL_PLATO, 48).translate(0.01, 0.003, 0.01), "brillante", "#f6f5f1"));
+  const lino = d.servilleta || "#e6e1d7";
+  out.push(pieza(new RoundedBoxGeometry(0.075, 0.0045, 0.2, 3, 0.002).translate(-0.152, 0.00525, 0.012), "tela", lino));
+  out.push(pieza(new RoundedBoxGeometry(0.069, 0.0045, 0.194, 3, 0.002).rotateY(0.015).translate(-0.151, 0.00975, 0.011), "tela", lino));
+  const acero = "#d6d8da";
+  out.push(pieza(tenedor().translate(-0.15, 0.012, 0.012), "metal", acero));
+  out.push(pieza(cuchillo().translate(0.163, 0.003, 0.012), "metal", acero));
+  out.push(...mover(copa({ vino: 0.55 }), new THREE.Matrix4().makeTranslation(0.13, 0, -0.185)));
   return out;
 }
 
-const PERFIL_FRUTERA = [[0, 0], [0.05, 0], [0.0525, 0.003], [0.075, 0.012], [0.098, 0.027], [0.114, 0.045], [0.121, 0.06], [0.1205, 0.0645], [0.1175, 0.065], [0.1135, 0.0615], [0.1075, 0.048], [0.092, 0.031], [0.07, 0.0175], [0.045, 0.0105], [0, 0.009]];
-
-// Limón (o lima): alargado, con las puntas marcadas y la cáscara irregular.
-function limon(az, { lima = false } = {}) {
-  const r = lima ? 0.026 : 0.031;
-  const g = new THREE.SphereGeometry(r, 18, 12);
-  const pos = g.attributes.position;
-  const f1 = az() * 6, f2 = az() * 6;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+// Manzana verde: más ancha arriba, con el hoyuelo del cabo, algo de sol en un
+// costado y el cabito.
+function manzana(az) {
+  const r = 0.036;
+  const g = new THREE.SphereGeometry(r, 20, 14);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     const t = y / r;
-    const largo = lima ? 1.1 : 1.3;
-    const punta = Math.pow(Math.abs(t), 14) * (lima ? 0.08 : 0.2) * r * Math.sign(t);
-    const k = 1 + 0.025 * Math.sin(5 * Math.atan2(z, x) + f1) * Math.sin(3 * t + f2);
-    pos.setXYZ(i, x * k, y * largo + punta, z * k);
+    const ancho = 1 + 0.06 * t;
+    const hoyo = t > 0 ? 0.3 * Math.pow(t, 9) : 0.16 * Math.pow(-t, 9);
+    p.setXYZ(i, x * ancho, y * 0.9 - Math.sign(t) * hoyo * r, z * ancho);
   }
   g.computeVertexNormals();
-  const piel = lima ? C("#4f8a2a") : C("#e6bf2c"), punta = lima ? C("#3c6e1f") : C("#b9b23a");
-  return pintar(g, (p, c) => c.copy(piel).lerp(punta, suave(0.75, 1, Math.abs(p.y) / (r * (lima ? 1.1 : 1.3)))));
+  const verde = C("#93b53c"), sol = C("#c6b84a");
+  const f = az() * 6;
+  pintar(g, (q, c) => c.copy(verde).lerp(sol, 0.4 * suave(-0.2, 0.9, Math.sin(Math.atan2(q.z, q.x) + f))));
+  const cabo = tubo([[0, r * 0.6, 0], [0.002, r * 0.95, 0.001], [0.005, r * 1.15, 0.002]], 0.0016, 6, 5);
+  return [pieza(g, "satinado"), pieza(cabo, "mate", "#5a4630")];
 }
 
-// Medio limón con el corte hacia arriba: la pulpa con sus gajos.
-function medioLimon() {
-  const r = 0.0305, alto = 0.04;
-  const cascara = new THREE.SphereGeometry(r, 22, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
-  cascara.scale(1, alto / r, 1).translate(0, alto, 0);
-  const corte = superficie(40, 6, (u, v) => {
-    const a = u * Math.PI * 2, rr = r * 0.995 * v;
-    return [rr * Math.cos(a), alto + 0.0006 * (1 - v), -rr * Math.sin(a)];
-  }, {
-    color: (u, v, c) => {
-      if (v > 0.93) c.set("#e2b92a");
-      else if (v > 0.84) c.set("#f4efd8");
-      else {
-        const gajo = Math.abs((u * 9) % 1 - 0.5) * 2;
-        c.set("#f1dc7a").lerp(C("#fbf6df"), Math.max(suave(0.8, 1, gajo), suave(0.18, 0, v)));
-      }
-    },
-  });
-  return [pieza(cascara, "satinado", "#e6bf2c"), pieza(corte, "satinado")];
-}
-
-// Frutera de loza con limones y una lima.
+// Frutera de loza con manzanas verdes.
+const PERFIL_FRUTERA = [[0, 0], [0.05, 0], [0.0525, 0.003], [0.075, 0.012], [0.098, 0.027], [0.114, 0.045], [0.121, 0.06], [0.1205, 0.0645], [0.1175, 0.065], [0.1135, 0.0615], [0.1075, 0.048], [0.092, 0.031], [0.07, 0.0175], [0.045, 0.0105], [0, 0.009]];
 function frutera(d, az) {
   const out = [pieza(torno(PERFIL_FRUTERA, 48), "brillante", "#f2efe9")];
-  const lugares = [[0.044, 0.046, 0.0], [-0.028, 0.048, 0.04], [-0.032, 0.049, -0.042], [0.012, 0.052, -0.062], [0.062, 0.054, 0.052, 1], [0.004, 0.094, 0.004]];
-  for (const [x, y, z, lima] of lugares) {
-    const g = limon(az, { lima: !!lima });
-    g.rotateZ(Math.PI / 2 + (az() - 0.5) * 0.5).rotateY(az() * Math.PI * 2).translate(x, y, z);
-    out.push(pieza(g, "satinado"));
+  const lugares = [[0.046, 0.044, 0.004], [-0.03, 0.046, 0.043], [-0.035, 0.047, -0.041], [0.018, 0.048, -0.06], [0.052, 0.051, 0.054], [0.003, 0.094, 0.004]];
+  for (const [x, y, z] of lugares) {
+    const m = new THREE.Matrix4().makeRotationY(az() * Math.PI * 2)
+      .premultiply(new THREE.Matrix4().makeRotationZ((az() - 0.5) * 0.5))
+      .premultiply(new THREE.Matrix4().makeTranslation(x, y, z));
+    out.push(...mover(manzana(az), m));
   }
   return out;
 }
 
-// Tabla de nogal apoyada contra la pared, con un limón y medio. El origen
-// es el pie de la pared (la pared en z = 0, el ambiente hacia +z).
-function tabla(d, az) {
-  const W = 0.25, Hc = 0.31, tw = 0.09, th = 0.08, r = 0.025, f = 0.012, E = 0.018, fi = 0.21;
-  const H = Hc + th;
-  // Un solo contorno: el cuerpo con la manija arriba (y su agujero).
-  const s = new THREE.Shape();
-  s.moveTo(-W / 2 + r, 0);
-  s.lineTo(W / 2 - r, 0); s.absarc(W / 2 - r, r, r, -Math.PI / 2, 0, false);
-  s.lineTo(W / 2, Hc - r); s.absarc(W / 2 - r, Hc - r, r, 0, Math.PI / 2, false);
-  s.lineTo(tw / 2 + f, Hc); s.quadraticCurveTo(tw / 2, Hc, tw / 2, Hc + f);
-  s.lineTo(tw / 2, H - tw / 2); s.absarc(0, H - tw / 2, tw / 2, 0, Math.PI, false);
-  s.lineTo(-tw / 2, Hc + f); s.quadraticCurveTo(-tw / 2, Hc, -tw / 2 - f, Hc);
-  s.lineTo(-W / 2 + r, Hc); s.absarc(-W / 2 + r, Hc - r, r, Math.PI / 2, Math.PI, false);
-  s.lineTo(-W / 2, r); s.absarc(-W / 2 + r, r, r, Math.PI, Math.PI * 1.5, false);
-  s.holes.push(new THREE.Path().absarc(0, H - tw / 2, 0.013, 0, Math.PI * 2, true));
-  const piezas = [pieza(new THREE.ExtrudeGeometry(s, { depth: E, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 2, curveSegments: 8 }), "madera")];
-  // Apoyada: la base atrás sobre la mesada y el borde de arriba contra la pared.
-  const apoyo = new THREE.Matrix4().makeTranslation(0, 0.003, 0.003)
-    .premultiply(new THREE.Matrix4().makeRotationX(-fi))
-    .premultiply(new THREE.Matrix4().makeTranslation(0, 0, H * Math.sin(fi) + 0.003));
-  mover(piezas, apoyo);
-  const entero = limon(az);
-  entero.rotateZ(Math.PI / 2).rotateY(0.5).translate(0.075, 0.031, 0.19);
-  piezas.push(pieza(entero, "satinado"));
-  piezas.push(...mover(medioLimon(), new THREE.Matrix4().makeTranslation(-0.035, 0, 0.2)));
-  return piezas;
-}
-
-// Bandeja de nogal con la botella y dos copas servidas.
-function bandeja(largo = 0.42, ancho = 0.26) {
-  const base = new THREE.ExtrudeGeometry(rectRedondeado(largo, ancho, 0.03), { depth: 0.008, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0015, bevelSegments: 2, curveSegments: 8 });
-  base.rotateX(-Math.PI / 2).translate(0, 0.0015, 0);
-  const borde = rectRedondeado(largo, ancho, 0.03);
-  borde.holes.push(rectRedondeado(largo - 0.016, ancho - 0.016, 0.022));
-  const aro = new THREE.ExtrudeGeometry(borde, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.0015, bevelSegments: 2, curveSegments: 8 });
-  aro.rotateX(-Math.PI / 2).translate(0, 0.004, 0);
-  return [pieza(base, "madera"), pieza(aro, "madera")];
-}
-function vino() {
-  const out = bandeja();
-  const sobre = (piezas, x, z) => mover(piezas, new THREE.Matrix4().makeTranslation(x, 0.011, z));
-  out.push(...sobre(botella(), 0.12, 0.0));
-  out.push(...sobre(copa(), -0.085, -0.045));
-  out.push(...sobre(copa({ vino: 0.7 }), -0.02, 0.058));
-  return out;
-}
-
-/* ─────────────── Libros y anteojos ─────────────── */
+/* ─────────────── Libros ─────────────── */
 
 const TAPAS = ["#33414a", "#c2b297", "#e1dacb", "#7d8a78", "#8c4a3a", "#23272a", "#b8aa95", "#5d6670"];
 
@@ -292,32 +346,15 @@ function libro(w, d, h, tapa) {
   ];
 }
 
-function anteojos() {
-  const out = [];
-  const marco = "#17130f";
-  for (const s of [-1, 1]) {
-    out.push(pieza(new THREE.TorusGeometry(0.024, 0.0019, 8, 36).scale(1, 0.78, 1).translate(s * 0.029, 0, 0), "brillante", marco));
-    out.push(pieza(new THREE.CircleGeometry(0.0235, 28).scale(1, 0.78, 1).translate(s * 0.029, 0, 0), "vidrio"));
-    // Patillas plegadas detrás de los cristales.
-    out.push(pieza(new THREE.CylinderGeometry(0.0011, 0.0011, 0.125, 6).rotateZ(Math.PI / 2).translate(-s * 0.004, 0.004 * s, s > 0 ? -0.011 : -0.015), "brillante", marco));
-  }
-  out.push(pieza(new THREE.TorusGeometry(0.0075, 0.0016, 6, 16, Math.PI).translate(0, 0.008, 0), "brillante", marco));
-  return mover(out, new THREE.Matrix4().makeRotationX(-0.35).premultiply(new THREE.Matrix4().makeTranslation(0, 0.0196, 0)));
-}
-
-// Pila de libros (con anteojos encima si no son pocos).
+// Dos libros acostados, uno sobre otro.
 function libros(d, az) {
-  const pila = d.pocos
-    ? [[0.2, 0.26, 0.026, 0], [0.17, 0.23, 0.022, 3]]
-    : [[0.21, 0.27, 0.03, 0], [0.185, 0.245, 0.024, 1], [0.15, 0.2, 0.02, 2]];
   const out = [];
   let y = 0;
-  pila.forEach(([w, dd, h, k], i) => {
+  [[0.2, 0.26, 0.026, 0], [0.17, 0.23, 0.022, 3]].forEach(([w, dd, h, k], i) => {
     const giro = (az() - 0.5) * 0.25, dx = (az() - 0.5) * 0.02, dz = (az() - 0.5) * 0.02;
     out.push(...mover(libro(w, dd, h, TAPAS[(k + (d.tapas || 0)) % TAPAS.length]), new THREE.Matrix4().makeRotationY(giro).premultiply(new THREE.Matrix4().makeTranslation(dx, y, dz + i * 0.004))));
     y += h;
   });
-  if (!d.pocos) out.push(...mover(anteojos(), new THREE.Matrix4().makeRotationY(0.5).premultiply(new THREE.Matrix4().makeTranslation(0.01, y, 0.02))));
   return out;
 }
 
@@ -420,7 +457,7 @@ function orquidea(d, az) {
     { p: [[0.004, 0.11, 0.004], [0.006, 0.2, 0.006], [0.008, 0.3, 0.008], [0.02, 0.385, 0.012], [0.06, 0.44, 0.02], [0.11, 0.458, 0.03], [0.16, 0.448, 0.04], [0.2, 0.42, 0.046]], flores: 6, desde: 0.5 },
     { p: [[0.012, 0.11, -0.008], [0.01, 0.2, -0.01], [0.002, 0.29, -0.006], [-0.03, 0.352, 0.0], [-0.075, 0.377, 0.01], [-0.12, 0.372, 0.02], [-0.155, 0.352, 0.03]], flores: 4, desde: 0.52 },
   ];
-  const v = new THREE.Vector3(), t = new THREE.Vector3();
+  const v = new THREE.Vector3();
   varas.forEach(({ p, flores, desde }) => {
     const curva = new THREE.CatmullRomCurve3(p.map(q => new THREE.Vector3(...q)));
     out.push(pieza(new THREE.TubeGeometry(curva, 48, 0.0021, 6, false), "hoja", "#4e5530"));
@@ -428,12 +465,10 @@ function orquidea(d, az) {
     for (let k = 0; k < total; k++) {
       const u = desde + (0.985 - desde) * (k / (total - 1));
       curva.getPointAt(u, v);
-      curva.getTangentAt(u, t);
       if (k >= flores) {
         // Pimpollos en la punta.
         const r = k === flores ? 0.0085 : 0.0065;
-        const g = new THREE.SphereGeometry(r, 10, 8).scale(1, 1, 1.3).translate(v.x, v.y - 0.006, v.z + 0.004);
-        out.push(pieza(g, "petalo", "#e3e9c9"));
+        out.push(pieza(new THREE.SphereGeometry(r, 10, 8).scale(1, 1, 1.3).translate(v.x, v.y - 0.006, v.z + 0.004), "petalo", "#e3e9c9"));
         continue;
       }
       // Cada flor mira al frente (+z), un poco hacia abajo, alternando lados.
@@ -483,20 +518,18 @@ function planta(d, az) {
   return out;
 }
 
-// Florero rojo con ramas de eucalipto.
+// Florero rojo con dos ramas de eucalipto.
 const PERFIL_FLORERO = [[0, 0.003], [0.035, 0], [0.042, 0.004], [0.058, 0.04], [0.064, 0.08], [0.06, 0.115], [0.044, 0.148], [0.028, 0.17], [0.0225, 0.188], [0.0235, 0.198], [0.026, 0.2], [0.0245, 0.2015], [0.02, 0.198], [0.0185, 0.188], [0, 0.17]];
 function florero(d, az) {
   const out = [pieza(torno(PERFIL_FLORERO, 40), "brillante", "#9a2224")];
-  const ramas = [[0.6, 0.075, 0.3], [2.6, 0.085, 0.285], [4.5, 0.06, 0.295]];
   const v = new THREE.Vector3();
-  ramas.forEach(([a, abre, alto]) => {
+  [[0.6, 0.06, 0.29], [3.3, 0.07, 0.275]].forEach(([a, abre, alto]) => {
     const c = Math.cos(a), s = Math.sin(a);
-    const curva = new THREE.CatmullRomCurve3([[0, 0.17, 0], [c * abre * 0.25, 0.215, s * abre * 0.25], [c * abre * 0.65, 0.262, s * abre * 0.65], [c * abre, alto, s * abre]].map(p => new THREE.Vector3(...p)));
+    const curva = new THREE.CatmullRomCurve3([[0, 0.17, 0], [c * abre * 0.25, 0.215, s * abre * 0.25], [c * abre * 0.65, 0.255, s * abre * 0.65], [c * abre, alto, s * abre]].map(p => new THREE.Vector3(...p)));
     out.push(pieza(new THREE.TubeGeometry(curva, 20, 0.0014, 5, false), "hoja", "#6a6650"));
-    for (let k = 0; k < 7; k++) {
-      const u = 0.32 + k * 0.105;
-      curva.getPointAt(Math.min(u, 1), v);
-      const r = 0.0135 - k * 0.0011;
+    for (let k = 0; k < 6; k++) {
+      curva.getPointAt(Math.min(0.36 + k * 0.12, 1), v);
+      const r = 0.0125 - k * 0.0011;
       for (const lado of [-1, 1]) {
         const giro = a + lado * (Math.PI / 2) + k * 0.7;
         const normal = new THREE.Vector3(Math.cos(giro) * 0.4, 0.5 + az() * 0.4, Math.sin(giro) * 0.4).normalize();
@@ -545,53 +578,27 @@ function difusor(d, az) {
 
 /* ─────────────── Textiles ─────────────── */
 
-// Toalla doblada: una caja de cantos muy redondeados (los dobleces), con la
-// cara de arriba apenas despareja para que no sea un bloque.
-function toalla(largo, ancho, alto, az) {
-  const g = new RoundedBoxGeometry(largo, alto, ancho, 4, Math.min(alto * 0.42, 0.018)).translate(0, alto / 2, 0);
-  const p = g.attributes.position;
-  const f1 = az() * 6, f2 = az() * 6;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    p.setY(i, y * (1 + 0.06 * (y / alto) * Math.sin(x * 11 + f1) * Math.sin(z * 15 + f2)));
-  }
-  g.computeVertexNormals();
-  return g;
+// Toalla doblada (largo en x): caja de cantos redondeados por los dobleces,
+// con la guarda tejida cerca de una punta, apenas más oscura.
+function toalla(largo, ancho, alto, color) {
+  const r = Math.min(alto * 0.45, 0.016);
+  const out = [pieza(new RoundedBoxGeometry(largo, alto, ancho, 4, r).translate(0, alto / 2, 0), "tela", color)];
+  const guarda = new RoundedBoxGeometry(0.022, alto + 0.0016, ancho + 0.0016, 3, r).translate(largo / 2 - 0.05, alto / 2, 0);
+  out.push(pieza(guarda, "tela", new THREE.Color(color).multiplyScalar(0.88)));
+  return out;
 }
 
-// Toalla enrollada (eje en x), con las vueltas marcadas en las puntas.
-function rollo(radio, largo) {
-  const rr = 0.009;
-  const tapa = [];
-  for (let k = 0; k <= 10; k++) {
-    const r = (radio - rr) * (k / 10);
-    tapa.push([r, 0.0012 * Math.abs(Math.sin(k * 1.9))]);
-  }
-  const borde = [];
-  for (let k = 1; k <= 5; k++) { const a = (k / 5) * Math.PI / 2; borde.push([radio - rr + rr * Math.sin(a), rr - rr * Math.cos(a)]); }
-  const mitad = [...tapa, ...borde];
-  const perfil = [...mitad, ...mitad.slice().reverse().map(([r, y]) => [r, largo - y])];
-  const g = torno(perfil, 28).translate(0, -largo / 2, 0).rotateZ(Math.PI / 2);
-  return pintar(g, (q, c) => {
-    const r = Math.hypot(q.y, q.z);
-    const enTapa = Math.abs(Math.abs(q.x) - largo / 2) < 0.003;
-    c.set("#f3f1ec");
-    if (enTapa && r < radio - rr && Math.abs(((r / radio) * 4.2) % 1 - 0.5) < 0.12) c.set("#dcd7cf");
-  });
-}
-
-// Toallas del baño: tres enrolladas, dos abajo y una arriba (a lo largo de x).
-function toallitas() {
-  const R = 0.03, L = 0.2;
+// Dos toallas de mano dobladas, una sobre otra (a lo largo de x).
+function toallas() {
   return [
-    pieza(rollo(R, L).translate(0, R, -R - 0.001), "tela"),
-    pieza(rollo(R, L).translate(0.006, R, R + 0.001), "tela"),
-    pieza(rollo(R, L).translate(-0.004, R * 2.72, 0.0), "tela"),
+    ...toalla(0.3, 0.15, 0.034, "#f3f1ec"),
+    ...mover(toalla(0.26, 0.13, 0.028, "#f3f1ec"), new THREE.Matrix4().makeRotationY(0.05).premultiply(new THREE.Matrix4().makeTranslation(-0.012, 0.034, 0.004))),
   ];
 }
 
 // Almohada o almohadón: dos caras infladas unidas por la costura, con las
-// "orejas" de las puntas y algún bulto. Acostada: ancho en x, fondo en z.
+// "orejas" de las puntas y algún bulto. Acostada: ancho en x, fondo en z; las
+// coordenadas de textura (u a lo ancho) sirven para la funda a rayas.
 function almohada(W, D, H, az) {
   const f1 = az() * 6, f2 = az() * 6;
   const forma = (u, w, lado) => {
@@ -601,17 +608,18 @@ function almohada(W, D, H, az) {
     const bulto = 1 + 0.06 * Math.sin(3.1 * su + f1) * Math.sin(2.3 * sw + f2);
     return [su * W / 2 * (1 - 0.07 * (1 - sw * sw)), lado * H / 2 * env * bulto, sw * D / 2 * (1 - 0.1 * (1 - su * su))];
   };
-  const arriba = superficie(22, 15, (u, w) => forma(u, w, 1));
-  const abajo = superficie(22, 15, (u, w) => forma(u, w, -1), { invertir: true });
+  const arriba = superficie(22, 15, (u, w) => forma(u, w, 1), { conUv: true });
+  const abajo = superficie(22, 15, (u, w) => forma(u, w, -1), { invertir: true, conUv: true });
   return [arriba, abajo];
 }
 
-/* Un manto sobre el colchón (acolchado o pie de cama), armado por su corte:
-   cae por el lado del pasillo con pliegues, envuelve el canto, cruza la cama
-   inflado y remata contra la pared. Marco de la cama: x desde la cabecera, el
-   canto del pasillo en z = 0 y la cama hacia z = lado·A; y = 0 arriba del
-   colchón. bajo: el manto que queda debajo (su espesor e inflado). */
-function manto({ A, lado, x0, x1, T, D, bajo = null, inflado = 0, pliegue = 0.012, semilla = 3 }) {
+/* Un manto sobre el colchón (cubrecama o pie de cama), armado por su corte:
+   baja por el lado del pasillo, envuelve el canto, cruza la cama y remata
+   contra la pared. Marco de la cama: x desde la cabecera, el canto del
+   pasillo en z = 0 y la cama hacia z = lado·A; y = 0 arriba del colchón.
+   bajo: el manto que queda debajo (su espesor e inflado). pliegue: cuánto se
+   ondula la caída; arrugas: cuánto la cara de arriba. */
+function manto({ A, lado, x0, x1, T, D, bajo = null, inflado = 0, pliegue = 0, arrugas = 0.001, semilla = 3 }) {
   const az = generador(semilla);
   const f1 = az() * 6, f2 = az() * 6, f3 = az() * 6;
   const e = bajo ? bajo.T : 0;
@@ -620,17 +628,16 @@ function manto({ A, lado, x0, x1, T, D, bajo = null, inflado = 0, pliegue = 0.01
   const fin = A - T;
   const hb = a => (bajo ? hinch(a, bajo.inflado || 0, A - bajo.T) : 0);
   // Las puntas (a lo largo de la cama) se redondean hasta el espesor cero.
-  const d0 = Math.max(T, 0.02);
+  const d0 = Math.max(T, 0.012);
   const kFin = dist => (dist >= d0 ? 1 : Math.sqrt(Math.max(0, 1 - (1 - dist / d0) ** 2)));
   // Tramos del corte: caída, canto, arriba, remate y bajada a la pared.
-  const N = { caida: 10, canto: 7, arriba: 18, remate: 4, pared: 2 };
+  const N = { caida: 8, canto: 7, arriba: 18, remate: 4, pared: 2 };
   const n = N.caida + N.canto + N.arriba + N.remate + N.pared;
   const corte = (j, x, k) => {
     const grueso = T * k;
-    const caida = D * (1 + 0.07 * Math.sin(7 * x + f1));
     if (j <= N.caida) {
-      const b = -caida * (1 - j / N.caida);
-      const prof = (-b / caida) ** 1.3;
+      const b = -D * (1 - j / N.caida);
+      const prof = (-b / D) ** 1.3;
       const onda = pliegue * k * prof * (Math.sin(2 * Math.PI * x / 0.16 + f2 + 0.6 * Math.sin(3 * x)) * 0.7 + 0.3 * Math.sin(2 * Math.PI * x / 0.07 + f3));
       return [-e - grueso - onda, b];
     }
@@ -643,7 +650,7 @@ function manto({ A, lado, x0, x1, T, D, bajo = null, inflado = 0, pliegue = 0.01
     j -= N.canto;
     if (j <= N.arriba) {
       const a = (j / N.arriba) * fin;
-      const arruga = 0.0035 * k * Math.sin(9 * x + 4 * a + f2) * Math.sin(11 * a - 3 * x + f3) * suave(0, 0.05, a) * suave(fin, fin - 0.05, a);
+      const arruga = arrugas * k * Math.sin(9 * x + 4 * a + f1) * Math.sin(11 * a - 3 * x + f3) * suave(0, 0.05, a) * suave(fin, fin - 0.05, a);
       return [a, e + hb(a) + grueso + hinch(a, inflado, fin) * k + arruga];
     }
     j -= N.arriba;
@@ -664,69 +671,118 @@ function manto({ A, lado, x0, x1, T, D, bajo = null, inflado = 0, pliegue = 0.01
   }, { invertir: lado < 0 });
 }
 
-// Cama tendida: acolchado blanco, almohada blanca, almohadón y pie de cama en
-// el color de los almohadones, y toallas dobladas.
+// Cama tendida como en los camarotes de los astilleros: cubrecama acolchado
+// ajustado, que baja derecho por el lado del pasillo; almohada con funda a
+// rayas contra la cabecera, almohadón delante y un pie de cama, los dos en el
+// color de los almohadones elegidos.
 function cama(d) {
   const L = d.largo / U, A = d.ancho / U, lado = d.lado || 1;
-  const az = generador(d.semilla || 5);
+  const sem = d.semilla || 5;
+  const az = generador(sem);
   const out = [];
-  const acolchado = { T: 0.05, inflado: 0.014 };
-  out.push(pieza(manto({ A, lado, x0: 0.44, x1: L, T: acolchado.T, D: 0.075, inflado: acolchado.inflado, semilla: (d.semilla || 5) + 1 }), "tela", "#f4f2ee"));
+  const colcha = { T: 0.02, inflado: 0.005 };
+  out.push(pieza(manto({ A, lado, x0: 0, x1: L, T: colcha.T, D: 0.082, inflado: colcha.inflado, semilla: sem + 1 }), "colcha", "#f6f4f0"));
   // El pie de cama queda en la parte de la cama que se ve desde la puerta.
-  const pie = { x0: L - 1.15, x1: L - 0.73 };
-  out.push(pieza(manto({ A, lado, x0: pie.x0, x1: pie.x1, T: 0.014, D: 0.1, bajo: acolchado, pliegue: 0.006, semilla: (d.semilla || 5) + 2 }), "acento"));
+  out.push(pieza(manto({ A, lado, x0: L - 1.18, x1: L - 0.8, T: 0.011, D: 0.095, bajo: colcha, pliegue: 0.003, arrugas: 0.0015, semilla: sem + 2 }), "acento"));
   // Almohada apoyada contra la cabecera y el almohadón delante, un poco girado.
+  const base = colcha.T + colcha.inflado;
   const apoyar = (W, Dp, H, inclina, x, y, z, giro) => {
     const [g1, g2] = almohada(W, Dp, H, az);
     const m = new THREE.Matrix4().makeRotationY(Math.PI / 2)
       .premultiply(new THREE.Matrix4().makeRotationZ(Math.PI / 2 + inclina))
       .premultiply(new THREE.Matrix4().makeRotationY(giro))
-      .premultiply(new THREE.Matrix4().makeTranslation(x, y, z));
+      .premultiply(new THREE.Matrix4().makeTranslation(x, y + base, z));
     return [g1.applyMatrix4(m), g2.applyMatrix4(m)];
   };
   const centro = lado * A / 2;
-  apoyar(0.62, 0.42, 0.15, 0.36, 0.1, 0.232, centro, 0).forEach(g => out.push(pieza(g, "tela", "#f6f4f0")));
-  apoyar(0.42, 0.42, 0.13, 0.56, 0.235, 0.185, centro - lado * 0.035, lado * 0.16).forEach(g => out.push(pieza(g, "acento")));
-  // Toallas sobre el pie de cama.
-  const yPie = acolchado.T + acolchado.inflado * 0.95 + 0.014;
-  const xT = (pie.x0 + pie.x1) / 2;
-  const giro = (az() - 0.5) * 0.12;
-  const t1 = toalla(0.34, 0.24, 0.05, az), t2 = toalla(0.28, 0.2, 0.04, az);
-  t1.rotateY(giro).translate(xT, yPie, centro);
-  t2.rotateY(giro + 0.07).translate(xT + 0.01, yPie + 0.05, centro + lado * 0.008);
-  out.push(pieza(t1, "tela", "#f3f1ec"), pieza(t2, "tela", "#f3f1ec"));
+  apoyar(0.62, 0.42, 0.15, 0.36, 0.1, 0.228, centro, 0).forEach(g => out.push(pieza(g, "funda", undefined, true)));
+  apoyar(0.42, 0.42, 0.13, 0.56, 0.235, 0.182, centro - lado * 0.035, lado * 0.16).forEach(g => out.push(pieza(g, "acento")));
   return out;
 }
 
-const KIT = { vino, libros, estante, frutera, tabla, jarra, orquidea, planta, florero, jabonera, difusor, toallitas, cama };
+const KIT = { anafe, bacha, cafetera, pava, puesto, botella, frutera, libros, estante, orquidea, planta, florero, jabonera, difusor, toallas, cama };
 
 /* ─────────────── Materiales ─────────────── */
 
-// Trama de tela (relieve): hilos cruzados y fibra fina, en mosaico de 5 cm.
-function texturaTejido() {
-  const N = 128;
-  const az = generador(17);
+// Relieve a partir de un mapa de alturas que se repite (para las telas).
+function relieve(N, altura, fuerza, metros) {
   const alto = new Float32Array(N * N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const trama = Math.sin(2 * Math.PI * 16 * x / N) * Math.sin(2 * Math.PI * 16 * y / N);
-    alto[y * N + x] = 0.5 + 0.28 * trama + 0.3 * (az() - 0.5);
-  }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) alto[y * N + x] = altura(x / N, y / N);
   const datos = new Uint8Array(N * N * 4);
   const h = (x, y) => alto[((y + N) % N) * N + ((x + N) % N)];
   const n = new THREE.Vector3();
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    n.set(-(h(x + 1, y) - h(x - 1, y)) * 1.5, -(h(x, y + 1) - h(x, y - 1)) * 1.5, 1).normalize();
+    n.set(-(h(x + 1, y) - h(x - 1, y)) * fuerza, -(h(x, y + 1) - h(x, y - 1)) * fuerza, 1).normalize();
     const o = (y * N + x) * 4;
     datos[o] = (n.x * 0.5 + 0.5) * 255; datos[o + 1] = (n.y * 0.5 + 0.5) * 255; datos[o + 2] = (n.z * 0.5 + 0.5) * 255; datos[o + 3] = 255;
   }
   const tex = new THREE.DataTexture(datos, N, N);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1 / 0.05, 1 / 0.05);
+  tex.repeat.set(1 / metros, 1 / metros);
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.generateMipmaps = true;
   tex.anisotropy = 8;
   tex.needsUpdate = true;
+  return tex;
+}
+
+// Trama de tela: hilos cruzados y fibra fina, en mosaico de 5 cm.
+function texturaTejido() {
+  const az = generador(17);
+  return relieve(128, (u, v) => 0.5 + 0.28 * Math.sin(2 * Math.PI * 16 * u) * Math.sin(2 * Math.PI * 16 * v) + 0.3 * (az() - 0.5), 1.5, 0.05);
+}
+
+// Cubrecama acolchado: rombos de 10 cm cosidos en las diagonales, inflados
+// entre las costuras, con la trama fina encima (mosaico de 20 cm).
+function texturaAcolchado() {
+  const az = generador(23);
+  return relieve(256, (u, v) => {
+    const a = (u + v) * 2, b = (u - v) * 2 + 8;
+    const fa = a - Math.floor(a), fb = b - Math.floor(b);
+    const inflado = Math.pow(Math.sin(Math.PI * fa) * Math.sin(Math.PI * fb), 0.45);
+    return inflado * 0.9 + 0.07 * Math.sin(2 * Math.PI * 64 * u) * Math.sin(2 * Math.PI * 64 * v) + 0.05 * (az() - 0.5);
+  }, 2.6, 0.2);
+}
+
+// Funda de almohada blanca con tres rayas finas gris azulado en el medio.
+function texturaFunda() {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 8;
+  const x = c.getContext("2d");
+  x.fillStyle = "#f7f6f2";
+  x.fillRect(0, 0, 512, 8);
+  x.fillStyle = "#8d9aa6";
+  [0.43, 0.5, 0.57].forEach(u => x.fillRect(u * 512 - 3, 0, 6, 8));
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Vidrio del anafe: negro, con la serigrafía de las dos zonas y los comandos
+// táctiles al frente (abajo en la imagen).
+function texturaAnafe() {
+  const c = document.createElement("canvas");
+  c.width = 520; c.height = 290;
+  const x = c.getContext("2d");
+  x.fillStyle = "#0b0c0d";
+  x.fillRect(0, 0, c.width, c.height);
+  const zona = (cx, cy, r) => {
+    x.strokeStyle = "rgba(160,165,170,0.55)";
+    x.lineWidth = 2.4;
+    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke();
+    x.lineWidth = 1.2;
+    x.beginPath(); x.arc(cx, cy, r * 0.58, 0, Math.PI * 2); x.stroke();
+  };
+  zona(150, 128, 96);
+  zona(378, 128, 78);
+  x.fillStyle = "rgba(170,175,180,0.6)";
+  for (let i = 0; i < 9; i++) x.fillRect(196 + i * 15, 258, 8, 2.5);
+  [150, 378].forEach(cx => { x.beginPath(); x.arc(cx, 259, 5, 0, Math.PI * 2); x.fill(); });
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
   return tex;
 }
 
@@ -746,21 +802,26 @@ function texturaPantalla() {
   return tex;
 }
 
+// Orden de dibujo de la bacha: primero la boca (marca la plantilla), después
+// la cubeta y el desagüe, sólo donde la boca quedó marcada.
+const ORDEN = { mascara: 10, bacha: 11, fondo: 12 };
+
 function crearMateriales() {
-  const tejido = texturaTejido();
-  const reflejo = texturaPantalla();
-  const nogal = texturaRoble(0.35, "nogal");
+  const tejido = texturaTejido(), acolchado = texturaAcolchado();
+  const rayas = texturaFunda(), vitro = texturaAnafe(), reflejo = texturaPantalla();
   const tela = {
     vertexColors: true, roughness: 0.92, sheen: 1, sheenRoughness: 0.55, sheenColor: new THREE.Color("#ffffff"),
     normalMap: tejido, normalScale: new THREE.Vector2(0.35, 0.35), side: THREE.DoubleSide,
   };
+  const plantilla = { stencilWrite: true, stencilRef: 1 };
   const lista = {
     mate: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82 }),
     satinado: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45 }),
     brillante: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.05 }),
     metal: new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 0.2 }),
-    madera: new THREE.MeshPhysicalMaterial({ vertexColors: true, map: nogal, roughness: 0.5, clearcoat: 0.3, clearcoatRoughness: 0.35 }),
     tela: new THREE.MeshPhysicalMaterial(tela),
+    colcha: new THREE.MeshPhysicalMaterial({ ...tela, normalMap: acolchado, normalScale: new THREE.Vector2(0.9, 0.9) }),
+    funda: new THREE.MeshPhysicalMaterial({ ...tela, vertexColors: false, map: rayas }),
     // El pie de cama y el almohadón: el color de los almohadones elegidos.
     acento: new THREE.MeshPhysicalMaterial({ ...tela, color: new THREE.Color("#d3c4ab") }),
     hoja: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.3, side: THREE.DoubleSide }),
@@ -772,9 +833,18 @@ function crearMateriales() {
       transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide,
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     }),
+    vitro: new THREE.MeshPhysicalMaterial({ map: vitro, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.03 }),
     pantalla: new THREE.MeshPhysicalMaterial({ color: "#020304", roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, emissive: "#ffffff", emissiveMap: reflejo, emissiveIntensity: 1 }),
+    // La boca de la bacha marca la plantilla donde la mesada se ve (pasa la
+    // prueba de profundidad); no pinta nada.
+    mascara: new THREE.MeshBasicMaterial({ ...plantilla, colorWrite: false, depthWrite: false, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }),
+    // Cubeta y desagüe: sólo donde quedó marcada la boca, por encima de la
+    // mesada (sin prueba de profundidad: la cubeta vista por dentro es convexa
+    // y no se tapa a sí misma).
+    bacha: new THREE.MeshStandardMaterial({ ...plantilla, vertexColors: true, metalness: 0.85, roughness: 0.32, side: THREE.BackSide, depthTest: false, depthWrite: false, stencilFunc: THREE.EqualStencilFunc }),
+    fondo: new THREE.MeshStandardMaterial({ ...plantilla, vertexColors: true, metalness: 0.9, roughness: 0.25, depthTest: false, depthWrite: false, stencilFunc: THREE.EqualStencilFunc }),
   };
-  return { lista, texturas: [tejido, nogal, reflejo] };
+  return { lista, texturas: [tejido, acolchado, rayas, vitro, reflejo] };
 }
 
 /* ─────────────── Tiras LED ─────────────── */
@@ -804,11 +874,11 @@ const LAVADO_FRAGMENTO = /* glsl */`
 
 /* La luz que deja una tira en una superficie (origen o, lados u y v): en cada
    punto se suma la de toda la tira (ángulo de llegada, apertura del perfil
-   hacia abajo, distancia al cuadrado) y se comprime un poco, como la vería
-   una cámara. Además el mueble de arriba hace sombra (las luces del techo no
-   llegan debajo): sombra es cuánto oscurece; sombraV, en cuánto se va
-   aclarando a lo largo de v (la mesada, hacia el frente). Los bordes de la
-   superficie vuelven a no cambiar nada en unos centímetros. */
+   hacia abajo, distancia al cuadrado). Además el mueble de arriba hace
+   sombra (las luces del techo no llegan debajo): sombra es cuánto oscurece;
+   sombraV, en cuánto se va aclarando a lo largo de v (la mesada, hacia el
+   frente). Los bordes de la superficie vuelven a no cambiar nada en unos
+   centímetros. */
 function lavado({ o, u, v, fu = 0.035, fv = [0, 0], sombra = 0.28, sombraV = 0 }, muestras, paso, ref) {
   const O = new THREE.Vector3(...o), Ux = new THREE.Vector3(...u), Vy = new THREE.Vector3(...v);
   const normal = new THREE.Vector3().crossVectors(Ux, Vy).normalize();
@@ -914,7 +984,8 @@ const ESPEJO = {
 
 /* datos: { objetos: [{ q, p, r, … }], leds, espejo, pantalla } (unidad.js).
    Devuelve el grupo (en la capa 1), lo que no va en la oclusión ambiental
-   (vidrio, luces, espejo) y actualizar(…) para cada cuadro. */
+   (vidrio, luces, espejo) y actualizar(…) para cada cuadro. El lienzo donde
+   se dibuja necesita plantilla (stencil) para la bacha. */
 export function crearDecoracion(datos, { chico = false } = {}) {
   const { lista: mats, texturas } = crearMateriales();
   const porMaterial = {};
@@ -925,20 +996,23 @@ export function crearDecoracion(datos, { chico = false } = {}) {
     const piezas = hacer(d, generador(d.semilla || 7));
     giro.setFromAxisAngle(arriba, THREE.MathUtils.degToRad(d.r || 0));
     m4.compose(new THREE.Vector3(...d.p), giro, new THREE.Vector3(U, U, U));
-    for (const { g, m } of piezas) {
-      const lista = preparar(g);
+    for (const { g, m, uv } of piezas) {
+      const lista = preparar(g, uv);
       lista.applyMatrix4(m4);
       (porMaterial[m] ||= []).push(lista);
     }
   }
   const grupo = new THREE.Group();
   const efimeros = new THREE.Group();
+  // La bacha usa la plantilla: no la ve el reflejo del espejo (que no tiene).
+  const conPlantilla = [];
   for (const [m, geos] of Object.entries(porMaterial)) {
     const geo = mergeGeometries(geos, false);
     geos.forEach(g => g.dispose());
     if (!geo) continue;
     const malla = new THREE.Mesh(geo, mats[m]);
     malla.receiveShadow = true;
+    if (ORDEN[m]) { malla.renderOrder = ORDEN[m]; conPlantilla.push(malla); }
     (m === "vidrio" ? efimeros : grupo).add(malla);
   }
 
@@ -962,14 +1036,15 @@ export function crearDecoracion(datos, { chico = false } = {}) {
   }
   const estado = { agua: null, ancho: 0, alto: 0 };
   if (espejo) {
-    // El mar no entra en el reflejo del espejo (no se ve desde el baño y es caro).
+    // El mar no entra en el reflejo del espejo (no se ve desde el baño y es
+    // caro), ni la bacha de la cocina (su plantilla no existe ahí).
     const reflejar = espejo.onBeforeRender;
     espejo.onBeforeRender = function (renderer, ...resto) {
-      const agua = estado.agua;
-      const antes = agua?.visible;
-      if (agua) agua.visible = false;
+      const ocultos = [estado.agua, ...conPlantilla].filter(Boolean);
+      const antes = ocultos.map(o => o.visible);
+      ocultos.forEach(o => { o.visible = false; });
       reflejar.call(this, renderer, ...resto);
-      if (agua) agua.visible = antes;
+      ocultos.forEach((o, i) => { o.visible = antes[i]; });
     };
   }
 
