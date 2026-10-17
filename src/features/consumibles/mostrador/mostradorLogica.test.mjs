@@ -221,6 +221,31 @@ test("fijar el peso guarda gramos y piezas", () => {
   assert.deepEqual([c[0].cantidad, c[0].gramos], [37, 118]);
 });
 
+test("la balanza manual conserva centésimos de gramo y pesos menores a un gramo", () => {
+  for (const gramos of [0.01, 0.37, 18.37, 123.45]) {
+    const enGramos = cantidadParaPeso({ gramos:String(gramos).replace(".", ","), unidad:"g" });
+    assert.equal(enGramos.cantidad, gramos);
+    const enKilos = cantidadParaPeso({ gramos, unidad:"kg" });
+    assert.ok(Math.abs(enKilos.cantidad * 1000 - gramos) < 1e-9);
+    const carrito = fijarPeso(agregarAlCarrito([], TORNILLO), "torn", { gramos, cantidad:enKilos.cantidad });
+    assert.equal(carrito[0].gramos, gramos);
+    assert.equal(carrito[0].cantidad, enKilos.cantidad);
+  }
+  for (const gramos of [0, -1, "", "abc", Infinity]) assert.equal(cantidadParaPeso({ gramos, unidad:"kg" }),null);
+});
+
+test("un peso chico en kg se registra y reparte sin desaparecer ni perder los gramos", () => {
+  const item = { ...TORNILLO, id:"clavos-kg", unidad:"kg" };
+  const catalogo = new Map([[item.id,item]]);
+  const resultado = cantidadParaPeso({ gramos:0.01, unidad:"kg" });
+  const carrito = fijarPeso(agregarAlCarrito([],item),item.id,{gramos:0.01,cantidad:resultado.cantidad});
+  const filas = armarFilasRetiro({ carrito,porId:catalogo,empleado:EMPLEADO,sede:"Pampa",lote:"L",destino:{tipo:"repartir",obraIds:["o1","o2","o3","o4"]} },{ nuevoId:idsEnSerie() });
+  assert.ok(filas.length > 0);
+  assert.ok(Math.abs(filas.reduce((sum,f)=>sum+f.cantidad,0)+0.00001)<1e-12);
+  assert.equal(filas.reduce((sum,f)=>sum+(f.gramos||0),0),0.01);
+  assert.ok(filas.every(f=>f.cantidad<0));
+});
+
 test("el margen de error de la Kretz en piezas", () => {
   assert.equal(margenPiezas(3.2), 1);
   assert.equal(margenPiezas(0.8), 4);

@@ -81,7 +81,7 @@ const num = (v) => {
 export function fmtCantidad(v) {
   const n = num(v);
   if (n == null) return "—";
-  return n.toLocaleString("es-AR", { maximumFractionDigits: 3 });
+  return n.toLocaleString("es-AR", { maximumFractionDigits: 6 });
 }
 
 export function fmtPesos(v) {
@@ -394,20 +394,23 @@ export async function insertarMovimientos(filas = []) {
  * Reparte una cantidad entre obras. `reparto` = [{ obraId, proporcion }]; sin
  * proporciones válidas va todo sin obra.
  *
- * Trabaja en milésimos enteros y reparte el resto por mayor fracción: la suma
+ * Trabaja en milésimos enteros, o mayor precisión para pesos chicos, y reparte
+ * el resto por mayor fracción: la suma
  * da EXACTO la cantidad original y ninguna parte queda negativa. Con 0,002 entre
  * cuatro obras salen dos de 0,001 (antes salían tres, que sumaban de más).
  */
 export function repartirEntreObras(cantidad, reparto = []) {
   const validas = reparto.filter((r) => r.obraId && Number(r.proporcion) > 0);
   if (!validas.length) return [{ obraId: null, cantidad }];
-  const milesimos = Math.round(Number(cantidad) * 1000);
+  const decimales = Number(cantidad).toFixed(6).split(".")[1].replace(/0+$/, "").length;
+  const escala = 10 ** Math.max(3, decimales);
+  const totalEntero = Math.round(Number(cantidad) * escala);
   const total = validas.reduce((s, r) => s + Number(r.proporcion), 0);
   const partes = validas.map((r, i) => {
-    const exacto = (milesimos * Number(r.proporcion)) / total;
+    const exacto = (totalEntero * Number(r.proporcion)) / total;
     return { i, obraId: r.obraId, enteros: Math.floor(exacto), fraccion: exacto - Math.floor(exacto) };
   });
-  let resto = milesimos - partes.reduce((s, p) => s + p.enteros, 0);
+  let resto = totalEntero - partes.reduce((s, p) => s + p.enteros, 0);
   for (const p of [...partes].sort((a, b) => b.fraccion - a.fraccion || a.i - b.i)) {
     if (resto <= 0) break;
     p.enteros += 1;
@@ -415,7 +418,7 @@ export function repartirEntreObras(cantidad, reparto = []) {
   }
   return partes
     .filter((p) => p.enteros > 0)
-    .map((p) => ({ obraId: p.obraId, cantidad: p.enteros / 1000 }));
+    .map((p) => ({ obraId: p.obraId, cantidad: p.enteros / escala }));
 }
 
 /**

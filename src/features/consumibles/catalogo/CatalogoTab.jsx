@@ -116,7 +116,7 @@ export default function CatalogoTab({ profile, sede }) {
   }, [activos, selId, costoCompraDe]);
 
   // Después de guardar se actualizan solo los campos confirmados por la base.
-  const aplicarCambio = (id, { config, stockMinimo, ubicacion, alias, info, imagenUrl }) => {
+  const aplicarCambio = (id, { config, stockMinimo, ubicacion, alias, info, imagenUrl, peso }) => {
     setCatalogo((cat) => cat.map((i) => (i.id !== id ? i : {
       ...i,
       config: config ?? i.config,
@@ -130,6 +130,8 @@ export default function CatalogoTab({ profile, sede }) {
       alias: alias === undefined ? i.alias : alias,
       info: info === undefined ? i.info : info,
       imagenUrl: imagenUrl === undefined ? i.imagenUrl : imagenUrl,
+      pesoUnitarioG: peso ? Number(peso.peso_unitario_g) : i.pesoUnitarioG,
+      pesoCalibradoAt: peso ? peso.peso_calibrado_at : i.pesoCalibradoAt,
     })));
   };
 
@@ -222,7 +224,7 @@ export default function CatalogoTab({ profile, sede }) {
                 item={seleccionado}
                 puedeEditar={puedeEditar}
                 onCerrar={() => setSelId(null)}
-                onGuardado={(id, cambios) => { aplicarCambio(id, cambios); setSelId(null); }}
+                onGuardado={(id, cambios) => { aplicarCambio(id, cambios); if (!cambios.peso) setSelId(null); }}
                 onFoto={(id, imagenUrl) => aplicarCambio(id, { imagenUrl })}
               />
             </div>

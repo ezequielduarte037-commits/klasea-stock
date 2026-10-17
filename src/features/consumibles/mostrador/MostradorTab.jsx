@@ -9,6 +9,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import { vincularCodigo } from "@/features/panol/kioscoApi";
 import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
+import { guardarPesoUnitarioDirecto } from "@/features/materiales/api";
 import {
   anularMovimiento,
   armarFilasRetiro,
@@ -959,6 +960,17 @@ export default function MostradorTab({ sede }) {
           linea={l}
           balanza={balanza}
           piezasDesdeGramos={piezasDesdeGramos}
+          onGuardarReferencia={async (pesoUnitarioG) => {
+            const guardado = await guardarPesoUnitarioDirecto(item.id, pesoUnitarioG);
+            const actualizarReferencia = (producto) => producto.id === item.id
+              ? { ...producto, pesoUnitarioG:Number(guardado.peso_unitario_g), pesoCalibradoAt:guardado.peso_calibrado_at }
+              : producto;
+            setCatalogo((actual) => actual?.map(actualizarReferencia));
+            // El catálogo en pantalla ya incluye retiros locales pendientes;
+            // actualizar solo la referencia en la copia base evita descontarlos dos veces al recargar.
+            const cache = leerDatosMostrador(sede);
+            if (cache.catalogo) guardarDatosMostrador(sede, { catalogo:cache.catalogo.map(actualizarReferencia) });
+          }}
           onAplicar={(v) => { modificarCarrito((c) => fijarPeso(c, capa.key, v)); setCapa(null); }}
           onCerrar={() => setCapa(null)}
           onRafaga={alRafagaEnCapa}

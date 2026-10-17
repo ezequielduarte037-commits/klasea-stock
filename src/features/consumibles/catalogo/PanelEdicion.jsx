@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Scale, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import {
   FORMAS_ENTREGA,
-  fmtCantidad,
   fmtPesos,
   guardarConfig,
   guardarStockMinimo,
@@ -14,6 +12,7 @@ import { UNIDADES_ENTREGA, motivoRevisarUnidad } from "./reglas";
 import { guardarAlias, guardarInfo } from "./catalogoApi";
 import FotosProducto from "./FotosProducto";
 import { cambiosDeFicha, estadoInicial } from "./edicion";
+import PesoUnitarioManual from "../PesoUnitarioManual";
 
 /**
  * Ficha de un consumible: lo que el pañol y Compras ajustan a mano. Guarda
@@ -27,10 +26,11 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
   const [inicial] = useState(() => estadoInicial(item));
   const [f, setF] = useState(inicial);
   const [guardando, setGuardando] = useState(false);
+  const [guardandoPeso, setGuardandoPeso] = useState(false);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e?.target ? (e.target.type === "checkbox" ? e.target.checked : e.target.value) : e }));
 
   const guardar = async () => {
-    if (!puedeEditar || guardando) return;
+    if (!puedeEditar || guardando || guardandoPeso) return;
     let cambios;
     try { cambios = cambiosDeFicha(f, inicial); }
     catch (e) { return toast.error(e.message); }
@@ -73,7 +73,7 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
           <h3>{item.descripcion}</h3>
           <div className="cat-dim">{item.rubro ?? "Sin rubro"}</div>
         </div>
-        <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={onCerrar} aria-label="Cerrar">
+        <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={onCerrar} disabled={guardando || guardandoPeso} aria-label="Cerrar">
           <X size={18} />
         </button>
       </header>
@@ -83,7 +83,9 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
           <h4>Fotos</h4>
           <FotosProducto materialId={item.id} principal={item.imagenUrl} puedeEditar={puedeEditar} onPrincipal={(url) => onFoto?.(item.id, url)} />
         </section>
-        <fieldset disabled={!puedeEditar || guardando}>
+        <fieldset disabled={!puedeEditar || guardando || guardandoPeso}>
+          <PesoUnitarioManual item={item} disabled={!puedeEditar || guardando} onOcupado={setGuardandoPeso}
+            onGuardado={(peso) => onGuardado(item.id, { peso })} />
           <section>
             <label className="cat-campo">
               <span>Alias / nombre del pañol</span>
@@ -144,15 +146,6 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
               <span>Ubicación (estante-nivel-posición)</span>
               <input className="ui-input cat-mono" value={f.ubicacion} onChange={set("ubicacion")} placeholder="C2-03" autoCapitalize="characters" />
             </label>
-            <div className="cat-peso">
-              <Scale size={16} />
-              <span>
-                {item.pesoUnitarioG
-                  ? <>Peso por pieza <b className="cat-mono">{fmtCantidad(item.pesoUnitarioG)} g</b></>
-                  : "Sin peso por pieza"}
-              </span>
-              <Link to="/balanza/calibrar" className="ui-btn ui-btn-suave cat-btn-chico">{item.pesoUnitarioG ? "Recalibrar" : "Calibrar"}</Link>
-            </div>
           </section>
 
           <section>
@@ -199,8 +192,8 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
       <footer className="cat-panel-pie">
         {puedeEditar ? (
           <>
-            <button type="button" className="ui-btn ui-btn-fantasma" onClick={onCerrar} disabled={guardando}>Cancelar</button>
-            <button type="button" className="ui-btn ui-btn-primario" onClick={guardar} disabled={guardando}>
+            <button type="button" className="ui-btn ui-btn-fantasma" onClick={onCerrar} disabled={guardando || guardandoPeso}>Cancelar</button>
+            <button type="button" className="ui-btn ui-btn-primario" onClick={guardar} disabled={guardando || guardandoPeso}>
               {guardando ? "Guardando…" : "Guardar"}
             </button>
           </>

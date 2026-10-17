@@ -31,7 +31,7 @@ export function redondear(n, decimales = 2) {
 export function fmtNum(v) {
   const n = num(v);
   if (n == null) return "—";
-  return n.toLocaleString("es-AR", { maximumFractionDigits: 3 });
+  return n.toLocaleString("es-AR", { maximumFractionDigits: 6 });
 }
 
 /** Minúsculas, sin acentos y con un solo espacio: para buscar como habla la gente. */
@@ -248,21 +248,21 @@ export function quitarLinea(carrito = [], key) {
 /** +1 / −1. En cero la línea se va: es lo que espera quien toca "menos". */
 export function sumarCantidad(carrito = [], key, delta) {
   return carrito
-    .map((l) => (l.key === key ? { ...l, cantidad: redondear(Math.max(0, l.cantidad + delta), 3) } : l))
+    .map((l) => (l.key === key ? { ...l, cantidad: redondear(Math.max(0, l.cantidad + delta), 6) } : l))
     .filter((l) => l.key !== key || l.cantidad > 0);
 }
 
 export function fijarCantidad(carrito = [], key, cantidad) {
   const n = num(cantidad);
   if (!(n > 0)) return quitarLinea(carrito, key);
-  return carrito.map((l) => (l.key === key ? { ...l, cantidad: redondear(n, 3) } : l));
+  return carrito.map((l) => (l.key === key ? { ...l, cantidad: redondear(n, 6) } : l));
 }
 
 export function fijarPeso(carrito = [], key, { gramos = null, cantidad }) {
   const n = num(cantidad);
   const g = num(gramos);
   return carrito.map((l) => (l.key === key
-    ? { ...l, cantidad: n > 0 ? redondear(n, 3) : 0, gramos: g > 0 ? redondear(g, 1) : null }
+    ? { ...l, cantidad: n > 0 ? redondear(n, 6) : 0, gramos: g > 0 ? redondear(g, 3) : null }
     : l));
 }
 
@@ -293,8 +293,10 @@ export function unidadDePeso(unidad) {
 export function cantidadParaPeso({ gramos = null, unidad = "unidad", piezasCalculadas = null, piezasManual = null } = {}) {
   const g = num(gramos);
   const tipo = unidadDePeso(unidad);
-  if (tipo === "kg") return g > 0 ? { cantidad: redondear(g / 1000, 3), modo: "kg" } : null;
-  if (tipo === "g") return g > 0 ? { cantidad: redondear(g, 1), modo: "g" } : null;
+  if (tipo) {
+    const cantidad = g > 0 ? redondear(tipo === "kg" ? g / 1000 : g, tipo === "kg" ? 6 : 3) : 0;
+    return cantidad > 0 ? { cantidad, modo: tipo } : null;
+  }
   const manual = num(piezasManual);
   if (manual > 0) return { cantidad: Math.round(manual), modo: "manual" };
   const calc = num(piezasCalculadas);
@@ -346,7 +348,7 @@ export function problemasDelCarrito(carrito = [], porId = new Map(), modo = "ret
 }
 
 export function totalUnidades(carrito = []) {
-  return redondear(carrito.reduce((s, l) => s + (Number(l.cantidad) || 0), 0));
+  return redondear(carrito.reduce((s, l) => s + (Number(l.cantidad) || 0), 0), 6);
 }
 
 // ── Cupo diario ─────────────────────────────────────────────────────────────

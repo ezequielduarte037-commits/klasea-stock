@@ -241,6 +241,11 @@ export default function ConteoTab({ profile, sede }) {
     setDatos((prev) => (prev ? { ...prev, catalogo: prev.catalogo.map((i) => (i.id === item.id ? { ...i, ubicacion } : i)) } : prev));
   }, []);
 
+  const onPeso = useCallback((item, peso) => {
+    setDatos((prev) => (prev ? { ...prev, catalogo: prev.catalogo.map((i) => (i.id === item.id
+      ? { ...i, pesoUnitarioG:Number(peso.peso_unitario_g), pesoCalibradoAt:peso.peso_calibrado_at } : i)) } : prev));
+  }, []);
+
   const abrirAlta = useCallback(async (texto = "") => {
     setAlta({ texto });
     if (!rubros) {
@@ -474,6 +479,7 @@ export default function ConteoTab({ profile, sede }) {
           onCerrar={cerrarConteo}
           onGuardado={onGuardado}
           onUbicacion={onUbicacion}
+          onPeso={onPeso}
         />
       )}
 

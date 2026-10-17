@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Check, Delete, MapPin, Plug, Scale, StickyNote } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { useBalanza } from "@/hooks/useBalanza";
@@ -8,6 +7,7 @@ import Hoja from "./Hoja";
 import { envaseRecordado, loteDeConteo, recordarEnvase } from "./conteoApi";
 import { admiteDecimales, cantidadFinalDeConteo, piezasPorPeso, unidadEnTexto } from "./conteoCalculos";
 import { conTimeout, separarRafaga } from "../mostrador/mostradorLogica";
+import PesoUnitarioManual from "../PesoUnitarioManual";
 
 /**
  * HojaConteo — contar un producto. Pensada para el celular y una mano: el
@@ -106,9 +106,8 @@ function LectorBalanza({ onGramos }) {
   );
 }
 
-export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ultimaUbicacion, onCerrar, onGuardado, onUbicacion }) {
+export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ultimaUbicacion, onCerrar, onGuardado, onUbicacion, onPeso }) {
   const toast = useToast();
-  const navigate = useNavigate();
 
   const pesoUnitario = Number(item.pesoUnitarioG) > 0 ? Number(item.pesoUnitarioG) : null;
   const porPeso = item.formaEntrega === "peso";
@@ -126,6 +125,7 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
   const [nota, setNota] = useState("");
   const [verNota, setVerNota] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [guardandoPeso, setGuardandoPeso] = useState(false);
   const clavePendiente = `klasea.consumibles.conteo.pendiente.${sede}.${item.id}`;
   const [pendiente, setPendiente] = useState(() => {
     try {
@@ -153,8 +153,8 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
   const tecla = useCallback((t) => {
     if (enviando.current || pendiente) return;
     if (modo === "peso") {
-      if (campoPeso === "envase") setEnvase((v) => teclear(String(v ?? ""), t, { decimales: false }));
-      else setGramos((v) => teclear(v, t, { decimales: false }));
+      if (campoPeso === "envase") setEnvase((v) => teclear(String(v ?? ""), t, { decimales: true }));
+      else setGramos((v) => teclear(v, t, { decimales: true }));
     } else {
       setValor((v) => teclear(v, t, { decimales }));
     }
@@ -176,7 +176,7 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
   }, [ubicacion, ubicGuardada, item, onUbicacion, toast]);
 
   const guardar = useCallback(async () => {
-    if (enviando.current || (final == null && !pendiente)) return;
+    if (enviando.current || guardandoPeso || (final == null && !pendiente)) return;
     enviando.current = true;
     setGuardando(true);
     try {
@@ -213,7 +213,7 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
       enviando.current = false;
       setGuardando(false);
     }
-  }, [final, estadoHoy, reconteo, contadoAhora, modo, calculoPeso, gramos, envase, nota, item, sede, ubicacion, ubicGuardada, guardarUbic, onGuardado, toast, pendiente, clavePendiente]);
+  }, [final, estadoHoy, reconteo, contadoAhora, modo, calculoPeso, gramos, envase, nota, item, sede, ubicacion, ubicGuardada, guardarUbic, onGuardado, toast, pendiente, clavePendiente, guardandoPeso]);
 
   // Teclado físico (PC o lector): números, coma, borrar y Enter para guardar.
   // No intercepta cuando se escribe en la ubicación o la nota.
@@ -275,15 +275,15 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
       clase="cnt"
       titulo={item.descripcion}
       sub={sub}
-      onCerrar={guardando ? undefined : onCerrar}
+      onCerrar={guardando || guardandoPeso ? undefined : onCerrar}
       pie={(
-        <button type="button" className="ui-btn ui-btn-primario cnt-guardar" onClick={guardar} disabled={(final == null && !pendiente) || guardando}>
+        <button type="button" className="ui-btn ui-btn-primario cnt-guardar" onClick={guardar} disabled={(final == null && !pendiente) || guardando || guardandoPeso}>
           {!guardando && final != null && <Check size={19} />} {textoBoton}
         </button>
       )}
     >
       {pendiente && <p className="cnt-aviso" role="status">Hay un conteo de {fmtCantidad(pendiente.contado)} {item.unidad} por confirmar. Reintentá ese mismo envío antes de cargar otro.</p>}
-      <fieldset className="cnt-hoja" disabled={guardando || !!pendiente} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+      <fieldset className="cnt-hoja" disabled={guardando || guardandoPeso || !!pendiente} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
         <div className="cnt-ubic">
           <label className="cnt-ubic-lbl" htmlFor={`ubic-${item.id}`}><MapPin size={15} /> Ubicación</label>
           <input
@@ -330,6 +330,9 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
           </div>
         )}
 
+        <PesoUnitarioManual item={item} disabled={guardando || !!pendiente} onOcupado={setGuardandoPeso}
+          onGuardado={(peso) => { onPeso?.(item, peso); setModo("peso"); }} />
+
         {(puedePesar || porPeso) && (
           <div className="cnt-seg cnt-modo" role="radiogroup" aria-label="Cómo se cuenta">
             <button type="button" role="radio" aria-checked={modo === "piezas"} className={modo === "piezas" ? "is-activa" : ""} onClick={() => setModo("piezas")}>
@@ -342,8 +345,7 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
         )}
         {porPeso && !puedePesar && (
           <div className="cnt-aviso">
-            Se entrega por peso pero todavía no tiene el peso de una pieza. Contá las piezas, o calibralo con la balanza.
-            <button type="button" className="ui-btn ui-btn-fantasma cnt-aviso-btn" onClick={() => navigate("/balanza/calibrar")}>Calibrar el peso →</button>
+            Cargá el peso por pieza arriba para calcular la cantidad con tu balanza externa.
           </div>
         )}
 
@@ -384,7 +386,7 @@ export default function HojaConteo({ item, sede, estadoHoy, nombrePor, esMio, ul
           </p>
         )}
 
-        <Teclado onTecla={tecla} decimales={modo === "piezas" && decimales} />
+        <Teclado onTecla={tecla} decimales={modo === "peso" || decimales} />
 
         {verNota ? (
           <textarea
