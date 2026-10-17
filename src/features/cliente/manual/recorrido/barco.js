@@ -492,7 +492,7 @@ export function texturaFoto(nombre, metros, { color = true } = {}) {
 const TONOS_ROBLE = {
   natural: { base: [176, 160, 136], veta: 2.6 },
   // Roble claro rosado de los renders del astillero, veta suave.
-  claro: { base: [214, 189, 166], veta: 1.5 },
+  claro: { base: [214, 189, 166], veta: 1.9 },
   blanqueado: { base: [214, 206, 192], veta: 1.7 },
   ahumado: { base: [124, 116, 106], veta: 2.2 },
   nogal: { base: [98, 70, 52], veta: 2.1 },

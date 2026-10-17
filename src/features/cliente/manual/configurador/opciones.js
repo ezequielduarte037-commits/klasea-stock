@@ -4,15 +4,31 @@
    Los colores se aplican sobre los acabados del modelo (acabados.js).
 ═══════════════════════════════════════════════════════════════ */
 
-// Muestras de los botones con veta (mármoles y maderas).
-const veta = (fondo, linea, fina) =>
-  `linear-gradient(128deg, ${fondo} 0 34%, ${linea} 36% 38%, ${fondo} 41% 62%, ${fina} 63.5% 64.5%, ${fondo} 66% 100%)`;
+// Muestras de los botones con tablas (maderas y pisos).
 const tablas = (a, b) => `repeating-linear-gradient(100deg, ${a} 0 5px, ${b} 6px 8px, ${a} 9px 13px)`;
+
+/* Mesadas: cuarzo Purastone, línea PURA (purastone.com), terminación pulida.
+   Cada una es la foto de la placa hecha textura repetible en su tamaño real
+   (scripts/purastone-mesadas.mjs). m: metros que cubre la textura (ancho y
+   largo), según el grano y las vetas en las fotos de ambientes del
+   fabricante; px: su tamaño; c: su color medio. */
+export const PURASTONE = {
+  "blanco-nube": { t: "Blanco Nube", m: [0.32, 0.32], px: [864, 864], c: "#ebece6" },
+  "blanco-paloma": { t: "Blanco Paloma", m: [0.32, 0.32], px: [864, 864], c: "#e6e6e3" },
+  statuarietto: { t: "Statuarietto", m: [0.8, 0.8], px: [864, 864], c: "#e6e4e3" },
+  "estatuario-venato": { t: "Estatuario Venato", m: [1.28, 1.28], px: [678, 678], c: "#e0e1dc" },
+  "calacatta-dor": { t: "Calacatta D'or", m: [1.44, 0.96], px: [1440, 960], c: "#e7e4e0" },
+  "crema-pisa": { t: "Crema Pisa", m: [0.32, 0.32], px: [864, 864], c: "#c5b598" },
+  "concrete-dark": { t: "Concrete Dark", m: [0.8, 0.8], px: [864, 864], c: "#9da1a8" },
+  "nero-marquina": { t: "Nero Marquina", m: [1.2, 1.2], px: [864, 864], c: "#19191c" },
+};
+const pura = id => ({ id, t: PURASTONE[id].t, c: PURASTONE[id].c, textura: `purastone-${id}`, muestra: `url(/textures/purastone/${id}-m.jpg) center / cover` });
 
 /* Cada capa de color pinta un grupo del modelo. zona "interior": se elige
    desde la vista interior. textura: "lisa" saca la foto del acabado (manda el
-   color); "marmol-…" o "roble-…" las genera interior.js y traen su color (el
-   de la opción es sólo para el botón). Sin textura, el color tiñe la foto. */
+   color); "purastone-…" o "roble-…" las arma interior.js y traen su color (el
+   de la opción es para el botón). Sin textura, el color tiñe la foto.
+   nota: una línea debajo de las muestras. */
 export const CAPAS = [
   {
     id: "casco", t: "Casco", grupo: "casco",
@@ -101,17 +117,8 @@ export const CAPAS = [
     ],
   },
   {
-    id: "mesada", t: "Mesadas", grupo: "piedra", zona: "interior",
-    ops: [
-      { id: "arena", t: "Cuarzo arena", c: "#e2d8c8", textura: "cuarzo-arena",
-        muestra: "radial-gradient(circle at 30% 30%, #f6f1e8 0 1.5px, transparent 2px) 0 0 / 7px 7px, #e2d8c8" },
-      { id: "cuarzo", t: "Cuarzo blanco", c: "#f2f0ec", textura: "lisa" },
-      { id: "carrara", t: "Mármol Carrara", c: "#e8e7e3", textura: "marmol-carrara", muestra: veta("#e9e8e4", "#9aa0a6", "#b9bdc1") },
-      { id: "calacatta", t: "Calacatta oro", c: "#f1eee8", textura: "marmol-calacatta", muestra: veta("#f2efe9", "#857c6e", "#c2a878") },
-      { id: "nero", t: "Nero Marquina", c: "#17181a", textura: "marmol-nero", muestra: veta("#1a1b1d", "#e6e4df", "#8b8c8e") },
-      { id: "grafito", t: "Cuarzo grafito", c: "#55575a", textura: "cuarzo-grafito",
-        muestra: "radial-gradient(circle at 30% 30%, #8a8c8f 0 1.5px, transparent 2px) 0 0 / 7px 7px, #55575a" },
-    ],
+    id: "mesada", t: "Mesadas", grupo: "piedra", zona: "interior", nota: "Cuarzo Purastone · línea PURA · pulido",
+    ops: Object.keys(PURASTONE).map(pura),
   },
   {
     id: "madera", t: "Madera", grupo: "madera", zona: "interior",
@@ -149,17 +156,25 @@ export const ESTILOS = [
 
 /* Ambientes del interior: un toque y cambia todo adentro. */
 export const AMBIENTES = [
-  { id: "klasea", t: "Klase A", d: "Lino, roble claro y cuarzo arena, como en los renders del astillero.", e: { tela: "lino", cojin: "arena", mesada: "arena", madera: "claro", piso: "roble" } },
-  { id: "nordico", t: "Nórdico", d: "Gris perla, roble blanqueado y mármol Carrara.", e: { tela: "perla", cojin: "lino", mesada: "carrara", madera: "blanqueado", piso: "roble" } },
-  { id: "contemporaneo", t: "Contemporáneo", d: "Grafito, nogal y Nero Marquina. Profundo y elegante.", e: { tela: "grafito", cojin: "humo", mesada: "nero", madera: "nogal", piso: "nogal" } },
-  { id: "riviera", t: "Riviera", d: "Azul marino, roble natural y Calacatta oro.", e: { tela: "marino", cojin: "lino", mesada: "calacatta", madera: "natural", piso: "roble" } },
-  { id: "costa", t: "Costa", d: "Salvia, roble ahumado y cuarzo grafito.", e: { tela: "salvia", cojin: "arena", mesada: "grafito", madera: "ahumado", piso: "gris" } },
-  { id: "sereno", t: "Sereno", d: "Gris topo, roble natural y cuarzo blanco.", e: { tela: "topo", cojin: "lino", mesada: "cuarzo", madera: "natural", piso: "roble" } },
+  { id: "klasea", t: "Klase A", d: "Lino, roble claro y cuarzo Blanco Nube, como en los barcos del astillero.", e: { tela: "lino", cojin: "arena", mesada: "blanco-nube", madera: "claro", piso: "roble" } },
+  { id: "nordico", t: "Nórdico", d: "Gris perla, roble blanqueado y Statuarietto.", e: { tela: "perla", cojin: "lino", mesada: "statuarietto", madera: "blanqueado", piso: "roble" } },
+  { id: "contemporaneo", t: "Contemporáneo", d: "Grafito, nogal y Nero Marquina. Profundo y elegante.", e: { tela: "grafito", cojin: "humo", mesada: "nero-marquina", madera: "nogal", piso: "nogal" } },
+  { id: "riviera", t: "Riviera", d: "Azul marino, roble natural y Calacatta D'or.", e: { tela: "marino", cojin: "lino", mesada: "calacatta-dor", madera: "natural", piso: "roble" } },
+  { id: "costa", t: "Costa", d: "Salvia, roble ahumado y Crema Pisa.", e: { tela: "salvia", cojin: "arena", mesada: "crema-pisa", madera: "ahumado", piso: "gris" } },
+  { id: "urbano", t: "Urbano", d: "Gris topo, roble ahumado y Concrete Dark.", e: { tela: "topo", cojin: "humo", mesada: "concrete-dark", madera: "ahumado", piso: "gris" } },
+  { id: "sereno", t: "Sereno", d: "Marfil, roble natural y Estatuario Venato.", e: { tela: "marfil", cojin: "lino", mesada: "estatuario-venato", madera: "natural", piso: "roble" } },
 ];
 
 export function opcionDe(capa, id) {
   const c = CAPAS.find(x => x.id === capa);
   return c?.ops.find(o => o.id === id) || c?.ops[0];
+}
+
+/* Lo guardado en el dispositivo, sin las opciones que ya no existen (las
+   mesadas de antes de Purastone, p. ej.): esas vuelven a la de fábrica. */
+export function eleccionValida(guardada) {
+  return Object.fromEntries(Object.entries(guardada || {})
+    .filter(([capa, id]) => CAPAS.find(c => c.id === capa)?.ops.some(o => o.id === id)));
 }
 
 /* Vistas de cámara. foco: punto del barco (u: 0 popa → 1 proa, alto en

@@ -13,6 +13,7 @@
      elegidos; en los nichos de las cabeceras, libros, un difusor y un florero.
    · Baño: toallas de mano dobladas, jabonera y una planta. El botiquín es un
      espejo de verdad (Reflector).
+   · La mesada de la cocina, de cuarzo pulido, refleja lo que tiene encima.
    · Tiras LED bajo las alacenas y el botiquín, con la luz que dejan en la
      pared y la mesada.
    · La pantalla del televisor.
@@ -980,13 +981,92 @@ const ESPEJO = {
   `,
 };
 
+/* ─────────────── Reflejo de la mesada ─────────────── */
+
+/* El cuarzo pulido refleja lo que tiene encima (la pava, la cafetera, las
+   alacenas), como en las fotos del barco. Es un Reflector con la forma de la
+   cara de arriba de la mesada, apenas adelante de ella: mezcla el reflejo con
+   lo que hay según el ángulo (Fresnel: 4 % de frente, casi todo al ras) y un
+   poco borroso (la piedra no es un espejo). */
+const MESADA = {
+  name: "ReflejoMesada",
+  uniforms: { color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null } },
+  vertexShader: /* glsl */`
+    uniform mat4 textureMatrix;
+    varying vec4 vUv;
+    varying vec3 vMundo;
+    varying vec3 vNormal;
+    void main() {
+      vUv = textureMatrix * vec4( position, 1.0 );
+      vec4 mundo = modelMatrix * vec4( position, 1.0 );
+      vMundo = mundo.xyz;
+      vNormal = normalize( mat3( modelMatrix ) * vec3( 0.0, 0.0, 1.0 ) );
+      gl_Position = projectionMatrix * viewMatrix * mundo;
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform vec3 color;
+    uniform sampler2D tDiffuse;
+    varying vec4 vUv;
+    varying vec3 vMundo;
+    varying vec3 vNormal;
+    void main() {
+      vec2 p = vUv.xy / vUv.w;
+      vec2 d = 1.5 / vec2( textureSize( tDiffuse, 0 ) );
+      vec3 r = 0.25 * ( texture2D( tDiffuse, p + d ).rgb + texture2D( tDiffuse, p - d ).rgb
+        + texture2D( tDiffuse, p + vec2( d.x, - d.y ) ).rgb + texture2D( tDiffuse, p + vec2( - d.x, d.y ) ).rgb );
+      float c = clamp( dot( normalize( cameraPosition - vMundo ), vNormal ), 0.0, 1.0 );
+      gl_FragColor = vec4( r * color, 0.04 + 0.96 * pow( 1.0 - c, 5.0 ) );
+    }
+  `,
+};
+
+/* La cara de arriba de la mesada: las caras de la malla de piedra que miran
+   hacia arriba a la altura y (en el marco del barco, base), en el plano del
+   Reflector (x, −z). Los vértices se llevan de a uno: el modelo viene
+   cuantizado (enteros de 16 bits entre −1 y 1) y no admite otras medidas. */
+function caraMesada(piedra, base, y) {
+  const rel = new THREE.Matrix4();
+  for (let o = piedra; o && o !== base; o = o.parent) { if (o.matrixAutoUpdate) o.updateMatrix(); rel.premultiply(o.matrix); }
+  const { index: I, attributes: { position: P } } = piedra.geometry;
+  const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  const pos = [];
+  for (let i = 0, n = I ? I.count : P.count; i < n; i += 3) {
+    v.forEach((p, k) => p.fromBufferAttribute(P, I ? I.getX(i + k) : i + k).applyMatrix4(rel));
+    const normal = e1.subVectors(v[1], v[0]).cross(e2.subVectors(v[2], v[0]));
+    if (normal.lengthSq() < 1e-14 || Math.abs(normal.normalize().y) < 0.999) continue;
+    if (v.some(p => Math.abs(p.y - y) > 0.003)) continue;
+    v.forEach(p => pos.push(p.x, -p.z, 0));
+  }
+  if (!pos.length) return null;
+  const cara = new THREE.BufferGeometry();
+  cara.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  return cara;
+}
+
+/* Lo que no entra en un reflejo (el mar, la bacha, el otro reflejo): se
+   oculta mientras se dibuja. */
+function sinEnElReflejo(reflector, ocultos) {
+  const reflejar = reflector.onBeforeRender;
+  reflector.onBeforeRender = function (renderer, ...resto) {
+    const lista = ocultos().filter(Boolean);
+    const antes = lista.map(o => o.visible);
+    lista.forEach(o => { o.visible = false; });
+    reflejar.call(this, renderer, ...resto);
+    lista.forEach((o, i) => { o.visible = antes[i]; });
+  };
+}
+
 /* ─────────────── Conjunto ─────────────── */
 
-/* datos: { objetos: [{ q, p, r, … }], leds, espejo, pantalla } (unidad.js).
-   Devuelve el grupo (en la capa 1), lo que no va en la oclusión ambiental
-   (vidrio, luces, espejo) y actualizar(…) para cada cuadro. El lienzo donde
-   se dibuja necesita plantilla (stencil) para la bacha. */
-export function crearDecoracion(datos, { chico = false } = {}) {
+/* datos: { objetos: [{ q, p, r, … }], leds, espejo, pantalla, mesada }
+   (unidad.js). piedra: la malla de las mesadas del modelo; base: el grupo
+   del barco, donde va la decoración. Devuelve el grupo (en la capa 1), lo que
+   no va en la oclusión ambiental (vidrio, luces, reflejos) y actualizar(…)
+   para cada cuadro. El lienzo donde se dibuja necesita plantilla (stencil)
+   para la bacha. */
+export function crearDecoracion(datos, { chico = false, piedra = null, base = null } = {}) {
   const { lista: mats, texturas } = crearMateriales();
   const porMaterial = {};
   const m4 = new THREE.Matrix4(), giro = new THREE.Quaternion(), arriba = new THREE.Vector3(0, 1, 0);
@@ -1034,19 +1114,30 @@ export function crearDecoracion(datos, { chico = false } = {}) {
     espejo.camera.layers.enableAll();
     efimeros.add(espejo);
   }
-  const estado = { agua: null, ancho: 0, alto: 0 };
-  if (espejo) {
-    // El mar no entra en el reflejo del espejo (no se ve desde el baño y es
-    // caro), ni la bacha de la cocina (su plantilla no existe ahí).
-    const reflejar = espejo.onBeforeRender;
-    espejo.onBeforeRender = function (renderer, ...resto) {
-      const ocultos = [estado.agua, ...conPlantilla].filter(Boolean);
-      const antes = ocultos.map(o => o.visible);
-      ocultos.forEach(o => { o.visible = false; });
-      reflejar.call(this, renderer, ...resto);
-      ocultos.forEach((o, i) => { o.visible = antes[i]; });
-    };
+  // La mesada de la cocina refleja (no en celulares: es dibujar el interior
+  // otra vez). Va 3 mm por encima: así el plano del reflejo deja abajo a la
+  // misma mesada (en su plano se colaba en el reflejo). Se dibuja después de
+  // las luces de las tiras y no tapa la boca de la bacha (la plantilla).
+  let reflejo = null;
+  const cara = datos.mesada && piedra && !chico ? caraMesada(piedra, base, datos.mesada.y) : null;
+  if (cara) {
+    reflejo = new Reflector(cara, { textureWidth: 512, textureHeight: 512, multisample: 0, shader: MESADA, color: new THREE.Color(1, 1, 1) });
+    reflejo.position.set(0, datos.mesada.y + 0.003 * U, 0);
+    reflejo.rotation.x = -Math.PI / 2;
+    reflejo.camera.layers.enableAll();
+    Object.assign(reflejo.material, {
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc,
+    });
+    reflejo.renderOrder = 13;
+    efimeros.add(reflejo);
   }
+  const estado = { agua: null, ancho: 0, alto: 0 };
+  // El mar no entra en los reflejos (no se ve desde el baño ni desde la
+  // mesada y es caro), ni la bacha de la cocina (su plantilla no existe ahí),
+  // ni un reflejo en el otro.
+  if (espejo) sinEnElReflejo(espejo, () => [estado.agua, reflejo, ...conPlantilla]);
+  if (reflejo) sinEnElReflejo(reflejo, () => [estado.agua, espejo, ...conPlantilla]);
 
   if (datos.pantalla) {
     const p = datos.pantalla;
@@ -1067,24 +1158,28 @@ export function crearDecoracion(datos, { chico = false } = {}) {
     grupo.visible = int > 0.01;
     if (!grupo.visible) return;
     if (acento) mats.acento.color.copy(acento);
-    leds.matLavado.uniforms.color.value.copy(LUZ_LED).multiplyScalar(int * (0.9 + 1.6 * noche));
+    // De día la luz de la ventana tapa la de las tiras: casi no tiñen.
+    leds.matLavado.uniforms.color.value.copy(LUZ_LED).multiplyScalar(int * (0.35 + 2.15 * noche));
     leds.matTira.color.copy(LUZ_LED).multiplyScalar(int * (3 + 5 * noche));
     estado.agua = agua;
-    // El reflejo con la resolución de la pantalla (si no, se ve borroso).
-    if (espejo && ancho && (ancho !== estado.ancho || alto !== estado.alto)) {
+    // Los reflejos con la resolución de la pantalla (si no, se ven borrosos;
+    // el de la mesada, a la mitad: igual va un poco borroso).
+    if (ancho && (ancho !== estado.ancho || alto !== estado.alto)) {
       estado.ancho = ancho; estado.alto = alto;
       const k = chico ? 0.7 : 0.85;
-      espejo.getRenderTarget().setSize(Math.round(ancho * k), Math.round(alto * k));
+      espejo?.getRenderTarget().setSize(Math.round(ancho * k), Math.round(alto * k));
+      reflejo?.getRenderTarget().setSize(Math.round(ancho / 2), Math.round(alto / 2));
     }
   }
 
   function dispose() {
-    grupo.traverse(o => { if (o.isMesh && o !== espejo) o.geometry.dispose(); });
+    grupo.traverse(o => { if (o.isMesh && o !== espejo && o !== reflejo) o.geometry.dispose(); });
     Object.values(mats).forEach(m => m.dispose());
     texturas.forEach(t => t.dispose());
     leds.matLavado.dispose();
     leds.matTira.dispose();
     if (espejo) { espejo.geometry.dispose(); espejo.dispose(); }
+    if (reflejo) { reflejo.geometry.dispose(); reflejo.dispose(); }
   }
 
   return { grupo, efimeros, actualizar, dispose };

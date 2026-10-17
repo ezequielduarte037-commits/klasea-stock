@@ -34,8 +34,8 @@ export const ACABADOS = {
   techo:    { color: "#f6f4f0", roughness: 0.8 },
   // Tiras LED del techo del hardtop (el configurador las prende de noche).
   led:      { color: "#eeeae2", roughness: 0.4 },
-  // Mesada: cuarzo blanco liso (la foto de mármol se repetía como baldosas).
-  piedra:   { color: "#f2f0ec", roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.1 },
+  // Mesada: cuarzo pulido (en el configurador, con la placa de Purastone elegida).
+  piedra:   { color: "#f2f0ec", roughness: 0.16, clearcoat: 0.8, clearcoatRoughness: 0.06 },
   loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
   interior: { color: "#ebe8e3", roughness: 0.75 },
   // Forro del casco en el modelo interior: tapizado claro, liso.
