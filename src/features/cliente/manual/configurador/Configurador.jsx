@@ -18,7 +18,7 @@ import { cargarModelo } from "../recorrido/barco";
 import { cargarCielos } from "./cielo";
 import { prepararMar } from "./ambiente";
 import Escena from "./Escena";
-import { CAPAS, CAPAS_EXTERIOR, CAPAS_INTERIOR, ESTILOS, AMBIENTES, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, textoHora } from "./opciones";
+import { CAPAS, CAPAS_EXTERIOR, CAPAS_INTERIOR, ESTILOS, AMBIENTES, ELECCION_INICIAL, VISTAS, CLIMAS, HORA_MIN, HORA_MAX, opcionDe, eleccionValida, textoHora } from "./opciones";
 
 function hayWebGL() {
   try {
@@ -52,6 +52,23 @@ const COLORES_SUB = [
   { id: "rojo", t: "Rojo", c: "#ff2a3a" },
 ];
 
+/* Los botones de una capa de color (con su nota, si tiene). */
+function Muestras({ capa, eleccion, elegir }) {
+  return (
+    <>
+      <div className="kx-cfg-muestras">
+        {capa.ops.map((op, i) => (
+          <button key={op.id} type="button" style={{ "--i": i, "--c": op.muestra || op.c }} aria-pressed={eleccion[capa.id] === op.id}
+            onClick={() => elegir(capa.id, op.id)} aria-label={op.t}>
+            <i /><span>{op.t}</span>
+          </button>
+        ))}
+      </div>
+      {capa.nota && <p className="kx-cfg-nota">{capa.nota}</p>}
+    </>
+  );
+}
+
 export default function Configurador({ modelo, onCerrar }) {
   // Las líneas sin modelo 3D propio ven el K43 como referencia.
   const propio = modelo3dDe(modelo);
@@ -65,7 +82,7 @@ export default function Configurador({ modelo, onCerrar }) {
   const [error, setError] = useState(() => (hayWebGL() ? null : "webgl"));
   const [pestana, setPestana] = useState(null);
   const [vista, setVista] = useState("tres");
-  const [eleccion, setEleccion] = useState(() => ({ ...ELECCION_INICIAL, ...(guardado?.eleccion || {}) }));
+  const [eleccion, setEleccion] = useState(() => ({ ...ELECCION_INICIAL, ...eleccionValida(guardado?.eleccion) }));
   const [capa, setCapa] = useState("estilos");
   const [capaInterior, setCapaInterior] = useState("ambientes");
   // Adentro: el lugar del interior desde donde se mira (null = afuera).
@@ -401,14 +418,7 @@ export default function Configurador({ modelo, onCerrar }) {
                       })}
                     </div>
                   ) : (
-                    <div className="kx-cfg-muestras" key={capaInterior}>
-                      {CAPAS.find(c => c.id === capaInterior).ops.map((op, i) => (
-                        <button key={op.id} type="button" style={{ "--i": i, "--c": op.muestra || op.c }} aria-pressed={eleccion[capaInterior] === op.id}
-                          onClick={() => elegir(capaInterior, op.id)} aria-label={op.t}>
-                          <i /><span>{op.t}</span>
-                        </button>
-                      ))}
-                    </div>
+                    <Muestras key={capaInterior} capa={CAPAS.find(c => c.id === capaInterior)} eleccion={eleccion} elegir={elegir} />
                   )}
                 </div>
               )}
@@ -439,14 +449,7 @@ export default function Configurador({ modelo, onCerrar }) {
                       })}
                     </div>
                   ) : (
-                    <div className="kx-cfg-muestras" key={capa}>
-                      {CAPAS.find(c => c.id === capa).ops.map((op, i) => (
-                        <button key={op.id} type="button" style={{ "--i": i, "--c": op.muestra || op.c }} aria-pressed={eleccion[capa] === op.id}
-                          onClick={() => elegir(capa, op.id)} aria-label={op.t}>
-                          <i /><span>{op.t}</span>
-                        </button>
-                      ))}
-                    </div>
+                    <Muestras key={capa} capa={CAPAS.find(c => c.id === capa)} eleccion={eleccion} elegir={elegir} />
                   )}
                 </div>
               )}

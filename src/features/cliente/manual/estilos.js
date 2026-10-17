@@ -810,7 +810,7 @@ export const CSS_MANUAL = `
 .kx .kx-cfg-capas button::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 1px; background: var(--kx-fg); transform: scaleX(0); transition: transform .45s var(--kx-ez); }
 .kx .kx-cfg-capas button[aria-selected="true"] { color: var(--kx-fg); }
 .kx .kx-cfg-capas button[aria-selected="true"]::after { transform: scaleX(1); }
-.kx .kx-cfg-muestras { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 10px; }
+.kx .kx-cfg-muestras { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 8px; }
 .kx .kx-cfg-muestras button { display: grid; justify-items: center; gap: 8px; width: 82px; }
 .kx .kx-cfg-muestras i { width: 46px; height: 46px; border-radius: 50%; background: var(--c);
   box-shadow: inset 0 -8px 16px rgba(0,0,0,.22), inset 0 6px 10px rgba(255,255,255,.18), 0 0 0 1px rgba(255,255,255,.18); transition: transform .4s var(--kx-ez), box-shadow .4s var(--kx-ez); }
@@ -818,6 +818,7 @@ export const CSS_MANUAL = `
 .kx .kx-cfg-muestras button[aria-pressed="true"] i { box-shadow: inset 0 -8px 16px rgba(0,0,0,.22), inset 0 6px 10px rgba(255,255,255,.18), 0 0 0 2px #0b0d0f, 0 0 0 3.5px #f4f4f2; transform: scale(1.04); }
 .kx .kx-cfg-muestras span { font-size: 11.5px; line-height: 1.25; text-align: center; color: var(--kx-mute); }
 .kx .kx-cfg-muestras button[aria-pressed="true"] span { color: var(--kx-fg); }
+.kx .kx-cfg-nota { margin: -4px 0 0; text-align: center; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--kx-mute); }
 .kx .kx-cfg-estilos { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 0 -18px; padding: 2px 18px 4px; scroll-snap-type: x proximity; }
 .kx .kx-cfg-estilos::-webkit-scrollbar { display: none; }
 .kx .kx-cfg-estilos button { flex: 0 0 196px; scroll-snap-align: start; }

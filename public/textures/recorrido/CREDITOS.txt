@@ -1,6 +1,6 @@
 Texturas del recorrido 3D del manual del cliente.
 Fuente: Poly Haven (https://polyhaven.com), licencia CC0.
-grey_oak_veneer_01, laminate_floor_02, oak_veneer_01, fabric_leather_02, poly_wool_herringbone, marble_01 (1k; cuero, lana y roble a 1024 px, el resto a 512 px).
+grey_oak_veneer_01, laminate_floor_02, oak_veneer_01, fabric_leather_02, poly_wool_herringbone, marble_01 (cuero, lana, roble y piso a 1024 px, el resto a 512 px).
 
 waternormals.jpg: mapa de normales del agua del configurador, de los ejemplos de three.js (https://github.com/mrdoob/three.js, licencia MIT).
 teca_cubierta_diff/nor/rough: cubierta de teca armada con scripts/teca-cubierta.mjs a partir de teak_veneer (Poly Haven, CC0).

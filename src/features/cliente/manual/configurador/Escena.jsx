@@ -103,15 +103,21 @@ function Efectos({ renderRef, comun }) {
     ao.updateGtaoMaterial({ radius: 0.36, distanceExponent: 1.5, thickness: 2, scale: 1.3, samples: chico() ? 8 : 16 });
     ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: chico() ? 8 : 16 });
     ao.blendIntensity = 0.9;
+    // Las caras del Rhino vienen orientadas de cualquier manera (los
+    // materiales son de doble cara): el pase de normales de la oclusión
+    // también, si no se salteaba las que miran para el otro lado y por el
+    // hueco veía lo de atrás (líneas de puntitos oscuros, rincones sin sombra).
+    ao.normalMaterial.side = THREE.DoubleSide;
     ao.enabled = false;
     // El mar no cuenta para la oclusión (adentro se recorta en el shader del
     // agua, que el pase de normales no usa: si no, tapaba el piso). Tampoco
-    // el vidrio, las luces de las tiras LED ni el espejo (sinAo): se verían
-    // como sólidos opacos.
+    // los vidrios, las luces de las tiras LED ni los reflejos (sinAo, y todo
+    // lo transparente): se verían como sólidos opacos.
     const fuera = { agua: null, sinAo: null };
     const dibujarAo = ao.render.bind(ao);
     ao.render = (...args) => {
       const ocultos = [fuera.agua, fuera.sinAo].filter(Boolean);
+      escena.traverse(o => { if (o.isMesh && o.visible && o.material.transparent) ocultos.push(o); });
       const antes = ocultos.map(o => o.visible);
       ocultos.forEach(o => { o.visible = false; });
       dibujarAo(...args);
@@ -658,7 +664,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     // Decoración: sólo adentro; el pie de cama y el almohadón siguen el color
     // de los almohadones elegidos.
     if (c.adentro && e.deco.datos && !e.deco.actual) {
-      e.deco.actual = crearDecoracion(e.deco.datos, { chico: chico() });
+      e.deco.actual = crearDecoracion(e.deco.datos, { chico: chico(), piedra: v.modelo.aparte?.piezas.piedra, base: grupo.current });
       grupo.current.add(e.deco.actual.grupo);
     }
     const deco = e.deco.actual;
