@@ -41,7 +41,7 @@ function actionLabel(item) {
   if (!item?.ruta) return "Marcar como leída";
   if (item.tipo === "compras") return "Abrir pedido";
   if (item.tipo === "logistica") return "Ver movimiento";
-  if (item.tipo === "recepcion") return "Ver recepción";
+  if (item.tipo === "recepcion") return item.meta?.producto ? "Ver producto" : "Ver recepción";
   if (item.tipo === "produccion") return "Ver alerta";
   return "Abrir";
 }

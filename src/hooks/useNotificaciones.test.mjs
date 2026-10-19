@@ -240,3 +240,18 @@ test("una versión nueva genera un aviso una vez y vuelve a quedar sin leer", as
     assert.equal(h.output.freshEvents.length, 0);
   } finally { h.close(); }
 });
+
+test("producto confirmado avisa a su audiencia de Pañol, permite leerlo y no reaparece al recargar", async () => {
+  const producto = { id: "confirmacion", material_id: "parlante", descripcion: "PARLANTE FUSION", sedes: ["Pampa"], destinatarios: ["A"], actor_id: "tecnica", created_at: new Date().toISOString() };
+  let rows = [];
+  const h = harness(({ table }) => ({ data: table === "panol_productos_resueltos" ? rows : [], error: null }));
+  try {
+    await h.flush();rows = [producto];await h.output.recargar();await h.flush();
+    assert.equal(h.output.unreadCount, 1);assert.equal(h.output.freshEvents.length, 1);
+    const n = h.output.lista[0];assert.equal(n.titulo, "Producto confirmado");assert.equal(n.gravedad, "success");assert.equal(n.requiereAccion, false);
+    assert.equal(n.ruta, "/stock-panol?material=parlante");assert.equal(n.clave, "recepcion:producto-confirmacion");
+    await h.output.markLeido(n);await h.flush();assert.equal(h.output.unreadCount, 0);
+    await h.output.recargar();await h.flush();assert.equal(h.output.unreadCount, 0);
+    h.setProfile({ id: "B", role: "panol", sede: "Chubut" });await h.flush();assert.equal(h.output.lista.length, 0);
+  } finally { h.close(); }
+});

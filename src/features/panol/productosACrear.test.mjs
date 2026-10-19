@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { productosACrear, puedeCrearProductosDeBarco, renglonSinProducto } from "./productosACrear.js";
+import { fichasPanolPorConfirmar, productosACrear, puedeCrearProductosDeBarco, renglonSinProducto } from "./productosACrear.js";
 
 const AHORA = new Date("2026-10-19T12:00:00Z").getTime();
 const fila = (extra) => ({ estado: "en_panol", source: "remito", recepcion_estado: "recibido", stock_sede: "Chubut", cantidad: 1, unidad: "unidad", ...extra });
@@ -47,4 +47,21 @@ test("pañol no crea productos de barco; administración y técnica sí", () => 
   assert.equal(puedeCrearProductosDeBarco({ role: "panol", is_admin: true }), true);
   assert.equal(puedeCrearProductosDeBarco({ role: "tecnica" }), true);
   assert.equal(puedeCrearProductosDeBarco(null), false);
+});
+
+test("los parlantes ya vinculados a fichas provisionales también esperan confirmación", () => {
+  const catalogo = [{ id: "parlante", descripcion: "PARLANTE FUSION XS-FLT652SPW", codigo: "010-02583-00", revisado: false, created_by_nombre: "pañol.chubut" }];
+  const rows = [fila({ id: "ingreso", material_id: "parlante", requisito_material_id: "parlante", descripcion: "PARLANTE FUSION XS-FLT652SPB", cantidad: 3, created_at: "2026-10-19T09:00:00Z" })];
+  assert.equal(productosACrear(rows, { ahora: AHORA }).length, 0);
+  const [g] = fichasPanolPorConfirmar(catalogo, rows, { ahora: AHORA });
+  assert.equal(g.materialId, "parlante");assert.equal(g.enStock, 3);assert.deepEqual(g.ids, ["ingreso"]);
+  assert.deepEqual(g.descripcionesIngreso, ["PARLANTE FUSION XS-FLT652SPB"]);
+  assert.equal(fichasPanolPorConfirmar([{ ...catalogo[0], revisado: true }], rows, { ahora: AHORA }).length, 0);
+});
+
+test("fichas por confirmar excluyen consumibles, anulados, necesidades y pedidos sin recibir", () => {
+  const rows = [fila({ id: "a", material_id: "m", descripcion: "Producto", notas: "[anulado]" }),fila({ id: "b", material_id: "m", descripcion: "Producto", estado: "comprado", source: "compra", recepcion_estado: "pendiente" })];
+  assert.deepEqual(fichasPanolPorConfirmar([{ id: "m", revisado: false }], rows, { ahora: AHORA }), []);
+  const real = [fila({ id: "c", material_id: "m", descripcion: "Producto" })];
+  for (const flags of [{ es_consumible: true }, { es_requisito: true }, { activo: false }]) assert.deepEqual(fichasPanolPorConfirmar([{ id: "m", ...flags }], real, { ahora: AHORA }), []);
 });

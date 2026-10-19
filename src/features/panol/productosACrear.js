@@ -76,6 +76,32 @@ export function productosACrear(rows = [], { ahora = Date.now(), dias = DIAS_REC
     .sort((a, b) => new Date(b.ultimo || 0) - new Date(a.ultimo || 0));
 }
 
+/** Fichas provisionales anteriores al circuito sin ficha, con movimientos reales. */
+export function fichasPanolPorConfirmar(catalogo = [], rows = [], { ahora = Date.now(), dias = DIAS_RECIENTES } = {}) {
+  const catalogoById = new Map(catalogo.filter((m) => m.revisado !== true && m.activo !== false && !m.es_consumible && !m.es_requisito).map((m) => [m.id, m]));
+  const grupos = new Map();
+  for (const row of rows) {
+    const material = catalogoById.get(row.material_id);
+    if (!material || rowIsAnulado(row) || rowIsLocationChange(row) || !(rowCountsAsStock(row) || rowHasRecordedEgreso(row))) continue;
+    let g = grupos.get(material.id);
+    if (!g) {
+      g = { key: `ficha:${material.id}`, materialId: material.id, descripcion: material.descripcion, codigo: material.codigo || "", unidad: material.unidad_medida || "unidad", proveedor: material.proveedor || "", quien: material.created_by_nombre || "Pañol", enStock: 0, ids: [], sedes: new Set(), obras: new Set(), descripcionesIngreso: new Set(), ultimo: null };
+      grupos.set(material.id, g);
+    }
+    g.ids.push(row.id);
+    g.enStock += rowDelta(row);
+    if (rowSede(row)) g.sedes.add(rowSede(row));
+    if (row.obra_id) g.obras.add(rowObraLabel(row));
+    if (row.descripcion && row.descripcion !== material.descripcion) g.descripcionesIngreso.add(row.descripcion);
+    const at = rowMovementAt(row);
+    if (at && (!g.ultimo || new Date(at) > new Date(g.ultimo))) g.ultimo = at;
+  }
+  const desde = ahora - dias * DIA;
+  return [...grupos.values()].filter((g) => g.enStock > 0.0001 || (g.ultimo && new Date(g.ultimo).getTime() >= desde))
+    .map((g) => ({ ...g, enStock: Math.round(g.enStock * 1000) / 1000, sedes: [...g.sedes].sort(), obras: [...g.obras].sort(), descripcionesIngreso: [...g.descripcionesIngreso] }))
+    .sort((a, b) => new Date(b.ultimo || 0) - new Date(a.ultimo || 0));
+}
+
 /** ¿Puede este perfil dar de alta productos de los barcos? Pañol, no. */
 export function puedeCrearProductosDeBarco(profile) {
   if (!profile) return false;

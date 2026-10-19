@@ -13,9 +13,9 @@ import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
 import NormalizacionIngresosPanel from "@/features/panol/NormalizacionIngresosPanel";
 import ProductosACrearPanel from "@/features/panol/ProductosACrearPanel";
-import { productosACrear } from "@/features/panol/productosACrear";
+import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/productosACrear";
 import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
-import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
+import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchFichasPanolPendientes, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
@@ -1030,6 +1030,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
   // ── Datos ──
   const [rows, setRows] = useState([]);
+  const [fichasPendientes, setFichasPendientes] = useState([]);
+  const [errorFichas, setErrorFichas] = useState("");
   // Los consumibles corren por su propio apartado: acá se usan para sacarlos
   // del stock maestro y del historial general.
   const [consumibleIds, setConsumibleIds] = useState(() => new Set());
@@ -1057,6 +1059,14 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
         fetchConsumibleIds().catch(() => new Set()),
       ]);
       setRows(stockRows);
+      if (canNormalize) {
+        try {
+          setFichasPendientes(await fetchFichasPanolPendientes());
+          setErrorFichas("");
+        } catch (error) {
+          setErrorFichas(error.message || "No se pudieron cargar las fichas.");
+        }
+      }
       setConsumibleIds(consumibles);
       setLoading(false);
 
@@ -1077,7 +1087,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       setLoading(false);
       setObrasLoading(false);
     }
-  }, [sedeLocked, toast]);
+  }, [canNormalize, sedeLocked, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -1212,7 +1222,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const rowsSinConsumibles = useMemo(() => sinConsumibles(rows, consumibleIds), [rows, consumibleIds]);
   const consumiblesOcultos = rows.length - rowsSinConsumibles.length;
   // Lo que pañol ingresó sin ficha: Técnica lo crea o lo vincula desde la bandeja.
-  const productosACrearCount = useMemo(() => (canNormalize ? productosACrear(rows).length : 0), [canNormalize, rows]);
+  const productosACrearCount = useMemo(() => (canNormalize ? productosACrear(rows).length + fichasPanolPorConfirmar(fichasPendientes, rows).length : 0), [canNormalize, rows, fichasPendientes]);
 
   const wmsProps = {
     sedeLocked,
@@ -1522,7 +1532,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 {movimientosView === "devoluciones" ? (
                   <DevolucionesPanel isMobile={isMobile} />
                 ) : movimientosView === "a_crear" && canNormalize ? (
-                  <ProductosACrearPanel rows={rows} isMobile={isMobile} toast={toast} onSaved={cargar} onIrAEstandarizacion={() => handleMovimientosView("normalizacion")} />
+                  <ProductosACrearPanel rows={rows} fichasPendientes={fichasPendientes} errorFichas={errorFichas} isMobile={isMobile} toast={toast} onSaved={cargar} onIrAEstandarizacion={() => handleMovimientosView("normalizacion")} onOpenCatalog={(id) => nav(`/catalogo-maestro?material=${id}`)} />
                 ) : movimientosView === "normalizacion" && canNormalize ? (
                   <NormalizacionIngresosPanel
                     rows={rowsSinConsumibles}

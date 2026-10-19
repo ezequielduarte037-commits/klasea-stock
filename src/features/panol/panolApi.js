@@ -1645,6 +1645,35 @@ export async function registrarCambioUbicacionMaterial(material = null, {
   return data?.id || null;
 }
 
+export async function fetchFichasPanolPendientes() {
+  const materiales = [];
+  for (let from = 0; ; from += 500) {
+    const { data, error } = await supabase.from("panol_materiales")
+      .select("id,descripcion,codigo,unidad_medida,proveedor,revisado,activo,es_requisito,es_consumible,created_by,created_at")
+      .not("revisado", "is", true).not("es_consumible", "is", true)
+      .not("es_requisito", "is", true).eq("activo", true).order("created_at", { ascending: false }).order("id").range(from, from + 499);
+    if (error) throw error;
+    materiales.push(...(data || []));
+    if ((data || []).length < 500) break;
+  }
+  const ids = [...new Set(materiales.map((row) => row.created_by).filter(Boolean))];
+  const autores = new Map();
+  for (let from = 0; from < ids.length; from += 400) {
+    const { data, error } = await supabase.from("profiles").select("id,username,role").in("id", ids.slice(from, from + 400));
+    if (error) throw error;
+    for (const p of data || []) autores.set(p.id, p);
+  }
+  return materiales.filter((row) => autores.get(row.created_by)?.role === "panol")
+    .map((row) => ({ ...row, created_by_nombre: autores.get(row.created_by)?.username || "Pañol" }));
+}
+
+export async function confirmarFichaPanol(materialId) {
+  const { data, error } = await supabase.rpc("panol_confirmar_producto_catalogo", { p_material_id: materialId });
+  if (error) throw error;
+  invalidatePanolCatalogFullCache();
+  return data;
+}
+
 export async function vincularMovimientosAMaterial(snapshotIds = [], materialId) {
   const ids = [...new Set((snapshotIds || []).filter(Boolean))];
   if (!ids.length || !materialId) return 0;

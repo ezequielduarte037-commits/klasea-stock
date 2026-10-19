@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Link2, LoaderCircle, PackagePlus, Search, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import { buscarCatalogoParaEstandarizacion, crearPanolCatalogMaterial, invalidatePanolCatalogFullCache, vincularMovimientosAMaterial } from "@/features/panol/panolApi";
-import { productosACrear } from "@/features/panol/productosACrear";
+import { buscarCatalogoParaEstandarizacion, confirmarFichaPanol, crearPanolCatalogMaterial, invalidatePanolCatalogFullCache, vincularMovimientosAMaterial } from "@/features/panol/panolApi";
+import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/productosACrear";
 
 const fmt = (n) => Number(Math.round(Number(n || 0) * 100) / 100).toLocaleString("es-AR");
 const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) : "");
@@ -14,11 +14,12 @@ const norm = (v) => String(v || "").toLowerCase().normalize("NFD").replace(/[̀-
  * lo vincula a un producto que ya existe o lo crea; lo que se crea queda sin
  * revisar y sigue en Estandarización (rubro, proveedores, línea).
  */
-export default function ProductosACrearPanel({ rows = [], isMobile = false, toast, onSaved, onIrAEstandarizacion }) {
+export default function ProductosACrearPanel({ rows = [], fichasPendientes = [], errorFichas = "", isMobile = false, toast, onSaved, onIrAEstandarizacion, onOpenCatalog }) {
   const confirmar = useConfirm();
   const [abierto, setAbierto] = useState(null);
   const [filtro, setFiltro] = useState("");
-  const grupos = useMemo(() => productosACrear(rows), [rows]);
+  const grupos = useMemo(() => [...productosACrear(rows), ...fichasPanolPorConfirmar(fichasPendientes, rows)]
+    .sort((a, b) => new Date(b.ultimo || 0) - new Date(a.ultimo || 0)), [rows, fichasPendientes]);
   const visibles = useMemo(() => {
     const q = norm(filtro);
     if (!q) return grupos;
@@ -31,7 +32,7 @@ export default function ProductosACrearPanel({ rows = [], isMobile = false, toas
       <div className="pac-cab">
         <div className="pac-cab-texto">
           <div className="pac-titulo">Productos a crear <span className="pac-num">{grupos.length}</span></div>
-          <div className="pac-sub">Entraron al pañol sin ficha en el catálogo. Vinculalos a uno que ya existe o crealos; lo nuevo se completa después en Estandarización.</div>
+          <div className="pac-sub">Ingresos sin ficha y productos creados por Pañol que esperan confirmación de Técnica.</div>
         </div>
         {grupos.length > 4 ? (
           <label className="pac-buscar">
@@ -41,11 +42,12 @@ export default function ProductosACrearPanel({ rows = [], isMobile = false, toas
         ) : null}
       </div>
 
+      {errorFichas ? <div role="alert" className="pac-nota">No se pudieron cargar las fichas por confirmar. Actualizá para reintentar.</div> : null}
       <div className="pac-lista">
         {!grupos.length ? (
           <div className="pac-vacio">
             <CheckCircle2 size={22} aria-hidden="true" />
-            <strong>No hay nada esperando ficha</strong>
+            <strong>{errorFichas ? "La lista está incompleta" : "No hay nada esperando ficha"}</strong>
             <span>Cuando pañol ingrese algo de un barco que no está en el catálogo, aparece acá.</span>
           </div>
         ) : !visibles.length ? (
@@ -64,6 +66,7 @@ export default function ProductosACrearPanel({ rows = [], isMobile = false, toas
               await onSaved?.();
             }}
             onIrAEstandarizacion={onIrAEstandarizacion}
+            onOpenCatalog={onOpenCatalog}
           />
         ))}
       </div>
@@ -71,7 +74,7 @@ export default function ProductosACrearPanel({ rows = [], isMobile = false, toas
   );
 }
 
-function Grupo({ grupo: g, abierto, onAbrir, toast, confirmar, onListo, onIrAEstandarizacion }) {
+function Grupo({ grupo: g, abierto, onAbrir, toast, confirmar, onListo, onIrAEstandarizacion, onOpenCatalog }) {
   return (
     <section className={`pac-grupo${abierto ? " is-abierto" : ""}`}>
       <button type="button" className="pac-grupo-fila" onClick={onAbrir} aria-expanded={abierto}>
@@ -83,6 +86,7 @@ function Grupo({ grupo: g, abierto, onAbrir, toast, confirmar, onListo, onIrAEst
           </span>
         </span>
         <span className="pac-chips">
+          {g.materialId ? <span className="pac-chip">Ficha por confirmar</span> : null}
           {g.enStock > 0.0001 ? <span className="pac-chip is-verde">hay <b>{fmt(g.enStock)}</b></span> : <span className="pac-chip">sin saldo</span>}
           {g.obras.slice(0, 3).map((o) => <span key={o} className="pac-chip is-mono">{o}</span>)}
           {g.obras.length > 3 ? <span className="pac-chip">+{g.obras.length - 3}</span> : null}
@@ -90,9 +94,35 @@ function Grupo({ grupo: g, abierto, onAbrir, toast, confirmar, onListo, onIrAEst
           <span className="ui-btn pac-resolver">{abierto ? "Cerrar" : "Resolver"}</span>
         </span>
       </button>
-      {abierto ? <Resolver grupo={g} toast={toast} confirmar={confirmar} onListo={onListo} onIrAEstandarizacion={onIrAEstandarizacion} /> : null}
+      {abierto ? g.materialId
+        ? <ConfirmarFicha grupo={g} toast={toast} confirmar={confirmar} onListo={onListo} onOpenCatalog={onOpenCatalog} />
+        : <Resolver grupo={g} toast={toast} confirmar={confirmar} onListo={onListo} onIrAEstandarizacion={onIrAEstandarizacion} /> : null}
     </section>
   );
+}
+
+function ConfirmarFicha({ grupo: g, toast, confirmar, onListo, onOpenCatalog }) {
+  const [ocupado, setOcupado] = useState(false);
+  async function confirmarFicha() {
+    const ok = await confirmar({ title: "¿Confirmar este producto?", message: `“${g.descripcion}” quedará confirmado por Técnica. Se avisará a Pañol.`, confirmLabel: "Confirmar producto" });
+    if (!ok) return;
+    setOcupado(true);
+    try {
+      await confirmarFichaPanol(g.materialId);
+      await onListo("Producto confirmado. Pañol recibirá el aviso.");
+    } catch (err) {
+      toast?.error?.(err.message || "No se pudo confirmar el producto.");
+      setOcupado(false);
+    }
+  }
+  return <div className="pac-resolver-cuerpo" style={{ display: "grid", gap: 10 }}>
+    <div className="pac-nota">Esta ficha ya existe, pero fue creada por Pañol y todavía no está confirmada. Revisá nombre, código y modelo.</div>
+    {g.descripcionesIngreso.map((texto) => <div key={texto} className="pac-nota">En el ingreso figura: {texto}</div>)}
+    <div className="pac-pie">
+      {onOpenCatalog ? <button type="button" className="ui-btn" onClick={() => onOpenCatalog(g.materialId)}>Revisar ficha</button> : <span />}
+      <button type="button" className="ui-btn ui-btn-primario" disabled={ocupado} onClick={confirmarFicha}>{ocupado ? "Confirmando…" : "Confirmar producto"}</button>
+    </div>
+  </div>;
 }
 
 function Resolver({ grupo: g, toast, confirmar, onListo, onIrAEstandarizacion }) {

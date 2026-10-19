@@ -99,7 +99,7 @@ function queryFields(query = {}) {
   };
 }
 
-export function materialMatchScore(material = {}, query = {}) {
+function rawMaterialMatchScore(material = {}, query = {}) {
   const fields = queryFields(query);
   const queryText = normalizeMaterialSearch(fields.text);
   const queryCode = normalizeMaterialSearch(fields.code);
@@ -160,6 +160,22 @@ export function materialMatchScore(material = {}, query = {}) {
   if (matched.length >= 2) return Math.round(54 + matchRatio * 28 + coverage * 8);
   if (matched.length === 1 && queryTokens.length === 1) return Math.round(62 + coverage * 28);
   return 0;
+}
+
+function modelosExplicitos(text = "") {
+  return String(text).toLowerCase().match(/\b(?=[a-z0-9-]*[a-z])(?=[a-z0-9-]*\d)[a-z0-9]+(?:-[a-z0-9]+)*\b/g)
+    ?.map((modelo) => modelo.replace(/-/g, "")).filter((modelo) => modelo.length >= 3) || [];
+}
+
+export function materialMatchScore(material = {}, query = {}) {
+  const score = rawMaterialMatchScore(material, query);
+  const buscados = modelosExplicitos(queryFields(query).text);
+  const catalogados = modelosExplicitos(material.descripcion || material.nombre);
+  // Un modelo, tensión o variante explícitamente distinto puede sugerirse, pero
+  // nunca vincularse solo por parecido textual o por un código de proveedor.
+  const contradiccion = buscados.length && catalogados.length
+    && (buscados.some((modelo) => !catalogados.includes(modelo)) || catalogados.some((modelo) => !buscados.includes(modelo)));
+  return contradiccion ? Math.min(score, 87) : score;
 }
 
 export function topMaterialMatches(catalog = [], query = {}, limit = 8, minScore = 42) {

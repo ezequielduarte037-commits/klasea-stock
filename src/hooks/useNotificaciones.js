@@ -41,9 +41,9 @@ const COMPRA_TERMINAL_STATES = ["recibido", "cancelado"];
 const COMPRA_TERMINAL_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
 const AVISO_ACTIVE_STATES = ["nuevo", "visto", "en_proceso"];
 
-const EMPTY_SOURCES = { envios: [], compras: [], avisos: [], logistica: [], alertas: [] };
+const EMPTY_SOURCES = { envios: [], productos: [], compras: [], avisos: [], logistica: [], alertas: [] };
 const SOURCE_LABELS = {
-  envios: "Recepción", compras: "Compras", avisos: "Avisos a compras", logistica: "Logística",
+  envios: "Recepción", productos: "Productos de Pañol", compras: "Compras", avisos: "Avisos a compras", logistica: "Logística",
   alertas: "Producción", lecturas: "Lecturas",
 };
 
@@ -205,6 +205,7 @@ export default function useNotificaciones(profile) {
   const syncLecturas = enabled && !recipient.is_demo;
   const loadKey = enabled ? `${yo}:${role}:${recipient.sede || ""}:${recipient.is_admin}:${recipient.is_demo}` : "";
   const verRecepcion = enabled && puedeVerRecepcion(recipient);
+  const verProductos = enabled && role === "panol" && !recipient.is_demo;
   const verProduccion = enabled && puedeVerProduccion(recipient);
   const verCompras = enabled && puedeVerCompras(recipient);
   const verLogistica = enabled && puedeVerLogistica(recipient);
@@ -279,6 +280,14 @@ export default function useNotificaciones(profile) {
     if (error) throw error;
     return (data ?? []).filter((row) => audienciaRecepcion(row, recipient).ok);
   }), [loadSource, recipient, verRecepcion]);
+
+  const cargarProductos = useCallback(() => loadSource("productos", verProductos, async () => {
+    const { data, error } = await supabase.from("panol_productos_resueltos")
+      .select("id,material_id,descripcion,codigo,sedes,destinatarios,actor_id,created_at")
+      .order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    return (data || []).filter((row) => row.destinatarios?.includes(yo) && row.actor_id !== yo);
+  }), [loadSource, verProductos, yo]);
 
   const cargarCompras = useCallback(() => loadSource("compras", verCompras, async () => {
     const pedir = ({ select, states, limit, applyFilter, updatedSince = null }) => {
@@ -372,8 +381,8 @@ export default function useNotificaciones(profile) {
   }), [loadSource, recipient, sincronizarLecturas, syncLecturas, yo]);
 
   const recargar = useCallback(() => Promise.allSettled([
-    cargarRecepcion(), cargarCompras(), cargarAvisos(), cargarLogistica(), cargarAlertas(), cargarLecturas(),
-  ]), [cargarAlertas, cargarAvisos, cargarCompras, cargarLecturas, cargarLogistica, cargarRecepcion]);
+    cargarRecepcion(), cargarProductos(), cargarCompras(), cargarAvisos(), cargarLogistica(), cargarAlertas(), cargarLecturas(),
+  ]), [cargarAlertas, cargarAvisos, cargarCompras, cargarLecturas, cargarLogistica, cargarProductos, cargarRecepcion]);
 
   useEffect(() => {
     let active = true;
@@ -407,6 +416,8 @@ export default function useNotificaciones(profile) {
     const channels = [];
     if (verRecepcion) channels.push(supabase.channel(`rt-notif-panol-envios-${yo}-${instancia}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "panol_envios" }, () => schedule(cargarRecepcion)).subscribe());
+    if (verProductos) channels.push(supabase.channel(`rt-notif-panol-productos-${yo}-${instancia}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "panol_productos_resueltos" }, () => schedule(cargarProductos)).subscribe());
     if (verCompras) {
       const channel = supabase.channel(`rt-notif-compras-${yo}-${instancia}`);
       for (const table of ["purchase_requests", "purchase_request_items", "request_comments", "request_followers"]) {
@@ -437,14 +448,14 @@ export default function useNotificaciones(profile) {
       if (contextRef.current === loadKey) requestIdsRef.current = {};
     };
   }, [
-    cargarAlertas, cargarAvisos, cargarCompras, cargarLecturas, cargarLogistica, cargarRecepcion,
+    cargarAlertas, cargarAvisos, cargarCompras, cargarLecturas, cargarLogistica, cargarProductos, cargarRecepcion,
     colaCompras, enabled, instancia, loadKey, recargar, recipient, role, syncLecturas, verCompras, verLogistica,
-    verProduccion, verRecepcion, yo,
+    verProduccion, verProductos, verRecepcion, yo,
   ]);
 
   // La clave en cada estado evita mostrar datos de la cuenta anterior incluso
   // durante el render previo a ejecutar los efectos del nuevo usuario.
-  const { envios, compras, avisos, logistica, alertas } = sourceState.key === loadKey ? sourceState : EMPTY_SOURCES;
+  const { envios, productos, compras, avisos, logistica, alertas } = sourceState.key === loadKey ? sourceState : EMPTY_SOURCES;
   const statuses = statusState.key === loadKey ? statusState.sources : {};
   const loading = enabled && (initialLoadedKey !== loadKey || Object.values(statuses).some((item) => item.loading));
   const vistas = useMemo(() => vistasState.userId === yo ? vistasState.map : {}, [vistasState, yo]);
@@ -452,6 +463,16 @@ export default function useNotificaciones(profile) {
   const notificaciones = useMemo(() => {
     if (!enabled) return [];
     const out = [];
+    if (verProductos) for (const producto of productos) {
+      if (!producto.id || !producto.destinatarios?.includes(yo) || producto.actor_id === yo) continue;
+      out.push({
+        clave: `recepcion:producto-${producto.id}`, tipo: "recepcion", gravedad: "success", titulo: "Producto confirmado",
+        detalle: [producto.descripcion, ...(producto.sedes || [])].filter(Boolean).join(" · "),
+        fecha: producto.created_at, actor: null, requiereAccion: false, why: "producto-resuelto-panol",
+        ruta: producto.material_id ? `/stock-panol?material=${encodeURIComponent(producto.material_id)}` : "/stock-panol",
+        meta: { producto },
+      });
+    }
     if (verRecepcion) for (const envio of envios) {
       if (!audienciaRecepcion(envio, recipient).ok) continue;
       const destino = envio.destino || envio.origen || "";
@@ -509,7 +530,7 @@ export default function useNotificaciones(profile) {
     }
     return out.map((item) => ({ ...item, id: `${item.clave}@${item.fecha || ""}` }))
       .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
-  }, [alertas, avisos, compras, enabled, envios, logistica, recipient, verCompras, verLogistica, verProduccion, verRecepcion, yo]);
+  }, [alertas, avisos, compras, enabled, envios, logistica, productos, recipient, verCompras, verLogistica, verProduccion, verProductos, verRecepcion, yo]);
 
   const marcarVista = useCallback((items) => {
     if (!enabled || contextRef.current !== loadKey) return Promise.resolve({ ok: false });
