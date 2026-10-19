@@ -32,6 +32,7 @@ import {
 import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
+import { puedeCrearProductosDeBarco } from "@/features/panol/productosACrear";
 import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
 import ScannerRemitosTab from "@/features/panol/ScannerRemitosTab";
 import RemitosArchivoTab from "@/features/panol/RemitosArchivoTab";
@@ -141,10 +142,10 @@ const CSS_RECEPCION = `
   }
 `;
 
-function RecepcionTabs({ tab, onTab, ingresarCount = 0 }) {
+function RecepcionTabs({ tab, onTab, ingresarCount = 0, tabsMas = TABS_MAS }) {
   const [menu, setMenu] = useState(null);
   const botonMas = useRef(null);
-  const enMenu = TABS_MAS.some((t) => t.key === tab);
+  const enMenu = tabsMas.some((t) => t.key === tab);
 
   useEffect(() => {
     if (!menu) return undefined;
@@ -210,7 +211,7 @@ function RecepcionTabs({ tab, onTab, ingresarCount = 0 }) {
         <>
           <div onClick={() => setMenu(null)} style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 60 }} />
           <div className="rp-menu" role="menu" style={{ top: menu.top, left: menu.left, width: menu.ancho, maxHeight: menu.alto }}>
-            {TABS_MAS.map((t) => {
+            {tabsMas.map((t) => {
               const activo = tab === t.key;
               return (
                 <button
@@ -546,6 +547,10 @@ export default function RecepcionPanolScreen({ profile }) {
   const userSede = profile?.sede || null;
   const sedeLocked = role === "panol" && (userSede === "Pampa" || userSede === "Chubut") ? userSede : null;
   const canReceive = isManager || role === "panol";
+  // Pañol no da de alta productos de los barcos: lo nuevo entra sin ficha desde
+  // el ingreso y Técnica lo crea desde Stock → Movimientos → Productos a crear.
+  const soloConsumibles = profile ? !puedeCrearProductosDeBarco(profile) : false;
+  const tabsMas = soloConsumibles ? TABS_MAS.filter((t) => t.key !== "crear") : TABS_MAS;
 
   const [envios, setEnvios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -555,11 +560,14 @@ export default function RecepcionPanolScreen({ profile }) {
   const [fEstado, setFEstado] = useState("activos");
   const [fPrio, setFPrio] = useState("todas");
   const [q, setQ] = useState("");
-  const [tab, setTabState] = useState(() => readStoredPanolTab(requestedTab));
+  const [tab, setTabState] = useState(() => {
+    const inicial = readStoredPanolTab(requestedTab);
+    return soloConsumibles && inicial === "crear" ? "recepcion" : inicial;
+  });
   const [solicitudOpen, setSolicitudOpen] = useState(false);
   const setTab = useCallback((nextTab) => {
     const requested = nextTab === "pendientes" ? "ingresar" : nextTab;
-    const value = PANOL_TABS.has(requested) ? requested : "recepcion";
+    const value = PANOL_TABS.has(requested) && !(soloConsumibles && requested === "crear") ? requested : "recepcion";
     setTabState(value);
     if (typeof window !== "undefined") window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, value);
     const nextParams = new URLSearchParams(searchParams);
@@ -568,7 +576,7 @@ export default function RecepcionPanolScreen({ profile }) {
     nextParams.delete("material");
     nextParams.delete("item");
     setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, soloConsumibles]);
   const [modalPrefill, setModalPrefill] = useState(null);
   const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
   const [papelera, setPapelera] = useState(() => leerPapeleraIngresos());
@@ -711,6 +719,7 @@ export default function RecepcionPanolScreen({ profile }) {
       >
         <RecepcionTabs
           tab={tab}
+          tabsMas={tabsMas}
           ingresarCount={pendientes.length}
           onTab={(next) => {
             if (next === "ingresar") refreshPendientes();
@@ -854,7 +863,7 @@ export default function RecepcionPanolScreen({ profile }) {
         />
       ) : tab === "consumibles" ? (
         <ConsumiblesPanolTab isMobile={isMobile} toast={toast} sedeLocked={sedeLocked} canReceive={canReceive} isAdmin={isAdmin} />
-      ) : tab === "crear" ? (
+      ) : tab === "crear" && !soloConsumibles ? (
         <CrearProductoTab isMobile={isMobile} toast={toast} />
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>

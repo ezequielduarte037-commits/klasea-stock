@@ -10,6 +10,7 @@ import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, normalizeBarcode } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
+import { puedeCrearProductosDeBarco } from "@/features/panol/productosACrear";
 import { borrarIngresoPendiente, guardarIngresoPendiente, leerIngresosPendientes, olvidarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
@@ -413,7 +414,7 @@ function matchToItem(match, material = null) {
   };
 }
 
-function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial = new Map(), sede = "", onLink, onClear, onCreate, creating = false }) {
+function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial = new Map(), sede = "", onLink, onClear, onCreate, creating = false, onMarcarNuevo, marcadoNuevo = false }) {
   const [q, setQ] = useState("");
   const currentMaterial = catalog.find((material) => material.id === item.material_id);
   const linkedRequirement = currentMaterial?.es_requisito === true ? currentMaterial : null;
@@ -469,6 +470,16 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
               >
                 {creating ? "Creando..." : "Crear nuevo"}
               </button>
+            ) : onMarcarNuevo ? (
+              <button
+                type="button"
+                onClick={() => onMarcarNuevo(!marcadoNuevo)}
+                aria-pressed={marcadoNuevo}
+                title="No está en el catálogo: entra al stock sin ficha y Técnica lo da de alta"
+                style={{ border: `1px solid ${marcadoNuevo ? C.tealB ?? C.b0 : C.violetB ?? C.b0}`, background: marcadoNuevo ? C.tealL : C.violetL, color: marcadoNuevo ? C.teal : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+              >
+                {marcadoNuevo ? "Es nuevo ✓ · deshacer" : "Es nuevo: entra sin ficha"}
+              </button>
             ) : (
               <span style={{ color: C.violet, fontSize: 11, fontWeight: 650, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
             )}
@@ -482,9 +493,14 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
       )}
       {/* Sin esto, un ítem que no vincula no dice NADA y es imposible saber si el
           catálogo no lo tiene o si lo tiene pero el parecido no alcanzó. */}
-      {!selected && results.length === 0 && (
+      {!selected && marcadoNuevo && (
+        <div style={{ marginLeft: 81, color: C.teal, fontSize: 11.5, fontWeight: 650 }}>
+          Entra al stock sin ficha. Técnica lo da de alta (o lo vincula) desde «Productos a crear».
+        </div>
+      )}
+      {!selected && !marcadoNuevo && results.length === 0 && (
         <div style={{ marginLeft: 81, color: C.t2, fontSize: 11.5 }}>
-          No hay nada parecido en el catálogo.{onCreate ? " Se crea nuevo al guardar." : " Creá el producto y volvé."}
+          No hay nada parecido en el catálogo.{onCreate ? " Se crea nuevo al guardar." : onMarcarNuevo ? " Si es nuevo, marcalo: entra sin ficha y Técnica lo da de alta." : " Creá el producto y volvé."}
         </div>
       )}
       {!selected && results.length > 0 && (
@@ -519,7 +535,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
       )}
       {!selected && q.trim() && results.length === 0 && (
         <div style={{ marginLeft: 81, color: C.t2, fontSize: 11 }}>
-          {onCreate ? "Sin coincidencias claras. Podés crear un material nuevo." : "No está en el catálogo. Crealo en la pestaña “Crear producto” y después ingresalo."}
+          {onCreate ? "Sin coincidencias claras. Podés crear un material nuevo." : onMarcarNuevo ? "Sin coincidencias claras. Si es nuevo, marcalo: entra sin ficha." : "No está en el catálogo. Crealo en la pestaña “Crear producto” y después ingresalo."}
         </div>
       )}
     </div>
@@ -784,6 +800,12 @@ export default function EnviarAPanolModal({
   // siempre: en un envío normal la IA cargaba 20 ítems con coincidencias y la fila
   // para elegirlas no se renderizaba, así que no había forma de vincularlos.
   const needsCatalogLink = true;
+  // Pañol no da de alta productos de los barcos (sí consumibles). Lo que no
+  // está en el catálogo se marca "es nuevo", entra sin ficha y Técnica lo crea
+  // o lo vincula desde Stock → Movimientos → Productos a crear. La base lo
+  // exige también (trg_panol_materiales_panol_solo_consumibles).
+  const soloConsumibles = profile ? !puedeCrearProductosDeBarco(profile) : false;
+  const puedeCrear = (item) => !soloConsumibles || item?.es_consumible === true || prefill?.esConsumibles === true;
   const sedeLocked = lockedSedeForProfile(profile);
   const sedesDisponibles = sedeLocked ? [sedeLocked] : SEDES_PANOL;
 
@@ -1403,11 +1425,15 @@ export default function EnviarAPanolModal({
         ];
       }
     }
-    setItems((prev) => prev.map((it, idx) => (idx === index ? { ...it, ...itemPatchFromMaterial(material, it) } : it)));
+    setItems((prev) => prev.map((it, idx) => (idx === index ? { ...it, ...itemPatchFromMaterial(material, it), a_crear: false } : it)));
   }
 
   async function createCatalogMaterialForItem(index) {
     const item = items[index];
+    if (!puedeCrear(item)) {
+      updateItem(index, { a_crear: true });
+      return null;
+    }
     const desc = String(item?.descripcion || "").trim();
     if (!desc) {
       toast.warning("Cargá una descripción antes de crear el material.");
@@ -1474,6 +1500,12 @@ export default function EnviarAPanolModal({
         prepared.push(item);
         continue;
       }
+      // Marcado "es nuevo" por pañol: entra sin ficha, aunque haya un parecido
+      // (lo vio y eligió no vincularlo). Queda en la bandeja de Técnica.
+      if (item.a_crear && !puedeCrear(item)) {
+        prepared.push({ ...item, material_id: null });
+        continue;
+      }
       // Si hay un match FUERTE con el catálogo, se vincula solo (evita duplicado) sin bloquear.
       const [best] = topCatalogMatches(catalogRows, item, 1);
       if (best && materialMatchIsStrong(best._score)) {
@@ -1483,6 +1515,9 @@ export default function EnviarAPanolModal({
       // Los remitos del scanner son evidencia operativa: una lectura dudosa no
       // puede crear identidad nueva en el catálogo. Pañol debe elegir el SKU
       // concreto antes de que este renglon llegue al stock.
+      if (!puedeCrear(item)) {
+        throw new Error(`“${item.descripcion || "Este renglón"}” no está en el catálogo. Vinculalo con un producto o marcalo como nuevo: entra sin ficha y Técnica lo da de alta.`);
+      }
       if (requireCatalogLinks) {
         throw new Error(`Vinculá “${item.descripcion || "este renglón"}” con un producto del catálogo antes de ingresar. El scanner no crea productos automáticamente.`);
       }
@@ -1958,6 +1993,8 @@ export default function EnviarAPanolModal({
         }
       }
       toast.success(`${isRemito ? "Materiales ingresados" : `Envío a Pañol ${sede} creado`} · ${preparedItems.length} ítem${preparedItems.length > 1 ? "s" : ""}`);
+      const sinFicha = preparedItems.filter((it) => it.a_crear && !it.material_id).length;
+      if (sinFicha) toast.info(`${sinFicha === 1 ? "1 producto entró" : `${sinFicha} productos entraron`} sin ficha: Técnica los da de alta desde «Productos a crear».`);
       const draftId = autoDraftIdRef.current || prefill?.draftId;
       if (draftId) olvidarIngresoPendiente(draftId);
       closeModal(true);
@@ -2666,7 +2703,9 @@ export default function EnviarAPanolModal({
                         creating={creatingCatalogIndex === i}
                         onLink={(material) => linkCatalogMaterial(i, material)}
                         onClear={() => updateItem(i, { material_id: "", variante: "" })}
-                        onCreate={isRemito ? undefined : () => createCatalogMaterialForItem(i)}
+                        onCreate={isRemito || !puedeCrear(it) ? undefined : () => createCatalogMaterialForItem(i)}
+                        onMarcarNuevo={puedeCrear(it) ? undefined : (valor) => updateItem(i, { a_crear: valor })}
+                        marcadoNuevo={it.a_crear === true}
                       />
                     )}
                     {isRemito && (

@@ -2540,7 +2540,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
   );
 }
 
-function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog, cierresByObra }) {
+function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCreateCatalog = false, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog, cierresByObra }) {
   const initialLocationKey = group
     ? (group.locations.find((loc) => loc.available > 0) || group.locations[0] || defaultLocation(sedeLocked || "Pampa")).key
     : "";
@@ -2738,7 +2738,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   }
 
   async function crearFichaParaUbicacion() {
-    if (!canReceive || creatingLocationMaterial) return;
+    // Crear la ficha es dar de alta un producto: pañol no lo hace (sí Técnica y Compras).
+    if (!canReceive || !canCreateCatalog || creatingLocationMaterial) return;
     setCreatingLocationMaterial(true);
     try {
       const created = await crearPanolCatalogMaterialParaEgreso({
@@ -2777,10 +2778,12 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       <div>
         <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>Ubicacion fisica del producto</div>
         <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}>
-          Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex.
+          {canCreateCatalog
+            ? "Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex."
+            : "Este producto todavía no tiene ficha en el catálogo. Técnica la crea o lo vincula desde Stock → Movimientos → Productos a crear; después se le asigna la estantería."}
         </div>
       </div>
-      <button
+      {canCreateCatalog && <button
         type="button"
         onClick={crearFichaParaUbicacion}
         disabled={creatingLocationMaterial}
@@ -2788,7 +2791,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       >
         <PackagePlus size={14} />
         {creatingLocationMaterial ? "Creando..." : "Crear ficha y ubicar"}
-      </button>
+      </button>}
     </div>
   );
 
@@ -4890,6 +4893,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             obras={obras}
             sedeLocked={sedeLocked}
             canReceive={canReceive}
+            canCreateCatalog={canCreateCatalog}
             mode={mode}
             onDone={refreshAfterMovement}
             toast={toast}

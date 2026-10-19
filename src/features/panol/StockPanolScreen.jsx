@@ -12,6 +12,8 @@ import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
 import NormalizacionIngresosPanel from "@/features/panol/NormalizacionIngresosPanel";
+import ProductosACrearPanel from "@/features/panol/ProductosACrearPanel";
+import { productosACrear } from "@/features/panol/productosACrear";
 import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
@@ -998,7 +1000,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const requestedQuery = embedded ? "" : (searchParams.get("q") || "");
   const normalizedRequestedTab = requestedTab === "mapa" || requestedTab === "reconciliar"
     ? "maestro"
-    : requestedTab === "devoluciones" || requestedTab === "normalizacion"
+    : requestedTab === "devoluciones" || requestedTab === "normalizacion" || requestedTab === "productos-a-crear"
       ? "movimientos"
       : requestedTab;
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
@@ -1018,7 +1020,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   // ── Navegación ──
   const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === normalizedRequestedTab) ? normalizedRequestedTab : "maestro");
   const [inventoryView, setInventoryView] = useState(() => requestedTab === "mapa" || requestedView === "mapa" ? "mapa" : "lista");
-  const [movimientosView, setMovimientosView] = useState(() => requestedTab === "devoluciones" ? "devoluciones" : requestedTab === "normalizacion" ? "normalizacion" : "todos");
+  const [movimientosView, setMovimientosView] = useState(() => requestedTab === "devoluciones" ? "devoluciones" : requestedTab === "normalizacion" ? "normalizacion" : requestedTab === "productos-a-crear" ? "a_crear" : "todos");
   const [maestroScope, setMaestroScope] = useState(() => requestedTab === "reconciliar" ? "reconciliar" : "existencia");
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
@@ -1086,6 +1088,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     if (requestedTab === "reconciliar") setMaestroScope("reconciliar");
     if (requestedTab === "devoluciones") setMovimientosView("devoluciones");
     else if (requestedTab === "normalizacion" && canNormalize) setMovimientosView("normalizacion");
+    else if (requestedTab === "productos-a-crear" && canNormalize) setMovimientosView("a_crear");
     if (!TABS.some((entry) => entry.key === normalizedRequestedTab) || normalizedRequestedTab === tab) return;
     setTab(normalizedRequestedTab);
   }, [canNormalize, embedded, normalizedRequestedTab, requestedTab, requestedView, tab]);
@@ -1198,7 +1201,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     setMovimientosView(view);
     if (embedded) return;
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("tab", view === "devoluciones" ? "devoluciones" : view === "normalizacion" ? "normalizacion" : "movimientos");
+    nextParams.set("tab", view === "devoluciones" ? "devoluciones" : view === "normalizacion" ? "normalizacion" : view === "a_crear" ? "productos-a-crear" : "movimientos");
     nextParams.delete("view");
     setSearchParams(nextParams, { replace: true });
   }
@@ -1208,6 +1211,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   // resto, separados por su rubro.
   const rowsSinConsumibles = useMemo(() => sinConsumibles(rows, consumibleIds), [rows, consumibleIds]);
   const consumiblesOcultos = rows.length - rowsSinConsumibles.length;
+  // Lo que pañol ingresó sin ficha: Técnica lo crea o lo vincula desde la bandeja.
+  const productosACrearCount = useMemo(() => (canNormalize ? productosACrear(rows).length : 0), [canNormalize, rows]);
 
   const wmsProps = {
     sedeLocked,
@@ -1498,7 +1503,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   <div role="group" aria-label="Tipo de movimiento" style={{ display: "inline-flex", gap: 2, padding: 2, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 8 }}>
                     {[
                       ["todos", "Historial"],
-                      ...(canNormalize ? [["normalizacion", "Estandarización"]] : []),
+                      ...(canNormalize ? [["normalizacion", "Estandarización"], ["a_crear", `Productos a crear${productosACrearCount ? ` (${productosACrearCount})` : ""}`]] : []),
                       ["devoluciones", "Devoluciones"],
                     ].map(([key, label]) => {
                       const active = movimientosView === key;
@@ -1512,6 +1517,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 </div>
                 {movimientosView === "devoluciones" ? (
                   <DevolucionesPanel isMobile={isMobile} />
+                ) : movimientosView === "a_crear" && canNormalize ? (
+                  <ProductosACrearPanel rows={rows} isMobile={isMobile} toast={toast} onSaved={cargar} onIrAEstandarizacion={() => handleMovimientosView("normalizacion")} />
                 ) : movimientosView === "normalizacion" && canNormalize ? (
                   <NormalizacionIngresosPanel
                     rows={rowsSinConsumibles}
