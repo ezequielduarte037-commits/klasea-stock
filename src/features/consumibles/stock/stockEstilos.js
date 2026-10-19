@@ -67,9 +67,11 @@ export const CSS_STOCK = `
   .stk .stk-fila.is-bajo { background: linear-gradient(90deg, var(--cyan-soft), transparent 45%); }
   .stk .stk-fila.is-negativo { background: linear-gradient(90deg, var(--red-soft), transparent 45%); }
   .stk .stk-prod {
-    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0;
+    display: flex; align-items: center; gap: 10px; min-width: 0;
     padding: 6px 0; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left;
   }
+  .stk .stk-prod-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+  .stk .stk-ficha-imagen { display: flex; justify-content: center; }
   .stk .stk-prod-desc { font-size: 14px; font-weight: 500; line-height: 1.25; }
   .stk .stk-prod:hover .stk-prod-desc { color: var(--blue); }
   .stk .stk-prod-meta { font-size: 12px; color: var(--dim); }

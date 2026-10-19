@@ -83,6 +83,7 @@ export function lineaDePedido(item, sede) {
   return {
     materialId: item.id,
     descripcion: item.descripcion,
+    imagenUrl: item.imagenUrl || item.imagen_url || null,
     codigoEtiqueta: item.codigoEtiqueta ?? null,
     proveedor: String(cfg.proveedor_nombre || "").trim() || null,
     codigoProveedor: String(cfg.proveedor_codigo || "").trim() || null,

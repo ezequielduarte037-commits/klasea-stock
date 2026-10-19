@@ -14,6 +14,7 @@ import Hoja from "../conteo/Hoja";
 import { fetchNombresDePerfiles } from "../conteo/conteoApi";
 import { unidadEnTexto } from "../conteo/conteoCalculos";
 import { CampoNumero } from "./CampoNumero";
+import FotoConsumible from "../FotoConsumible";
 
 /**
  * Ficha de un consumible desde Stock: stock de las dos sedes, mínimo y
@@ -101,6 +102,7 @@ export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo3
       onCerrar={onCerrar}
     >
       <div className="stk-ficha">
+        <div className="stk-ficha-imagen"><FotoConsumible item={item} size={112} /></div>
         <div className="stk-ficha-stocks">
           <div className="stk-ficha-stock">
             <span className="stk-lbl">Stock {sede}</span>

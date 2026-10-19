@@ -8,6 +8,7 @@ import { fmtCantidad, fmtPesos } from "@/features/consumibles/api";
 import { claveDia } from "../conteo/conteoCalculos";
 import { armarPedidoSugerido, conUnidadesDeCompra, filasExcel, textoWhatsApp, totalDePedido } from "./reposicion";
 import { mandarPedidoACompras } from "./stockApi";
+import FotoConsumible from "../FotoConsumible";
 
 /**
  * Pedido sugerido: lo que está en el mínimo o por debajo, en unidades de
@@ -160,8 +161,13 @@ export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProduct
                     <input type="checkbox" checked={!l.fuera} onChange={() => alternar(l.materialId)} aria-label={`Incluir ${l.descripcion}`} />
                   </span>
                   <span role="cell" className="stk-ped-prod">
-                    <button type="button" className="stk-link" onClick={() => onVerProducto(l.materialId)}>{l.descripcion}</button>
-                    <span className="stk-dim">{[l.codigoProveedor ? `Cód. ${l.codigoProveedor}` : "Sin código de proveedor", l.codigoEtiqueta].filter(Boolean).join(" · ")}</span>
+                    <button type="button" className="stk-prod" onClick={() => onVerProducto(l.materialId)}>
+                      <FotoConsumible item={l} />
+                      <span className="stk-prod-texto">
+                        <span className="stk-prod-desc">{l.descripcion}</span>
+                        <span className="stk-prod-meta">{[l.codigoProveedor ? `Cód. ${l.codigoProveedor}` : "Sin código de proveedor", l.codigoEtiqueta].filter(Boolean).join(" · ")}</span>
+                      </span>
+                    </button>
                   </span>
                   <span role="cell" className="is-num stk-num" data-lbl="Stock / mín.">
                     {l.sinContar ? <span className="stk-dim">sin contar</span> : <span className={l.stock < 0 ? "is-negativo" : ""}>{fmtCantidad(l.stock)}</span>} / {fmtCantidad(l.minimo)}

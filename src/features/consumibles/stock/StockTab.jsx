@@ -12,6 +12,7 @@ import ProductoPanel from "./ProductoPanel";
 import { armarPedidoSugerido, consumoDiarioPromedio, consumoPorMaterial, diasDeHistoria, minimoSugerido, necesitaReponer } from "./reposicion";
 import { fetchConsumo30Dias, fetchPrimerConteo } from "./stockApi";
 import { CSS_STOCK } from "./stockEstilos";
+import FotoConsumible from "../FotoConsumible";
 
 /**
  * Stock y reposición: el stock de consumibles de la sede (y el de la otra sede
@@ -288,8 +289,11 @@ export default function StockTab({ sede }) {
               return (
                 <div key={f.id} className={`stk-fila${bajo ? " is-bajo" : ""}${negativo ? " is-negativo" : ""}`} role="row">
                   <button type="button" role="cell" className="c-prod stk-prod" onClick={() => setSelId(f.id)}>
-                    <span className="stk-prod-desc">{f.descripcion}</span>
-                    <span className="stk-prod-meta">{[f.codigoEtiqueta, f.rubro].filter(Boolean).join(" · ")}</span>
+                    <FotoConsumible item={f} />
+                    <span className="stk-prod-texto">
+                      <span className="stk-prod-desc">{f.descripcion}</span>
+                      <span className="stk-prod-meta">{[f.codigoEtiqueta, f.rubro].filter(Boolean).join(" · ")}</span>
+                    </span>
                   </button>
                   <span role="cell" className="c-ubic stk-num" data-lbl="Ubicación">{f.ubicacion || <span className="stk-dim">—</span>}</span>
                   <span role="cell" className="c-stock is-num" data-lbl={sede}>
