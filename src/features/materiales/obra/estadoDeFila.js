@@ -133,11 +133,15 @@ function esFilaDelConteo(row) {
  * obra (el GHS 11 del 55-1 y un centenar más).
  */
 export function aporteDeFilaLedger(row) {
+  const recibido = toNum(String(row?.recepcion_cantidad_recibida ?? "").replace(",", "."));
+  const cantidad = row?.soloMovimientoDeMatriz && recibido != null && recibido >= 0
+    ? Math.min(Math.max(0, toNum(row?.cantidad) || 0), recibido)
+    : row?.cantidad;
   const panol = rowDelta({
     source: row?.source,
     estado: row?.snapshot_estado,
     recepcion_estado: row?.recepcion_estado,
-    cantidad: row?.cantidad,
+    cantidad,
     cantidad_egresada: row?.cantidad_egresada,
   });
   const retiradoDelConteo = esFilaDelConteo(row)

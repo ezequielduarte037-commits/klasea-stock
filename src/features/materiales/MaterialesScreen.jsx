@@ -72,6 +72,7 @@ import BandejaTab from "./BandejaTab";
 import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
 import { obraThemeScope } from "./obra/obraListaPresentation";
 import { aporteDeFilaLedger, cantidadesDeFila, estadoObraForRow } from "./obra/estadoDeFila";
+import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
 import PedidoObraModal from "./obra/PedidoObraModal";
 import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
 import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
@@ -4656,11 +4657,17 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   function snapshotIdsForOrderRow(row, saved = snapshot) {
     if (!row) return [];
     if (row.source === "adicional_obra" && row.snapshotId) return [row.snapshotId];
+    const views = separarRecepcionesDeMatriz(obraRows, saved.map((s) => snapshotRowToView(s)), {
+      keyOf: snapshotMergeKey,
+      esSoloMovimiento: isLedgerOnlySnapshot,
+      tieneAdicional: (view) => !!addonRemitoMatch(obraRows, view),
+    });
+    const viewsById = new Map(views.map((view) => [view.snapshotId, view]));
     const ids = new Set();
     if (row.source === "addon" || row.bucketKey === "addon") {
       const rowKey = snapshotMergeKey({ ...row, source: "addon", bucket: { key: "addon" } });
       saved.forEach((s) => {
-        const view = snapshotRowToView(s);
+        const view = viewsById.get(s.id);
         if (!isLedgerOnlySnapshot(view) && snapshotMergeKey(view) === rowKey) ids.add(s.id);
       });
       if (row.snapshotId) ids.add(row.snapshotId);
@@ -4668,13 +4675,13 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     }
     const rowKey = snapshotMergeKey(row);
     saved.forEach((s) => {
-      const view = snapshotRowToView(s);
+      const view = viewsById.get(s.id);
       if (!isLedgerOnlySnapshot(view) && snapshotMergeKey(view) === rowKey) ids.add(s.id);
     });
     if (row.snapshotId) ids.add(row.snapshotId);
     if (!ids.size && row.materialId) {
       saved.forEach((s) => {
-        const view = snapshotRowToView(s);
+        const view = viewsById.get(s.id);
         if (!isLedgerOnlySnapshot(view) && s.material_id === row.materialId) ids.add(s.id);
       });
     }
@@ -5526,7 +5533,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           {[
             ["Por comprar", ["Pendiente"], C.blue],
             ["En compras", ["Pedido", "Comprado"], C.cyan],
-            ["Por entregar", ["En pañol"], C.violet],
+            ["Por entregar", ["En pañol", "Parcial"], C.violet],
             ["Entregados", ["Entregado"], C.green],
           ].map(([label, etiquetas, color]) => {
             const value = etiquetas.reduce((sum, e) => sum + (conteoEstadoObra.get(e) || 0), 0);
@@ -6895,6 +6902,7 @@ function estadoMetaDeFila(row) {
   const cant = cantidadesDeFila(row);
   const estado = estadoObraForRow(row);
   const parcial = (estado !== "egresado" && row.recepcion_estado === "parcial")
+    || (cant.panol > 0 && Math.max(cant.panol, cant.entregado) < cant.necesita)
     || (cant.entregado > 0 && cant.entregado < cant.necesita);
   if (parcial) {
     return { label: "Parcial", color: C.violet, bg: C.violetL, border: C.violetB,
@@ -7451,6 +7459,7 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
 // obra no es entregárselo — puede seguir en el estante. Contarla como entregada
 // diría que la obra tiene cosas que todavía no fue a buscar.
 function esEntregaAObra(row) {
+  if (row?.soloMovimientoDeMatriz && row?.snapshot_estado === "egresado") return true;
   const source = String(row?.source || "").toLowerCase();
   if (source.startsWith("egreso")) return true;
   if (source === "solicitud_consumible_retiro") return true;
@@ -7461,6 +7470,7 @@ function esEntregaAObra(row) {
 }
 
 function isLedgerOnlySnapshot(row) {
+  if (row?.soloMovimientoDeMatriz) return true;
   const source = String(row?.source || "").toLowerCase();
   const tipo = String(row?.snapshot_tipo || row?.bucket?.key || "").toLowerCase();
   const text = `${source} ${tipo} ${row?.bucket?.label || ""} ${row?.obs || ""}`.toLowerCase();
@@ -7689,6 +7699,11 @@ function pickSnapshotForMerge(current, candidate) {
 
 function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   if (!snapshotRows.length) return liveRows;
+  snapshotRows = separarRecepcionesDeMatriz(liveRows, snapshotRows, {
+    keyOf: snapshotMergeKey,
+    esSoloMovimiento: isLedgerOnlySnapshot,
+    tieneAdicional: (row) => !!addonRemitoMatch(liveRows, row),
+  });
   const merged = new Map();
   const snapshotsByKey = new Map();
 
@@ -7712,6 +7727,7 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
     if (cantidad) map.set(key, (map.get(key) || 0) + cantidad);
   };
   snapshotRows.forEach((row, index) => {
+    if (row.omitirMovimientoDeMatriz) return;
     const adicionalVinculado = adicionalesPorPedidoItem.get(row.purchase_request_item_id);
     const addon = adicionalVinculado || addonRemitoMatch(liveRows, row);
     const key = addon ? snapshotMergeKey(addon) : snapshotMergeKey(row, index);
