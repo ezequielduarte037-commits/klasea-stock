@@ -4,7 +4,7 @@
 import { supabase } from "@/supabaseClient";
 
 const EMPLEADO_BASE_SELECT =
-  "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, contratista:rrhh_contratistas(id, nombre)";
+  "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, provisorio, alta_origen, alta_creado_por, alta_confirmado_por, alta_confirmado_at, contratista:rrhh_contratistas(id, nombre)";
 
 export const EMPLEADO_SELECT =
   `${EMPLEADO_BASE_SELECT}, nfc_uid, foto_url, nfc_asignado_at, nfc_asignado_por`;
@@ -16,6 +16,12 @@ const EMPLEADO_OFICIO_LEGACY_SELECT =
   `${EMPLEADO_SELECT}, oficio_id, oficio:rrhh_oficios(id, nombre)`;
 
 export const SEDES = ["Pampa", "Chubut"];
+
+export async function guardarAltaEmpleado(id, datos) {
+  const { data, error } = await supabase.rpc("rrhh_guardar_alta_empleado", { p_id:id ?? null, p_datos:datos });
+  if (error) throw error;
+  return data;
+}
 
 // Error típico cuando todavía no se corrió el SQL en el dashboard.
 export function isMissingTable(error) {

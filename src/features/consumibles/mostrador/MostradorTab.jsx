@@ -566,7 +566,7 @@ export default function MostradorTab({ sede }) {
     setPaso("marcar");
   }
 
-  /** Alta de un externo desde la firma: queda en RRHH y se sigue con él. */
+  /** Persona provisoria: se conserva la firma y RRHH/Técnica revisan el alta. */
   async function darDeAltaExterno({ nombre, empresa, dni }) {
     const emp = await conTimeout(altaExterno({ id: nuevoId(), nombre, empresa, dni, sede }), 10000, "La red no contestó a tiempo. Probá de nuevo.");
     if (emp.activo === false) throw new Error(`${emp.nombre} figura dado de baja en RRHH.`);
@@ -607,6 +607,7 @@ export default function MostradorTab({ sede }) {
       sede: emp.sede ?? "",
       empresa: empresaExterna ?? null,
       externo: Boolean(empresaExterna),
+      provisorio: emp.provisorio === true,
       metodo,
       uid,
       carritoId: controlRef.current.carritoId,

@@ -14,6 +14,7 @@ import ImportarTab from "./ImportarTab";
 import OficiosObrasTab from "./OficiosObrasTab";
 import PresentismoTab from "./PresentismoTab";
 import { Cargando, ErrorBox, SetupPendiente } from "./ui";
+import { puedeGestionarAltas } from "./altas";
 
 const TABS = [
   { key: "presentismo", label: "Presentismo", icon: CalendarCheck2 },
@@ -74,6 +75,8 @@ export default function RrhhScreen({ profile }) {
   }, [esAdmin, puedeEditarOficiosYObras, requestedTab, verEmpleados]);
 
   const listo = empleados != null && contratistas != null && config != null;
+  const confirmados = (empleados ?? []).filter(e => !e.provisorio);
+  const puedeGestionarAltasEmpleados = puedeGestionarAltas(profile);
 
   return (
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
@@ -129,12 +132,12 @@ export default function RrhhScreen({ profile }) {
                 })}
               </div>
 
-              {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} canEdit={puedeEditarPresentismo} canArchiveEmployees={esAdmin} onChanged={cargar} />}
-              {tab === "extras" && <ExtrasTab empleados={empleados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
-              {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
-              {tab === "oficios" && <OficiosObrasTab empleados={empleados} esAdmin={puedeEditarOficiosYObras} isMobile={isMobile} onChanged={cargar} />}
+              {tab === "presentismo" && <PresentismoTab empleados={confirmados} contratistas={contratistas} config={config} canEdit={puedeEditarPresentismo} canArchiveEmployees={esAdmin} onChanged={cargar} />}
+              {tab === "extras" && <ExtrasTab empleados={confirmados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
+              {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} puedeGestionarAltas={puedeGestionarAltasEmpleados} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
+              {tab === "oficios" && <OficiosObrasTab empleados={confirmados} esAdmin={puedeEditarOficiosYObras} isMobile={isMobile} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}
-              {tab === "dashboard" && <DashboardTab empleados={empleados} config={config} onNavigate={setTab} />}
+              {tab === "dashboard" && <DashboardTab empleados={confirmados} config={config} onNavigate={setTab} />}
             </>
           )}
         </div>

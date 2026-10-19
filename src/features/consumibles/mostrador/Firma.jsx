@@ -16,7 +16,7 @@ import { Avatar } from "./Piezas";
  *     confirma; si figura en muchas (cuadrillas asignadas a todas), se elige una;
  *   - sin obra, se elige una obra activa o un sector.
  * Pasarse del cupo no bloquea: pide quién autoriza.
- * Un externo (herrero, vidriero) se da de alta acá si no está en RRHH, y su
+ * Un externo (herrero, vidriero) se registra provisoriamente si no está en RRHH, y su
  * retiro pide quién del astillero lo autoriza.
  *
  * El foco queda en el panel (no en un campo) para que el lector de tarjetas
@@ -204,7 +204,7 @@ export default function Firma({
                         <button key={emp.id} type="button" className={`mst-persona-res${i === 0 ? " is-activa" : ""}`} onClick={() => elegirPersona(emp)}>
                           <span>{emp.nombre}</span>
                           <small className="mst-num">{emp.dni ? `DNI ${emp.dni}` : ""}</small>
-                          <small>{emp.externo ? `Externo · ${emp.empresa}` : emp.sede || ""}</small>
+                          <small>{emp.provisorio ? "Provisorio · pendiente de RRHH / Técnica" : emp.externo ? `Externo · ${emp.empresa}` : emp.sede || ""}</small>
                         </button>
                       ))}
                     </div>
@@ -222,7 +222,7 @@ export default function Firma({
                     />
                   ) : (
                     <button type="button" className="ui-btn" style={{ justifySelf: "start", borderStyle: "dashed" }} onClick={() => setAltaExterno(true)}>
-                      <HardHat size={15} /> No es del astillero (herrero, vidriero…): darlo de alta
+                      <HardHat size={15} /> No está registrado: cargar provisorio
                     </button>
                   )) : null}
                   <div style={{ fontSize: 12, color: "var(--dim)" }}>Queda registrado como firmado sin tarjeta.</div>
@@ -242,6 +242,7 @@ export default function Firma({
                   {persona.dni ? <span>DNI <span className="mst-num">{persona.dni}</span></span> : null}
                   <span>{persona.metodo === "nfc" ? "con tarjeta" : "sin tarjeta"}</span>
                   {persona.externo ? <span className="mst-externo">Externo · {persona.empresa}</span> : persona.sede ? <span>{persona.sede}</span> : null}
+                  {persona.provisorio && <span className="mst-externo">Provisorio · pendiente de RRHH / Técnica</span>}
                 </div>
               </div>
               <button type="button" className="ui-btn" onClick={onQuitarPersona}>
@@ -548,7 +549,7 @@ function AltaExterno({ texto = "", empresas = [], onRafaga, onAlta, onListo, onC
       const emp = await onAlta({ nombre: nombre.trim(), empresa: empresa.trim(), dni: dni.trim() });
       onListo(emp);
     } catch (e) {
-      setError(e?.message || "No se pudo dar de alta.");
+      setError(e?.message || "No se pudo guardar el provisorio.");
       setEnviando(false);
     }
   }
@@ -556,7 +557,7 @@ function AltaExterno({ texto = "", empresas = [], onRafaga, onAlta, onListo, onC
   const alEnter = (e) => { e.preventDefault(); enviar(); };
   return (
     <div className="mst-alta-externo">
-      <div className="mst-bloque-titulo">Externo: no está en RRHH</div>
+      <div className="mst-bloque-titulo">Registro provisorio</div>
       <label className="mst-etiqueta" htmlFor="mst-ext-nombre">Apellido y nombre</label>
       <CampoTexto id="mst-ext-nombre" value={nombre} onChange={setNombre} onRafaga={onRafaga} onEnter={alEnter} autoFocus maxLength={80} placeholder="Ej.: Gómez Carlos" />
       <label className="mst-etiqueta" htmlFor="mst-ext-empresa">Empresa o quién lo manda</label>
@@ -568,10 +569,10 @@ function AltaExterno({ texto = "", empresas = [], onRafaga, onAlta, onListo, onC
       <div className="mst-fila">
         <button type="button" className="ui-btn" onClick={onCancelar} disabled={enviando}>Cancelar</button>
         <button type="button" className="ui-btn ui-btn-primario" onClick={enviar} disabled={enviando}>
-          {enviando ? <LoaderCircle size={15} className="mst-gira" /> : <Check size={15} />} Darlo de alta y seguir
+          {enviando ? <LoaderCircle size={15} className="mst-gira" /> : <Check size={15} />} Guardar provisorio y seguir
         </button>
       </div>
-      <div style={{ fontSize: 12, color: "var(--dim)" }}>Queda en RRHH como externo que no ficha. Si vuelve, se lo busca por nombre.</div>
+      <div style={{ fontSize: 12, color: "var(--dim)" }}>RRHH o Técnica deben revisar y confirmar el alta. Mientras tanto queda como provisorio y no ficha.</div>
     </div>
   );
 }

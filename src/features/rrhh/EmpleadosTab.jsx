@@ -5,11 +5,12 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { EMPLEADO_SELECT, fetchAsignacionesVigentes, fetchConfig, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { EMPLEADO_SELECT, fetchAsignacionesVigentes, fetchConfig, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { empleadosDeVista } from "./altas";
 import { SeguimientoPersonaModal } from "./PresentismoTab";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
-import { Archive, Camera, CalendarSearch, ImageUp, RotateCcw, UsersRound } from "lucide-react";
+import { Archive, Camera, CalendarSearch, ClipboardCheck, ImageUp, RotateCcw, UsersRound } from "lucide-react";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
 
@@ -58,13 +59,13 @@ function NfcBadge({ uid }) {
   );
 }
 
-export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin, initialQuery = "", initialView = "activos" }) {
+export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin, puedeGestionarAltas = esAdmin, initialQuery = "", initialView = "activos" }) {
   const [q, setQ] = useState(initialQuery);
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
   const [filtroOficio, setFiltroOficio] = useState("todos");
   const [filtroObra, setFiltroObra] = useState("todas");
-  const [vista, setVista] = useState(initialView === "ex" ? "ex" : "activos");
+  const [vista, setVista] = useState(["ex", "provisorios"].includes(initialView) ? initialView : "activos");
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
@@ -82,7 +83,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
   useEffect(() => {
     setQ(initialQuery || "");
-    setVista(initialView === "ex" ? "ex" : "activos");
+    setVista(["ex", "provisorios"].includes(initialView) ? initialView : "activos");
     setSelIds(new Set());
   }, [initialQuery, initialView]);
 
@@ -126,8 +127,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   }, [asignacionesVigentes]);
 
   const filtrados = useMemo(() => {
-    let rows = empleados ?? [];
-    rows = rows.filter(e => vista === "ex" ? e.activo === false : e.activo !== false);
+    let rows = empleadosDeVista(empleados ?? [], vista);
     if (vista === "activos" && !verNoFichan) rows = rows.filter(e => e.ficha !== false);
     if (filtroSede !== "todas") rows = rows.filter(e => e.sede === filtroSede);
     if (filtroOficio !== "todos") rows = rows.filter(e => filtroOficio === "sin_asignar" ? !e.oficio_id : e.oficio_id === filtroOficio);
@@ -161,7 +161,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   }, [empleados, q, filtroGrupo, filtroSede, filtroOficio, filtroObra, vista, verNoFichan, obrasPorEmpleado, asignacionesVigentes]);
 
   const stats = useMemo(() => {
-    const act = (empleados ?? []).filter(e => e.activo !== false);
+    const act = empleadosDeVista(empleados ?? [], "activos");
     return {
       total: act.length,
       casa: act.filter(e => e.grupo === "casa").length,
@@ -169,7 +169,8 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       sin: act.filter(e => e.grupo === "sin_asignar").length,
       noFichan: act.filter(e => e.ficha === false).length,
       conNfc: act.filter(e => normalizeNfcUid(e.nfc_uid)).length,
-      ex: (empleados ?? []).filter(e => e.activo === false).length,
+      ex: empleadosDeVista(empleados ?? [], "ex").length,
+      provisorios: empleadosDeVista(empleados ?? [], "provisorios").length,
     };
   }, [empleados]);
 
@@ -293,9 +294,10 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
         marginBottom: 12, padding: 5, border: `1px solid ${C.b0}`, borderRadius: 11, background: C.s0,
       }}>
-        <div style={{ display: "flex", gap: 4, minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 4, minWidth: 0, flexWrap: "wrap" }}>
           {[
             { key: "activos", label: "Equipo activo", count: stats.total, icon: UsersRound },
+            { key: "provisorios", label: "Provisorios", count: stats.provisorios, icon: ClipboardCheck },
             { key: "ex", label: "Ex empleados", count: stats.ex, icon: Archive },
           ].map(item => {
             const active = vista === item.key;
@@ -330,6 +332,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         <div style={{ color: C.t2, fontSize: 11.5, lineHeight: 1.35, padding: "0 7px" }}>
           {vista === "ex"
             ? "Las bajas conservan legajo, foto, NFC e historial."
+            : vista === "provisorios" ? "Altas pendientes de revisión de RRHH o Técnica."
             : "Personal habilitado para operar y fichar."}
         </div>
       </div>
@@ -363,12 +366,16 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           </label>
         )}
         {esAdmin && <button style={BTN} onClick={() => setShowContratistas(true)}>Contratistas</button>}
-        {esAdmin && <button style={BTN_PRIMARY} onClick={() => { setErr(null); setModal({ emp: null }); }}>+ Empleado</button>}
+        {puedeGestionarAltas && <button style={BTN_PRIMARY} onClick={() => { setErr(null); setModal({ emp: null }); }}>+ Empleado</button>}
       </div>
+
+      {vista === "provisorios" && <div style={{padding:"10px 12px",marginBottom:12,border:`1px solid ${C.cyanB}`,borderRadius:10,background:C.cyanL,color:C.t1,fontSize:12,lineHeight:1.45}}>
+        Estas personas no forman parte del equipo definitivo. Revisá sus datos y confirmá el alta cuando corresponda.
+      </div>}
 
       {err && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 10 }}>{String(err.message ?? err)}</div>}
 
-      {esAdmin && selIds.size > 0 && (
+      {esAdmin && vista !== "provisorios" && selIds.size > 0 && (
         <div style={{
           position: "sticky", top: 0, zIndex: 40,
           background: "var(--panel-solid)",
@@ -420,7 +427,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       )}
 
       <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>
-        {filtrados.length} {vista === "ex" ? "ex empleado" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
+        {filtrados.length} {vista === "ex" ? "ex empleado" : vista === "provisorios" ? "provisorio" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
         {vista === "ex" && " · ordenados por baja más reciente"}
       </div>
 
@@ -428,7 +435,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {esAdmin && <Th><input type="checkbox" checked={filtrados.length > 0 && filtrados.every(e => selIds.has(e.id))} onChange={e => e.target.checked ? selAll() : selNone()} /></Th>}
+              {esAdmin && vista !== "provisorios" && <Th><input type="checkbox" checked={filtrados.length > 0 && filtrados.every(e => selIds.has(e.id))} onChange={e => e.target.checked ? selAll() : selNone()} /></Th>}
               <Th>Nombre</Th><Th>DNI</Th><Th>NFC</Th><Th>Sede</Th><Th>Grupo</Th><Th>Rubro / oficio</Th><Th>Obras</Th><Th>Ficha</Th><Th>Estado</Th>{vista === "ex" && <Th>Fecha de baja</Th>}<Th> </Th>
             </tr>
           </thead>
@@ -447,7 +454,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
             )}
             {filtrados.map(e => (
               <tr key={e.id} style={{ opacity: e.activo === false && vista !== "ex" ? 0.5 : 1, background: vista === "ex" ? "rgba(148,163,184,0.025)" : "transparent" }}>
-                {esAdmin && <Td><input type="checkbox" checked={selIds.has(e.id)} onChange={() => toggleSel(e.id)} /></Td>}
+                {esAdmin && vista !== "provisorios" && <Td><input type="checkbox" checked={selIds.has(e.id)} onChange={() => toggleSel(e.id)} /></Td>}
                 <Td>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 190 }}>
                     <EmpleadoAvatar emp={e} />
@@ -456,6 +463,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                         {e.nombre}{e.notas && <span title={e.notas} style={{ marginLeft: 6, fontSize: 11, color: C.t2 }}>nota</span>}
                       </div>
                       {e.foto_url && <div style={{ color: C.t2, fontSize: 10.5, marginTop: 1 }}>foto cargada</div>}
+                      {e.provisorio && <span style={{display:"inline-block",marginTop:4,padding:"2px 7px",borderRadius:999,fontSize:10.5,fontWeight:650,color:C.cyan,background:C.cyanL,border:`1px solid ${C.cyanB}`}}>Provisorio · {e.alta_origen === "panol" ? "Pañol" : "pendiente de revisión"}</span>}
                     </div>
                   </div>
                 </Td>
@@ -485,10 +493,10 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                       <CalendarSearch size={12} /> Seguimiento
                     </button>
                   </div>
-                  {esAdmin && (
+                  {esAdmin && !e.provisorio && (
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 6 }}>
                       <button style={{ ...BTN, padding: "4px 11px", fontSize: 11 }} onClick={() => { setErr(null); setModal({ emp: e }); }}>Editar</button>
-                      {e.activo === false ? (
+                      {e.activo === false && !e.provisorio ? (
                         <button style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", fontSize: 11 }} onClick={() => reactivarEmpleado(e)}>
                           <RotateCcw size={12} /> Reactivar
                         </button>
@@ -499,6 +507,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                       )}
                     </div>
                   )}
+                  {e.provisorio && puedeGestionarAltas && <button type="button" style={{...BTN_PRIMARY,marginTop:6,padding:"5px 11px",fontSize:11}} onClick={()=>{setErr(null);setModal({emp:e,confirmarAlta:true});}}>Revisar alta</button>}
                 </Td>
               </tr>
             ))}
@@ -509,6 +518,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       {modal && (
         <EmpleadoModal
           emp={modal.emp}
+          confirmarAlta={modal.confirmarAlta}
           empleados={empleados}
           contratistas={contratistas}
           onClose={() => setModal(null)}
@@ -532,9 +542,9 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 }
 
 // ─── Modal alta/edición de empleado ─────────────────────────────────────────
-function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError }) {
+function EmpleadoModal({ emp, empleados, contratistas, confirmarAlta = false, onClose, onSaved, onError }) {
   const [form, setForm] = useState(emp ? {
-    dni: emp.dni, nombre: emp.nombre, grupo: emp.grupo,
+    dni: emp.dni ?? "", nombre: emp.nombre, grupo: emp.grupo,
     sede: emp.sede ?? "", contratista_id: emp.contratista_id ?? "", ficha: emp.ficha !== false,
     activo: emp.activo !== false, notas: emp.notas ?? "",
     nfc_uid: emp.nfc_uid ?? "", foto_url: emp.foto_url ?? "",
@@ -627,7 +637,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
         registroExistente = data ?? null;
 
         if (registroExistente?.activo !== false && registroExistente) {
-          throw new Error(`El DNI ${form.dni.trim()} ya pertenece a ${registroExistente.nombre}. Buscalo en Equipo activo para editar su legajo.`);
+          throw new Error(`El DNI ${form.dni.trim()} ya pertenece a ${registroExistente.nombre}. Buscalo en ${registroExistente.provisorio ? "Provisorios para revisar su alta" : "Equipo activo para editar su legajo"}.`);
         }
       }
 
@@ -648,9 +658,9 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
         foto_url: form.foto_url.trim() || (esReactivacion ? registroExistente.foto_url : null) || null,
         ...(nfcChanged ? { nfc_asignado_at: nfcUid ? new Date().toISOString() : null, nfc_asignado_por: auth?.data?.user?.id ?? null } : {}),
       };
-      const res = registroExistente
-        ? await supabase.from("rrhh_empleados").update(payload).eq("id", registroExistente.id)
-        : await supabase.from("rrhh_empleados").insert(payload);
+      const res = confirmarAlta || !registroExistente
+        ? { data:await guardarAltaEmpleado(registroExistente?.id ?? null,payload) }
+        : await supabase.from("rrhh_empleados").update(payload).eq("id", registroExistente.id);
       if (res.error) throw res.error;
       onSaved();
     } catch (error) {
@@ -670,14 +680,15 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
   return (
     <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 24, width: "min(440px,94vw)", maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: C.t0, marginBottom: 14 }}>{emp ? "Editar empleado" : "Nuevo empleado"}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: C.t0, marginBottom: 14 }}>{confirmarAlta ? "Revisar alta provisoria" : emp ? "Editar empleado" : "Nuevo empleado"}</div>
+        {confirmarAlta && <p style={{color:C.dim,fontSize:12,lineHeight:1.45,marginTop:0}}>Confirmá el DNI, el grupo y la empresa. Al confirmar pasa a la lista definitiva.</p>}
 
-        <label style={LBL}>Nombre *</label>
-        <input style={{ ...INP, width: "100%", marginBottom: 10 }} value={form.nombre} onChange={e => set("nombre", e.target.value)} autoFocus />
+        <label style={LBL} htmlFor="rrhh-alta-nombre">Nombre *</label>
+        <input id="rrhh-alta-nombre" style={{ ...INP, width: "100%", marginBottom: 10 }} value={form.nombre} onChange={e => set("nombre", e.target.value)} autoFocus />
 
-        <label style={LBL}>DNI * <span style={{ color: C.t2, textTransform: "none", letterSpacing: 0 }}>(es la llave con el fichero — solo números)</span></label>
-        <input style={{ ...INP, width: "100%", marginBottom: 10, fontFamily: C.mono }} value={form.dni}
-          onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={!!emp} />
+        <label style={LBL} htmlFor="rrhh-alta-dni">DNI * <span style={{ color: C.t2, textTransform: "none", letterSpacing: 0 }}>(es la llave con el fichero — solo números)</span></label>
+        <input id="rrhh-alta-dni" style={{ ...INP, width: "100%", marginBottom: 10, fontFamily: C.mono }} value={form.dni ?? ""}
+          onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={!!emp && !emp.provisorio} />
 
         {!emp && empleadoMismoDni && (
           <div style={{
@@ -831,7 +842,7 @@ function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError
 
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={guardar} disabled={saving || duplicadoActivoDetectado || !form.nombre.trim() || !/^\d{5,10}$/.test(form.dni)} style={{ ...BTN_PRIMARY, flex: 1, padding: "10px", opacity: saving || duplicadoActivoDetectado ? 0.55 : 1 }}>
-            {saving ? "Guardando…" : reactivacionDetectada ? "Reactivar empleado" : "Guardar"}
+            {saving ? "Guardando…" : confirmarAlta ? "Confirmar alta" : reactivacionDetectada ? "Reactivar empleado" : "Guardar"}
           </button>
           <button onClick={onClose} style={BTN}>Cancelar</button>
         </div>

@@ -59,7 +59,7 @@ export async function fetchMasRetirados({ sede = null, dias = 60 } = {}) {
  * El pañol puede leer rrhh_empleados (política rrhh_empleados_select_panol).
  */
 export async function fetchEmpleadosMostrador() {
-  const completo = "id,nombre,dni,sede,foto_url,activo,fecha_baja,nfc_uid";
+  const completo = "id,nombre,dni,sede,foto_url,activo,fecha_baja,nfc_uid,provisorio";
   let { data, error } = await supabase
     .from("rrhh_empleados")
     .select(completo)
@@ -69,7 +69,7 @@ export async function fetchEmpleadosMostrador() {
   if (error && /fecha_baja|foto_url|nfc_uid/.test(String(error.message))) {
     ({ data, error } = await supabase
       .from("rrhh_empleados")
-      .select("id,nombre,dni,sede,activo")
+      .select("id,nombre,dni,sede,activo,provisorio")
       .or("activo.is.null,activo.eq.true")
       .order("nombre")
       .limit(2000));
@@ -94,8 +94,8 @@ export async function fetchExternos() {
 }
 
 /**
- * Alta de un externo desde el mostrador: queda en RRHH como contratista que no
- * ficha, con su empresa. Con el mismo id (o el mismo DNI, o el mismo nombre en
+ * Registro provisorio desde el mostrador: RRHH/Técnica revisan el alta. No
+ * ficha. Con el mismo id (o el mismo DNI, o el mismo nombre en
  * la misma empresa) devuelve el que ya estaba en vez de duplicarlo.
  */
 export async function altaExterno({ id, nombre, empresa, dni = null, sede = null }) {
