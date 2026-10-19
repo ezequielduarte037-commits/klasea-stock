@@ -72,6 +72,8 @@ import BandejaTab from "./BandejaTab";
 import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
 import { obraThemeScope } from "./obra/obraListaPresentation";
 import { aporteDeFilaLedger, cantidadesDeFila, estadoObraForRow } from "./obra/estadoDeFila";
+import PedidoObraModal from "./obra/PedidoObraModal";
+import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
 import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney, textoTooltip } from "./format";
@@ -99,7 +101,7 @@ import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEnt
 import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
 import { ordenLineasDesdeMatriz, supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
 import CopiarOcProveedor from "@/components/CopiarOcProveedor";
-import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
+import { addRequestItem, createPurchaseRequest, crearPedidoAdicionalObra } from "@/features/compras/purchaseRequestsApi";
 import CostoObraPanel from "./CostoObraPanel";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
@@ -2394,9 +2396,10 @@ function addonRowToView(addon, materialById, categorias = []) {
   return {
     id: `addon:${addon.id}`,
     addonId: addon.id,
+    snapshotId: addon.obra_snapshot_id || null,
     materialId: addon.material_id || null,
     material,
-    source: "addon",
+    source: addon.obra_snapshot_id ? "adicional_obra" : "addon",
     descripcion,
     codigo,
     cantidad: addon.cantidad || 1,
@@ -2470,7 +2473,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
 
   useEffect(() => {
     if (!open) return;
-    setMode(addon?.material_id ? "existente" : "nuevo");
+    setMode(!addon || addon.material_id ? "existente" : "nuevo");
     setQ(addon?.descripcion || "");
     setSelectedId(addon?.material_id || "");
     setCantidad(String(addon?.cantidad ?? "1"));
@@ -2513,7 +2516,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
       precio_unitario: payload.precio_unitario ?? null,
       moneda: payload.moneda || null,
       notas: payload.observaciones || null,
-      source: "addon",
+      source: addon?.obra_snapshot_id ? "adicional_obra" : "addon",
     };
   }
 
@@ -2628,11 +2631,11 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(2,6,23,.72)", backdropFilter: "blur(3px)", display: "grid", placeItems: "center", padding: 18 }}>
-      <div style={{ width: "min(1040px, calc(100vw - 28px))", maxHeight: "92vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
+      <div role="dialog" aria-modal="true" aria-label={editing ? "Editar adicional" : "Agregar adicional a la obra"} style={{ width: "min(1040px, calc(100vw - 28px))", maxHeight: "92vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
         <div style={{ position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.b0}`, padding: 16, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 750, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
-            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>No modifica la matriz base: queda en el catalogo completo y se asocia a esta obra.</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Podés elegir un material que ya esté en la lista y agregar más unidades solo para esta obra.</div>
           </div>
           <button type="button" onClick={onClose} style={{ ...BTN, padding: "7px 9px" }} title="Cerrar"><X size={15} /></button>
         </div>
@@ -2656,7 +2659,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
               <option value="adicional" style={OPT_ST}>Adicional</option>
               <option value="opcional" style={OPT_ST}>Opcional</option>
             </select>
-            <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, width: 92, height: 36, fontFamily: C.mono }} />
+            <input aria-label="Cantidad del adicional" type="number" step="any" min="0" value={cantidad} disabled={snapshotLocked} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, width: 92, height: 36, fontFamily: C.mono }} />
             <label style={{ display: "grid", gap: 3, flex: "1 1 210px", minWidth: 190 }}>
               <span style={{ fontSize: 9.5, fontWeight: 700, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
               <select
@@ -3901,7 +3904,7 @@ function snapshotLockReason(row = {}) {
   return "";
 }
 
-function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
+export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
   const deferredQ = useDeferredValue(q);
@@ -3937,6 +3940,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [pedidoObraTipo, setPedidoObraTipo] = useState(null);
   const [pedidoConfirm, setPedidoConfirm] = useState(null);
   const [pedidoTitulo, setPedidoTitulo] = useState("");
+  const pedidoEnviandoRef = useRef(false);
   const [condicionantesMatriz, setCondicionantesMatriz] = useState([]);
   const [condicionantesObra, setCondicionantesObra] = useState(() => new Map());
   const [condicionanteBusy, setCondicionanteBusy] = useState("");
@@ -4046,6 +4050,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setExclusionesObra([]);
     setObraPanel("");
     setAddonModalOpen(false);
+    setPedidoConfirm(null);
     setEditingAddon(null);
     setReassignAddon(null);
     setReassignObraId("");
@@ -4478,6 +4483,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       return {
         id: r.id,
         snapshotId: r.snapshotId,
+        addonId: r.addonId || null,
         materialId: r.materialId,
         requisitoMaterialId: r.requisitoMaterialId || r.materialId,
         productoMaterialId: r.productoMaterialId || null,
@@ -4649,6 +4655,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   function snapshotIdsForOrderRow(row, saved = snapshot) {
     if (!row) return [];
+    if (row.source === "adicional_obra" && row.snapshotId) return [row.snapshotId];
     const ids = new Set();
     if (row.source === "addon" || row.bucketKey === "addon") {
       const rowKey = snapshotMergeKey({ ...row, source: "addon", bucket: { key: "addon" } });
@@ -4687,38 +4694,60 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     // El título se propone acá y queda editable en la confirmación: es el último
     // momento donde quien pide todavía tiene el contexto de qué está mandando.
     setPedidoTitulo(buildPedidoTitulo({ obra, rows: orderRows }));
-    setPedidoConfirm({ rows: orderRows, tipo: pedidoObraTipo });
+    setFlowMsg(null);
+    setPedidoConfirm({ rows: orderRows.map(row=>({...row})), tipo: pedidoObraTipo, envioId:crypto.randomUUID() });
   }
 
   async function pedirAComprasObra() {
-    if (!orderRows.length) return;
-    if (!validarProductosConcretos()) return;
-    if (!pedidoObraTipo) {
-      setFlowMsg({ type: "err", text: "Elegí el tipo de pedido." });
-      return;
-    }
-    setPedidoConfirm(null);
+    const pedido = pedidoConfirm;
+    if (!pedido?.rows.length || pedidoEnviandoRef.current) return;
+    const pedidoRows = pedido.rows;
+    if (!pedidoRows.every(row=>cantidadPedidoValida(row.cantidad))) return;
+    pedidoEnviandoRef.current = true;
     setActionBusy("compras");
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
-      await fijarConfiguracionesParaFlujo(saved, orderRows);
+      if (pedido.tipo === "adicional") {
+        await crearPedidoAdicionalObra({
+          obraId:obra.id,envioId:pedido.envioId,
+          titulo:pedidoTitulo.trim() || buildPedidoTitulo({obra,rows:pedidoRows}),
+          descripcion:buildOrdenTexto({obra,lineaNombre,rows:pedidoRows,groupBy}),
+          items:pedidoRows.map(row=>({
+            snapshot_id:snapshotIdForOrderRow(row,saved),addon_id:row.addonId,
+            description:row.descripcion,quantity:toNum(row.cantidad),unit:row.unidad||"unidad",
+            material_id:row.productoMaterialId||row.materialId||null,
+            requisito_material_id:row.requisitoMaterialId||row.materialId||null,
+            especificaciones:normalizeProductSpecs(row.especificaciones),
+            proveedor:row.proveedor,codigo:row.codigo,categoria_id:row.material?.categoria_id||null,
+            precio_unitario:row.precio?.amount??null,moneda:row.precio?.moneda||null,
+            notes:[esProveedorAlternativo(row.proveedor)?`Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.`:"",row.obs].filter(Boolean).join(" · ")||null,
+            ...(row.material?supplierSnapshotForMaterial(row.material,{proveedor:row.proveedor}):{}),
+          })),
+        });
+        setPedidoConfirm(null);
+        await Promise.all([cargarAddons(),cargarSnapshot()]);
+        setSelected(new Set());
+        setFlowMsg({type:"ok",text:`Pedido adicional creado con ${pedidoRows.length} ítem${pedidoRows.length===1?"":"s"}.`});
+        return;
+      }
+      await fijarConfiguracionesParaFlujo(saved, pedidoRows);
       const req = await createPurchaseRequest({
         form: {
           // Si el usuario lo vació, se vuelve al sugerido antes que mandar un pedido sin nombre.
-          title: pedidoTitulo.trim() || buildPedidoTitulo({ obra, rows: orderRows }),
-          description: buildOrdenTexto({ obra, lineaNombre, rows: orderRows, groupBy }),
+          title: pedidoTitulo.trim() || buildPedidoTitulo({ obra, rows: pedidoRows }),
+          description: buildOrdenTexto({ obra, lineaNombre, rows: pedidoRows, groupBy }),
           priority: "media",
           source: "materiales_obra",
           project_id: obra.id,
           destino: `Obra ${obra.codigo}`,
-          es_adicional: pedidoObraTipo === "adicional",
-          tipo_pedido: pedidoObraTipo,
+          es_adicional: pedido.tipo === "adicional",
+          tipo_pedido: pedido.tipo,
         },
       });
 
       const touched = [];
-      for (const row of orderRows) {
+      for (const row of pedidoRows) {
         const supplierSnapshot = row.material
           ? supplierSnapshotForMaterial(row.material, { proveedor: row.proveedor })
           : {};
@@ -4751,10 +4780,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         }
       }
       if (touched.length) cargarSnapshot();
-      setFlowMsg({ type: "ok", text: `Pedido creado para compras con ${orderRows.length} items.` });
+      setPedidoConfirm(null);
+      setFlowMsg({ type: "ok", text: `Pedido creado para compras con ${pedidoRows.length} items.` });
     } catch (e) {
       setFlowMsg({ type: "err", text: e?.message || "No se pudo crear el pedido a compras." });
     } finally {
+      pedidoEnviandoRef.current = false;
       setActionBusy("");
     }
   }
@@ -5616,87 +5647,18 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         onSaved={async () => {
           setAddonModalOpen(false);
           setEditingAddon(null);
-          await cargarAddons();
+          await Promise.all([cargarAddons(),cargarSnapshot()]);
           await onChanged?.();
         }}
         onChanged={onChanged}
       />
 
-      {/* Confirmación antes de mandar a compras. El pedido le genera trabajo a
-          otra persona y darlo de baja es a mano, así que se muestra qué se manda
-          antes de que salga. */}
-      {pedidoConfirm ? (
-        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
-          <div style={{ width: "min(560px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>
-                  ¿Mandar {pedidoConfirm.rows.length} {pedidoConfirm.rows.length === 1 ? "ítem" : "ítems"} a Compras?
-                </div>
-                <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
-                  Obra {obra.codigo} · pedido {pedidoConfirm.tipo}
-                </div>
-              </div>
-              <button type="button" onClick={() => setPedidoConfirm(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
-                <X size={14} />
-              </button>
-            </div>
-
-            <label style={{ display: "grid", gap: 5 }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7, textTransform: "uppercase", color: C.t2 }}>
-                Título del pedido
-              </span>
-              <input
-                value={pedidoTitulo}
-                onChange={(e) => setPedidoTitulo(e.target.value)}
-                placeholder={buildPedidoTitulo({ obra, rows: pedidoConfirm.rows })}
-                maxLength={120}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  border: `1px solid ${C.b0}`,
-                  borderRadius: 9,
-                  background: C.bg,
-                  color: C.t0,
-                  padding: "9px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  fontFamily: C.sans,
-                  outline: "none",
-                }}
-              />
-              <span style={{ fontSize: 10.5, color: C.t3 }}>
-                Es lo que ve Compras en la lista. Podés cambiarlo.
-              </span>
-            </label>
-
-            <div style={{ display: "grid", gap: 4, maxHeight: 280, overflowY: "auto", border: `1px solid ${C.b0}`, borderRadius: 10, padding: 8 }}>
-              {pedidoConfirm.rows.map((row, index) => (
-                <div key={row.id || index} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "5px 4px", borderBottom: index === pedidoConfirm.rows.length - 1 ? "none" : `1px solid ${C.b0}` }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
-                    <div style={{ fontSize: 10.5, color: C.t3 }}>{row.proveedor || "Sin proveedor"}</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: tieneAjusteCondicionante(row) ? C.violet : C.t1, whiteSpace: "nowrap" }}>
-                      {qtyText(row.cantidad, row.unidad)}
-                    </div>
-                    <DesgloseCantidad row={row} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setPedidoConfirm(null)} style={{ ...BTN, padding: "8px 14px" }}>Cancelar</button>
-              <button type="button" onClick={pedirAComprasObra} disabled={!!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "8px 16px" }}>
-                <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Enviando…" : "Sí, mandar a Compras"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
+      {pedidoConfirm && <PedidoObraModal
+        pedido={pedidoConfirm} obraCodigo={obra.codigo} titulo={pedidoTitulo} onTitulo={setPedidoTitulo}
+        onCantidad={(index,cantidad)=>setPedidoConfirm(actual=>({...actual,rows:actual.rows.map((row,i)=>i===index?{...row,cantidad}:row)}))}
+        onCerrar={()=>setPedidoConfirm(null)} onConfirmar={pedirAComprasObra}
+        busy={actionBusy === "compras" || snapshotBusy} error={flowMsg?.type === "err" ? flowMsg.text : ""}
+      />}
       {reassignAddon ? (
         <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
           <div style={{ width: "min(460px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
@@ -7430,8 +7392,8 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     especificaciones: normalizeProductSpecs(row.especificaciones),
     especificacionesOrigen: row.especificaciones_origen || null,
     material,
-    source: esAdicional ? "addon" : row.source || "snapshot",
-    snapshot_tipo: esAdicional ? "addon" : row.tipo || null,
+    source: row.source === "adicional_obra" || isLedgerOnlySnapshot({...row,snapshot_tipo:row.tipo}) ? row.source : esAdicional ? "addon" : row.source || "snapshot",
+    snapshot_tipo: isLedgerOnlySnapshot({...row,snapshot_tipo:row.tipo}) ? row.tipo : esAdicional ? "addon" : row.tipo || null,
     es_adicional: esAdicional,
     descripcion,
     snapshotDescripcion: row.descripcion,
@@ -7516,6 +7478,8 @@ function isLedgerOnlySnapshot(row) {
 }
 
 function snapshotMergeKey(row, index = 0) {
+  const adicionalKey = adicionalSnapshotKey(row);
+  if (adicionalKey) return adicionalKey;
   const materialId = row?.requisitoMaterialId || row?.requisito_material_id || row?.materialId || row?.material_id;
   if (row?.source === "addon" || row?.bucket?.key === "addon") {
     const addonText = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
@@ -7741,11 +7705,15 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   const egresadoPorKey = new Map();
   const panolLedgerPorKey = new Map();
   const entregadoConteoPorKey = new Map();
+  const adicionalesPorPedidoItem = new Map(snapshotRows
+    .filter(row=>row.source === "adicional_obra" && row.purchase_request_item_id && !isLedgerOnlySnapshot(row))
+    .map(row=>[row.purchase_request_item_id,row]));
   const sumar = (map, key, cantidad) => {
     if (cantidad) map.set(key, (map.get(key) || 0) + cantidad);
   };
   snapshotRows.forEach((row, index) => {
-    const addon = addonRemitoMatch(liveRows, row);
+    const adicionalVinculado = adicionalesPorPedidoItem.get(row.purchase_request_item_id);
+    const addon = adicionalVinculado || addonRemitoMatch(liveRows, row);
     const key = addon ? snapshotMergeKey(addon) : snapshotMergeKey(row, index);
     if (!key) return;
     if (isLedgerOnlySnapshot(row)) {

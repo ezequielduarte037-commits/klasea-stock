@@ -1286,6 +1286,19 @@ export async function addRequestItem(requestId, fields) {
   return data;
 }
 
+export async function crearPedidoAdicionalObra({ obraId, titulo, descripcion, items, envioId }) {
+  const { data, error } = await supabase.rpc("materiales_pedir_adicional_obra", {
+    p_obra_id:obraId, p_titulo:titulo, p_descripcion:descripcion, p_items:items, p_envio_id:envioId,
+  });
+  if (error) throw error;
+  if (!data?.request?.id) throw new Error("No se pudo confirmar el pedido adicional.");
+  if (!data.reutilizado) notifyWaUpdate({
+    requestId:data.request.id,eventType:"created",actorId:data.request.created_by,
+    payload:{source:"materiales_obra"},
+  });
+  return data.request;
+}
+
 export async function updateRequestItem(itemId, patch) {
   const { data, error } = await supabase
     .from("purchase_request_items")

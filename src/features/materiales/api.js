@@ -1,4 +1,5 @@
 import { supabase } from "@/supabaseClient";
+import { adicionalSnapshotKey } from "./obra/adicionalObra";
 import { MODELOS, norm } from "./materialesParser";
 import {
   fetchAreasMap,
@@ -1406,14 +1407,9 @@ function legacyAddonPayload(payload = {}, includeObraId = true) {
 
 export async function crearAddon(obraId, fields) {
   const payload = addonPayload({ obra_id: obraId, ...fields });
-  let { error } = await supabase.from("panol_obra_addons").insert(payload);
-  if (error && isMissingColumn(error)) {
-    const retry = await supabase
-      .from("panol_obra_addons")
-      .insert(legacyAddonPayload(payload));
-    error = retry.error;
-  }
+  const { data, error } = await supabase.rpc("materiales_crear_adicional_obra", { p_obra_id:obraId, p_datos:payload });
   if (error) throw error;
+  return data;
 }
 
 export async function actualizarAddon(id, fields) {
@@ -1448,6 +1444,13 @@ function addonSnapshotMovible(row = {}) {
 export async function reasignarAddon(id, obraId, meta = {}) {
   if (!id) throw new Error("Falta el adicional.");
   if (!obraId) throw new Error("Elegí una obra destino.");
+  const { data:actual, error:leerError } = await supabase.from("panol_obra_addons").select("obra_snapshot_id").eq("id",id).single();
+  if (leerError) throw leerError;
+  if (actual?.obra_snapshot_id) {
+    const { error:moverError } = await supabase.rpc("materiales_reasignar_adicional_obra",{ p_addon_id:id,p_obra_id:obraId });
+    if (moverError) throw moverError;
+    return;
+  }
   const { error } = await supabase
     .from("panol_obra_addons")
     .update({ obra_id: obraId })
@@ -1463,6 +1466,7 @@ export async function reasignarAddon(id, obraId, meta = {}) {
       .select("id, estado, recepcion_estado, descripcion, codigo, unidad")
       .eq("obra_id", fromObraId)
       .eq("material_id", materialId)
+      .neq("source", "adicional_obra")
       .or("tipo.eq.addon,source.eq.addon");
     if (meta.descripcion) query = query.eq("descripcion", meta.descripcion);
     const { data, error: snapError } = await query;
@@ -1797,6 +1801,7 @@ function snapshotPayloadFromRows(obraId, rows = []) {
         && row.condicionantes.length > 0
         && row.baseCantidad != null;
       return ({
+      ...(row.source === "adicional_obra" && row.snapshotId ? { id:row.snapshotId } : {}),
       obra_id: obraId,
       requisito_material_id:
         row.requisitoMaterialId ?? row.requisito_material_id ?? row.materialId ?? row.material_id ?? row.material?.id ?? null,
@@ -1852,6 +1857,8 @@ function snapshotPayloadWithoutVariant(rows = []) {
 }
 
 function snapshotPayloadKey(row) {
+  const adicionalKey = adicionalSnapshotKey(row);
+  if (adicionalKey) return adicionalKey;
   // La identidad estable de una fila es el requisito de matriz. El producto
   // concreto puede cambiar por obra y no debe crear un segundo snapshot.
   const materialId =
@@ -1959,14 +1966,21 @@ export async function reemplazarObraMaterialSnapshotSeguro(obraId, rows = []) {
       "La lista ya tiene compras/recepcion/movimientos vinculados. No se puede regenerar sin perder trazabilidad.",
     );
 
-  const payload = snapshotPayloadFromRows(obraId, rows);
-  if (!payload.length) return [];
+  // Los adicionales conservan su identidad y su vínculo con la ficha propia.
+  // Regenerar la matriz no debe borrarlos y volver a crearlos.
+  const conservarIds = existing.filter(row=>row.source === "adicional_obra").map(row=>row.id);
+  const conservar = new Set(conservarIds);
+  const payload = snapshotPayloadFromRows(obraId, rows).filter(row=>!conservar.has(row.id));
+  if (!payload.length && !conservarIds.length) return [];
 
-  const { error: delError } = await supabase
+  let borrarQuery = supabase
     .from("panol_obra_materiales_snapshot")
     .delete()
     .eq("obra_id", obraId);
+  if (conservarIds.length) borrarQuery = borrarQuery.not("id","in",`(${conservarIds.join(",")})`);
+  const { error: delError } = await borrarQuery;
   if (delError) throw delError;
+  if (!payload.length) return await fetchObraMaterialSnapshot(obraId);
 
   let { error } = await supabase
     .from("panol_obra_materiales_snapshot")
