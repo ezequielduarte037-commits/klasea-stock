@@ -5,8 +5,9 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { EMPLEADO_SELECT, definirEmpleadoExterno, fetchAsignacionesVigentes, fetchConfig, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { EMPLEADO_SELECT, definirEmpleadoExterno, fetchAsignacionesVigentes, fetchConfig, fetchOficios, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { empleadosDeVista } from "./altas";
+import NuevoOficioModal from "./NuevoOficioModal";
 import { SeguimientoPersonaModal } from "./PresentismoTab";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
@@ -81,6 +82,15 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [bulkContratistaId, setBulkContratistaId] = useState("");
   const [bulkSede, setBulkSede] = useState("Pampa");
   const [asignacionesVigentes, setAsignacionesVigentes] = useState(null);
+  const [oficiosCatalogo, setOficiosCatalogo] = useState([]);
+  const [nuevoOficio, setNuevoOficio] = useState(false);
+  const [avisoOficio, setAvisoOficio] = useState("");
+
+  useEffect(() => {
+    let vigente = true;
+    fetchOficios().then(rows=>{if(vigente)setOficiosCatalogo(rows);}).catch(error=>{if(vigente)setErr(error);});
+    return ()=>{vigente=false;};
+  }, []);
 
   useEffect(() => {
     setQ(initialQuery || "");
@@ -113,11 +123,14 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
   const oficiosDisponibles = useMemo(() => {
     const unique = new Map();
+    for (const oficio of oficiosCatalogo) {
+      if (oficio.activo !== false) unique.set(oficio.id,oficio.nombre);
+    }
     for (const empleado of empleados ?? []) {
       if (empleado.oficio_id && empleado.oficio?.nombre) unique.set(empleado.oficio_id, empleado.oficio.nombre);
     }
     return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
-  }, [empleados]);
+  }, [empleados, oficiosCatalogo]);
 
   const obrasDisponibles = useMemo(() => {
     const unique = new Map();
@@ -380,6 +393,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           </label>
         )}
         {esAdmin && <button style={BTN} onClick={() => setShowContratistas(true)}>Contratistas</button>}
+        {puedeGestionarAltas && <button type="button" style={BTN} onClick={()=>{setAvisoOficio("");setNuevoOficio(true);}}>+ Rubro / oficio</button>}
         {puedeGestionarAltas && <button style={BTN_PRIMARY} onClick={() => { setErr(null); setModal({ emp: null }); }}>+ Empleado</button>}
       </div>
 
@@ -388,6 +402,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       </div>}
 
       {err && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 10 }}>{String(err.message ?? err)}</div>}
+      {avisoOficio && <div role="status" style={{fontSize:12,color:C.green,marginBottom:10}}>{avisoOficio}</div>}
 
       {esAdmin && vista !== "provisorios" && selIds.size > 0 && (
         <div style={{
@@ -544,6 +559,10 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           onError={setErr}
         />
       )}
+      {nuevoOficio && <NuevoOficioModal oficios={oficiosCatalogo} onCerrar={()=>setNuevoOficio(false)} onCreado={creado=>{
+        setOficiosCatalogo(actual=>[...actual.filter(o=>o.id!==creado.id),creado]);
+        setAvisoOficio(`Rubro «${creado.nombre}» creado. Ya está disponible en Oficios y obras.`);
+      }}/>}
       {showContratistas && (
         <ContratistasModal contratistas={contratistas} onClose={() => setShowContratistas(false)} onChanged={onChanged} />
       )}

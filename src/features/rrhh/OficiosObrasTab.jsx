@@ -3,7 +3,6 @@ import { Briefcase, Check, ChevronRight, HardHat, ListChecks, Plus, Save, Search
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 import {
-  crearOficio,
   fetchAsignacionesVigentes,
   fetchOficioCategorias,
   fetchOficios,
@@ -12,6 +11,7 @@ import {
   guardarFichasOperativasEmpleados,
 } from "./api";
 import { BTN_PRIMARY, INP, LBL, Cargando, ErrorBox } from "./ui";
+import NuevoOficioModal from "./NuevoOficioModal";
 
 const clean = (value) => String(value || "").trim().toLocaleLowerCase("es");
 
@@ -169,7 +169,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
   const [bulkShowFinished, setBulkShowFinished] = useState(false);
   const [notice, setNotice] = useState("");
   const [openOffice, setOpenOffice] = useState("");
-  const [newOffice, setNewOffice] = useState("");
+  const [nuevoOficio, setNuevoOficio] = useState(false);
 
   const cargar = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setCargando(true);
@@ -396,23 +396,6 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
     }
   }
 
-  async function addOffice() {
-    const name = newOffice.trim();
-    if (!name || guardando) return;
-    setGuardando("new-office");
-    setError("");
-    try {
-      const created = await crearOficio({ nombre: name });
-      setNewOffice("");
-      await cargar({ silent: true });
-      setOpenOffice(created.id);
-    } catch (cause) {
-      setError(cause.message || "No se pudo crear el oficio.");
-    } finally {
-      setGuardando("");
-    }
-  }
-
   if (cargando) return <Cargando />;
 
   return (
@@ -436,6 +419,7 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
             </button>
           ))}
         </div>
+        {esAdmin && <button type="button" style={{...BTN_PRIMARY,display:"inline-flex",alignItems:"center",gap:6}} disabled={Boolean(guardando)} onClick={()=>setNuevoOficio(true)}><Plus size={13}/> Crear rubro / oficio</button>}
       </section>
 
       {view === "personas" ? (
@@ -625,12 +609,6 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
               <div style={{ color: C.t0, fontSize: 14, fontWeight: 750 }}>Qué puede retirar cada oficio</div>
               <div style={{ color: C.t2, fontSize: 10.5, marginTop: 3 }}>Marcá categorías completas. Por ahora una diferencia genera una advertencia y no bloquea el retiro.</div>
             </div>
-            {esAdmin && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <input value={newOffice} onChange={(event) => setNewOffice(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addOffice(); }} placeholder="Nuevo oficio…" style={{ ...INP, width: 190 }} />
-                <button type="button" onClick={addOffice} disabled={!newOffice.trim() || !!guardando} style={{ ...BTN_PRIMARY, minHeight: 33 }}><Plus size={13} /> Crear</button>
-              </div>
-            )}
           </div>
 
           <div style={{ display: "grid", gap: 6 }}>
@@ -670,6 +648,11 @@ export default function OficiosObrasTab({ empleados = [], esAdmin = false, isMob
           </div>
         </section>
       )}
+      {nuevoOficio && <NuevoOficioModal oficios={oficios} onCerrar={()=>setNuevoOficio(false)} onCreado={creado=>{
+        setOficios(actual=>[...actual.filter(o=>o.id!==creado.id),creado].sort((a,b)=>a.nombre.localeCompare(b.nombre,"es")));
+        setOpenOffice(creado.id);
+        setNotice(`Rubro «${creado.nombre}» creado.`);
+      }}/>}
     </div>
   );
 }
