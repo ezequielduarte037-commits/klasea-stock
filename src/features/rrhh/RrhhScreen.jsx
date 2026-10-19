@@ -75,7 +75,7 @@ export default function RrhhScreen({ profile }) {
   }, [esAdmin, puedeEditarOficiosYObras, requestedTab, verEmpleados]);
 
   const listo = empleados != null && contratistas != null && config != null;
-  const confirmados = (empleados ?? []).filter(e => !e.provisorio);
+  const confirmados = (empleados ?? []).filter(e => !e.provisorio && !e.externo);
   const puedeGestionarAltasEmpleados = puedeGestionarAltas(profile);
 
   return (

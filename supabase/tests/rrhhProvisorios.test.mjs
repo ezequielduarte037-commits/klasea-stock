@@ -10,7 +10,7 @@ const one=async(s,p=[]) => (await query(s,p))[0];
 const actor=async(id)=>db.query("select set_config('test.uid',$1,false)",[id]);
 const alta=async(id=NUEVO,dni='12345678',nombre='Persona prueba')=>(await one('select consumibles_alta_externo($1,$2,$3,$4,$5) as r',[id,nombre,'Empresa',dni,'Chubut'])).r;
 const confirmar=async(id,datos={})=>(await one('select rrhh_guardar_alta_empleado($1,$2::jsonb) as r',[id,JSON.stringify({nombre:'Nombre revisado',dni:'12345678',grupo:'casa',ficha:true,sede:'Pampa',...datos})])).r;
-let migration;
+let migration,externosMigration;
 before(async()=>{
  await db.exec(`create role authenticated;create schema auth;
  create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
@@ -26,6 +26,8 @@ before(async()=>{
  await db.exec(base.match(/create or replace function public\.consumibles_alta_externo\([\s\S]+?\$\$;/)[0]);
  migration=await readFile('supabase/migrations/20261019110000_rrhh_altas_provisorias_panol.sql','utf8');
  await db.exec(migration);
+ externosMigration=await readFile('supabase/migrations/20261019120000_rrhh_externos_por_persona.sql','utf8');
+ await db.exec(externosMigration);
 });
 after(()=>db.close());
 beforeEach(async()=>{await actor('');await db.exec(`delete from rrhh_empleados where id <> '${OLD}';`);});
@@ -33,7 +35,7 @@ test('reclasifica el alta histórica conservando ID, notas y retiros; rerun no l
  const old=await one('select * from rrhh_empleados where id=$1',[OLD]);
  assert.equal(old.provisorio,true);assert.equal(old.ficha,false);assert.equal(old.alta_creado_por,PAN);assert.equal(old.alta_origen,'panol');
  assert.equal((await one('select sum(cantidad) as n from retiros')).n,'5');
- await db.exec(migration);assert.equal((await query('select * from rrhh_empleados')).length,1);
+ await db.exec(migration);await db.exec(externosMigration);assert.equal((await query('select * from rrhh_empleados')).length,1);
 });
 test('Pañol registra provisoriamente; conserva idempotencia por id, DNI y nombre/empresa',async()=>{
  await actor(PAN);const a=await alta();assert.equal(a.provisorio,true);
@@ -71,4 +73,33 @@ test('no aprueba sin DNI válido, con DNI duplicado ni con campos de procedencia
 test('Técnica crea un alta definitiva, pero ningún alta rápida confirma un DNI existente',async()=>{
  await actor(TEC);const e=await confirmar(null);assert.equal(e.provisorio,false);assert.equal(e.alta_confirmado_por,TEC);
  await actor(PAN);const reused=await alta();assert.equal(reused.id,e.id);assert.equal(reused.provisorio,false);
+});
+
+test('externo se define por persona y no por toda la empresa',async()=>{
+ await actor(PAN);const a=await alta();const b=await alta('00000000-0000-0000-0000-000000000015','55555555','Otra persona');
+ assert.equal(a.externo,true);assert.equal(b.externo,true);
+ await actor(RRHH);await db.query('select rrhh_definir_externo($1,false)',[a.id]);
+ assert.equal((await one('select externo from consumibles_empresa_empleado($1)',[a.id])).externo,false);
+ assert.equal((await one('select externo from consumibles_empresa_empleado($1)',[b.id])).externo,true);
+ const lista=(await one('select consumibles_externos() as r')).r.personas;
+ assert.equal(lista.some(e=>e.id===a.id),false);assert.equal(lista.some(e=>e.id===b.id),true);
+});
+
+test('cambiar externo no aprueba el alta y repetir la migración respeta la decisión manual',async()=>{
+ await actor(PAN);await alta();await actor(TEC);await db.query('select rrhh_definir_externo($1,false)',[NUEVO]);
+ let e=await one('select provisorio,externo from rrhh_empleados where id=$1',[NUEVO]);assert.deepEqual(e,{provisorio:true,externo:false});
+ await actor('');await db.exec(externosMigration);
+ e=await one('select provisorio,externo from rrhh_empleados where id=$1',[NUEVO]);assert.deepEqual(e,{provisorio:true,externo:false});
+});
+
+test('Pañol no cambia la clasificación externa por RPC ni por UPDATE directo',async()=>{
+ await actor(PAN);await alta();
+ await assert.rejects(db.query('select rrhh_definir_externo($1,false)',[NUEVO]),/RRHH o Técnica/);
+ await assert.rejects(db.query('update rrhh_empleados set externo=false where id=$1',[NUEVO]),/RRHH o Técnica/);
+});
+
+test('un externo sin empresa sigue identificado como externo para autorizar sus retiros',async()=>{
+ await actor(TEC);const e=await confirmar(null,{externo:true});
+ const datos=await one('select * from consumibles_empresa_empleado($1)',[e.id]);
+ assert.equal(datos.externo,true);assert.equal(datos.empresa,null);
 });

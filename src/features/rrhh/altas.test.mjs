@@ -13,3 +13,11 @@ test('RRHH y Técnica gestionan altas; Pañol no confirma aunque tenga flag de a
  assert.equal(puedeGestionarAltas({role:'panol',is_admin:true}),false);
  assert.equal(puedeGestionarAltas(null),false);
 });
+
+test('externos se listan aparte del equipo, manteniendo el estado provisorio cuando corresponde',()=>{
+ const rows=[{id:'a',activo:true},{id:'e',activo:true,externo:true},{id:'p',activo:true,externo:true,provisorio:true},{id:'b',activo:false,externo:true}];
+ assert.deepEqual(empleadosDeVista(rows).map(e=>e.id),['a']);
+ assert.deepEqual(empleadosDeVista(rows,'externos').map(e=>e.id),['e','p']);
+ assert.deepEqual(empleadosDeVista(rows,'provisorios').map(e=>e.id),['p']);
+ assert.deepEqual(empleadosDeVista(rows,'ex').map(e=>e.id),['b']);
+});

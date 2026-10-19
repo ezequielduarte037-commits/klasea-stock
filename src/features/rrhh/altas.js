@@ -6,5 +6,6 @@ export function puedeGestionarAltas(profile) {
 export function empleadosDeVista(empleados = [], vista = "activos") {
   return empleados.filter((e) => vista === "provisorios"
     ? e.provisorio === true
-    : e.provisorio !== true && (vista === "ex" ? e.activo === false : e.activo !== false));
+    : vista === "externos" ? e.externo === true && e.activo !== false
+    : e.provisorio !== true && (vista === "ex" ? e.activo === false : e.activo !== false && e.externo !== true));
 }

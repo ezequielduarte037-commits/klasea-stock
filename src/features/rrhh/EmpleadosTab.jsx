@@ -5,14 +5,14 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { EMPLEADO_SELECT, fetchAsignacionesVigentes, fetchConfig, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { EMPLEADO_SELECT, definirEmpleadoExterno, fetchAsignacionesVigentes, fetchConfig, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { empleadosDeVista } from "./altas";
 import { SeguimientoPersonaModal } from "./PresentismoTab";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
 import { Archive, Camera, CalendarSearch, ClipboardCheck, ImageUp, RotateCcw, UsersRound } from "lucide-react";
 
-const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
+const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, externo: false, notas: "", nfc_uid: "", foto_url: "" };
 
 function searchText(value) {
   return String(value ?? "").toLowerCase();
@@ -65,7 +65,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [filtroSede, setFiltroSede] = useState("todas");
   const [filtroOficio, setFiltroOficio] = useState("todos");
   const [filtroObra, setFiltroObra] = useState("todas");
-  const [vista, setVista] = useState(["ex", "provisorios"].includes(initialView) ? initialView : "activos");
+  const [vista, setVista] = useState(["ex", "externos", "provisorios"].includes(initialView) ? initialView : "activos");
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
@@ -76,6 +76,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [err, setErr] = useState(null);
   const [selIds, setSelIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [definiendoExterno, setDefiniendoExterno] = useState(null);
   const [bulkGrupo, setBulkGrupo] = useState("casa");
   const [bulkContratistaId, setBulkContratistaId] = useState("");
   const [bulkSede, setBulkSede] = useState("Pampa");
@@ -83,7 +84,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
   useEffect(() => {
     setQ(initialQuery || "");
-    setVista(["ex", "provisorios"].includes(initialView) ? initialView : "activos");
+    setVista(["ex", "externos", "provisorios"].includes(initialView) ? initialView : "activos");
     setSelIds(new Set());
   }, [initialQuery, initialView]);
 
@@ -171,8 +172,19 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       conNfc: act.filter(e => normalizeNfcUid(e.nfc_uid)).length,
       ex: empleadosDeVista(empleados ?? [], "ex").length,
       provisorios: empleadosDeVista(empleados ?? [], "provisorios").length,
+      externos: empleadosDeVista(empleados ?? [], "externos").length,
     };
   }, [empleados]);
+
+  async function cambiarExterno(emp) {
+    if (!puedeGestionarAltas || definiendoExterno) return;
+    setDefiniendoExterno(emp.id); setErr(null);
+    try {
+      await definirEmpleadoExterno(emp.id,!emp.externo);
+      await onChanged?.();
+    } catch (error) { setErr(error); }
+    finally { setDefiniendoExterno(null); }
+  }
 
   function cambiarVista(next) {
     setVista(next);
@@ -297,6 +309,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         <div style={{ display: "flex", gap: 4, minWidth: 0, flexWrap: "wrap" }}>
           {[
             { key: "activos", label: "Equipo activo", count: stats.total, icon: UsersRound },
+            { key: "externos", label: "Externos", count: stats.externos, icon: UsersRound },
             { key: "provisorios", label: "Provisorios", count: stats.provisorios, icon: ClipboardCheck },
             { key: "ex", label: "Ex empleados", count: stats.ex, icon: Archive },
           ].map(item => {
@@ -333,6 +346,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           {vista === "ex"
             ? "Las bajas conservan legajo, foto, NFC e historial."
             : vista === "provisorios" ? "Altas pendientes de revisión de RRHH o Técnica."
+            : vista === "externos" ? "Personas externas, definidas individualmente."
             : "Personal habilitado para operar y fichar."}
         </div>
       </div>
@@ -427,7 +441,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       )}
 
       <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>
-        {filtrados.length} {vista === "ex" ? "ex empleado" : vista === "provisorios" ? "provisorio" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
+        {filtrados.length} {vista === "ex" ? "ex empleado" : vista === "provisorios" ? "provisorio" : vista === "externos" ? "externo" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
         {vista === "ex" && " · ordenados por baja más reciente"}
       </div>
 
@@ -464,6 +478,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                       </div>
                       {e.foto_url && <div style={{ color: C.t2, fontSize: 10.5, marginTop: 1 }}>foto cargada</div>}
                       {e.provisorio && <span style={{display:"inline-block",marginTop:4,padding:"2px 7px",borderRadius:999,fontSize:10.5,fontWeight:650,color:C.cyan,background:C.cyanL,border:`1px solid ${C.cyanB}`}}>Provisorio · {e.alta_origen === "panol" ? "Pañol" : "pendiente de revisión"}</span>}
+                      {e.externo && <span style={{display:"inline-block",marginTop:4,marginLeft:e.provisorio?4:0,padding:"2px 7px",borderRadius:999,fontSize:10.5,fontWeight:650,color:C.blue,background:C.blueL}}>Externo</span>}
                     </div>
                   </div>
                 </Td>
@@ -508,6 +523,9 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                     </div>
                   )}
                   {e.provisorio && puedeGestionarAltas && <button type="button" style={{...BTN_PRIMARY,marginTop:6,padding:"5px 11px",fontSize:11}} onClick={()=>{setErr(null);setModal({emp:e,confirmarAlta:true});}}>Revisar alta</button>}
+                  {puedeGestionarAltas && <button type="button" disabled={Boolean(definiendoExterno)} style={{...BTN,marginTop:6,marginLeft:6,padding:"5px 11px",fontSize:11}} onClick={()=>cambiarExterno(e)}>
+                    {definiendoExterno===e.id ? "Guardando…" : e.externo ? "Quitar de externos" : "Marcar externo"}
+                  </button>}
                 </Td>
               </tr>
             ))}
@@ -547,6 +565,7 @@ function EmpleadoModal({ emp, empleados, contratistas, confirmarAlta = false, on
     dni: emp.dni ?? "", nombre: emp.nombre, grupo: emp.grupo,
     sede: emp.sede ?? "", contratista_id: emp.contratista_id ?? "", ficha: emp.ficha !== false,
     activo: emp.activo !== false, notas: emp.notas ?? "",
+    externo: emp.externo === true,
     nfc_uid: emp.nfc_uid ?? "", foto_url: emp.foto_url ?? "",
   } : FORM_VACIO);
   const [saving, setSaving] = useState(false);
@@ -652,6 +671,7 @@ function EmpleadoModal({ emp, empleados, contratistas, confirmarAlta = false, on
         sede: form.sede || null,
         contratista_id: form.grupo === "contratista" && form.contratista_id ? form.contratista_id : null,
         ficha: form.ficha,
+        externo: form.externo,
         activo: esReactivacion ? true : form.activo,
         notas: form.notas.trim() || (esReactivacion ? registroExistente.notas : null) || null,
         nfc_uid: nfcUid || null,
@@ -666,7 +686,7 @@ function EmpleadoModal({ emp, empleados, contratistas, confirmarAlta = false, on
     } catch (error) {
       const message = String(error?.message ?? error);
       if (error?.code === "23505" || message.includes("rrhh_empleados_dni_key")) {
-        setSaveError(`El DNI ${form.dni.trim()} ya está guardado. Revisá Equipo activo o Ex empleados antes de crear otro legajo.`);
+        setSaveError(`El DNI ${form.dni.trim()} ya está guardado. Revisá Equipo activo, Provisorios o Ex empleados antes de usarlo en otro legajo.`);
       } else if (isMissingColumn(error)) {
         setSaveError("Falta correr la migración NFC de RRHH antes de guardar tarjetas o fotos.");
       } else {
@@ -688,7 +708,7 @@ function EmpleadoModal({ emp, empleados, contratistas, confirmarAlta = false, on
 
         <label style={LBL} htmlFor="rrhh-alta-dni">DNI * <span style={{ color: C.t2, textTransform: "none", letterSpacing: 0 }}>(es la llave con el fichero — solo números)</span></label>
         <input id="rrhh-alta-dni" style={{ ...INP, width: "100%", marginBottom: 10, fontFamily: C.mono }} value={form.dni ?? ""}
-          onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={!!emp && !emp.provisorio} />
+          onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={saving} />
 
         {!emp && empleadoMismoDni && (
           <div style={{
@@ -830,6 +850,10 @@ function EmpleadoModal({ emp, empleados, contratistas, confirmarAlta = false, on
             <input type="checkbox" checked={form.activo} onChange={e => set("activo", e.target.checked)} /> Activo
           </label>
         </div>
+
+        <label style={{ fontSize:13,color:C.t1,display:"flex",gap:6,alignItems:"center",marginBottom:12,cursor:"pointer" }}>
+          <input type="checkbox" checked={form.externo} onChange={e=>set("externo",e.target.checked)} /> Es externo
+        </label>
 
         <label style={LBL}>Notas</label>
         <input style={{ ...INP, width: "100%", marginBottom: 16 }} value={form.notas} onChange={e => set("notas", e.target.value)} placeholder="Opcional" />

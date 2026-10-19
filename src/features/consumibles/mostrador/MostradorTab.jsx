@@ -606,7 +606,7 @@ export default function MostradorTab({ sede }) {
       fotoUrl: emp.foto_url ?? "",
       sede: emp.sede ?? "",
       empresa: empresaExterna ?? null,
-      externo: Boolean(empresaExterna),
+      externo: externosRef.current.porEmpleado.has(emp.id) || emp.externo === true,
       provisorio: emp.provisorio === true,
       metodo,
       uid,

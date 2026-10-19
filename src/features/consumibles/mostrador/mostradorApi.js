@@ -59,7 +59,7 @@ export async function fetchMasRetirados({ sede = null, dias = 60 } = {}) {
  * El pañol puede leer rrhh_empleados (política rrhh_empleados_select_panol).
  */
 export async function fetchEmpleadosMostrador() {
-  const completo = "id,nombre,dni,sede,foto_url,activo,fecha_baja,nfc_uid,provisorio";
+  const completo = "id,nombre,dni,sede,foto_url,activo,fecha_baja,nfc_uid,provisorio,externo";
   let { data, error } = await supabase
     .from("rrhh_empleados")
     .select(completo)
@@ -69,7 +69,7 @@ export async function fetchEmpleadosMostrador() {
   if (error && /fecha_baja|foto_url|nfc_uid/.test(String(error.message))) {
     ({ data, error } = await supabase
       .from("rrhh_empleados")
-      .select("id,nombre,dni,sede,activo,provisorio")
+      .select("id,nombre,dni,sede,activo,provisorio,externo")
       .or("activo.is.null,activo.eq.true")
       .order("nombre")
       .limit(2000));

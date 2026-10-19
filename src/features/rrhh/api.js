@@ -4,7 +4,7 @@
 import { supabase } from "@/supabaseClient";
 
 const EMPLEADO_BASE_SELECT =
-  "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, provisorio, alta_origen, alta_creado_por, alta_confirmado_por, alta_confirmado_at, contratista:rrhh_contratistas(id, nombre)";
+  "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, provisorio, externo, alta_origen, alta_creado_por, alta_confirmado_por, alta_confirmado_at, contratista:rrhh_contratistas(id, nombre)";
 
 export const EMPLEADO_SELECT =
   `${EMPLEADO_BASE_SELECT}, nfc_uid, foto_url, nfc_asignado_at, nfc_asignado_por`;
@@ -19,6 +19,12 @@ export const SEDES = ["Pampa", "Chubut"];
 
 export async function guardarAltaEmpleado(id, datos) {
   const { data, error } = await supabase.rpc("rrhh_guardar_alta_empleado", { p_id:id ?? null, p_datos:datos });
+  if (error) throw error;
+  return data;
+}
+
+export async function definirEmpleadoExterno(id, externo) {
+  const { data, error } = await supabase.rpc("rrhh_definir_externo", { p_id:id, p_externo:externo });
   if (error) throw error;
   return data;
 }

@@ -204,7 +204,7 @@ export default function Firma({
                         <button key={emp.id} type="button" className={`mst-persona-res${i === 0 ? " is-activa" : ""}`} onClick={() => elegirPersona(emp)}>
                           <span>{emp.nombre}</span>
                           <small className="mst-num">{emp.dni ? `DNI ${emp.dni}` : ""}</small>
-                          <small>{emp.provisorio ? "Provisorio · pendiente de RRHH / Técnica" : emp.externo ? `Externo · ${emp.empresa}` : emp.sede || ""}</small>
+                          <small>{emp.provisorio ? "Provisorio · pendiente de RRHH / Técnica" : emp.externo ? `Externo${emp.empresa ? ` · ${emp.empresa}` : ""}` : emp.sede || ""}</small>
                         </button>
                       ))}
                     </div>
@@ -241,7 +241,7 @@ export default function Firma({
                 <div className="mst-persona-sub">
                   {persona.dni ? <span>DNI <span className="mst-num">{persona.dni}</span></span> : null}
                   <span>{persona.metodo === "nfc" ? "con tarjeta" : "sin tarjeta"}</span>
-                  {persona.externo ? <span className="mst-externo">Externo · {persona.empresa}</span> : persona.sede ? <span>{persona.sede}</span> : null}
+                  {persona.externo ? <span className="mst-externo">Externo{persona.empresa ? ` · ${persona.empresa}` : ""}</span> : persona.sede ? <span>{persona.sede}</span> : null}
                   {persona.provisorio && <span className="mst-externo">Provisorio · pendiente de RRHH / Técnica</span>}
                 </div>
               </div>
