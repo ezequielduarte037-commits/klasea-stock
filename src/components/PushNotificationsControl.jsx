@@ -32,6 +32,7 @@ export default function PushNotificationsControl({ profile, modo = "ajustes" }) 
   const paused = active && prefs?.push_enabled === false;
   const explanations = {
     checking: "Comprobando si este dispositivo puede recibir avisos…",
+    reconnecting: "Se está recuperando la conexión de los avisos. Se reintentará automáticamente cuando haya conexión.",
     ready: "Recibí avisos relevantes aunque Klase A esté cerrada.",
     install: "En iPhone o iPad, agregá Klase A a la pantalla de inicio y abrila desde su ícono para activar los avisos.",
     active: paused ? "Los avisos al celular están pausados para tu cuenta." : "Este dispositivo está vinculado a tu cuenta.",
@@ -41,6 +42,7 @@ export default function PushNotificationsControl({ profile, modo = "ajustes" }) 
   const resumen = active ? { texto: paused ? "Avisos pausados" : "Avisos activados", color: paused ? C.dim : C.green, Icono: Smartphone }
     : state.phase === "ready" ? { texto: busy === "enable" ? "Activando…" : "Activar avisos", color: C.blue, Icono: Bell }
       : state.phase === "checking" ? { texto: "Comprobando…", color: C.dim, Icono: Smartphone }
+        : state.phase === "reconnecting" ? { texto: "Reconectando avisos…", color: C.dim, Icono: RefreshCw }
         : state.phase === "blocked" ? { texto: "Avisos bloqueados", color: C.red, Icono: BellOff }
           : state.phase === "install" ? { texto: "Avisos en iPhone", color: C.dim, Icono: Share }
             : { texto: "Avisos no disponibles", color: C.dim, Icono: BellOff };
@@ -61,11 +63,11 @@ export default function PushNotificationsControl({ profile, modo = "ajustes" }) 
     {abierto && <section aria-label="Notificaciones al celular" style={{ flexBasis: "100%", order: 10, padding: "8px 4px 4px", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
     <p style={{ margin: "0 0 9px", color: C.dim, fontSize: 12, lineHeight: 1.5 }}>{text}</p>
     <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-      {active && <>
-        <button type="button" disabled={!!busy || paused} onClick={() => action("test")} style={button}>{busy === "test" ? "Enviando…" : "Enviar prueba"}</button>
+      {(active || (state.phase === "reconnecting" && state.reg)) && <>
+        {active && <button type="button" disabled={!!busy || paused} onClick={() => action("test")} style={button}>{busy === "test" ? "Enviando…" : "Enviar prueba"}</button>}
         <button type="button" disabled={!!busy} onClick={() => action("disable")} style={button}><BellOff size={14} aria-hidden="true" />Desactivar aquí</button>
       </>}
-      {["blocked", "error", "unconfigured"].includes(state.phase) && <button type="button" disabled={!!busy} onClick={refresh} style={button}><RefreshCw size={14} aria-hidden="true" />Volver a comprobar</button>}
+      {["blocked", "error", "unconfigured", "reconnecting"].includes(state.phase) && <button type="button" disabled={!!busy} onClick={refresh} style={button}><RefreshCw size={14} aria-hidden="true" />Volver a comprobar</button>}
     </div>
     {active && prefs && <details style={{ marginTop: 10, fontSize: 12 }}>
       <summary style={{ cursor: "pointer", color: C.dim, padding: "4px 0" }}>Qué avisos recibir</summary>

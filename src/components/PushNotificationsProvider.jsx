@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Context from "./PushNotificationsContext";
-import { disablePush, enablePush, invokePush, loadPushState, PUSH_CHANGE_EVENT, savePushPreferences } from "@/lib/pushNotifications";
+import { disablePush, enablePush, invokePush, loadPushState, PUSH_CHANGE_EVENT, resumePushForSession, savePushPreferences } from "@/lib/pushNotifications";
 
 // "Ahora no" en la invitación: se vuelve a ofrecer a las dos semanas.
 const INVITACION_KEY = "klasea.push.invitacion";
@@ -15,33 +15,50 @@ export default function PushNotificationsProvider({ profile, children }) {
   const [feedback, setFeedback] = useState(null);
   const request = useRef(0);
   const inFlight = useRef(false);
+  const checking = useRef(null);
   const userId = profile?.id;
+  // Refrescar el token o los datos del perfil no cambia la sesión push ni debe
+  // cancelar una activación que el usuario acaba de confirmar.
+  const pushProfile = useMemo(()=>({id:profile?.id,role:profile?.role,is_demo:profile?.is_demo,activo:profile?.activo}),
+    [profile?.id,profile?.role,profile?.is_demo,profile?.activo]);
+  useEffect(()=>{if(userId)resumePushForSession();},[userId]);
   const [invitacionOculta, setInvitacionOculta] = useState(() => !!userId && invitacionPausada(userId));
   const ocultarInvitacion = useCallback(() => {
     setInvitacionOculta(true);
     try { localStorage.setItem(`${INVITACION_KEY}.${userId}`, String(Date.now() + INVITACION_PAUSA_MS)); } catch { /* Modo privado. */ }
   }, [userId]);
   const invalidate = useCallback(() => { request.current++; }, []);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(() => {
     if (inFlight.current) return;
+    if (checking.current) return checking.current;
     const serial = ++request.current;
-    try {
-      const next = await loadPushState(profile, () => serial === request.current);
-      if (next && serial === request.current) setState(next);
-    } catch (error) {
-      if (serial === request.current) setState({ phase: "error", message: error.message });
-    }
-  }, [profile]);
+    const pending = (async()=>{
+      try {
+        const next = await loadPushState(pushProfile,()=>serial===request.current);
+        if (next && serial===request.current) {
+          setState(prev=>({...next,userId,preferences:next.preferences??(prev.userId===userId?prev.preferences:undefined)}));
+          if(next.phase==="active")setFeedback(prev=>prev?.ok===false?null:prev);
+          else if(next.phase==="reconnecting")setFeedback(null);
+        }
+      } catch(error) {
+        if(serial===request.current)setState(prev=>({phase:prev.subscription?"reconnecting":"error",userId,
+          reg:prev.reg,subscription:prev.subscription,preferences:prev.preferences,message:error.message}));
+      } finally {if(checking.current===pending)checking.current=null;}
+    })();
+    checking.current=pending;
+    return pending;
+  }, [pushProfile,userId]);
 
   useEffect(() => {
     const timer = setTimeout(refresh, 0);
     const visible = () => { if (document.visibilityState === "visible") void refresh(); };
     const permissions = () => { void refresh(); };
+    const retry = setInterval(()=>{if(document.visibilityState==="visible")void refresh();},30_000);
     window.addEventListener(PUSH_CHANGE_EVENT, permissions);
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("online", permissions);
     return () => {
-      invalidate(); clearTimeout(timer);
+      invalidate(); clearTimeout(timer); clearInterval(retry); checking.current=null;
       window.removeEventListener(PUSH_CHANGE_EVENT, permissions);
       window.removeEventListener("online", permissions);
       document.removeEventListener("visibilitychange", visible);
@@ -74,6 +91,7 @@ export default function PushNotificationsProvider({ profile, children }) {
       if (request.current === serial) {
         const denied = window.Notification?.permission === "denied";
         if (denied) setState((prev) => ({ ...prev, phase: "blocked" }));
+        else if (error.pushState) setState(error.pushState);
         setFeedback({ ok: false, message: denied ? "El permiso fue bloqueado. Habilitá las notificaciones para Klase A en los ajustes del dispositivo." : error.message });
       }
     } finally { inFlight.current = false; setBusy(""); }
@@ -94,6 +112,7 @@ export default function PushNotificationsProvider({ profile, children }) {
   }
 
   // El perfil cambia antes de reutilizar cualquier registro del usuario anterior.
-  const visibleState = state.phase === "hidden" || !userId ? { phase: "hidden" } : state;
+  const hidden = !userId || profile?.role === "cliente" || profile?.is_demo || profile?.activo === false;
+  const visibleState = hidden ? {phase:"hidden"} : state.userId && state.userId!==userId ? {phase:"checking"} : state;
   return <Context.Provider value={{ state: visibleState, busy, feedback, action, refresh, preferences, invitacionOculta, ocultarInvitacion }}>{children}</Context.Provider>;
 }
