@@ -478,7 +478,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
                 title="No está en el catálogo: entra al stock sin ficha y Técnica lo da de alta"
                 style={{ border: `1px solid ${marcadoNuevo ? C.tealB ?? C.b0 : C.violetB ?? C.b0}`, background: marcadoNuevo ? C.tealL : C.violetL, color: marcadoNuevo ? C.teal : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
               >
-                {marcadoNuevo ? "Es nuevo ✓ · deshacer" : "Es nuevo: entra sin ficha"}
+                {marcadoNuevo ? "Nuevo ✓ · deshacer" : "Es un producto nuevo"}
               </button>
             ) : (
               <span style={{ color: C.violet, fontSize: 11, fontWeight: 650, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
@@ -495,7 +495,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
           catálogo no lo tiene o si lo tiene pero el parecido no alcanzó. */}
       {!selected && marcadoNuevo && (
         <div style={{ marginLeft: 81, color: C.teal, fontSize: 11.5, fontWeight: 650 }}>
-          Entra al stock sin ficha. Técnica lo da de alta (o lo vincula) desde «Productos a crear».
+          Pendiente de Técnica. Podés registrar el ingreso; la ficha se confirma después en «Productos a crear».
         </div>
       )}
       {!selected && !marcadoNuevo && results.length === 0 && (
@@ -893,7 +893,7 @@ export default function EnviarAPanolModal({
     setObservaciones(prefill?.observaciones || "");
     const nextItems = Array.isArray(prefill?.items) ? prefill.items.map(normalizeItem) : [];
     setItems(showPrices ? nextItems : nextItems.map(stripItemPrice));
-    setNDesc("");
+    setNDesc(prefill?.descripcionPendiente || "");
     setNCode("");
     setNCant("");
     setNUnit("unidad");
@@ -1512,11 +1512,12 @@ export default function EnviarAPanolModal({
         prepared.push({ ...item, ...itemPatchFromMaterial(best, item) });
         continue;
       }
-      // Los remitos del scanner son evidencia operativa: una lectura dudosa no
-      // puede crear identidad nueva en el catálogo. Pañol debe elegir el SKU
-      // concreto antes de que este renglon llegue al stock.
+      // Lo desconocido no debe frenar la recepción ni crear una ficha definitiva.
+      // La confirmación del ingreso lo deja en la bandeja de Técnica, también
+      // cuando llegó desde el scanner. Los productos existentes siguen vinculados.
       if (!puedeCrear(item)) {
-        throw new Error(`“${item.descripcion || "Este renglón"}” no está en el catálogo. Vinculalo con un producto o marcalo como nuevo: entra sin ficha y Técnica lo da de alta.`);
+        prepared.push({ ...item, material_id: null, a_crear: true });
+        continue;
       }
       if (requireCatalogLinks) {
         throw new Error(`Vinculá “${item.descripcion || "este renglón"}” con un producto del catálogo antes de ingresar. El scanner no crea productos automáticamente.`);
@@ -1675,10 +1676,12 @@ export default function EnviarAPanolModal({
       return;
     }
 
-    // 4) Código desconocido → no se crea al vuelo; hay que crear el producto primero.
+    // Código desconocido: se completa el renglón y se ingresa para revisión.
     setNCode(code);
     scanBeep(300, 200);
-    toast.warning(`Código ${code} no está en el catálogo. Creá el producto en la pestaña “Crear producto” y volvé a escanear.`);
+    toast.warning(soloConsumibles
+      ? `Código ${code} no está en el catálogo. Completá la descripción y cantidad abajo: podés ingresarlo pendiente de Técnica.`
+      : `Código ${code} no está en el catálogo. Creá el producto en la pestaña “Crear producto” y volvé a escanear.`);
   }
 
   // Agregar (marcar) un ítem de un aviso sin escanear: lo vincula al catálogo si puede.
@@ -2645,7 +2648,9 @@ export default function EnviarAPanolModal({
               <div>
                 <span style={{ ...lbl, marginBottom: 3, fontSize: ingresoDesktop ? 11 : lbl.fontSize }}>Productos a ingresar</span>
                 <div style={{ color: C.t2, fontSize: ingresoDesktop ? 12.5 : 11.5 }}>
-                  {isCompraNotice
+                  {soloConsumibles && isRemito
+                    ? "Lo que no esté en el catálogo ingresa pendiente de Técnica. Podés elegir un producto existente o cargar uno nuevo abajo."
+                    : isCompraNotice
                     ? "Confirmá el producto real del catálogo antes de avisar a pañol."
                     : isObraNotice
                       ? "Confirmá qué producto real del catálogo va a llevar esta obra."
@@ -2751,6 +2756,12 @@ export default function EnviarAPanolModal({
             )}
 
             <div style={{ border: `1px dashed ${C.border2 ?? C.b1}`, borderRadius: 11, padding: ingresoDesktop ? 14 : 10, background: "rgba(96,165,250,0.04)", display: "grid", gap: ingresoDesktop ? 10 : 8 }}>
+              {soloConsumibles && (
+                <div style={{ display: "grid", gap: 3 }}>
+                  <span style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>¿No está en el catálogo? Ingresalo igual</span>
+                  <span style={{ color: C.t2, fontSize: 12, lineHeight: 1.4 }}>Cargá descripción y cantidad. Al guardar, queda pendiente en «Productos a crear» para que Técnica lo confirme.</span>
+                </div>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : showPrices ? "minmax(260px,1fr) 130px 96px 120px 116px 88px" : "minmax(260px,1fr) 130px 96px 120px", gap: ingresoDesktop ? 8 : 6 }}>
                 <input value={nDesc} onChange={(e) => setNDesc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }} placeholder='Descripción o línea completa: "20 mtrs Antirruido"' style={inp({ padding: "9px 11px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
                 <input value={nCode} onChange={(e) => setNCode(e.target.value.toUpperCase())} placeholder="Cod. item" title="Codigo interno/proveedor. Para codigo de barras, vinculalo al material del catalogo." style={inp({ padding: "9px 11px", fontSize: 13, fontFamily: C.mono })} />
@@ -2796,12 +2807,12 @@ export default function EnviarAPanolModal({
               disabled={saving || (!titulo.trim() && items.length === 0)}
               onClick={() => {
                 const ok = persistDraftNow();
-                if (ok) { toast.success("Guardado en pendientes."); onClose(false); }
-                else toast.error("No se pudo guardar el pendiente.");
+                if (ok) { toast.success("Borrador guardado. Todavía no se registró el ingreso."); onClose(false); }
+                else toast.error("No se pudo guardar el borrador.");
               }}
               style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || (!titulo.trim() && items.length === 0) ? "default" : "pointer", opacity: saving || (!titulo.trim() && items.length === 0) ? 0.5 : 1, fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 650, fontFamily: C.sans }}
             >
-              Guardar pendiente
+              Guardar borrador
             </button>
           )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

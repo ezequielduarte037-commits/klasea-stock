@@ -74,7 +74,6 @@ const TABS_MAS = [
   { key: "consumibles", label: "Consumibles", hint: "Tornillos, lijas y el resto del fondo", Icon: Scale },
   { key: "crear", label: "Crear producto", hint: "Alta rápida al catálogo, no a la matriz", Icon: PackagePlus },
 ];
-const TAB_LABELS = Object.fromEntries([...TABS_PRINCIPALES, ...TABS_MAS].map((t) => [t.key, t.label]));
 
 const ENVIO_TONO = {
   borrador: { color: C.dim, bg: C.panel2, border: C.border },
@@ -200,7 +199,7 @@ function RecepcionTabs({ tab, onTab, ingresarCount = 0, tabsMas = TABS_MAS }) {
         aria-expanded={Boolean(menu)}
         onClick={alternarMenu}
       >
-        {enMenu ? TAB_LABELS[tab] : "Más"}
+        {enMenu ? tabsMas.find((t) => t.key === tab)?.label : "Más"}
         {tab === "ingresar" && ingresarCount > 0 && <span className="rp-tab-cuenta">{ingresarCount}</span>}
         <ChevronDown size={13} style={{ transform: menu ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </button>
@@ -550,7 +549,9 @@ export default function RecepcionPanolScreen({ profile }) {
   // Pañol no da de alta productos de los barcos: lo nuevo entra sin ficha desde
   // el ingreso y Técnica lo crea desde Stock → Movimientos → Productos a crear.
   const soloConsumibles = profile ? !puedeCrearProductosDeBarco(profile) : false;
-  const tabsMas = soloConsumibles ? TABS_MAS.filter((t) => t.key !== "crear") : TABS_MAS;
+  const tabsMas = soloConsumibles ? TABS_MAS.map((t) => t.key === "crear"
+    ? { ...t, label: "Producto pendiente", hint: "Ingresar un producto nuevo para que Técnica lo confirme" }
+    : t) : TABS_MAS;
 
   const [envios, setEnvios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -562,12 +563,12 @@ export default function RecepcionPanolScreen({ profile }) {
   const [q, setQ] = useState("");
   const [tab, setTabState] = useState(() => {
     const inicial = readStoredPanolTab(requestedTab);
-    return soloConsumibles && inicial === "crear" ? "recepcion" : inicial;
+    return inicial;
   });
   const [solicitudOpen, setSolicitudOpen] = useState(false);
   const setTab = useCallback((nextTab) => {
     const requested = nextTab === "pendientes" ? "ingresar" : nextTab;
-    const value = PANOL_TABS.has(requested) && !(soloConsumibles && requested === "crear") ? requested : "recepcion";
+    const value = PANOL_TABS.has(requested) ? requested : "recepcion";
     setTabState(value);
     if (typeof window !== "undefined") window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, value);
     const nextParams = new URLSearchParams(searchParams);
@@ -575,8 +576,9 @@ export default function RecepcionPanolScreen({ profile }) {
     nextParams.delete("envio");
     nextParams.delete("material");
     nextParams.delete("item");
+    if (value !== "crear") nextParams.delete("descripcion");
     setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams, soloConsumibles]);
+  }, [searchParams, setSearchParams]);
   const [modalPrefill, setModalPrefill] = useState(null);
   const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
   const [papelera, setPapelera] = useState(() => leerPapeleraIngresos());
@@ -589,8 +591,11 @@ export default function RecepcionPanolScreen({ profile }) {
   // Identidad estable: si fuera un objeto inline, cualquier re-render del padre
   // (p. ej. un toast) reiniciaría el form del modal y borraría los ítems cargados.
   const modalPrefillEstable = useMemo(
-    () => modalPrefill || { origen: "remito", modo: "remito", sede: sedeLocked || "" },
-    [modalPrefill, sedeLocked],
+    () => modalPrefill || {
+      origen: "remito", modo: "remito", sede: sedeLocked || "",
+      descripcionPendiente: tab === "crear" && soloConsumibles ? searchParams.get("descripcion") || "" : "",
+    },
+    [modalPrefill, sedeLocked, tab, soloConsumibles, searchParams],
   );
 
   const cargar = useCallback(async () => {
@@ -964,7 +969,7 @@ export default function RecepcionPanolScreen({ profile }) {
           <div style={{ flex: 1, minHeight: 0 }}>
             {canReceive ? (
               <EnviarAPanolModal
-                key={ingresoKey}
+                key={`${ingresoKey}-${tab}`}
                 open
                 embedded
                 profile={profile}
@@ -985,6 +990,7 @@ export default function RecepcionPanolScreen({ profile }) {
                   refreshPendientes();
                   if (saved) cargar();
                   if (volverAlScanner) setTab("scanner");
+                  else if (saved && tab === "crear") setTab("ingresar");
                 }}
               />
             ) : (

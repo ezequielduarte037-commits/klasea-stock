@@ -1237,6 +1237,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       if (transitRow?.panol_envio_item_id) params.set("item", transitRow.panol_envio_item_id);
       nav(`/recepcion-panol?${params.toString()}`);
     },
+    onRegisterPendingProduct: canReceive ? (descripcion) => {
+      const params = new URLSearchParams({ tab: "crear", descripcion });
+      nav(`/recepcion-panol?${params.toString()}`);
+    } : undefined,
     onRequestReplenishment: (group) => {
       const materialId = group?.material?.id || group?.material_id || "";
       const params = new URLSearchParams();
