@@ -373,6 +373,8 @@ function fmtPrecioSecundario(precio) {
 export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile = null }) {
   const toast = useToast();
   const reducirMovimiento = useReducedMotion();
+  // Técnica sólo manda pedidos a Compras; el aviso a pañol queda para el resto.
+  const soloPedirACompras = profile?.role === "tecnica";
   const [linea, setLinea] = useState("K37");
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -1900,17 +1902,19 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             <button type="button" onClick={copiar} style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Copy size={14} /> Copiar</button>
             {onPedir ? (
               <button type="button" onClick={pedir} style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <ShoppingCart size={14} /> Crear pedido
+                <ShoppingCart size={14} /> {soloPedirACompras ? "Pedir a compras" : "Crear pedido"}
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={avisarPanol}
-              title={obrasAvisoSeleccionadas.length ? "El material ya fue comprado: preparar aviso de recepción en pañol" : "Primero elegí una o varias obras para el aviso"}
-              style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
-            >
-              <Send size={14} /> Avisar a pañol
-            </button>
+            {!soloPedirACompras ? (
+              <button
+                type="button"
+                onClick={avisarPanol}
+                title={obrasAvisoSeleccionadas.length ? "El material ya fue comprado: preparar aviso de recepción en pañol" : "Primero elegí una o varias obras para el aviso"}
+                style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
+              >
+                <Send size={14} /> Avisar a pañol
+              </button>
+            ) : null}
           </div>
         </MotionDiv>
       ) : null}

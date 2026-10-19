@@ -105,6 +105,8 @@ import CopiarOcProveedor from "@/components/CopiarOcProveedor";
 import { addRequestItem, createPurchaseRequest, crearPedidoAdicionalObra } from "@/features/compras/purchaseRequestsApi";
 import CostoObraPanel from "./CostoObraPanel";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
+import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
+import { useToast } from "@/components/ui/Toast";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
@@ -3905,7 +3907,7 @@ function snapshotLockReason(row = {}) {
   return "";
 }
 
-export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
+export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, soloPedirACompras = false }) {
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
   const deferredQ = useDeferredValue(q);
@@ -5752,7 +5754,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
           <CopiarOcProveedor lineas={ordenLineasDesdeMatriz(orderRows)} label="Copiar OC proveedor" style={{ ...obraButton, color: C.blue, borderColor: C.blueB, background: C.blueL }} />
           <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
-          <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>
+          {!soloPedirACompras && <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>}
           <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
         </div>
         {flowMsg && <div role={flowMsg.type === "err" ? "alert" : "status"} style={{ fontSize: 12, color: flowMsg.type === "err" ? C.red : C.green, padding: "7px 9px", border: `1px solid ${flowMsg.type === "err" ? C.redB : C.greenB}`, borderRadius: 6 }}>{flowMsg.text}</div>}
@@ -8051,7 +8053,7 @@ function TarjetaLinea({ linea, dolar, indice, onAbrir }) {
   );
 }
 
-function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged }) {
+function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged, soloPedirACompras = false }) {
   const [sel, setSel] = useState("");
   const [selObra, setSelObra] = useState(null);
   const [q, setQ] = useState("");
@@ -8243,6 +8245,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         ums={ums}
         onChanged={onChanged}
         onBack={() => setSelObra(null)}
+        soloPedirACompras={soloPedirACompras}
       />
       </div>
     );
@@ -9469,6 +9472,11 @@ export default function MaterialesScreen({ profile }) {
   // hay que sincronizar un estado local con el parámetro cada vez que cambia.
   const tabPedida = searchParams.get("tab") || "";
   const tab = TAB_KEYS.includes(tabPedida) ? tabPedida : "lineas";
+  // Técnica sólo manda pedidos a Compras; el aviso a pañol queda para el resto.
+  const soloPedirACompras = profile?.role === "tecnica";
+  const toast = useToast();
+  // Pedido armado desde la planilla de obras (Listas de compras → Planillas).
+  const [pedidoPlanilla, setPedidoPlanilla] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
@@ -9799,9 +9807,17 @@ export default function MaterialesScreen({ profile }) {
               })()}
 
               <div key={tab} className="materiales-tab-content">
-                {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
+                {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} soloPedirACompras={soloPedirACompras} />}
                 {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
-                {tab === "planillas" && <PlanillaObrasPanel isMobile={isMobile} profile={profile} />}
+                {tab === "planillas" && <PlanillaObrasPanel
+                  isMobile={isMobile}
+                  profile={profile}
+                  onPedir={soloPedirACompras ? ({ titulo, descripcion, proveedorSugerido, obraCodigo }) => setPedidoPlanilla({
+                    title: titulo,
+                    description: proveedorSugerido ? `Proveedor sugerido: ${proveedorSugerido}\n\n${descripcion}` : descripcion,
+                    defaultDestination: obraCodigo ? `Obra ${obraCodigo}` : "",
+                  }) : undefined}
+                />}
                 {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
                 {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
                 {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
@@ -9815,6 +9831,16 @@ export default function MaterialesScreen({ profile }) {
                 {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
                 {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
               </div>
+              <PedirAComprasModal
+                open={!!pedidoPlanilla}
+                prefilled={pedidoPlanilla}
+                profile={profile}
+                origen="planilla"
+                onClose={(created) => {
+                  setPedidoPlanilla(null);
+                  if (created) toast.success("Pedido mandado a Compras");
+                }}
+              />
             </>
           )}
         </div>

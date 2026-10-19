@@ -15,11 +15,12 @@ import SelectorDestino from "./SelectorDestino";
 // ─────────────────────────────────────────────────────────────────────────────
 // RUTEO DE PEDIDOS LEGACY — POR ORIGEN, no por texto del destino.
 //
-// El modal recibe `origen` ("laminacion" | "maderas" | null):
+// El modal recibe `origen` ("laminacion" | "maderas" | "planilla" | null):
 //   · origen "laminacion" → TODOS los ítems crean laminacion_pedidos (aparecen
 //     en la tab Pedidos de Laminación y se reciben ahí). Nunca tocan madera.
 //   · origen "maderas"    → TODOS los ítems crean el pedido legacy `pedidos` +
 //     `pedido_items` (panel "Pedidos pendientes" del pañol de maderas).
+//   · origen "planilla"   → sólo purchase_request, sin pedido legacy.
 //   · sin origen (genérico) → heurística vieja por destino: "Stock …" → madera,
 //     "Obra …" → laminación.
 //
@@ -488,11 +489,12 @@ export default function PedirAComprasModal({
       let entriesMaderaExistentes = [];
       let entriesLam = [];
       let entriesLamExistentes = [];
-      if (origenEfectivo === "muebles" || origenEfectivo === "torneria") {
+      if (origenEfectivo === "muebles" || origenEfectivo === "torneria" || origenEfectivo === "planilla") {
         // Muebles y Tornería ya quedan representados de forma completa en
         // purchase_requests (Tornería además guarda el purchase_request_id en sus
         // items). Sin esta rama caían en la heurística de abajo y, como su destino
         // empieza con "Obra ", terminaban duplicados en laminacion_pedidos.
+        // Planilla de materiales (Listas de compras) es un pedido de texto a Compras.
       } else if (origenEfectivo === "laminacion") {
         entriesLamExistentes = requestItemsByDraft.filter((entry) =>
           entry?.draft?.laminacionPedidoId || entry?.draft?.laminacion_pedido_id);
