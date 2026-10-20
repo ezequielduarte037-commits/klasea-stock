@@ -331,7 +331,6 @@ function Fila({ e, onAbrir }) {
           {e.externo && <span className="mov-tag" data-tono="teal">Externo · {e.empresa}</span>}
           {e.fueraCupo && <span className="mov-tag" data-tono="rojo">Fuera de cupo</span>}
           {e.anulado && <span className="mov-anulado">Anulado{e.motivoAnulacion ? `: ${e.motivoAnulacion}` : ""}</span>}
-          {e.parcial && <span className="mov-anulado">Parte anulada</span>}
         </span>
       </span>
       <span className={`c-cant is-num mov-num${e.cantidad > 0 && e.tipo !== "inventario" ? " is-suma" : ""}`}>

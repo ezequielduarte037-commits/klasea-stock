@@ -77,7 +77,6 @@ export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, 
         }
         const items = [...porMaterial.values()];
         const motivo = g.filas.find((f) => f.anulado_motivo)?.anulado_motivo;
-        const anuladasParcial = !g.anulado && g.activas.length < g.filas.length;
         return (
           <div key={g.clave} className={`mst-mov${g.anulado ? " is-anulado" : ""}`}>
             <div className="mst-mov-fila">
@@ -100,7 +99,6 @@ export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, 
             <div className="mst-mov-sub">
               {[g.destino, g.carril === "planificado" ? "lista planificada" : null, g.metodoFirma === "sin_tarjeta" ? "sin tarjeta" : null].filter(Boolean).join(" · ")}
               {g.anulado ? <span style={{ color: "var(--red)" }}>{` · Anulado${motivo ? `: ${motivo}` : ""}`}</span> : null}
-              {anuladasParcial ? <span style={{ color: "var(--red)" }}> · parte anulada</span> : null}
             </div>
           </div>
         );
