@@ -148,7 +148,8 @@ export function agruparFilas(filas = [], { primeros = new Map(), nombres = new M
       solicitudId: base.solicitud_id ?? null,
       solicitudNumero: solicitud?.numero ?? null,
       remito: texto(base.remito) || null,
-      costoUnitario: num(base.costo_unitario_ars),
+      // De una fila vigente: la primera del grupo puede ser la anulada con el costo viejo.
+      costoUnitario: num((cuentan[0] ?? base).costo_unitario_ars),
       valor: redondear(valor, 2),
       sinCosto,
       fueraCupo: cuentan.some((f) => f.fuera_cupo === true),
