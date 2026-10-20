@@ -25,6 +25,8 @@ const TABS = [
   { key: "movimientos", label: "Movimientos", Comp: lazy(() => import("./movimientos/MovimientosTab")) },
   { key: "stock", label: "Stock y reposición", Comp: lazy(() => import("./stock/StockTab")) },
   { key: "conteo", label: "Conteo", Comp: lazy(() => import("./conteo/ConteoTab")) },
+  // El carrito del pedido a Rebollar: lo arma el pañol y lo recibe Ingresos.
+  { key: "pedidos", label: "Pedidos", Comp: lazy(() => import("./pedidos/PedidosTab")) },
   { key: "ingresos", label: "Ingresos", Comp: lazy(() => import("./ingresos/IngresosTab")) },
   { key: "catalogo", label: "Catálogo", Comp: lazy(() => import("./catalogo/CatalogoTab")) },
   { key: "precios", label: "Precios", Comp: lazy(() => import("./precios/PreciosTab")) },

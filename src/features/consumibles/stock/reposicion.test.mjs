@@ -129,20 +129,3 @@ test("texto para WhatsApp y filas de Excel", () => {
   assert.deepEqual(filas[1].slice(0, 5), ["TF61", "Tornillo fixador 6 x 1", 4, "caja x100", "400 unidades"]);
   assert.equal(filas[2][9], 5000);
 });
-
-test("armarPedidoConExtras suma productos pedidos a mano, aunque no estén en el mínimo, sin repetir los sugeridos", async () => {
-  const { armarPedidoConExtras } = await import("./reposicion.js");
-  const items = [
-    { id: "bajo", descripcion: "Guantes", unidad: "par", stockMinimo: 10, stock: 2, config: { proveedor_nombre: "Rebollar", factor_compra: 12 } },
-    { id: "sobra", descripcion: "Trapo", unidad: "unidad", stockMinimo: 5, stock: 50, config: { proveedor_nombre: "Rebollar", costo_unitario_ars: 10 } },
-  ];
-  const extras = new Map([["sobra", 3], ["bajo", 9]]);
-  const grupos = armarPedidoConExtras(items, "Chubut", extras);
-  const lineas = grupos.flatMap((g) => g.lineas);
-  assert.equal(lineas.length, 2);
-  const trapo = lineas.find((l) => l.materialId === "sobra");
-  assert.equal(trapo.manual, true);
-  assert.equal(trapo.unidadesCompra, 3);
-  assert.equal(trapo.subtotal, 30);
-  assert.equal(lineas.find((l) => l.materialId === "bajo").manual, undefined);
-});

@@ -110,14 +110,6 @@ export const CSS_STOCK = `
   .stk .stk-grupo-tit .stk-dim { font-size: 13px; }
   .stk .stk-grupo-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
   .stk .stk-aviso { margin: 0; padding: 10px 16px; background: var(--cyan-soft); border-bottom: 1px solid var(--border); font-size: 13px; }
-  .stk .stk-agregar { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
-  .stk .stk-agregar-lbl { font-size: 14px; font-weight: 600; }
-  .stk .stk-agregar-res { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .stk .stk-agregar-res li + li { border-top: 1px solid var(--border); }
-  .stk .stk-agregar-op { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: transparent; border: 0; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
-  .stk .stk-agregar-op:hover { background: var(--panel-2); }
-  .stk .stk-agregar-op span { display: flex; flex-direction: column; min-width: 0; }
-  .stk .stk-agregar-nota { margin: 0; font-size: 13px; }
   .stk .stk-ped-fila {
     display: grid; align-items: center; column-gap: 12px;
     grid-template-columns: 28px minmax(220px, 1fr) 110px 110px 170px 110px 120px;

@@ -10,12 +10,15 @@ export function prepararIngreso(borrador, sede, id = () => crypto.randomUUID()) 
   const lote = id();
   const nota = [
     borrador.proveedor?.trim() ? `Proveedor: ${borrador.proveedor.trim()}` : null,
-    borrador.pedidoId ? "Recibido contra un pedido a Compras" : null,
+    borrador.pedidoId && borrador.pedidoTitulo ? borrador.pedidoTitulo : null,
     borrador.nota?.trim(),
   ].filter(Boolean).join(" · ") || null;
   return { filas: borrador.lineas.map((l) => {
     const calculo = calcularLinea(l);
-    return { id: id(), material_id: l.materialId, sede, tipo: "ingreso", cantidad: calculo.cantidadEntrega,
+    const fila = { id: id(), material_id: l.materialId, sede, tipo: "ingreso", cantidad: calculo.cantidadEntrega,
       costo_unitario_ars: calculo.costoEntrega, remito: borrador.remito?.trim() || null, nota, lote, origen: "ingreso" };
+    // Enganche al renglón del pedido: de acá sale qué llegó y qué falta.
+    if (borrador.pedidoId && l.pedidoItemId) fila.pedido_item_id = l.pedidoItemId;
+    return fila;
   }) };
 }

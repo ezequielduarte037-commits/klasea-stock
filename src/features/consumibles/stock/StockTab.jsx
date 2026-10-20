@@ -230,7 +230,7 @@ export default function StockTab({ sede }) {
         <div className="stk-vistas" role="tablist" aria-label="Vista">
           <button type="button" role="tab" aria-selected={vista === "stock"} className={vista === "stock" ? "is-activa" : ""} onClick={() => setVista("stock")}>Stock</button>
           <button type="button" role="tab" aria-selected={vista === "pedido"} className={vista === "pedido" ? "is-activa" : ""} onClick={() => setVista("pedido")}>
-            Pedido {cantPedido > 0 && <span className="stk-cuenta stk-num">{cantPedido}</span>}
+            Pedido sugerido {cantPedido > 0 && <span className="stk-cuenta stk-num">{cantPedido}</span>}
           </button>
         </div>
         <div className="stk-barra-der">

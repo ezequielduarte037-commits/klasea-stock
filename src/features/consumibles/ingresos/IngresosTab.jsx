@@ -22,8 +22,9 @@ import { conPlazoLectura } from "../lecturas";
 import { leerPresupuestoConIA } from "@/features/materiales/api";
 import { lineaDesdeItem } from "./ingresoCalculos";
 import { emparejarRenglones } from "./remitoIA";
-import { cerrarRenglonesRecibidos, fetchPedidosEnCamino } from "../stock/stockApi";
-import { lineasDePedidoRecibido, renglonesCompletos } from "./pedidoRecibido";
+import { useSearchParams } from "react-router-dom";
+import { fetchPedidos } from "../pedidos/pedidosApi";
+import { lineasDePedidoRecibido, pedidosPorRecibir } from "./pedidoRecibido";
 
 /**
  * Ingresos — cargar un remito del proveedor (el primero, de Rebollar, llega el
@@ -36,6 +37,10 @@ import { lineasDePedidoRecibido, renglonesCompletos } from "./pedidoRecibido";
  *
  * Si un producto viene en cajas y la config no lo sabía, se puede recordar
  * (unidad de compra y factor) para la próxima y para el pedido sugerido.
+ *
+ * Si lo que llegó es de un pedido hecho en la pestaña Pedidos, "Recibir" carga
+ * lo que falta de cada renglón. Cada ingreso queda enganchado a su renglón
+ * (pedido_item_id), así el pedido sabe qué llegó y qué falta.
  */
 
 const BORRADOR_KEY = "klasea.consumibles.ingreso.borrador";
@@ -80,7 +85,9 @@ function Ingresos({ sede }) {
   const [abierto, setAbierto] = useState(null); // lote expandido en el historial
   const [anulando, setAnulando] = useState(null);
   const [motivo, setMotivo] = useState("");
-  const [pedidos, setPedidos] = useState([]); // pedidos a Compras que todavía no llegaron
+  const [pedidos, setPedidos] = useState([]); // pedidos al proveedor con algo por llegar
+  const [params, setParams] = useSearchParams();
+  const pedidoPedido = params.get("pedido");
 
   const cargarHistorial = useCallback(async () => {
     const filas = await fetchMovimientos({
@@ -97,7 +104,9 @@ function Ingresos({ sede }) {
     const [cat] = await conPlazoLectura(Promise.all([fetchCatalogo({ sede }), cargarHistorial()]));
     setCatalogo(cat);
     // Sin pedidos se carga el remito a mano como siempre: si esta lectura falla no frena el ingreso.
-    fetchPedidosEnCamino(sede).then(setPedidos).catch(() => setPedidos([]));
+    fetchPedidos(sede)
+      .then(({ pedidos: lista, recibidos }) => setPedidos(pedidosPorRecibir(lista, recibidos)))
+      .catch(() => setPedidos([]));
     setErrorCarga("");
   }, [sede, cargarHistorial]);
 
@@ -185,6 +194,7 @@ function Ingresos({ sede }) {
   // Recibir un pedido: sus renglones entran ya cargados, con lo que se pidió.
   // Quien recibe sólo corrige lo que llegó distinto y escribe el n° de remito.
   const recibirPedido = async (pedido) => {
+    if (borrador.pedidoId === pedido.id) return;
     if (borrador.lineas.length || borrador.remito) {
       const ok = await confirmar({
         title: "¿Reemplazar lo que está cargado?",
@@ -204,11 +214,21 @@ function Ingresos({ sede }) {
       proveedor: pedido.proveedor || borrador.proveedor,
       lineas,
       pedidoId: pedido.id,
-      pedidoTitulo: pedido.title,
+      pedidoTitulo: `Pedido N° ${pedido.numero}`,
     });
     setSinEmparejar([]);
     if (sinCatalogo) toast.warning(`${sinCatalogo} ${sinCatalogo === 1 ? "renglón no está" : "renglones no están"} en el catálogo y no se cargaron.`);
   };
+
+  // Desde Pedidos ("Recibir en Ingresos") llega con ?pedido=: se abre solo.
+  useEffect(() => {
+    if (!pedidoPedido || !catalogo) return;
+    const pedido = pedidos.find((p) => p.id === pedidoPedido);
+    if (!pedido) return;
+    setParams((prev) => { const n = new URLSearchParams(prev); n.delete("pedido"); return n; }, { replace: true });
+    recibirPedido(pedido);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoPedido, pedidos, catalogo]);
 
   const agregar = (item) => {
     setBorrador((b) => ({ ...b, lineas: agregarAlRemito(b.lineas, item) }));
@@ -270,14 +290,7 @@ function Ingresos({ sede }) {
         try { await guardarConfig(id, cambios); } catch { fallidos.push(id); }
       }
 
-      toast.success(`Ingreso cargado: ${validas} ${validas === 1 ? "producto" : "productos"} en ${sede}.`);
-      if (borrador.pedidoId) {
-        try {
-          await cerrarRenglonesRecibidos(borrador.pedidoId, renglonesCompletos(borrador.lineas));
-        } catch {
-          toast.warning("El stock entró bien, pero no pudimos marcar el pedido como recibido en Compras.");
-        }
-      }
+      toast.success(`Ingreso cargado: ${validas} ${validas === 1 ? "producto" : "productos"} en ${sede}.${borrador.pedidoId ? " El pedido quedó al día." : ""}`);
       if (fallidos.length) toast.warning("No se pudo recordar cómo vienen algunas cajas; cargalo en Catálogo.");
       const limpio = { ...VACIO, proveedor: borrador.proveedor };
       // Si falla limpiar el borrador, quedan los mismos ids: tampoco duplica al volver.
@@ -357,8 +370,8 @@ function Ingresos({ sede }) {
                 {pedidos.map((p) => (
                   <li key={p.id}>
                     <div className="ing-pedido-txt">
-                      <strong>{p.proveedor || "Sin proveedor"}</strong>
-                      <small className="ing-dim">{fechaHora(p.created_at)} · {p.items.length} {p.items.length === 1 ? "producto" : "productos"} por recibir</small>
+                      <strong>Pedido N° {p.numero} · {p.proveedor}</strong>
+                      <small className="ing-dim">{fechaHora(p.pedido_at || p.created_at)} · {p.items.length} {p.items.length === 1 ? "producto" : "productos"} por recibir</small>
                     </div>
                     <button type="button" className="ui-btn ui-btn-primario" onClick={() => recibirPedido(p)} disabled={guardando || !!borrador.envio}>
                       <PackageCheck size={16} /> Recibir
@@ -370,7 +383,7 @@ function Ingresos({ sede }) {
           )}
           {borrador.pedidoId && (
             <p className="ing-pedido-activo" role="status">
-              Recibiendo un pedido a Compras{borrador.proveedor ? ` · ${borrador.proveedor}` : ""}. Corregí lo que llegó distinto: lo que llegue incompleto queda pendiente.
+              Recibiendo el {borrador.pedidoTitulo || "pedido"}{borrador.proveedor ? ` · ${borrador.proveedor}` : ""}. Corregí lo que llegó distinto: lo que falte queda pendiente en el pedido.
             </p>
           )}
 
