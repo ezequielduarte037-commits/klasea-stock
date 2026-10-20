@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronRight, Copy, FileSpreadsheet, PackageCheck, Plus, RefreshCw, ScanLine, Send, ShoppingCart, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, FileSpreadsheet, Minus, PackageCheck, Plus, RefreshCw, Search, Send, ShoppingCart, Sparkles, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { descargarXlsx } from "@/features/compras/xlsx";
 import { fetchCatalogo, fmtCantidad, fmtPesos, indexarCodigos, normalizarCodigo } from "@/features/consumibles/api";
-import { claveDia, coincideBusqueda } from "../conteo/conteoCalculos";
-import { armarPedidoSugerido } from "../stock/reposicion";
+import { claveDia, coincideBusqueda, compararNatural, unidadEnTexto } from "../conteo/conteoCalculos";
+import { armarPedidoSugerido, necesitaReponer } from "../stock/reposicion";
 import FotoConsumible from "../FotoConsumible";
 import { conPlazoLectura } from "../lecturas";
 import {
@@ -16,21 +16,30 @@ import {
 } from "./pedidosApi";
 import {
   ETIQUETA_ESTADO, PROVEEDOR_POR_DEFECTO, cantidadTexto, estadoDePedido, filasExcel,
-  renglonesParaMostrar, textoWhatsApp, totalDePedido,
+  renglonDesdeItem, renglonesParaMostrar, textoWhatsApp, totalDePedido,
 } from "./pedidosLogica";
 import { CSS_PEDIDOS } from "./pedidosEstilos";
 
 /**
- * Pedidos — el pañol arma el pedido a Rebollar (u otro proveedor) como un
- * carrito: cualquier producto, en cualquier momento, sin depender del stock
- * mínimo. El carrito es uno por sede y proveedor y lo comparte todo el pañol.
- * Al confirmarlo queda como pedido hecho, se manda por WhatsApp o Excel, y
- * cuando llega la mercadería Ingresos lo recibe con los renglones cargados.
+ * Pedidos — el pañol arma el pedido a Rebollar (u otro proveedor) como en un
+ * almacén: todos los productos a la vista, como en Stock, y se van tocando los
+ * que hacen falta. No depende del stock mínimo. El carrito es uno por sede y
+ * proveedor y lo comparte todo el pañol. Al confirmarlo queda como pedido
+ * hecho, se manda por WhatsApp o Excel, y cuando llega la mercadería Ingresos
+ * lo recibe con los renglones cargados.
  */
 
+const FILTROS = [
+  { key: "todos", label: "Todos" },
+  { key: "proveedor", label: "De este proveedor" },
+  { key: "bajo", label: "Debajo del mínimo" },
+  { key: "carrito", label: "En el carrito" },
+];
+const TANDA = 120;
 const TONO = { esperando: "azul", parcial: "violeta", completo: "verde" };
 const fechaHora = (iso) => new Date(iso).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const archivo = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const mismoProveedor = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
 async function copiar(texto) {
   try {
@@ -58,6 +67,7 @@ function Pedidos({ sede }) {
   const confirmar = useConfirm();
   const [, setParams] = useSearchParams();
   const buscarRef = useRef(null);
+  const carritoRef = useRef(null);
 
   const [catalogo, setCatalogo] = useState(null);
   const [pedidos, setPedidos] = useState([]);
@@ -65,7 +75,11 @@ function Pedidos({ sede }) {
   const [error, setError] = useState("");
   const [proveedor, setProveedor] = useState(PROVEEDOR_POR_DEFECTO);
   const [busqueda, setBusqueda] = useState("");
+  const [filtro, setFiltro] = useState("todos");
+  const [rubro, setRubro] = useState("");
+  const [tope, setTope] = useState(TANDA);
   const [ocupado, setOcupado] = useState(false);
+  const [tocando, setTocando] = useState(() => new Set()); // materiales con un cambio en curso
   const [nota, setNota] = useState("");
   const [abierto, setAbierto] = useState(null);
 
@@ -98,89 +112,121 @@ function Pedidos({ sede }) {
     for (const p of pedidos) if (p.estado === "borrador") set.add(p.proveedor);
     return [...set].sort((a, b) => (a === PROVEEDOR_POR_DEFECTO ? -1 : b === PROVEEDOR_POR_DEFECTO ? 1 : a.localeCompare(b, "es")));
   }, [catalogo, pedidos]);
+  const rubros = useMemo(() => [...new Set((catalogo ?? []).map((i) => i.rubro).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")), [catalogo]);
 
-  const carrito = pedidos.find((p) => p.estado === "borrador" && p.proveedor.toLowerCase() === proveedor.toLowerCase()) ?? null;
+  const carrito = pedidos.find((p) => p.estado === "borrador" && mismoProveedor(p.proveedor, proveedor)) ?? null;
   const otrosCarritos = pedidos.filter((p) => p.estado === "borrador" && p !== carrito && (p.items ?? []).length);
   const lineas = useMemo(() => (carrito ? renglonesParaMostrar(carrito, porId) : []), [carrito, porId]);
+  const enCarrito = useMemo(() => new Map(lineas.map((l) => [l.material_id, l])), [lineas]);
   const { total, sinCosto } = totalDePedido(lineas);
   const hechos = pedidos.filter((p) => p.estado !== "borrador");
 
-  const enCarrito = useMemo(() => new Set(lineas.map((l) => l.material_id)), [lineas]);
-  const resultados = useMemo(() => {
-    const q = busqueda.trim();
-    if (!q || !catalogo) return [];
-    return catalogo.filter((i) => coincideBusqueda(i, q)).slice(0, 8);
-  }, [busqueda, catalogo]);
+  const stockDe = (i) => i.stockPorSede?.[sede]?.stock ?? null;
+  const pasa = useCallback((i, key) => {
+    if (key === "proveedor") return mismoProveedor(i.config?.proveedor_nombre, proveedor);
+    if (key === "bajo") return necesitaReponer({ stock: i.stockPorSede?.[sede]?.stock ?? 0, minimo: i.stockMinimo });
+    if (key === "carrito") return enCarrito.has(i.id);
+    return true;
+  }, [proveedor, sede, enCarrito]);
+  const cuentas = useMemo(() => Object.fromEntries(FILTROS.map((f) => [f.key, (catalogo ?? []).filter((i) => pasa(i, f.key)).length])), [catalogo, pasa]);
+  const visibles = useMemo(() => (catalogo ?? [])
+    .filter((i) => pasa(i, filtro) && (!rubro || i.rubro === rubro) && coincideBusqueda(i, busqueda))
+    .sort((a, b) => compararNatural(a.descripcion, b.descripcion)), [catalogo, filtro, rubro, busqueda, pasa]);
 
-  const conCarrito = async (fn) => {
-    setOcupado(true);
+  // Cambios del carrito: se ven al toque y se guardan atrás.
+  const aplicarRenglon = (pedidoId, renglon) => setPedidos((prev) => prev.map((p) => (p.id !== pedidoId ? p : {
+    ...p,
+    items: (p.items ?? []).some((r) => r.id === renglon.id)
+      ? p.items.map((r) => (r.id === renglon.id ? renglon : r))
+      : [...(p.items ?? []), renglon],
+  })));
+  const sacarRenglon = (renglonId) => setPedidos((prev) => prev.map((p) => ({ ...p, items: (p.items ?? []).filter((r) => r.id !== renglonId) })));
+
+  const conMaterial = async (materialId, fn) => {
+    if (tocando.has(materialId)) return;
+    setTocando((s) => new Set(s).add(materialId));
     try {
-      const c = carrito ?? await obtenerCarrito(sede, proveedor);
-      await fn(c);
-      await cargarPedidos();
+      await fn();
     } catch (e) {
-      toast.error(e?.message || "No se pudo guardar el pedido.");
+      toast.error(e?.message || "No se pudo guardar el carrito.");
       await cargarPedidos().catch(() => {});
     } finally {
-      setOcupado(false);
+      setTocando((s) => { const n = new Set(s); n.delete(materialId); return n; });
     }
   };
 
-  const sumar = (item) => {
-    setBusqueda("");
-    buscarRef.current?.focus();
-    return conCarrito((c) => agregarAlCarrito(c.id, item, 1));
+  const asegurarCarrito = async () => {
+    if (carrito) return carrito;
+    const c = await obtenerCarrito(sede, proveedor);
+    setPedidos((prev) => (prev.some((p) => p.id === c.id) ? prev : [c, ...prev]));
+    return c;
   };
 
-  // El lector 2D escribe el código y manda Enter.
+  const sumar = (item, cantidad = 1) => conMaterial(item.id, async () => {
+    const c = await asegurarCarrito();
+    const renglon = await agregarAlCarrito(c.id, item, cantidad);
+    aplicarRenglon(c.id, renglon);
+  });
+
+  const fijar = (linea, cantidad) => conMaterial(linea.material_id, async () => {
+    if (!(cantidad > 0)) {
+      await quitarRenglon(linea.id);
+      sacarRenglon(linea.id);
+      return;
+    }
+    const renglon = await cambiarCantidad(linea.id, cantidad);
+    aplicarRenglon(carrito.id, renglon);
+  });
+
+  // El lector 2D escribe el código y manda Enter: si es un código, suma uno.
   const onBuscarEnter = (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
     const porCodigo = indice.get(normalizarCodigo(busqueda));
-    if (porCodigo) sumar(porCodigo);
-    else if (resultados.length === 1) sumar(resultados[0]);
-    else if (!resultados.length && busqueda.trim()) toast.warning(`No encontramos «${busqueda.trim()}».`);
+    if (porCodigo) {
+      sumar(porCodigo);
+      toast.success(`${porCodigo.descripcion}: sumado al carrito.`);
+      setBusqueda("");
+    } else if (visibles.length === 1) {
+      sumar(visibles[0]);
+      setBusqueda("");
+    }
   };
 
-  const sumarSugeridos = () => conCarrito(async (c) => {
-    const mismo = (p) => String(p || "").toLowerCase() === proveedor.toLowerCase();
+  const sumarSugeridos = async () => {
     const sugeridas = armarPedidoSugerido(catalogo ?? [], sede)
-      .filter((g) => mismo(g.proveedor))
+      .filter((g) => mismoProveedor(g.proveedor, proveedor))
       .flatMap((g) => g.lineas)
       .filter((l) => !enCarrito.has(l.materialId) && l.unidadesCompra > 0);
     if (!sugeridas.length) {
       toast.info(`Ningún producto de ${proveedor} está en su mínimo o por debajo (o ya están en el carrito).`);
       return;
     }
-    for (const l of sugeridas) await agregarAlCarrito(c.id, porId.get(l.materialId), l.unidadesCompra);
-    toast.success(`${sugeridas.length} ${sugeridas.length === 1 ? "producto sumado" : "productos sumados"} desde el stock mínimo.`);
-  });
-
-  const guardarCantidad = async (linea, valor) => {
-    const n = Number(String(valor).replace(",", "."));
-    if (!Number.isFinite(n) || n <= 0) {
-      toast.warning("La cantidad tiene que ser mayor a cero. Para sacarlo, tocá la X.");
-      return false;
-    }
-    if (n === Number(linea.cantidad)) return true;
     setOcupado(true);
     try {
-      await cambiarCantidad(linea.id, n);
-      await cargarPedidos();
-      return true;
+      const c = await asegurarCarrito();
+      for (const l of sugeridas) aplicarRenglon(c.id, await agregarAlCarrito(c.id, porId.get(l.materialId), l.unidadesCompra));
+      toast.success(`${sugeridas.length} ${sugeridas.length === 1 ? "producto sumado" : "productos sumados"} desde el stock mínimo.`);
     } catch (e) {
-      toast.error(e?.message || "No se pudo cambiar la cantidad.");
-      return false;
+      toast.error(e?.message || "No se pudieron sumar.");
+      await cargarPedidos().catch(() => {});
     } finally {
       setOcupado(false);
     }
   };
 
-  const quitar = (linea) => conCarrito(() => quitarRenglon(linea.id));
-
   const vaciar = async () => {
     const ok = await confirmar({ title: "¿Vaciar el carrito?", message: `Se sacan los ${lineas.length} productos del pedido a ${proveedor}.`, confirmLabel: "Vaciar", tone: "danger" });
-    if (ok) conCarrito((c) => vaciarCarrito(c.id));
+    if (!ok) return;
+    setOcupado(true);
+    try {
+      await vaciarCarrito(carrito.id);
+      setPedidos((prev) => prev.map((p) => (p.id === carrito.id ? { ...p, items: [] } : p)));
+    } catch (e) {
+      toast.error(e?.message || "No se pudo vaciar.");
+    } finally {
+      setOcupado(false);
+    }
   };
 
   const copiarWhatsApp = async (pedido, renglones) => {
@@ -210,8 +256,7 @@ function Pedidos({ sede }) {
     try {
       const hecho = await confirmarPedido(carrito.id, nota);
       setNota("");
-      const renglones = renglonesParaMostrar(hecho, porId);
-      const copiado = await copiar(textoWhatsApp({ pedido: hecho, renglones }));
+      const copiado = await copiar(textoWhatsApp({ pedido: hecho, renglones: renglonesParaMostrar(hecho, porId) }));
       toast.success(`Pedido N° ${hecho.numero} confirmado.${copiado ? " El texto para WhatsApp ya está copiado." : ""}`);
       setAbierto(hecho.id);
       await cargarPedidos();
@@ -275,7 +320,7 @@ function Pedidos({ sede }) {
     return (
       <div className="ped">
         <style href="klasea-cns-pedidos" precedence="default">{CSS_PEDIDOS}</style>
-        <Cargando texto="Trayendo los pedidos…" />
+        <Cargando texto="Trayendo los productos…" />
       </div>
     );
   }
@@ -284,86 +329,147 @@ function Pedidos({ sede }) {
     <div className="ped">
       <style href="klasea-cns-pedidos" precedence="default">{CSS_PEDIDOS}</style>
 
-      <section className="ped-carrito ui-card" aria-label="Carrito del pedido">
-        <header className="ped-cab">
-          <h2><ShoppingCart size={18} /> Carrito para {proveedor}</h2>
-          <div className="ped-cab-der">
-            <select className="ui-input ped-prov" value={proveedor} onChange={(e) => setProveedor(e.target.value)} aria-label="Proveedor">
-              {proveedores.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <button type="button" className="ui-btn" onClick={sumarSugeridos} disabled={ocupado} title="Suma los productos de este proveedor que están en su mínimo o por debajo">
-              <Sparkles size={15} /> Sumar los que faltan
-            </button>
-            <button type="button" className="ui-btn ui-btn-icono" onClick={() => cargar().catch(() => toast.error("No se pudo actualizar."))} aria-label="Actualizar" title="Actualizar">
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        </header>
+      <div className="ped-barra">
+        <label className="ped-barra-prov">
+          <span className="ped-dim">Pedido a</span>
+          <select className="ui-input" value={proveedor} onChange={(e) => setProveedor(e.target.value)} aria-label="Proveedor">
+            {proveedores.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </label>
+        <button type="button" className="ui-btn" onClick={sumarSugeridos} disabled={ocupado} title="Suma los productos de este proveedor que están en su mínimo o por debajo">
+          <Sparkles size={15} /> Sumar los que faltan
+        </button>
+        <button type="button" className="ui-btn ui-btn-icono" onClick={() => cargar().catch(() => toast.error("No se pudo actualizar."))} aria-label="Actualizar" title="Actualizar">
+          <RefreshCw size={16} />
+        </button>
         {otrosCarritos.length > 0 && (
-          <p className="ped-dim" style={{ margin: "10px 16px 0", fontSize: 13 }}>
-            También hay carrito abierto para {otrosCarritos.map((p) => `${p.proveedor} (${p.items.length})`).join(", ")}.
-          </p>
+          <span className="ped-dim ped-otros">También hay carrito para {otrosCarritos.map((p) => `${p.proveedor} (${p.items.length})`).join(", ")}</span>
         )}
+      </div>
 
-        <div className="ped-buscar">
-          <ScanLine size={18} className="ped-buscar-ico" />
-          <input
-            ref={buscarRef}
-            className="ui-input"
-            value={busqueda}
-            placeholder="Escaneá o buscá un producto para pedir"
-            autoComplete="off"
-            enterKeyHint="search"
-            onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={onBuscarEnter}
-            aria-label="Escaneá o buscá un producto para pedir"
-          />
-        </div>
-        {resultados.length > 0 && (
-          <ul className="ped-res" role="listbox" aria-label="Productos encontrados">
-            {resultados.map((r) => (
-              <li key={r.id}>
-                <button type="button" onClick={() => sumar(r)} disabled={ocupado}>
-                  <Plus size={16} />
-                  <FotoConsumible item={r} size={30} />
-                  <span className="ped-res-txt">
-                    <span>{r.descripcion}{enCarrito.has(r.id) ? <span className="ped-dim"> · ya está, suma 1</span> : null}</span>
-                    <small>{[r.codigoEtiqueta, r.config?.proveedor_codigo ? `Cód. ${r.config.proveedor_codigo}` : null, r.config?.proveedor_nombre].filter(Boolean).join(" · ")}</small>
-                  </span>
+      <div className="ped-armado">
+        <section className="ped-catalogo" aria-label="Productos para pedir">
+          <div className="ped-filtros">
+            <div className="ped-chips" role="group" aria-label="Filtro">
+              {FILTROS.map((f) => (
+                <button key={f.key} type="button" className={`ped-chip${filtro === f.key ? " is-activa" : ""}`} aria-pressed={filtro === f.key} onClick={() => { setFiltro(f.key); setTope(TANDA); }}>
+                  {f.key === "proveedor" ? `De ${proveedor}` : f.label} <span className="ped-num">{cuentas[f.key]}</span>
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {lineas.length === 0 ? (
-          <p className="ped-vacio">El carrito está vacío. Buscá o escaneá lo que haga falta: no tiene que estar en el mínimo.</p>
-        ) : (
-          <ul className="ped-lineas">
-            {lineas.map((l) => (
-              <LineaCarrito key={`${l.id}-${l.cantidad}`} linea={l} ocupado={ocupado} onGuardar={(v) => guardarCantidad(l, v)} onQuitar={() => quitar(l)} />
-            ))}
-          </ul>
-        )}
-
-        {lineas.length > 0 && (
-          <>
-            <div className="ped-nota">
-              <input className="ui-input" value={nota} maxLength={200} placeholder="Nota para el pedido (opcional). Ej.: entregar en Chubut antes del jueves" onChange={(e) => setNota(e.target.value)} aria-label="Nota del pedido" />
+              ))}
             </div>
-            <footer className="ped-pie">
-              <span className="ped-total">
-                <b className="ped-num">{lineas.length}</b> {lineas.length === 1 ? "producto" : "productos"}
-                {total > 0 && <> · <b className="ped-num">{fmtPesos(total)}</b> sin IVA</>}
-                {sinCosto > 0 && <span className="ped-dim"> · {sinCosto} sin precio</span>}
-              </span>
-              <button type="button" className="ui-btn ui-btn-fantasma" onClick={vaciar} disabled={ocupado}>Vaciar</button>
-              <button type="button" className="ui-btn" onClick={() => copiarWhatsApp(carrito, lineas)} disabled={ocupado}><Copy size={15} /> Copiar</button>
-              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarCarrito} disabled={ocupado}><Send size={15} /> Confirmar pedido</button>
-            </footer>
-          </>
-        )}
-      </section>
+            <div className="ped-buscar">
+              <Search size={16} className="ped-buscar-ico" />
+              <input
+                ref={buscarRef}
+                className="ui-input"
+                type="search"
+                value={busqueda}
+                placeholder="Buscar o escanear: nombre, código o código de Rebollar"
+                autoComplete="off"
+                enterKeyHint="search"
+                onChange={(e) => { setBusqueda(e.target.value); setTope(TANDA); }}
+                onKeyDown={onBuscarEnter}
+                aria-label="Buscar producto o código"
+              />
+              {busqueda && <button type="button" className="ped-buscar-x" onClick={() => setBusqueda("")} aria-label="Borrar la búsqueda"><X size={15} /></button>}
+            </div>
+            <select className="ui-input ped-rubro" value={rubro} onChange={(e) => { setRubro(e.target.value); setTope(TANDA); }} aria-label="Rubro">
+              <option value="">Todos los rubros</option>
+              {rubros.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+
+          <ul className="ped-productos ui-card">
+            {visibles.slice(0, tope).map((i) => {
+              const linea = enCarrito.get(i.id);
+              const stock = stockDe(i);
+              const bajo = necesitaReponer({ stock: stock ?? 0, minimo: i.stockMinimo });
+              const r = linea ?? renglonDesdeItem(i, 1);
+              const ocupadoItem = tocando.has(i.id);
+              return (
+                <li key={i.id} className={`ped-prod${linea ? " is-elegido" : ""}`}>
+                  <button type="button" className="ped-prod-info" onClick={() => !linea && sumar(i)} disabled={ocupadoItem || !!linea} title={linea ? undefined : "Sumar al carrito"}>
+                    <FotoConsumible item={i} size={40} />
+                    <span className="ped-prod-txt">
+                      <span className="ped-prod-desc">{i.descripcion}</span>
+                      <span className="ped-prod-meta">
+                        {[i.codigoEtiqueta, i.config?.proveedor_codigo ? `Cód. ${i.config.proveedor_codigo}` : null, i.rubro].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                  </button>
+                  <span className="ped-prod-stock" title={`Stock en ${sede}`}>
+                    {stock == null
+                      ? <span className="ped-dim">sin contar</span>
+                      : <><b className={`ped-num${bajo ? " is-bajo" : ""}`}>{fmtCantidad(stock)}</b> <small className="ped-dim">{unidadEnTexto(i.unidad, stock)}</small></>}
+                    {i.stockMinimo ? <small className="ped-dim"> · mín. {fmtCantidad(i.stockMinimo)}</small> : null}
+                  </span>
+                  {linea ? (
+                    <span className="ped-paso" aria-label={`Cantidad de ${i.descripcion} en el carrito`}>
+                      <button type="button" className="ui-btn ui-btn-icono" onClick={() => fijar(linea, Number(linea.cantidad) - 1)} disabled={ocupadoItem} aria-label="Uno menos"><Minus size={15} /></button>
+                      <CantidadEditable linea={linea} disabled={ocupadoItem} onFijar={(n) => fijar(linea, n)} />
+                      <button type="button" className="ui-btn ui-btn-icono" onClick={() => fijar(linea, Number(linea.cantidad) + 1)} disabled={ocupadoItem} aria-label="Uno más"><Plus size={15} /></button>
+                      <small className="ped-dim ped-paso-u">{r.unidad_compra}{r.factor > 1 ? ` x${fmtCantidad(r.factor)}` : ""}</small>
+                    </span>
+                  ) : (
+                    <button type="button" className="ui-btn ped-sumar" onClick={() => sumar(i)} disabled={ocupadoItem}>
+                      <Plus size={15} /> Pedir
+                      <small className="ped-dim">{r.unidad_compra}{r.factor > 1 ? ` x${fmtCantidad(r.factor)}` : ""}</small>
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+            {!visibles.length && <li className="ped-sin">No hay productos con este filtro.</li>}
+          </ul>
+          {visibles.length > tope && (
+            <button type="button" className="ui-btn ped-mas" onClick={() => setTope((t) => t + TANDA)}>
+              Mostrar más ({visibles.length - tope} restantes)
+            </button>
+          )}
+        </section>
+
+        <aside ref={carritoRef} className="ped-carrito ui-card" aria-label="Carrito del pedido">
+          <header className="ped-carrito-cab">
+            <h2><ShoppingCart size={17} /> Carrito · {proveedor}</h2>
+            <span className="ped-dim">{lineas.length} {lineas.length === 1 ? "producto" : "productos"}</span>
+          </header>
+          {lineas.length === 0 ? (
+            <p className="ped-vacio">Tocá los productos de la lista para sumarlos. Con el lector, escaneá la etiqueta en el buscador.</p>
+          ) : (
+            <ul className="ped-lineas">
+              {lineas.map((l) => (
+                <li key={l.id} className="ped-linea">
+                  <span className="ped-linea-txt">
+                    <span>{l.descripcion}</span>
+                    <small className="ped-dim">{cantidadTexto(l)}{l.subtotal != null ? ` · ${fmtPesos(l.subtotal)}` : " · sin precio"}</small>
+                  </span>
+                  <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={() => fijar(l, 0)} disabled={tocando.has(l.material_id)} aria-label={`Sacar ${l.descripcion}`} title="Sacar del carrito"><X size={15} /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {lineas.length > 0 && (
+            <div className="ped-carrito-pie">
+              <div className="ped-total">
+                {total > 0 ? <><b className="ped-num">{fmtPesos(total)}</b> <span className="ped-dim">sin IVA estimado</span></> : <span className="ped-dim">Sin precios cargados</span>}
+                {sinCosto > 0 && total > 0 && <span className="ped-dim"> · {sinCosto} sin precio</span>}
+              </div>
+              <input className="ui-input" value={nota} maxLength={200} placeholder="Nota para el pedido (opcional)" onChange={(e) => setNota(e.target.value)} aria-label="Nota del pedido" />
+              <button type="button" className="ui-btn ui-btn-primario ped-confirmar" onClick={confirmarCarrito} disabled={ocupado || tocando.size > 0}><Send size={15} /> Confirmar pedido</button>
+              <div className="ped-carrito-btns">
+                <button type="button" className="ui-btn" onClick={() => copiarWhatsApp(carrito, lineas)}><Copy size={15} /> Copiar</button>
+                <button type="button" className="ui-btn ui-btn-fantasma" onClick={vaciar} disabled={ocupado}>Vaciar</button>
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {lineas.length > 0 && (
+        <button type="button" className="ped-flotante ui-btn ui-btn-primario" onClick={() => carritoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          <ShoppingCart size={16} /> Ver carrito · {lineas.length}{total > 0 ? ` · ${fmtPesos(total)}` : ""}
+        </button>
+      )}
 
       <section className="ped-hechos" aria-label="Pedidos hechos">
         <h2>Pedidos hechos</h2>
@@ -385,7 +491,7 @@ function Pedidos({ sede }) {
                       <span>Pedido N° <span className="ped-num">{p.numero}</span> · {p.proveedor}</span>
                       <small>{fechaHora(p.pedido_at || p.created_at)} · {renglones.length} {renglones.length === 1 ? "producto" : "productos"}{totalP > 0 ? ` · ${fmtPesos(totalP)} sin IVA` : ""}{estado === "parcial" ? ` · faltan ${pendientes}` : ""}</small>
                     </span>
-                    <span className="ui-chip ped-estado" data-tono={TONO[estado]}>{ETIQUETA_ESTADO[estado] ?? estado}</span>
+                    <span className="ui-chip ped-estado" data-tono={TONO[estado]}>{estado === "completo" ? <Check size={13} /> : null}{ETIQUETA_ESTADO[estado] ?? estado}</span>
                   </button>
                   {exp && (
                     <div className="ped-item-cuerpo">
@@ -430,35 +536,29 @@ function Pedidos({ sede }) {
   );
 }
 
-function LineaCarrito({ linea, ocupado, onGuardar, onQuitar }) {
-  // Se monta de nuevo cuando la cantidad guardada cambia (la key la incluye).
+/** La cantidad del carrito, editable a mano (se guarda al salir del campo). */
+function CantidadEditable({ linea, disabled, onFijar }) {
+  // Se monta de nuevo cuando cambia la cantidad guardada (la key la incluye).
+  return <CampoCantidad key={`${linea.id}-${linea.cantidad}`} linea={linea} disabled={disabled} onFijar={onFijar} />;
+}
+
+function CampoCantidad({ linea, disabled, onFijar }) {
   const [valor, setValor] = useState(String(linea.cantidad));
-  const guardar = async () => {
-    const ok = await onGuardar(valor);
-    if (!ok) setValor(String(linea.cantidad));
+  const guardar = () => {
+    const n = Number(String(valor).replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) { setValor(String(linea.cantidad)); return; }
+    if (n !== Number(linea.cantidad)) onFijar(n);
   };
   return (
-    <li className="ped-linea">
-      <FotoConsumible item={linea.item ?? linea} size={40} />
-      <span className="ped-linea-txt">
-        <span>{linea.descripcion}</span>
-        <small>{[linea.codigoEtiqueta, linea.codigoProveedor ? `Cód. ${linea.codigoProveedor}` : null].filter(Boolean).join(" · ")}</small>
-      </span>
-      <span className="ped-cant">
-        <input
-          className="ui-input ped-num"
-          inputMode="decimal"
-          value={valor}
-          disabled={ocupado}
-          aria-label={`Cantidad de ${linea.descripcion}`}
-          onChange={(e) => setValor(e.target.value.replace(/[^\d.,]/g, ""))}
-          onBlur={guardar}
-          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-        />
-        <small>{linea.unidad_compra}{linea.factor > 1 ? ` x${fmtCantidad(linea.factor)}` : ""}</small>
-      </span>
-      <span className="ped-sub ped-num">{linea.subtotal == null ? <span className="ped-dim">sin precio</span> : fmtPesos(linea.subtotal)}</span>
-      <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={onQuitar} disabled={ocupado} aria-label={`Sacar ${linea.descripcion}`} title="Sacar del carrito"><X size={16} /></button>
-    </li>
+    <input
+      className="ui-input ped-num ped-paso-n"
+      inputMode="decimal"
+      value={valor}
+      disabled={disabled}
+      aria-label={`Cantidad de ${linea.descripcion}`}
+      onChange={(e) => setValor(e.target.value.replace(/[^\d.,]/g, ""))}
+      onBlur={guardar}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+    />
   );
 }
