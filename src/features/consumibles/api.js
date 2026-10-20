@@ -87,7 +87,10 @@ export function fmtCantidad(v) {
 export function fmtPesos(v) {
   const n = num(v);
   if (n == null) return "—";
-  return n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: n < 100 ? 2 : 0 });
+  const decimales = n < 100 ? 2 : 0;
+  // El mínimo va explícito: en pesos vale 2 por defecto, y el Chrome viejo de la
+  // PDA (73) tira RangeError si el máximo queda por debajo del mínimo.
+  return n.toLocaleString("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
 /**

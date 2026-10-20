@@ -187,7 +187,7 @@ function fmtDate(value, long = false) {
 
 function fmtMoney(value, currency = "ARS") {
   if (value == null || value === "") return "Sin cargar";
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency, maximumFractionDigits: 0 }).format(Number(value));
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(value));
 }
 
 function cleanTime(value) {
