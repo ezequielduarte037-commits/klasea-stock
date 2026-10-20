@@ -25,6 +25,7 @@ import { emparejarRenglones } from "./remitoIA";
 import { useSearchParams } from "react-router-dom";
 import { fetchPedidos } from "../pedidos/pedidosApi";
 import { lineasDePedidoRecibido, pedidosPorRecibir } from "./pedidoRecibido";
+import { useVerPrecios } from "../verPrecios";
 
 /**
  * Ingresos — cargar un remito del proveedor (el primero, de Rebollar, llega el
@@ -71,6 +72,7 @@ export default function IngresosTab({ sede }) {
 }
 
 function Ingresos({ sede }) {
+  const verPrecios = useVerPrecios();
   const toast = useToast();
   const confirmar = useConfirm();
   const buscarRef = useRef(null);
@@ -272,7 +274,7 @@ function Ingresos({ sede }) {
     }
     const ok = borrador.envio || await confirmar({
       title: "¿Confirmar el ingreso?",
-      message: `${validas} ${validas === 1 ? "producto" : "productos"}${borrador.remito.trim() ? ` del remito ${borrador.remito.trim()}` : " sin número de remito"} entran al stock de ${sede}.${total > 0 ? ` Total ${fmtPesos(total)} sin IVA.` : ""}`,
+      message: `${validas} ${validas === 1 ? "producto" : "productos"}${borrador.remito.trim() ? ` del remito ${borrador.remito.trim()}` : " sin número de remito"} entran al stock de ${sede}.${verPrecios && total > 0 ? ` Total ${fmtPesos(total)} sin IVA.` : ""}`,
       confirmLabel: "Confirmar ingreso",
     });
     if (!ok) return;
@@ -485,8 +487,8 @@ function Ingresos({ sede }) {
           <footer className="ing-pie">
             <div className="ing-total">
               <span className="ing-num">{validas}</span> {validas === 1 ? "producto" : "productos"}
-              {total > 0 && <> · <b className="ing-num">{fmtPesos(total)}</b> sin IVA</>}
-              {sinCosto > 0 && <span className="ing-dim"> · {sinCosto} sin costo</span>}
+              {verPrecios && total > 0 && <> · <b className="ing-num">{fmtPesos(total)}</b> sin IVA</>}
+              {verPrecios && sinCosto > 0 && <span className="ing-dim"> · {sinCosto} sin costo</span>}
             </div>
             <div className="ing-pie-btns">
               {(borrador.lineas.length > 0 || borrador.remito) && (
@@ -522,7 +524,7 @@ function Ingresos({ sede }) {
                         <span>{g.remito ? <>Remito <span className="ing-num">{g.remito}</span></> : "Sin n° de remito"}</span>
                         <small className="ing-dim">{fechaHora(g.fecha)} · {g.filas.length} {g.filas.length === 1 ? "producto" : "productos"}{g.nota ? ` · ${g.nota}` : ""}</small>
                       </span>
-                      <span className="ing-num ing-grupo-total">{g.anulado ? "Anulado" : g.total > 0 ? fmtPesos(g.total) : ""}</span>
+                      <span className="ing-num ing-grupo-total">{g.anulado ? "Anulado" : verPrecios && g.total > 0 ? fmtPesos(g.total) : ""}</span>
                     </button>
                     {exp && (
                       <div className="ing-grupo-cuerpo">
@@ -531,7 +533,7 @@ function Ingresos({ sede }) {
                             <li key={f.id} className={f.anulado_at ? "is-anulado" : ""}>
                               <span className="ing-grupo-desc">{f.material?.descripcion || "Producto"}</span>
                               <span className="ing-num">+{fmtCantidad(f.cantidad)}</span>
-                              <span className="ing-num ing-dim">{f.costo_unitario_ars != null ? `${fmtPesos(f.costo_unitario_ars)} c/u` : "sin costo"}</span>
+                              {verPrecios && <span className="ing-num ing-dim">{f.costo_unitario_ars != null ? `${fmtPesos(f.costo_unitario_ars)} c/u` : "sin costo"}</span>}
                             </li>
                           ))}
                         </ul>
@@ -565,6 +567,8 @@ function Ingresos({ sede }) {
 }
 
 function LineaIngreso({ linea, onCambiar, onQuitar }) {
+  // Sin precios el costo no se ve ni se edita: queda el de la lista vigente.
+  const verPrecios = useVerPrecios();
   const c = calcularLinea(linea);
   const unidadCompra = linea.unidadCompra || "caja";
   return (
@@ -617,11 +621,11 @@ function LineaIngreso({ linea, onCambiar, onQuitar }) {
             ? <>Entran <b className="ing-num">{fmtCantidad(c.cantidadEntrega)}</b> {unidadEnTexto(linea.unidad, c.cantidadEntrega)}{linea.porCaja ? <span className="ing-dim"> ({fmtCantidad(linea.cantidad)} × {fmtCantidad(c.factor)})</span> : null}</>
             : <span className="ing-falta">{linea.porCaja && !(Number(String(linea.factor).replace(",", ".")) > 0) ? `Falta cuántas trae cada ${unidadCompra}` : "Falta la cantidad"}</span>}
         </span>
-        <label className="ing-campo ing-campo-costo">
+        {verPrecios && <label className="ing-campo ing-campo-costo">
           <span className="ing-lbl">$ por {linea.porCaja ? unidadCompra : linea.unidad} <span className="ing-dim">sin IVA</span></span>
           <input className="ui-input ing-num" inputMode="decimal" value={linea.costo} placeholder="—" onChange={(e) => onCambiar({ costo: e.target.value.replace(/[^\d.,]/g, "") })} />
-        </label>
-        {c.subtotal != null && <span className="ing-subtotal ing-num">{fmtPesos(c.subtotal)}</span>}
+        </label>}
+        {verPrecios && c.subtotal != null && <span className="ing-subtotal ing-num">{fmtPesos(c.subtotal)}</span>}
       </div>
     </li>
   );

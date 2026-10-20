@@ -76,6 +76,17 @@ export function canViewEmpleados(profile) {
   return ["admin", "rrhh", "administracion", "tecnica"].includes(profile.role);
 }
 
+/**
+ * Quién ve precios y costos en las pantallas. El pañol no los ve en ningún
+ * lado (pedido de Ezequiel, 20/10/2026): ni en consumibles, ni en el colector,
+ * ni en pedidos o recepciones. Un admin con rol pañol los sigue viendo.
+ */
+export function puedeVerPrecios(profile) {
+  if (!profile) return false;
+  if (profile.is_admin) return true;
+  return profile.role !== "panol";
+}
+
 /** Quién puede entrar a la pantalla de Precios (carga de remitos y actualización). */
 export function canAccessPrecios(profile) {
   if (!profile) return false;

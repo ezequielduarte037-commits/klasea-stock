@@ -9,6 +9,7 @@ import { claveDia } from "../conteo/conteoCalculos";
 import { armarPedidoSugerido, conUnidadesDeCompra, filasExcel, textoWhatsApp, totalDePedido } from "./reposicion";
 import { agregarAlCarrito, obtenerCarrito } from "../pedidos/pedidosApi";
 import FotoConsumible from "../FotoConsumible";
+import { useVerPrecios } from "../verPrecios";
 
 /**
  * Pedido sugerido: lo que está en el mínimo o por debajo, en unidades de
@@ -38,6 +39,7 @@ async function copiar(texto) {
 const archivo = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProducto, onVerSinMinimo }) {
+  const verPrecios = useVerPrecios();
   const toast = useToast();
   const confirmar = useConfirm();
   const [cantidades, setCantidades] = useState(() => new Map()); // materialId → unidades de compra
@@ -71,7 +73,7 @@ export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProduct
       nombre: "Pedido",
       anchos: [16, 46, 10, 16, 16, 9, 9, 9, 16, 14],
       congelar: { fila: 1, col: 0 },
-      filas: filasExcel(g).map((fila, i) => (i === 0 ? fila.map((v) => ({ v, s: { fuente: { b: true }, fondo: "E8EEF8" } })) : fila)),
+      filas: filasExcel(g, { conPrecios: verPrecios }).map((fila, i) => (i === 0 ? fila.map((v) => ({ v, s: { fuente: { b: true }, fondo: "E8EEF8" } })) : fila)),
     }]);
   };
 
@@ -131,8 +133,8 @@ export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProduct
                 <h3>{g.proveedor}</h3>
                 <span className="stk-dim">
                   {activos} {activos === 1 ? "producto" : "productos"}
-                  {total > 0 && <> · <span className="stk-num">{fmtPesos(total)}</span> sin IVA</>}
-                  {sinCosto > 0 && <> · {sinCosto} sin precio</>}
+                  {verPrecios && total > 0 && <> · <span className="stk-num">{fmtPesos(total)}</span> sin IVA</>}
+                  {verPrecios && sinCosto > 0 && <> · {sinCosto} sin precio</>}
                 </span>
               </div>
               <div className="stk-grupo-acciones">
@@ -151,8 +153,8 @@ export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProduct
                 <span role="columnheader" className="is-num">Stock / mín.</span>
                 <span role="columnheader" className="is-num">Faltan</span>
                 <span role="columnheader" className="is-num">Pedir</span>
-                <span role="columnheader" className="is-num">Costo u.</span>
-                <span role="columnheader" className="is-num">Subtotal</span>
+                <span role="columnheader" className="is-num">{verPrecios ? "Costo u." : ""}</span>
+                <span role="columnheader" className="is-num">{verPrecios ? "Subtotal" : ""}</span>
               </div>
               {g.lineas.map((l) => (
                 <div key={l.materialId} className={`stk-ped-fila${l.fuera ? " is-fuera" : ""}`} role="row">
@@ -185,8 +187,8 @@ export default function PedidoSugerido({ catalogo, sede, conMinimo, onVerProduct
                       {l.unidadCompra || l.unidad}{l.factor > 1 ? ` x${fmtCantidad(l.factor)} = ${fmtCantidad(l.cantidadEntrega)}` : ""}
                     </small>
                   </span>
-                  <span role="cell" className="is-num stk-num" data-lbl="Costo u.">{l.costoCompra == null ? "—" : fmtPesos(l.costoCompra)}</span>
-                  <span role="cell" className="is-num stk-num stk-ped-sub" data-lbl="Subtotal">{l.subtotal == null ? "—" : fmtPesos(l.subtotal)}</span>
+                  <span role="cell" className="is-num stk-num" data-lbl="Costo u.">{!verPrecios ? "" : l.costoCompra == null ? "—" : fmtPesos(l.costoCompra)}</span>
+                  <span role="cell" className="is-num stk-num stk-ped-sub" data-lbl="Subtotal">{!verPrecios ? "" : l.subtotal == null ? "—" : fmtPesos(l.subtotal)}</span>
                 </div>
               ))}
             </div>

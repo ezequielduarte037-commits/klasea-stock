@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, X } from "lucide-react";
 import { C } from "@/theme";
+import { puedeVerPrecios } from "@/lib/permissions";
 import { SEDES, fetchCatalogo, fmtCantidad, fmtPesos, guardarSedeDelEquipo, indexarCodigos, normalizarCodigo, sedeDelEquipo } from "@/features/consumibles/api";
 import { coincideBusqueda } from "../conteo/conteoCalculos";
 import { agregarAlCarrito, cambiarCantidad, confirmarPedido, fetchPedidos, obtenerCarrito, quitarRenglon } from "./pedidosApi";
@@ -59,10 +60,10 @@ async function copiar(texto) {
   }
 }
 
-export default function ScanPedidoRebollarScreen() {
+export default function ScanPedidoRebollarScreen({ profile }) {
   const [sede, setSede] = useState(() => sedeDelEquipo());
   if (!sede) return <ElegirSede onElegir={(s) => { guardarSedeDelEquipo(s); setSede(s); }} />;
-  return <Pedido key={sede} sede={sede} onCambiarSede={() => setSede(null)} />;
+  return <Pedido key={sede} sede={sede} verPrecios={puedeVerPrecios(profile)} onCambiarSede={() => setSede(null)} />;
 }
 
 function ElegirSede({ onElegir }) {
@@ -80,7 +81,7 @@ function ElegirSede({ onElegir }) {
   );
 }
 
-function Pedido({ sede, onCambiarSede }) {
+function Pedido({ sede, verPrecios, onCambiarSede }) {
   const nav = useNavigate();
   const codeRef = useRef(null);
   const [catalogo, setCatalogo] = useState(null);
@@ -264,7 +265,7 @@ function Pedido({ sede, onCambiarSede }) {
           ))}
         </div>
 
-        <p style={lbl}>En el carrito {lineas.length > 0 ? `· ${lineas.length}` : ""}{total > 0 ? ` · ${fmtPesos(total)} sin IVA` : ""}</p>
+        <p style={lbl}>En el carrito {lineas.length > 0 ? `· ${lineas.length}` : ""}{verPrecios && total > 0 ? ` · ${fmtPesos(total)} sin IVA` : ""}</p>
         {lineas.length === 0 ? (
           <div style={{ border: `1px dashed ${C.border}`, borderRadius: 10, padding: "18px 12px", textAlign: "center", color: C.dim, fontSize: 13, marginBottom: 10 }}>
             Escaneá lo que haga falta pedirle a {PROVEEDOR}…

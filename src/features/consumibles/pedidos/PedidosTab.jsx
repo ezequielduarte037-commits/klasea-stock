@@ -19,6 +19,7 @@ import {
   renglonDesdeItem, renglonesParaMostrar, textoWhatsApp, totalDePedido,
 } from "./pedidosLogica";
 import { CSS_PEDIDOS } from "./pedidosEstilos";
+import { useVerPrecios } from "../verPrecios";
 
 /**
  * Pedidos — el pañol arma el pedido a Rebollar (u otro proveedor) como en un
@@ -63,6 +64,7 @@ export default function PedidosTab({ sede }) {
 }
 
 function Pedidos({ sede }) {
+  const verPrecios = useVerPrecios();
   const toast = useToast();
   const confirmar = useConfirm();
   const [, setParams] = useSearchParams();
@@ -240,7 +242,7 @@ function Pedidos({ sede }) {
       nombre: "Pedido",
       anchos: [16, 46, 10, 18, 16, 16, 14],
       congelar: { fila: 1, col: 0 },
-      filas: filasExcel(renglones).map((fila, i) => (i === 0 ? fila.map((v) => ({ v, s: { fuente: { b: true }, fondo: "E8EEF8" } })) : fila)),
+      filas: filasExcel(renglones, { conPrecios: verPrecios }).map((fila, i) => (i === 0 ? fila.map((v) => ({ v, s: { fuente: { b: true }, fondo: "E8EEF8" } })) : fila)),
     }]);
   };
 
@@ -248,7 +250,7 @@ function Pedidos({ sede }) {
     if (!carrito || !lineas.length) return;
     const ok = await confirmar({
       title: `¿Confirmar el pedido a ${proveedor}?`,
-      message: `${lineas.length} ${lineas.length === 1 ? "producto" : "productos"} para el pañol ${sede}${total > 0 ? `, ${fmtPesos(total)} sin IVA estimado` : ""}. Queda como pedido hecho y se copia el texto para mandarlo por WhatsApp. Cuando llegue, se recibe desde Ingresos.`,
+      message: `${lineas.length} ${lineas.length === 1 ? "producto" : "productos"} para el pañol ${sede}${verPrecios && total > 0 ? `, ${fmtPesos(total)} sin IVA estimado` : ""}. Queda como pedido hecho y se copia el texto para mandarlo por WhatsApp. Cuando llegue, se recibe desde Ingresos.`,
       confirmLabel: "Confirmar pedido",
     });
     if (!ok) return;
@@ -441,7 +443,7 @@ function Pedidos({ sede }) {
                 <li key={l.id} className="ped-linea">
                   <span className="ped-linea-txt">
                     <span>{l.descripcion}</span>
-                    <small className="ped-dim">{cantidadTexto(l)}{l.subtotal != null ? ` · ${fmtPesos(l.subtotal)}` : " · sin precio"}</small>
+                    <small className="ped-dim">{cantidadTexto(l)}{!verPrecios ? "" : l.subtotal != null ? ` · ${fmtPesos(l.subtotal)}` : " · sin precio"}</small>
                   </span>
                   <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={() => fijar(l, 0)} disabled={tocando.has(l.material_id)} aria-label={`Sacar ${l.descripcion}`} title="Sacar del carrito"><X size={15} /></button>
                 </li>
@@ -450,10 +452,10 @@ function Pedidos({ sede }) {
           )}
           {lineas.length > 0 && (
             <div className="ped-carrito-pie">
-              <div className="ped-total">
+              {verPrecios && <div className="ped-total">
                 {total > 0 ? <><b className="ped-num">{fmtPesos(total)}</b> <span className="ped-dim">sin IVA estimado</span></> : <span className="ped-dim">Sin precios cargados</span>}
                 {sinCosto > 0 && total > 0 && <span className="ped-dim"> · {sinCosto} sin precio</span>}
-              </div>
+              </div>}
               <input className="ui-input" value={nota} maxLength={200} placeholder="Nota para el pedido (opcional)" onChange={(e) => setNota(e.target.value)} aria-label="Nota del pedido" />
               <button type="button" className="ui-btn ui-btn-primario ped-confirmar" onClick={confirmarCarrito} disabled={ocupado || tocando.size > 0}><Send size={15} /> Confirmar pedido</button>
               <div className="ped-carrito-btns">
@@ -467,7 +469,7 @@ function Pedidos({ sede }) {
 
       {lineas.length > 0 && (
         <button type="button" className="ped-flotante ui-btn ui-btn-primario" onClick={() => carritoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-          <ShoppingCart size={16} /> Ver carrito · {lineas.length}{total > 0 ? ` · ${fmtPesos(total)}` : ""}
+          <ShoppingCart size={16} /> Ver carrito · {lineas.length}{verPrecios && total > 0 ? ` · ${fmtPesos(total)}` : ""}
         </button>
       )}
 
@@ -489,7 +491,7 @@ function Pedidos({ sede }) {
                     {exp ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     <span className="ped-item-tit">
                       <span>Pedido N° <span className="ped-num">{p.numero}</span> · {p.proveedor}</span>
-                      <small>{fechaHora(p.pedido_at || p.created_at)} · {renglones.length} {renglones.length === 1 ? "producto" : "productos"}{totalP > 0 ? ` · ${fmtPesos(totalP)} sin IVA` : ""}{estado === "parcial" ? ` · faltan ${pendientes}` : ""}</small>
+                      <small>{fechaHora(p.pedido_at || p.created_at)} · {renglones.length} {renglones.length === 1 ? "producto" : "productos"}{verPrecios && totalP > 0 ? ` · ${fmtPesos(totalP)} sin IVA` : ""}{estado === "parcial" ? ` · faltan ${pendientes}` : ""}</small>
                     </span>
                     <span className="ui-chip ped-estado" data-tono={TONO[estado]}>{estado === "completo" ? <Check size={13} /> : null}{ETIQUETA_ESTADO[estado] ?? estado}</span>
                   </button>
@@ -497,7 +499,7 @@ function Pedidos({ sede }) {
                     <div className="ped-item-cuerpo">
                       <table className="ped-tabla">
                         <thead>
-                          <tr><th>Producto</th><th className="is-num">Pedido</th><th className="is-num">Llegó</th><th className="is-num">Subtotal</th></tr>
+                          <tr><th>Producto</th><th className="is-num">Pedido</th><th className="is-num">Llegó</th>{verPrecios && <th className="is-num">Subtotal</th>}</tr>
                         </thead>
                         <tbody>
                           {renglones.map((r) => (
@@ -505,7 +507,7 @@ function Pedidos({ sede }) {
                               <td>{r.descripcion}{r.codigoProveedor ? <span className="ped-dim"> · {r.codigoProveedor}</span> : null}</td>
                               <td className="is-num ped-num">{cantidadTexto(r)}</td>
                               <td className={`is-num ped-num ${r.completo ? "is-ok" : r.recibido > 0 ? "is-falta" : "ped-dim"}`}>{fmtCantidad(r.recibido)}</td>
-                              <td className="is-num ped-num">{r.subtotal == null ? "—" : fmtPesos(r.subtotal)}</td>
+                              {verPrecios && <td className="is-num ped-num">{r.subtotal == null ? "—" : fmtPesos(r.subtotal)}</td>}
                             </tr>
                           ))}
                         </tbody>

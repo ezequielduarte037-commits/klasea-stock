@@ -27,5 +27,6 @@ test("texto para WhatsApp con código del proveedor y total", () => {
   const t = textoWhatsApp({ pedido, renglones });
   assert.match(t, /• 2 rollo x45 — \[L0029\] Lija en banda/);
   assert.match(t, /Pedido N° 4/);
+  assert.doesNotMatch(t, /\$|Total estimado/);
   assert.deepEqual(totalDePedido(renglones), { total: 200, sinCosto: 0 });
 });

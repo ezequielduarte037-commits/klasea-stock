@@ -9,6 +9,7 @@ import { SEDES, anularMovimiento, fetchObrasActivas, fmtCantidad, fmtPesos } fro
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import Hoja from "../conteo/Hoja";
 import FotoConsumible from "../FotoConsumible";
+import { useVerPrecios } from "../verPrecios";
 import EditarMovimiento from "./EditarMovimiento";
 import { fetchNombresDePerfiles } from "../conteo/conteoApi";
 import { unidadEnTexto } from "../conteo/conteoCalculos";
@@ -54,6 +55,7 @@ const plural = (n, uno, varios) => `${n.toLocaleString("es-AR")} ${n === 1 ? uno
 const FIRMA = { nfc: "con tarjeta", manual: "firmó en pantalla", sin_tarjeta: "sin tarjeta" };
 
 export default function MovimientosTab({ sede, irA }) {
+  const verPrecios = useVerPrecios();
   const toast = useToast();
   const idCanal = useId();
 
@@ -134,7 +136,12 @@ export default function MovimientosTab({ sede, irA }) {
   const conFiltro = (fn) => (...args) => { setLimite(PASO_LISTA); fn(...args); };
 
   const exportar = () => {
-    const { cab, filas } = filasParaExcel(visibles);
+    const completo = filasParaExcel(visibles);
+    // Sin precios: la columna de valor no viaja en el Excel.
+    const iValor = completo.cab.indexOf("Valor sin IVA");
+    const sinColumna = (fila) => (verPrecios || iValor < 0 ? fila : fila.filter((_, i) => i !== iValor));
+    const cab = sinColumna(completo.cab);
+    const filas = completo.filas.map(sinColumna);
     const sedeTxt = sedeFiltro === "todas" ? "ambas-sedes" : sedeFiltro.toLowerCase();
     const fecha = { formatoNumero: "dd/mm/yyyy hh:mm" };
     const pesos = { formatoNumero: '"$" #,##0' };
@@ -237,9 +244,12 @@ export default function MovimientosTab({ sede, irA }) {
           <p className="mov-resumen">
             {resumen.renglones > 0 ? (
               <>
-                Retirado: <b className="mov-num">{fmtPesos(resumen.valor)}</b> sin IVA
-                {resumen.sinCosto > 0 && <> · {plural(resumen.sinCosto, "renglón sin precio", "renglones sin precio")}</>}
-                {" · "}{plural(resumen.renglones, "renglón", "renglones")} de {plural(resumen.personas, "persona", "personas")}
+                {verPrecios && <>
+                  Retirado: <b className="mov-num">{fmtPesos(resumen.valor)}</b> sin IVA
+                  {resumen.sinCosto > 0 && <> · {plural(resumen.sinCosto, "renglón sin precio", "renglones sin precio")}</>}
+                  {" · "}
+                </>}
+                {plural(resumen.renglones, "renglón", "renglones")} de {plural(resumen.personas, "persona", "personas")}
               </>
             ) : (
               <>{plural(visibles.length, "movimiento", "movimientos")}</>
@@ -268,7 +278,7 @@ export default function MovimientosTab({ sede, irA }) {
                     <h3>{tituloDia(d.dia)}</h3>
                     <span>
                       {plural(d.entradas.length, "movimiento", "movimientos")}
-                      {d.retiros.renglones > 0 && <> · <b className="mov-num">{fmtPesos(d.retiros.valor)}</b> retirado</>}
+                      {verPrecios && d.retiros.renglones > 0 && <> · <b className="mov-num">{fmtPesos(d.retiros.valor)}</b> retirado</>}
                     </span>
                   </header>
                   <div className="mov-tabla">
@@ -280,7 +290,7 @@ export default function MovimientosTab({ sede, irA }) {
                       <span>Quién</span>
                       <span>Obra o sector</span>
                       <span>Origen</span>
-                      <span className="is-num">Valor</span>
+                      <span className="is-num">{verPrecios ? "Valor" : ""}</span>
                     </div>
                     {d.entradas.map((e) => <Fila key={e.clave} e={e} onAbrir={() => setSelClave(e.clave)} />)}
                   </div>
@@ -314,6 +324,7 @@ export default function MovimientosTab({ sede, irA }) {
 }
 
 function Fila({ e, onAbrir }) {
+  const verPrecios = useVerPrecios();
   const destino = destinoTexto(e);
   const quien = e.persona || (e.registro ? `${e.registro}` : null);
   const cantidad = cantidadTexto(e, fmtCantidad);
@@ -340,13 +351,14 @@ function Fila({ e, onAbrir }) {
       <span className="c-destino">{destino || <span className="mov-dim">—</span>}</span>
       <span className="c-origen">{origenTexto(e)}</span>
       <span className="c-valor is-num mov-num">
-        {(e.tipo === "retiro" || e.tipo === "ingreso") ? (e.sinCosto && !e.valor ? <span className="mov-dim">sin precio</span> : fmtPesos(e.valor)) : ""}
+        {verPrecios && (e.tipo === "retiro" || e.tipo === "ingreso") ? (e.sinCosto && !e.valor ? <span className="mov-dim">sin precio</span> : fmtPesos(e.valor)) : ""}
       </span>
     </button>
   );
 }
 
 function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
+  const verPrecios = useVerPrecios();
   const [anulando, setAnulando] = useState(false);
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -383,7 +395,8 @@ function Detalle({ e, onCerrar, irA, onAnulado, toast }) {
     e.obras.length === 1 ? ["Obra", e.obras[0]] : null,
     e.sector ? ["Sector", e.sector] : null,
     ["Origen", origenTexto(e)],
-    e.costoUnitario != null && (e.tipo === "retiro" || e.tipo === "ingreso")
+    !verPrecios ? null
+    : e.costoUnitario != null && (e.tipo === "retiro" || e.tipo === "ingreso")
       ? ["Valor", `${fmtPesos(e.valor)} sin IVA · ${fmtPesos(e.costoUnitario)} por ${e.unidad}`]
       : (e.tipo === "retiro" || e.tipo === "ingreso") ? ["Valor", "Sin precio registrado"] : null,
     e.fueraCupo ? ["Fuera de cupo", e.autorizadoPor ? `Autorizó ${e.autorizadoPor}` : "Sin autorización registrada"] : null,

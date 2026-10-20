@@ -4,11 +4,14 @@ import { EmptyState } from "@/components/ui/motion";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import { fmtPesos } from "@/features/consumibles/api";
+import { useVerPrecios } from "../verPrecios";
 import { fusionarConsumibles, reactivarFueraDeRebollar } from "./catalogoApi";
 import { pendientesConCandidatos, prepararDestinos } from "./conciliacion";
 import { descRenglon, filtrarPorTexto } from "./reglas";
 
 export function PrecioRenglon({ r }) {
+  const verPrecios = useVerPrecios();
+  if (!verPrecios) return null;
   return (
     <span className="cat-mono cat-precio">
       {r.costo_ars != null ? fmtPesos(r.costo_ars) : "—"}

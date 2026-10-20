@@ -241,7 +241,7 @@ function Opciones({ valor, onChange, opciones }) {
 /* ── ficha completa ──────────────────────────────────────────────────────── */
 // Todo lo que se sabe de una devolución en un solo lugar, más el hilo de notas.
 // La ficha es lo que se mira antes de llamar al proveedor.
-function Ficha({ fila, onClose, onCambio, toast }) {
+function Ficha({ fila, onClose, onCambio, toast, verPrecios = true }) {
   const [notas, setNotas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [texto, setTexto] = useState("");
@@ -290,9 +290,9 @@ function Ficha({ fila, onClose, onCambio, toast }) {
     ["Motivo", fila.motivo || "—"],
     ["Código", fila.material_codigo || "—"],
     ["Proveedor", fila.proveedor_nombre || fila.destino || "—"],
-    ["Valor del material", fmtMoneda(fila.valor_estimado, fila.moneda) || "sin precio cargado"],
-    ["Costo de reparación", fmtMoneda(fila.costo_reparacion, fila.moneda) || "—"],
-  ];
+    verPrecios ? ["Valor del material", fmtMoneda(fila.valor_estimado, fila.moneda) || "sin precio cargado"] : null,
+    verPrecios ? ["Costo de reparación", fmtMoneda(fila.costo_reparacion, fila.moneda) || "—"] : null,
+  ].filter(Boolean);
 
   return (
     <Modal
@@ -387,7 +387,7 @@ function Ficha({ fila, onClose, onCambio, toast }) {
 }
 
 /* ── card ────────────────────────────────────────────────────────────────── */
-function Card({ fila, col, ocupado, onAccion, onFicha }) {
+function Card({ fila, col, ocupado, onAccion, onFicha, verPrecios = true }) {
   const d = dias(fila);
   const viejo = d >= UMBRAL_VIEJO;
   const quieto = Number(fila.dias_sin_movimiento ?? 0) >= UMBRAL_QUIETO;
@@ -420,7 +420,7 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
             Sin movimiento
           </Chip>
         )}
-        {fila.valor_estimado > 0 && (
+        {verPrecios && fila.valor_estimado > 0 && (
           <span title={reclamable ? "Se le puede reclamar al proveedor" : "No es reclamable: la rotura es nuestra o falta definirla"}
             style={{ fontFamily: C.mono, fontSize: 10.5, fontWeight: reclamable ? 700 : 600, color: reclamable ? C.cyan : C.dim, marginLeft: "auto" }}>
             {fmtMoneda(fila.valor_estimado, fila.moneda)}
@@ -472,7 +472,8 @@ function Card({ fila, col, ocupado, onAccion, onFicha }) {
 }
 
 /* ── pantalla ────────────────────────────────────────────────────────────── */
-export default function DevolucionesPanel({ isMobile = false }) {
+// verPrecios: el pañol no ve montos (valor del material, reparación ni totales).
+export default function DevolucionesPanel({ isMobile = false, verPrecios = true }) {
   const toast = useToast();
   const [filas, setFilas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -594,16 +595,18 @@ export default function DevolucionesPanel({ isMobile = false }) {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Tile
-          label="Reclamable al proveedor" valor={metricas.reclamable} icon={CircleDollarSign}
-          color={C.cyan} soft={C.cyanL} borde={C.cyanB}
-          detalle="Sólo lo que vino fallado de fábrica."
-        />
-        <Tile
-          label="Roturas nuestras" valor={metricas.nuestro} icon={AlertTriangle}
-          color={C.red} soft={C.redL} borde={C.redB}
-          detalle="Se registra igual, pero no se reclama."
-        />
+        {verPrecios && <>
+          <Tile
+            label="Reclamable al proveedor" valor={metricas.reclamable} icon={CircleDollarSign}
+            color={C.cyan} soft={C.cyanL} borde={C.cyanB}
+            detalle="Sólo lo que vino fallado de fábrica."
+          />
+          <Tile
+            label="Roturas nuestras" valor={metricas.nuestro} icon={AlertTriangle}
+            color={C.red} soft={C.redL} borde={C.redB}
+            detalle="Se registra igual, pero no se reclama."
+          />
+        </>}
         <Tile
           label={`Afuera hace +${UMBRAL_VIEJO} días`} valor={metricas.vencidas} icon={Clock}
           color={metricas.vencidas ? C.red : C.dim}
@@ -656,6 +659,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
                     ocupado={ocupado === fila.id}
                     onAccion={(estado) => pedirAccion(fila, estado)}
                     onFicha={() => setFichaId(fila.id)}
+                    verPrecios={verPrecios}
                   />
                 ))}
                 {!items.length && (
@@ -732,7 +736,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
             </div>
           </div>
 
-          {decision.destinoTipo !== "interno" && (
+          {verPrecios && decision.destinoTipo !== "interno" && (
             <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
               <span style={labelSt}>Costo de la reparación (opcional)</span>
               <input size={1} inputMode="decimal" value={decision.costo}
@@ -753,7 +757,7 @@ export default function DevolucionesPanel({ isMobile = false }) {
       )}
 
       {ficha && (
-        <Ficha fila={ficha} toast={toast} onCambio={cargar} onClose={() => setFichaId("")} />
+        <Ficha fila={ficha} toast={toast} onCambio={cargar} onClose={() => setFichaId("")} verPrecios={verPrecios} />
       )}
     </div>
   );

@@ -42,7 +42,8 @@ function matchDuplicados(desc, cod, catalog) {
     .map((material) => ({ m: material, s: material._score }));
 }
 
-export default function CrearProductoTab({ isMobile = false, toast }) {
+// verPrecios: el pañol da de alta sin cargar ni ver precio.
+export default function CrearProductoTab({ isMobile = false, toast, verPrecios = true }) {
   const [categorias, setCategorias] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -227,7 +228,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 2fr", gap: 10 }}>
+          {verPrecios && <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 2fr", gap: 10 }}>
             <div>
               <label style={LBL}>Precio</label>
               <input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder="Precio (opcional)" style={{ ...INP, fontFamily: C.mono }} />
@@ -237,7 +238,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
               <select value={moneda} onChange={(e) => setMoneda(e.target.value)} style={{ ...INP, cursor: "pointer" }}><option value="ARS">ARS</option><option value="USD">USD</option></select>
             </div>
             <div />
-          </div>
+          </div>}
 
           {/* Es consumible */}
           <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "9px 11px", borderRadius: 9, border: `1px solid ${esConsumible ? C.violetB : C.border}`, background: esConsumible ? C.violetL : C.panelSolid }}>

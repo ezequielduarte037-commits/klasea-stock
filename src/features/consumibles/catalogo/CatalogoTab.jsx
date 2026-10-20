@@ -3,6 +3,7 @@ import { RefreshCw, Search } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { EmptyState } from "@/components/ui/motion";
 import { FORMAS_ENTREGA, fetchCatalogo, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
+import { useVerPrecios } from "../verPrecios";
 import { esGestorDeListas, esOperador, fetchListaVigente, fetchRetirosHistoricos } from "./catalogoApi";
 import { esPendienteRebollar } from "./conciliacion";
 import { motivoRevisarUnidad } from "./reglas";
@@ -37,6 +38,7 @@ const FALTANTES = [
 const sinTildes = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export default function CatalogoTab({ profile, sede }) {
+  const verPrecios = useVerPrecios();
   const [vista, setVista] = useState("lista");
   const [catalogo, setCatalogo] = useState([]);
   const [lista, setLista] = useState(null);
@@ -203,7 +205,7 @@ export default function CatalogoTab({ profile, sede }) {
                       </span>
                       <span className="cat-fila-datos">
                         {i.config?.proveedor_codigo
-                          ? <span className="cat-dato"><span className="cat-mono">{i.config.proveedor_codigo}</span>{i.costoUnitarioArs != null && <b className="cat-mono">{fmtPesos(i.costoUnitarioArs)}</b>}</span>
+                          ? <span className="cat-dato"><span className="cat-mono">{i.config.proveedor_codigo}</span>{verPrecios && i.costoUnitarioArs != null && <b className="cat-mono">{fmtPesos(i.costoUnitarioArs)}</b>}</span>
                           : <span className="cat-dato cat-falta">sin código</span>}
                         <span className={`cat-dato${i.ubicacion ? "" : " cat-falta"}`}>{i.ubicacion ? <span className="cat-mono">{i.ubicacion}</span> : "sin ubicación"}</span>
                         <span className={`cat-dato${i.pesoUnitarioG ? "" : " cat-falta"}`}>{i.pesoUnitarioG ? <span className="cat-mono">{fmtCantidad(i.pesoUnitarioG)} g</span> : "sin peso"}</span>

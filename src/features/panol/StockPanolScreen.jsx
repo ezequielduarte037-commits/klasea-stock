@@ -20,7 +20,7 @@ import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, ro
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
-import { hasAdminAccess } from "@/lib/permissions";
+import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -1015,7 +1015,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const userSede = canonicalPanolSede(profile?.sede);
   const sedeLocked = role === "panol" && userSede ? userSede : null;
   const canReceive = isManager || role === "panol";
-  const canSeePrices = role !== "panol"; // el pañol no ve precios ni costos
+  const canSeePrices = puedeVerPrecios(profile); // el pañol no ve precios ni costos
 
   // ── Navegación ──
   const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === normalizedRequestedTab) ? normalizedRequestedTab : "maestro");
@@ -1530,7 +1530,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   </div>
                 </div>
                 {movimientosView === "devoluciones" ? (
-                  <DevolucionesPanel isMobile={isMobile} />
+                  <DevolucionesPanel isMobile={isMobile} verPrecios={canSeePrices} />
                 ) : movimientosView === "a_crear" && canNormalize ? (
                   <ProductosACrearPanel rows={rows} fichasPendientes={fichasPendientes} errorFichas={errorFichas} isMobile={isMobile} toast={toast} onSaved={cargar} onIrAEstandarizacion={() => handleMovimientosView("normalizacion")} onOpenCatalog={(id) => nav(`/catalogo-maestro?material=${id}`)} />
                 ) : movimientosView === "normalizacion" && canNormalize ? (

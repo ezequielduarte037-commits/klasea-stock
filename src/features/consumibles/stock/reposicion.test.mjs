@@ -123,7 +123,7 @@ test("texto para WhatsApp y filas de Excel", () => {
   assert.match(txt, /Pañol Chubut/);
   assert.match(txt, /Proveedor: Rebollar · 13\/10\/2026/);
   assert.match(txt, /• 4 cajas x100 — \[TF61\] Tornillo fixador 6 x 1/);
-  assert.match(txt, /Total estimado: \$ 5\.000 sin IVA/);
+  assert.doesNotMatch(txt, /\$|Total estimado/);
   const filas = filasExcel(grupo);
   assert.equal(filas.length, 3);
   assert.deepEqual(filas[1].slice(0, 5), ["TF61", "Tornillo fixador 6 x 1", 4, "caja x100", "400 unidades"]);

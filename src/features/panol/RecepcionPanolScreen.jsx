@@ -39,7 +39,7 @@ import RemitosArchivoTab from "@/features/panol/RemitosArchivoTab";
 import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
 import { linkScannedReceiptToIngreso, scannerReceiptPrefill } from "@/features/panol/remitosScannerApi";
 import { leerIngresosPendientes, borrarIngresoPendiente, leerPapeleraIngresos, restaurarIngresoPendiente, vaciarPapeleraIngresos } from "@/features/panol/ingresosPendientes";
-import { hasAdminAccess } from "@/lib/permissions";
+import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -852,7 +852,7 @@ export default function RecepcionPanolScreen({ profile }) {
         /* El `key` con la búsqueda: si el buscador global manda acá estando ya
            en la pantalla, React no remonta y el archivo se quedaba mostrando lo
            anterior. Con esto arranca de cero filtrado por lo que se buscó. */
-        <RemitosArchivoTab key={`remitos-${requestedQuery}`} isMobile={isMobile} puedeReasignar={isAdmin} busquedaInicial={requestedQuery} />
+        <RemitosArchivoTab key={`remitos-${requestedQuery}`} isMobile={isMobile} puedeReasignar={isAdmin} busquedaInicial={requestedQuery} verPrecios={puedeVerPrecios(profile)} />
       ) : tab === "scanner" ? (
         <ScannerRemitosTab
           profile={profile}
@@ -869,7 +869,7 @@ export default function RecepcionPanolScreen({ profile }) {
       ) : tab === "consumibles" ? (
         <ConsumiblesPanolTab isMobile={isMobile} toast={toast} sedeLocked={sedeLocked} canReceive={canReceive} isAdmin={isAdmin} />
       ) : tab === "crear" && !soloConsumibles ? (
-        <CrearProductoTab isMobile={isMobile} toast={toast} />
+        <CrearProductoTab isMobile={isMobile} toast={toast} verPrecios={puedeVerPrecios(profile)} />
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           {/* Tira de borradores para retomar (solo si hay) */}

@@ -371,7 +371,8 @@ function EditorRemito({
     </div>
   );
 }
-export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = false, busquedaInicial = "" }) {
+// verPrecios: el pañol no ve el total de los remitos.
+export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = false, busquedaInicial = "", verPrecios = true }) {
   const toast = useToast();
   const [remitos, setRemitos] = useState([]);
   const [obras, setObras] = useState([]);
@@ -867,7 +868,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                   ) : null}
                 </div>
                 <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>{fmtFecha(remito.fecha || remito.created_at)}</div>
-                <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>{money(remito.total, remito.moneda)}</div>
+                <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>{verPrecios ? money(remito.total, remito.moneda) : ""}</div>
                 {/* Todos los lugares donde esta el remito, no solo los barcos:
                     en la vista por carpeta o por proveedor, ver unicamente la
                     obra dejaria la columna vacia justo en el lugar por el que

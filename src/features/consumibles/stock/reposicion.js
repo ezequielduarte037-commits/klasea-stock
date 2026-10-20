@@ -197,7 +197,6 @@ export function minimoSugerido({ consumoDiario, diasEntrega = DIAS_ENTREGA_POR_D
 // ── Exportar ───────────────────────────────────────────────────────────────
 
 const fmt = (n) => (num(n) ?? 0).toLocaleString("es-AR", { maximumFractionDigits: 2 });
-const fmtPesos = (n) => `$ ${(num(n) ?? 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 const fechaCorta = (f) => new Date(f).toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** "4 cajas x100" o "7 unidades": cómo lo lee el proveedor. */
@@ -211,10 +210,9 @@ const unidadDeCompraTexto = (l) => {
   return l.unidadCompra || l.unidad;
 };
 
-/** Texto para pegar en WhatsApp: cantidad, unidad de compra, código y descripción. */
+/** Texto para pegar en WhatsApp: cantidad, unidad de compra, código y descripción. Sin precios. */
 export function textoWhatsApp(grupo, { sede, fecha = new Date() } = {}) {
   const lineas = grupo.lineas.filter((l) => l.unidadesCompra > 0);
-  const { total, sinCosto } = totalDePedido(lineas);
   const renglones = lineas.map((l) => {
     const codigo = l.codigoProveedor ? `[${l.codigoProveedor}] ` : "";
     return `• ${cantidadDeCompraTexto(l)} — ${codigo}${l.descripcion}`;
@@ -224,13 +222,12 @@ export function textoWhatsApp(grupo, { sede, fecha = new Date() } = {}) {
     `${grupo.sinProveedor ? "Sin proveedor asignado" : `Proveedor: ${grupo.proveedor}`} · ${fechaCorta(fecha)}`,
     "",
     ...renglones,
-    "",
-    total > 0 ? `Total estimado: ${fmtPesos(total)} sin IVA${sinCosto ? ` (${sinCosto} sin precio)` : ""}` : null,
   ].filter((x) => x != null).join("\n").trim();
 }
 
 /** Filas para la planilla (descargarXlsx de compras). */
-export function filasExcel(grupo) {
+/** Filas para la planilla. Sin precios (`conPrecios: false`) quedan afuera costo, subtotal y total. */
+export function filasExcel(grupo, { conPrecios = true } = {}) {
   const encabezado = ["Código proveedor", "Descripción", "Cantidad", "Unidad de compra", "Equivale a", "Stock", "Mínimo", "Máximo", "Costo unit. (sin IVA)", "Subtotal"];
   const filas = grupo.lineas
     .filter((l) => l.unidadesCompra > 0)
@@ -246,6 +243,7 @@ export function filasExcel(grupo) {
       l.costoCompra ?? "",
       l.subtotal ?? "",
     ]);
+  if (!conPrecios) return [encabezado.slice(0, 8), ...filas.map((f) => f.slice(0, 8))];
   const { total } = totalDePedido(grupo.lineas);
   return [encabezado, ...filas, ["", "Total", "", "", "", "", "", "", "", total || ""]];
 }

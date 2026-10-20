@@ -13,6 +13,7 @@ import { guardarAlias, guardarInfo } from "./catalogoApi";
 import FotosProducto from "./FotosProducto";
 import { cambiosDeFicha, estadoInicial } from "./edicion";
 import PesoUnitarioManual from "../PesoUnitarioManual";
+import { useVerPrecios } from "../verPrecios";
 
 /**
  * Ficha de un consumible: lo que el pañol y Compras ajustan a mano. Guarda
@@ -22,6 +23,7 @@ import PesoUnitarioManual from "../PesoUnitarioManual";
  */
 
 export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, onFoto }) {
+  const verPrecios = useVerPrecios();
   const toast = useToast();
   const [inicial] = useState(() => estadoInicial(item));
   const [f, setF] = useState(inicial);
@@ -154,7 +156,7 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
               {c.proveedor_codigo ? (
                 <>
                   <div><span className="cat-dim">Proveedor</span> {c.proveedor_nombre ?? "—"} · <span className="cat-mono">{c.proveedor_codigo}</span></div>
-                  <div><span className="cat-dim">Costo por {f.unidad_entrega || "unidad"}</span> <b className="cat-mono">{fmtPesos(c.costo_unitario_ars)}</b> <span className="cat-dim">sin IVA</span></div>
+                  {verPrecios && <div><span className="cat-dim">Costo por {f.unidad_entrega || "unidad"}</span> <b className="cat-mono">{fmtPesos(c.costo_unitario_ars)}</b> <span className="cat-dim">sin IVA</span></div>}
                 </>
               ) : (
                 <div className="cat-dim">Consumible fuera de la lista de Rebollar.</div>

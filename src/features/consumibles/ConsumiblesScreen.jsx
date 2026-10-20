@@ -4,6 +4,8 @@ import { PackageOpen } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Cargando from "@/components/ui/Cargando";
 import { SEDES, guardarSedeDelEquipo, sedeDelEquipo } from "@/features/consumibles/api";
+import { puedeVerPrecios } from "@/lib/permissions";
+import { VerPreciosContext } from "./verPrecios";
 
 /**
  * Consumibles — "nada sale sin registro".
@@ -29,16 +31,19 @@ const TABS = [
   { key: "pedidos", label: "Pedidos", Comp: lazy(() => import("./pedidos/PedidosTab")) },
   { key: "ingresos", label: "Ingresos", Comp: lazy(() => import("./ingresos/IngresosTab")) },
   { key: "catalogo", label: "Catálogo", Comp: lazy(() => import("./catalogo/CatalogoTab")) },
-  { key: "precios", label: "Precios", Comp: lazy(() => import("./precios/PreciosTab")) },
+  { key: "precios", label: "Precios", conPrecios: true, Comp: lazy(() => import("./precios/PreciosTab")) },
   { key: "etiquetas", label: "Etiquetas", Comp: lazy(() => import("./etiquetas/EtiquetasTab")) },
-  { key: "tablero", label: "Tablero", Comp: lazy(() => import("./tablero/TableroTab")) },
+  // El tablero mide el consumo en pesos: es de gestión, el pañol no lo ve.
+  { key: "tablero", label: "Tablero", conPrecios: true, Comp: lazy(() => import("./tablero/TableroTab")) },
 ];
 
 export default function ConsumiblesScreen({ profile }) {
   const [params, setParams] = useSearchParams();
   const [sede, setSedeState] = useState(() => sedeDelEquipo());
-  const tabKey = TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "mostrador";
-  const tab = useMemo(() => TABS.find((t) => t.key === tabKey), [tabKey]);
+  const verPrecios = puedeVerPrecios(profile);
+  const tabs = useMemo(() => TABS.filter((t) => verPrecios || !t.conPrecios), [verPrecios]);
+  const tabKey = tabs.some((t) => t.key === params.get("tab")) ? params.get("tab") : "mostrador";
+  const tab = useMemo(() => tabs.find((t) => t.key === tabKey), [tabs, tabKey]);
 
   const irA = (key) => {
     const next = new URLSearchParams(params);
@@ -77,7 +82,7 @@ export default function ConsumiblesScreen({ profile }) {
         )}
       >
         <nav className="ui-tabs" role="tablist" aria-label="Secciones de consumibles">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.key}
               type="button"
@@ -106,9 +111,11 @@ export default function ConsumiblesScreen({ profile }) {
             </div>
           </div>
         ) : (
-          <Suspense fallback={<Cargando llenar texto="Abriendo…" />}>
-            <Comp key={`${tabKey}:${sede}:${profile?.id ?? ""}`} profile={profile} sede={sede} irA={irA} />
-          </Suspense>
+          <VerPreciosContext.Provider value={verPrecios}>
+            <Suspense fallback={<Cargando llenar texto="Abriendo…" />}>
+              <Comp key={`${tabKey}:${sede}:${profile?.id ?? ""}`} profile={profile} sede={sede} irA={irA} />
+            </Suspense>
+          </VerPreciosContext.Provider>
         )}
       </main>
     </div>

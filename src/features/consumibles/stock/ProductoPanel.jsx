@@ -15,6 +15,7 @@ import { fetchNombresDePerfiles } from "../conteo/conteoApi";
 import { unidadEnTexto } from "../conteo/conteoCalculos";
 import { CampoNumero } from "./CampoNumero";
 import FotoConsumible from "../FotoConsumible";
+import { useVerPrecios } from "../verPrecios";
 
 /**
  * Ficha de un consumible desde Stock: stock de las dos sedes, mínimo y
@@ -28,6 +29,7 @@ const fecha = (iso) => new Date(iso).toLocaleString("es-AR", { timeZone: "Americ
 const TONO_TIPO = { inventario: "violeta", ingreso: "verde", retiro: "azul", devolucion: "teal", ajuste: "violeta", merma: "rojo" };
 
 export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo30, minimoSugerido, onCerrar, onGuardarMinimo, onGuardarMaximo, onAnulado }) {
+  const verPrecios = useVerPrecios();
   const toast = useToast();
   const [movs, setMovs] = useState(null);
   const [nombres, setNombres] = useState(() => new Map());
@@ -151,7 +153,7 @@ export default function ProductoPanel({ item, sede, otraSede, consumo7, consumo3
               )}
             </div>
           )}
-          {item.costoUnitarioArs != null && (
+          {verPrecios && item.costoUnitarioArs != null && (
             <div className="stk-dim stk-costo">Costo vigente: {fmtPesos(item.costoUnitarioArs)} por {item.unidad} (sin IVA)</div>
           )}
         </div>

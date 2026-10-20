@@ -99,7 +99,6 @@ export function renglonesParaMostrar(pedido, catalogoPorId = new Map(), recibido
 }
 
 const fmt = (n) => (num(n) ?? 0).toLocaleString("es-AR", { maximumFractionDigits: 2 });
-const fmtPesos = (n) => `$ ${(num(n) ?? 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 const fechaCorta = (f) => new Date(f).toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** "4 cajas x100" o "7 unidades": como lo lee el proveedor. */
@@ -108,22 +107,35 @@ export function cantidadTexto(r) {
   return `${fmt(r.cantidad)} ${unidad}${r.factor > 1 ? ` x${fmt(r.factor)}` : ""}`;
 }
 
-/** Texto para mandar por WhatsApp: cantidad, código del proveedor y descripción. */
+/**
+ * Texto para mandar por WhatsApp: cantidad, código del proveedor y descripción.
+ * Sin precios: el proveedor factura con los suyos y el pañol no los ve.
+ */
 export function textoWhatsApp({ pedido, renglones, fecha = new Date() }) {
-  const { total, sinCosto } = totalDePedido(renglones);
   return [
     `*Pedido de consumibles · Klase A · Pañol ${pedido.sede}*`,
     `Proveedor: ${pedido.proveedor}${pedido.numero ? ` · Pedido N° ${pedido.numero}` : ""} · ${fechaCorta(pedido.pedido_at || fecha)}`,
     "",
     ...renglones.map((r) => `• ${cantidadTexto(r)} — ${r.codigoProveedor ? `[${r.codigoProveedor}] ` : ""}${r.descripcion}`),
-    "",
-    total > 0 ? `Total estimado: ${fmtPesos(total)} sin IVA${sinCosto ? ` (${sinCosto} sin precio)` : ""}` : null,
+    pedido.nota ? "" : null,
     pedido.nota ? `Nota: ${pedido.nota}` : null,
   ].filter((x) => x != null).join("\n").trim();
 }
 
-/** Filas para la planilla (descargarXlsx de compras). */
-export function filasExcel(renglones = []) {
+/** Filas para la planilla (descargarXlsx de compras). Sin precios: sin costo, subtotal ni total. */
+export function filasExcel(renglones = [], { conPrecios = true } = {}) {
+  if (!conPrecios) {
+    return [
+      ["Código proveedor", "Descripción", "Cantidad", "Unidad de compra", "Equivale a"],
+      ...renglones.map((r) => [
+        r.codigoProveedor || "",
+        r.descripcion,
+        num(r.cantidad) ?? 0,
+        `${r.unidad_compra || r.unidad}${r.factor > 1 ? ` x${fmt(r.factor)}` : ""}`,
+        `${fmt((num(r.cantidad) ?? 0) * r.factor)} ${r.unidad}`,
+      ]),
+    ];
+  }
   const { total } = totalDePedido(renglones);
   return [
     ["Código proveedor", "Descripción", "Cantidad", "Unidad de compra", "Equivale a", "Costo unit. (sin IVA)", "Subtotal"],
