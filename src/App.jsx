@@ -95,11 +95,13 @@ function limpiarParametroDeRecarga() {
 class PantallaCaida extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { cayo: false };
+    this.state = { cayo: false, error: null };
   }
 
-  static getDerivedStateFromError() {
-    return { cayo: true };
+  // Además de un chunk viejo, cae acá cualquier error de una pantalla. En la PDA
+  // no hay consola para verlo, así que el detalle se muestra abajo del botón.
+  static getDerivedStateFromError(error) {
+    return { cayo: true, error };
   }
 
   componentDidCatch(error) {
@@ -139,6 +141,13 @@ class PantallaCaida extends React.Component {
           >
             Reparar y recargar
           </button>
+          {this.state.error ? (
+            <div style={{ marginTop: 18, fontSize: 11.5, lineHeight: 1.45, color: "var(--dim, #8a93a3)", wordBreak: "break-word", fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
+              {String(this.state.error?.name || "Error")}: {String(this.state.error?.message || this.state.error).slice(0, 220)}
+              <br />
+              {typeof window !== "undefined" ? window.location.pathname : ""} · {String(navigator.userAgent.match(/Chrome\/\d+/)?.[0] || "")}
+            </div>
+          ) : null}
         </div>
       </div>
     );
