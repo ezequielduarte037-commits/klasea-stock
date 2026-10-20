@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LogOut, PackageMinus, ShoppingCart } from "lucide-react";
+import { ClipboardList, LogOut, PackageMinus, ShoppingCart } from "lucide-react";
 import { C } from "@/theme";
 import { esDispositivoTactil, usarPanelCompleto } from "@/lib/modoColector";
 
@@ -34,6 +34,15 @@ const opciones = [
     color: C.green,
     fondo: C.greenL,
     borde: C.greenB,
+  },
+  {
+    to: "/scan-rebollar",
+    titulo: "Pedido a Rebollar",
+    detalle: "Escanear consumibles para el carrito del pedido",
+    Icono: ClipboardList,
+    color: C.cyan,
+    fondo: C.cyanL,
+    borde: C.cyanB,
   },
 ];
 

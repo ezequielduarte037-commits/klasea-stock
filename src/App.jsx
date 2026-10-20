@@ -27,10 +27,11 @@ import BuscadorDiferido from "@/features/search/BuscadorDiferido";
 import { useDiferido } from "@/hooks/useDiferido";
 import PresentationPrivacyShield from "@/components/PresentationPrivacyShield";
 // El colector de pañol trabaja en un navegador viejo y es una pantalla crítica:
-// estas tres rutas viajan en el bundle inicial para no depender de descargar un
+// estas rutas viajan en el bundle inicial para no depender de descargar un
 // chunk adicional justo después del login. El resto de la app sigue siendo lazy.
 import ScanEgresoScreen from "@/features/inventario/ScanEgresoScreen";
 import ScanPedidoScreen from "@/features/inventario/ScanPedidoScreen";
+import ScanPedidoRebollarScreen from "@/features/consumibles/pedidos/ScanPedidoRebollarScreen";
 import ColectorHomeScreen from "@/features/inventario/ColectorHomeScreen";
 // El login también va en el bundle inicial: es lo primero que abre el colector.
 import LoginScreen from "@/features/login/LoginScreen";
@@ -674,6 +675,8 @@ export default function App() {
         <Route path="/colector" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}>{prefierePanelCompleto() ? <Navigate to="/" replace /> : <ColectorHomeScreen {...A} />}</RequireRole></RequireAuth>} />
         {/* Aviso a compras desde el colector: se escanea lo que hay que reponer */}
         <Route path="/scan-pedido" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoScreen {...A} /></RequireRole></RequireAuth>} />
+        {/* Pedido de consumibles a Rebollar desde el colector: mismo carrito que Consumibles → Pedidos */}
+        <Route path="/scan-rebollar" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoRebollarScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
         {/* Diagnóstico del puerto serie de la balanza (para descubrir su protocolo) */}
         <Route path="/balanza"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><BalanzaDebugScreen {...A} /></RequireRole></RequireAuth>} />

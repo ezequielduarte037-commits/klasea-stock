@@ -16,7 +16,7 @@
 // mouse nunca entra sola. Y si llega igual, el menú del colector ofrece pasar
 // al panel completo; la elección queda guardada en ese equipo.
 
-export const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
+export const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/scan-rebollar", "/pantalla-egreso"]);
 
 const MARCA_COLECTOR = "klasea.modo-colector";
 const MARCA_PANEL_COMPLETO = "klasea.panel-completo";
