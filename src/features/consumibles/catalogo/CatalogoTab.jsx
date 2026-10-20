@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Search } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { EmptyState } from "@/components/ui/motion";
-import { FORMAS_ENTREGA, fetchCatalogo, fmtCantidad, fmtPesos } from "@/features/consumibles/api";
+import { FORMAS_ENTREGA, fetchCatalogo, fmtCantidad, fmtPesos, normalizarCodigo } from "@/features/consumibles/api";
 import { useVerPrecios } from "../verPrecios";
 import { esGestorDeListas, esOperador, fetchListaVigente, fetchRetirosHistoricos } from "./catalogoApi";
 import { esPendienteRebollar } from "./conciliacion";
@@ -118,7 +118,7 @@ export default function CatalogoTab({ profile, sede }) {
   }, [activos, selId, costoCompraDe]);
 
   // Después de guardar se actualizan solo los campos confirmados por la base.
-  const aplicarCambio = (id, { config, stockMinimo, ubicacion, alias, info, imagenUrl, peso }) => {
+  const aplicarCambio = (id, { config, stockMinimo, ubicacion, alias, info, imagenUrl, peso, codigosBarra }) => {
     setCatalogo((cat) => cat.map((i) => (i.id !== id ? i : {
       ...i,
       config: config ?? i.config,
@@ -134,7 +134,19 @@ export default function CatalogoTab({ profile, sede }) {
       imagenUrl: imagenUrl === undefined ? i.imagenUrl : imagenUrl,
       pesoUnitarioG: peso ? Number(peso.peso_unitario_g) : i.pesoUnitarioG,
       pesoCalibradoAt: peso ? peso.peso_calibrado_at : i.pesoCalibradoAt,
+      ...(codigosBarra === undefined ? {} : conCodigosBarra(i, codigosBarra)),
     })));
+  };
+
+  // El lector de esta pantalla también reconoce el código recién cargado.
+  const conCodigosBarra = (i, lista) => {
+    const barras = lista.map(normalizarCodigo).filter(Boolean);
+    const viejas = new Set(i.codigosPorTipo?.barras ?? []);
+    return {
+      codigosBarra: lista,
+      codigosPorTipo: { ...i.codigosPorTipo, barras },
+      codigos: [...barras, ...(i.codigos ?? []).filter((c) => !viejas.has(c))],
+    };
   };
 
   const toggleFalta = (k) => setFaltan((f) => (f.includes(k) ? f.filter((x) => x !== k) : [...f, k]));
@@ -228,6 +240,7 @@ export default function CatalogoTab({ profile, sede }) {
                 onCerrar={() => setSelId(null)}
                 onGuardado={(id, cambios) => { aplicarCambio(id, cambios); if (!cambios.peso) setSelId(null); }}
                 onFoto={(id, imagenUrl) => aplicarCambio(id, { imagenUrl })}
+                onCodigos={(id, codigosBarra) => aplicarCambio(id, { codigosBarra })}
               />
             </div>
           )}
@@ -289,6 +302,12 @@ const CSS = `
   .cat-root .cat-panel-cuerpo section + section { border-top: 1px solid var(--border); }
   .cat-root .cat-panel-cuerpo h4 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
   .cat-root .cat-campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .cat-root .cat-barras { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .cat-root .cat-barras li { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2); font-size: 13px; }
+  .cat-root .cat-barras li .ui-btn-icono { width: 26px; height: 26px; min-height: 26px; }
+  .cat-root .cat-barras-vacio { margin: 0 0 8px; font-size: 13px; }
+  .cat-root .cat-barras-alta { display: flex; gap: 8px; margin-bottom: 4px; }
+  .cat-root .cat-barras-alta .ui-input { flex: 1; min-width: 0; }
   .cat-root .cat-campo > span { font-size: 12.5px; color: var(--muted); }
   .cat-root .cat-campo small { color: var(--dim); font-size: 12px; }
   .cat-root .cat-fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }

@@ -1,6 +1,7 @@
 import { supabase } from "@/supabaseClient";
 import { guardarConfig } from "@/features/consumibles/api";
 import { costoUnitario, factorCompra, interpretarContenido } from "@/features/consumibles/precios/normalizarLista";
+import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial } from "@/features/materiales/api";
 
 /**
  * Lo que necesita la pestaña Catálogo y no está en el contrato común
@@ -148,4 +149,34 @@ export async function guardarAlias(materialId, alias) {
     .update({ alias }).eq("id", materialId).select("alias").single();
   if (error) throw error;
   return data.alias;
+}
+
+// ── Códigos de barra del fabricante ─────────────────────────────────────────
+
+/**
+ * Suma un código de barra a un consumible (la cinta, el aerosol: el que trae
+ * impreso de fábrica). Un producto puede tener varios; un mismo código no puede
+ * estar en dos productos, así que antes se busca de quién es.
+ */
+export async function agregarCodigoBarra(materialId, codigo) {
+  const limpio = String(codigo || "").trim();
+  if (!limpio) throw new Error("Escaneá o escribí el código.");
+  const { data: existente, error: errBuscar } = await supabase
+    .from("panol_material_codigos_barra")
+    .select("material_id,material:panol_materiales(descripcion)")
+    // ilike sin comodines: % y _ del código se escapan para que sea igualdad.
+    .ilike("codigo", limpio.replace(/[%_\\]/g, (c) => `\\${c}`))
+    .eq("activo", true)
+    .limit(1);
+  if (errBuscar) throw errBuscar;
+  const duenio = existente?.[0];
+  if (duenio) {
+    if (duenio.material_id === materialId) throw new Error("Ese código ya está cargado en este producto.");
+    throw new Error(`Ese código ya es de «${duenio.material?.descripcion || "otro producto"}». Sacalo de ahí primero.`);
+  }
+  return agregarCodigoBarraMaterial(materialId, limpio, { etiqueta: "Fabricante" });
+}
+
+export async function quitarCodigoBarra(materialId, codigo) {
+  await eliminarCodigoBarraMaterial({ materialId, codigo: String(codigo || "").trim() });
 }

@@ -11,6 +11,7 @@ import {
 import { UNIDADES_ENTREGA, motivoRevisarUnidad } from "./reglas";
 import { guardarAlias, guardarInfo } from "./catalogoApi";
 import FotosProducto from "./FotosProducto";
+import CodigosDeBarra from "./CodigosDeBarra";
 import { cambiosDeFicha, estadoInicial } from "./edicion";
 import PesoUnitarioManual from "../PesoUnitarioManual";
 import { useVerPrecios } from "../verPrecios";
@@ -22,7 +23,7 @@ import { useVerPrecios } from "../verPrecios";
  * panol_materiales.
  */
 
-export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, onFoto }) {
+export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, onFoto, onCodigos }) {
   const verPrecios = useVerPrecios();
   const toast = useToast();
   const [inicial] = useState(() => estadoInicial(item));
@@ -85,6 +86,7 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
           <h4>Fotos</h4>
           <FotosProducto materialId={item.id} principal={item.imagenUrl} puedeEditar={puedeEditar} onPrincipal={(url) => onFoto?.(item.id, url)} />
         </section>
+        <CodigosDeBarra item={item} puedeEditar={puedeEditar} onCambio={(lista) => onCodigos?.(item.id, lista)} />
         <fieldset disabled={!puedeEditar || guardando || guardandoPeso}>
           <PesoUnitarioManual item={item} disabled={!puedeEditar || guardando} onOcupado={setGuardandoPeso}
             onGuardado={(peso) => onGuardado(item.id, { peso })} />

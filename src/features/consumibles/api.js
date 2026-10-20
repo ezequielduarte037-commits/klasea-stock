@@ -222,6 +222,8 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
       ultimoConteoAt: deSede?.ultimoConteoAt ?? null,
       preConteoRetirado: deSede?.preConteoRetirado ?? 0,
       stockPorSede: porSede,
+      // Códigos de barra del fabricante tal como se cargaron (puede haber varios).
+      codigosBarra: codigosBarraDe(codigos.get(m.id), m.codigo_barra),
       // En orden de confianza: la etiqueta propia primero, el código del
       // proveedor al final (es el que más se repite entre productos).
       codigosPorTipo: {
@@ -239,6 +241,19 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
       ].map(normalizarCodigo).filter(Boolean),
     };
   });
+}
+
+/** Los códigos de barra de un producto sin repetidos (la columna vieja suele repetir el primero). */
+export function codigosBarraDe(lista = [], legacy = null) {
+  const vistos = new Set();
+  const out = [];
+  for (const c of [...(lista ?? []), legacy]) {
+    const k = normalizarCodigo(c);
+    if (!k || vistos.has(k)) continue;
+    vistos.add(k);
+    out.push(String(c).trim());
+  }
+  return out;
 }
 
 async function fetchCodigosDeBarra(materialIds) {
