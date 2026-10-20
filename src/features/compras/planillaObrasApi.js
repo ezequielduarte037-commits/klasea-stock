@@ -159,6 +159,7 @@ function celdaVacia(cantidad, requisitoId, desdeMatriz = true) {
     snapshotId: null,
     configuracionSnapshotId: null,
     avisoPendiente: false,
+    pedidoAbierto: false,
     productoMaterialId: null,
     productoDefinido: false,
     productoEstandar: false,
@@ -486,6 +487,10 @@ async function construirPlanillaDeLinea(linea) {
           !!row.panol_envio_item_id
           && !["recibido", "parcial", "rechazado"].includes(String(row.recepcion_estado || "").toLowerCase())
         ));
+        // Ya salió un pedido a Compras para esta celda y todavía no llegó.
+        celda.pedidoAbierto = snapshots.some((row) => (
+          !!row.purchase_request_id && ["pedido", "comprado"].includes(String(row.estado || "").toLowerCase())
+        ));
         celda.egresado = 0;
         celda.enPanol = 0;
         celda.pendiente = 0;
@@ -503,6 +508,7 @@ async function construirPlanillaDeLinea(linea) {
         existente.snapshotId = existente.snapshotId || celda.snapshotId;
         existente.configuracionSnapshotId = existente.configuracionSnapshotId || celda.configuracionSnapshotId;
         existente.avisoPendiente = existente.avisoPendiente || celda.avisoPendiente;
+        existente.pedidoAbierto = existente.pedidoAbierto || celda.pedidoAbierto;
         existente.productoMaterialId = existente.productoMaterialId || celda.productoMaterialId;
         existente.productoDefinido = existente.productoDefinido || celda.productoDefinido;
         existente.productoEstandar = existente.productoEstandar || celda.productoEstandar;
@@ -529,6 +535,9 @@ async function construirPlanillaDeLinea(linea) {
     if (ESTADOS_PENDIENTE.has(fila.estado) && !fila.panol_envio_item_id) celda.snapshotId = celda.snapshotId || fila.id;
     if (fila.panol_envio_item_id && !["recibido", "parcial", "rechazado"].includes(String(fila.recepcion_estado || "").toLowerCase())) {
       celda.avisoPendiente = true;
+    }
+    if (fila.purchase_request_id && ["pedido", "comprado"].includes(String(fila.estado || "").toLowerCase())) {
+      celda.pedidoAbierto = true;
     }
     if (!celdas.has(clave)) celda.pendiente = 0;
     sumarEstado(celda, fila);
@@ -563,6 +572,7 @@ async function construirPlanillaDeLinea(linea) {
       snapshotId: celdaRaw.snapshotId || null,
       configuracionSnapshotId: celdaRaw.configuracionSnapshotId || null,
       avisoPendiente: celdaRaw.avisoPendiente === true,
+      pedidoAbierto: celdaRaw.pedidoAbierto === true,
       productoMaterialId: celdaRaw.productoMaterialId || null,
       productoDefinido: celdaRaw.productoDefinido === true,
       productoEstandar: celdaRaw.productoEstandar === true,

@@ -105,8 +105,6 @@ import CopiarOcProveedor from "@/components/CopiarOcProveedor";
 import { addRequestItem, createPurchaseRequest, crearPedidoAdicionalObra } from "@/features/compras/purchaseRequestsApi";
 import CostoObraPanel from "./CostoObraPanel";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
-import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
-import { useToast } from "@/components/ui/Toast";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
@@ -9474,9 +9472,6 @@ export default function MaterialesScreen({ profile }) {
   const tab = TAB_KEYS.includes(tabPedida) ? tabPedida : "lineas";
   // Técnica sólo manda pedidos a Compras; el aviso a pañol queda para el resto.
   const soloPedirACompras = profile?.role === "tecnica";
-  const toast = useToast();
-  // Pedido armado desde la planilla de obras (Listas de compras → Planillas).
-  const [pedidoPlanilla, setPedidoPlanilla] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
@@ -9809,15 +9804,7 @@ export default function MaterialesScreen({ profile }) {
               <div key={tab} className="materiales-tab-content">
                 {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} soloPedirACompras={soloPedirACompras} />}
                 {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
-                {tab === "planillas" && <PlanillaObrasPanel
-                  isMobile={isMobile}
-                  profile={profile}
-                  onPedir={soloPedirACompras ? ({ titulo, descripcion, proveedorSugerido, obraCodigo }) => setPedidoPlanilla({
-                    title: titulo,
-                    description: proveedorSugerido ? `Proveedor sugerido: ${proveedorSugerido}\n\n${descripcion}` : descripcion,
-                    defaultDestination: obraCodigo ? `Obra ${obraCodigo}` : "",
-                  }) : undefined}
-                />}
+                {tab === "planillas" && <PlanillaObrasPanel isMobile={isMobile} profile={profile} />}
                 {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
                 {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
                 {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
@@ -9831,16 +9818,6 @@ export default function MaterialesScreen({ profile }) {
                 {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
                 {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
               </div>
-              <PedirAComprasModal
-                open={!!pedidoPlanilla}
-                prefilled={pedidoPlanilla}
-                profile={profile}
-                origen="planilla"
-                onClose={(created) => {
-                  setPedidoPlanilla(null);
-                  if (created) toast.success("Pedido mandado a Compras");
-                }}
-              />
             </>
           )}
         </div>

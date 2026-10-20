@@ -34,7 +34,8 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { calcularPlanillaDeLinea, marcarAvisoPlanillaComoComprado } from "@/features/compras/planillaObrasApi";
 import { exportarPlanillaXlsx } from "@/features/compras/planillaExcel";
 import ProductoAsignadoControl from "@/features/materiales/ProductoAsignadoControl";
-import { ensureObraMaterialSnapshotRow } from "@/features/materiales/api";
+import { ensureObraMaterialSnapshotRow, updateObraSnapshotRows } from "@/features/materiales/api";
+import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import { guardarConfiguracionProductoObra } from "@/features/materiales/productosAsignadosApi";
 import PlanillaHerramientas from "./PlanillaHerramientas";
 import PlanillaDetalle, { PlanillaFoto } from "./PlanillaDetalle";
@@ -390,6 +391,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const [obrasAviso, setObrasAviso] = useState(() => new Set());
   const [selectorObrasAvisoAbierto, setSelectorObrasAvisoAbierto] = useState(false);
   const [avisoPreparacion, setAvisoPreparacion] = useState(null);
+  const [comprasBusy, setComprasBusy] = useState(false);
   const [gruposCerrados, setGruposCerrados] = useState(() => new Set());
   const [panolPrefill, setPanolPrefill] = useState(null);
   const [productoBusy, setProductoBusy] = useState("");
@@ -818,13 +820,16 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     if (cubiertos) toast.info(`${cubiertos} quedaron afuera: ya están libres en el pañol.`);
   }
 
-  function avisarPanol() {
+  // Arma el borrador con lo seleccionado, repartido por obra. Sirve para el aviso
+  // a pañol (material ya comprado) y para el pedido a Compras (material por comprar).
+  function avisarPanol(destino = "panol") {
+    const paraCompras = destino === "compras";
     if (!obrasAvisoSeleccionadas.length) {
       setSelectorObrasAvisoAbierto(true);
-      toast.info("Elegí una o varias obras para el aviso a pañol.");
+      toast.info(paraCompras ? "Elegí una o varias obras para el pedido a compras." : "Elegí una o varias obras para el aviso a pañol.");
       return;
     }
-    if (!validarOpcionesPara(obrasAvisoSeleccionadas, "avisar a pañol", true)) return;
+    if (!validarOpcionesPara(obrasAvisoSeleccionadas, paraCompras ? "pedir a compras" : "avisar a pañol", true)) return;
 
     let yaAvisados = 0;
     let cubiertos = 0;
@@ -840,7 +845,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         const celda = fila.porObra[obra.id];
         const pendiente = Number(celda?.pendiente || 0);
         if (!(pendiente > 0)) continue;
-        if (celda.avisoPendiente) {
+        if (celda.avisoPendiente || (paraCompras && celda.pedidoAbierto)) {
           yaAvisados += 1;
           continue;
         }
@@ -874,17 +879,20 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     }
 
     if (!items.length) {
-      if (yaAvisados) toast.info("Lo elegido ya tiene un aviso de recepción abierto en pañol.");
+      if (yaAvisados) toast.info(paraCompras ? "Lo elegido ya tiene un pedido o un aviso abierto." : "Lo elegido ya tiene un aviso de recepción abierto en pañol.");
       else if (cubiertos) toast.info("Lo elegido ya puede cubrirse con stock libre del pañol.");
-      else toast.info("No hay cantidades pendientes para avisar en las obras elegidas.");
+      else toast.info(paraCompras ? "No hay cantidades pendientes para pedir en las obras elegidas." : "No hay cantidades pendientes para avisar en las obras elegidas.");
       return;
     }
 
     const codigos = obrasAvisoSeleccionadas.map((obra) => obra.codigo);
     setAvisoPreparacion({
+      destino,
       titulo: tituloAvisoSugerido(items, obrasAvisoSeleccionadas),
       tituloManual: false,
-      observaciones: `Material ya comprado para ${codigos.join(", ")}. Aviso creado desde la planilla de ${linea}.`,
+      observaciones: paraCompras
+        ? `Pedido para ${codigos.join(", ")} creado desde la planilla de ${linea}.`
+        : `Material ya comprado para ${codigos.join(", ")}. Aviso creado desde la planilla de ${linea}.`,
       items,
       obras: obrasAvisoSeleccionadas,
       yaAvisados,
@@ -904,6 +912,83 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         titulo: current.tituloManual ? current.titulo : tituloAvisoSugerido(items, current.obras),
       };
     });
+  }
+
+  // Un pedido a Compras por obra: cada barco queda con su propio seguimiento y
+  // los renglones pasan a "pedido" en la lista de la obra (como en Listas de compras).
+  async function crearPedidosCompras(items) {
+    if (comprasBusy) return;
+    const preparacion = avisoPreparacion;
+    const obrasConItems = preparacion.obras.filter((obra) => items.some((item) => item.obra_id === obra.id));
+    setComprasBusy(true);
+    let creados = 0;
+    try {
+      for (const obra of obrasConItems) {
+        const delaObra = items.filter((item) => item.obra_id === obra.id);
+        const renglones = delaObra.map((item) => `${mostrarNumero(item.cantidad)} ${item.unidad}  ${item.descripcion}${item.codigo ? ` (${item.codigo})` : ""}`);
+        const observaciones = preparacion.observaciones.trim();
+        const solicitud = await createPurchaseRequest({
+          form: {
+            title: obrasConItems.length > 1 ? `${preparacion.titulo.trim()} · ${obra.codigo}` : preparacion.titulo.trim(),
+            description: [observaciones, renglones.join("\n")].filter(Boolean).join("\n\n"),
+            priority: "media",
+            source: "materiales_obra",
+            project_id: obra.id,
+            destino: `Obra ${obra.codigo}`,
+            es_adicional: false,
+            tipo_pedido: "estandar",
+          },
+        });
+        for (const item of delaObra) {
+          let snapshotId = item.obra_snapshot_item_id || null;
+          if (!snapshotId) {
+            const snapshot = await ensureObraMaterialSnapshotRow(obra.id, {
+              requisitoMaterialId: item.requisito_material_id,
+              materialId: item.requisito_material_id,
+              productoMaterialId: item.material_id !== item.requisito_material_id ? item.material_id : null,
+              descripcion: item.descripcion,
+              codigo: item.codigo || null,
+              cantidad: item.cantidad,
+              unidad: item.unidad,
+              proveedor: item.proveedor || null,
+              rubro: item.rubro || null,
+              source: "matriz",
+              tipo: "base",
+              estado: "pendiente",
+              especificaciones: {},
+            });
+            snapshotId = snapshot?.id || null;
+          }
+          const renglon = await addRequestItem(solicitud.id, {
+            description: item.descripcion,
+            quantity: item.cantidad,
+            unit: item.unidad || "unidad",
+            destination: `Obra ${obra.codigo}`,
+            material_id: item.material_id || null,
+            requisito_material_id: item.requisito_material_id || null,
+            catalog_source: "panol",
+            notes: item.proveedor ? `Proveedor sugerido: ${item.proveedor}` : null,
+          });
+          if (snapshotId) {
+            await updateObraSnapshotRows([snapshotId], {
+              estado: "pedido",
+              purchase_request_id: solicitud.id,
+              purchase_request_item_id: renglon?.id || null,
+            });
+          }
+        }
+        creados += 1;
+      }
+      toast.success(`${creados === 1 ? "Pedido creado" : `${creados} pedidos creados`} en Compras con ${items.length} renglón${items.length === 1 ? "" : "es"}.`);
+      setAvisoPreparacion(null);
+      setElegidos(new Set());
+      cargar(linea);
+    } catch (e) {
+      toast.error(`${e?.message || "No se pudo crear el pedido a compras."}${creados ? ` Se alcanzaron a crear ${creados} pedido${creados === 1 ? "" : "s"}; revisá antes de repetir.` : ""}`);
+      if (creados) cargar(linea);
+    } finally {
+      setComprasBusy(false);
+    }
   }
 
   function continuarAvisoPanol() {
@@ -927,7 +1012,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         return itemFinal;
       });
     if (!items.length) {
-      toast.info("Indicá al menos una unidad para crear el aviso.");
+      toast.info(avisoPreparacion.destino === "compras" ? "Indicá al menos una unidad para crear el pedido." : "Indicá al menos una unidad para crear el aviso.");
+      return;
+    }
+    if (avisoPreparacion.destino === "compras") {
+      crearPedidosCompras(items);
       return;
     }
     const obrasConItems = new Set(items.map((item) => item.obra_id).filter(Boolean));
@@ -1274,8 +1363,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           type="button"
           onClick={() => setSelectorObrasAvisoAbierto((current) => !current)}
           title={obrasAvisoSeleccionadas.length
-            ? `Aviso para: ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
-            : "Elegí las obras que compartirán el aviso a pañol"}
+            ? `${soloPedirACompras ? "Pedido" : "Aviso"} para: ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
+            : `Elegí las obras que compartirán el ${soloPedirACompras ? "pedido a compras" : "aviso a pañol"}`}
           style={{
             ...control,
             minWidth: 152,
@@ -1290,7 +1379,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
             <Building2 size={14} />
-            Aviso · {obrasAvisoSeleccionadas.length || "elegir"}
+            {soloPedirACompras ? "Pedido" : "Aviso"} · {obrasAvisoSeleccionadas.length || "elegir"}
           </span>
           <ChevronDown size={13} style={{ transform: selectorObrasAvisoAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
@@ -1411,7 +1500,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ minWidth: 210, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 700 }}>
-                <Building2 size={15} color={C.green} /> Obras incluidas en el aviso
+                <Building2 size={15} color={C.green} /> Obras incluidas en el {soloPedirACompras ? "pedido" : "aviso"}
               </div>
               <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
                 Es independiente de la obra que estás mirando. Cada cantidad quedará asignada a su barco.
@@ -1454,7 +1543,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </section>
       ) : obrasAvisoSeleccionadas.length ? (
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "0 3px" }}>
-          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.55 }}>Aviso a pañol</span>
+          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.55 }}>{soloPedirACompras ? "Pedido a compras" : "Aviso a pañol"}</span>
           {obrasAvisoSeleccionadas.map((obra) => (
             <button key={obra.id} type="button" onClick={() => alternarObraAviso(obra.id)} title="Quitar del aviso" style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}>
               {obra.codigo} ×
@@ -1894,21 +1983,31 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{seleccionados.length} material{seleccionados.length === 1 ? "" : "es"}</span>
           <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
             {obrasAvisoSeleccionadas.length
-              ? `aviso para ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
+              ? `${soloPedirACompras ? "pedido" : "aviso"} para ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
               : obraSeleccionada ? `viendo ${obraSeleccionada.codigo}` : `en ${linea}`}
           </span>
           <button type="button" onClick={() => setElegidos(new Set())} style={{ ...control, padding: "6px 10px", fontSize: 12, color: C.dim }}>Limpiar</button>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" onClick={copiar} style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Copy size={14} /> Copiar</button>
-            {onPedir ? (
+            {soloPedirACompras ? (
+              <button
+                type="button"
+                onClick={() => avisarPanol("compras")}
+                disabled={comprasBusy}
+                title={obrasAvisoSeleccionadas.length ? "Armar el pedido a Compras con lo seleccionado" : "Primero elegí una o varias obras para el pedido"}
+                style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
+              >
+                <ShoppingCart size={14} /> Pedir a compras
+              </button>
+            ) : onPedir ? (
               <button type="button" onClick={pedir} style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <ShoppingCart size={14} /> {soloPedirACompras ? "Pedir a compras" : "Crear pedido"}
+                <ShoppingCart size={14} /> Crear pedido
               </button>
             ) : null}
             {!soloPedirACompras ? (
               <button
                 type="button"
-                onClick={avisarPanol}
+                onClick={() => avisarPanol("panol")}
                 title={obrasAvisoSeleccionadas.length ? "El material ya fue comprado: preparar aviso de recepción en pañol" : "Primero elegí una o varias obras para el aviso"}
                 style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
               >
@@ -1944,9 +2043,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                 <Send size={18} />
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 id="preparar-aviso-title" style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 750 }}>Preparar aviso a pañol</h3>
+                <h3 id="preparar-aviso-title" style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 750 }}>{avisoPreparacion.destino === "compras" ? "Pedir a compras" : "Preparar aviso a pañol"}</h3>
                 <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 12, fontWeight: 600, lineHeight: 1.45 }}>
-                  Revisá cómo se identifica. En el paso siguiente elegís la sede y confirmás los renglones.
+                  {avisoPreparacion.destino === "compras"
+                    ? "Revisá las cantidades y el título. Se crea un pedido por obra, con lo seleccionado."
+                    : "Revisá cómo se identifica. En el paso siguiente elegís la sede y confirmás los renglones."}
                 </p>
               </div>
               <button type="button" onClick={() => setAvisoPreparacion(null)} aria-label="Cerrar" style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.dim, borderRadius: 9, width: 32, height: 32, display: "grid", placeItems: "center", cursor: "pointer" }}>
@@ -1968,17 +2069,17 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
             {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? (
               <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan, borderRadius: 9, padding: "8px 10px", fontSize: 11.5, fontWeight: 650, lineHeight: 1.45 }}>
-                {avisoPreparacion.yaAvisados ? `${avisoPreparacion.yaAvisados} ${avisoPreparacion.yaAvisados === 1 ? "asignación ya tenía" : "asignaciones ya tenían"} un aviso abierto. ` : ""}
+                {avisoPreparacion.yaAvisados ? `${avisoPreparacion.yaAvisados} ${avisoPreparacion.yaAvisados === 1 ? "asignación ya tenía" : "asignaciones ya tenían"} ${avisoPreparacion.destino === "compras" ? "un pedido o aviso abierto" : "un aviso abierto"}. ` : ""}
                 {avisoPreparacion.cubiertos ? `${avisoPreparacion.cubiertos} se ${avisoPreparacion.cubiertos === 1 ? "cubre" : "cubren"} con stock libre.` : ""}
-                {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? " No se duplicarán en este aviso." : ""}
+                {(avisoPreparacion.yaAvisados || avisoPreparacion.cubiertos) ? ` No se duplicarán en este ${avisoPreparacion.destino === "compras" ? "pedido" : "aviso"}.` : ""}
               </div>
             ) : null}
 
             <section style={{ display: "grid", gap: 8 }}>
               <div>
-                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>Cantidad que va a ingresar</div>
+                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>{avisoPreparacion.destino === "compras" ? "Cantidad a pedir" : "Cantidad que va a ingresar"}</div>
                 <div style={{ marginTop: 2, color: C.dim, fontSize: 10.5, fontWeight: 600, lineHeight: 1.4 }}>
-                  Ajustala por producto y por obra. Si dejás una fila en 0, no se incluye en el aviso.
+                  Ajustala por producto y por obra. Si dejás una fila en 0, no se incluye en el {avisoPreparacion.destino === "compras" ? "pedido" : "aviso"}.
                 </div>
               </div>
               <div style={{ display: "grid", gap: 7, maxHeight: 280, overflowY: "auto", paddingRight: 3 }}>
@@ -1993,7 +2094,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                       </div>
                     </div>
                     <label style={{ display: "grid", gap: 3 }}>
-                      <span style={{ color: C.dim, fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: .55 }}>Ingresa</span>
+                      <span style={{ color: C.dim, fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: .55 }}>{avisoPreparacion.destino === "compras" ? "Pedir" : "Ingresa"}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.greenB}`, background: "var(--panel-solid)", borderRadius: 8, padding: "0 7px" }}>
                         <input
                           type="number"
@@ -2022,7 +2123,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
             <div style={{ display: "grid", gap: 6 }}>
               <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: .65, textTransform: "uppercase" }}>
-                <span>Título del aviso *</span>
+                <span>Título del {avisoPreparacion.destino === "compras" ? "pedido" : "aviso"} *</span>
                 <button
                   type="button"
                   onClick={() => setAvisoPreparacion((current) => current ? ({
@@ -2050,7 +2151,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               <textarea
                 value={avisoPreparacion.observaciones}
                 onChange={(event) => setAvisoPreparacion((current) => ({ ...current, observaciones: event.target.value }))}
-                placeholder="Qué llega, cómo viene embalado, remito, contacto o cualquier indicación para pañol…"
+                placeholder={avisoPreparacion.destino === "compras"
+                  ? "Para cuándo se necesita, proveedor preferido o cualquier indicación para Compras…"
+                  : "Qué llega, cómo viene embalado, remito, contacto o cualquier indicación para pañol…"}
                 rows={4}
                 style={{ ...control, cursor: "text", width: "100%", boxSizing: "border-box", resize: "vertical", minHeight: 88, padding: "10px 11px", fontSize: 13, lineHeight: 1.45 }}
               />
@@ -2058,8 +2161,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
             <footer style={{ display: "flex", justifyContent: "flex-end", gap: 9, flexWrap: "wrap" }}>
               <button type="button" onClick={() => setAvisoPreparacion(null)} style={{ ...control, padding: "9px 13px" }}>Cancelar</button>
-              <button type="button" onClick={continuarAvisoPanol} disabled={!avisoPreparacion.titulo.trim()} style={{ border: "none", background: avisoPreparacion.titulo.trim() ? C.green : C.border2, color: "#fff", borderRadius: 9, padding: "9px 15px", cursor: avisoPreparacion.titulo.trim() ? "pointer" : "not-allowed", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
-                Revisar aviso <Send size={14} />
+              <button type="button" onClick={continuarAvisoPanol} disabled={!avisoPreparacion.titulo.trim() || comprasBusy} style={{ border: "none", background: avisoPreparacion.titulo.trim() ? (avisoPreparacion.destino === "compras" ? C.blue : C.green) : C.border2, color: "#fff", borderRadius: 9, padding: "9px 15px", cursor: avisoPreparacion.titulo.trim() && !comprasBusy ? "pointer" : "not-allowed", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
+                {avisoPreparacion.destino === "compras"
+                  ? <>{comprasBusy ? "Creando…" : "Crear pedido"} <ShoppingCart size={14} /></>
+                  : <>Revisar aviso <Send size={14} /></>}
               </button>
             </footer>
           </section>
