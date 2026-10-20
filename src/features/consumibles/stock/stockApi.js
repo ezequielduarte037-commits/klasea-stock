@@ -56,7 +56,7 @@ export async function mandarPedidoACompras({ grupo, sede }) {
     form: {
       title: `Reposición de consumibles · ${destino}${grupo.sinProveedor ? "" : ` · ${grupo.proveedor}`}`,
       description: [
-        `Pedido sugerido desde Consumibles (${lineas.length} ${lineas.length === 1 ? "producto" : "productos"} en el mínimo o por debajo).`,
+        `Pedido de consumibles armado desde la app (${lineas.length} ${lineas.length === 1 ? "producto" : "productos"}${lineas.some((l) => l.manual) ? ", algunos pedidos a mano" : " en el mínimo o por debajo"}).`,
         total > 0 ? `Total estimado: $ ${total.toLocaleString("es-AR", { maximumFractionDigits: 0 })} sin IVA${sinCosto ? ` (${sinCosto} sin precio)` : ""}.` : "",
       ].filter(Boolean).join("\n"),
       priority: "media",
@@ -75,7 +75,12 @@ export async function mandarPedidoACompras({ grupo, sede }) {
       quantity: String(l.unidadesCompra),
       unit: l.unidadCompra || l.unidad || "unidad",
       destination: destino,
-      notes: `Stock ${fmtCantidad(l.stock)} · mínimo ${fmtCantidad(l.minimo)}${l.maximo ? ` · máximo ${fmtCantidad(l.maximo)}` : ""}${equivale}`,
+      notes: [
+        `Stock ${l.sinContar ? "sin contar" : fmtCantidad(l.stock)}`,
+        l.minimo ? `mínimo ${fmtCantidad(l.minimo)}` : null,
+        l.maximo ? `máximo ${fmtCantidad(l.maximo)}` : null,
+        l.manual ? "pedido a mano" : null,
+      ].filter(Boolean).join(" · ") + equivale,
       material_id: l.materialId,
       requisito_material_id: l.materialId,
       catalog_source: "panol",
@@ -91,4 +96,43 @@ export async function mandarPedidoACompras({ grupo, sede }) {
   } catch { /* el pedido ya está creado; el tipo es un detalle */ }
 
   return request;
+}
+
+// ── Recibir un pedido (Ingresos) ───────────────────────────────────────────
+
+/**
+ * Pedidos de consumibles que ya salieron a Compras y todavía no llegaron del
+ * todo, con sus renglones abiertos. Son los que Ingresos ofrece recibir.
+ */
+export async function fetchPedidosEnCamino(sede) {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("id,title,status,proveedor,destino,created_at,purchase_request_items(id,description,quantity,unit,material_id,status,notes)")
+    .eq("source", "consumibles")
+    .eq("destino", `Pañol ${sede}`)
+    .not("status", "in", '("recibido","cancelado")')
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw error;
+  return (data ?? [])
+    .map((p) => ({
+      ...p,
+      items: (p.purchase_request_items ?? []).filter((i) => i.material_id && !["recibido", "cancelado"].includes(i.status)),
+    }))
+    .filter((p) => p.items.length > 0);
+}
+
+/**
+ * Marca como recibidos los renglones del pedido que llegaron completos (los que
+ * llegaron de menos quedan abiertos para la próxima entrega) y deja el pedido
+ * en "recibido" si no queda ninguno abierto.
+ */
+export async function cerrarRenglonesRecibidos(pedidoId, itemIdsCompletos = []) {
+  const ids = itemIdsCompletos.filter(Boolean);
+  if (ids.length) {
+    const { error } = await supabase.from("purchase_request_items").update({ status: "recibido" }).in("id", ids);
+    if (error) throw error;
+  }
+  const { error: errSync } = await supabase.rpc("sync_purchase_request_status_from_items", { p_request_id: pedidoId });
+  if (errSync) throw errSync;
 }

@@ -116,12 +116,75 @@ export function conUnidadesDeCompra(linea, unidadesCompra) {
 
 const SIN_PROVEEDOR = "Sin proveedor";
 
-/** El pedido sugerido de una sede, agrupado por proveedor (Rebollar primero). */
-export function armarPedidoSugerido(items = [], sede) {
-  const grupos = new Map();
+/**
+ * Un renglón pedido a mano: cualquier producto, esté o no en su mínimo. Misma
+ * forma que `lineaDePedido`, con las unidades de compra que se elijan.
+ */
+export function lineaManual(item, sede, unidadesCompra = 1) {
+  const cfg = item.config ?? {};
+  const crudo = num(item.stockPorSede?.[sede]?.stock ?? item.stock);
+  const factor = num(cfg.factor_compra) > 0 ? num(cfg.factor_compra) : 1;
+  const lote = num(cfg.lote_compra) > 0 ? num(cfg.lote_compra) : 1;
+  const costoEntrega = num(cfg.costo_unitario_ars ?? item.costoUnitarioArs);
+  const costoCompra = costoEntrega != null ? redondear(costoEntrega * factor, 2) : null;
+  return conUnidadesDeCompra({
+    materialId: item.id,
+    descripcion: item.descripcion,
+    imagenUrl: item.imagenUrl || item.imagen_url || null,
+    codigoEtiqueta: item.codigoEtiqueta ?? null,
+    proveedor: String(cfg.proveedor_nombre || "").trim() || null,
+    codigoProveedor: String(cfg.proveedor_codigo || "").trim() || null,
+    unidad: item.unidad || "unidad",
+    unidadCompra: String(cfg.unidad_compra || "").trim() || (factor === 1 ? item.unidad || "unidad" : null),
+    factor,
+    lote,
+    stock: crudo ?? 0,
+    sinContar: crudo == null,
+    minimo: num(item.stockMinimo),
+    maximo: num(cfg.stock_maximo),
+    reponer: 0,
+    manual: true,
+    costoCompra,
+  }, unidadesCompra);
+}
+
+/**
+ * El pedido de una sede: lo sugerido por mínimo más los productos que se
+ * sumaron a mano (`extras`: materialId → unidades de compra). Un producto que
+ * ya estaba sugerido no se repite.
+ */
+export function armarPedidoConExtras(items = [], sede, extras = new Map()) {
+  const sugeridas = [];
+  const ya = new Set();
   for (const item of items) {
     const linea = lineaDePedido(item, sede);
     if (!linea) continue;
+    sugeridas.push(linea);
+    ya.add(linea.materialId);
+  }
+  const porId = new Map(items.map((i) => [i.id, i]));
+  const manuales = [];
+  for (const [id, unidades] of extras) {
+    const item = porId.get(id);
+    if (!item || ya.has(id)) continue;
+    manuales.push(lineaManual(item, sede, unidades));
+  }
+  return agruparLineas([...sugeridas, ...manuales]);
+}
+
+/** El pedido sugerido de una sede, agrupado por proveedor (Rebollar primero). */
+export function armarPedidoSugerido(items = [], sede) {
+  const lineas = [];
+  for (const item of items) {
+    const linea = lineaDePedido(item, sede);
+    if (linea) lineas.push(linea);
+  }
+  return agruparLineas(lineas);
+}
+
+function agruparLineas(lineas) {
+  const grupos = new Map();
+  for (const linea of lineas) {
     const prov = linea.proveedor || SIN_PROVEEDOR;
     if (!grupos.has(prov)) grupos.set(prov, []);
     grupos.get(prov).push(linea);

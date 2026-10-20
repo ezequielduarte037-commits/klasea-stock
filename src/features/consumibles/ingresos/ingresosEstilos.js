@@ -106,6 +106,13 @@ export const CSS_INGRESOS = `
 
 .ing .ing-ia { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .ing .ing-ia .ui-btn { min-height: 42px; }
+.ing .ing-pedidos { border: 1px solid var(--blue-border, var(--border)); background: var(--blue-soft, var(--panel-2)); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.ing .ing-pedidos h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+.ing .ing-pedidos p { margin: 0; font-size: 13px; }
+.ing .ing-pedidos ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.ing .ing-pedidos li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--border); }
+.ing .ing-pedido-txt { display: grid; gap: 2px; min-width: 0; }
+.ing .ing-pedido-activo { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); font-size: 13px; }
 .ing .ing-revisar { border: 1px solid var(--violet-border); background: var(--violet-soft); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
 .ing .ing-revisar h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
 .ing .ing-revisar ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }

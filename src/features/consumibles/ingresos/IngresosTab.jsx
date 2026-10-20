@@ -22,6 +22,8 @@ import { conPlazoLectura } from "../lecturas";
 import { leerPresupuestoConIA } from "@/features/materiales/api";
 import { lineaDesdeItem } from "./ingresoCalculos";
 import { emparejarRenglones } from "./remitoIA";
+import { cerrarRenglonesRecibidos, fetchPedidosEnCamino } from "../stock/stockApi";
+import { lineasDePedidoRecibido, renglonesCompletos } from "./pedidoRecibido";
 
 /**
  * Ingresos — cargar un remito del proveedor (el primero, de Rebollar, llega el
@@ -37,7 +39,7 @@ import { emparejarRenglones } from "./remitoIA";
  */
 
 const BORRADOR_KEY = "klasea.consumibles.ingreso.borrador";
-const VACIO = { remito: "", proveedor: "Rebollar", nota: "", lineas: [] };
+const VACIO = { remito: "", proveedor: "Rebollar", nota: "", lineas: [], pedidoId: null, pedidoTitulo: null };
 
 function leerBorrador(sede) {
   try {
@@ -78,6 +80,7 @@ function Ingresos({ sede }) {
   const [abierto, setAbierto] = useState(null); // lote expandido en el historial
   const [anulando, setAnulando] = useState(null);
   const [motivo, setMotivo] = useState("");
+  const [pedidos, setPedidos] = useState([]); // pedidos a Compras que todavía no llegaron
 
   const cargarHistorial = useCallback(async () => {
     const filas = await fetchMovimientos({
@@ -93,6 +96,8 @@ function Ingresos({ sede }) {
   const cargar = useCallback(async () => {
     const [cat] = await conPlazoLectura(Promise.all([fetchCatalogo({ sede }), cargarHistorial()]));
     setCatalogo(cat);
+    // Sin pedidos se carga el remito a mano como siempre: si esta lectura falla no frena el ingreso.
+    fetchPedidosEnCamino(sede).then(setPedidos).catch(() => setPedidos([]));
     setErrorCarga("");
   }, [sede, cargarHistorial]);
 
@@ -177,6 +182,34 @@ function Ingresos({ sede }) {
     setSinEmparejar((l) => l.filter((_, k) => k !== idx));
   };
 
+  // Recibir un pedido: sus renglones entran ya cargados, con lo que se pidió.
+  // Quien recibe sólo corrige lo que llegó distinto y escribe el n° de remito.
+  const recibirPedido = async (pedido) => {
+    if (borrador.lineas.length || borrador.remito) {
+      const ok = await confirmar({
+        title: "¿Reemplazar lo que está cargado?",
+        message: "Hay un remito a medio cargar. Si recibís este pedido se reemplaza.",
+        confirmLabel: "Recibir el pedido",
+        tone: "danger",
+      });
+      if (!ok) return;
+    }
+    const { lineas, sinCatalogo } = lineasDePedidoRecibido(pedido, catalogo ?? []);
+    if (!lineas.length) {
+      toast.warning("No pudimos cargar ningún renglón de ese pedido: los productos no están en el catálogo.");
+      return;
+    }
+    setBorrador({
+      ...VACIO,
+      proveedor: pedido.proveedor || borrador.proveedor,
+      lineas,
+      pedidoId: pedido.id,
+      pedidoTitulo: pedido.title,
+    });
+    setSinEmparejar([]);
+    if (sinCatalogo) toast.warning(`${sinCatalogo} ${sinCatalogo === 1 ? "renglón no está" : "renglones no están"} en el catálogo y no se cargaron.`);
+  };
+
   const agregar = (item) => {
     setBorrador((b) => ({ ...b, lineas: agregarAlRemito(b.lineas, item) }));
     setBusqueda("");
@@ -238,6 +271,13 @@ function Ingresos({ sede }) {
       }
 
       toast.success(`Ingreso cargado: ${validas} ${validas === 1 ? "producto" : "productos"} en ${sede}.`);
+      if (borrador.pedidoId) {
+        try {
+          await cerrarRenglonesRecibidos(borrador.pedidoId, renglonesCompletos(borrador.lineas));
+        } catch {
+          toast.warning("El stock entró bien, pero no pudimos marcar el pedido como recibido en Compras.");
+        }
+      }
       if (fallidos.length) toast.warning("No se pudo recordar cómo vienen algunas cajas; cargalo en Catálogo.");
       const limpio = { ...VACIO, proveedor: borrador.proveedor };
       // Si falla limpiar el borrador, quedan los mismos ids: tampoco duplica al volver.
@@ -308,6 +348,31 @@ function Ingresos({ sede }) {
             <h2><PackageCheck size={18} /> Cargar un remito</h2>
             <span className="ing-dim">Entra al stock de {sede}</span>
           </header>
+
+          {pedidos.length > 0 && !borrador.pedidoId && (
+            <div className="ing-pedidos" role="region" aria-label="Pedidos en camino">
+              <h3>Pedidos en camino ({pedidos.length})</h3>
+              <p className="ing-dim">Si lo que llegó es de un pedido, recibilo y los productos ya vienen cargados.</p>
+              <ul>
+                {pedidos.map((p) => (
+                  <li key={p.id}>
+                    <div className="ing-pedido-txt">
+                      <strong>{p.proveedor || "Sin proveedor"}</strong>
+                      <small className="ing-dim">{fechaHora(p.created_at)} · {p.items.length} {p.items.length === 1 ? "producto" : "productos"} por recibir</small>
+                    </div>
+                    <button type="button" className="ui-btn ui-btn-primario" onClick={() => recibirPedido(p)} disabled={guardando || !!borrador.envio}>
+                      <PackageCheck size={16} /> Recibir
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {borrador.pedidoId && (
+            <p className="ing-pedido-activo" role="status">
+              Recibiendo un pedido a Compras{borrador.proveedor ? ` · ${borrador.proveedor}` : ""}. Corregí lo que llegó distinto: lo que llegue incompleto queda pendiente.
+            </p>
+          )}
 
           <div className="ing-ia">
             <button type="button" className="ui-btn ui-btn-primario" disabled={leyendo || guardando || !!borrador.envio} onClick={() => archivoRemitoRef.current?.click()}>
@@ -494,7 +559,7 @@ function LineaIngreso({ linea, onCambiar, onQuitar }) {
       <div className="ing-linea-cab">
         <div className="ing-linea-tit">
           <span className="ing-linea-desc">{linea.descripcion}</span>
-          <small className="ing-dim">{[linea.codigoEtiqueta, linea.codigoProveedor ? `Cód. ${linea.codigoProveedor}` : null].filter(Boolean).join(" · ")}</small>
+          <small className="ing-dim">{[linea.codigoEtiqueta, linea.codigoProveedor ? `Cód. ${linea.codigoProveedor}` : null, linea.pedidoCantidad != null ? `Pedido: ${fmtCantidad(linea.pedidoCantidad)}` : null].filter(Boolean).join(" · ")}</small>
         </div>
         <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={onQuitar} aria-label={`Quitar ${linea.descripcion}`}><X size={17} /></button>
       </div>
