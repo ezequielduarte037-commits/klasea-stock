@@ -38,14 +38,17 @@ export default function UltimosPanol({ rows = [], obras = [], sede, onActualizar
 
       {grupos.map((g) => {
         const asignacion = g.tipo === "asignacion";
+        const liberacion = g.tipo === "liberacion";
+        const interno = asignacion || liberacion;
+        const etiqueta = liberacion ? "A stock" : asignacion ? "Asignación" : "Retiro";
         return (
           <div key={g.clave} className={`mst-mov${g.anulado ? " is-anulado" : ""}`}>
             <div className="mst-mov-fila">
-              <span className="mst-tipo is-retiro" style={asignacion ? { color: "var(--teal)", background: "var(--teal-soft)" } : undefined} aria-label={asignacion ? "Asignación" : "Retiro"}>
-                {asignacion ? <Warehouse size={13} /> : <ArrowUpFromLine size={13} />}
+              <span className="mst-tipo is-retiro" style={interno ? { color: "var(--teal)", background: "var(--teal-soft)" } : undefined} aria-label={etiqueta}>
+                {interno ? <Warehouse size={13} /> : <ArrowUpFromLine size={13} />}
               </span>
               <span className="mst-mov-hora">{hora(g.at)}</span>
-              <span className="mst-mov-quien">{g.quien || (asignacion ? "Asignación" : "Sin nombre")}</span>
+              <span className="mst-mov-quien">{g.quien || (interno ? etiqueta : "Sin nombre")}</span>
             </div>
             <div className="mst-mov-items">
               {g.items.slice(0, 3).map((it, i) => (
@@ -54,7 +57,7 @@ export default function UltimosPanol({ rows = [], obras = [], sede, onActualizar
               {g.items.length > 3 ? <span> y {g.items.length - 3} más</span> : null}
             </div>
             <div className="mst-mov-sub">
-              → {g.destino}
+              {liberacion ? "" : "→ "}{g.destino}
               {g.anulado ? <span style={{ color: "var(--red)" }}> · anulado</span> : null}
             </div>
           </div>
