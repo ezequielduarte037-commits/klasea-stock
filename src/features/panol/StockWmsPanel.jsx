@@ -95,7 +95,7 @@ import {
   egresoDisplayDestination,
   egresoDisplayItems,
   rowIsAsignacionStock,
-  rowIsAsignacionMirrorOut,
+  rowIsMovimientoEspejo,
   rowInHistory,
   rowEgresoKind,
   rowEgresoQuantity,
@@ -354,6 +354,7 @@ function rowEgresoMeta(row) {
   const kind = rowEgresoKind(row);
   if (kind === "asignacion") return { label: "Asignación", color: C.blue };
   if (kind === "reasignacion") return { label: "Reasignación", color: C.violet };
+  if (kind === "liberacion") return { label: "A stock", color: C.violet };
   if (kind === "egreso_obra") return { label: "Asign. -> egreso", color: C.red };
   if (kind === "reasignacion_egreso") return { label: "Reasig. -> egreso", color: C.violet };
   return { label: "Egreso", color: C.red };
@@ -372,6 +373,7 @@ function rowOrigenMovimientoLabel(row, obraById = null) {
 }
 
 function rowDestinoMovimientoLabel(row, obraById = null) {
+  if (rowEgresoKind(row) === "liberacion") return row.stock_sede ? `Stock general ${row.stock_sede}` : "Stock general";
   if (rowIsAsignacionStock(row)) {
     return obraCodigoFromMap(row.obra_id, obraById) || row.obra?.codigo || "obra";
   }
@@ -1354,6 +1356,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const isLocation = rowIsLocationChange(row);
   const isOut = row.estado === "egresado";
   const isAssignment = rowIsAsignacionStock(row);
+  const isLiberacion = rowEgresoKind(row) === "liberacion";
   const isTransit = rowIsTransit(row);
   const egresoMeta = rowEgresoMeta(row);
   const displayedDelta = isOut && rowHasRecordedEgreso(row) ? -rowEgresoQuantity(row) : delta;
@@ -1375,8 +1378,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
           <span style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3, overflowWrap: "anywhere" }}>{descripcion}</span>
           {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
         </div>
-        <span style={{ flexShrink: 0, color: displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
-          {displayedDelta > 0 ? "+" : ""}{fmtQty(displayedDelta)} {row.unidad || ""}
+        <span style={{ flexShrink: 0, color: isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
+          {isLiberacion ? `←${fmtQty(rowEgresoQuantity(row))}` : `${displayedDelta > 0 ? "+" : ""}${fmtQty(displayedDelta)}`} {row.unidad || ""}
         </span>
       </div>
       <div style={{ color: C.text, fontSize: 11, lineHeight: 1.4, overflowWrap: "anywhere" }}>{ruta}</div>
@@ -1403,7 +1406,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
             {yaAnulado ? "Anulado" : "Revertir"}
           </button>
         )}
-        {isOut && !yaAnulado && onDevolucion && (
+        {isOut && !isLiberacion && !yaAnulado && onDevolucion && (
           <button
             type="button"
             onClick={() => onDevolucion(row)}
@@ -1470,7 +1473,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
           const qtyOut = rowEgresoQuantity(row);
           const tipoMeta = rowEgresoMeta(row);
           const isAssignment = rowIsAsignacionStock(row);
-          const qtyPrefix = isAssignment ? "→" : "-";
+          const qtyPrefix = rowEgresoKind(row) === "liberacion" ? "←" : isAssignment ? "→" : "-";
           return (
             <div
               key={row.id}
@@ -2595,7 +2598,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
 
   const selectedLocation = group.locations.find((loc) => loc.key === selectedLocationKey) || group.locations[0] || defaultLocation(sedeLocked || "Pampa");
   const sortedRows = group.rows
-    .filter((row) => !rowIsAsignacionMirrorOut(row))
+    .filter((row) => !rowIsMovimientoEspejo(row))
     .sort((a, b) => new Date(b.egreso_at || b.updated_at || b.created_at || 0) - new Date(a.egreso_at || a.updated_at || a.created_at || 0));
   const negativeLocations = group.locations.filter((loc) => loc.available < 0);
   const visibleKardexRows = ocultarAnulados ? sortedRows.filter((row) => !rowIsAnulado(row)) : sortedRows;

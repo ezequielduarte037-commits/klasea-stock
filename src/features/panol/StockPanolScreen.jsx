@@ -17,6 +17,7 @@ import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/produ
 import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchFichasPanolPendientes, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
+import { rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo } from "@/features/panol/stockGrupos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
@@ -430,15 +431,6 @@ function movDestino(row) {
   return row.obra?.codigo || (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock general");
 }
 
-function rowIsAsignacionStock(row) {
-  return rowSource(row) === "transferencia_ingreso" && !rowHasRecordedEgreso(row);
-}
-
-function rowIsAsignacionMirrorOut(row) {
-  const label = String(row.tipo_label || "").toLowerCase();
-  return rowSource(row) === "transferencia_egreso" && !label.includes("liber");
-}
-
 // Tipo de movimiento con detalle: ingreso / egreso / asignación / reasignación / a stock.
 const MOV_KIND = {
   ingreso:      { label: "Ingreso",      color: C.green,  sign: "+" },
@@ -464,6 +456,7 @@ function rowMovementKind(row) {
   const label = String(row.tipo_label || "").toLowerCase();
   if (src === "transferencia_egreso_sede") return "traslado_salida";
   if (src === "transferencia_ingreso_sede") return label.includes("cancelado") ? "traslado_cancelado" : "traslado_llegada";
+  if (rowIsLiberacionStock(row)) return "liberacion";
   // Mover algo a la obra donde ya estaba no es una reasignación: es un egreso
   // comun. Aparecia como "REASIGNACION 52-23 -> 52-23", un movimiento que no
   // mueve nada de lugar y que no habia forma de entender leyendolo.
@@ -608,8 +601,8 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
       const cant = ["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "liberacion", "consumible"].includes(kind) ? outgoing : incoming;
       return { key: `stock:${r.id}`, row: r, kind, cant, delta: rowDelta(r), fecha: rowMovementAt(r), anulado: rowIsAnulado(r) };
     })
-    // Ocultar el espejo negativo de las asignaciones: la acción se ve como asignación azul.
-    .filter((m) => !rowIsAsignacionMirrorOut(m.row))
+    // Cada asignación o liberación tiene dos filas contables y una sola acción.
+    .filter((m) => !rowIsMovimientoEspejo(m.row))
     .filter((m) => m.delta !== 0 || rowHasRecordedEgreso(m.row) || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
     return ledger
     .filter((m) => {

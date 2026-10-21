@@ -534,20 +534,33 @@ export function egresoDisplayItems(cart = [], obras = [], destinoObraId = "") {
 }
 
 export function rowIsAsignacionStock(row) {
-  return rowSource(row) === "transferencia_ingreso" && !rowHasRecordedEgreso(row);
+  return rowSource(row) === "transferencia_ingreso" && !!rowObraId(row) && !rowHasRecordedEgreso(row);
+}
+
+export function rowIsLiberacionStock(row) {
+  return rowSource(row) === "transferencia_egreso" && !!rowObraId(row) && !row.egreso_destino_obra_id;
 }
 
 export function rowIsAsignacionMirrorOut(row) {
-  const label = String(row.tipo_label || "").toLowerCase();
-  return rowSource(row) === "transferencia_egreso" && !label.includes("liber");
+  return rowSource(row) === "transferencia_egreso" && !rowIsLiberacionStock(row);
+}
+
+export function rowIsMovimientoEspejo(row) {
+  // Una liberación se muestra desde la obra de origen. Su ingreso en stock
+  // general conserva el saldo, pero no representa una segunda operación.
+  // Si después se retira ese ingreso, su salida física sí debe verse.
+  return rowIsAsignacionMirrorOut(row)
+    || (rowSource(row) === "transferencia_ingreso" && !rowObraId(row)
+      && !!row.obra_origen_id && !rowHasRecordedEgreso(row));
 }
 
 export function rowInHistory(row) {
-  return rowIsAsignacionStock(row) || (rowHasRecordedEgreso(row) && !rowIsAsignacionMirrorOut(row));
+  return !rowIsMovimientoEspejo(row) && (rowIsAsignacionStock(row) || rowHasRecordedEgreso(row));
 }
 
 export function rowEgresoKind(row) {
   const source = rowSource(row);
+  if (rowIsLiberacionStock(row)) return "liberacion";
   if (rowIsAsignacionStock(row)) {
     return row.obra_origen_id ? "reasignacion" : "asignacion";
   }

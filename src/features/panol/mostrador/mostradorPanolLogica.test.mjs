@@ -228,3 +228,14 @@ test("la pantalla del operario dice si es retiro o asignación", () => {
   assert.equal(asignar.employee, null);
   assert.equal(asignar.destination, "52-28");
 });
+
+test("una liberación se muestra una vez como a stock y no como retiro ni reasignación", () => {
+  const base = { material_id: "faro", descripcion: "Faro", cantidad: 1, stock_sede: "Pampa", obra_origen_id: "o1", created_at: "2026-10-21T18:33:41Z" };
+  const salida = { ...base, id: "salida", source: "transferencia_egreso", estado: "egresado", obra_id: "o1", egreso_destino_obra_id: null, cantidad_egresada: 1 };
+  const entrada = { ...base, id: "entrada", source: "transferencia_ingreso", estado: "en_panol", recepcion_estado: "recibido", obra_id: null, cantidad_egresada: 0 };
+  const ult = ultimosMovimientos([salida, entrada], { obras: OBRAS, sede: "Pampa" });
+  assert.equal(ult.length, 1);
+  assert.equal(ult[0].tipo, "liberacion");
+  assert.equal(ult[0].destino, "52-27 → Stock general Pampa");
+  assert.equal(ult[0].items[0].cantidad, 1);
+});
