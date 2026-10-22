@@ -11,7 +11,7 @@ import NuevoOficioModal from "./NuevoOficioModal";
 import { SeguimientoPersonaModal } from "./PresentismoTab";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
-import { Archive, Camera, CalendarSearch, ClipboardCheck, ImageUp, RotateCcw, UsersRound } from "lucide-react";
+import { Archive, Camera, CalendarSearch, ClipboardCheck, FileSpreadsheet, ImageUp, RotateCcw, UsersRound } from "lucide-react";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, externo: false, notas: "", nfc_uid: "", foto_url: "" };
 
@@ -85,6 +85,36 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [oficiosCatalogo, setOficiosCatalogo] = useState([]);
   const [nuevoOficio, setNuevoOficio] = useState(false);
   const [avisoOficio, setAvisoOficio] = useState("");
+  const [alcanceExcel, setAlcanceExcel] = useState("vista");
+  const [exportando, setExportando] = useState(false);
+
+  async function exportarExcel() {
+    if (exportando) return;
+    setExportando(true);
+    setErr(null);
+    try {
+      const [{ exportarEmpleadosExcel }, asignaciones] = await Promise.all([
+        import("./empleadosExcel"),
+        asignacionesVigentes ?? fetchAsignacionesVigentes(),
+      ]);
+      const todo = alcanceExcel === "todos";
+      const vistaNombre = { activos: "Equipo activo", ex: "Ex empleados", externos: "Externos", provisorios: "Provisorios" }[vista];
+      const filtros = todo ? [] : [
+        filtroGrupo !== "todos" && (filtroGrupo.startsWith("c:") ? `Contratista: ${(contratistas ?? []).find(c => c.id === filtroGrupo.slice(2))?.nombre || "Sin asignar"}` : { casa: "De la casa", contratistas: "Contratistas", sin_asignar: "Sin clasificar" }[filtroGrupo]),
+        filtroSede !== "todas" && `Sede: ${filtroSede}`,
+        filtroOficio !== "todos" && `Rubro: ${filtroOficio === "sin_asignar" ? "Sin asignar" : oficiosDisponibles.find(([id]) => id === filtroOficio)?.[1] || "Sin asignar"}`,
+        filtroObra !== "todas" && `Obra: ${filtroObra === "sin_asignar" ? "Sin asignar" : obrasDisponibles.find(o => o.id === filtroObra)?.codigo || "Sin asignar"}`,
+        q.trim() && `Búsqueda: ${q.trim()}`,
+        vista === "activos" && !verNoFichan && "Sólo personal que ficha",
+      ].filter(Boolean);
+      exportarEmpleadosExcel({
+        empleados: todo ? empleados ?? [] : filtrados,
+        contratistas: contratistas ?? [], oficios: oficiosCatalogo, asignaciones,
+        alcance: todo ? "Todos los registros" : vistaNombre, filtros,
+      });
+    } catch (error) { setErr(error); }
+    finally { setExportando(false); }
+  }
 
   useEffect(() => {
     let vigente = true;
@@ -455,9 +485,20 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontSize: 12, color: C.t2 }}>
         {filtrados.length} {vista === "ex" ? "ex empleado" : vista === "provisorios" ? "provisorio" : vista === "externos" ? "externo" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
         {vista === "ex" && " · ordenados por baja más reciente"}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          <select aria-label="Alcance de la exportación a Excel" value={alcanceExcel} onChange={e => setAlcanceExcel(e.target.value)} disabled={exportando} style={{ ...INP, minHeight: 36, fontSize: 12 }}>
+            <option value="vista">Vista actual ({filtrados.length})</option>
+            <option value="todos">Todos los registros ({empleados?.length ?? 0})</option>
+          </select>
+          <button type="button" onClick={exportarExcel} disabled={exportando || !(alcanceExcel === "todos" ? empleados?.length : filtrados.length) || (alcanceExcel === "vista" && filtroObra !== "todas" && asignacionesVigentes === null)} aria-busy={exportando} title="Descargar por rubro y vínculo, con una segunda hoja para filtrar en Excel" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7, minHeight: 36, opacity: exportando ? 0.65 : 1 }}>
+            <FileSpreadsheet size={15} aria-hidden="true" />{exportando ? "Exportando…" : "Exportar Excel"}
+          </button>
+        </div>
       </div>
 
       <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
