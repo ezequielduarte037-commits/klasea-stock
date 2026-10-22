@@ -13,7 +13,7 @@ import * as THREE from "three";
 import { ArrowLeft, Copy, RotateCcw } from "lucide-react";
 import { modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, cargarModelo, coloresDelTono, materialDe, prepararLienzo, INTERIOR } from "./barco";
+import { LARGO, cargarModelo, coloresDelTono, materialDe, esDelTecho, prepararLienzo, INTERIOR } from "./barco";
 import { EscenaProbador } from "./Recorrido3D";
 
 const CLAVE = "ka_probador_3d";
@@ -184,7 +184,8 @@ export default function Probador3D({ modelo, tono, onCerrar }) {
       if (!INTERIOR.includes(pieza)) anotar(pieza, "ex");
       if (conCorte) anotar(pieza, "in");
     });
-    Object.keys(barco.aparte?.piezas ?? {}).forEach(pieza => anotar(pieza, "in"));
+    // El cielorraso no se ve en la vista interior (se mira desde arriba).
+    Object.keys(barco.aparte?.piezas ?? {}).filter(pieza => !esDelTecho(pieza)).forEach(pieza => anotar(pieza, "in"));
     return mapa;
   }, [barco, base]);
   const presentes = Object.keys(NOMBRES).filter(n => acabados[n]);

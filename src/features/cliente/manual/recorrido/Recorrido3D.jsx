@@ -17,7 +17,7 @@ import { ArrowLeft, ArrowRight, Check, Palette, X } from "lucide-react";
 import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
 import { planoDe, modelo3dDe } from "../unidad";
 import { leerJson, guardarJson } from "../almacen";
-import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, prepararLienzo, coloresDelTono, materialDe, INTERIOR } from "./barco";
+import { LARGO, leerPlano, armarCasco, texturaPlano, cargarModelo, prepararLienzo, coloresDelTono, materialDe, esDelTecho, INTERIOR } from "./barco";
 import { crearMateriales } from "./acabados";
 import { ESTACIONES } from "./estaciones";
 
@@ -431,6 +431,8 @@ function BarcoReal({ modelo, pal, interior, alCrearMateriales }) {
     ];
     const delInterior = new Set(Object.values(modelo.aparte?.piezas ?? {}));
     todas.forEach(([nombre, m, dentro]) => {
+      // El interior se mira desde arriba: sin cielorraso.
+      if (delInterior.has(m) && esDelTecho(nombre)) { m.visible = false; return; }
       m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle;
       if (delInterior.has(m) && nombre !== "vidrios") m.castShadow = m.receiveShadow = true;
       // El interior lleva contornos finos siempre: en la vista en corte separan
