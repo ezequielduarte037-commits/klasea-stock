@@ -12,7 +12,8 @@
 //   node scripts/rhino-a-glb.mjs k64.3dm public/models/k64.glb [pasoMm=70]
 // K43 (exterior e interior por separado, el interior viene en otro .3dm):
 //   PERFIL=exterior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43.3dm public/models/k43.glb 60
-//   PERFIL=interior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43-interior.3dm public/models/k43-interior.glb 40
+//   VIDRIOS=public/models/k43.glb PERFIL=interior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43-interior.3dm public/models/k43-interior.glb 40
+//   (VIDRIOS: el exterior ya exportado, para recortar el forro del casco frente a las ventanas)
 // Después sumar la línea en MODELOS_3D (src/features/cliente/manual/unidad.js).
 import rhino3dm from "rhino3dm";
 import earcut from "earcut";
@@ -33,12 +34,15 @@ const objs = doc.objects(), capas = doc.layers();
 // Los mamparos estructurales vienen como planchas sin recortar: atraviesan el
 // casco y sobresalen, así que no se exportan (los tabiques de madera sí).
 const SALTEAR = [/HERRAJES/i, /Picaportes/i, /ICEMAKER/i, /^Default$/i, /ENGINE DISPLAY/i, /BULKHEADS/i, /MAMAPAROS ESTR TRANSV/i];
-// PERFIL=interior: modelo del interior solo, visto desde arriba. Sin cielorraso
-// ni lo que cuelga de él, y con más detalle (se mira de cerca).
+// PERFIL=interior: modelo del interior solo, con más detalle (se mira de cerca).
+// El cielorraso y lo que cuelga de él van en piezas aparte ("techo" y "…@techo"):
+// el recorrido mira desde arriba y las oculta; el configurador, desde adentro.
 const INTERIOR_SOLO = process.env.PERFIL === "interior";
+// Las persianas de las ventanas del casco vienen cerradas (pilas de listones):
+// desde adentro eran rayas y tapaban el mar.
+if (INTERIOR_SOLO) SALTEAR.push(/BLINDFOLDS/i);
 // PERFIL=exterior: el interior va en su propio .glb, acá no se exporta.
 if (process.env.PERFIL === "exterior") SALTEAR.push(/^INTERIOR/i, /^LEATHER$/i, /^INOX$/i, /^BLACK-PAINT$/i, /^COUNTERTOP$/i, /^COMPANIONWAY DOOR$/i);
-if (INTERIOR_SOLO) SALTEAR.push(/CIELING/i, /::LED$/i, /QUICK AG1K/i, /LEWMAR FLUSH HATCH/i, /OSCURANTE/i, /SHOWER PAINI/i);
 // Grupo por capa: cada grupo es un material en la web. El orden importa.
 const REGLAS = [
   ...(INTERIOR_SOLO ? [[/HULL-OFFSET/i, "forro"]] : []),
@@ -63,6 +67,30 @@ const REGLAS = [
   [/BLACK|CONSOLE|CONSOLA|MAST|speakr/i, "negro"],
 ];
 const grupoDe = c => (REGLAS.find(([r]) => r.test(c)) || [null, "detalle"])[1];
+// Interior visto desde adentro: la capa sola no alcanza, el material de render
+// del .3dm dice de qué es cada pieza (la puerta de la bajada es de vidrio, la
+// heladera de acero cepillado, el piso del baño de gelcoat, los herrajes negros).
+const grupoInterior = (capa, mat, b) => {
+  // Spots embutidos: el aro (negro o de acero) y la luz; los paneles de LED
+  // del techo del comedor, aparte (la web los prende con otra intensidad).
+  if (/QUICK AG1K/i.test(capa)) return /INOX/i.test(mat) ? "acero@techo" : "herraje@techo";
+  if (/::LED$/i.test(capa)) return Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) > 200 ? "difusor@techo" : "spot@techo";
+  if (/::CIELING-PANELS$/i.test(capa)) return "panel@techo";
+  if (/::CIELING$/i.test(capa)) return "techo";
+  if (/LEWMAR FLUSH HATCH/i.test(capa)) return b.max[2] - b.min[2] < 35 && b.max[0] - b.min[0] > 600 ? "vidrios@techo" : "herraje@techo";
+  // La cortina de la escotilla, cerrada: en el modelo exterior la cubierta no
+  // tiene el agujero y por el vidrio se veía su cara de abajo.
+  if (/OSCURANTE/i.test(capa)) return "techo";
+  if (/SHOWER PAINI/i.test(capa)) return "cromo@techo";
+  if (/::TV/i.test(capa)) return "tv";
+  if (/^COMPANIONWAY DOOR$/i.test(capa) && /GLASS/i.test(mat)) return "vidrios";
+  if (/::FLOOR$/i.test(capa) && /GELCOAT/i.test(mat)) return "gelcoat";
+  if (/CORIAN/i.test(mat)) return "piedra";
+  // Pasamanos (capa INOX) pulidos; heladera, bisagras y grifería, cepillados.
+  if (/INOX/i.test(mat) && !/^INOX$/i.test(capa)) return "acero";
+  if (/BLACK-METAL/i.test(mat)) return "herraje";
+  return null;
+};
 
 // Anclas: centro de las capas con equipos reconocibles. El recorrido 3D lleva
 // la cámara y los puntos a estos lugares cuando el modelo los tiene.
@@ -379,18 +407,24 @@ function expandirBloque(ref, xf, profundidad = 0) {
   });
 }
 const elementos = [];
+const materiales = doc.materials();
+// Material de render: el del objeto o el de su capa.
+const materialDe = a => {
+  const i = a.materialSource?.value === 1 ? a.materialIndex : capas.get(a.layerIndex).renderMaterialIndex;
+  return i >= 0 && i < materiales.count ? materiales.get(i).name || "" : "";
+};
 for (let i = 0; i < objs.count; i++) {
   const o = objs.get(i), geo = o.geometry(), tipo = geo.constructor.name;
-  const capa = capas.get(o.attributes().layerIndex).fullPath;
+  const capa = capas.get(o.attributes().layerIndex).fullPath, mat = materialDe(o.attributes());
   if (tipo === "InstanceReference") {
-    if (!SALTEAR.some(r => r.test(capa))) expandirBloque(geo).forEach(g => elementos.push({ geo: g, capa }));
-  } else elementos.push({ geo, capa });
+    if (!SALTEAR.some(r => r.test(capa))) expandirBloque(geo).forEach(g => elementos.push({ geo: g, capa, mat }));
+  } else elementos.push({ geo, capa, mat });
 }
 for (let i = 0; i < elementos.length; i++) {
-  const { geo, capa } = elementos[i], tipo = geo.constructor.name;
+  const { geo, capa, mat } = elementos[i], tipo = geo.constructor.name;
   if (tipo !== "Brep" && tipo !== "Mesh" && tipo !== "Extrusion") continue;
   if (SALTEAR.some(r => r.test(capa))) continue;
-  let grupo = grupoDe(capa);
+  let grupo = (INTERIOR_SOLO && grupoInterior(capa, mat, geo.getBoundingBox())) || grupoDe(capa);
   // Paneles verticales de teca al final de los balcones, junto a la mesa: en el
   // barco son de plástico (la teca se veía pegada en el costado).
   if (grupo === "teca") {
@@ -464,6 +498,109 @@ for (let i = 0; i < elementos.length; i++) {
   if (i % 400 === 0) process.stderr.write(`\r${i}/${elementos.length} · ${caras} caras · ${tris} tri · ${((Date.now() - t0) / 1000).toFixed(0)} s   `);
 }
 console.error(`\ndescartados ${descartados} · caras ${caras} · planas ${planas} · con respaldo ${fallas} · triángulos ${tris} · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+// Tapas del cielorraso del K43, donde desde adentro se veía la cubierta del
+// modelo exterior (en mm del .3dm, cara hacia abajo):
+// · Camarote de popa: hueco a lo ancho que sube hacia el asiento del cockpit;
+//   el piso del cockpit lo cruza. A ras, medio milímetro por encima (donde se
+//   superpone con el cielorraso, no pelean).
+// · Escotilla del comedor: la cubierta no tiene el agujero y la cortina del
+//   .3dm es sólo el marco; va la cortina cerrada.
+const TAPAS = [
+  [[5100, -974, 1465.2], [5496, -974, 1478.8], [5496, 974, 1478.8], [5100, 974, 1465.2]],
+  [[9590, -255, 2340], [10110, -255, 2340], [10110, 255, 2340], [9590, 255, 2340]],
+];
+if (INTERIOR_SOLO && /int43/i.test(entrada)) for (const tapa of TAPAS) {
+  const g = G("techo"), b = g.pos.length / 3;
+  for (const p of tapa) { g.pos.push(...T(p)); g.nor.push(0, -1, 0); }
+  g.idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
+}
+// Ventanas del casco: el forro del .3dm (HULL-OFFSET) pasa entero por delante
+// de los vidrios y desde adentro no se veía afuera. Con VIDRIOS=<.glb exterior
+// del mismo barco> se saca lo que tapa un vidrio (a menos de 15 cm siguiendo la
+// normal). Los triángulos del borde se cortan donde termina el vidrio (el
+// forro no se simplifica después: correría el borde del corte).
+if (INTERIOR_SOLO && process.env.VIDRIOS && grupos.forro) {
+  await MeshoptDecoder.ready;
+  const ext = await new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.decoder": MeshoptDecoder }).read(process.env.VIDRIOS);
+  const vidrios = [];
+  for (const node of ext.getRoot().listNodes()) {
+    if (node.getName() !== "vidrios" || !node.getMesh()) continue;
+    const W = node.getWorldMatrix();
+    const v = (P, i) => { const p = P.getElement(i, []); return [0, 1, 2].map(k => W[k] * p[0] + W[4 + k] * p[1] + W[8 + k] * p[2] + W[12 + k]); };
+    for (const prim of node.getMesh().listPrimitives()) {
+      const P = prim.getAttribute("POSITION"), I = prim.getIndices();
+      for (let i = 0; i < I.getCount(); i += 3) vidrios.push([v(P, I.getScalar(i)), v(P, I.getScalar(i + 1)), v(P, I.getScalar(i + 2))]);
+    }
+  }
+  // Grilla de 20 cm con cada vidrio en las celdas que toca (agrandado el alcance).
+  const D = 0.15, CELDA = 0.2, grilla = new Map();
+  const celda = (x, y, z) => `${Math.floor(x / CELDA)},${Math.floor(y / CELDA)},${Math.floor(z / CELDA)}`;
+  for (const t of vidrios) {
+    const lo = [0, 1, 2].map(k => Math.floor((Math.min(t[0][k], t[1][k], t[2][k]) - D) / CELDA));
+    const hi = [0, 1, 2].map(k => Math.floor((Math.max(t[0][k], t[1][k], t[2][k]) + D) / CELDA));
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) {
+      const k = `${x},${y},${z}`;
+      (grilla.get(k) || grilla.set(k, []).get(k)).push(t);
+    }
+  }
+  // Rayo contra un triángulo (Möller–Trumbore), con un margen mínimo para que
+  // un punto sobre la arista entre dos triángulos del vidrio no se escape.
+  const rayo = (o, d, [a, b, c]) => {
+    const e1 = sub(b, a), e2 = sub(c, a), p = cross(d, e2), det = dot(e1, p);
+    if (Math.abs(det) < 1e-12) return Infinity;
+    const s = sub(o, a), u = dot(s, p) / det;
+    if (u < -1e-6 || u > 1 + 1e-6) return Infinity;
+    const q = cross(s, e1), w = dot(d, q) / det;
+    if (w < -1e-6 || u + w > 1 + 1e-6) return Infinity;
+    const t = dot(e2, q) / det;
+    return t > 0 ? t : Infinity;
+  };
+  const tapa = (p, n) => (grilla.get(celda(...p)) || []).some(t => rayo(p, n, t) < D || rayo(p, n.map(x => -x), t) < D);
+  const mezcla = (a, b, t) => a.map((x, k) => x + (b[k] - x) * t);
+  const unidad = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+  // Dónde termina el vidrio sobre la arista a→b (los extremos de lados distintos).
+  const borde = (a, b, na, nb, n) => {
+    const ta = tapa(a, n);
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (tapa(mezcla(a, b, m), n) === ta) lo = m; else hi = m; }
+    const t = (lo + hi) / 2;
+    return [mezcla(a, b, t), unidad(mezcla(na, nb, t))];
+  };
+  const f = grupos.forro, nuevo = { pos: [], nor: [], idx: [] };
+  const poner = (P, N) => { const b = nuevo.pos.length / 3; P.forEach((p, k) => { nuevo.pos.push(...p); nuevo.nor.push(...N[k]); }); nuevo.idx.push(b, b + 1, b + 2); };
+  let cortados = 0;
+  const partir = (P, N, nivel) => {
+    const c = cross(sub(P[1], P[0]), sub(P[2], P[0])), l = Math.hypot(...c);
+    if (!l) return;
+    const n = c.map(x => x / l), centro = [0, 1, 2].map(k => (P[0][k] + P[1][k] + P[2][k]) / 3);
+    const m = [...P, centro].map(p => tapa(p, n));
+    const iguales = m[0] === m[1] && m[1] === m[2];
+    const largo = Math.max(...[0, 1, 2].map(k => Math.hypot(...sub(P[k], P[(k + 1) % 3]))));
+    // Los grandes, o con una punta del vidrio adentro sin tocar los vértices: en cuatro.
+    if (m.some(x => x !== m[0]) && nivel < 3 && (largo > 0.05 || iguales)) {
+      const M = [0, 1, 2].map(k => mezcla(P[k], P[(k + 1) % 3], 0.5)), NM = [0, 1, 2].map(k => unidad(mezcla(N[k], N[(k + 1) % 3], 0.5)));
+      partir([P[0], M[0], M[2]], [N[0], NM[0], NM[2]], nivel + 1);
+      partir([M[0], P[1], M[1]], [NM[0], N[1], NM[1]], nivel + 1);
+      partir([M[2], M[1], P[2]], [NM[2], NM[1], N[2]], nivel + 1);
+      partir([M[0], M[1], M[2]], [NM[0], NM[1], NM[2]], nivel + 1);
+      return;
+    }
+    if (iguales) { if (!m[0]) poner(P, N); return; }
+    // Un vértice de un lado y dos del otro: el borde del vidrio cruza las dos
+    // aristas del que está solo. Queda su triángulo o el cuadrilátero de los otros.
+    const i = m[0] !== m[1] && m[0] !== m[2] ? 0 : m[1] !== m[0] && m[1] !== m[2] ? 1 : 2, j = (i + 1) % 3, k = (i + 2) % 3;
+    const [pj, nj] = borde(P[i], P[j], N[i], N[j], n), [pk, nk] = borde(P[i], P[k], N[i], N[k], n);
+    cortados++;
+    if (!m[i]) poner([P[i], pj, pk], [N[i], nj, nk]);
+    else { poner([pj, P[j], P[k]], [nj, N[j], N[k]]); poner([pj, P[k], pk], [nj, N[k], nk]); }
+  };
+  for (let i = 0; i < f.idx.length; i += 3) {
+    const ids = [f.idx[i], f.idx[i + 1], f.idx[i + 2]];
+    partir(ids.map(k => f.pos.slice(k * 3, k * 3 + 3)), ids.map(k => f.nor.slice(k * 3, k * 3 + 3)), 0);
+  }
+  grupos.forro = nuevo;
+  console.error(`ventanas: ${vidrios.length} triángulos de vidrio; forro ${f.idx.length / 3} → ${nuevo.idx.length / 3} triángulos (${cortados} cortados en el borde)`);
+}
 
 // ── glTF ──
 const gdoc = new Document();
@@ -473,14 +610,14 @@ for (const [id, c] of Object.entries(cajasAncla)) {
   const centro = T([(c.min[0] + c.max[0]) / 2, (c.min[1] + c.max[1]) / 2, (c.min[2] + c.max[2]) / 2]);
   escena.addChild(gdoc.createNode(`ancla:${id}`).setTranslation(centro));
 }
-if (Object.keys(grupos).some(n => n.includes("@"))) for (const [lado, b] of Object.entries(BISAGRAS))
+if (Object.keys(grupos).some(n => /@(babor|estribor)/.test(n))) for (const [lado, b] of Object.entries(BISAGRAS))
   escena.addChild(gdoc.createNode(`bisagra:${lado}`).setTranslation(T(b.p)).setExtras({ angulo: b.angulo }));
 console.error("anclas:", Object.keys(cajasAncla).join(", ") || "ninguna");
-const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5], fondo: [0.15, 0.15, 0.15, 1], teca: [0.55, 0.4, 0.27, 1], cromo: [0.8, 0.8, 0.8, 1], tapizado: [0.9, 0.88, 0.84, 1], negro: [0.05, 0.05, 0.05, 1] };
+const COLORES = { casco: [1, 1, 1, 1], cubierta: [0.95, 0.95, 0.94, 1], interior: [0.85, 0.85, 0.83, 1], detalle: [0.3, 0.3, 0.3, 1], vidrios: [0.1, 0.1, 0.1, 0.5], fondo: [0.15, 0.15, 0.15, 1], teca: [0.55, 0.4, 0.27, 1], cromo: [0.8, 0.8, 0.8, 1], tapizado: [0.9, 0.88, 0.84, 1], negro: [0.05, 0.05, 0.05, 1], techo: [0.96, 0.95, 0.93, 1], panel: [0.85, 0.84, 0.82, 1], tv: [0.03, 0.03, 0.03, 1], herraje: [0.08, 0.08, 0.08, 1], gelcoat: [0.95, 0.95, 0.93, 1], acero: [0.78, 0.79, 0.8, 1] };
 // UV por caja: cada triángulo se proyecta según hacia dónde mira (pisos desde
 // arriba, paredes de frente o de costado). Así la veta y las tablas no se
 // estiran en las caras verticales. Sólo en los grupos que llevan textura.
-const CON_TEXTURA = new Set(["teca", "tapizado", "almohadon", "madera", "piso", "tela", "piedra"]);
+const CON_TEXTURA = new Set(["teca", "tapizado", "almohadon", "madera", "piso", "tela", "piedra", "panel"]);
 function uvCaja(g) {
   const pos = [], nor = [], uv = [];
   for (let i = 0; i < g.idx.length; i += 3) {
@@ -525,7 +662,7 @@ for (const mesh of gdoc.getRoot().listMeshes()) {
 }
 await gdoc.transform(weld());
 // Tope de triángulos por grupo: lo que más se ve (casco, cubierta) conserva detalle.
-const TOPE = { casco: 45000, cubierta: 35000, negro: 80000, cromo: 40000, acrilico: 20000, tapizado: 110000, almohadon: 40000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, techo: 10000, piedra: 5000, loza: 10000 };
+const TOPE = { casco: 45000, cubierta: 35000, negro: 80000, cromo: 40000, acrilico: 20000, tapizado: 110000, almohadon: 40000, interior: 30000, vidrios: 8000, teca: 12000, fondo: 6000, detalle: 12000, madera: 35000, piso: 8000, tela: 30000, forro: 32000, techo: 10000, panel: 6000, tv: 2000, herraje: 12000, gelcoat: 3000, acero: 8000, piedra: 5000, loza: 10000 };
 for (const mesh of gdoc.getRoot().listMeshes()) {
   for (const prim of mesh.listPrimitives()) {
     const n = prim.getIndices().getCount() / 3;

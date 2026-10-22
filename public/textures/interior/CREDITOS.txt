@@ -1,0 +1,1 @@
+tv.jpg: la imagen del televisor del interior (configurador). Cielo qwantani_dusk_2 de Poly Haven (https://polyhaven.com, licencia CC0) con el logo de Klase A; armada con scripts/tv-interior.mjs.
