@@ -509,7 +509,8 @@ const TAPAS = [
   [[5100, -974, 1465.2], [5496, -974, 1478.8], [5496, 974, 1478.8], [5100, 974, 1465.2]],
   [[9590, -255, 2340], [10110, -255, 2340], [10110, 255, 2340], [9590, 255, 2340]],
 ];
-if (INTERIOR_SOLO && /int43/i.test(entrada)) for (const tapa of TAPAS) {
+// El .3dm del interior del K43 llega como k43-interior.3dm o int43.3dm.
+if (INTERIOR_SOLO && /k43-interior|int43/i.test(entrada)) for (const tapa of TAPAS) {
   const g = G("techo"), b = g.pos.length / 3;
   for (const p of tapa) { g.pos.push(...T(p)); g.nor.push(0, -1, 0); }
   g.idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
