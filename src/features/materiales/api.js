@@ -2683,21 +2683,20 @@ export async function setSectoresMaterial(materialId, ids) {
  * marca `activo = false`-: sale de las listas y el historial queda.
  */
 export async function borrarMaterial(materialId) {
-  const { error: bomError } = await supabase
-    .from("panol_material_modelo")
-    .delete()
-    .eq("material_id", materialId);
-  if (bomError) throw bomError;
-  const { error } = await supabase
-    .from("panol_materiales")
-    .delete()
-    .eq("id", materialId);
-  if (!error) return;
-  if (error.code === "23503") {
+  if (!materialId) throw new Error("Falta el material.");
+  const { data, error } = await supabase.rpc("panol_borrar_material_seguro", { p_material_id: materialId });
+  if (!error) {
+    if (data !== true) throw new Error("El material ya no existe o no tenés permiso para borrarlo.");
+    return;
+  }
+  if (["23503", "23001"].includes(error.code)) {
     const e = new Error("No se puede borrar: el producto tiene movimientos, remitos o pedidos asociados. Archivalo en vez de borrarlo — sale de las listas y el historial queda.");
     e.code = error.code;
     e.cause = error;
     throw e;
+  }
+  if (error.code === "PGRST202") {
+    throw new Error("Todavía no está disponible el borrado seguro. No se modificó el material ni su matriz.");
   }
   throw error;
 }
