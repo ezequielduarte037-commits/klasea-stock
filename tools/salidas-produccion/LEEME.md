@@ -13,7 +13,9 @@ Mide cuánto tiempo pasa cada persona fuera del área de producción. Usa YuNet 
 
 ## Uso
 
-Los comandos se escriben en una terminal abierta en esta carpeta.
+Lo más fácil es el acceso directo **Salidas de producción** del escritorio: abre `menu.py`, un menú con las opciones de abajo.
+
+Si no, los comandos se escriben en una terminal abierta en esta carpeta.
 
 ```
 salidas modelos                      (una sola vez: baja y verifica los modelos)
