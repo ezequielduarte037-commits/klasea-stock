@@ -1,0 +1,6 @@
+# Datos personales y biométricos: nunca al repositorio.
+datos/
+# Se bajan con "salidas modelos".
+modelos/*.onnx
+.venv/
+__pycache__/
