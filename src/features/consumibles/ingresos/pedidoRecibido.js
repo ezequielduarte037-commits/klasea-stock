@@ -46,14 +46,15 @@ export function lineasDePedidoRecibido(pedido, catalogo = []) {
     const base = lineaDesdeItem(item, pendiente);
     // Se recibe como se pidió: mismas cajas y mismo factor que el renglón.
     const porCaja = factor !== 1;
+    const costoCompra = num(renglon.costo_compra_ars);
+    const costoEntrega = costoCompra != null ? costoCompra / factor : base.costoEntregaReferencia;
     lineas.push({
       ...base,
       porCaja,
       unidadCompra: porCaja ? (renglon.unidad_compra || base.unidadCompra) : base.unidadCompra,
       factor: porCaja ? String(factor) : "",
-      costo: num(renglon.costo_compra_ars) != null
-        ? String(porCaja ? num(renglon.costo_compra_ars) : num(renglon.costo_compra_ars) / factor)
-        : base.costo,
+      costo: costoEntrega != null ? String(Math.round(costoEntrega * factor * 10000) / 10000) : "",
+      costoEntregaReferencia: costoEntrega,
       pedidoItemId: renglon.id,
       pedidoCantidad: pendiente,
     });

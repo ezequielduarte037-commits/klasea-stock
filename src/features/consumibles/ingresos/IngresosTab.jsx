@@ -15,13 +15,12 @@ import {
   insertarMovimientos,
 } from "@/features/consumibles/api";
 import { DIA_MS, coincideBusqueda, unidadEnTexto } from "../conteo/conteoCalculos";
-import { agregarAlRemito, agruparIngresos, calcularLinea, cambiosDeConfig, remitoRepetido, totalRemito } from "./ingresoCalculos";
+import { actualizarLinea, agregarAlRemito, agruparIngresos, calcularLinea, cambiosDeConfig, remitoRepetido, totalRemito } from "./ingresoCalculos";
 import { CSS_INGRESOS } from "./ingresosEstilos";
 import { prepararIngreso } from "./ingresoRegistro";
 import { conPlazoLectura } from "../lecturas";
 import { leerPresupuestoConIA } from "@/features/materiales/api";
-import { lineaDesdeItem } from "./ingresoCalculos";
-import { emparejarRenglones } from "./remitoIA";
+import { emparejarRenglones, lineaDesdeRenglonRemito } from "./remitoIA";
 import { useSearchParams } from "react-router-dom";
 import { fetchPedidos } from "../pedidos/pedidosApi";
 import { lineasDePedidoRecibido, pedidosPorRecibir } from "./pedidoRecibido";
@@ -137,7 +136,7 @@ function Ingresos({ sede }) {
   const { total, sinCosto, validas } = totalRemito(borrador.lineas);
 
   const cambiar = (cambio) => setBorrador((b) => ({ ...b, ...cambio }));
-  const cambiarLinea = (key, cambio) => setBorrador((b) => ({ ...b, lineas: b.lineas.map((l) => (l.key === key ? { ...l, ...cambio } : l)) }));
+  const cambiarLinea = (key, cambio) => setBorrador((b) => ({ ...b, lineas: b.lineas.map((l) => (l.key === key ? actualizarLinea(l, cambio) : l)) }));
   const quitarLinea = (key) => setBorrador((b) => ({ ...b, lineas: b.lineas.filter((l) => l.key !== key) }));
 
   // Remito leído por IA: lo emparejado entra solo; lo dudoso queda en esta lista
@@ -151,21 +150,16 @@ function Ingresos({ sede }) {
     setLeyendo(true);
     try {
       const leido = await leerPresupuestoConIA({ file: archivo, tipoEsperado: "remito", proveedor: borrador.proveedor || "Rebollar" });
-      const filas = emparejarRenglones(leido?.items ?? [], catalogo ?? []);
+      const filas = emparejarRenglones(leido?.items ?? [], catalogo ?? [], { moneda: leido?.moneda });
       if (!filas.length) {
         toast.warning("La IA no encontró renglones en ese archivo. Probá con una foto más derecha y con luz, o cargalo a mano.");
         return;
       }
       const ok = filas.filter((x) => x.item);
       setBorrador((b) => {
-        let lineas = b.lineas;
-        for (const x of ok) {
-          const cantidad = x.renglon.cantidad != null && x.renglon.cantidad > 0 ? x.renglon.cantidad : 1;
-          const i = lineas.findIndex((l) => l.materialId === x.item.id);
-          lineas = i < 0
-            ? [...lineas, lineaDesdeItem(x.item, cantidad)]
-            : lineas.map((l, k) => (k === i ? { ...l, cantidad: String((Number(String(l.cantidad).replace(",", ".")) || 0) + cantidad) } : l));
-        }
+        // Se conserva cada renglón: dos líneas del mismo código pueden venir
+        // una por unidad y otra por caja, con conversiones diferentes.
+        const lineas = [...b.lineas, ...ok.map((x) => lineaDesdeRenglonRemito(x.item, x.renglon))];
         return {
           ...b,
           remito: b.remito || String(leido?.numero || "").trim(),
@@ -187,8 +181,7 @@ function Ingresos({ sede }) {
   const resolverRenglon = (idx, item) => {
     const x = sinEmparejar[idx];
     if (item) {
-      const cantidad = x.renglon.cantidad != null && x.renglon.cantidad > 0 ? x.renglon.cantidad : 1;
-      setBorrador((b) => ({ ...b, lineas: [...b.lineas, lineaDesdeItem(item, cantidad)] }));
+      setBorrador((b) => ({ ...b, lineas: [...b.lineas, lineaDesdeRenglonRemito(item, x.renglon)] }));
     }
     setSinEmparejar((l) => l.filter((_, k) => k !== idx));
   };
@@ -251,6 +244,10 @@ function Ingresos({ sede }) {
 
   const confirmarIngreso = async () => {
     if (enviandoRef.current || guardando) return;
+    if (borrador.lineas.some((l) => l.presentacionPendiente)) {
+      toast.warning("Elegí si la cantidad del remito viene por unidad o en cajas en los renglones marcados.");
+      return;
+    }
     const invalidas = borrador.lineas.filter((l) => !calcularLinea(l).valida);
     if (!validas) {
       toast.warning("Agregá al menos un producto con su cantidad.");
@@ -577,24 +574,27 @@ function LineaIngreso({ linea, onCambiar, onQuitar }) {
         <div className="ing-linea-tit">
           <span className="ing-linea-desc">{linea.descripcion}</span>
           <small className="ing-dim">{[linea.codigoEtiqueta, linea.codigoProveedor ? `Cód. ${linea.codigoProveedor}` : null, linea.pedidoCantidad != null ? `Pedido: ${fmtCantidad(linea.pedidoCantidad)}` : null].filter(Boolean).join(" · ")}</small>
+          {linea.lecturaRemito && <small className="ing-dim">Leído del remito: {linea.lecturaRemito.cantidad != null ? fmtCantidad(linea.lecturaRemito.cantidad) : "sin cantidad"}{linea.lecturaRemito.unidad ? ` ${linea.lecturaRemito.unidad}` : ""}</small>}
         </div>
         <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={onQuitar} aria-label={`Quitar ${linea.descripcion}`}><X size={17} /></button>
       </div>
 
       <div className="ing-linea-cant">
         <label className="ing-campo ing-campo-cant">
-          <span className="ing-lbl">Cantidad</span>
+          <span className="ing-lbl">Cantidad{linea.presentacionPendiente ? " del remito" : ` de ${linea.porCaja ? unidadCompra : linea.unidad}`}</span>
           <input className="ui-input ing-num" inputMode="decimal" value={linea.cantidad} onChange={(e) => onCambiar({ cantidad: e.target.value.replace(/[^\d.,]/g, "") })} />
         </label>
         <div className="ing-seg" role="radiogroup" aria-label="Cómo viene">
-          <button type="button" role="radio" aria-checked={!linea.porCaja} className={!linea.porCaja ? "is-activa" : ""} onClick={() => onCambiar({ porCaja: false })}>
+          <button type="button" role="radio" aria-checked={!linea.presentacionPendiente && !linea.porCaja} className={!linea.presentacionPendiente && !linea.porCaja ? "is-activa" : ""} onClick={() => onCambiar({ porCaja: false })}>
             Por {linea.unidad}
           </button>
-          <button type="button" role="radio" aria-checked={linea.porCaja} className={linea.porCaja ? "is-activa" : ""} onClick={() => onCambiar({ porCaja: true })}>
+          <button type="button" role="radio" aria-checked={!linea.presentacionPendiente && linea.porCaja} className={!linea.presentacionPendiente && linea.porCaja ? "is-activa" : ""} onClick={() => onCambiar({ porCaja: true })}>
             En cajas o paquetes
           </button>
         </div>
       </div>
+
+      {linea.presentacionPendiente && <p className="ing-alerta" role="status">Elegí si la cantidad leída corresponde a {unidadEnTexto(linea.unidad, 2)} o a cajas / paquetes antes de confirmar.</p>}
 
       {linea.porCaja && (
         <div className="ing-linea-caja">
@@ -619,7 +619,7 @@ function LineaIngreso({ linea, onCambiar, onQuitar }) {
         <span className="ing-equivale">
           {c.valida
             ? <>Entran <b className="ing-num">{fmtCantidad(c.cantidadEntrega)}</b> {unidadEnTexto(linea.unidad, c.cantidadEntrega)}{linea.porCaja ? <span className="ing-dim"> ({fmtCantidad(linea.cantidad)} × {fmtCantidad(c.factor)})</span> : null}</>
-            : <span className="ing-falta">{linea.porCaja && !(Number(String(linea.factor).replace(",", ".")) > 0) ? `Falta cuántas trae cada ${unidadCompra}` : "Falta la cantidad"}</span>}
+            : <span className="ing-falta">{linea.presentacionPendiente ? "Falta elegir cómo viene" : linea.porCaja && !(Number(String(linea.factor).replace(",", ".")) > 0) ? `Falta cuántas trae cada ${unidadCompra}` : "Falta la cantidad"}</span>}
         </span>
         {verPrecios && <label className="ing-campo ing-campo-costo">
           <span className="ing-lbl">$ por {linea.porCaja ? unidadCompra : linea.unidad} <span className="ing-dim">sin IVA</span></span>

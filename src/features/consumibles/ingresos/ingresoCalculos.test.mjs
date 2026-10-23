@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { agregarAlRemito, agruparIngresos, calcularLinea, cambiosDeConfig, lineaDesdeItem, remitoRepetido, totalRemito } from "./ingresoCalculos.js";
+import { actualizarLinea, agregarAlRemito, agruparIngresos, calcularLinea, cambiosDeConfig, lineaDesdeItem, remitoRepetido, totalRemito } from "./ingresoCalculos.js";
 
 const tornillo = {
   id: "t1",
@@ -51,6 +51,46 @@ test("se recuerda la unidad de compra sólo si cambió", () => {
 test("total del remito", () => {
   const lineas = [{ ...lineaDesdeItem(tornillo), cantidad: "2" }, { ...lineaDesdeItem(trapo), cantidad: "5" }, { ...lineaDesdeItem(trapo), cantidad: "" }];
   assert.deepEqual(totalRemito(lineas), { total: 2500, sinCosto: 1, validas: 2 });
+});
+
+test("cambiar entre unidad y caja mantiene el precio de cada sellador", () => {
+  const sellador = { id: "s", unidad: "unidad", config: { factor_compra: 12, unidad_compra: "caja", costo_unitario_ars: 13274.8 } };
+  let l = actualizarLinea(lineaDesdeItem(sellador), { porCaja: false, cantidad: "12" });
+  assert.equal(calcularLinea(l).cantidadEntrega, 12);
+  assert.equal(calcularLinea(l).costoEntrega, 13274.8);
+  l = actualizarLinea(l, { porCaja: true, cantidad: "1" });
+  assert.equal(l.costo, "159297.6");
+  assert.equal(calcularLinea(l).cantidadEntrega, 12);
+  assert.equal(calcularLinea(l).costoEntrega, 13274.8);
+  l = actualizarLinea(l, { porCaja: false });
+  assert.equal(l.costo, "13274.8");
+});
+
+test("editar cuántas trae la caja no divide el precio unitario, aunque el campo quede vacío", () => {
+  let l = lineaDesdeItem(tornillo);
+  l = actualizarLinea(l, { factor: "" });
+  assert.equal(calcularLinea(l).valida, false);
+  l = actualizarLinea(l, { factor: "50" });
+  assert.equal(l.costo, "625");
+  assert.equal(calcularLinea(l).costoEntrega, 12.5);
+  assert.equal(calcularLinea(l).cantidadEntrega, 50);
+});
+
+test("el precio editado a mano se conserva al cambiar la presentación", () => {
+  let l = actualizarLinea(lineaDesdeItem(tornillo), { costo: "2000" });
+  l = actualizarLinea(l, { porCaja: false });
+  assert.equal(l.costo, "20");
+  l = actualizarLinea(l, { porCaja: true, factor: "50" });
+  assert.equal(calcularLinea(l).costoEntrega, 20);
+  assert.equal(l.costo, "1000");
+  l = actualizarLinea(l, { costo: "" });
+  assert.equal(actualizarLinea(l, { porCaja: false }).costo, "");
+});
+
+test("los borradores anteriores también convierten el precio al cambiar de caja a unidad", () => {
+  const l = { ...lineaDesdeItem(tornillo), costo: "1500" };
+  delete l.costoEntregaReferencia;
+  assert.equal(calcularLinea(actualizarLinea(l, { porCaja: false })).costoEntrega, 15);
 });
 
 test("historial por carga y remito repetido", () => {
