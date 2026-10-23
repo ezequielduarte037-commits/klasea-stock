@@ -87,6 +87,12 @@
   /* Elevación: cards apoyadas y paneles flotantes (menús, modales). */
   --elev-1: 0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px -18px rgba(0,0,0,0.7);
   --elev-2: 0 24px 60px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(160,176,210,0.06);
+  /* Fondo de los visores 3D (piezas): gris de estudio, como el visor de Rhino,
+     para que se lean igual las piezas blancas y las negras. */
+  --visor-centro: #5c616a;
+  --visor-borde: #25282e;
+  --visor-grilla: #6a7079;
+  --visor-grilla-fuerte: #858b96;
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 16px;
@@ -174,6 +180,10 @@
   --glow-b: rgba(14,116,144,0.045);
   --elev-1: 0 1px 2px rgba(15,23,42,0.05), 0 10px 28px -18px rgba(15,23,42,0.22);
   --elev-2: 0 24px 60px -22px rgba(15,23,42,0.28), 0 0 0 1px rgba(17,24,39,0.06);
+  --visor-centro: #eceef1;
+  --visor-borde: #c2c7ce;
+  --visor-grilla: #d3d7dc;
+  --visor-grilla-fuerte: #aab0b9;
 
   /* Alias legacy de theme.css: algunas pantallas antiguas usan nombres sin guion. */
   --panel2: var(--panel-2);
@@ -312,6 +322,10 @@
   --glow-b: transparent;
   --elev-1: none;
   --elev-2: 0 0 0 1px rgba(255,255,255,0.6);
+  --visor-centro: #4a4a4a;
+  --visor-borde: #0a0a0a;
+  --visor-grilla: #5c5c5c;
+  --visor-grilla-fuerte: #9a9a9a;
 }
 
 html,

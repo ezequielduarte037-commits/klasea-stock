@@ -1,0 +1,14 @@
+{
+  "titulo": "Soft top",
+  "modelo": "K43",
+  "codigo": "402 · R2",
+  "partes": [
+    { "id": "techo", "nombre": "Techo", "capas": "^EXTERIOR DESIGN::DECK$", "color": "#f2f1ec" },
+    { "id": "negro", "nombre": "Pintura negra", "capas": "^EXTERIOR DESIGN::BLACK PAINT PARTS$", "color": "#202124" },
+    { "id": "tapizado", "nombre": "Tapizado", "capas": "^EXTERIOR DESIGN::CUSHIONS$", "color": "#8e9093" },
+    { "id": "led", "nombre": "Tiras LED", "capas": "^EXTERIOR DESIGN::ceeling led stripes$", "color": "#eef4fa" },
+    { "id": "vidrios", "nombre": "Vidrios", "capas": "^EXTERIOR DESIGN::GLASS PARTS$", "color": "#41505c", "opacidad": 0.45 },
+    { "id": "inox", "nombre": "Inox", "capas": "^EXTERIOR DESIGN::CHROME PARTS$", "color": "#c9cdd1", "metal": true },
+    { "id": "costillas", "nombre": "Costillas del molde", "capas": "^CNC MOULD(::SECTIONS)?$", "color": "#b69b7d", "grabados": "#26272a", "visible": false }
+  ]
+}
