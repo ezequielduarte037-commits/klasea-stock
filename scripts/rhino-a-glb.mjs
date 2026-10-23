@@ -546,6 +546,11 @@ const TAPAS = [
   [[5100, -974, 1465.2], [5496, -974, 1478.8], [5496, 974, 1478.8], [5100, 974, 1465.2]],
   [[9590, -255, 2340], [10110, -255, 2340], [10110, 255, 2340], [9590, 255, 2340]],
 ];
+// Luces de navegación del K37 GTX: el .3dm no las trae. Van sobre el techo
+// del T-top, al lado de la base del radar (las de banda) y arriba del radar
+// (la de tope), como el mástil del K43 (en mm del .3dm).
+const LUCES_K37 = { "nav-babor": [4140, 300, 3124], "nav-estribor": [4140, -300, 3124], tope: [4140, 0, 3349] };
+if (K37) for (const [id, p] of Object.entries(LUCES_K37)) cajasAncla[id] ??= { min: p, max: p };
 // El .3dm del interior del K43 llega como k43-interior.3dm o int43.3dm.
 if (INTERIOR_SOLO && /k43-interior|int43/i.test(entrada)) for (const tapa of TAPAS) {
   const g = G("techo"), b = g.pos.length / 3;
