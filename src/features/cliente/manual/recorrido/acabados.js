@@ -38,7 +38,9 @@ export const ACABADOS = {
   led:      { color: "#eeeae2", roughness: 0.4 },
   // Mesada: cuarzo pulido (en el configurador, con la placa de Purastone elegida).
   piedra:   { color: "#f2f0ec", roughness: 0.16, clearcoat: 0.8, clearcoatRoughness: 0.06 },
-  loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
+  // Bacha e inodoro apoyados en la mesada y el piso, con el fondo en el mismo
+  // plano: se adelantan apenas.
+  loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6, adelante: true },
   // Cielorraso del interior: blanco (techo) con paneles tapizados en tela gris
   // clara, como en el barco.
   panel:    { color: "#d9d6d0", roughness: 0.92, relieve: "poly_wool_herringbone", m: 0.3, sheen: 0.4, n: 0.6 },

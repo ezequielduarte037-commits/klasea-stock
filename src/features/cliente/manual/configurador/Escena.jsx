@@ -403,8 +403,9 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
 const LUCES_DEL_TECHO = ["spot@techo", "difusor@techo"];
 function crearSpots(modelo) {
   const geo = new THREE.CircleGeometry(0.024, 20).rotateX(Math.PI / 2);
-  // La luz va en el mismo plano que el aro: se adelanta apenas.
-  const mat = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetUnits: -2 });
+  // La luz va en el mismo plano que el aro: se adelanta más que él (los aros
+  // de acero, como todo el acero, ya van adelantados dos unidades).
+  const mat = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetUnits: -4 });
   const difusor = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false });
   const lugares = [];
   const ap = modelo.aparte;
@@ -468,6 +469,14 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     m.lista.interior.color.set("#f3f0eb");
     m.lista.interior.roughness = 0.42;
     m.lista.vidrios.color.set("#151b1f");
+    // Vidrios del interior (la mampara de la ducha, la puerta de la bajada):
+    // claros y sin barniz. Con el ahumado de las ventanas la ducha se veía
+    // oscura y el reflejo de un plafón quedaba como un punto de luz suelto.
+    const vidrioInterior = m.lista.vidrios.clone();
+    Object.assign(vidrioInterior, { opacity: 0.14, roughness: 0.12, clearcoat: 0, specularIntensity: 0.35, depthWrite: false });
+    vidrioInterior.color.set("#e2eaec");
+    vidrioInterior.clippingPlanes = m.lista.vidrios.clippingPlanes;
+    m.lista.vidrioInterior = vidrioInterior;
     // Contornos de los modelos sin materiales (K64): grafito suave sobre el blanco.
     m.linea.color.set("#2a2d30");
     m.linea.opacity = 0.35;
@@ -491,7 +500,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
       Object.entries(modelo.aparte.piezas).forEach(([nombre, m]) => {
         // Las luces del techo llevan el material de los spots (crearSpots).
         if (LUCES_DEL_TECHO.includes(nombre)) return;
-        m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle;
+        m.material = materialDe(nombre) === "vidrios" ? mats.lista.vidrioInterior : mats.lista[materialDe(nombre)] || mats.lista.detalle;
         m.receiveShadow = true;
       });
       modelo.aparte.raiz.visible = true;
@@ -528,22 +537,56 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     // propio plano pelearían con la original. En Float32: las posiciones del
     // GLB vienen cuantizadas a la caja de la pieza y lo más alto no se podría
     // subir.
-    const respaldos = ["techo", "panel@techo"].map(n => modelo.aparte?.piezas[n]).filter(Boolean).flatMap(m => {
-      const g = m.geometry, idx = g.index;
-      const attrs = ["position", "normal", "uv"].filter(n => g.attributes[n]);
-      const datos = Object.fromEntries(attrs.map(n => [n, []]));
-      const tri = new THREE.Triangle(), normal = new THREE.Vector3();
-      for (let i = 0; i < (idx ? idx.count : g.attributes.position.count); i += 3) {
+    // La copia corrida de costado, sólo donde queda sobre el mismo techo: el
+    // forro del techo baja por algunas paredes (en el baño, hasta la banda
+    // tapizada) y la copia de sus cantos horizontales asomaba de la pared
+    // como una raya blanca.
+    const piezasTecho = ["techo", "panel@techo"].map(n => modelo.aparte?.piezas[n]).filter(Boolean);
+    const CELDA = 0.05, LADO = 0.007, celdas = new Map();
+    const celda = (x, z) => `${Math.floor(x / CELDA)},${Math.floor(z / CELDA)}`;
+    const caras = piezasTecho.map(m => {
+      m.updateMatrixWorld(true);
+      const g = m.geometry, idx = g.index, p = g.attributes.position;
+      const w = Array.from({ length: p.count }, (_, i) => new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld));
+      const tri = new THREE.Triangle(), normal = new THREE.Vector3(), lista = [];
+      for (let i = 0; i < (idx ? idx.count : p.count); i += 3) {
         const v = [i, i + 1, i + 2].map(k => (idx ? idx.getX(k) : k));
-        if (Math.abs(tri.setFromAttributeAndIndices(g.attributes.position, ...v).getNormal(normal).y) < 0.6) continue;
-        v.forEach(k => attrs.forEach(a => {
+        const t = v.map(k => w[k]);
+        if (Math.abs(tri.set(...t).getNormal(normal).y) < 0.6) continue;
+        lista.push(v);
+        for (let x = Math.floor(Math.min(t[0].x, t[1].x, t[2].x) / CELDA); x <= Math.floor(Math.max(t[0].x, t[1].x, t[2].x) / CELDA); x++) {
+          for (let z = Math.floor(Math.min(t[0].z, t[1].z, t[2].z) / CELDA); z <= Math.floor(Math.max(t[0].z, t[1].z, t[2].z) / CELDA); z++) {
+            const k = `${x},${z}`;
+            (celdas.get(k) || celdas.set(k, []).get(k)).push(t);
+          }
+        }
+      }
+      return { m, w, lista };
+    });
+    // ¿Hay techo (una cara horizontal, a la misma altura) sobre este punto?
+    const sobreElTecho = q => (celdas.get(celda(q.x, q.z)) || []).some(([a, b, c]) => {
+      const d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z);
+      if (Math.abs(d) < 1e-12) return false;
+      const l1 = ((b.z - c.z) * (q.x - c.x) + (c.x - b.x) * (q.z - c.z)) / d;
+      const l2 = ((c.z - a.z) * (q.x - c.x) + (a.x - c.x) * (q.z - c.z)) / d;
+      const l3 = 1 - l1 - l2;
+      return l1 > -1e-6 && l2 > -1e-6 && l3 > -1e-6 && Math.abs(l1 * a.y + l2 * b.y + l3 * c.y - q.y) < 0.03;
+    });
+    const corrida = new THREE.Vector3(LADO, 0, LADO);
+    const respaldos = caras.flatMap(({ m, w, lista }) => {
+      const g = m.geometry;
+      const attrs = ["position", "normal", "uv"].filter(n => g.attributes[n]);
+      const copiar = elegidas => {
+        const datos = Object.fromEntries(attrs.map(n => [n, []]));
+        elegidas.forEach(v => v.forEach(k => attrs.forEach(a => {
           const at = g.attributes[a];
           for (let c = 0; c < at.itemSize; c++) datos[a].push(at.getComponent(k, c));
-        }));
-      }
-      m.updateMatrixWorld(true);
+        })));
+        return datos;
+      };
+      const deCostado = lista.filter(v => v.every(k => sobreElTecho(w[k].clone().add(corrida))));
       const e = 1 / m.matrixWorld.getMaxScaleOnAxis();
-      return [[0, 0.006, 0], [0.007, 0.006, 0.007]].map(corrimiento => {
+      return [[[0, 0.006, 0], copiar(lista)], [[LADO, 0.006, LADO], copiar(deCostado)]].map(([corrimiento, datos]) => {
         const geo = new THREE.BufferGeometry();
         attrs.forEach(a => geo.setAttribute(a, new THREE.Float32BufferAttribute(
           a === "position" ? datos[a].map((x, i) => x + corrimiento[i % 3] * e) : datos[a], g.attributes[a].itemSize)));
