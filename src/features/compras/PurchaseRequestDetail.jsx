@@ -87,6 +87,8 @@ const isHttpUrl = (u) => {
   catch { return false; }
 };
 
+const importeCompraValido = (value) => value !== "" && value != null && Number.isFinite(Number(value)) && Number(value) >= 0.01;
+
 function attachmentExtension(attachment) {
   const name = String(attachment?.name || attachment?.path || attachment?.url || "");
   const cleanName = name.split("?")[0].split("#")[0];
@@ -310,6 +312,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
    * deja en cero el gasto mensual del tablero.
    */
   const [costosOpen, setCostosOpen] = useState(false);
+  const [compraOpen, setCompraOpen] = useState(false);
+  const [importeCompra, setImporteCompra] = useState("");
+  const [guardandoCompra, setGuardandoCompra] = useState(false);
+  const [errorCompra, setErrorCompra] = useState("");
+  const guardandoCompraRef = useRef(false);
+  const importeGuardadoRef = useRef(null);
   const [panolModal, setPanolModal] = useState(false);
   const [enviosPanol, setEnviosPanol] = useState([]); // envíos a pañol vinculados a este pedido
   const [savingFollowerWa, setSavingFollowerWa] = useState(false);
@@ -335,7 +343,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   // Ya se compró y no se anotó cuánto salió: es lo que falta hacer en esta
   // pantalla, y es la razón por la que el gasto del tablero da cero.
   const faltaImporte = ["comprado", "recibido"].includes(request?.status)
-    && request?.actual_amount == null;
+    && !importeCompraValido(request?.actual_amount);
   const requestAttachments = useMemo(
     () => normalizePurchaseRequestAttachments(request || {}),
     [request],
@@ -428,6 +436,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           }
         : data;
       setRequest(requestData);
+      importeGuardadoRef.current = requestData.actual_amount;
       setItems(itemsData);
       setEnviosPanol(enviosData);
     } catch (err) {
@@ -439,6 +448,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   useEffect(() => {
     previousCommentCountRef.current = null;
+    setCompraOpen(false);
+    setPanolModal(false);
+    setErrorCompra("");
     load();
   }, [requestId]);
 
@@ -498,7 +510,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       const oldStatus = request.status;
       const oldPriority = request.priority;
       const oldEstimated = request.estimated_amount;
-      const oldActual = request.actual_amount;
+      const oldActual = importeGuardadoRef.current;
       const oldDelivery = request.estimated_delivery_at;
       const oldReceivedQty = request.received_quantity;
 
@@ -506,7 +518,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         patch.delivered_at = new Date().toISOString();
       }
 
+      if (patch.actual_amount !== undefined
+        && ["comprado", "recibido"].includes(patch.status || request.status)
+        && !importeCompraValido(patch.actual_amount)) {
+        throw new Error("Cargá un importe real mayor a cero para la compra.");
+      }
+
       const data = await updatePurchaseRequest(request.id, patch);
+      importeGuardadoRef.current = data.actual_amount;
       setRequest((prev) => ({ ...prev, ...data }));
 
       const actorName = profile?.username || "Usuario";
@@ -636,9 +655,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       }
 
       onRequestUpdated?.();
+      return data;
     } catch (err) {
+      if (patch.actual_amount !== undefined) {
+        setRequest((prev) => ({ ...prev, actual_amount: importeGuardadoRef.current }));
+      }
       setError(err.message);
       toast.error(err.message || "No se pudo actualizar el pedido.");
+      return null;
     }
   }
 
@@ -954,6 +978,13 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const pendientesItems = items.filter((it) => !["recibido", "cancelado"].includes(it.status)).length;
 
   async function cambiarEstado(status) {
+    if (guardandoCompraRef.current) return;
+    if (status === "comprado") {
+      setImporteCompra(importeCompraValido(importeGuardadoRef.current) ? String(importeGuardadoRef.current) : "");
+      setErrorCompra("");
+      setCompraOpen(true);
+      return;
+    }
     if (status === "recibido") {
       const pend = items.filter((it) => !["recibido", "cancelado"].includes(it.status));
       if (pend.length) {
@@ -977,6 +1008,31 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       if (!ok) return;
     }
     patchRequest({ status });
+  }
+
+  async function confirmarCompra(event) {
+    event.preventDefault();
+    if (guardandoCompraRef.current) return;
+    if (!importeCompraValido(importeCompra)) {
+      setErrorCompra("Cargá el importe real de la compra, mayor a cero.");
+      return;
+    }
+    guardandoCompraRef.current = true;
+    setGuardandoCompra(true);
+    setErrorCompra("");
+    try {
+      // Precio y estado se confirman juntos. El aviso sólo se abre si se guardó.
+      const saved = await patchRequest({ status: "comprado", actual_amount: Number(importeCompra) });
+      if (!saved) {
+        setErrorCompra("No se pudo confirmar la compra. Revisá el error e intentá de nuevo.");
+        return;
+      }
+      setCompraOpen(false);
+      setPanolModal(true);
+    } finally {
+      guardandoCompraRef.current = false;
+      setGuardandoCompra(false);
+    }
   }
 
   async function eliminarPedido() {
@@ -1050,7 +1106,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         </div>
 
         <div className="cmp-det-recorrido">
-          <PasosPedido status={request.status} onCambiar={manager ? cambiarEstado : null} />
+          <PasosPedido status={request.status} onCambiar={manager ? cambiarEstado : null} deshabilitado={guardandoCompra} />
           <div className="cmp-det-ahora" data-tono={estado.tono}>
             {request.status === "cancelado" ? (
               <>
@@ -1465,6 +1521,44 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </div>
         </aside>
       </div>
+
+      {compraOpen && (
+        <Modal
+          icono={Receipt}
+          tono="naranja"
+          titulo="Confirmar compra"
+          sub="Cargá el precio final. Después se abre el aviso a pañol con los productos del pedido."
+          bloqueado={guardandoCompra}
+          onCerrar={() => setCompraOpen(false)}
+          pie={<>
+            <button type="button" className="ui-btn ui-btn-fantasma" disabled={guardandoCompra} onClick={() => setCompraOpen(false)}>Cancelar</button>
+            <button type="submit" form="confirmar-compra" className="ui-btn ui-btn-primario" disabled={guardandoCompra || !importeCompraValido(importeCompra)}>
+              {guardandoCompra ? "Guardando…" : "Confirmar y avisar a pañol"}
+            </button>
+          </>}
+        >
+          <form id="confirmar-compra" onSubmit={confirmarCompra}>
+            <label className="cmp-campo">
+              <span>Importe real total $ *</span>
+              <input
+                className="ui-input num"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                required
+                autoFocus
+                disabled={guardandoCompra}
+                value={importeCompra}
+                onChange={(event) => { setImporteCompra(event.target.value); setErrorCompra(""); }}
+                placeholder="Ej.: 125000"
+              />
+            </label>
+            <p className="cmp-ayuda">El monto cotizado no reemplaza el precio final de la compra.</p>
+            {errorCompra && <Aviso>{errorCompra}</Aviso>}
+          </form>
+        </Modal>
+      )}
 
       {panolModal && (
         <EnviarAPanolModal
