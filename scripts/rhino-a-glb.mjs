@@ -14,6 +14,8 @@
 //   PERFIL=exterior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43.3dm public/models/k43.glb 60
 //   VIDRIOS=public/models/k43.glb PERFIL=interior node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k43-interior.3dm public/models/k43-interior.glb 40
 //   (VIDRIOS: el exterior ya exportado, para recortar el forro del casco frente a las ventanas)
+// K37 GTX (exterior e interior en el mismo .3dm; capas propias, por el nombre del archivo):
+//   node --max-old-space-size=12000 scripts/rhino-a-glb.mjs k37.3dm public/models/k37.glb 60
 // Después sumar la línea en MODELOS_3D (src/features/cliente/manual/unidad.js).
 import rhino3dm from "rhino3dm";
 import earcut from "earcut";
@@ -67,6 +69,41 @@ const REGLAS = [
   [/BLACK|CONSOLE|CONSOLA|MAST|speakr/i, "negro"],
 ];
 const grupoDe = c => (REGLAS.find(([r]) => r.test(c)) || [null, "detalle"])[1];
+// K37 GTX: el .3dm trae exterior e interior juntos, con capas de obra en
+// castellano (PRFV, VARIOS, INOX, REFORMA: lo que cambió para el GTX) y otras
+// con el nombre del material (black hull, wood alpi, floor parquet…).
+const K37 = /k37|37 ?gtx/i.test(entrada);
+const REGLAS_K37 = [
+  [/^black hull$/i, "fondo"],
+  [/^stripe$|Instrumental|::Tomas$|::Goma$|PARANTES|speakrgri/i, "negro"],
+  // El techo del T-top va como el hardtop del K43 (se elige el color).
+  [/^PRFV::Soft top|^REFORMA::SOFT TOP$/i, "negro"],
+  [/Planchada::Teca|^TEAK$|MESA CUBIERTA/i, "teca"],
+  [/^ttop led$/i, "led"],
+  [/^INOX|^chrome$|BAR CHAIR CHROME|Uline/i, "cromo"],
+  [/BAR GLASS|railing glass|^glass$|VARIOS::Puerta/i, "vidrios"],
+  [/CONSOLE PLEXI/i, "acrilico"],
+  [/Granito/i, "piedra"],
+  // Almohadones sueltos de los sillones de afuera; colchonetas y butacas.
+  [/Wosse/i, "almohadon"],
+  [/TAPICER|REFORMA::COLCHONETA|Butaca|BAR CHAIR CUSION/i, "tapizado"],
+  [/^PRFV::CASCO$/i, "casco"],
+  [/^PRFV::|^REFORMA|Botazo|^console$|speakrwhite/i, "cubierta"],
+  // Interior
+  [/^wood alpi$/i, "madera"],
+  [/^floor parquet$/i, "piso"],
+  [/leather|^COLCHONETAS$/i, "tela"],
+  [/^corian/i, "piedra"],
+  [/^mirror$/i, "cromo"],
+  [/DOOR-HANDLE/i, "herraje"],
+  [/lacquer|grp white|INTERIORS NET SPACE/i, "interior"],
+];
+const grupoK37 = (capa, mat) => {
+  // Parabrisas de vidrio; los ventanales del casco, negro brillante.
+  if (/^VARIOS::VIDRIOS$/i.test(capa)) return /VIDRIO/i.test(mat) ? "vidrios" : "negro";
+  if (/^3D::Interiores/i.test(capa)) return /INOX/i.test(mat) ? "cromo" : /NEGRO/i.test(mat) ? "negro" : /TECA/i.test(mat) ? "madera" : "interior";
+  return (REGLAS_K37.find(([r]) => r.test(capa)) || [])[1] ?? null;
+};
 // Interior visto desde adentro: la capa sola no alcanza, el material de render
 // del .3dm dice de qué es cada pieza (la puerta de la bajada es de vidrio, la
 // heladera de acero cepillado, el piso del baño de gelcoat, los herrajes negros).
@@ -424,7 +461,7 @@ for (let i = 0; i < elementos.length; i++) {
   const { geo, capa, mat } = elementos[i], tipo = geo.constructor.name;
   if (tipo !== "Brep" && tipo !== "Mesh" && tipo !== "Extrusion") continue;
   if (SALTEAR.some(r => r.test(capa))) continue;
-  let grupo = (INTERIOR_SOLO && grupoInterior(capa, mat, geo.getBoundingBox())) || grupoDe(capa);
+  let grupo = (INTERIOR_SOLO && grupoInterior(capa, mat, geo.getBoundingBox())) || (K37 && grupoK37(capa, mat)) || grupoDe(capa);
   // Paneles verticales de teca al final de los balcones, junto a la mesa: en el
   // barco son de plástico (la teca se veía pegada en el costado).
   if (grupo === "teca") {
@@ -509,6 +546,11 @@ const TAPAS = [
   [[5100, -974, 1465.2], [5496, -974, 1478.8], [5496, 974, 1478.8], [5100, 974, 1465.2]],
   [[9590, -255, 2340], [10110, -255, 2340], [10110, 255, 2340], [9590, 255, 2340]],
 ];
+// Luces de navegación del K37 GTX: el .3dm no las trae. Van sobre el techo
+// del T-top, al lado de la base del radar (las de banda) y arriba del radar
+// (la de tope), como el mástil del K43 (en mm del .3dm).
+const LUCES_K37 = { "nav-babor": [4140, 300, 3124], "nav-estribor": [4140, -300, 3124], tope: [4140, 0, 3349] };
+if (K37) for (const [id, p] of Object.entries(LUCES_K37)) cajasAncla[id] ??= { min: p, max: p };
 // El .3dm del interior del K43 llega como k43-interior.3dm o int43.3dm.
 if (INTERIOR_SOLO && /k43-interior|int43/i.test(entrada)) for (const tapa of TAPAS) {
   const g = G("techo"), b = g.pos.length / 3;
