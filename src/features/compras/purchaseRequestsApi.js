@@ -434,6 +434,18 @@ export async function updatePurchaseRequest(requestId, patch) {
   return data;
 }
 
+export async function guardarCostosCompra(requestId, { items, actualAmount, confirmar = true }) {
+  const { data, error } = await supabase.rpc("purchase_request_guardar_costos", {
+    p_request_id: requestId,
+    p_items: items,
+    p_actual_amount: actualAmount,
+    p_confirmar: confirmar,
+  });
+  if (error) throw error;
+  if (!data?.request?.id || !Array.isArray(data.items)) throw new Error("No se pudo guardar el detalle de precios.");
+  return data;
+}
+
 export async function addRequestFollower(requestId, userId) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   const { error } = await supabase

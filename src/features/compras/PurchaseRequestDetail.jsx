@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import PortalProveedorActividad from "./PortalProveedorActividad";
+import CostosCompraModal from "./CostosCompraModal";
+import { importeCompraValido } from "./costosCompra";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Cargando from "@/components/ui/Cargando";
@@ -50,6 +52,7 @@ import {
   propagateAdditionalFromRequest,
   setRequestFollowerWhatsapp,
   updatePurchaseRequest,
+  guardarCostosCompra,
   uploadInvoice,
   uploadItemImage,
   COMMENT_ATTACHMENT_MAX_COUNT,
@@ -86,8 +89,6 @@ const isHttpUrl = (u) => {
   try { const x = new URL(u); return x.protocol === "http:" || x.protocol === "https:"; }
   catch { return false; }
 };
-
-const importeCompraValido = (value) => value !== "" && value != null && Number.isFinite(Number(value)) && Number(value) >= 0.01;
 
 function attachmentExtension(attachment) {
   const name = String(attachment?.name || attachment?.path || attachment?.url || "");
@@ -296,6 +297,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [newItemDesc, setNewItemDesc] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("unidad");
+  const [newItemAmount, setNewItemAmount] = useState("");
   const [showAddItem, setShowAddItem] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editLinkUrl, setEditLinkUrl] = useState("");
@@ -313,7 +315,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
    */
   const [costosOpen, setCostosOpen] = useState(false);
   const [compraOpen, setCompraOpen] = useState(false);
-  const [importeCompra, setImporteCompra] = useState("");
+  const [compraEditarPrecios, setCompraEditarPrecios] = useState(false);
+  const [itemsCompra, setItemsCompra] = useState([]);
   const [guardandoCompra, setGuardandoCompra] = useState(false);
   const [errorCompra, setErrorCompra] = useState("");
   const guardandoCompraRef = useRef(false);
@@ -400,10 +403,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setDescriptionOpen(false);
   }, [requestId]);
 
-  async function load() {
+  async function load(silencioso = false) {
     if (!requestId) return;
     setError("");
-    setLoading(true);
+    if (!silencioso) setLoading(true);
     try {
       const [data, itemsData, enviosData, waPreference] = await Promise.all([
         fetchPurchaseRequestDetail(requestId),
@@ -442,7 +445,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     } catch (err) {
       setError(err.message || "No se pudo cargar la solicitud.");
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   }
 
@@ -451,6 +454,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setCompraOpen(false);
     setPanolModal(false);
     setErrorCompra("");
+    setNewItemAmount("");
     load();
   }, [requestId]);
 
@@ -461,7 +465,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
       reloadTimer.current = setTimeout(() => {
         reloadTimer.current = null;
-        load();
+        load(true);
       }, 350);
     };
     const channel = supabase.channel(`purchase-request-${requestId}`)
@@ -503,7 +507,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   // Creador + CC + assignee también pueden editar prioridad (no solo compras/admin).
   const canEditPriority = manager || involvedIds.has(profile?.id);
 
-  async function patchRequest(patch) {
+  async function patchRequest(patch, costos = null) {
     setError("");
     try {
       // Capturar valores previos para detectar cambios de status / prioridad / amounts
@@ -524,7 +528,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         throw new Error("Cargá un importe real mayor a cero para la compra.");
       }
 
-      const data = await updatePurchaseRequest(request.id, patch);
+      let data;
+      if (costos) {
+        const result = await guardarCostosCompra(request.id, costos);
+        data = result.request;
+        setItems(result.items);
+        // El total devuelto por la base es la suma definitiva de los renglones.
+        patch.actual_amount = data.actual_amount;
+      } else {
+        data = await updatePurchaseRequest(request.id, patch);
+      }
       importeGuardadoRef.current = data.actual_amount;
       setRequest((prev) => ({ ...prev, ...data }));
 
@@ -662,6 +675,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       }
       setError(err.message);
       toast.error(err.message || "No se pudo actualizar el pedido.");
+      if (costos) setErrorCompra(err.message || "No se pudieron guardar los precios.");
       return null;
     }
   }
@@ -824,10 +838,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         description: newItemDesc.trim(),
         quantity: newItemQty.trim() || null,
         unit: newItemUnit,
+        ...(newItemAmount !== "" ? { actual_amount: Number(newItemAmount) } : {}),
       });
       setNewItemDesc("");
       setNewItemQty("");
       setNewItemUnit("unidad");
+      setNewItemAmount("");
       setShowAddItem(false);
       await load();
     } catch (err) {
@@ -980,9 +996,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   async function cambiarEstado(status) {
     if (guardandoCompraRef.current) return;
     if (status === "comprado") {
-      setImporteCompra(importeCompraValido(importeGuardadoRef.current) ? String(importeGuardadoRef.current) : "");
-      setErrorCompra("");
-      setCompraOpen(true);
+      abrirCostosCompra(false);
       return;
     }
     if (status === "recibido") {
@@ -1010,11 +1024,17 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     patchRequest({ status });
   }
 
-  async function confirmarCompra(event) {
-    event.preventDefault();
+  function abrirCostosCompra(soloPrecios) {
+    setCompraEditarPrecios(soloPrecios);
+    setItemsCompra(items);
+    setErrorCompra("");
+    setCompraOpen(true);
+  }
+
+  async function confirmarCompra({ items: precios, actualAmount }) {
     if (guardandoCompraRef.current) return;
-    if (!importeCompraValido(importeCompra)) {
-      setErrorCompra("Cargá el importe real de la compra, mayor a cero.");
+    if (!importeCompraValido(actualAmount) || precios.some((item) => !importeCompraValido(item.actual_amount))) {
+      setErrorCompra("Cargá un importe mayor a cero para cada ítem.");
       return;
     }
     guardandoCompraRef.current = true;
@@ -1022,13 +1042,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setErrorCompra("");
     try {
       // Precio y estado se confirman juntos. El aviso sólo se abre si se guardó.
-      const saved = await patchRequest({ status: "comprado", actual_amount: Number(importeCompra) });
+      const saved = await patchRequest({
+        ...(!compraEditarPrecios ? { status: "comprado" } : {}),
+        actual_amount: actualAmount,
+      }, { items: precios, actualAmount, confirmar: !compraEditarPrecios });
       if (!saved) {
-        setErrorCompra("No se pudo confirmar la compra. Revisá el error e intentá de nuevo.");
         return;
       }
       setCompraOpen(false);
-      setPanolModal(true);
+      if (!compraEditarPrecios) setPanolModal(true);
+      else toast.success("Precios guardados y total del pedido actualizado.");
     } finally {
       guardandoCompraRef.current = false;
       setGuardandoCompra(false);
@@ -1164,7 +1187,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 {items.length > 0 && pendientesItems < items.length && <span className="cmp-ayuda">{items.length - pendientesItems} cerrados</span>}
                 <span className="cmp-sp" />
                 {manager && <CopiarOcProveedor lineas={lineasOcProveedor} necesarioPara={request.needed_at} label="OC proveedor" iconSize={13} />}
-                {canEditItems && !showAddItem && (
+                {canEditItems && (!request.itemized_costs || manager || !["comprado", "recibido"].includes(request.status)) && !showAddItem && (
                   <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => setShowAddItem(true)}><Plus size={13} /> Ítem</button>
                 )}
               </div>
@@ -1176,8 +1199,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   <select className="ui-input" value={newItemUnit} onChange={(e) => setNewItemUnit(e.target.value)} aria-label="Unidad">
                     {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
                   </select>
+                  {manager && request.itemized_costs && (
+                    <input className="ui-input num" type="number" min="0.01" step="0.01" inputMode="decimal"
+                      required={["comprado", "recibido"].includes(request.status)}
+                      value={newItemAmount} onChange={(e) => setNewItemAmount(e.target.value)}
+                      placeholder="Importe del ítem $" aria-label="Importe del nuevo ítem" />
+                  )}
                   <button type="submit" className="ui-btn ui-btn-primario chico" disabled={!newItemDesc.trim()}>Agregar</button>
-                  <button type="button" className="cmp-btn-ic chico" onClick={() => { setShowAddItem(false); setNewItemDesc(""); setNewItemQty(""); }} aria-label="Cancelar"><X size={14} /></button>
+                  <button type="button" className="cmp-btn-ic chico" onClick={() => { setShowAddItem(false); setNewItemDesc(""); setNewItemQty(""); setNewItemAmount(""); }} aria-label="Cancelar"><X size={14} /></button>
                 </form>
               )}
 
@@ -1203,6 +1232,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             {item.description}
                             {(item.quantity || item.unit) && <span className="cant">{item.quantity} {item.unit}</span>}
                           </div>
+                          {manager && item.actual_amount != null && <div className="cmp-ayuda">Importe del ítem: <b className="mono">{fmtPesos(item.actual_amount)}</b></div>}
                           {(item.received_quantity || item.supplier_description || item.supplier_code || item.supplier_components?.length > 0 || isHttpUrl(item.image_url) || isHttpUrl(item.link_url) || item.notes || item.catalog_source === "panol") && (
                             <div className="meta">
                               {/* Lo que realmente llegó: sin esto una entrega parcial se veía igual que una completa. */}
@@ -1523,41 +1553,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       </div>
 
       {compraOpen && (
-        <Modal
-          icono={Receipt}
-          tono="naranja"
-          titulo="Confirmar compra"
-          sub="Cargá el precio final. Después se abre el aviso a pañol con los productos del pedido."
-          bloqueado={guardandoCompra}
-          onCerrar={() => setCompraOpen(false)}
-          pie={<>
-            <button type="button" className="ui-btn ui-btn-fantasma" disabled={guardandoCompra} onClick={() => setCompraOpen(false)}>Cancelar</button>
-            <button type="submit" form="confirmar-compra" className="ui-btn ui-btn-primario" disabled={guardandoCompra || !importeCompraValido(importeCompra)}>
-              {guardandoCompra ? "Guardando…" : "Confirmar y avisar a pañol"}
-            </button>
-          </>}
-        >
-          <form id="confirmar-compra" onSubmit={confirmarCompra}>
-            <label className="cmp-campo">
-              <span>Importe real total $ *</span>
-              <input
-                className="ui-input num"
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                required
-                autoFocus
-                disabled={guardandoCompra}
-                value={importeCompra}
-                onChange={(event) => { setImporteCompra(event.target.value); setErrorCompra(""); }}
-                placeholder="Ej.: 125000"
-              />
-            </label>
-            <p className="cmp-ayuda">El monto cotizado no reemplaza el precio final de la compra.</p>
-            {errorCompra && <Aviso>{errorCompra}</Aviso>}
-          </form>
-        </Modal>
+        <CostosCompraModal request={request} items={itemsCompra} soloPrecios={compraEditarPrecios}
+          saving={guardandoCompra} error={errorCompra} onClose={() => setCompraOpen(false)} onSave={confirmarCompra} />
       )}
 
       {panolModal && (
@@ -1585,9 +1582,18 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </label>
             {["comprado", "recibido"].includes(request.status) && (
               <>
-                <label className="cmp-campo c2"><span>Monto real $</span>
-                  <input {...campo("actual_amount", { tipo: "number", aNumero: true, placeholder: "0" })} step="0.01" min="0" />
-                </label>
+                {items.some((item) => item.status !== "cancelado") || request.itemized_costs ? (
+                  <div className="cmp-campo c4">
+                    <span>Total real del pedido</span>
+                    <strong className="mono">{fmtPesos(request.actual_amount)}</strong>
+                    <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => { setCostosOpen(false); abrirCostosCompra(true); }}>Editar precios por ítem</button>
+                    <small className="cmp-ayuda">El total se calcula con los importes de los ítems.</small>
+                  </div>
+                ) : (
+                  <label className="cmp-campo c2"><span>Monto real $</span>
+                    <input {...campo("actual_amount", { tipo: "number", aNumero: true, placeholder: "0" })} step="0.01" min="0" />
+                  </label>
+                )}
                 <label className="cmp-campo c2"><span>Entrega estimada</span>
                   <input {...campo("estimated_delivery_at", { tipo: "date" })} />
                 </label>
