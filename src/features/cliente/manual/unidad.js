@@ -43,7 +43,8 @@ const MODELOS_3D = {
       { id: "proa", t: "Comedor", ojo: [1.72, 1.1, 0.32], mira: [3.2, 0.26, -0.1] },
       { id: "popa", t: "Hacia popa", ojo: [2.6, 1.05, -0.1], mira: [0.6, 0.6, 0.1] },
       { id: "camarote", t: "Camarote", ojo: [0.05, 0.32, 0.0], mira: [-1.35, -0.08, 0.0] },
-      { id: "bano", t: "Baño", ojo: [0.3, 0.98, 0.45], mira: [0.8, 0.62, 0.98] },
+      // Baño: desde la puerta, con la bacha, el espejo y el inodoro a la vista.
+      { id: "bano", t: "Baño", ojo: [0.98, 1.0, 0.45], mira: [0.4, 0.5, 0.75] },
     ],
     // Plafones del interior: salón, comedor de proa y camarote de popa.
     plafones: [[1.1, 1.12, -0.15], [2.75, 1.05, 0], [-0.75, 0.22, 0]],
