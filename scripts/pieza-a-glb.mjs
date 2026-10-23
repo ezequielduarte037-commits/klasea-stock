@@ -75,14 +75,55 @@ function agregarAristas(brep, lin) {
 // Caras repetidas: el .3dm trae caras copiadas a otra capa (en el soft top,
 // la mitad de estribor del techo también está en la de pintura negra) y las
 // dos copias titilan una sobre otra. Se queda la de la parte que va primero
-// en la lista. Se comparan por la caja de su malla (al milímetro).
-const cajasVistas = [];
-function cajaMalla(m) {
-  const vs = m.vertices(), min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  for (let k = 0; k < vs.count; k++) { const v = vs.get(k); for (let j = 0; j < 3; j++) { min[j] = Math.min(min[j], v[j]); max[j] = Math.max(max[j], v[j]); } }
-  return [...min, ...max];
+// en la lista. La caja de la malla (al milímetro) sólo marca candidatas: dos
+// caras distintas pueden tener la misma (las mitades de un panel cortado en
+// diagonal). Es repetida si además cada vértice de una está sobre la otra, a
+// menos de TOL_REPETIDA mm, y al revés.
+const TOL_REPETIDA = 2;
+const carasVistas = [];
+function caraDe(m) {
+  const vs = m.vertices(), fs_ = m.faces(), pts = [];
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (let k = 0; k < vs.count; k++) {
+    const v = vs.get(k);
+    pts.push(v);
+    for (let j = 0; j < 3; j++) { min[j] = Math.min(min[j], v[j]); max[j] = Math.max(max[j], v[j]); }
+  }
+  const tris = [];
+  for (let k = 0; k < fs_.count; k++) {
+    const [a, b, c, d] = fs_.get(k);
+    tris.push([pts[a], pts[b], pts[c]]);
+    if (c !== d) tris.push([pts[a], pts[c], pts[d]]);
+  }
+  return { caja: [...min, ...max], pts, tris };
 }
-const repetida = c => cajasVistas.some(o => o.every((v, j) => Math.abs(v - c[j]) < 1));
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const lejos = (p, q, t) => Math.hypot(p[0] - q[0] - t[0], p[1] - q[1] - t[1], p[2] - q[2] - t[2]);
+// Distancia de un punto a un triángulo (el punto más cercano, por regiones).
+function distTri(p, [a, b, c]) {
+  const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a);
+  const d1 = dot(ab, ap), d2 = dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) return Math.hypot(...ap);
+  const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return Math.hypot(...bp);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); return lejos(p, a, ab.map(x => x * v)); }
+  const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return Math.hypot(...cp);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); return lejos(p, a, ac.map(x => x * w)); }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return lejos(p, b, sub(c, b).map(x => x * w)); }
+  const den = va + vb + vc;
+  if (!(den > 0)) return Infinity; // triángulo degenerado
+  const v = vb / den, w = vc / den;
+  return lejos(p, a, [0, 1, 2].map(j => ab[j] * v + ac[j] * w));
+}
+// Descarte rápido: el punto tiene que caer en la caja del triángulo (con la tolerancia).
+const cerca = (p, t) => [0, 1, 2].every(j => p[j] >= Math.min(t[0][j], t[1][j], t[2][j]) - TOL_REPETIDA && p[j] <= Math.max(t[0][j], t[1][j], t[2][j]) + TOL_REPETIDA);
+const sobre = (x, y) => x.pts.every(p => y.tris.some(t => cerca(p, t) && distTri(p, t) < TOL_REPETIDA));
+const repetida = c => carasVistas.some(o => o.caja.every((v, j) => Math.abs(v - c.caja[j]) < 1) && sobre(c, o) && sobre(o, c));
 
 let sinMalla = 0, repetidas = 0;
 const vistos = new Set();
@@ -107,9 +148,9 @@ for (const p of partes) for (let i = 0; i < objs.count; i++) {
     for (let k = 0; k < caras.count; k++) {
       const mc = caras.get(k).getMesh(rh.MeshType.Any);
       if (!mc) { sinMalla++; continue; }
-      const c = cajaMalla(mc);
+      const c = caraDe(mc);
       if (!grabado && repetida(c)) { repetidas++; continue; }
-      if (!grabado) cajasVistas.push(c);
+      if (!grabado) carasVistas.push(c);
       agregarMalla(mc, g);
       nuevas++;
     }

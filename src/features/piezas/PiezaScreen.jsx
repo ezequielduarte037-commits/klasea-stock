@@ -15,10 +15,10 @@ import BrandLoader from "@/components/ui/BrandLoader";
 import VisorPieza from "./VisorPieza";
 import { VISTA_DEL_CORTE, bajarPieza, cajaDe, leerPieza, mm, tokenValido } from "./pieza";
 
-function hayWebGL() {
+// El three.js del proyecto dibuja sólo con WebGL 2 (sin él, el lienzo no arranca).
+function hayWebGL2() {
   try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+    return !!document.createElement("canvas").getContext("webgl2");
   } catch {
     return false;
   }
@@ -47,7 +47,7 @@ const tactil = () => { try { return window.matchMedia("(pointer: coarse)").match
 
 export default function PiezaScreen() {
   const { token } = useParams();
-  const [webgl] = useState(hayWebGL);
+  const [webgl] = useState(hayWebGL2);
   const [estado, setEstado] = useState(() => (
     !tokenValido(token) ? { fase: "error", motivo: "link" }
       : !webgl ? { fase: "error", motivo: "webgl" }
