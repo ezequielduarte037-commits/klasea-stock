@@ -97,6 +97,9 @@ const MODELOS_3D = {
   // corte: altura (m, sobre la base del .3dm) de la vista interior; el K64
   // no tiene piso de camarotes, se corta bajo el salón para ver los de abajo.
   64: { url: "/models/k64.glb", lineas: true, corte: 2.0 },
+  // K37 GTX: exterior e interior en un solo .glb (sin recorrido interior en
+  // el configurador). El fondo oscuro termina a 0,80 m sobre la quilla.
+  37: { url: "/models/k37.glb", lineas: false, flotacion: 0.79 },
 };
 
 export function modelo3dDe(modelo) {
