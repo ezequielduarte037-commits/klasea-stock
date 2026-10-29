@@ -4,10 +4,14 @@ import { supabase } from "@/supabaseClient";
 import Cargando from "@/components/ui/Cargando";
 import { Aviso, Tag, Vacio } from "../ui";
 import { ChapaSwatch } from "../chapa";
-import { codigoObraEtiqueta, construirHtmlEtiquetasMuebles, seleccionarEtiquetasMuebles } from "../etiquetasMuebles.js";
+import { codigoObraEtiqueta, construirHtmlEtiquetasMuebles, seleccionarEtiquetasMuebles, FORMATOS_ETIQUETAS_MUEBLES } from "../etiquetasMuebles.js";
 import { cargarDatosEtiquetasMuebles, cargarObrasEtiquetasMuebles } from "../etiquetasMueblesApi.js";
 
 export default function EtiquetasTab({ client = supabase }) {
+  const [formato, setFormato] = useState(() => {
+    try { const guardado = localStorage.getItem("muebles-etiquetas-formato"); return FORMATOS_ETIQUETAS_MUEBLES.some(f => f.id === guardado) ? guardado : "40x30"; } catch { return "40x30"; }
+  });
+  const papel = FORMATOS_ETIQUETAS_MUEBLES.find(f => f.id === formato);
   const [catalogo, setCatalogo] = useState(null);
   const [unidadId, setUnidadId] = useState("");
   const [datos, setDatos] = useState(null);
@@ -44,7 +48,7 @@ export default function EtiquetasTab({ client = supabase }) {
   const visibles = etiquetas.filter(e => `${e.numero ?? ""} ${e.nombre} ${e.sector}`.toLocaleLowerCase("es-AR").includes(q.trim().toLocaleLowerCase("es-AR")));
   const preview = etiquetas.find(e => e.id === vistaId && e.imprimible) ?? etiquetas.find(e => e.imprimible);
   const htmlPreview = useMemo(() => detalle && preview
-    ? construirHtmlEtiquetasMuebles({ datos: detalle, ids: [preview.id], vistaPrevia: true }) : "", [detalle, preview]);
+    ? construirHtmlEtiquetasMuebles({ datos: detalle, ids: [preview.id], vistaPrevia: true, formato }) : "", [detalle, preview, formato]);
   const sinDatos = etiquetas.filter(e => !e.imprimible).length;
 
   function elegirObra(value) {
@@ -72,7 +76,7 @@ export default function EtiquetasTab({ client = supabase }) {
       if (win.closed) return;
       const imprimirIds = una ? [etiquetasActuales[0].id] : seleccion;
       win.document.open();
-      win.document.write(construirHtmlEtiquetasMuebles({ datos: actuales, ids: imprimirIds, autoPrint: true }));
+      win.document.write(construirHtmlEtiquetasMuebles({ datos: actuales, ids: imprimirIds, autoPrint: true, formato }));
       win.document.close(); win.opener = null;
     } catch (e) {
       if (!win.closed) win.close();
@@ -83,7 +87,7 @@ export default function EtiquetasTab({ client = supabase }) {
   return <div className="mbl-etiquetas">
     <header className="mbl-barra">
       <div className="mbl-barra-fila">
-        <div className="mbl-titulos"><div className="mbl-eyebrow">Muebles · 50 × 80 mm</div><h1 className="mbl-h1">Etiquetas</h1><p className="mbl-sub">Obra, enchapado y número de pieza, listos para el taller.</p></div>
+        <div className="mbl-titulos"><div className="mbl-eyebrow">Muebles · {papel.nombre}</div><h1 className="mbl-h1">Etiquetas</h1><p className="mbl-sub">Obra, enchapado y número de pieza, listos para el taller.</p></div>
         <div className="mbl-acciones">
           <button type="button" className="ui-btn chico" disabled={!ids.size || cargando || imprimiendo} onClick={() => imprimir(true)}><Printer size={14} /> Probar una</button>
           <button type="button" className="ui-btn ui-btn-primario chico" disabled={!ids.size || cargando || imprimiendo} onClick={() => imprimir(false)}><Printer size={14} /> {imprimiendo ? "Preparando…" : `Imprimir seleccionadas (${ids.size})`}</button>
@@ -92,6 +96,9 @@ export default function EtiquetasTab({ client = supabase }) {
       <div className="mbl-et-controles">
         <label className="mbl-campo"><span>Embarcación</span><select className="ui-input" aria-label="Embarcación para etiquetas" value={unidadId} disabled={!catalogo || imprimiendo} onChange={e => elegirObra(e.target.value)}>
           <option value="">Elegí una obra</option>{catalogo?.unidades.map(u => <option key={u.id} value={u.id}>{codigoObraEtiqueta(u.codigo)} · {catalogo.lineas.find(l => l.id === u.linea_id)?.nombre ?? "Muebles"}</option>)}
+        </select></label>
+        <label className="mbl-campo"><span>Tamaño del rollo</span><select className="ui-input" aria-label="Tamaño de las etiquetas" value={formato} disabled={imprimiendo} onChange={e => { setFormato(e.target.value); try { localStorage.setItem("muebles-etiquetas-formato", e.target.value); } catch { /* El tamaño sigue disponible sin almacenamiento. */ } }}>
+          {FORMATOS_ETIQUETAS_MUEBLES.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
         </select></label>
         <label className="mbl-et-buscar"><Search size={15} /><input className="ui-input" aria-label="Buscar pieza para etiquetas" placeholder="Pieza, sector o número…" value={q} disabled={!detalle} onChange={e => setQ(e.target.value)} /></label>
         <button type="button" className="ui-btn chico" disabled={cargando || imprimiendo} onClick={actualizar}><RefreshCw size={14} /> Actualizar</button>
@@ -108,9 +115,9 @@ export default function EtiquetasTab({ client = supabase }) {
             <button type="button" className="mbl-btn-ic" disabled={!e.imprimible} aria-label={`Ver etiqueta de ${e.nombre}`} title="Ver etiqueta" onClick={() => setVistaId(e.id)}><Eye size={15} /></button>
           </div>)}
         </section>
-        <aside className="mbl-et-preview"><div className="mbl-et-panel"><div className="mbl-et-panel-cab"><b>Vista previa</b><Tag>50 × 80 mm</Tag></div><div className="mbl-et-papel">{preview ? <iframe title="Vista previa de la etiqueta de muebles" sandbox="allow-scripts" srcDoc={htmlPreview} /> : <Vacio titulo="Sin piezas para imprimir" />}</div><div className="mbl-et-enchapado">{detalle.enchapado && <ChapaSwatch tipo={detalle.enchapado} size="md" />}<div><small>Enchapado de la obra</small><b>{detalle.enchapado || "Enchapado a confirmar"}</b></div></div></div>
+        <aside className="mbl-et-preview"><div className="mbl-et-panel"><div className="mbl-et-panel-cab"><b>Vista previa</b><Tag>{papel.nombre}</Tag></div><div className="mbl-et-papel" style={{ "--et-alto": `${papel.disenoAlto}mm` }}>{preview ? <iframe title="Vista previa de la etiqueta de muebles" sandbox="allow-scripts" srcDoc={htmlPreview} /> : <Vacio titulo="Sin piezas para imprimir" />}</div><div className="mbl-et-enchapado">{detalle.enchapado && <ChapaSwatch tipo={detalle.enchapado} size="md" />}<div><small>Enchapado de la obra</small><b>{detalle.enchapado || "Enchapado a confirmar"}</b></div></div></div>
           {!detalle.enchapado && <Aviso tono="neutro">Falta el enchapado. Podés cargarlo en Recepción; por ahora la etiqueta dirá «Enchapado a confirmar».</Aviso>}
-          <p className="mbl-et-ayuda">P1S · E 50 × 80 mm · Vertical · Escala 100 %<br />Sin márgenes ni encabezados.</p>
+          <p className="mbl-et-ayuda">P1S · {papel.nombre} · {papel.rotar ? "Vertical" : "Sin giro"} · Escala 100 %<br />Sin márgenes ni encabezados.</p>
         </aside>
       </div>}
     </div>

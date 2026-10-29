@@ -43,7 +43,7 @@ export const CSS_MUEBLES = `
 .mbl-et-nombre small { display:block;font-size:12px;color:var(--dim);margin-top:3px; }
 .mbl-et-preview { position:sticky;top:0;display:grid;gap:12px;min-width:0; }
 .mbl-et-papel { background:var(--panel-2);padding:16px; }
-.mbl-et-papel iframe { display:block;width:100%;height:50mm;border:0;background:white;border-radius:5px; }
+.mbl-et-papel iframe { display:block;width:100%;height:var(--et-alto,50mm);border:0;background:white;border-radius:5px; }
 .mbl-et-enchapado { display:flex;align-items:center;gap:10px;padding:12px 16px; }
 .mbl-et-enchapado div { min-width:0; }
 .mbl-et-enchapado small { display:block;font-size:11px;color:var(--dim);margin-bottom:3px; }
