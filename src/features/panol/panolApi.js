@@ -2580,6 +2580,17 @@ export async function setEstadoEnvio(envioId, estado) {
   if (error) throw error;
 }
 
+export async function actualizarTituloEnvio(envioId, titulo) {
+  const texto = String(titulo ?? "").trim();
+  if (!texto) throw new Error("Completá el título del aviso.");
+  const { data, error } = await supabase.rpc("panol_actualizar_titulo_envio", {
+    p_envio: envioId,
+    p_titulo: texto,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function egresarMaterialesObra(ids = [], { nota = null, retiradoPor = null, sectorDestino = null, destinoObraId = null, cantidades = {} } = {}) {
   const p_snapshot_ids = ids.filter(Boolean);
   if (!p_snapshot_ids.length) return 0;
