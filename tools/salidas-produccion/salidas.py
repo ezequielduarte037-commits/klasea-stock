@@ -6,9 +6,14 @@ No se guardan imágenes: sólo plantillas numéricas de cara (encriptadas) y
 eventos. La única excepción son los pasos que no se pudieron identificar, que
 quedan encriptados 48 h para que un supervisor los asigne o los descarte.
 
+Las personas se registran eligiendo al empleado de RRHH (KlaseA), así que la
+clave es el DNI, la misma del fichero Hikvision de la entrada principal. Las
+fichadas de ese fichero cierran el tiempo fuera de quien salió por la lateral y
+volvió por la principal.
+
 Uso (detalle en LEEME.md):
   python salidas.py modelos
-  python salidas.py registrar "Nombre Apellido"
+  python salidas.py registrar "parte del nombre o DNI"
   python salidas.py reconocer --puerta lateral --sentido salida
   python salidas.py revisar
   python salidas.py informe
@@ -21,8 +26,10 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
+import unicodedata
 import urllib.request
 from collections import Counter, deque
 from datetime import datetime, timedelta
@@ -36,6 +43,7 @@ from cryptography.fernet import Fernet
 cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
 
 BASE = Path(__file__).resolve().parent
+REPO = BASE.parent.parent   # raíz de klasea-stock, donde está vinculado el CLI de Supabase
 MODELOS = {
     "yunet": (
         BASE / "modelos" / "face_detection_yunet_2023mar.onnx",
@@ -65,8 +73,14 @@ MUESTRAS_REGISTRO = 8
 MEDIR_CADA_SEG = 10
 ANCHO_DETECCION = 960     # las caras se buscan en una copia de este ancho
 
+# RRHH (empleados y fichadas del Hikvision de la entrada principal, vía KlaseA)
+DIAS_FICHADAS = 45        # cuántos días de fichadas se traen
+SEDE_FICHERO = "Chubut"   # fichero de la entrada principal de producción; None = todos
+FICHADA_DUPLICADA_MIN = 3 # fichadas de la misma persona a menos de esto cuentan como una
+CACHE_RRHH_HORAS = 1      # pasado este tiempo, se vuelve a sincronizar
+
 NO_IDENTIFICADO = "(no identificado)"
-CAMPOS_EVENTO = ["hora", "puerta", "sentido", "persona", "similitud", "origen"]
+CAMPOS_EVENTO = ["hora", "puerta", "sentido", "persona", "similitud", "origen", "dni"]
 
 VERDE = (80, 190, 80)
 GRIS = (170, 170, 170)
@@ -128,28 +142,76 @@ class Datos:
         self.pendientes.mkdir(exist_ok=True)
         self.cofre = Cofre(self.dir)
         self.personas_f = self.dir / "personas.enc"
+        self.rrhh_f = self.dir / "rrhh.enc"
         self.eventos_f = self.dir / "eventos.csv"
         self.medicion_f = self.dir / "medicion.csv"
 
+    def _leer_cifrado(self, archivo: Path, vacio):
+        if not archivo.exists():
+            return vacio
+        return json.loads(self.cofre.descifrar(archivo.read_bytes()))
+
+    def _guardar_cifrado(self, archivo: Path, contenido):
+        temporal = archivo.with_suffix(".tmp")
+        temporal.write_bytes(self.cofre.cifrar(json.dumps(contenido).encode()))
+        temporal.replace(archivo)
+
     def leer_personas(self) -> dict:
-        if not self.personas_f.exists():
-            return {}
-        return json.loads(self.cofre.descifrar(self.personas_f.read_bytes()))
+        """{clave: {"nombre", "dni", "rasgos"}}. La clave es el DNI, o el nombre si no es de RRHH."""
+        return normalizar_personas(self._leer_cifrado(self.personas_f, {}))
 
     def guardar_personas(self, personas: dict):
-        datos = json.dumps(personas).encode()
-        temporal = self.personas_f.with_suffix(".tmp")
-        temporal.write_bytes(self.cofre.cifrar(datos))
-        temporal.replace(self.personas_f)
+        self._guardar_cifrado(self.personas_f, personas)
 
-    def anotar_evento(self, hora: datetime, puerta, sentido, persona, similitud, origen):
+    def leer_rrhh(self) -> dict:
+        return self._leer_cifrado(self.rrhh_f, {})
+
+    def guardar_rrhh(self, rrhh: dict):
+        self._guardar_cifrado(self.rrhh_f, rrhh)
+
+    def anotar_evento(self, hora: datetime, puerta, sentido, persona, similitud, origen, dni=""):
+        self._actualizar_encabezado_eventos()
         nuevo = not self.eventos_f.exists()
         with self.eventos_f.open("a", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             if nuevo:
                 w.writerow(CAMPOS_EVENTO)
             w.writerow([hora.isoformat(timespec="seconds"), puerta, sentido, persona,
-                        f"{similitud:.3f}", origen])
+                        f"{similitud:.3f}", origen, dni])
+
+    def asignar_dni_a_eventos(self, persona: str, dni: str, nombre: str) -> int:
+        """Los eventos sin DNI de esa persona pasan a tener su DNI y su nombre de RRHH."""
+        eventos = self.leer_eventos()
+        cambiados = 0
+        for e in eventos:
+            if e["persona"] == persona and not (e.get("dni") or ""):
+                e["dni"], e["persona"] = dni, nombre
+                cambiados += 1
+        if cambiados:
+            temporal = self.eventos_f.with_suffix(".tmp")
+            with temporal.open("w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=CAMPOS_EVENTO, extrasaction="ignore")
+                w.writeheader()
+                for e in eventos:
+                    w.writerow({c: e.get(c) or "" for c in CAMPOS_EVENTO})
+            temporal.replace(self.eventos_f)
+        return cambiados
+
+    def _actualizar_encabezado_eventos(self):
+        """Los eventos de la primera versión no tenían la columna dni: se la agrega vacía."""
+        if not self.eventos_f.exists():
+            return
+        with self.eventos_f.open(newline="", encoding="utf-8") as f:
+            lector = csv.reader(f)
+            campos = next(lector, [])
+            if campos == CAMPOS_EVENTO:
+                return
+            filas = [dict(zip(campos, fila)) for fila in lector]
+        with self.eventos_f.open("w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=CAMPOS_EVENTO, extrasaction="ignore")
+            w.writeheader()
+            for fila in filas:
+                w.writerow({c: fila.get(c) or "" for c in CAMPOS_EVENTO})
 
     def leer_eventos(self) -> list:
         if not self.eventos_f.exists():
@@ -186,6 +248,98 @@ class Datos:
             if nuevo:
                 w.writeheader()
             w.writerow(fila)
+
+
+def normalizar_personas(crudo: dict) -> dict:
+    personas = {}
+    for clave, valor in crudo.items():
+        if isinstance(valor, list):   # formato de la primera versión: nombre -> muestras
+            personas[clave] = {"nombre": clave, "dni": "", "rasgos": valor}
+        else:
+            personas[clave] = valor
+    return personas
+
+
+# ---------- RRHH ----------
+
+def _consulta_supabase(sql: str) -> list:
+    """Consulta de sólo lectura con el CLI de Supabase vinculado en el repo (el mismo login de siempre)."""
+    npx = "npx.cmd" if sys.platform == "win32" else "npx"
+    try:
+        r = subprocess.run([npx, "supabase", "db", "query", "--linked", sql], cwd=REPO,
+                           capture_output=True, text=True, encoding="utf-8", timeout=180)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise RuntimeError(f"No se pudo correr el CLI de Supabase: {e}") from e
+    inicio = r.stdout.find("{")
+    if r.returncode != 0 or inicio < 0:
+        detalle = (r.stderr or r.stdout).strip().splitlines()[-1:] or ["sin detalle"]
+        raise RuntimeError(f"La consulta a Supabase falló: {detalle[0]}")
+    return json.loads(r.stdout[inicio:])["rows"]
+
+
+def sincronizar_rrhh(datos: Datos) -> dict:
+    empleados = _consulta_supabase(
+        "select dni, nombre, grupo, sede from rrhh_empleados "
+        "where activo and coalesce(dni, '') <> '' order by nombre")
+    fichadas = _consulta_supabase(
+        "select e.dni, m.fecha::text as fecha, m.sede, m.fichadas "
+        "from rrhh_marcaciones m join rrhh_empleados e on e.id = m.empleado_id "
+        f"where m.fecha >= current_date - {int(DIAS_FICHADAS)} "
+        "and jsonb_typeof(m.fichadas) = 'array' and coalesce(e.dni, '') <> ''")
+    rrhh = {"sincronizado": datetime.now().isoformat(timespec="seconds"),
+            "empleados": empleados, "fichadas": fichadas}
+    datos.guardar_rrhh(rrhh)
+    return rrhh
+
+
+def rrhh_al_dia(datos: Datos, forzar=False, avisar=True) -> dict:
+    """Devuelve los datos de RRHH; si son viejos intenta traerlos y, si no puede, usa los que había."""
+    rrhh = datos.leer_rrhh()
+    viejo = not rrhh or datetime.now() - datetime.fromisoformat(rrhh["sincronizado"]) > timedelta(hours=CACHE_RRHH_HORAS)
+    if forzar or viejo:
+        try:
+            if avisar:
+                print("Trayendo empleados y fichadas de KlaseA...")
+            rrhh = sincronizar_rrhh(datos)
+        except RuntimeError as e:
+            if not rrhh:
+                raise
+            print(f"Aviso: {e}. Uso los datos del {rrhh['sincronizado'][:16].replace('T', ' ')}.")
+    return rrhh
+
+
+def _sin_acentos(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn")
+
+
+def buscar_empleados(empleados: list, texto: str) -> list:
+    """Busca por partes del nombre (sin importar acentos ni orden) o por DNI."""
+    texto = texto.strip()
+    if texto.isdigit():
+        return [e for e in empleados if texto in str(e.get("dni", ""))]
+    partes = _sin_acentos(texto).split()
+    return [e for e in empleados if all(p in _sin_acentos(e.get("nombre", "")) for p in partes)]
+
+
+def eventos_de_fichadas(rrhh: dict) -> list:
+    """Las fichadas del Hikvision como eventos 'fichada' de la puerta principal."""
+    nombres = {str(e["dni"]): e["nombre"] for e in rrhh.get("empleados", [])}
+    eventos = []
+    for fila in rrhh.get("fichadas", []):
+        if SEDE_FICHERO and fila.get("sede") != SEDE_FICHERO:
+            continue
+        dni = str(fila["dni"])
+        horas = sorted(datetime.fromisoformat(f"{fila['fecha']}T{int(h[:-3]):02d}:{h[-2:]}:00")
+                       for h in map(str, fila.get("fichadas") or []) if re.fullmatch(r"\d{1,2}:\d{2}", h))
+        anterior = None
+        for hora in horas:
+            if anterior and hora - anterior < timedelta(minutes=FICHADA_DUPLICADA_MIN):
+                continue
+            anterior = hora
+            eventos.append({"hora": hora.isoformat(timespec="seconds"), "puerta": "principal",
+                            "sentido": "fichada", "persona": nombres.get(dni, dni), "similitud": "",
+                            "origen": "fichero", "dni": dni})
+    return eventos
 
 
 def leer_clave_pendiente(archivo: Path):
@@ -243,10 +397,11 @@ class Motor:
 
 class Galeria:
     def __init__(self, personas: dict):
+        """personas: {clave: {"rasgos": [...]}}; identificar() devuelve la clave."""
         self.nombres, filas = [], []
-        for nombre, rasgos in personas.items():
-            for r in rasgos:
-                self.nombres.append(nombre)
+        for clave, persona in normalizar_personas(personas).items():
+            for r in persona["rasgos"]:
+                self.nombres.append(clave)
                 filas.append(r)
         self.matriz = np.array(filas, np.float32) if filas else np.zeros((0, 128), np.float32)
 
@@ -275,7 +430,8 @@ class Paso:
         self.caja, self.visto, self.inicio = caja, t, t
         self.detecciones = 0
         self.votos = deque(maxlen=VENTANA_VOTOS)
-        self.decidido = None
+        self.decidido = None   # clave de la persona (DNI o nombre)
+        self.nombre = ""
         self.similitud = 0.0
         self.mejor_sim = 0.0   # el candidato más parecido aunque no haya alcanzado el umbral
         self.motivo = ""
@@ -352,33 +508,50 @@ def eventos_resueltos(eventos: list) -> list:
             if not (e["persona"] == NO_IDENTIFICADO and (e["hora"], e["puerta"], e["sentido"]) in revisados)]
 
 
+def clave_evento(e: dict) -> str:
+    return (e.get("dni") or "").strip() or e["persona"]
+
+
 def calcular_tiempos(eventos: list, ahora: datetime = None) -> dict:
-    """Por (persona, día de la salida): salidas, minutos fuera, sin regreso y si está fuera ahora."""
+    """Por (clave, día de la salida): nombre, salidas, minutos fuera, cuántas salidas cerró el
+    fichero, sin regreso y si está fuera ahora.
+
+    Una salida se cierra con la siguiente entrada por cámara o, si no la hay, con la siguiente
+    fichada del Hikvision de la entrada principal, siempre el mismo día. Cuando la cierra una
+    fichada, el tiempo es un máximo: la persona volvió en algún momento antes de fichar.
+    """
     ahora = ahora or datetime.now()
     por_persona = {}
     for e in eventos_resueltos(eventos):
         if e["persona"] == NO_IDENTIFICADO:
             continue
-        por_persona.setdefault(e["persona"], []).append(e)
+        por_persona.setdefault(clave_evento(e), []).append(e)
 
     filas = {}
-    for persona, lista in por_persona.items():
+    for clave, lista in por_persona.items():
         lista.sort(key=lambda e: e["hora"])
+        nombre = lista[-1]["persona"]
         salida = None
         for e in lista:
             hora = datetime.fromisoformat(e["hora"])
+            if salida is not None and hora.date() != salida.date():
+                filas[(clave, salida.date())]["sin_regreso"] += 1
+                salida = None
             if e["sentido"] == "salida":
                 if salida is not None:
-                    filas[(persona, salida.date())]["sin_regreso"] += 1
+                    filas[(clave, salida.date())]["sin_regreso"] += 1
                 salida = hora
-                fila = filas.setdefault((persona, hora.date()),
-                                        {"salidas": 0, "minutos": 0.0, "sin_regreso": 0, "fuera_desde": None})
+                fila = filas.setdefault((clave, hora.date()),
+                                        {"nombre": nombre, "salidas": 0, "minutos": 0.0, "por_fichero": 0,
+                                         "sin_regreso": 0, "fuera_desde": None})
                 fila["salidas"] += 1
-            elif e["sentido"] == "entrada" and salida is not None:
-                filas[(persona, salida.date())]["minutos"] += (hora - salida).total_seconds() / 60
+            elif e["sentido"] in ("entrada", "fichada") and salida is not None and hora > salida:
+                fila = filas[(clave, salida.date())]
+                fila["minutos"] += (hora - salida).total_seconds() / 60
+                fila["por_fichero"] += e["sentido"] == "fichada"
                 salida = None
         if salida is not None:
-            fila = filas[(persona, salida.date())]
+            fila = filas[(clave, salida.date())]
             if salida.date() == ahora.date():
                 fila["fuera_desde"] = salida
             else:
@@ -388,7 +561,7 @@ def calcular_tiempos(eventos: list, ahora: datetime = None) -> dict:
 
 def fuera_ahora(eventos: list, ahora: datetime = None) -> list:
     ahora = ahora or datetime.now()
-    lista = [(persona, f["fuera_desde"]) for (persona, _), f in calcular_tiempos(eventos, ahora).items()
+    lista = [(f["nombre"], f["fuera_desde"]) for f in calcular_tiempos(eventos, ahora).values()
              if f["fuera_desde"]]
     return sorted(lista, key=lambda x: x[1])
 
@@ -440,28 +613,66 @@ def cmd_modelos(_args):
 
 
 def cmd_registrar(args):
-    datos, motor = Datos(args.datos), Motor()
+    datos = Datos(args.datos)
     personas = datos.leer_personas()
-    if args.nombre in personas and not args.reemplazar:
-        sys.exit(f"'{args.nombre}' ya está registrado. Usá --reemplazar para cargarlo de nuevo.")
+    if args.sin_rrhh:
+        if not args.busqueda:
+            sys.exit("Con --sin-rrhh hay que poner el nombre.")
+        clave, nombre, dni = args.busqueda.strip(), args.busqueda.strip(), ""
+    else:
+        empleado = elegir_empleado(rrhh_al_dia(datos)["empleados"], args.busqueda or "")
+        if not empleado:
+            sys.exit("No se registró a nadie.")
+        clave, nombre, dni = str(empleado["dni"]), empleado["nombre"], str(empleado["dni"])
+    if clave in personas and not args.reemplazar:
+        sys.exit(f"{nombre} ya está registrado. Usá --reemplazar para cargarlo de nuevo.")
 
+    motor = Motor()
     rasgos = _rasgos_desde_fotos(motor, Path(args.desde_fotos)) if args.desde_fotos \
-        else _rasgos_desde_camara(motor, args.fuente, args.nombre)
+        else _rasgos_desde_camara(motor, args.fuente, nombre)
     if len(rasgos) < 3:
         sys.exit(f"Sólo salieron {len(rasgos)} muestras buenas; hacen falta al menos 3. No se guardó nada.")
 
-    otros = {n: r for n, r in personas.items() if n != args.nombre}
+    otros = {c: p for c, p in personas.items() if c != clave}
     if otros:
         promedio = np.mean(rasgos, axis=0)
-        nombre, sim = Galeria(otros).identificar(promedio / np.linalg.norm(promedio))
-        if nombre:
-            print(f"Atención: se parece a '{nombre}' (similitud {sim:.2f}). Revisá que no sea la misma persona.")
+        parecido, sim = Galeria(otros).identificar(promedio / np.linalg.norm(promedio))
+        if parecido:
+            print(f"Atención: se parece a {otros[parecido]['nombre']} (similitud {sim:.2f}). "
+                  "Revisá que no sea la misma persona.")
 
-    personas[args.nombre] = [r.tolist() for r in rasgos]
+    personas[clave] = {"nombre": nombre, "dni": dni, "rasgos": [r.tolist() for r in rasgos]}
     datos.guardar_personas(personas)
-    print(f"Registrado '{args.nombre}' con {len(rasgos)} muestras. No se guardó ninguna foto.")
+    print(f"Registrado {nombre}{f' (DNI {dni})' if dni else ''} con {len(rasgos)} muestras. "
+          "No se guardó ninguna foto.")
     if args.desde_fotos:
         print("Ya podés borrar las fotos de esa carpeta.")
+
+
+def elegir_empleado(empleados: list, busqueda: str):
+    """Busca en RRHH por nombre o DNI y deja elegir. Devuelve el empleado o None."""
+    while True:
+        if not busqueda:
+            busqueda = input("Buscá por nombre o DNI (Enter para cancelar): ").replace("﻿", "").strip()
+            if not busqueda:
+                return None
+        encontrados = buscar_empleados(empleados, busqueda)
+        if not encontrados:
+            print(f"No hay empleados activos que coincidan con '{busqueda}'.")
+        elif len(encontrados) == 1:
+            e = encontrados[0]
+            if input(f"¿Es {e['nombre']} (DNI {e['dni']})? [S/n] ").strip().lower() in ("", "s", "si", "sí"):
+                return e
+        else:
+            mostrados = encontrados[:15]
+            for i, e in enumerate(mostrados, 1):
+                print(f"  {i:>2}. {e['nombre']}  (DNI {e['dni']}{', ' + e['sede'] if e.get('sede') else ''})")
+            if len(encontrados) > len(mostrados):
+                print(f"  ... y {len(encontrados) - len(mostrados)} más; escribí algo más preciso.")
+            elegido = input("Número (Enter para buscar de nuevo): ").strip()
+            if elegido.isdigit() and 1 <= int(elegido) <= len(mostrados):
+                return mostrados[int(elegido) - 1]
+        busqueda = ""
 
 
 def _rasgos_desde_camara(motor, fuente, nombre):
@@ -526,31 +737,68 @@ def cmd_personas(args):
     personas = Datos(args.datos).leer_personas()
     if not personas:
         print("No hay nadie registrado.")
-    for nombre, rasgos in sorted(personas.items()):
-        print(f"{nombre}  ({len(rasgos)} muestras)")
+    for p in sorted(personas.values(), key=lambda p: p["nombre"]):
+        dni = f"DNI {p['dni']}" if p["dni"] else "sin RRHH"
+        print(f"{p['nombre']}  ({dni}, {len(p['rasgos'])} muestras)")
+
+
+def cmd_vincular(args):
+    """Pasa a alguien registrado sin RRHH a su ficha de empleado, sin volver a tomarle la cara."""
+    datos = Datos(args.datos)
+    personas = datos.leer_personas()
+    sueltos = [c for c, p in personas.items() if not p["dni"]
+               and (not args.quien or _sin_acentos(args.quien) in _sin_acentos(p["nombre"]))]
+    if not sueltos:
+        sys.exit("No hay nadie registrado sin RRHH" + (f" que coincida con '{args.quien}'." if args.quien else "."))
+    empleados = rrhh_al_dia(datos)["empleados"]
+    vinculados = 0
+    for clave in sueltos:
+        viejo = personas[clave]["nombre"]
+        print(f"\n{viejo}:")
+        empleado = elegir_empleado(empleados, viejo)
+        if not empleado:
+            print("  queda sin vincular")
+            continue
+        dni, nombre = str(empleado["dni"]), empleado["nombre"]
+        if dni in personas:
+            print(f"  {nombre} ya está registrado con su DNI; no se toca.")
+            continue
+        personas[dni] = {"nombre": nombre, "dni": dni, "rasgos": personas.pop(clave)["rasgos"]}
+        datos.guardar_personas(personas)
+        cambiados = datos.asignar_dni_a_eventos(viejo, dni, nombre)
+        vinculados += 1
+        print(f"  vinculado a {nombre} (DNI {dni}); {cambiados} eventos anteriores actualizados")
+    print(f"\n{vinculados} vinculados.")
 
 
 def cmd_borrar(args):
     datos = Datos(args.datos)
     personas = datos.leer_personas()
-    if personas.pop(args.nombre, None) is None:
-        sys.exit(f"'{args.nombre}' no está registrado.")
+    encontrados = [c for c, p in personas.items()
+                   if args.quien.strip() in (c, p["dni"]) or _sin_acentos(args.quien) in _sin_acentos(p["nombre"])]
+    if not encontrados:
+        sys.exit(f"'{args.quien}' no está registrado.")
+    if len(encontrados) > 1:
+        sys.exit("Coincide con varios: " + ", ".join(personas[c]["nombre"] for c in encontrados)
+                 + ". Usá el DNI.")
+    nombre = personas.pop(encontrados[0])["nombre"]
     datos.guardar_personas(personas)
-    print(f"Borrada la plantilla de '{args.nombre}'. Sus eventos anteriores quedan en eventos.csv.")
+    print(f"Borrada la plantilla de {nombre}. Sus eventos anteriores quedan en eventos.csv.")
 
 
 def cmd_reconocer(args):
     datos, motor = Datos(args.datos), Motor()
-    galeria = Galeria(datos.leer_personas())
+    personas = datos.leer_personas()
+    galeria = Galeria(personas)
     if not galeria.nombres:
         print("Aviso: no hay nadie registrado; todo va a salir como no identificado.")
+    eventos = datos.leer_eventos() + _fichadas_o_nada(datos, args.sin_rrhh)
     cap, es_archivo = abrir_fuente(args.fuente)
     if not cap.isOpened():
         sys.exit(f"No se pudo abrir la fuente '{args.fuente}'.")
 
     seguidor, sentido = Seguidor(), args.sentido
     ultimo_evento = {}
-    eventos = datos.leer_eventos()
     proceso = psutil.Process()
     proceso.cpu_percent(None)
     inicio_real = time.time()
@@ -558,11 +806,14 @@ def cmd_reconocer(args):
     resumen = Counter()
     ventana = "Salidas de produccion (s salida / e entrada / q sale)"
 
-    def anotar(paso, persona, sim):
+    def anotar(paso, clave, sim):
         hora = datetime.now()
-        datos.anotar_evento(hora, args.puerta, sentido, persona, sim, "camara")
+        persona = personas[clave]["nombre"] if clave in personas else clave
+        dni = personas[clave]["dni"] if clave in personas else ""
+        datos.anotar_evento(hora, args.puerta, sentido, persona, sim, "camara", dni)
         eventos.append({"hora": hora.isoformat(timespec="seconds"), "puerta": args.puerta,
-                        "sentido": sentido, "persona": persona, "similitud": f"{sim:.3f}", "origen": "camara"})
+                        "sentido": sentido, "persona": persona, "similitud": f"{sim:.3f}",
+                        "origen": "camara", "dni": dni})
         if persona == NO_IDENTIFICADO and paso.recorte is not None:
             datos.guardar_pendiente(hora, args.puerta, sentido, paso.recorte)
         resumen[persona] += 1
@@ -585,6 +836,7 @@ def cmd_reconocer(args):
                 if sirve and paso.decidido is None:
                     nombre, sim = galeria.identificar(motor.rasgo(alineada))
                     if paso.votar(nombre, sim):
+                        paso.nombre = personas[paso.decidido]["nombre"]
                         clave = (paso.decidido, sentido)
                         if ahora - ultimo_evento.get(clave, 0) > ESPERA_REPETIDO_SEG:
                             anotar(paso, paso.decidido, paso.similitud)
@@ -642,7 +894,7 @@ def cmd_reconocer(args):
 def _dibujar_paso(img, paso):
     x, y, w, h = [int(v) for v in paso.caja]
     if paso.decidido:
-        color, texto = VERDE, f"{paso.decidido} {paso.similitud:.2f}"
+        color, texto = VERDE, f"{paso.nombre or paso.decidido} {paso.similitud:.2f}"
     elif paso.motivo:
         color, texto = GRIS, f"cara {paso.motivo}"
     else:
@@ -670,10 +922,10 @@ def cmd_revisar(args):
     if not archivos:
         print("No hay pasos sin identificar para revisar.")
         return
-    nombres = sorted(datos.leer_personas())
+    lista = sorted(datos.leer_personas().values(), key=lambda p: p["nombre"])
     print("Personas:")
-    for i, n in enumerate(nombres, 1):
-        print(f"  {i}. {n}")
+    for i, p in enumerate(lista, 1):
+        print(f"  {i}. {p['nombre']}" + (f"  (DNI {p['dni']})" if p["dni"] else ""))
     print("Para cada paso: número = es esa persona · d = descartar · Enter = dejar para después\n")
     for archivo in archivos:
         hora, puerta, sentido = leer_clave_pendiente(archivo)
@@ -683,15 +935,35 @@ def cmd_revisar(args):
         respuesta = input(f"{hora:%d/%m %H:%M:%S}  {puerta}  {sentido}: ").strip().lower()
         if respuesta == "d":
             archivo.unlink()
-        elif respuesta.isdigit() and 1 <= int(respuesta) <= len(nombres):
-            datos.anotar_evento(hora, puerta, sentido, nombres[int(respuesta) - 1], 0.0, "revision")
+        elif respuesta.isdigit() and 1 <= int(respuesta) <= len(lista):
+            elegido = lista[int(respuesta) - 1]
+            datos.anotar_evento(hora, puerta, sentido, elegido["nombre"], 0.0, "revision", elegido["dni"])
             archivo.unlink()
     cv2.destroyAllWindows()
 
 
+def _fichadas_o_nada(datos: Datos, sin_rrhh: bool) -> list:
+    if sin_rrhh:
+        return []
+    try:
+        rrhh = rrhh_al_dia(datos)
+    except RuntimeError as e:
+        print(f"Aviso: {e}. Sigo sin las fichadas de la entrada principal.")
+        return []
+    print(f"Fichadas de la entrada principal: datos de KlaseA del {rrhh['sincronizado'][:16].replace('T', ' ')}.")
+    return eventos_de_fichadas(rrhh)
+
+
+def cmd_sincronizar(args):
+    rrhh = rrhh_al_dia(Datos(args.datos), forzar=True)
+    dias = sorted({f["fecha"] for f in rrhh["fichadas"]})
+    print(f"{len(rrhh['empleados'])} empleados activos y {len(rrhh['fichadas'])} días-persona de fichadas"
+          + (f" ({dias[0]} a {dias[-1]})." if dias else "."))
+
+
 def cmd_informe(args):
     datos = Datos(args.datos)
-    eventos = datos.leer_eventos()
+    eventos = datos.leer_eventos() + _fichadas_o_nada(datos, args.sin_rrhh)
     desde = datetime.strptime(args.desde, "%Y-%m-%d").date() if args.desde else None
     hasta = datetime.strptime(args.hasta, "%Y-%m-%d").date() if args.hasta else None
     filas = calcular_tiempos(eventos)
@@ -707,17 +979,23 @@ def cmd_informe(args):
     salida_csv = datos.dir / "informe.csv"
     with salida_csv.open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
-        w.writerow(["dia", "persona", "salidas", "minutos_fuera", "sin_regreso", "fuera_desde"])
-        print(f"{'Día':<11}{'Persona':<26}{'Salidas':>8}{'Min. fuera':>12}{'Sin regreso':>13}")
-        for (persona, dia), f_ in seleccion:
+        w.writerow(["dia", "dni", "persona", "salidas", "minutos_fuera", "cerradas_por_fichero",
+                    "sin_regreso", "fuera_desde"])
+        print(f"{'Día':<11}{'Persona':<30}{'Salidas':>8}{'Min. fuera':>12}{'Por fichero':>13}{'Sin regreso':>13}")
+        for (clave, dia), f_ in sorted(seleccion, key=lambda kv: (kv[0][1], kv[1]["nombre"])):
             desde_txt = f_["fuera_desde"].strftime("%H:%M") if f_["fuera_desde"] else ""
-            print(f"{dia:%d/%m/%Y} {persona:<26}{f_['salidas']:>8}{f_['minutos']:>12.0f}{f_['sin_regreso']:>13}"
+            dni = clave if clave.isdigit() else ""
+            print(f"{dia:%d/%m/%Y} {f_['nombre'][:29]:<30}{f_['salidas']:>8}{f_['minutos']:>12.0f}"
+                  f"{f_['por_fichero']:>13}{f_['sin_regreso']:>13}"
                   + (f"   fuera desde {desde_txt}" if desde_txt else ""))
-            w.writerow([dia.isoformat(), persona, f_["salidas"], f"{f_['minutos']:.0f}".replace(".", ","),
-                        f_["sin_regreso"], desde_txt])
+            w.writerow([dia.isoformat(), dni, f_["nombre"], f_["salidas"], f"{f_['minutos']:.0f}",
+                        f_["por_fichero"], f_["sin_regreso"], desde_txt])
     for dia, veces in sorted(sin_id.items()):
         if (not desde or dia >= desde) and (not hasta or dia <= hasta):
             print(f"{dia:%d/%m/%Y} pasos sin identificar: {veces}")
+    if any(f_["por_fichero"] for _, f_ in seleccion):
+        print("\n'Por fichero' = salidas que cerró una fichada de la entrada principal: ese tiempo es un"
+              " máximo, la persona volvió en algún momento antes de fichar.")
     print(f"\nGuardado en {salida_csv}")
 
 
@@ -728,8 +1006,11 @@ def main(argv=None):
 
     sub.add_parser("modelos", help="baja y verifica los modelos YuNet y SFace").set_defaults(fn=cmd_modelos)
 
-    r = sub.add_parser("registrar", help="registra a una persona (con su consentimiento)")
-    r.add_argument("nombre")
+    sub.add_parser("sincronizar", help="trae empleados y fichadas de RRHH (KlaseA)").set_defaults(fn=cmd_sincronizar)
+
+    r = sub.add_parser("registrar", help="registra a un empleado de RRHH (con su consentimiento)")
+    r.add_argument("busqueda", nargs="?", help="nombre o DNI a buscar en RRHH")
+    r.add_argument("--sin-rrhh", action="store_true", help="registrar a alguien que no está en RRHH, con ese nombre")
     r.add_argument("--fuente", default="0", help="0 = cámara de la notebook, o una URL rtsp://")
     r.add_argument("--desde-fotos", help="carpeta con 3 a 8 fotos de la persona, en lugar de la cámara")
     r.add_argument("--reemplazar", action="store_true")
@@ -737,8 +1018,12 @@ def main(argv=None):
 
     sub.add_parser("personas", help="lista las personas registradas").set_defaults(fn=cmd_personas)
 
+    v = sub.add_parser("vincular", help="vincula a alguien registrado sin RRHH con su ficha de empleado")
+    v.add_argument("quien", nargs="?", help="nombre (si no, pregunta por todos los que no tienen DNI)")
+    v.set_defaults(fn=cmd_vincular)
+
     b = sub.add_parser("borrar", help="borra la plantilla de una persona")
-    b.add_argument("nombre")
+    b.add_argument("quien", help="DNI o nombre")
     b.set_defaults(fn=cmd_borrar)
 
     c = sub.add_parser("reconocer", help="mira una cámara y anota salidas o entradas")
@@ -747,6 +1032,7 @@ def main(argv=None):
     c.add_argument("--sentido", choices=["salida", "entrada"], default="salida")
     c.add_argument("--sin-ventana", action="store_true", help="no muestra la imagen (para dejarlo fijo)")
     c.add_argument("--segundos", type=float, default=0, help="cortar solo después de N segundos")
+    c.add_argument("--sin-rrhh", action="store_true", help="no traer las fichadas de la entrada principal")
     c.set_defaults(fn=cmd_reconocer)
 
     sub.add_parser("revisar", help="asigna o descarta los pasos sin identificar").set_defaults(fn=cmd_revisar)
@@ -754,6 +1040,7 @@ def main(argv=None):
     i = sub.add_parser("informe", help="tiempo fuera por persona y por día")
     i.add_argument("--desde", help="AAAA-MM-DD")
     i.add_argument("--hasta", help="AAAA-MM-DD")
+    i.add_argument("--sin-rrhh", action="store_true", help="no usar las fichadas de la entrada principal")
     i.set_defaults(fn=cmd_informe)
 
     args = p.parse_args(argv)

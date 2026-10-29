@@ -77,6 +77,54 @@ def test_tiempos():
     assert s.fuera_ahora(eventos, ahora) == [("Ana", datetime(2026, 10, 22, 15, 0))]
 
 
+def test_fichada_cierra_salida():
+    eventos = [
+        _ev("2026-10-22T06:50:00", "fichada", "Ana Paz", "fichero") | {"dni": "30111222"},   # entrada al turno: no cierra nada
+        _ev("2026-10-22T10:00:00", "salida", "Ana Paz") | {"dni": "30111222"},
+        _ev("2026-10-22T10:25:00", "fichada", "Ana Paz", "fichero") | {"dni": "30111222"},   # volvió por la principal
+        _ev("2026-10-22T13:00:00", "salida", "Ana Paz") | {"dni": "30111222"},
+        _ev("2026-10-22T13:08:00", "entrada", "Ana Paz") | {"dni": "30111222"},              # la cámara gana a la fichada
+        _ev("2026-10-22T16:00:00", "fichada", "Ana Paz", "fichero") | {"dni": "30111222"},
+        _ev("2026-10-21T15:00:00", "salida", "Ana Paz") | {"dni": "30111222"},               # ayer, sin regreso
+    ]
+    filas = s.calcular_tiempos(eventos, datetime(2026, 10, 22, 17))
+    hoy = filas[("30111222", datetime(2026, 10, 22).date())]
+    assert hoy["salidas"] == 2 and hoy["minutos"] == 33 and hoy["por_fichero"] == 1
+    assert hoy["fuera_desde"] is None and hoy["nombre"] == "Ana Paz"
+    ayer = filas[("30111222", datetime(2026, 10, 21).date())]
+    assert ayer["sin_regreso"] == 1 and ayer["minutos"] == 0, "una fichada de otro día no cierra la salida"
+
+
+def test_eventos_de_fichadas():
+    rrhh = {"empleados": [{"dni": "30111222", "nombre": "Ana Paz"}],
+            "fichadas": [{"dni": "30111222", "fecha": "2026-10-22", "sede": "Chubut",
+                          "fichadas": ["06:52", "06:53", "7:40", "16:00", "basura"]},
+                         {"dni": "30111222", "fecha": "2026-10-21", "sede": "Pampa", "fichadas": ["07:00"]}]}
+    eventos = s.eventos_de_fichadas(rrhh)
+    assert [e["hora"] for e in eventos if e["hora"].startswith("2026-10-22")] == \
+        ["2026-10-22T06:52:00", "2026-10-22T07:40:00", "2026-10-22T16:00:00"], "la doble fichada cuenta una vez"
+    assert all(e["persona"] == "Ana Paz" and e["sentido"] == "fichada" for e in eventos)
+    anterior, s.SEDE_FICHERO = s.SEDE_FICHERO, "Chubut"
+    try:
+        assert {e["hora"][:10] for e in s.eventos_de_fichadas(rrhh)} == {"2026-10-22"}
+    finally:
+        s.SEDE_FICHERO = anterior
+
+
+def test_buscar_empleados():
+    empleados = [{"dni": "30111222", "nombre": "PAZ, Ana Matías"}, {"dni": "28999000", "nombre": "Gómez Luis"}]
+    assert s.buscar_empleados(empleados, "matias paz") == [empleados[0]]
+    assert s.buscar_empleados(empleados, "GOMEZ") == [empleados[1]]
+    assert s.buscar_empleados(empleados, "2899") == [empleados[1]]
+    assert s.buscar_empleados(empleados, "nadie") == []
+
+
+def test_personas_formato_viejo():
+    p = s.normalizar_personas({"Ezequiel": [[0.1]], "30111222": {"nombre": "Ana", "dni": "30111222", "rasgos": [[0.2]]}})
+    assert p["Ezequiel"] == {"nombre": "Ezequiel", "dni": "", "rasgos": [[0.1]]}
+    assert p["30111222"]["nombre"] == "Ana"
+
+
 def test_revision_reemplaza_no_identificado():
     eventos = [
         _ev("2026-10-22T09:00:00", "salida", s.NO_IDENTIFICADO),
@@ -91,10 +139,11 @@ def test_revision_reemplaza_no_identificado():
 def test_datos_encriptados():
     with tempfile.TemporaryDirectory() as tmp:
         d = s.Datos(tmp)
-        d.guardar_personas({"Ana": [[0.1, 0.2]]})
+        ana = {"30111222": {"nombre": "Ana", "dni": "30111222", "rasgos": [[0.1, 0.2]]}}
+        d.guardar_personas(ana)
         crudo = (Path(tmp) / "personas.enc").read_bytes()
         assert b"Ana" not in crudo, "las plantillas no pueden quedar en texto plano"
-        assert s.Datos(tmp).leer_personas() == {"Ana": [[0.1, 0.2]]}
+        assert s.Datos(tmp).leer_personas() == ana
 
         img = np.full((60, 40, 3), 200, np.uint8)
         archivo = d.guardar_pendiente(datetime(2026, 10, 22, 9, 30), "lateral", "salida", img)
@@ -103,6 +152,42 @@ def test_datos_encriptados():
         assert s.leer_clave_pendiente(archivo) == (datetime(2026, 10, 22, 9, 30), "lateral", "salida")
         assert d.purgar_pendientes(ahora=archivo.stat().st_mtime + 47 * 3600) == 0
         assert d.purgar_pendientes(ahora=archivo.stat().st_mtime + 49 * 3600) == 1
+
+        d.guardar_rrhh({"sincronizado": "2026-10-22T10:00:00", "empleados": [{"dni": "30111222"}]})
+        assert b"30111222" not in (Path(tmp) / "rrhh.enc").read_bytes()
+        assert d.leer_rrhh()["empleados"] == [{"dni": "30111222"}]
+
+
+def test_vincular_registro_viejo():
+    import builtins
+    from types import SimpleNamespace
+    with tempfile.TemporaryDirectory() as tmp:
+        d = s.Datos(tmp)
+        d.guardar_personas({"Ezequiel": [[0.1, 0.2]]})                 # formato de la primera versión
+        d.guardar_rrhh({"sincronizado": datetime.now().isoformat(timespec="seconds"),
+                        "empleados": [{"dni": "35000111", "nombre": "DUARTE Ezequiel"}], "fichadas": []})
+        d.anotar_evento(datetime(2026, 10, 22, 9, 0), "lateral", "salida", "Ezequiel", 0.6, "camara")
+        respuestas = iter(["s"])
+        original, builtins.input = builtins.input, lambda _="": next(respuestas)
+        try:
+            s.cmd_vincular(SimpleNamespace(datos=tmp, quien=None))
+        finally:
+            builtins.input = original
+        personas = d.leer_personas()
+        assert list(personas) == ["35000111"] and personas["35000111"]["rasgos"] == [[0.1, 0.2]]
+        assert d.leer_eventos()[0]["dni"] == "35000111"
+        assert d.leer_eventos()[0]["persona"] == "DUARTE Ezequiel"
+
+
+def test_eventos_viejos_ganan_columna_dni():
+    with tempfile.TemporaryDirectory() as tmp:
+        d = s.Datos(tmp)
+        d.eventos_f.write_text("hora,puerta,sentido,persona,similitud,origen\n"
+                               "2026-10-22T09:00:00,lateral,salida,Ezequiel,0.600,camara\n", encoding="utf-8")
+        d.anotar_evento(datetime(2026, 10, 22, 9, 5), "lateral", "entrada", "Ana", 0.7, "camara", "30111222")
+        eventos = d.leer_eventos()
+        assert [e["dni"] for e in eventos] == ["", "30111222"]
+        assert eventos[0]["persona"] == "Ezequiel"
 
 
 if __name__ == "__main__":

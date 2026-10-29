@@ -7,12 +7,14 @@ MENU = """
   SALIDAS DE PRODUCCIÓN - prueba de reconocimiento facial
   -------------------------------------------------------
 
-  1. Registrar una persona
+  1. Registrar a un empleado (se elige de RRHH)
   2. Reconocer con la cámara de la notebook
   3. Ver el informe de tiempo fuera
   4. Revisar pasos sin identificar
   5. Ver personas registradas
   6. Borrar una persona
+  7. Vincular con RRHH a los registrados sin DNI
+  8. Traer empleados y fichadas de KlaseA
   0. Salir
 """
 
@@ -30,7 +32,7 @@ def correr(*args):
 
 
 def pedir(texto):
-    return input(f"  {texto}").strip()
+    return input(f"  {texto}").replace("﻿", "").strip()
 
 
 def main():
@@ -43,11 +45,10 @@ def main():
         if opcion == "0":
             return
         if opcion == "1":
-            nombre = pedir("Nombre y apellido: ")
-            if not nombre:
+            busqueda = pedir("Buscá por nombre o DNI: ")
+            if not busqueda:
                 continue
-            print("\n  Mirá a la cámara y mové apenas la cabeza. Q cancela.")
-            correr("registrar", nombre)
+            correr("registrar", busqueda)
         elif opcion == "2":
             print("  En la ventana de la cámara:  S = salida   E = entrada   Q = terminar\n")
             correr("reconocer")
@@ -59,10 +60,14 @@ def main():
             correr("personas")
         elif opcion == "6":
             correr("personas")
-            nombre = pedir("\n  Nombre a borrar (Enter para volver): ")
-            if not nombre:
+            quien = pedir("\n  DNI o nombre a borrar (Enter para volver): ")
+            if not quien:
                 continue
-            correr("borrar", nombre)
+            correr("borrar", quien)
+        elif opcion == "7":
+            correr("vincular")
+        elif opcion == "8":
+            correr("sincronizar")
         else:
             continue
         pedir("\nEnter para volver al menú...")
