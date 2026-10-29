@@ -127,6 +127,63 @@ function groqAuth(): string {
   return `Bearer ${key}`;
 }
 
+// La extracción puede devolver JSON cortado aun con HTTP 200. Se reintenta la
+// misma lectura antes de pasar a OCR, sin aceptar renglones parciales como éxito.
+async function pedirComprobante(body: Record<string, unknown>, operation: string, limite = Date.now() + 110_000): Promise<any> {
+  let maxTokens = Number(body.max_tokens || 8000);
+  for (let intento = 0; intento < 2; intento++) {
+    let espera = 500;
+    try {
+      const restante = limite - Date.now();
+      if (restante < 1000) throw new OpenRouterRequestError(operation, null, "Se agotó el tiempo de lectura", "timeout");
+      const res = await fetch(`${OR_BASE}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: orAuth(), "Content-Type": "application/json",
+          "HTTP-Referer": "https://klasea-stock.vercel.app", "X-Title": "Klase A Comprobantes" },
+        body: JSON.stringify({ ...body, max_tokens: maxTokens }),
+        signal: AbortSignal.timeout(Math.min(60_000, restante)),
+      });
+      if (!res.ok) {
+        const raw = await res.text();
+        espera = retryDelayMs(res);
+        // El parser PDF informa su saturación como 400, no como 429.
+        const saturado = res.status === 400 && /document parsing engine.*rate limited/i.test(raw);
+        throw new OpenRouterRequestError(operation, res.status, raw.slice(0, 300),
+          saturado ? "parser_rate_limited" : openRouterErrorCode(raw));
+      }
+      const data = await res.json();
+      const choice = data?.choices?.[0];
+      if (choice?.finish_reason === "length") {
+        maxTokens = Math.min(maxTokens * 2, 32000);
+        throw new OpenRouterRequestError(operation, null, "Respuesta incompleta por límite de salida", "truncated_response");
+      }
+      if (choice?.finish_reason && choice.finish_reason !== "stop") {
+        throw new OpenRouterRequestError(operation, null, `Lectura interrumpida: ${choice.finish_reason}`, "invalid_response");
+      }
+      const content = String(choice?.message?.content || "").trim()
+        .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+      let parsed;
+      try { parsed = JSON.parse(content); } catch {
+        // No registrar el documento ni devolver su contenido en un error.
+        throw new OpenRouterRequestError(operation, null, "Respuesta JSON inválida", "invalid_response");
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Array.isArray(parsed.items)) {
+        throw new OpenRouterRequestError(operation, null, "Respuesta sin lista de renglones", "invalid_response");
+      }
+      return parsed;
+    } catch (error) {
+      const fallo = error instanceof OpenRouterRequestError ? error
+        : new OpenRouterRequestError(operation, null, String(error), "network_error");
+      const recuperable = fallo.code === "parser_rate_limited" || fallo.code === "invalid_response"
+        || fallo.code === "truncated_response" || fallo.code === "network_error"
+        || (fallo.status != null && shouldRetryOpenRouter(fallo.status));
+      if (intento === 1 || !recuperable) throw fallo;
+      console.warn(`[extraer-comprobante] ${operation}: reintento (${fallo.code || fallo.status})`);
+      await new Promise((resolve) => setTimeout(resolve, espera));
+    }
+  }
+}
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 export interface ParsedPedido {
   intent?: "pedido" | "aviso";
@@ -327,20 +384,12 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
+    {"codigo":"texto|null", "descripcion":"...", "cantidad":1, "unidad":"texto|null", "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
   ],
   "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
-  const res = await fetch(`${OR_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": orAuth(),
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://klasea-stock.vercel.app",
-      "X-Title": "Klase A Comprobantes",
-    },
-    body: JSON.stringify({
+  const parsed = await pedirComprobante({
       model: OR_MODEL_EXTRACT,
       temperature: 0,
       max_tokens: 8000,
@@ -359,28 +408,13 @@ Formato:
           ],
         },
       ],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter extraerComprobante failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
-  }
+    }, 'imagen');
 
   const items = Array.isArray(parsed.items)
     ? parsed.items
         .map((it: any) => ({
+          codigo: it.codigo ? String(it.codigo).trim() : null,
+          unidad: it.unidad ? String(it.unidad).trim() : (it.unit ? String(it.unit).trim() : null),
           descripcion: String(it.descripcion ?? it.description ?? "").trim(),
           cantidad: it.cantidad ?? it.quantity ?? null,
           precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
@@ -449,20 +483,12 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
+    {"codigo":"texto|null", "descripcion":"...", "cantidad":1, "unidad":"texto|null", "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
   ],
   "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
-  const res = await fetch(`${OR_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": orAuth(),
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://klasea-stock.vercel.app",
-      "X-Title": "Klase A Presupuestos",
-    },
-    body: JSON.stringify({
+  const parsed = await pedirComprobante({
       model: OR_MODEL_EXTRACT,
       temperature: 0,
       max_tokens: 8000,
@@ -472,28 +498,13 @@ Formato:
         { role: "system", content: system + (input.contexto || "") },
         { role: "user", content: `Extraé los ítems de este presupuesto. Devolvé JSON estricto.${clasificacionBloque(input.sectores)}\n\n${texto}` },
       ],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter extraerComprobanteTexto failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
-  }
+    }, 'texto');
 
   const items = Array.isArray(parsed.items)
     ? parsed.items
         .map((it: any) => ({
+          codigo: it.codigo ? String(it.codigo).trim() : null,
+          unidad: it.unidad ? String(it.unidad).trim() : (it.unit ? String(it.unit).trim() : null),
           descripcion: String(it.descripcion ?? it.description ?? "").trim(),
           cantidad: it.cantidad ?? it.quantity ?? null,
           precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
@@ -535,6 +546,7 @@ Formato:
 // ─────────────────────────────────────────────────────────────────────────────
 // extraerComprobantePDF -- OCR de PDFs de remitos, facturas y presupuestos.
 export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[]; contexto?: string; proveedorConocido?: string }): Promise<ParsedComprobante> {
+  const limiteLectura = Date.now() + 110_000;
   const mimeType = input.mimeType || "application/pdf";
   const filename = input.filename || "comprobante.pdf";
   const exhaustiveTableProtocol = `
@@ -573,7 +585,7 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
+    {"codigo":"texto|null", "descripcion":"...", "cantidad":1, "unidad":"texto|null", "precio_unitario":123.45, "moneda":"USD", "total":123.45, "confianza_lectura":"alta|media|baja", "duda":"texto|null"}
   ],
   "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
@@ -583,15 +595,7 @@ Formato:
   // rasteriza y adivina, que es peor y mas caro justo en el caso facil. Se usa
   // OCR solo como plan B, para PDFs escaneados o exportados como imagen.
   async function pedir(engine: "pdf-text" | "mistral-ocr") {
-    const res = await fetch(`${OR_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": orAuth(),
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://klasea-stock.vercel.app",
-        "X-Title": "Klase A Comprobantes",
-      },
-      body: JSON.stringify({
+    return await pedirComprobante({
         model: OR_MODEL_EXTRACT,
         temperature: 0,
         max_tokens: 16000,
@@ -614,32 +618,17 @@ Formato:
           },
         ],
         plugins: [{ id: "file-parser", pdf: { engine } }],
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`OpenRouter extraerComprobante PDF [${engine}] failed (${res.status}): ${errText.slice(0, 300)}`);
-    }
-
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      throw new Error(`OpenRouter devolvio JSON invalido: ${String(content).slice(0, 200)}`);
-    }
-    return parsed;
+      }, `PDF [${engine}]`, limiteLectura);
   }
 
   let parsed: any;
+  let errorLectura: unknown;
   try {
     parsed = await pedir("pdf-text");
   } catch (error) {
+    if (error instanceof OpenRouterRequestError && [401, 402, 403].includes(error.status || 0)) throw error;
     console.error("[extraerComprobantePDF] pdf-text falló, reintento con OCR", error);
+    errorLectura = error;
     parsed = null;
   }
 
@@ -668,6 +657,7 @@ Formato:
       ocr = await pedir("mistral-ocr");
     } catch (error) {
       console.error("[extraerComprobantePDF] OCR fallo", error);
+      errorLectura = error;
     }
 
     if (ocr) {
@@ -687,6 +677,12 @@ Formato:
         };
       }
     }
+  }
+
+  // Si ambas vías fallan, conservar la causa; nunca acceder a parsed.items
+  // cuando parsed es null ni presentar una lista vacía como lectura exitosa.
+  if (!parsed || ((!Array.isArray(parsed.items) || !parsed.items.length) && errorLectura)) {
+    throw errorLectura || new Error("No se pudo leer el PDF");
   }
 
   const items = Array.isArray(parsed.items)

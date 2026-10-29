@@ -40,7 +40,29 @@ export function lineaDesdeItem(item, cantidad = 1) {
     unidadCompraConfig: cfg.unidad_compra ?? null,
     recordar: true,
     costo: costoEntrega != null ? String(redondear(costoEntrega * (porCaja ? factor : 1), 2)) : "",
+    costoEntregaReferencia: costoEntrega,
   };
+}
+
+/** Cambiar la presentación conserva el precio por unidad, también sin permiso para verlo. */
+export function actualizarLinea(linea, cambio) {
+  const nueva = { ...linea, ...cambio };
+  const factorAntes = linea.porCaja ? num(linea.factor) : 1;
+  const factorDespues = nueva.porCaja ? num(nueva.factor) : 1;
+  if ("costo" in cambio) {
+    const costo = num(cambio.costo);
+    nueva.costoEntregaReferencia = costo != null && factorDespues > 0 ? costo / factorDespues : null;
+  } else if ("porCaja" in cambio || "factor" in cambio) {
+    // Los borradores anteriores no tienen referencia: se obtiene del precio que muestran.
+    const costo = num(linea.costo);
+    const referencia = num(linea.costoEntregaReferencia)
+      ?? (costo != null && factorAntes > 0 ? costo / factorAntes : null);
+    nueva.costoEntregaReferencia = referencia;
+    nueva.costo = referencia != null && factorDespues > 0
+      ? String(redondear(referencia * factorDespues, 4)) : "";
+  }
+  if ("porCaja" in cambio) nueva.presentacionPendiente = false;
+  return nueva;
 }
 
 /** Cantidades y costos de una línea, ya convertidos. */
@@ -49,7 +71,7 @@ export function calcularLinea(linea) {
   const factor = linea.porCaja ? num(linea.factor) : 1;
   const costo = num(linea.costo);
   const cantidadEntrega = cantidad != null && factor != null ? redondear(cantidad * factor, 3) : 0;
-  const valida = cantidad != null && cantidad > 0 && factor != null && factor > 0
+  const valida = !linea.presentacionPendiente && cantidad != null && cantidad > 0 && factor != null && factor > 0
     && Number.isFinite(cantidadEntrega) && cantidadEntrega > 0 && (costo == null || costo >= 0);
   const costoEntrega = costo != null && factor ? redondear(costo / factor) : null;
   return {

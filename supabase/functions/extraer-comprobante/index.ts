@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { extraerComprobanteImagen, extraerComprobantePDF, extraerComprobanteTexto } from "../_shared/openai.ts";
+import { extraerComprobanteImagen, extraerComprobantePDF, extraerComprobanteTexto, OpenRouterRequestError } from "../_shared/openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -249,6 +249,12 @@ serve(async (req) => {
     return json({ ...parsed, proveedor: canonizarProveedor(parsed?.proveedor, proveedoresConocidos) });
   } catch (error) {
     console.error("[extraer-comprobante]", error);
+    if (error instanceof OpenRouterRequestError) {
+      const detalle = error.status === 402
+        ? "El servicio de lectura no tiene crédito disponible. Avisá a administración para restablecerlo."
+        : "El servicio de lectura no pudo completar el comprobante después de reintentar. Volvé a probar en unos instantes; si persiste, cargalo a mano.";
+      return json({ error: detalle }, 503);
+    }
     return json({ error: error instanceof Error ? error.message : "No se pudo leer el comprobante" }, 400);
   }
 });

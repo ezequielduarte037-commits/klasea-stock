@@ -9,6 +9,8 @@
  * un tornillo de 1/2" no es uno de 3/4". Lo dudoso queda para elegir a mano.
  */
 
+import { actualizarLinea, lineaDesdeItem } from "./ingresoCalculos.js";
+
 const sinAcentos = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 export function normalizarCodigoRemito(v) {
@@ -51,7 +53,7 @@ const num = (v) => {
  * catalogo: el de fetchCatalogo (con `codigos`, `descripcion`, `alias`).
  * Devuelve uno por renglón: { renglon, item | null, por: "codigo" | "nombre" | null, candidatos }.
  */
-export function emparejarRenglones(renglones = [], catalogo = []) {
+export function emparejarRenglones(renglones = [], catalogo = [], { moneda = null } = {}) {
   const porCodigo = new Map();
   for (const item of catalogo) {
     for (const c of item.codigos ?? []) {
@@ -68,6 +70,8 @@ export function emparejarRenglones(renglones = [], catalogo = []) {
         codigo: String(r.codigo ?? "").trim() || null,
         cantidad: num(r.cantidad),
         unidad: r.unidad ?? null,
+        precio_unitario: num(r.precio_unitario),
+        moneda: String(r.moneda || moneda || "").trim().toUpperCase() || null,
       };
 
       const codigo = normalizarCodigoRemito(renglon.codigo);
@@ -89,4 +93,45 @@ export function emparejarRenglones(renglones = [], catalogo = []) {
         candidatos: puntajes.map((x) => x.item),
       };
     });
+}
+
+function unidadNormalizada(valor) {
+  const u = sinAcentos(valor).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const alias = { u: "unidad", un: "unidad", unid: "unidad", unidades: "unidad", rollos: "rollo", cajas: "caja", paquetes: "paquete", blisters: "blister", m: "metro", mt: "metro", mts: "metro", metros: "metro", l: "litro", lt: "litro", lts: "litro", litros: "litro", pares: "par", hojas: "hoja", bidones: "bidon" };
+  return alias[u] || u;
+}
+
+/** La cantidad impresa nunca se interpreta como cajas sólo por la config del producto. */
+export function lineaDesdeRenglonRemito(item, renglon) {
+  const base = lineaDesdeItem(item);
+  const factor = num(base.factorConfig) > 0 ? num(base.factorConfig) : 1;
+  const unidad = unidadNormalizada(renglon.unidad);
+  const entrega = unidadNormalizada(base.unidad);
+  const compra = unidadNormalizada(base.unidadCompraConfig);
+  const precio = num(renglon.precio_unitario);
+  const referencia = num(base.costoEntregaReferencia);
+  const moneda = String(renglon.moneda || "").toUpperCase();
+  const comparable = !moneda || moneda === "ARS";
+  const cerca = (esperado) => esperado > 0 && precio > 0 && Math.abs(precio / esperado - 1) <= 0.02;
+  const sueltoPorPrecio = comparable && referencia != null && cerca(referencia);
+  const compraPorPrecio = comparable && referencia != null && cerca(referencia * factor);
+  let porCaja = false;
+  let pendiente = false;
+  if (factor !== 1) {
+    const porUnidad = unidad && unidad === entrega && unidad !== compra ? false
+      : unidad && unidad === compra && unidad !== entrega ? true : null;
+    const porPrecio = sueltoPorPrecio !== compraPorPrecio ? compraPorPrecio : null;
+    // Si falta la presentación o contradice al precio, la elige quien recibe.
+    pendiente = (porUnidad == null && porPrecio == null)
+      || (porUnidad != null && porPrecio != null && porUnidad !== porPrecio);
+    porCaja = porUnidad ?? porPrecio ?? false;
+  }
+  const linea = actualizarLinea(base, { porCaja });
+  return {
+    ...linea,
+    cantidad: num(renglon.cantidad) > 0 ? String(num(renglon.cantidad)) : "",
+    recordar: false,
+    presentacionPendiente: pendiente,
+    lecturaRemito: { cantidad: renglon.cantidad, unidad: renglon.unidad },
+  };
 }

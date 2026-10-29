@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { lineasDePedidoRecibido, pedidosPorRecibir } from "./pedidoRecibido.js";
 import { prepararIngreso } from "./ingresoRegistro.js";
+import { actualizarLinea, calcularLinea } from "./ingresoCalculos.js";
 
 const catalogo = [
   { id: "a", descripcion: "Guantes", unidad: "par", config: { factor_compra: 12, unidad_compra: "caja", costo_unitario_ars: 100 } },
@@ -46,4 +47,21 @@ test("el ingreso guarda a qué renglón del pedido corresponde cada fila", () =>
   assert.match(envio.filas[0].nota, /Pedido N° 7/);
   const suelto = prepararIngreso({ remito: "", proveedor: "", nota: "", lineas: [lineas[1]] }, "Chubut", () => `x${n++}`);
   assert.equal(suelto.filas[0].pedido_item_id, undefined);
+});
+
+test("pedido sin precio usa el costo por unidad aunque su factor difiera del catálogo", () => {
+  for (const factor of [1, 6]) {
+    const p = { items: [{ id: "i", material_id: "a", cantidad: 2, factor, costo_compra_ars: null }] };
+    const { lineas: [l] } = lineasDePedidoRecibido(p, catalogo);
+    assert.equal(calcularLinea(l).cantidadEntrega, 2 * factor);
+    assert.equal(calcularLinea(l).costoEntrega, 100);
+  }
+});
+
+test("al cambiar a unidades se conserva el precio acordado del pedido", () => {
+  const p = { items: [{ id: "i", material_id: "a", cantidad: 1, factor: 12, costo_compra_ars: 2400 }] };
+  const { lineas: [l] } = lineasDePedidoRecibido(p, catalogo);
+  const suelto = actualizarLinea(l, { porCaja: false, cantidad: "12" });
+  assert.equal(calcularLinea(suelto).costoEntrega, 200);
+  assert.equal(calcularLinea(suelto).subtotal, 2400);
 });
