@@ -1,0 +1,785 @@
+[
+  {
+    "id": "fa127b50-7b0e-4aa6-a5f8-8532c26c7aef",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "7a98b10c-9167-4051-9ae6-763c0f3d2748",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:58.114+00:00"
+  },
+  {
+    "id": "a0d1b65d-7ce5-4030-8666-77c31d548e84",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "43a1f66d-24b8-4a43-ac21-76b296d4aaf3",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:32.15+00:00"
+  },
+  {
+    "id": "840e72ff-28d1-4773-ae16-7a4cd64ef085",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "96ce784b-0f48-466c-b49e-4110be204e93",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "23e74795-264a-493e-bb4a-1f0931c491bd",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "8fa905cd-b2f8-4f7c-8b8f-036656e9d6f1",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:49.216+00:00"
+  },
+  {
+    "id": "3e031ce7-5307-4a47-b71a-e1ae332b9813",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "c3a5f159-1585-40f3-b185-89cf32b6bc79",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:45.776+00:00"
+  },
+  {
+    "id": "5dea674d-59a5-4d2a-8371-ab8af7d48859",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "3129449e-721a-4881-8fcf-29852f1e48e9",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:53.146+00:00"
+  },
+  {
+    "id": "574e883b-e8bc-42f9-b5fe-2f01c696450a",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "24a6a1b4-c775-4775-b562-b277dad4a0d5",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:52.733+00:00"
+  },
+  {
+    "id": "195cb64a-a6a6-407f-bf06-1cdff4e3880e",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "ac22537a-e175-4ab2-a567-857b4f5f1a48",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:41.234+00:00"
+  },
+  {
+    "id": "45c2dc27-3dda-4f72-aa11-0a610d882788",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "3bc16997-5d44-4056-86b1-90147e1a38bc",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:23:00.115+00:00"
+  },
+  {
+    "id": "1860ca88-f716-4cdb-a0a2-701fb1710336",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "3418f15a-5818-4a48-8b09-2cf1eb7b2f0a",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:57.535+00:00"
+  },
+  {
+    "id": "295ef1d4-2596-47a0-a646-810bd9aaa92a",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "08c62359-a8a8-47d1-82e8-20b5078a6b84",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:55.805+00:00"
+  },
+  {
+    "id": "3430a80d-bcb1-402a-8405-a05dfdbecd74",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "06349b3d-1060-4142-95e9-94a0f393d36b",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:23:02.561+00:00"
+  },
+  {
+    "id": "2a14c2e7-eab3-4ce8-a4eb-2a3ae061ef2f",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "7aaf521d-a04d-4fdc-99b8-7265f5d7e6ef",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:40.58+00:00"
+  },
+  {
+    "id": "8aeb2bb4-69f7-4a26-8e09-a7aea81bec1e",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "a657c846-bdfb-4c92-9d4e-a7be0b0edb73",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "93efbe9d-e3ef-4f41-a492-0ea5cfca6469",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "24a6a1b4-c775-4775-b562-b277dad4a0d5",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "a255c5f7-c0e1-4ecf-baca-c60034485303",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "b8a8d6db-3747-41dd-adee-961cf38b3814",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "900c3504-d0a6-4279-b801-53980471d289",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "db4dca2a-c833-4c46-9f1a-aa5152024975",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "7f57d5e3-c547-4a27-a41a-f4b81dafa735",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "aebce35f-a7db-4f3a-abff-5dec382343d1",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:28.815+00:00"
+  },
+  {
+    "id": "793fef18-1f51-43ef-94d7-576ca08b0787",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "fd8a516f-07fe-4946-b45f-642eb735d835",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:42.78+00:00"
+  },
+  {
+    "id": "290a9f6b-8445-464b-b671-7f640e967cdc",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "0552f092-83f9-4590-9439-90ef0501a153",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:29.833+00:00"
+  },
+  {
+    "id": "6478d51f-159c-4724-a177-6c7d6268062b",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "6adc946b-ab96-4da4-b065-2260200f1664",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:43.121+00:00"
+  },
+  {
+    "id": "ceff65d5-8b4c-495e-91ea-a2340320f643",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "12503641-168d-43d0-947f-4bacd6d4cc78",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:45.254+00:00"
+  },
+  {
+    "id": "0cea1820-3189-422f-a5f2-297aeafdc7f2",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "a657c846-bdfb-4c92-9d4e-a7be0b0edb73",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:46.377+00:00"
+  },
+  {
+    "id": "6c7cf116-ffbe-4cde-be1c-d2524dec83ca",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "d4426664-ae04-468c-b71c-6833fbc9506c",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:56.319+00:00"
+  },
+  {
+    "id": "e923e94d-c80a-4d3d-b85f-4ce61b396e70",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "c882f140-d2ae-4ec1-8a79-e63b8f48723a",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:47.305+00:00"
+  },
+  {
+    "id": "4aac9526-ddc6-4586-a18f-94c56184eaf4",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "89c3ed27-e2c9-4a25-bc82-90eb4a9dc015",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "5e6739d9-89cd-421c-a908-6008978ebd17",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "87b5485a-5e32-47f3-b810-57ef92fc3ede",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:39.958+00:00"
+  },
+  {
+    "id": "9a381352-8d1c-4d1f-a7c2-97db11ef6a53",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "cac8c335-4519-4c35-816b-3d29ef42cc21",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:47.005+00:00"
+  },
+  {
+    "id": "e01930f9-b3e0-46e5-a349-1595280688d4",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "8f70bf43-d463-4bbf-8792-a1c799c50bf5",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:22:59.305+00:00"
+  },
+  {
+    "id": "e3f8b637-449c-4aa8-994c-3035f4e0a580",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "39f2621f-760d-4766-869d-463118e77129",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:23:00.506+00:00"
+  },
+  {
+    "id": "6eb7c6ad-e1fc-4b15-9a9b-9e389bd389ca",
+    "unidad_id": "b797adeb-b631-4fd4-82d2-b8654a23a9d8",
+    "mueble_id": "67601de5-be43-43de-b0ff-9f10161209b1",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-16T18:23:01.125+00:00"
+  },
+  {
+    "id": "b7a0f971-2c40-4833-88eb-f82789d4afd3",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "cac8c335-4519-4c35-816b-3d29ef42cc21",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "7b08b687-90eb-482b-8616-cf671a79c372",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "c882f140-d2ae-4ec1-8a79-e63b8f48723a",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "59cda3c1-216f-47e4-a498-dd0978a5d12c",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "db4dca2a-c833-4c46-9f1a-aa5152024975",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "fa884062-3dfa-4261-bfb8-7f318437a2ec",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "d4426664-ae04-468c-b71c-6833fbc9506c",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "212aa8f0-3d08-40f3-acc6-7ee3f32a7316",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "7a98b10c-9167-4051-9ae6-763c0f3d2748",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "8c7d6b95-e1f9-4196-b049-1ff52907c192",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "8f70bf43-d463-4bbf-8792-a1c799c50bf5",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "27c66fc2-8a02-4c40-bd60-247197caac67",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "aebce35f-a7db-4f3a-abff-5dec382343d1",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "f26a8d73-bafc-4a5d-b9cc-4fb0418293b7",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "fd8a516f-07fe-4946-b45f-642eb735d835",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "81328cc6-75bb-4ff3-a5ca-f7c605c784e9",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "0552f092-83f9-4590-9439-90ef0501a153",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "bb334a76-29ac-403b-80f4-a932a8766097",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "6adc946b-ab96-4da4-b065-2260200f1664",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "d5a9bd91-dda8-4c39-a931-9ed78a175079",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "12503641-168d-43d0-947f-4bacd6d4cc78",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "c26bdd04-cd46-4506-8575-ff2385d2babe",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "89c3ed27-e2c9-4a25-bc82-90eb4a9dc015",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "3e3d45e0-f639-43ef-89d3-735ba5a10678",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "96ce784b-0f48-466c-b49e-4110be204e93",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "e1553349-0140-47ad-889b-931e51820764",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "43a1f66d-24b8-4a43-ac21-76b296d4aaf3",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "cde02c23-5f8d-4708-a97c-9c0593cc8be3",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "b8a8d6db-3747-41dd-adee-961cf38b3814",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "bfecb0e5-8f2e-4283-9e53-7d53d3a7be52",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "8fa905cd-b2f8-4f7c-8b8f-036656e9d6f1",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "bec347e4-545e-48f9-a89e-f804a2aedb3b",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "3129449e-721a-4881-8fcf-29852f1e48e9",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "38af040e-adf4-4e3c-af31-f644e97235cc",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "08c62359-a8a8-47d1-82e8-20b5078a6b84",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "9905f7b7-5eab-4fd9-b492-f7f534895e6c",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "3418f15a-5818-4a48-8b09-2cf1eb7b2f0a",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "b3d12d8e-74c2-40c9-9cbf-43db51cdb90d",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "39f2621f-760d-4766-869d-463118e77129",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "540fab1b-9ce0-40d3-9380-4e54d25c54e0",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "67601de5-be43-43de-b0ff-9f10161209b1",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "2a825f02-49ba-4b3c-bec3-1c0efc7ff926",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "3bc16997-5d44-4056-86b1-90147e1a38bc",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "daa7175b-59c5-4310-b530-109e24d64057",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "06349b3d-1060-4142-95e9-94a0f393d36b",
+    "estado": "No enviado",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "b836fde9-0552-406f-bc76-699b301a5654",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "87b5485a-5e32-47f3-b810-57ef92fc3ede",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "feb74387-6818-435e-b697-8194bcd08a59",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "7aaf521d-a04d-4fdc-99b8-7265f5d7e6ef",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "4467450f-2822-4b91-b7eb-e385268a21c0",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "ac22537a-e175-4ab2-a567-857b4f5f1a48",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "73f21f20-6720-4e46-bcec-572f04628b5c",
+    "unidad_id": "4d193f97-3859-4414-a621-710423d2d120",
+    "mueble_id": "c3a5f159-1585-40f3-b185-89cf32b6bc79",
+    "estado": "Completo",
+    "obs": null,
+    "recibido_por": null,
+    "recibido_at": "2026-07-27T14:49:08.107437+00:00"
+  },
+  {
+    "id": "c10a48ba-b085-485c-8d47-ce38ea1d385d",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "7a98b10c-9167-4051-9ae6-763c0f3d2748",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.682+00:00"
+  },
+  {
+    "id": "d9c5c223-561e-4e16-928d-7890571e82aa",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "43a1f66d-24b8-4a43-ac21-76b296d4aaf3",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "bf4f5f5d-42b8-40f5-b55d-cc0c32f263ba",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "96ce784b-0f48-466c-b49e-4110be204e93",
+    "estado": "No enviado",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "8b01cf21-e357-4df1-8d81-1205766a4449",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "8fa905cd-b2f8-4f7c-8b8f-036656e9d6f1",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "24c5c5ed-40f7-4e04-9856-71bcfe0888ba",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "c3a5f159-1585-40f3-b185-89cf32b6bc79",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "addb9889-051a-4b8a-b785-e88ef0b3975e",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "3129449e-721a-4881-8fcf-29852f1e48e9",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "3e0c4361-df2a-4d04-ba36-ac2ee0a6e7d8",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "24a6a1b4-c775-4775-b562-b277dad4a0d5",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "bd614707-4092-45f5-8806-29234787ad71",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "ac22537a-e175-4ab2-a567-857b4f5f1a48",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "e218fa11-fe60-4783-871a-620b2d14e75b",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "3bc16997-5d44-4056-86b1-90147e1a38bc",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "6fef9f49-ccf1-497b-8218-88fd53c1c8fa",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "3418f15a-5818-4a48-8b09-2cf1eb7b2f0a",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "f0e6494b-a849-4d85-84d2-8b7fc35b52c3",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "08c62359-a8a8-47d1-82e8-20b5078a6b84",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "a5efb4a4-2ac3-469a-bd49-ebe5838bf2c8",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "06349b3d-1060-4142-95e9-94a0f393d36b",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "e13d9871-752d-4bb5-a53c-faf660730f18",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "7aaf521d-a04d-4fdc-99b8-7265f5d7e6ef",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "564a5306-1f5f-4fa3-b871-6f26e084e881",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "b8a8d6db-3747-41dd-adee-961cf38b3814",
+    "estado": "No enviado",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "96164fb9-774d-4657-8d25-5b6e5a3a1132",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "db4dca2a-c833-4c46-9f1a-aa5152024975",
+    "estado": "No enviado",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "c7198a2b-6391-4c4e-a686-a8c63c54803e",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "aebce35f-a7db-4f3a-abff-5dec382343d1",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "0ec827c3-933c-449d-b076-06a98f21dacc",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "fd8a516f-07fe-4946-b45f-642eb735d835",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "ddd48f4f-83fa-4525-9094-a2800fc65bf3",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "0552f092-83f9-4590-9439-90ef0501a153",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "593ad6bd-b16b-4622-985b-b26e0b4e75c5",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "6adc946b-ab96-4da4-b065-2260200f1664",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "c2e03137-c60f-4420-8d8b-68a011a7572d",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "12503641-168d-43d0-947f-4bacd6d4cc78",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "964fd0a4-2449-478a-bb44-6b7ff8f6299c",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "a657c846-bdfb-4c92-9d4e-a7be0b0edb73",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "62492c3b-0a38-4ef6-bd64-b03b24b7a79a",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "d4426664-ae04-468c-b71c-6833fbc9506c",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "2c6ffa6b-f9a6-4889-983b-a238c84990c8",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "c882f140-d2ae-4ec1-8a79-e63b8f48723a",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "22cf5848-a613-45fa-860a-d07e72436009",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "89c3ed27-e2c9-4a25-bc82-90eb4a9dc015",
+    "estado": "No enviado",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": null,
+    "recibido_at": null
+  },
+  {
+    "id": "f2c8e0b0-d2f3-46e9-98c6-697e80670131",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "87b5485a-5e32-47f3-b810-57ef92fc3ede",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "2269d6b1-714a-4197-b19e-fbab3f5d1e89",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "cac8c335-4519-4c35-816b-3d29ef42cc21",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "d91fe866-1b24-41f8-8f6b-4847ce3f446c",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "8f70bf43-d463-4bbf-8792-a1c799c50bf5",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "62f7ded8-b5c0-4b58-83df-372cfa338a31",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "39f2621f-760d-4766-869d-463118e77129",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  },
+  {
+    "id": "7ec30a0a-a9d1-42d0-ab69-cc11c461414e",
+    "unidad_id": "2e62e677-f136-4680-91d0-dd92036be30e",
+    "mueble_id": "67601de5-be43-43de-b0ff-9f10161209b1",
+    "estado": "Completo",
+    "obs": "Estado replicado de K37-44 por indicación del usuario el 20/10/2026.",
+    "recibido_por": "ezequiel.adm",
+    "recibido_at": "2026-10-20T17:34:03.683+00:00"
+  }
+]

@@ -1,0 +1,21 @@
+CONTROLADOR TERMICA DEL PANOL - DETONG P1S
+
+Controlador de Windows: P1 Label Printer
+Fabricante: DeTong, Shanghai, Inc.
+Version: 2.1.2026.0508
+Paquete original copiado de la instalacion que ya se usa en la otra PC.
+Incluye los archivos originales para Windows x64 y x86, sin modificarlos.
+Catalogo P1.cat con firma valida del fabricante verificada el 29/10/2026.
+
+INSTALAR EN LA PC DEL PANOL
+1. Extraer TODO el ZIP a una carpeta (no ejecutar desde dentro del ZIP).
+2. Clic derecho en INSTALAR.cmd > Ejecutar como administrador.
+3. Conectar la impresora por USB y encenderla.
+4. Al imprimir, elegir P1 Label Printer o P1S Label Printer.
+5. Para las etiquetas chicas actuales: papel 40 x 30 mm, escala 100%,
+   sin margenes ni encabezados. Imprimir primero una etiqueta de prueba.
+
+El instalador no cambia la impresora predeterminada ni imprime nada.
+Si Windows no crea la cola automaticamente, desconectar y reconectar USB.
+Alternativa manual: Agregar impresora > Usar disco > Controlador\P1.inf,
+y seleccionar P1 Label Printer con el puerto USB de esa impresora.
