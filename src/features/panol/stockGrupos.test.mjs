@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowDelta } from "./panolMovimientos.js";
-import { rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo } from "./stockGrupos.js";
+import { rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra } from "./stockGrupos.js";
 
 // Forma real del par registrado al liberar el faro del 52-24 el 21/10.
 const salida = {
@@ -54,4 +54,22 @@ test("el historial conserva el total liberado cuando se retira sólo una parte",
   const retiro = { ...entrada, id: "retiro-parcial", source: "historial_retiro_parcial", estado: "egresado", cantidad: 1, cantidad_egresada: 1 };
   assert.deepEqual([out, restante, retiro].filter(rowInHistory).map(rowEgresoKind), ["liberacion", "egreso"]);
   assert.equal(rowDelta(out) + rowDelta(restante) + rowDelta(retiro), -1);
+});
+
+// Forma de la brújula del 52-26 que se llevaron al barco del río 52-19 (sin
+// obra cargada) después de la corrección del 29/10.
+test("material de una obra que salió a un destino sin obra se lee como reasignación con egreso", () => {
+  const brujula = {
+    id: "brujula", material_id: "brujula", obra_id: null, obra_origen_id: "52-26", tipo: "remito", tipo_label: "Remito",
+    egreso_destino_obra_id: null, sector_destino: "Río · 52-19", source: "remito",
+    estado: "egresado", recepcion_estado: "recibido", cantidad: 1, cantidad_egresada: 1,
+    egreso_at: "2026-10-29T13:24:00Z", stock_sede: "Chubut",
+  };
+  assert.equal(rowIsReasignacionSinObra(brujula), true);
+  assert.equal(rowEgresoKind(brujula), "reasignacion_egreso");
+  assert.equal(rowInHistory(brujula), true);
+  assert.equal(rowDelta(brujula), 0);
+  // Lo liberado a stock que después se retira sigue siendo un egreso de stock.
+  const liberadoYRetirado = { ...entrada, estado: "egresado", cantidad_egresada: 1, egreso_at: "2026-10-22T10:00:00Z" };
+  assert.equal(rowIsReasignacionSinObra(liberadoYRetirado), false);
 });

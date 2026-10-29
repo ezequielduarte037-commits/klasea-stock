@@ -96,6 +96,7 @@ import {
   egresoDisplayItems,
   rowIsAsignacionStock,
   rowIsMovimientoEspejo,
+  rowIsReasignacionSinObra,
   rowInHistory,
   rowEgresoKind,
   rowEgresoQuantity,
@@ -369,6 +370,7 @@ function rowOrigenMovimientoLabel(row, obraById = null) {
   if (rowIsAsignacionStock(row)) {
     return row.obra_origen_id ? obraCodigoFromMap(row.obra_origen_id, obraById) || "obra" : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");
   }
+  if (rowIsReasignacionSinObra(row)) return obraCodigoFromMap(row.obra_origen_id, obraById) || "obra";
   return rowObraLabel(row);
 }
 
@@ -377,6 +379,7 @@ function rowDestinoMovimientoLabel(row, obraById = null) {
   if (rowIsAsignacionStock(row)) {
     return obraCodigoFromMap(row.obra_id, obraById) || row.obra?.codigo || "obra";
   }
+  if (rowIsReasignacionSinObra(row)) return row.sector_destino || "otro destino";
   if (!row.egreso_destino_obra_id) return "";
   const destino = obraById?.get?.(row.egreso_destino_obra_id) || row.egreso_destino_obra || null;
   return destino?.codigo || "obra";

@@ -32,6 +32,7 @@ function FilaAviso({ aviso, onAbrir, i }) {
         <span className="cmp-fila-l1">
           <span className="cmp-fila-tit">{aviso.titulo || aviso.material || "Aviso a compras"}</span>
           {devolucion && <Tag tono="cian">Devolución</Tag>}
+          {aviso.origen === "panol_reposicion" && <Tag tono="violeta">A reponer</Tag>}
           <Prioridad value={aviso.prioridad} />
         </span>
         <span className="cmp-fila-meta">

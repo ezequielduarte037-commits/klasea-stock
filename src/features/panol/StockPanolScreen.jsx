@@ -17,7 +17,7 @@ import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/produ
 import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchFichasPanolPendientes, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
-import { rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo } from "@/features/panol/stockGrupos";
+import { rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra } from "@/features/panol/stockGrupos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
@@ -474,6 +474,7 @@ function rowMovementKind(row) {
     if (label.includes("liber")) return "liberacion";
     return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
   }
+  if (rowIsReasignacionSinObra(row)) return "reasignacion_egreso";
   if (rowHasRecordedEgreso(row)) return "egreso";
   return "ingreso";
 }
@@ -506,6 +507,9 @@ function movDetalleDestino(row, kind, obraById) {
     const origen = row.obra_origen_id ? (codigo(row.obra_origen_id) || "obra") : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");
     const destino = codigo(row.obra_id) || row.obra?.codigo || "obra";
     return `${origen} → ${destino}`;
+  }
+  if (kind === "reasignacion_egreso" && rowIsReasignacionSinObra(row)) {
+    return `${codigo(row.obra_origen_id) || "obra"} → ${row.sector_destino || "otro destino"}`;
   }
   if (kind === "asignacion_egreso" || kind === "reasignacion_egreso") {
     const origen = row.obra_id ? (codigo(row.obra_id) || "obra") : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");

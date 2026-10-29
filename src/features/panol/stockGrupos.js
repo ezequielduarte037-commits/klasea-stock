@@ -554,6 +554,17 @@ export function rowIsMovimientoEspejo(row) {
       && !!row.obra_origen_id && !rowHasRecordedEgreso(row));
 }
 
+// Material de una obra que salió hacia un destino que no es una obra cargada
+// (el barco del río 52-19, 29/10/2026): el renglón deja la obra, para que su
+// lista no lo dé por entregado, y obra_origen_id guarda de cuál salió.
+// Lo liberado a stock también queda sin obra y con origen (y sus retiros
+// parciales heredan el tipo): eso es stock general, no una reasignación.
+export function rowIsReasignacionSinObra(row) {
+  const liberado = row.tipo === "stock_general" || /liberado/i.test(String(row.tipo_label || ""));
+  return !rowObraId(row) && !!row.obra_origen_id && !row.egreso_destino_obra_id && !liberado
+    && !rowSource(row).startsWith("transferencia") && rowHasRecordedEgreso(row);
+}
+
 export function rowInHistory(row) {
   return !rowIsMovimientoEspejo(row) && (rowIsAsignacionStock(row) || rowHasRecordedEgreso(row));
 }
@@ -567,6 +578,7 @@ export function rowEgresoKind(row) {
   if (row.egreso_destino_obra_id || source.startsWith("transferencia_egreso")) {
     return rowObraId(row) ? "reasignacion_egreso" : "egreso_obra";
   }
+  if (rowIsReasignacionSinObra(row)) return "reasignacion_egreso";
   return "egreso";
 }
 

@@ -7446,6 +7446,9 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     egreso_at: row.egreso_at ?? null,
     egreso_nota: row.egreso_nota ?? null,
     egreso_por: row.egreso_por ?? null,
+    // Se lo llevaron a OTRA obra desde el stock de esta (egreso de producto o
+    // reasignación con egreso, que guardan la obra de origen en obra_id).
+    saleHaciaOtraObra: Boolean(row.egreso_destino_obra_id && row.obra_id && row.egreso_destino_obra_id !== row.obra_id),
     created_at: row.created_at ?? null,
     updated_at: row.updated_at ?? null,
   };
@@ -7459,6 +7462,9 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
 // obra no es entregárselo — puede seguir en el estante. Contarla como entregada
 // diría que la obra tiene cosas que todavía no fue a buscar.
 function esEntregaAObra(row) {
+  // Salió del stock de esta obra hacia otra: acá no se entregó nada, hay que
+  // reponerlo (pedido de Ezequiel, 29/10/2026).
+  if (row?.saleHaciaOtraObra) return false;
   if (row?.soloMovimientoDeMatriz && row?.snapshot_estado === "egresado") return true;
   const source = String(row?.source || "").toLowerCase();
   if (source.startsWith("egreso")) return true;
@@ -7471,6 +7477,8 @@ function esEntregaAObra(row) {
 
 function isLedgerOnlySnapshot(row) {
   if (row?.soloMovimientoDeMatriz) return true;
+  // Un renglón que se fue a otra obra no cubre la necesidad de esta.
+  if (row?.saleHaciaOtraObra) return true;
   const source = String(row?.source || "").toLowerCase();
   const tipo = String(row?.snapshot_tipo || row?.bucket?.key || "").toLowerCase();
   const text = `${source} ${tipo} ${row?.bucket?.label || ""} ${row?.obs || ""}`.toLowerCase();

@@ -27,6 +27,7 @@ import { Avatar, Aviso, Buscar, Cabecera, Chip, Estado, Modal, Prioridad, Tag, V
 import SelectorDestino from "../SelectorDestino";
 
 const FORM_VACIO = { titulo: "", detalle: "", material: "", destino: "", prioridad: "media" };
+const ORIGEN_LABEL = { panol_devolucion: "Devolución del pañol", panol_reposicion: "Reponer: salió para otro destino" };
 
 // Avisos a Compras: mensajes del pañol y de la oficina que no son un pedido
 // ("falta extintor", "devolución de una pieza"). Compras los sigue acá y, si
@@ -56,11 +57,15 @@ export default function Avisos({
   const [detalleMovil, setDetalleMovil] = useState(() => Boolean(selectedId));
 
   const activos = avisos.filter((a) => AVISO_ACTIVOS.includes(a.estado)).length;
+  // Lo que el pañol sacó del stock de una obra para otra: si nadie lo pide de
+  // nuevo, la obra de origen se queda sin él.
+  const aReponer = avisos.filter((a) => a.origen === "panol_reposicion" && AVISO_ACTIVOS.includes(a.estado)).length;
   const filtrados = useMemo(() => {
     const t = q.trim().toLowerCase();
     return avisos.filter((a) => {
       if (estado === "activos" && !AVISO_ACTIVOS.includes(a.estado)) return false;
       if (estado === "cerrados" && AVISO_ACTIVOS.includes(a.estado)) return false;
+      if (estado === "reponer" && (a.origen !== "panol_reposicion" || !AVISO_ACTIVOS.includes(a.estado))) return false;
       if (!t) return true;
       return [a.titulo, a.detalle, a.material, a.destino, a.project?.codigo, a.creator?.username, a.source_ref]
         .filter(Boolean).join(" ").toLowerCase().includes(t);
@@ -196,6 +201,7 @@ export default function Avisos({
           <Buscar value={q} onChange={setQ} placeholder="Buscar aviso, obra, material…" />
           <div className="cmp-filtros desliza" style={{ gap: 2 }}>
             <Chip on={estado === "activos"} cuenta={activos} onClick={() => setEstado("activos")}>Abiertos</Chip>
+            <Chip on={estado === "reponer"} cuenta={aReponer} onClick={() => setEstado("reponer")}>A reponer</Chip>
             <Chip on={estado === "cerrados"} cuenta={avisos.length - activos} onClick={() => setEstado("cerrados")}>Resueltos y descartados</Chip>
             <Chip on={estado === "todos"} cuenta={avisos.length} onClick={() => setEstado("todos")}>Todos</Chip>
           </div>
@@ -210,6 +216,7 @@ export default function Avisos({
             ) : filtrados.map((a) => {
               const e = avisoEstadoDe(a.estado);
               const devolucion = a.origen === "panol_devolucion";
+              const reposicion = a.origen === "panol_reposicion";
               return (
                 <button key={a.id} type="button" className={`cmp-aviso-it${elegido?.id === a.id && !isMobile ? " on" : ""}`} onClick={() => abrir(a.id)}>
                   <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
@@ -221,6 +228,7 @@ export default function Avisos({
                   <span className="pie">
                     <Estado tono={e.tono}>{e.label}</Estado>
                     {devolucion && <Tag tono="cian">Devolución</Tag>}
+                    {reposicion && <Tag tono="violeta">A reponer</Tag>}
                     <span>{fmtFecha(a.created_at)}</span>
                     {a.creator?.username && <span style={{ marginLeft: "auto" }}>{a.creator.username}</span>}
                   </span>
@@ -250,7 +258,7 @@ export default function Avisos({
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <Tag tono={prioridadDe(elegido.prioridad).tono}>Prioridad {prioridadDe(elegido.prioridad).label}</Tag>
-                  <Tag tono="teal">{elegido.origen === "panol_devolucion" ? "Devolución del pañol" : elegido.origen || "web"}</Tag>
+                  <Tag tono="teal">{ORIGEN_LABEL[elegido.origen] || elegido.origen || "web"}</Tag>
                   {elegido.material && <Tag tono="cian">{elegido.material}</Tag>}
                 </div>
                 {elegido.detalle && <div className="cmp-nota">{elegido.detalle}</div>}
