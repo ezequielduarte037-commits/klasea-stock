@@ -849,6 +849,8 @@ button.cmp-pasito:disabled { cursor: default; }
   .cmp-caja-cajas { grid-template-columns: minmax(0, 1fr); }
   .cmp-det { display: block; height: 100%; overflow-y: auto; }
   .cmp-det-cab { padding: 12px 14px 14px; }
+  .cmp-det-l1 { flex-wrap: wrap; }
+  .cmp-det-acc { width: 100%; flex-wrap: wrap; padding-left: 44px; }
   .cmp-det-tit { font-size: 18px; }
   .cmp-det-recorrido { padding-left: 0; }
   .cmp-pasito .nom { font-size: 10.5px; }

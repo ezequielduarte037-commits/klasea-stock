@@ -37,7 +37,9 @@ import {
   fetchProjects,
   fetchPurchaseRequests,
   isPurchaseManager,
+  normalizePurchaseRequestAttachments,
 } from "@/features/compras/purchaseRequestsApi";
+import { prefillRepetirPedido } from "./repetirPedido";
 import { CSS_COMPRAS_MODULO } from "./estilos";
 import {
   AVISO_ACTIVOS,
@@ -410,6 +412,11 @@ export default function PurchaseRequestsScreen({ profile }) {
               requestId={abiertoId}
               profile={profile}
               users={users}
+              onRepetir={(pedido, items) => nuevoPedido({
+                ...prefillRepetirPedido(pedido, items),
+                attachments: normalizePurchaseRequestAttachments(pedido),
+                ccUserIds: (pedido.followers || []).map((f) => f.user_id).filter((id) => id !== profile?.id),
+              })}
               onBack={() => cambiarURL((p) => p.delete("open"))}
               onRequestUpdated={cargar}
               onDeleteLocal={(id) => setDatos((d) => ({ ...d, requests: d.requests.filter((r) => r.id !== id) }))}

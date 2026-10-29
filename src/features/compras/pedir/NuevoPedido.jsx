@@ -39,6 +39,7 @@ import {
 import { Avatar, Aviso, Modal } from "../ui";
 import SelectorDestino from "../SelectorDestino";
 import { agregarDestinoPedido, destinoPedidoParaGuardar, restaurarDestinosPedido } from "../destinosPedido";
+import { itemsParaNuevoPedido } from "../repetirPedido";
 import "react-quill-new/dist/quill.snow.css";
 
 // Quill pesa ~80 kB: se baja recién cuando alguien quiere escribir una descripción.
@@ -89,6 +90,7 @@ function tieneContenido(b) {
     || (f.priority && f.priority !== "media")
     || (b?.ccUserIds || []).length
     || (b?.createItems || []).length
+    || (b?.existingAttachments || []).length
     || hayItemEscrito(b?.newItem),
   );
 }
@@ -105,6 +107,7 @@ function desdeBorrador(b, projects = []) {
     form: { ...FORM_VACIO, ...restaurarDestinosPedido(b?.form || {}, projects) },
     ccUserIds: Array.isArray(b?.ccUserIds) ? b.ccUserIds : [],
     createItems: Array.isArray(b?.createItems) ? b.createItems : [],
+    existingAttachments: Array.isArray(b?.existingAttachments) ? b.existingAttachments : [],
     newItem: { ...ITEM_VACIO, ...(b?.newItem || {}) },
   };
 }
@@ -122,14 +125,12 @@ function desdePrefill(p, projects) {
       ...(Array.isArray(p.destinos) ? { destinos: p.destinos } : {}),
       destino: p.destino || proyecto?.codigo || "",
       needed_at: p.needed_at || "",
+      repetido: Boolean(p.repetido),
+      es_adicional: Boolean(p.es_adicional),
     }, projects),
-    ccUserIds: [],
-    createItems: (p.items || []).filter((it) => it?.description).map((it) => ({
-      description: it.description,
-      quantity: it.quantity ?? null,
-      unit: it.unit || "unidad",
-      link_url: it.link_url || null,
-    })),
+    ccUserIds: p.ccUserIds || [],
+    createItems: itemsParaNuevoPedido(p.items),
+    existingAttachments: p.attachments || [],
     newItem: { ...ITEM_VACIO },
   };
 }
@@ -148,7 +149,16 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
   const toast = useToast();
   const userId = profile?.id;
   const [b, setB] = useState(() => (prefill ? desdePrefill(prefill, projects) : desdeBorrador(leerJSON(claveActual(userId), null), projects)));
-  const [guardados, setGuardados] = useState(() => guardadosVivos(userId));
+  const [guardados, setGuardados] = useState(() => {
+    const lista = guardadosVivos(userId);
+    const actual = leerJSON(claveActual(userId), null);
+    // Abrir una repetición no debe borrar otro pedido que se estaba armando.
+    if (!prefill?.repetido || !tieneContenido(actual)) return lista;
+    return [{
+      id: crypto.randomUUID?.() || `d${Date.now()}`, savedAt: new Date().toISOString(),
+      title: tituloDe(actual), body: actual,
+    }, ...lista].slice(0, BORRADORES_MAX);
+  });
   const [archivos, setArchivos] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
@@ -164,8 +174,12 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
   const descInput = useRef(null);
   const tituloInput = useRef(null);
 
-  const { form, ccUserIds, createItems, newItem } = b;
-  const setForm = (patch) => setB((prev) => ({ ...prev, form: { ...prev.form, ...patch } }));
+  const { form, ccUserIds, createItems, newItem, existingAttachments } = b;
+  const cantidadArchivos = archivos.length + existingAttachments.length;
+  const setForm = (patch) => {
+    setB((prev) => ({ ...prev, form: { ...prev.form, ...patch } }));
+    if (error) setError("");
+  };
   const setNuevo = (patch) => { setB((prev) => ({ ...prev, newItem: { ...prev.newItem, ...patch } })); if (avisoItem) setAvisoItem(""); };
 
   async function traerCatalogo() {
@@ -276,7 +290,7 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
     setArchivos((actual) => {
       const claves = new Set(actual.map((f) => `${f.name}:${f.size}:${f.lastModified}`));
       const nuevos = entrantes.filter((f) => !claves.has(`${f.name}:${f.size}:${f.lastModified}`));
-      const lugar = Math.max(0, PURCHASE_ATTACHMENT_MAX_COUNT - actual.length);
+      const lugar = Math.max(0, PURCHASE_ATTACHMENT_MAX_COUNT - existingAttachments.length - actual.length);
       if (nuevos.length > lugar) toast.warning(`Podés adjuntar hasta ${PURCHASE_ATTACHMENT_MAX_COUNT} archivos por pedido.`);
       return [...actual, ...nuevos.slice(0, lugar)];
     });
@@ -332,6 +346,11 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
       setAvisoItem(msg);
       return;
     }
+    if (form.repetido && !form.destinos.length && !form.destino.trim()) {
+      setError("Elegí la obra o indicá el destino del nuevo encargo. También podés elegir la misma obra.");
+      document.getElementById("np-destinos")?.focus();
+      return;
+    }
     enviando.current = true;
     setGuardando(true);
     setError("");
@@ -340,6 +359,7 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
         form: { ...form, ...destinoPedidoParaGuardar(form, projects) },
         ccUserIds,
         attachmentFiles: archivos,
+        existingAttachments,
       });
       // `_cat` es sólo para mostrar en el diálogo: no es una columna.
       const sinPantalla = (item) => Object.fromEntries(Object.entries(item).filter(([k]) => k !== "_cat"));
@@ -370,8 +390,10 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
     <Modal
       xl
       icono={ShoppingCart}
-      titulo="Nuevo pedido a Compras"
-      sub="Compras recibe el aviso apenas lo creás. Mientras lo armás se guarda solo en este navegador."
+      titulo={form.repetido ? "Repetir encargo" : "Nuevo pedido a Compras"}
+      sub={form.repetido
+        ? "Los productos ya están cargados. Elegí la obra o el destino y revisá los datos antes de crear el nuevo pedido."
+        : "Compras recibe el aviso apenas lo creás. Mientras lo armás se guarda solo en este navegador."}
       onCerrar={onCerrar}
       bloqueado={guardando}
       pie={(
@@ -443,7 +465,14 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
                       {it._cat && <span className="cmp-tag" data-tono="teal" style={{ marginLeft: 8 }} title={it._cat.proveedor || undefined}>Catálogo{it._cat.codigo ? ` · ${it._cat.codigo}` : ""}</span>}
                       {it.link_url && <a href={it.link_url} target="_blank" rel="noreferrer"><Link2 size={11} style={{ verticalAlign: -1 }} /> enlace</a>}
                     </span>
-                    <span className="c">{[it.quantity, it.quantity ? it.unit : ""].filter(Boolean).join(" ") || "—"}</span>
+                    <span className="c">
+                      {form.repetido ? (
+                        <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input className="ui-input" style={{ width: 72 }} aria-label={`Cantidad de ${it.description}`} value={it.quantity ?? ""} onChange={(e) => setB((prev) => ({ ...prev, createItems: prev.createItems.map((item, k) => k === i ? { ...item, quantity: e.target.value || null } : item) }))} />
+                          {it.unit}
+                        </label>
+                      ) : [it.quantity, it.quantity ? it.unit : ""].filter(Boolean).join(" ") || "—"}
+                    </span>
                     <button type="button" className="cmp-btn-ic chico" onClick={() => quitarItem(i)} aria-label={`Quitar ${it.description}`} title="Quitar"><Trash2 size={13} /></button>
                   </div>
                 ))}
@@ -521,7 +550,7 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
             <div className="cmp-paso-tit">¿Para dónde y para cuándo?</div>
             <div className="cmp-form">
               <div className="cmp-campo c6">
-                <span>Embarcaciones o destinos <span style={{ fontWeight: 500, color: "var(--subtle)" }}>· opcional, podés elegir varios</span></span>
+                <span>Embarcaciones o destinos <span style={{ fontWeight: 500, color: "var(--subtle)" }}>{form.repetido ? "· elegí un destino o escribí una referencia abajo" : "· opcional, podés elegir varios"}</span></span>
                 {form.destinos.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }} aria-label="Destinos elegidos">
                     {form.destinos.map((d, i) => (
@@ -539,6 +568,8 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
                   </div>
                 )}
                 <SelectorDestino
+                  id="np-destinos"
+                  invalido={Boolean(error && form.repetido && !pasoDonde)}
                   obras={projects.filter((p) => !form.destinos.some((d) => d.obra_id === p.id))}
                   value=""
                   onChange={(valor, obra) => setForm({ destinos: agregarDestinoPedido(form.destinos, valor, obra) })}
@@ -613,26 +644,34 @@ export default function NuevoPedido({ profile, projects = [], users = [], prefil
             <div className="cmp-campo c6">
               <span>Archivos <span style={{ fontWeight: 500, color: "var(--subtle)" }}>· planos, fotos, presupuestos</span></span>
               <label
-                className={`cmp-drop${sobre ? " sobre" : ""}${archivos.length >= PURCHASE_ATTACHMENT_MAX_COUNT ? " lleno" : ""}`}
+                className={`cmp-drop${sobre ? " sobre" : ""}${cantidadArchivos >= PURCHASE_ATTACHMENT_MAX_COUNT ? " lleno" : ""}`}
                 onDragOver={(e) => { e.preventDefault(); setSobre(true); }}
                 onDragLeave={() => setSobre(false)}
                 onDrop={(e) => { e.preventDefault(); setSobre(false); sumarArchivos(e.dataTransfer?.files); }}
               >
                 <Upload size={18} />
                 <span style={{ minWidth: 0 }}>
-                  <b>{archivos.length ? "Sumar más archivos" : "Arrastrá archivos o tocá para elegir"}</b>
+                  <b>{cantidadArchivos ? "Sumar más archivos" : "Arrastrá archivos o tocá para elegir"}</b>
                   <small>PDF, DXF, DWG, Office, ZIP o imágenes · hasta 50 MB cada uno · máximo {PURCHASE_ATTACHMENT_MAX_COUNT}</small>
                 </span>
                 <input
                   type="file"
                   multiple
                   hidden
-                  disabled={archivos.length >= PURCHASE_ATTACHMENT_MAX_COUNT}
+                  disabled={cantidadArchivos >= PURCHASE_ATTACHMENT_MAX_COUNT}
                   onChange={(e) => { sumarArchivos(e.target.files); e.target.value = ""; }}
                 />
               </label>
-              {archivos.length > 0 && (
+              {cantidadArchivos > 0 && (
                 <div className="cmp-archivos">
+                  {existingAttachments.map((f, i) => (
+                    <div key={`${f.url}-${i}`} className="cmp-archivo">
+                      <span className="ic"><Paperclip size={14} /></span>
+                      <a className="nom" href={f.url} target="_blank" rel="noreferrer">{f.name}</a>
+                      <span className="peso">{fmtTamano(f.size)}</span>
+                      <button type="button" className="cmp-btn-ic chico" onClick={() => setB((prev) => ({ ...prev, existingAttachments: prev.existingAttachments.filter((_, k) => k !== i) }))} aria-label={`Quitar ${f.name}`} title="Quitar"><X size={13} /></button>
+                    </div>
+                  ))}
                   {archivos.map((f) => (
                     <div key={`${f.name}-${f.size}-${f.lastModified}`} className="cmp-archivo">
                       <span className="ic"><Paperclip size={14} /></span>
