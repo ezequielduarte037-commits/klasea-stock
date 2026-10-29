@@ -118,7 +118,7 @@ export default function ConfigView({ datos, esGestion, isMobile, inicial }) {
 
   return (
     <>
-      <div className="prd-barra">
+      <div className="prd-barra con-titulo">
         <div className="prd-barra-fila">
           <div className="prd-titulos">
             <div className="prd-eyebrow">Producción</div>

@@ -9,7 +9,7 @@ import GanttPlanta from "./GanttPlanta";
 import ObraPanel from "./ObraPanel";
 import { Anillo, Estado, NodoEtapa } from "./ui";
 import { estadoDeObra, hoyLocal } from "./plan";
-import { MS_DIA, fLarga, fMedia, fMes } from "./formato";
+import { MS_DIA, fMedia, fMes } from "./formato";
 
 // Planta: la lista de obras y el Gantt en la misma pantalla. Al tocar una obra
 // se despliegan sus etapas en el Gantt y se abre su panel al costado; "Enfocar"
@@ -176,7 +176,6 @@ export default function PlantaView({
   const izq = isMobile ? 150 : 300;
   const enTerminadas = estadoFiltro === "terminada";
   const conGantt = !enTerminadas && (!isMobile || vistaMovil === "gantt");
-  const activas = conteo.activa;
 
   const onTip = useCallback((t) => {
     setTip((prev) => (t && t.lineas == null && prev ? { ...prev, x: t.x, y: t.y } : t));
@@ -184,13 +183,33 @@ export default function PlantaView({
 
   return (
     <>
+      {/* Una sola fila: el título ya está en la pestaña de arriba y cada alto
+          que se gana acá es una obra más a la vista en el Gantt. */}
       <div className="prd-barra">
-        <div className="prd-barra-fila">
-          <div className="prd-titulos">
-            <div className="prd-eyebrow">Producción</div>
-            <h1 className="prd-h1">Planta de <span className="acento">obras</span></h1>
-            <div className="prd-sub"><b>{activas}</b> {activas === 1 ? "obra activa" : "obras activas"} · hoy {fLarga(hoy)}</div>
+        <div className="prd-filtros" data-tour="obras-planta-filtros">
+          <div className="prd-seg" role="group" aria-label="Estado de las obras">
+            {ESTADOS.map(([k, t]) => (
+              <button key={k} type="button" className={estadoFiltro === k ? "on" : ""} onClick={() => cambiarEstado(k)}>{t}<span className="n">{conteo[k]}</span></button>
+            ))}
           </div>
+          <div className="prd-scroll-x" role="group" aria-label="Línea">
+            <button type="button" className={`prd-chip${lineaFiltro === "todas" ? " on" : ""}`} onClick={() => cambiarLinea("todas")}>Todas</button>
+            {lineas.filter((l) => porLinea[l.id] || lineaFiltro === l.id).map((l) => (
+              <button key={l.id} type="button" className={`prd-chip${lineaFiltro === l.id ? " on" : ""}`} style={{ "--c": l.color || "var(--muted)" }} onClick={() => cambiarLinea(l.id)}>
+                <span className="pto" />{l.nombre}<span className="n">{porLinea[l.id] || 0}</span>
+              </button>
+            ))}
+          </div>
+          {foco && filaSel && (
+            <button type="button" className="prd-chip on" onClick={() => setFoco(false)}>Sólo {filaSel.obra.codigo}<X size={14} /></button>
+          )}
+          <span className="prd-sp" />
+          {conGantt && (
+            <div className="prd-seg" role="group" aria-label="Eje de tiempo">
+              <button type="button" className={modo === "cal" ? "on" : ""} onClick={() => cambiarModo("cal")} title="Eje de calendario"><CalendarDays size={14} />Calendario</button>
+              <button type="button" className={modo === "s0" ? "on" : ""} onClick={() => cambiarModo("s0")} title="Todas alineadas en su desmolde">Por desmolde</button>
+            </div>
+          )}
           <div className="prd-acciones">
             <label className="prd-buscar" aria-label="Buscar obra">
               <Search size={15} />
@@ -216,33 +235,6 @@ export default function PlantaView({
               }}
             />
           </div>
-        </div>
-        <div className="prd-filtros" data-tour="obras-planta-filtros">
-          <div className="prd-seg" role="group" aria-label="Estado de las obras">
-            {ESTADOS.map(([k, t]) => (
-              <button key={k} type="button" className={estadoFiltro === k ? "on" : ""} onClick={() => cambiarEstado(k)}>{t}<span className="n">{conteo[k]}</span></button>
-            ))}
-          </div>
-          <div className="prd-scroll-x" role="group" aria-label="Línea">
-            <button type="button" className={`prd-chip${lineaFiltro === "todas" ? " on" : ""}`} onClick={() => cambiarLinea("todas")}>Todas</button>
-            {lineas.filter((l) => porLinea[l.id] || lineaFiltro === l.id).map((l) => (
-              <button key={l.id} type="button" className={`prd-chip${lineaFiltro === l.id ? " on" : ""}`} style={{ "--c": l.color || "var(--muted)" }} onClick={() => cambiarLinea(l.id)}>
-                <span className="pto" />{l.nombre}<span className="n">{porLinea[l.id] || 0}</span>
-              </button>
-            ))}
-          </div>
-          <span className="prd-sp" />
-          {conGantt && (
-            <>
-              <div className="prd-seg" role="group" aria-label="Eje de tiempo">
-                <button type="button" className={modo === "cal" ? "on" : ""} onClick={() => cambiarModo("cal")}><CalendarDays size={14} />Calendario</button>
-                <button type="button" className={modo === "s0" ? "on" : ""} onClick={() => cambiarModo("s0")}>Por desmolde</button>
-              </div>
-            </>
-          )}
-          {foco && filaSel && (
-            <button type="button" className="prd-chip on" onClick={() => setFoco(false)}>Sólo {filaSel.obra.codigo}<X size={14} /></button>
-          )}
         </div>
       </div>
 

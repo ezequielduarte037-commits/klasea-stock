@@ -17,6 +17,10 @@ import { MS_DIA, fCorta, fMedia, nombreMes, semanaRel } from "./formato";
 const PX_DIA = [1.15, 2.6, 6.2];
 const ZOOMS = [[2, "Mes", "Ver por semanas"], [1, "Trim.", "Ver por trimestre"], [0, "Año", "Ver el año"]];
 const DIA = (d) => d.getTime() / MS_DIA;
+const IZQ_ANGOSTA = 236;
+// Alto del encabezado del eje (igual que .prd-g-cab): al traer una fila a la
+// vista tiene que quedar por debajo.
+const CAB = 44;
 
 function lineasEtapa(e) {
   return [
@@ -28,7 +32,7 @@ function lineasEtapa(e) {
 }
 
 export default function GanttPlanta({
-  grupos, modo, zoom, hoy, izq, seleccion, expandida, etapaSel, focoObra,
+  grupos, modo, zoom, hoy, izq: izqMax, seleccion, expandida, etapaSel, focoObra,
   onSeleccionar, onEtapa, onTip, onZoom, onFoco,
 }) {
   const scrollRef = useRef(null);
@@ -40,6 +44,10 @@ export default function GanttPlanta({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Con el panel de la obra abierto (o en una pantalla chica) la columna de
+  // nombres se angosta: si no, a la línea de tiempo le quedaban 300 px.
+  const angosto = ancho > 0 && ancho < 1040 && izqMax > IZQ_ANGOSTA;
+  const izq = angosto ? IZQ_ANGOSTA : izqMax;
 
   const hoyD = DIA(hoy);
   const enFoco = !!(focoObra?.plan?.etapas.length && (modo === "cal" || focoObra.plan.s0));
@@ -95,12 +103,20 @@ export default function GanttPlanta({
 
   // Al entrar, al cambiar de modo o de zoom y al enfocar: se centra hoy (o el
   // desmolde, alineadas); enfocada, la obra entra entera desde el principio.
+  // Enfocada también vuelve arriba: si no, quedaba el desplazamiento de la
+  // lista completa y la obra con sus primeras etapas fuera de la vista. Al
+  // salir del foco se vuelve a la fila de la obra elegida.
   const objetivo = enFoco ? 0 : modo === "s0" ? xEje(0) : escala.x(hoy);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const destino = enFoco ? 0 : Math.max(0, objetivo - (el.clientWidth - izq) * 0.34);
-    el.scrollTo({ left: destino, behavior: el.dataset.listo ? "smooth" : "auto" });
+    const destino = { left: enFoco ? 0 : Math.max(0, objetivo - (el.clientWidth - izq) * 0.34) };
+    if (enFoco) destino.top = 0;
+    else if (seleccion && el.dataset.listo) {
+      const fila = el.querySelector(`[data-obra="${seleccion}"]`);
+      if (fila) destino.top = Math.max(0, fila.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - CAB - 2);
+    }
+    el.scrollTo({ ...destino, behavior: el.dataset.listo ? "smooth" : "auto" });
     el.dataset.listo = "1";
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modo, zoom, enFoco, focoObra?.obra?.id]);
@@ -123,9 +139,9 @@ export default function GanttPlanta({
     const fila = el.querySelector(`[data-obra="${seleccion}"]`);
     if (fila) {
       const r = fila.getBoundingClientRect(), c = el.getBoundingClientRect();
-      const arriba = r.top - c.top + el.scrollTop - 54;
-      const alto = 62 + (f?.plan?.etapas.length || 0) * 36;
-      if (r.top - c.top < 54 || r.top - c.top + Math.min(alto, c.height * 0.7) > c.height) destino.top = Math.max(0, arriba);
+      const arriba = r.top - c.top + el.scrollTop - CAB - 2;
+      const alto = 64 + (f?.plan?.etapas.length || 0) * 38;
+      if (r.top - c.top < CAB + 2 || r.top - c.top + Math.min(alto, c.height * 0.7) > c.height) destino.top = Math.max(0, arriba);
     }
     if (Object.keys(destino).length) el.scrollTo({ ...destino, behavior: "smooth" });
     // Sólo cuando cambia la obra elegida.
@@ -149,7 +165,7 @@ export default function GanttPlanta({
   let indice = 0;
 
   return (
-    <div className="prd-gantt" ref={scrollRef} data-tour="obras-planta-gantt" style={{ "--izq": `${izq}px` }}>
+    <div className={`prd-gantt${angosto ? " angosto" : ""}`} ref={scrollRef} data-tour="obras-planta-gantt" style={{ "--izq": `${izq}px` }}>
       <div className="prd-g-in" style={{ width: izq + W }}>
         <div className="prd-g-cab">
           <div className="prd-g-izq" style={{ width: izq }}>
@@ -300,6 +316,9 @@ export default function GanttPlanta({
                               {e.estado !== "completado" && e.progreso > 0 && <span className="prog" style={{ width: `${Math.round(e.progreso * 100)}%` }} />}
                               {ancho > 70 && <span className="txt">{e.nombre}</span>}
                             </div>
+                            {/* Enfocada, la etapa corta lleva el nombre al lado de
+                                la barra: a la izquierda suele quedar cortado. */}
+                            {enFoco && ancho <= 70 && <span className={`prd-et-nombre ${clase}`} style={{ left: izqBarra + ancho + 8 }}>{e.nombre}</span>}
                           </div>
                         </div>
                       );

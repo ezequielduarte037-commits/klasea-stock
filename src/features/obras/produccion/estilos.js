@@ -16,7 +16,7 @@ export const CSS_PRODUCCION = `
 /* ── Navegación del módulo ── */
 .prd-nav {
   position: relative; z-index: 20; flex-shrink: 0;
-  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 18px;
+  display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 4px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--topbar-soft);
   -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
@@ -36,7 +36,10 @@ export const CSS_PRODUCCION = `
 .prd-vista { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; animation: prd-aparece .25s ease both; }
 
 /* ── Barra de la vista ── */
-.prd-barra { flex-shrink: 0; padding: 16px 24px 12px; position: relative; z-index: 5; }
+.prd-barra { flex-shrink: 0; padding: 8px 18px; position: relative; z-index: 5; }
+/* Configuración conserva su título grande; Planta va con una sola fila. */
+.prd-barra.con-titulo { padding: 16px 24px 12px; }
+.prd-barra.con-titulo .prd-filtros { margin-top: 14px; }
 .prd-barra-fila { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .prd-titulos { min-width: 0; flex: 1; animation: prd-sube .5s cubic-bezier(.22,1,.36,1) both; }
 .prd-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
@@ -45,7 +48,12 @@ export const CSS_PRODUCCION = `
 .prd-sub { margin-top: 5px; font-size: 13px; color: var(--dim); }
 .prd-sub b { color: var(--muted); font-weight: 600; }
 .prd-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.prd-filtros { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.prd-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Las líneas se desplazan de costado antes de mandar el resto a otra fila. */
+.prd-filtros > .prd-scroll-x {
+  flex: 99 1 0; min-width: 140px;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+}
 .prd-sp { flex: 1; }
 .prd-scroll-x { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .prd-scroll-x::-webkit-scrollbar { display: none; }
@@ -73,9 +81,9 @@ export const CSS_PRODUCCION = `
 .prd-chip .pto { width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--muted)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, var(--muted)) 18%, transparent); }
 .prd-chip .n { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--subtle); }
 
-.prd-buscar { position: relative; flex: 0 1 220px; min-width: 150px; }
+.prd-buscar { position: relative; flex: 0 1 200px; min-width: 140px; }
 .prd-buscar svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--subtle); pointer-events: none; }
-.prd-buscar input { padding-left: 34px; min-height: 36px; font-size: 13px; }
+.prd-buscar input { padding-left: 34px; min-height: 34px; font-size: 13px; }
 
 .prd-btn-ic {
   width: 36px; height: 36px; display: grid; place-items: center; flex-shrink: 0;
@@ -112,13 +120,13 @@ export const CSS_PRODUCCION = `
 .prd-anillo.vacio > span { color: var(--subtle); }
 
 /* ── Cuerpo de Planta ── */
-.prd-cuerpo { flex: 1; min-height: 0; display: flex; position: relative; }
+.prd-cuerpo { flex: 1; min-height: 0; display: flex; position: relative; container: prd-cuerpo / inline-size; }
 .prd-gantt {
   flex: 1; min-width: 0; overflow: auto; position: relative; overscroll-behavior: contain;
   border-top: 1px solid var(--border);
 }
 .prd-g-in { position: relative; min-height: 100%; }
-.prd-g-cab { position: sticky; top: 0; z-index: 6; display: flex; height: 52px; background: var(--bg); border-bottom: 1px solid var(--border-2); }
+.prd-g-cab { position: sticky; top: 0; z-index: 6; display: flex; height: 44px; background: var(--bg); border-bottom: 1px solid var(--border-2); }
 .prd-g-izq { position: sticky; left: 0; z-index: 4; flex-shrink: 0; background: var(--bg); border-right: 1px solid var(--border); }
 .prd-g-cab .prd-g-izq { z-index: 7; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px 0 18px; font-size: 10.5px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--subtle); }
 .prd-g-cab-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -131,17 +139,17 @@ export const CSS_PRODUCCION = `
 /* Eje: meses arriba y, cuando entran, los lunes abajo. */
 .prd-g-eje { position: relative; flex-shrink: 0; overflow: hidden; }
 .prd-g-mes { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border); }
-.prd-g-mes span { position: absolute; left: 8px; top: 9px; font-size: 12px; font-weight: 500; color: var(--dim); white-space: nowrap; text-transform: capitalize; }
-.prd-g-eje.dos .prd-g-mes span { top: 8px; }
+.prd-g-mes span { position: absolute; left: 8px; top: 13px; font-size: 12px; font-weight: 500; color: var(--dim); white-space: nowrap; text-transform: capitalize; }
+.prd-g-eje.dos .prd-g-mes span { top: 5px; }
 .prd-g-mes.anio { border-left-color: var(--border-3); }
 .prd-g-mes.anio span { color: var(--text); font-weight: 650; }
 .prd-g-mes.anio span b { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; margin-left: 6px; padding: 1px 5px; border-radius: 5px; background: var(--panel-2); color: var(--muted); }
 .prd-g-mes.s0 { border-left: 1.5px solid var(--violet-border); }
 .prd-g-mes.corte { border-left-color: transparent; }
 .prd-g-mes.s0 span { color: var(--violet); font-weight: 650; text-transform: none; }
-.prd-g-sem { position: absolute; top: 30px; transform: translateX(-50%); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--subtle); }
+.prd-g-sem { position: absolute; top: 25px; transform: translateX(-50%); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--subtle); }
 .prd-g-hoy-cab {
-  position: absolute; bottom: 6px; z-index: 2; transform: translateX(-50%);
+  position: absolute; bottom: 4px; z-index: 2; transform: translateX(-50%);
   padding: 2px 8px; border-radius: 99px; background: var(--cyan); color: var(--inverse-text);
   font-size: 10.5px; font-weight: 700; letter-spacing: .03em; white-space: nowrap;
   box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--cyan) 70%, transparent);
@@ -193,6 +201,8 @@ export const CSS_PRODUCCION = `
   font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap;
   animation: prd-aparece .25s both; transition: background-color .15s, transform .12s;
 }
+.prd-gantt.angosto .prd-g-enfocar span { display: none; }
+.prd-gantt.angosto .prd-g-enfocar { padding: 0 7px; }
 .prd-g-enfocar:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); }
 .prd-g-enfocar:active { transform: scale(.96); }
 .prd-g-pista { position: relative; flex-shrink: 0; }
@@ -262,7 +272,7 @@ export const CSS_PRODUCCION = `
 .prd-g-sub .nom { flex: 1; min-width: 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 .prd-g-sub.sel .nom { color: var(--text); font-weight: 600; }
 .prd-g-sub .cnt { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--subtle); }
-.prd-g-cuerpo.foco .prd-g-sub { min-height: 44px; }
+.prd-g-cuerpo.foco .prd-g-sub { min-height: 40px; }
 
 .prd-nodo2 {
   display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 50%;
@@ -293,7 +303,7 @@ export const CSS_PRODUCCION = `
   animation-delay: calc(80ms + var(--j, 0) * 24ms);
   transition: box-shadow .18s;
 }
-.prd-g-cuerpo.foco .prd-barra-et { height: 28px; margin-top: -14px; border-radius: 8px; }
+.prd-g-cuerpo.foco .prd-barra-et { height: 26px; margin-top: -13px; border-radius: 8px; }
 .prd-barra-et .txt { position: relative; z-index: 1; padding: 0 9px; font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prd-barra-et.completado { background: color-mix(in srgb, var(--green) 26%, var(--panel-solid)); border-color: var(--green-border); }
 .prd-barra-et.completado .txt { color: var(--green); }
@@ -305,6 +315,13 @@ export const CSS_PRODUCCION = `
 .prd-barra-et.sug.pendiente { border-style: dashed; }
 .prd-barra-et.sug.pendiente .txt { color: var(--dim); }
 .prd-barra-et .prog { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--blue) 28%, transparent); }
+.prd-et-nombre {
+  position: absolute; top: 50%; transform: translateY(-50%); max-width: 280px; pointer-events: none;
+  font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prd-et-nombre.en_curso, .prd-g-sub.sel .prd-et-nombre { color: var(--text); font-weight: 600; }
+.prd-et-nombre.completado { color: var(--green); }
+.prd-et-nombre.vencida { color: var(--cyan); }
 .prd-g-sub.sel .prd-barra-et { box-shadow: 0 0 0 3px var(--blue-soft), 0 8px 18px -10px var(--shadow); }
 
 .prd-tip {
@@ -317,9 +334,9 @@ export const CSS_PRODUCCION = `
 .prd-tip .mono { font-size: 11px; }
 
 .prd-leyenda {
-  flex-shrink: 0; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  padding: 8px 24px; border-top: 1px solid var(--border); background: var(--topbar-soft);
-  font-size: 11.5px; color: var(--dim);
+  flex-shrink: 0; display: flex; align-items: center; gap: 14px; flex-wrap: nowrap; overflow: hidden;
+  padding: 5px 18px; border-top: 1px solid var(--border); background: var(--topbar-soft);
+  font-size: 11px; color: var(--dim);
 }
 .prd-leyenda span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .prd-leyenda i { display: inline-block; flex-shrink: 0; }
@@ -335,7 +352,7 @@ export const CSS_PRODUCCION = `
 
 /* ── Panel de obra ── */
 .prd-panel {
-  position: relative; z-index: 8; flex-shrink: 0; width: clamp(380px, 31vw, 470px);
+  position: relative; z-index: 8; flex-shrink: 0; width: clamp(340px, 27vw, 430px);
   display: flex; flex-direction: column; min-height: 0;
   border-left: 1px solid var(--border-2); background: var(--panel-solid);
   box-shadow: -24px 0 48px -32px var(--shadow-strong);
@@ -665,19 +682,24 @@ export const CSS_PRODUCCION = `
 @keyframes prd-menu { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
 @keyframes prd-trazo { from { stroke-dashoffset: 16; } }
 
-@media (max-width: 1180px) {
-  .prd-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 92%); box-shadow: -30px 0 60px -30px var(--shadow-strong); }
+/* El panel flota encima del Gantt sólo si al lado no le dejaría lugar. */
+@container prd-cuerpo (max-width: 860px) {
+  .prd-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(420px, 92%); box-shadow: -30px 0 60px -30px var(--shadow-strong); }
 }
 @media (max-width: 899px) {
   .prd-nav { padding: 6px 10px; gap: 6px; }
   .prd-volver span { display: none; }
-  .prd-barra { padding: 14px 16px 10px; }
+  .prd-barra { padding: 8px 16px; }
+  .prd-barra.con-titulo { padding: 14px 16px 10px; }
   .prd-h1 { font-size: 21px; }
   .prd-eyebrow { display: none; }
-  .prd-acciones { width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  /* Buscar y los botones van primero, a lo ancho; después estado y líneas. */
+  .prd-acciones { order: -1; width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .prd-acciones .prd-buscar { flex: 1 1 auto; min-width: 0; }
-  .prd-filtros { gap: 8px; margin-top: 12px; }
-  .prd-filtros > .prd-scroll-x { width: 100%; order: 3; margin: 0 -16px; padding: 0 16px; width: calc(100% + 32px); }
+  .prd-filtros { gap: 8px; }
+  .prd-barra.con-titulo .prd-filtros { margin-top: 12px; }
+  .prd-cuerpo { container-type: normal; }
+  .prd-filtros > .prd-scroll-x { flex: 0 0 calc(100% + 32px); order: 3; margin: 0 -16px; padding: 0 16px; width: calc(100% + 32px); }
   .prd-buscar { flex: 1 1 160px; }
   .prd-leyenda { display: none; }
   .prd-g-cab-txt { display: none; }
