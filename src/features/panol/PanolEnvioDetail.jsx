@@ -11,6 +11,7 @@ import {
   MessageSquare,
   PackageCheck,
   PackageOpen,
+  Pencil,
   Printer,
   ScanLine,
   Search,
@@ -25,7 +26,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Cargando from "@/components/ui/Cargando";
 import { supabase } from "@/supabaseClient";
 import {
-  fetchEnvio, fetchEventos, guardarUbicacionMaterial, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio,
+  fetchEnvio, fetchEventos, guardarUbicacionMaterial, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio, actualizarTituloEnvio,
   fetchLinkedPurchaseRequestForEnvio, ITEM_ESTADOS, ITEM_ESTADO_META, ENVIO_ESTADO_META, resumenItems,
   fetchObrasEgreso, reasignarObraDeItemEnvio,
 } from "@/features/panol/panolApi";
@@ -592,6 +593,9 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   const [obras, setObras] = useState([]);
   const [remitoIa, setRemitoIa] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [editandoTitulo, setEditandoTitulo] = useState(false);
+  const [tituloEditado, setTituloEditado] = useState("");
+  const [guardandoTitulo, setGuardandoTitulo] = useState(false);
   const [msg, setMsg] = useState("");
   const [itemQ, setItemQ] = useState("");
   const [itemEstado, setItemEstado] = useState("todos");
@@ -660,7 +664,33 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
   // leerla ahi hacia pensar que todo el pedido era para ese barco.
   const resumen = useMemo(() => resumenItems(items), [items]);
   const cerrado = envio && ["cerrado", "cancelado"].includes(envio.estado);
-  const scanEnabled = !!canReceive && !cerrado && !loading && showAdvanced;
+  const scanEnabled = !!canReceive && !cerrado && !loading && showAdvanced && !editandoTitulo;
+
+  async function guardarTitulo(event) {
+    event.preventDefault();
+    if (guardandoTitulo || !envio || !canReceive) return;
+    const titulo = tituloEditado.trim();
+    if (!titulo) {
+      toast.warning("Completá el título del aviso.");
+      return;
+    }
+    if (titulo === envio.titulo) {
+      setEditandoTitulo(false);
+      return;
+    }
+    setGuardandoTitulo(true);
+    try {
+      const actualizado = await actualizarTituloEnvio(envio.id, titulo);
+      setEnvio((actual) => ({ ...actual, titulo: actualizado }));
+      setEditandoTitulo(false);
+      toast.success("Título actualizado.");
+      await cargar();
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar el título.");
+    } finally {
+      setGuardandoTitulo(false);
+    }
+  }
 
   const filteredItems = useMemo(() => {
     const term = itemQ.trim().toLowerCase();
@@ -1213,6 +1243,14 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
               {!isMobile && "Volver"}
             </button>
             {envio && <EnvioStatusChip estado={envio.estado} />}
+            {envio && canReceive && (
+              <button type="button" className="ui-btn" disabled={editandoTitulo || guardandoTitulo || loading} onClick={() => {
+                setTituloEditado(envio.titulo);
+                setEditandoTitulo(true);
+              }}>
+                <Pencil size={14} /> Editar título
+              </button>
+            )}
             {envio && canReceive && !cerrado && resumen.pendientes > 0 && (
               <button
                 type="button"
@@ -1256,7 +1294,30 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
           </>
         )}
       >
-
+        {editandoTitulo && (
+          <form onSubmit={guardarTitulo} onKeyDown={(event) => {
+            if (event.key === "Escape" && !guardandoTitulo) {
+              event.stopPropagation();
+              setEditandoTitulo(false);
+            }
+          }} style={{ display: "flex", alignItems: "end", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            <label style={{ display: "grid", gap: 5, flex: "1 1 240px", minWidth: 0, color: C.muted, fontSize: 12 }}>
+              Título del aviso
+              <input
+                autoFocus
+                required
+                value={tituloEditado}
+                onChange={(event) => setTituloEditado(event.target.value)}
+                disabled={guardandoTitulo}
+                style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${C.border}`, borderRadius: 8, background: C.panelSolid, color: C.text, fontFamily: C.sans, fontSize: 14, padding: "9px 11px" }}
+              />
+            </label>
+            <button type="submit" className="ui-btn ui-btn-primario" disabled={guardandoTitulo || !tituloEditado.trim()}>
+              {guardandoTitulo ? "Guardando…" : "Guardar"}
+            </button>
+            <button type="button" className="ui-btn" disabled={guardandoTitulo} onClick={() => setEditandoTitulo(false)}>Cancelar</button>
+          </form>
+        )}
         {envio && (
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(150px, 1fr))", gap: 9 }}>
             {/* "Recibidos" no decia si eso ya era stock o seguia en el limbo. */}
@@ -2186,6 +2247,7 @@ function TimelineEvent({ ev }) {
             ? <>{ITEM_ESTADO_META[ev.estado_anterior]?.label ?? ev.estado_anterior}{" -> "}<strong style={{ color: C.text }}>{ITEM_ESTADO_META[ev.estado_nuevo]?.label ?? ev.estado_nuevo}</strong></>
             : ev.tipo === "creado" ? "Pedido creado"
             : ev.tipo === "estado" ? <>Pedido{" -> "}<strong style={{ color: C.text }}>{ENVIO_ESTADO_META[ev.estado_nuevo]?.label ?? ev.estado_nuevo}</strong></>
+            : ev.tipo === "titulo" ? "Título del aviso actualizado"
             : ev.tipo}
         </div>
         {ev.nota && <div style={{ color: C.dim, fontSize: 11, marginTop: 2, wordBreak: "break-word" }}>{ev.nota}</div>}
