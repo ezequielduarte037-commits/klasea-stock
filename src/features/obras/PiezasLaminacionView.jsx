@@ -354,12 +354,11 @@ function ProgressRing({ pct, size=44, stroke=3.5, color=C.green }) {
 function KpiCard({ label, value, total, color, delay=0 }) {
   const p = total > 0 ? Math.round(value/total*100) : 0;
   return (
-    <div style={{ background:C.s0, border:`1px solid ${C.b0}`, borderRadius:11, padding:"11px 13px", display:"flex", alignItems:"center", gap:10, borderLeft:`2px solid ${color}`, animation:`plv-kpi .35s ${delay}s ease both` }}>
-      <ProgressRing pct={p} color={color} size={38} stroke={3} />
-      <div>
-        <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C.t2, marginBottom:3 }}>{label}</div>
-        <div style={{ fontFamily:C.mono, fontSize:20, fontWeight:600, color, lineHeight:1 }}>{value}</div>
-        <div style={{ fontSize:10, color:C.t2, marginTop:2 }}>{p}%</div>
+    <div title={`${label}: ${value} de ${total} piezas (${p}%)`} style={{ minWidth:0, background:C.s0, border:`1px solid ${C.b0}`, borderRadius:7, padding:"5px 7px", borderLeft:`2px solid ${color}`, animation:`plv-kpi .35s ${delay}s ease both` }}>
+      <div style={{ fontSize:10, color:C.t2, lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{label}</div>
+      <div style={{ display:"flex", alignItems:"baseline", gap:5, marginTop:3 }}>
+        <span style={{ fontFamily:C.mono, fontSize:16, fontWeight:600, color, lineHeight:1 }}>{value}</span>
+        <span style={{ fontSize:10, color:C.t2, lineHeight:1 }}>{p}%</span>
       </div>
     </div>
   );
@@ -1087,27 +1086,27 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       <div style={{ display:"flex", flexDirection:"column", height:"100%", fontFamily:C.sans, minHeight:0 }}>
 
         {/* header */}
-        <div style={{ padding:"16px 22px 14px", borderBottom:`1px solid ${C.b0}`, flexShrink:0 }}>
-          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:obraSel&&catalogo?14:0 }}>
+        <div style={{ padding:"9px 12px 8px", borderBottom:`1px solid ${C.b0}`, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:obraSel&&catalogo?8:0 }}>
             <div>
-              <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C.t2, marginBottom:4 }}>Laminación · Seguimiento de piezas</div>
-              <h2 style={{ margin:0, fontSize:19, fontWeight:600, color:C.t0, lineHeight:1.2, fontFamily:C.mono, letterSpacing:1 }}>
+              <div style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", color:C.t2, marginBottom:3 }}>Laminación · Seguimiento de piezas</div>
+              <h2 style={{ margin:0, fontSize:17, fontWeight:600, color:C.t0, lineHeight:1.2, fontFamily:C.mono, letterSpacing:.5 }}>
                 {obraSel ? (obraSel.codigo??obraSel.nombre??"—") : "Piezas de Laminación"}
               </h2>
-              {obraSel?.linea_nombre && <div style={{ fontSize:12, color:C.t2, marginTop:3, letterSpacing:1 }}>{obraSel.linea_nombre}</div>}
+              {obraSel?.linea_nombre && <div style={{ fontSize:10, color:C.t2, marginTop:2, letterSpacing:.5 }}>{obraSel.linea_nombre}</div>}
             </div>
             {obraSel && catalogo && (
-              <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
-                <ProgressRing pct={stats.pct} size={50} stroke={4} color={avanceColor} />
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                <ProgressRing pct={stats.pct} size={30} stroke={3} color={avanceColor} />
                 <div>
-                  <div style={{ fontFamily:C.mono, fontSize:20, fontWeight:600, color:avanceColor, lineHeight:1 }}>{stats.pct}%</div>
-                  <div style={{ fontSize:11, color:C.t2, marginTop:2 }}>{stats.terminadas}/{TOTAL} listas</div>
+                  <div style={{ fontFamily:C.mono, fontSize:16, fontWeight:600, color:avanceColor, lineHeight:1 }}>{stats.pct}%</div>
+                  <div style={{ fontSize:10, color:C.t2, marginTop:2 }}>{stats.terminadas}/{TOTAL} listas</div>
                 </div>
               </div>
             )}
           </div>
           {obraSel && catalogo && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:7 }}>
+            <div aria-label="Resumen de piezas" style={{ display:"grid", gridTemplateColumns:"repeat(5,minmax(68px,1fr))", gap:4, overflowX:"auto" }}>
               <KpiCard label="Terminadas" value={stats.byEst.terminada??0}  total={TOTAL} color={C.green}  delay={0}    />
               <KpiCard label="En proceso" value={stats.byEst.en_proceso??0} total={TOTAL} color={C.blue}   delay={0.06} />
               <KpiCard label="Entregadas" value={stats.byEst.entregada??0}  total={TOTAL} color={C.purple} delay={0.12} />
