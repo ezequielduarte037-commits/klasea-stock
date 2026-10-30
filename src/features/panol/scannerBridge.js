@@ -140,12 +140,14 @@ export async function scanReceiptFromDevice(source = "glass", { timeoutMs = 200_
   await launchScannerApp(source, carpeta);
 
   const deadline = Date.now() + timeoutMs;
+  const carpetaEsperada = String(carpeta).replace(/\\/g, "/").toLowerCase();
   let lastStatus = "scanning";
   while (Date.now() < deadline) {
     await wait(1200);
     const [files, health] = await Promise.all([fetchScannerFiles(), fetchScannerHealth()]);
     const created = files
       .filter((row) => !previousIds.has(row.id))
+      .filter((row) => !carpetaEsperada || String(row.carpeta || "").replace(/\\/g, "/").toLowerCase() === carpetaEsperada)
       .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
     if (created) {
       return { row: created, file: await downloadScannerFile(created) };

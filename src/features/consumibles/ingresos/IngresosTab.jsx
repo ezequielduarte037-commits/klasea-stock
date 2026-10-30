@@ -20,11 +20,13 @@ import { CSS_INGRESOS } from "./ingresosEstilos";
 import { prepararIngreso } from "./ingresoRegistro";
 import { conPlazoLectura } from "../lecturas";
 import { leerPresupuestoConIA } from "@/features/materiales/api";
-import { emparejarRenglones, lineaDesdeRenglonRemito } from "./remitoIA";
+import { incorporarLecturaRemito, lineaDesdeRenglonRemito } from "./remitoIA";
 import { useSearchParams } from "react-router-dom";
 import { fetchPedidos } from "../pedidos/pedidosApi";
 import { lineasDePedidoRecibido, pedidosPorRecibir } from "./pedidoRecibido";
 import { useVerPrecios } from "../verPrecios";
+import ScannerRemito from "./ScannerRemito";
+import { archiveScannerFile } from "@/features/panol/scannerBridge";
 
 /**
  * Ingresos — cargar un remito del proveedor (el primero, de Rebollar, llega el
@@ -44,7 +46,7 @@ import { useVerPrecios } from "../verPrecios";
  */
 
 const BORRADOR_KEY = "klasea.consumibles.ingreso.borrador";
-const VACIO = { remito: "", proveedor: "Rebollar", nota: "", lineas: [], pedidoId: null, pedidoTitulo: null };
+const VACIO = { remito: "", proveedor: "Rebollar", nota: "", lineas: [], pedidoId: null, pedidoTitulo: null, sinEmparejar: [], escaneos: [] };
 
 function leerBorrador(sede) {
   try {
@@ -57,7 +59,7 @@ function leerBorrador(sede) {
 
 function escribirBorrador(sede, b) {
   try {
-    const vacio = !b.remito && !b.nota && !b.lineas.length;
+    const vacio = !b.remito && !b.nota && !b.lineas.length && !b.sinEmparejar?.length && !b.escaneos?.length;
     if (vacio) window.localStorage.removeItem(`${BORRADOR_KEY}.${sede}`);
     else window.localStorage.setItem(`${BORRADOR_KEY}.${sede}`, JSON.stringify(b));
     return true;
@@ -142,37 +144,37 @@ function Ingresos({ sede }) {
   // Remito leído por IA: lo emparejado entra solo; lo dudoso queda en esta lista
   // hasta que alguien elige el producto o lo descarta.
   const [leyendo, setLeyendo] = useState(false);
-  const [sinEmparejar, setSinEmparejar] = useState([]);
+  const [capturando, setCapturando] = useState(false);
+  const [errorLectura, setErrorLectura] = useState("");
+  const lecturaRef = useRef(false);
+  const sinEmparejar = borrador.sinEmparejar || [];
+  const setSinEmparejar = (cambio) => setBorrador((b) => ({ ...b, sinEmparejar: typeof cambio === "function" ? cambio(b.sinEmparejar || []) : cambio }));
   const archivoRemitoRef = useRef(null);
+  const ocupado = leyendo || capturando;
 
-  const leerRemito = async (archivo) => {
-    if (!archivo) return;
+  const leerRemito = async (archivo, escaneo = null) => {
+    if (!archivo || lecturaRef.current || guardando || borrador.envio) return;
+    if (escaneo && borrador.escaneos?.includes(escaneo.id)) {
+      toast.warning("Ese escaneo ya está cargado en este borrador.");
+      return;
+    }
+    lecturaRef.current = true;
     setLeyendo(true);
+    setErrorLectura("");
     try {
       const leido = await leerPresupuestoConIA({ file: archivo, tipoEsperado: "remito", proveedor: borrador.proveedor || "Rebollar" });
-      const filas = emparejarRenglones(leido?.items ?? [], catalogo ?? [], { moneda: leido?.moneda });
-      if (!filas.length) {
-        toast.warning("La IA no encontró renglones en ese archivo. Probá con una foto más derecha y con luz, o cargalo a mano.");
-        return;
-      }
-      const ok = filas.filter((x) => x.item);
-      setBorrador((b) => {
-        // Se conserva cada renglón: dos líneas del mismo código pueden venir
-        // una por unidad y otra por caja, con conversiones diferentes.
-        const lineas = [...b.lineas, ...ok.map((x) => lineaDesdeRenglonRemito(x.item, x.renglon))];
-        return {
-          ...b,
-          remito: b.remito || String(leido?.numero || "").trim(),
-          proveedor: b.proveedor || String(leido?.proveedor || "").trim(),
-          lineas,
-        };
-      });
-      setSinEmparejar(filas.filter((x) => !x.item));
-      const dudas = filas.length - ok.length;
-      toast.success(`Remito leído: ${ok.length} de ${filas.length} renglones cargados${dudas ? `, ${dudas} para revisar` : ""}. Revisá cantidades antes de confirmar.`);
+      // No se toca el borrador hasta tener una lectura completa y poder guardarla.
+      const { borrador: siguiente, cantidad, cargados } = incorporarLecturaRemito(borrador, leido, catalogo ?? [], escaneo);
+      if (!escribirBorrador(sede, siguiente)) throw new Error("No se pudo guardar la lectura en esta PC. Liberá espacio y reintentá; el escaneo sigue en Pendientes.");
+      setBorrador(siguiente);
+      const dudas = cantidad - cargados;
+      toast.success(`Remito leído: ${cargados} de ${cantidad} renglones cargados${dudas ? `, ${dudas} para revisar` : ""}. Revisá cantidades antes de confirmar.`);
     } catch (e) {
-      toast.error(e?.message || "No se pudo leer el remito.");
+      const mensaje = e?.message || "No se pudo leer el remito.";
+      setErrorLectura(mensaje);
+      toast.error(mensaje);
     } finally {
+      lecturaRef.current = false;
       setLeyendo(false);
       if (archivoRemitoRef.current) archivoRemitoRef.current.value = "";
     }
@@ -189,8 +191,9 @@ function Ingresos({ sede }) {
   // Recibir un pedido: sus renglones entran ya cargados, con lo que se pidió.
   // Quien recibe sólo corrige lo que llegó distinto y escribe el n° de remito.
   const recibirPedido = async (pedido) => {
+    if (ocupado || guardando || borrador.envio) return;
     if (borrador.pedidoId === pedido.id) return;
-    if (borrador.lineas.length || borrador.remito) {
+    if (borrador.lineas.length || borrador.remito || sinEmparejar.length) {
       const ok = await confirmar({
         title: "¿Reemplazar lo que está cargado?",
         message: "Hay un remito a medio cargar. Si recibís este pedido se reemplaza.",
@@ -243,7 +246,11 @@ function Ingresos({ sede }) {
   };
 
   const confirmarIngreso = async () => {
-    if (enviandoRef.current || guardando) return;
+    if (enviandoRef.current || guardando || ocupado || lecturaRef.current) return;
+    if (sinEmparejar.length) {
+      toast.warning("Resolvé o descartá los renglones para revisar antes de confirmar.");
+      return;
+    }
     if (borrador.lineas.some((l) => l.presentacionPendiente)) {
       toast.warning("Elegí si la cantidad del remito viene por unidad o en cajas en los renglones marcados.");
       return;
@@ -281,6 +288,10 @@ function Ingresos({ sede }) {
       if (!escribirBorrador(sede, pendiente)) throw new Error("El equipo no pudo guardar el remito para reintentar. Liberá espacio antes de confirmar.");
       setBorrador(pendiente);
       await insertarMovimientos(envio.filas);
+
+      // Recién con el stock confirmado se archiva el original en esta PC.
+      const archivos = await Promise.allSettled((borrador.escaneos || []).map(archiveScannerFile));
+      if (archivos.some((r) => r.status === "rejected")) toast.warning("El ingreso se guardó, pero algún original sigue en Pendientes del escáner. No vuelvas a ingresarlo.");
 
       // Lo que se aprendió del remito (viene en cajas de N) queda para la próxima.
       const aprender = borrador.lineas.map((l) => [l.materialId, cambiosDeConfig(l)]).filter(([, c]) => c);
@@ -372,7 +383,7 @@ function Ingresos({ sede }) {
                       <strong>Pedido N° {p.numero} · {p.proveedor}</strong>
                       <small className="ing-dim">{fechaHora(p.pedido_at || p.created_at)} · {p.items.length} {p.items.length === 1 ? "producto" : "productos"} por recibir</small>
                     </div>
-                    <button type="button" className="ui-btn ui-btn-primario" onClick={() => recibirPedido(p)} disabled={guardando || !!borrador.envio}>
+                    <button type="button" className="ui-btn ui-btn-primario" onClick={() => recibirPedido(p)} disabled={ocupado || guardando || !!borrador.envio}>
                       <PackageCheck size={16} /> Recibir
                     </button>
                   </li>
@@ -386,14 +397,17 @@ function Ingresos({ sede }) {
             </p>
           )}
 
+          <ScannerRemito sede={sede} disabled={ocupado || guardando || !!borrador.envio} cargados={borrador.escaneos || []} onLeer={leerRemito} onOcupado={setCapturando} />
           <div className="ing-ia">
-            <button type="button" className="ui-btn ui-btn-primario" disabled={leyendo || guardando || !!borrador.envio} onClick={() => archivoRemitoRef.current?.click()}>
+            <button type="button" className="ui-btn" disabled={ocupado || guardando || !!borrador.envio} onClick={() => archivoRemitoRef.current?.click()}>
               <FileScan size={17} /> {leyendo ? "Leyendo el remito…" : "Leer remito con IA"}
             </button>
             <span className="ing-dim">Foto o PDF del remito: los productos se cargan solos por su código de Rebollar.</span>
             <input ref={archivoRemitoRef} type="file" accept="image/*,application/pdf" hidden onChange={(e) => leerRemito(e.target.files?.[0])} />
           </div>
+          {errorLectura && <p className="ing-alerta" role="alert">{errorLectura}</p>}
 
+          <fieldset disabled={ocupado || guardando || !!borrador.envio} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
           {sinEmparejar.length > 0 && (
             <div className="ing-revisar" role="region" aria-label="Renglones del remito para revisar">
               <h3>Para revisar ({sinEmparejar.length})</h3>
@@ -419,7 +433,6 @@ function Ingresos({ sede }) {
           )}
 
           {borrador.envio && <p className="ing-alerta" role="status">Este remito tiene un envío por confirmar. Reintentá: se conservan los mismos renglones y no se duplica el stock.</p>}
-          <fieldset disabled={guardando || !!borrador.envio} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
           <div className="ing-datos">
             <label className="ing-campo">
               <span className="ing-lbl">N° de remito</span>
@@ -488,10 +501,10 @@ function Ingresos({ sede }) {
               {verPrecios && sinCosto > 0 && <span className="ing-dim"> · {sinCosto} sin costo</span>}
             </div>
             <div className="ing-pie-btns">
-              {(borrador.lineas.length > 0 || borrador.remito) && (
-                <button type="button" className="ui-btn ui-btn-fantasma" onClick={descartar} disabled={guardando || !!borrador.envio}>Descartar</button>
+              {(borrador.lineas.length > 0 || borrador.remito || sinEmparejar.length > 0) && (
+                <button type="button" className="ui-btn ui-btn-fantasma" onClick={descartar} disabled={ocupado || guardando || !!borrador.envio}>Descartar</button>
               )}
-              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarIngreso} disabled={guardando || !validas}>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarIngreso} disabled={ocupado || guardando || !validas || sinEmparejar.length > 0}>
                 <PackageCheck size={17} /> {guardando ? "Cargando…" : borrador.envio ? "Reintentar el ingreso" : "Confirmar ingreso"}
               </button>
             </div>

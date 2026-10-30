@@ -27,6 +27,9 @@ const OR_BASE = Deno.env.get("OPENROUTER_BASE_URL") || "https://openrouter.ai/ap
 // Gemini Pro lee mejor fotos con mala luz y respeta el prompt largo de reglas.
 // Si el costo se dispara, bajar a "google/gemini-2.5-flash" (misma familia, más barato).
 const OR_MODEL_EXTRACT = Deno.env.get("OPENROUTER_MODEL_EXTRACT") || "google/gemini-2.5-pro";
+// Gemini puede leer el PDF original, incluido el escaneo. Evita depender del
+// parser externo (pdf-text fue retirado y redirige a otro servicio).
+const PDF_NATIVO = /^google\/gemini-/.test(OR_MODEL_EXTRACT);
 // Chat conversacional de WhatsApp: mini alcanza y es mucho más barato.
 const OR_MODEL_CHAT = Deno.env.get("OPENROUTER_MODEL_CHAT") || "openai/gpt-4o-mini";
 // Letra manuscrita: por default el mismo que lee remitos, que es el que mejor
@@ -169,6 +172,9 @@ async function pedirComprobante(body: Record<string, unknown>, operation: string
       }
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Array.isArray(parsed.items)) {
         throw new OpenRouterRequestError(operation, null, "Respuesta sin lista de renglones", "invalid_response");
+      }
+      if (parsed.items.some((item: unknown) => !item || typeof item !== "object" || Array.isArray(item))) {
+        throw new OpenRouterRequestError(operation, null, "Respuesta con renglones inválidos", "invalid_response");
       }
       return parsed;
     } catch (error) {
@@ -590,11 +596,11 @@ Formato:
   "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
-  // Los PDFs de sistemas de gestion (Electrobase, Tango, Bejerman…) vienen con
-  // capa de texto: "pdf-text" la lee tal cual, exacta y gratis. "mistral-ocr"
-  // rasteriza y adivina, que es peor y mas caro justo en el caso facil. Se usa
-  // OCR solo como plan B, para PDFs escaneados o exportados como imagen.
-  async function pedir(engine: "pdf-text" | "mistral-ocr") {
+  // Gemini lee texto e imágenes del PDF directamente. Para otros modelos se
+  // conserva el parser compatible. Mistral queda como recuperación si falla
+  // la primera vía, con el mismo límite de tiempo total.
+  const enginePrimario = PDF_NATIVO ? "native" : "cloudflare-ai";
+  async function pedir(engine: "native" | "cloudflare-ai" | "mistral-ocr") {
     return await pedirComprobante({
         model: OR_MODEL_EXTRACT,
         temperature: 0,
@@ -624,33 +630,22 @@ Formato:
   let parsed: any;
   let errorLectura: unknown;
   try {
-    parsed = await pedir("pdf-text");
+    parsed = await pedir(enginePrimario);
   } catch (error) {
     if (error instanceof OpenRouterRequestError && [401, 402, 403].includes(error.status || 0)) throw error;
-    console.error("[extraerComprobantePDF] pdf-text falló, reintento con OCR", error);
+    console.error(`[extraerComprobantePDF] ${enginePrimario} falló, reintento con OCR`, error);
     errorLectura = error;
     parsed = null;
   }
 
   const sinItems = !parsed || !Array.isArray(parsed.items) || parsed.items.length === 0;
-  // El proveedor no salio, o salio nuestro propio nombre. Las dos cosas
-  // significan lo mismo: en la capa de texto no estaba el nombre del emisor.
-  //
-  // Salvo que el usuario ya lo haya elegido en la pantalla. Ahi no hay nada que
-  // descubrir, y la segunda pasada -que rasteriza el PDF entero y lo vuelve a
-  // extraer completo- se estaba pagando dos veces el mismo remito para recuperar
-  // tres datos del membrete que ya estaban escritos. Con el proveedor sabido,
-  // el OCR queda solo para lo que de verdad lo necesita: un PDF escaneado, que
-  // se detecta porque la capa de texto no devolvio ningun renglon.
+  // Un parser de texto puede omitir un logo con el nombre del emisor. La vía
+  // nativa ya vio el PDF completo; no se paga otra lectura solo por ese dato.
   const proveedorConocido = String(input.proveedorConocido || "").trim();
-  const sinProveedor = !proveedorConocido && (!parsed?.proveedor || esNuestroNombre(parsed.proveedor));
+  const sinProveedor = !PDF_NATIVO && !proveedorConocido && (!parsed?.proveedor || esNuestroNombre(parsed.proveedor));
 
-  // Un PDF escaneado devuelve texto vacio y por lo tanto cero items: ahi si vale
-  // el OCR. Antes esta era la unica razon para usarlo, y por eso el presupuesto
-  // 33117 salia mal: "pdf-text" le leyo los 16 renglones perfecto, pero el
-  // nombre del proveedor esta SOLO en el logo, dibujado como vectores. No hay
-  // texto que leer, asi que el modelo agarro el unico nombre de la hoja: el
-  // nuestro, como destinatarios. OCR rasteriza y si mira el membrete.
+  // Si la primera vía falló o no leyó productos, intentar OCR. Un documento
+  // ajeno a compras se respeta: nunca inventar productos para llenarlo.
   if (!parsed || (parsed.es_comprobante !== false && (sinItems || sinProveedor))) {
     let ocr: any = null;
     try {

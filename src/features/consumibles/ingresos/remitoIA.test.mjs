@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { emparejarRenglones, lineaDesdeRenglonRemito, normalizarCodigoRemito, parecido } from "./remitoIA.js";
+import { incorporarLecturaRemito, emparejarRenglones, lineaDesdeRenglonRemito, normalizarCodigoRemito, parecido } from "./remitoIA.js";
 import { actualizarLinea, calcularLinea } from "./ingresoCalculos.js";
 import { prepararIngreso } from "./ingresoRegistro.js";
 
@@ -112,4 +112,33 @@ test("una cantidad ilegible no se reemplaza por una unidad inventada", () => {
   const linea = lineaDesdeRenglonRemito(cinta, { cantidad: null, unidad: "rollo" });
   assert.equal(linea.cantidad, "");
   assert.equal(calcularLinea(linea).valida, false);
+});
+
+test("la lectura conserva las líneas previas y las dudas anteriores al incorporar otro escaneo", () => {
+  const previo = { remito: "R-1", proveedor: "Rebollar", lineas: [{ key: "manual" }], sinEmparejar: [{ renglon: { descripcion: "pendiente anterior" } }], escaneos: ["s1"] };
+  const leido = { tipo_documento: "remito", numero: "R-1", items: [{ codigo: "L0019", cantidad: 5 }, { descripcion: "Producto desconocido", cantidad: 2 }] };
+  const { borrador, cargados, cantidad } = incorporarLecturaRemito(previo, leido, catalogo, { id: "s2" });
+  assert.equal(borrador.remito, "R-1");
+  assert.equal(borrador.lineas[0].key, "manual");
+  assert.equal(borrador.lineas[1].materialId, "c");
+  assert.equal(cargados, 1);
+  assert.equal(cantidad, 2);
+  assert.equal(borrador.sinEmparejar.length, 2);
+  assert.deepEqual(borrador.escaneos, ["s1", "s2"]);
+  assert.equal(previo.lineas.length, 1, "el original no se modifica antes de guardar");
+  assert.equal(JSON.parse(JSON.stringify(borrador)).sinEmparejar.length, 2, "las dudas forman parte del borrador persistido");
+  assert.throws(() => incorporarLecturaRemito(borrador, leido, catalogo, { id: "s2" }), /ya está cargado/);
+});
+
+test("una lectura inválida, vacía o de otro documento no altera el borrador", () => {
+  const borrador = { lineas: [{ key: "manual" }] };
+  for (const leido of [null, {}, { items: [] }, { tipo_documento: "factura", items: [{ codigo: "L0019" }] }]) {
+    assert.throws(() => incorporarLecturaRemito(borrador, leido, catalogo));
+    assert.deepEqual(borrador, { lineas: [{ key: "manual" }] });
+  }
+});
+
+test("un remito con renglones por resolver no permite preparar un ingreso parcial", () => {
+  const linea = lineaDesdeRenglonRemito(catalogo[2], { cantidad: 5, unidad: "unidad" });
+  assert.throws(() => prepararIngreso({ lineas: [linea], sinEmparejar: [{ renglon: { descripcion: "Pendiente" } }] }, "Chubut"), /renglones para revisar/);
 });

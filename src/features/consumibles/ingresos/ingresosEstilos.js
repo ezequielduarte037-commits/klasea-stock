@@ -106,6 +106,17 @@ export const CSS_INGRESOS = `
 
 .ing .ing-ia { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .ing .ing-ia .ui-btn { min-height: 42px; }
+.ing .ing-scanner { margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); }
+.ing .ing-scanner-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ing .ing-scanner-acciones .ui-btn { min-height: 42px; }
+.ing .ing-scanner-acciones select { width: auto; }
+.ing .ing-scanner p { margin: 8px 0 0; font-size: 13px; }
+.ing .ing-scanner-vincular { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
+.ing .ing-scanner-vincular label { flex: 1 1 220px; }
+.ing .ing-scanner-vincular small { flex-basis: 100%; }
+.ing .ing-scanner-pendientes { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.ing .ing-scanner-pendientes li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; overflow-wrap: anywhere; }
+.ing .ing-scanner-pendientes .ui-btn { flex-shrink: 0; }
 .ing .ing-pedidos { border: 1px solid var(--blue-border, var(--border)); background: var(--blue-soft, var(--panel-2)); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
 .ing .ing-pedidos h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
 .ing .ing-pedidos p { margin: 0; font-size: 13px; }

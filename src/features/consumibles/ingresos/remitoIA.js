@@ -95,6 +95,30 @@ export function emparejarRenglones(renglones = [], catalogo = [], { moneda = nul
     });
 }
 
+/** Prepara la lectura completa antes de tocar el borrador o archivar el original. */
+export function incorporarLecturaRemito(borrador, leido, catalogo, escaneo = null) {
+  if (!leido || !Array.isArray(leido.items)) throw new Error("El servicio devolvió una lectura incompleta. Volvé a intentar con el mismo archivo.");
+  if (leido.es_comprobante === false || (leido.tipo_documento && leido.tipo_documento !== "remito")) {
+    throw new Error("El archivo no se reconoció como un remito. Revisá que sea el documento de entrega del proveedor.");
+  }
+  if (escaneo && borrador.escaneos?.includes(escaneo.id)) throw new Error("Ese escaneo ya está cargado en este borrador.");
+  const filas = emparejarRenglones(leido.items, catalogo, { moneda: leido.moneda });
+  if (!filas.length) throw new Error("No se encontraron productos en ese archivo. Probá con una foto más derecha y con luz, o cargalo a mano.");
+  const ok = filas.filter((x) => x.item);
+  return {
+    cantidad: filas.length,
+    cargados: ok.length,
+    borrador: {
+      ...borrador,
+      remito: borrador.remito || String(leido.numero || "").trim(),
+      proveedor: borrador.proveedor || String(leido.proveedor || "").trim(),
+      lineas: [...borrador.lineas, ...ok.map((x) => lineaDesdeRenglonRemito(x.item, x.renglon))],
+      sinEmparejar: [...(borrador.sinEmparejar || []), ...filas.filter((x) => !x.item)],
+      escaneos: [...(borrador.escaneos || []), ...(escaneo ? [escaneo.id] : [])],
+    },
+  };
+}
+
 function unidadNormalizada(valor) {
   const u = sinAcentos(valor).toLowerCase().replace(/[^a-z0-9]/g, "");
   const alias = { u: "unidad", un: "unidad", unid: "unidad", unidades: "unidad", rollos: "rollo", cajas: "caja", paquetes: "paquete", blisters: "blister", m: "metro", mt: "metro", mts: "metro", metros: "metro", l: "litro", lt: "litro", lts: "litro", litros: "litro", pares: "par", hojas: "hoja", bidones: "bidon" };

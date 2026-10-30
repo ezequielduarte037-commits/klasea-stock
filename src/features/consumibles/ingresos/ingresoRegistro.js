@@ -4,6 +4,7 @@ import { calcularLinea } from "./ingresoCalculos.js";
 export function prepararIngreso(borrador, sede, id = () => crypto.randomUUID()) {
   if (borrador.envio) return borrador.envio;
   if (!["Chubut", "Pampa"].includes(sede)) throw new Error("Elegí la sede del pañol.");
+  if (borrador.sinEmparejar?.length) throw new Error("Resolvé o descartá los renglones para revisar antes de confirmar.");
   if (!borrador.lineas?.length || borrador.lineas.some((l) => !calcularLinea(l).valida)) {
     throw new Error("Revisá cantidades, factores y costos antes de confirmar.");
   }
