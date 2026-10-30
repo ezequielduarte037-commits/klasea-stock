@@ -402,6 +402,11 @@ export function normalizeMaterialLinks(value) {
       label: String(item?.label || item?.titulo || "").trim(),
       url: String(item?.url || item?.link || "").trim(),
       nota: String(item?.nota || item?.notes || "").trim(),
+      ...(item?.kind === "documento" ? {
+        kind: "documento", name: String(item.name || item.label || "Archivo"),
+        path: String(item.path || ""), type: String(item.type || "application/octet-stream"),
+        size: Number(item.size) || 0, linea: item.linea ? String(item.linea) : null,
+      } : {}),
     }))
     .filter((item) => item.url)
     .filter((item) => {

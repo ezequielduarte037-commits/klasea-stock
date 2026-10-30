@@ -1,4 +1,5 @@
 import { supabase } from "@/supabaseClient";
+import { mergeDocumentAttachments } from "@/features/materiales/productDocuments";
 
 export const PURCHASE_PHOTOS_BUCKET = "purchase-request-photos";
 
@@ -1276,7 +1277,18 @@ export async function fetchRequestItems(requestId) {
     .eq("request_id", requestId)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return data || [];
+  const items = data || [];
+  const ids = [...new Set(items.flatMap(item => [item.catalog_source === "madera" || item.catalog_source === "laminacion" ? null : item.material_id, item.requisito_material_id]).filter(Boolean))];
+  if (!ids.length) return items;
+  const { data: products, error: productsError } = await supabase.from("panol_materiales").select("id,links").in("id", ids);
+  if (productsError) throw productsError;
+  const links = new Map((products || []).map(product => [product.id, product.links || []]));
+  return items.map(item => ({
+    ...item,
+    material_document_links: links.get(item.material_id) || [],
+    requirement_document_links: item.requisito_material_id !== item.material_id ? links.get(item.requisito_material_id) || [] : [],
+    product_links: mergeDocumentAttachments(links.get(item.material_id) || [], links.get(item.requisito_material_id) || []),
+  }));
 }
 
 export async function fetchAllRequestItems() {
@@ -1298,12 +1310,18 @@ export async function addRequestItem(requestId, fields) {
   return data;
 }
 
-export async function crearPedidoAdicionalObra({ obraId, titulo, descripcion, items, envioId }) {
+export async function crearPedidoAdicionalObra({ obraId, titulo, descripcion, items, envioId, attachments = [] }) {
   const { data, error } = await supabase.rpc("materiales_pedir_adicional_obra", {
     p_obra_id:obraId, p_titulo:titulo, p_descripcion:descripcion, p_items:items, p_envio_id:envioId,
   });
   if (error) throw error;
   if (!data?.request?.id) throw new Error("No se pudo confirmar el pedido adicional.");
+  if (attachments.length) {
+    const saved = await updatePurchaseRequest(data.request.id, {
+      attachments: mergeDocumentAttachments(data.request.attachments || [], attachments),
+    });
+    data.request = saved;
+  }
   if (!data.reutilizado) notifyWaUpdate({
     requestId:data.request.id,eventType:"created",actorId:data.request.created_by,
     payload:{source:"materiales_obra"},

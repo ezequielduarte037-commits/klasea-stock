@@ -55,6 +55,8 @@ import {
   rubroDeLista,
 } from "./api";
 import ProductoAsignadoControl from "./ProductoAsignadoControl";
+import MaterialDocuments from "./MaterialDocuments";
+import { fetchProductDocuments } from "./materialDocumentsApi";
 import { findConditionProductReplacements } from "./conditionProductReplacement";
 import {
   fetchRequisitoProductos,
@@ -1850,7 +1852,8 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
           </div>
           <MaterialBarcodeEditor material={material} onChanged={onChanged} />
-          <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} />
+          <MaterialDocuments materialId={material.id} links={draft.links} editable onChanged={async (links) => { setDraft(d => ({ ...d, links })); await onChanged?.(); }} />
+          <MaterialLinksEditor value={(draft.links || []).filter(link => link.kind !== "documento")} onChange={(links) => setDraft((d) => ({ ...d, links: [...links, ...(d.links || []).filter(link => link.kind === "documento")] }))} />
           <div>
             <span style={lbl}>Cantidad por línea</span>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1950,12 +1953,13 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
     }
     setCreando(g.label); setGenErr(null);
     try {
+      const documents = await fetchProductDocuments(g.items.map(row => row.materialId), linea);
       const req = await createPurchaseRequest({ form: {
         title: `Pedido ${obra?.codigo || `K${linea}`} · ${g.label}`,
         description: `${g.items.length} ítems${obra ? ` del barco ${obra.codigo}` : ` de la línea K${linea}`} (${groupBy}: ${g.label}).`,
         priority: "media", source: "materiales", project_id: obra?.id || null, es_adicional: pedidoTipo === "adicional", tipo_pedido: pedidoTipo,
         proveedor: groupBy === "proveedor" && g.label !== "Sin proveedor" && !esProveedorAlternativo(g.label) ? g.label : null,
-      } });
+      }, existingAttachments: [...documents.values()].flat() });
       for (const row of g.items) {
         const supplierSnapshot = row.material
           ? supplierSnapshotForMaterial(row.material, { proveedorId: row.proveedorId, proveedor: row.proveedor })
@@ -4715,8 +4719,11 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
+      const documents = await fetchProductDocuments(pedidoRows.flatMap(row => [row.productoMaterialId, row.materialId, row.requisitoMaterialId]), linea);
+      const attachments = [...documents.values()].flat();
       if (pedido.tipo === "adicional") {
         await crearPedidoAdicionalObra({
+          attachments,
           obraId:obra.id,envioId:pedido.envioId,
           titulo:pedidoTitulo.trim() || buildPedidoTitulo({obra,rows:pedidoRows}),
           descripcion:buildOrdenTexto({obra,lineaNombre,rows:pedidoRows,groupBy}),
@@ -4751,6 +4758,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           es_adicional: pedido.tipo === "adicional",
           tipo_pedido: pedido.tipo,
         },
+        existingAttachments: attachments,
       });
 
       const touched = [];
@@ -5377,6 +5385,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     const miniBtn = { ...obraButton, minHeight: isMobile ? 44 : 32 };
     const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
     if (tab === "resumen") return <div style={{ display: "grid", gap: 14, fontSize: 12 }}>
+      <MaterialDocuments materialId={(row.producto || materialForRow)?.id} links={(row.producto || materialForRow)?.links || []} linea={linea} editable={!!(row.producto || materialForRow)?.id} onChanged={async () => { await onChanged?.(); await cargarSnapshot(); }} />
       {[...(view.requisito ? [["Requisito", view.requisito]] : []), ["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
       <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>

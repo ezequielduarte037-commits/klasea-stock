@@ -32,6 +32,8 @@ import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Cargando from "@/components/ui/Cargando";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import MaterialDocuments from "@/features/materiales/MaterialDocuments";
+import { mergeDocumentAttachments, normalizeMaterialDocuments } from "@/features/materiales/productDocuments";
 import { fetchEnviosDePedido, ENVIO_ESTADO_META, resumenItems } from "@/features/panol/panolApi";
 import {
   addRequestComment,
@@ -349,8 +351,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const faltaImporte = ["comprado", "recibido"].includes(request?.status)
     && !importeCompraValido(request?.actual_amount);
   const requestAttachments = useMemo(
-    () => normalizePurchaseRequestAttachments(request || {}),
-    [request],
+    () => mergeDocumentAttachments(normalizePurchaseRequestAttachments(request || {}), items.flatMap(item => normalizeMaterialDocuments(item.product_links, request?.project?.codigo))),
+    [request, items],
   );
   const itemsParaPanol = useMemo(
     () => items.filter((it) => !["en_panol", "recibido", "cancelado"].includes(it.status)),
@@ -1239,6 +1241,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             {(item.quantity || item.unit) && <span className="cant">{item.quantity} {item.unit}</span>}
                           </div>
                           {manager && item.actual_amount != null && <div className="cmp-ayuda">Importe del ítem: <b className="mono">{fmtPesos(item.actual_amount)}</b></div>}
+                          {item.catalog_source !== "madera" && item.catalog_source !== "laminacion" && <div style={{ marginTop: 7, display: "grid", gap: 7 }}>
+                            <MaterialDocuments materialId={item.material_id} links={item.material_document_links || []} linea={request.project?.codigo} editable={canEditItems && !!item.material_id} onChanged={load} />
+                            <MaterialDocuments links={item.requirement_document_links || []} linea={request.project?.codigo} />
+                          </div>}
                           {(item.received_quantity || item.supplier_description || item.supplier_code || item.supplier_components?.length > 0 || isHttpUrl(item.image_url) || isHttpUrl(item.link_url) || item.notes || item.catalog_source === "panol") && (
                             <div className="meta">
                               {/* Lo que realmente llegó: sin esto una entrega parcial se veía igual que una completa. */}

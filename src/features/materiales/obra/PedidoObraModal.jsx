@@ -5,6 +5,7 @@ import { C } from "@/theme";
 import useDialogo from "@/features/consumibles/useDialogo";
 import { BTN, BTN_PRIMARY, INP, LBL } from "@/features/rrhh/ui";
 import { cantidadPedidoValida } from "./adicionalObra";
+import MaterialDocuments from "../MaterialDocuments";
 
 export default function PedidoObraModal({ pedido, obraCodigo, titulo, onTitulo, onCantidad, onCerrar, onConfirmar, busy, error }) {
   const ref = useRef(null);
@@ -30,6 +31,7 @@ export default function PedidoObraModal({ pedido, obraCodigo, titulo, onTitulo, 
           <div style={{minWidth:0,flex:1}}>
             <div style={{fontSize:12,fontWeight:650,overflowWrap:"anywhere"}}>{row.descripcion}</div>
             <div style={{fontSize:10.5,color:C.t3,marginTop:3}}>{row.proveedor||"Sin proveedor"}</div>
+            <div style={{marginTop:6}}><MaterialDocuments links={(row.producto || row.material)?.links || []} linea={obraCodigo} /></div>
           </div>
           {adicional?<label style={{display:"grid",gap:4,width:108,flexShrink:0}}>
             <span style={{fontSize:10,color:C.t2}}>Cantidad a pedir</span>
