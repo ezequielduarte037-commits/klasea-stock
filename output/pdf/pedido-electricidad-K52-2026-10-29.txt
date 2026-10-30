@@ -1,0 +1,93 @@
+Pedido KlaseA · K52 Electricidad · 29/10/2026 · 91 ítems
+
+2 u - BASE PORTA FUSIBLE NH 500A
+4 u - BASE PORTA FUSIBLE NH-00 160
+2 u - BASE PORTA FUSIBLE OMEGA
+10 u - BORNERA · T2 25A
+5 u - BORNERA · T2 50A
+4 u - BORNERA · T2 100A
+5 u - BORNERA · T3 25A
+5 u - BORNERA tipo telefónica 10x50
+50 m - Cable 1x0,50 amarillo
+50 m - Cable 1x0,50 negro
+50 m - Cable 1x0,50 rojo
+200 m - Cable 1x0,75 amarillo
+100 m - Cable 1x0,75 blanco
+200 m - Cable 1x0,75 naranja
+200 m - Cable 1x0,75 negro
+100 m - Cable 1x0,75 rojo
+100 m - Cable 1x0,75 violeta
+100 m - Cable 1x1 negro
+100 m - Cable 1x1 rojo
+20 m - Cable 1x1,5 azul
+20 m - Cable 1x1,5 marron
+50 m - Cable 1x1,5 negro
+50 m - Cable 1x1,5 rojo
+20 m - Cable 1x1,5 verde-amarillo
+20 m - Cable 1x10 negro
+20 m - Cable 1x10 rojo
+2 u - Cable canal 10x5
+5 u - Cable canal 120x100
+20 m - Cable chato 3x1,5
+20 m - Cable coaxil RG-59
+15 m - Cable soldadura flex 1x25
+50 m - Cable soldadura flex 1x35
+70 m - Cable soldadura flex 1x50
+70 m - Cable soldadura flex 1x70
+50 m - Cable tipo taller 3x1,5
+30 m - Cable tipo taller 7x1,5
+12 m - Cable trenzado plano Qwork
+20 m - Cable UTP
+3 u - Caja de paso Roker PR 1000-67 (166x122x67 mm)
+80 m - Caño corrugado blanco 5/8
+30 m - Caño corrugado blanco 7/8
+30 m - Caño corrugado negro partido 1/2
+20 m - Caño corrugado negro partido 5/8
+2 u - CINTA AISLANTE BLANCA
+8 u - CINTA AISLANTE NEGRA
+3 u - CINTA AISLANTE ROJA
+12 u - Cinta de tela
+1 u - Contactor tripolar 3x18A bobina 220V 1NA SK118A10M
+200 u - Empalme preaislado amarillo 6 mm
+200 u - Empalme preaislado azul 2,5 mm
+300 u - Empalme preaislado rojo 1,5 mm
+3 u - Estaño (bobina)
+10 u - Ficha RJ-45
+2 u - Flux pasta
+1 u - FUSIBLE NH · 100A
+3 u - FUSIBLE NH · 160A
+2 u - FUSIBLE NH · 500A
+2 u - Gabinete PVC Roker PRG 350-1 puerta de cristal (325x465x180 mm)
+1 u - Microswitch pistón con roldana fija Z-15GQ22-B
+600 u - Placa de montaje blanca 30x35 mm
+20 u - Precinto 150 x 3,5 mm
+15 u - Precinto 245 x 4,6 mm
+15 u - Precinto 300 x 5 mm
+1 u - Solenoide zm 403 12v (cód. 7892684003681)
+3 u - Tapa y bastidor Cambre tapa fume
+20 u - Terminal de cobre 10 mm diámetro 6
+20 u - Terminal de cobre 16 mm diámetro 3/8
+20 u - Terminal de cobre 16 mm diámetro 5/16
+20 u - Terminal de cobre 25 mm diámetro 1/2
+20 u - Terminal de cobre 25 mm diámetro 3/8
+30 u - Terminal de cobre 35 mm diámetro 1/2
+30 u - Terminal de cobre 35 mm diámetro 3/8
+40 u - Terminal de cobre 50 mm diámetro 1/2
+40 u - Terminal de cobre 50 mm diámetro 3/8
+50 u - Terminal de cobre 70 mm diámetro 3/8
+30 u - Terminal de cobre 95 mm diámetro 3/8
+5 u - Terminal para estañar ojal 1/2
+10 u - Terminal para estañar ojal 3/8
+300 u - Terminal preaislado ojal amarillo 5 mm
+50 u - Terminal preaislado ojal amarillo 8 mm
+50 u - Terminal preaislado ojal amarillo 10 mm
+300 u - Terminal preaislado ojal azul 5 mm
+100 u - Terminal preaislado ojal azul 6 mm
+100 u - Terminal preaislado pala hembra amarillo 6 mm
+100 u - Terminal preaislado pala hembra azul 2,5 mm
+5 m - Termo contraíble negro 2 mm
+5 m - Termo contraíble negro 8 mm
+5 m - Termo contraíble negro 10 mm
+15 u - Tira led cob 12v Blanco calido (cód. 4099854105531)
+4 u - Tomas cambre de 20 amp
+2 u - Zapatilla de pared
