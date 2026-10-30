@@ -8,6 +8,8 @@ test('el plano conserva sus metadatos y se limita a la línea correcta', () => {
   assert.deepEqual(normalizeMaterialDocuments([link], '37-41')[0], { ...file, linea: '37' });
   assert.equal(normalizeMaterialDocuments([link], 'K37').length, 1);
   assert.equal(normalizeMaterialDocuments([link], '55-4').length, 0);
+  assert.equal(documentToMaterialLink(file, 'K37-41').linea, '37');
+  assert.equal(normalizeMaterialDocuments([documentToMaterialLink(file, '37-41')], '37-43').length, 1);
 });
 test('un archivo general aparece en cualquier línea y se omiten enlaces ajenos o activos', () => {
   const links = [documentToMaterialLink(file), { url: 'https://example.com/web' }, { kind: 'documento', url: 'javascript:alert(1)' }];

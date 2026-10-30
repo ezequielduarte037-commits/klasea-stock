@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';
 import { C } from '@/theme';
-import { normalizeMaterialDocuments } from './productDocuments';
+import { documentLineScope, normalizeMaterialDocuments } from './productDocuments';
 import { saveMaterialDocumentLinks, uploadMaterialDocuments } from './materialDocumentsApi';
 
 export default function MaterialDocuments({ materialId, links = [], linea = null, editable = false, onChanged }) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [scope, setScope] = useState(linea ? String(linea).replace(/^K/, '') : '');
+  const [scope, setScope] = useState(documentLineScope(linea));
   const files = normalizeMaterialDocuments(links, linea);
   async function upload(event) {
     const selected = [...(event.target.files || [])]; event.target.value = '';
