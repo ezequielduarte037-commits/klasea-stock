@@ -65,8 +65,9 @@ const MODELOS_3D = {
         { q: "puesto", p: [2.3, 0.399, -0.175], r: 180 },
         { q: "botella", p: [2.3, 0.399, 0.0] },
         { q: "frutera", p: [2.62, 0.399, 0.0], semilla: 3 },
-        // Baño
-        { q: "toallas", p: [0.58, 0.497, 0.95], r: 90 },
+        // Baño: las toallas en la franja libre de mesada delante del mueble
+        // tapizado (entre el canto, z 0,797, y el panel, z 0,914).
+        { q: "toallas", p: [0.4, 0.497, 0.856] },
         { q: "jabonera", p: [0.972, 0.497, 0.98], r: -90 },
         { q: "planta", p: [0.982, 0.497, 0.868], semilla: 5 },
         // Camarote de popa: camas tendidas y los nichos de las cabeceras.
