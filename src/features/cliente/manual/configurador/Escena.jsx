@@ -457,6 +457,57 @@ function crearSpots(modelo) {
   return { malla, geo, mat, difusor };
 }
 
+/* Cantos de los vidrios del interior. Cada vidrio plano (una placa fina y
+   derecha, como la mampara de la ducha) lleva en el borde un marco de 5 mm del
+   grueso de la placa: es como se ve el canto pulido a través del vidrio. */
+function crearCantos(m, material) {
+  m.updateMatrixWorld(true);
+  const g = m.geometry, idx = g.index, p = g.attributes.position;
+  const w = Array.from({ length: p.count }, (_, i) => new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld));
+  // Piezas sueltas: los vértices se unen por posición (las caras no vienen soldadas).
+  const clave = v => `${Math.round(v.x * 2000)},${Math.round(v.y * 2000)},${Math.round(v.z * 2000)}`;
+  const padre = new Map();
+  const raiz = k => {
+    while (padre.get(k) !== k) { padre.set(k, padre.get(padre.get(k))); k = padre.get(k); }
+    return k;
+  };
+  const tris = [];
+  for (let i = 0; i < (idx ? idx.count : p.count); i += 3) {
+    const v = [i, i + 1, i + 2].map(k => (idx ? idx.getX(k) : k));
+    const ks = v.map(k => clave(w[k]));
+    ks.forEach(k => { if (!padre.has(k)) padre.set(k, k); });
+    padre.set(raiz(ks[1]), raiz(ks[0]));
+    padre.set(raiz(ks[2]), raiz(ks[0]));
+    tris.push({ v, k: ks[0] });
+  }
+  const cajas = new Map();
+  tris.forEach(({ v, k }) => {
+    const r = raiz(k);
+    const caja = cajas.get(r) || cajas.set(r, new THREE.Box3()).get(r);
+    v.forEach(i => caja.expandByPoint(w[i]));
+  });
+  const ANCHO = 0.005, inversa = m.matrixWorld.clone().invert();
+  return [...cajas.values()].flatMap(caja => {
+    const tam = caja.getSize(new THREE.Vector3()).toArray(), centro = caja.getCenter(new THREE.Vector3()).toArray();
+    const fino = tam.indexOf(Math.min(...tam));
+    const [b, c] = [0, 1, 2].filter(e => e !== fino);
+    if (tam[fino] > 0.01 || tam[b] < 0.1 || tam[c] < 0.1) return [];
+    // Dos listones a lo largo de b (en los bordes de c) y dos entre ellos.
+    return [[b, c, tam[b]], [c, b, tam[c] - 2 * ANCHO]].flatMap(([largo, borde, l]) => [-1, 1].map(lado => {
+      const medida = [0, 0, 0], pos = [...centro];
+      medida[fino] = tam[fino] + 0.0008;
+      medida[largo] = l;
+      medida[borde] = ANCHO;
+      pos[borde] += lado * (tam[borde] - ANCHO) / 2;
+      const geo = new THREE.BoxGeometry(...medida).translate(...pos).applyMatrix4(inversa);
+      const f = new THREE.Mesh(geo, material);
+      f.layers.set(1);
+      m.add(f);
+      return f;
+    }));
+  });
+}
+
 /* ─────────────── Barco ─────────────── */
 function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador, plafones, decoracion }) {
   const mats = useMemo(() => {
@@ -476,7 +527,15 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     Object.assign(vidrioInterior, { opacity: 0.14, roughness: 0.12, clearcoat: 0, specularIntensity: 0.35, depthWrite: false });
     vidrioInterior.color.set("#e2eaec");
     vidrioInterior.clippingPlanes = m.lista.vidrios.clippingPlanes;
+    // De frente casi no se ve; de costado refleja más, como el de verdad: así
+    // se nota la mampara (antes no se veía y las bisagras quedaban flotando).
+    vidrioInterior.onBeforeCompile = s => {
+      s.fragmentShader = s.fragmentShader.replace("#include <opaque_fragment>",
+        "diffuseColor.a = mix(diffuseColor.a, 0.4, pow(1.0 - abs(dot(geometryNormal, geometryViewDir)), 3.0));\n#include <opaque_fragment>");
+    };
     m.lista.vidrioInterior = vidrioInterior;
+    // El canto pulido de esos vidrios: verde agua claro (ver crearCantos).
+    m.lista.cantoVidrio = new THREE.MeshPhysicalMaterial({ color: "#b9d0c8", roughness: 0.2, transparent: true, opacity: 0.8, depthWrite: false, clippingPlanes: m.lista.vidrios.clippingPlanes });
     // Contornos de los modelos sin materiales (K64): grafito suave sobre el blanco.
     m.linea.color.set("#2a2d30");
     m.linea.opacity = 0.35;
@@ -597,7 +656,92 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
         return f;
       });
     });
-    const quitarForros = () => [...forros, ...respaldos].forEach(f => { f.removeFromParent(); f.geometry.dispose(); });
+    // Juntas de los muebles: los paneles de madera y los tapizados tampoco
+    // vienen soldados; entre uno y otro quedan rendijas de 2 mm por las que se
+    // veía el forro claro de atrás (líneas de puntitos blancos en el baño).
+    // Copias de las caras verticales corridas 2,5 mm dentro de su plano, hacia
+    // afuera de cada borde libre, y una fracción de milímetro hacia atrás: tapan la
+    // rendija con el mismo material sin pelear con la cara original. Cada
+    // copia va sólo si del otro lado de la junta sigue un panel: si no,
+    // asomaba como una pestaña en las esquinas, y los cantos de los paneles
+    // salían de la junta como rayas oscuras.
+    const JUNTA = 0.0025, CUADRO = 0.05;
+    const paneles = ["madera", "tela"].map(n => modelo.aparte?.piezas[n]).filter(Boolean).map(m => {
+      m.updateMatrixWorld(true);
+      const g = m.geometry, idx = g.index, p = g.attributes.position;
+      const w = Array.from({ length: p.count }, (_, i) => new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld));
+      const tris = [];
+      for (let i = 0; i < (idx ? idx.count : p.count); i += 3) {
+        const v = [i, i + 1, i + 2].map(k => (idx ? idx.getX(k) : k));
+        const t = new THREE.Triangle(w[v[0]], w[v[1]], w[v[2]]);
+        const normal = t.getNormal(new THREE.Vector3());
+        if (Math.abs(normal.y) < 0.3) tris.push({ v, t, normal });
+      }
+      return { m, tris };
+    });
+    const cuadros = new Map();
+    paneles.forEach(({ tris }) => tris.forEach(c => {
+      const { t } = c, caja = new THREE.Box3().setFromPoints([t.a, t.b, t.c]);
+      c.plano = c.normal.dot(t.a);
+      c.caja = caja.expandByScalar(0.001);
+      for (let x = Math.floor(caja.min.x / CUADRO); x <= Math.floor(caja.max.x / CUADRO); x++) {
+        for (let z = Math.floor(caja.min.z / CUADRO); z <= Math.floor(caja.max.z / CUADRO); z++) {
+          const k = `${x},${z}`;
+          (cuadros.get(k) || cuadros.set(k, []).get(k)).push(c);
+        }
+      }
+    }));
+    const cerca = new THREE.Vector3();
+    const sobreUnPanel = q => (cuadros.get(`${Math.floor(q.x / CUADRO)},${Math.floor(q.z / CUADRO)}`) || [])
+      .some(c => c.caja.containsPoint(q) && Math.abs(c.normal.dot(q) - c.plano) < 0.001 && c.t.closestPointToPoint(q, cerca).distanceToSquared(q) < 1e-6);
+    // Bordes libres: aristas que ninguna otra cara del mismo plano comparte
+    // (las caras no vienen soldadas: se comparan por posición).
+    const punto = a => `${Math.round(a.x * 1e4)},${Math.round(a.y * 1e4)},${Math.round(a.z * 1e4)}`;
+    const aristas = new Map();
+    paneles.forEach(({ tris }) => tris.forEach(c => {
+      const k = [c.t.a, c.t.b, c.t.c].map(punto);
+      c.aristas = k.map((a, i) => (a < k[(i + 1) % 3] ? `${a}|${k[(i + 1) % 3]}` : `${k[(i + 1) % 3]}|${a}`));
+      c.aristas.forEach(a => (aristas.get(a) || aristas.set(a, []).get(a)).push(c));
+    }));
+    const juntas = paneles.map(({ m, tris }, orden) => {
+      const g = m.geometry, inversa = m.matrixWorld.clone().invert();
+      const attrs = ["normal", "uv"].filter(n => g.attributes[n]);
+      const datos = { position: [], ...Object.fromEntries(attrs.map(a => [a, []])) };
+      const corrimiento = new THREE.Vector3(), q = new THREE.Vector3();
+      tris.forEach(c => {
+        const { v, t, normal } = c, puntas = [t.a, t.b, t.c];
+        puntas.forEach((a, i) => {
+          const b = puntas[(i + 1) % 3], resto = puntas[(i + 2) % 3];
+          if (aristas.get(c.aristas[i]).some(o => o !== c && o.normal.dot(normal) > 0.98)) return;
+          // Hacia afuera del borde, en el plano de la cara.
+          corrimiento.subVectors(b, a).cross(normal).normalize();
+          if (corrimiento.dot(q.subVectors(resto, a)) > 0) corrimiento.negate();
+          corrimiento.multiplyScalar(JUNTA);
+          if (!puntas.every(p => sobreUnPanel(q.copy(p).add(corrimiento)))) return;
+          // Apenas detrás (más, se veía por la rendija el canto de arriba del
+          // panel, iluminado). La madera, un poco más adelante que el
+          // tapizado: en la rendija no pelean sus dos copias.
+          corrimiento.addScaledVector(normal, -0.00005 * (1 + orden));
+          v.forEach((k, n) => {
+            q.copy(puntas[n]).add(corrimiento).applyMatrix4(inversa);
+            datos.position.push(q.x, q.y, q.z);
+            attrs.forEach(a => {
+              const at = g.attributes[a];
+              for (let e = 0; e < at.itemSize; e++) datos[a].push(at.getComponent(k, e));
+            });
+          });
+        });
+      });
+      const geo = new THREE.BufferGeometry();
+      Object.entries(datos).forEach(([a, d]) => geo.setAttribute(a, new THREE.Float32BufferAttribute(d, a === "position" ? 3 : g.attributes[a].itemSize)));
+      const f = new THREE.Mesh(geo, m.material);
+      f.receiveShadow = true;
+      f.layers.set(1);
+      m.add(f);
+      return f;
+    });
+    const cantos = modelo.aparte?.piezas.vidrios ? crearCantos(modelo.aparte.piezas.vidrios, mats.lista.cantoVidrio) : [];
+    const quitarForros = () => [...forros, ...respaldos, ...juntas, ...cantos].forEach(f => { f.removeFromParent(); f.geometry.dispose(); });
     if (modelo.lineas) {
       const extras = Object.values(modelo.piezas).map(m => {
         const b = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 32), mats.linea);
