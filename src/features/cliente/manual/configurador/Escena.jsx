@@ -394,22 +394,32 @@ function Mundo({ modelo, hora, clima, cielos, comun }) {
   );
 }
 
-/* Spots embutidos en el techo del interior: se busca con rayos dónde hay un
-   ambiente (piso con techo encima, a la altura de una persona o de un
-   camarote) y ahí va un aro de luz cada medio metro. Todos en una sola
-   malla instanciada (un dibujo). */
+/* Spots embutidos en el techo del interior. Si el modelo trae los suyos (la
+   luz de cada aro, en el lugar del barco), se prenden ésos, y también los
+   paneles de LED del techo (difusor, más suaves). Si no, se busca con rayos
+   dónde hay un ambiente (piso con techo encima, a la altura de una persona o
+   de un camarote) y ahí va un aro de luz cada medio metro, apoyado en el
+   cielorraso. Todos en una sola malla instanciada (un dibujo). */
+const LUCES_DEL_TECHO = ["spot@techo", "difusor@techo"];
 function crearSpots(modelo) {
   const geo = new THREE.CircleGeometry(0.024, 20).rotateX(Math.PI / 2);
-  const mat = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false });
+  // La luz va en el mismo plano que el aro: se adelanta más que él (los aros
+  // de acero, como todo el acero, ya van adelantados dos unidades).
+  const mat = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetUnits: -4 });
+  const difusor = new THREE.MeshBasicMaterial({ color: "#000000", side: THREE.DoubleSide, toneMapped: false });
   const lugares = [];
   const ap = modelo.aparte;
-  if (ap) {
+  const reales = ap?.piezas["spot@techo"];
+  if (reales) reales.material = mat;
+  if (ap?.piezas["difusor@techo"]) ap.piezas["difusor@techo"].material = difusor;
+  if (ap && !reales) {
     ap.raiz.updateMatrixWorld(true);
     modelo.raiz.updateMatrixWorld(true);
-    // El techo del salón es la cara de abajo de la cubierta (modelo exterior).
+    // Donde el interior no trae cielorraso, el techo es la cara de abajo de la
+    // cubierta (modelo exterior). Los vidrios (ventanas, escotilla) no cuentan.
     const mallas = [];
-    [ap.raiz, modelo.raiz].forEach(r => r.traverse(o => { if (o.isMesh && (o.name || "") !== "vidrios") mallas.push(o); }));
-    const pisos = mallas.filter(m => m.name === "piso");
+    [ap.raiz, modelo.raiz].forEach(r => r.traverse(o => { if (o.isMesh && materialDe(o.name || "") !== "vidrios") mallas.push(o); }));
+    const pisos = mallas.filter(m => m.name === "piso" || m.name === "gelcoat");
     const caja = new THREE.Box3().setFromObject(ap.raiz);
     // Las caras del Rhino vienen orientadas de cualquier manera: los rayos
     // tienen que pegar de los dos lados.
@@ -428,18 +438,23 @@ function crearSpots(modelo) {
         const techo = rayo.intersectObjects(mallas, false)[0];
         const alto = techo ? techo.point.y - piso.point.y : 0;
         // De pie (salón, cocina) o un camarote bajo; si hay un mueble encima, nada.
-        if (alto > 0.62 && alto < 1.8) lugares.push(techo.point.clone().add(new THREE.Vector3(0, -0.004, 0)));
+        if (alto > 0.62 && alto < 1.8) {
+          const n = techo.face.normal.clone().transformDirection(techo.object.matrixWorld);
+          if (n.y > 0) n.negate();
+          lugares.push({ p: techo.point.clone().addScaledVector(n, 0.003), n });
+        }
       }
     }
     lados.forEach(([m, lado]) => { m.material.side = lado; });
   }
   const malla = new THREE.InstancedMesh(geo, mat, Math.max(1, lugares.length));
   malla.count = lugares.length;
-  lugares.forEach((p, i) => malla.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x, p.y, p.z)));
+  const abajo = new THREE.Vector3(0, -1, 0), giro = new THREE.Quaternion(), uno = new THREE.Vector3(1, 1, 1);
+  lugares.forEach(({ p, n }, i) => malla.setMatrixAt(i, new THREE.Matrix4().compose(p, giro.setFromUnitVectors(abajo, n), uno)));
   malla.frustumCulled = false;
   malla.visible = false;
   malla.layers.set(1);
-  return { malla, geo, mat };
+  return { malla, geo, mat, difusor };
 }
 
 /* ─────────────── Barco ─────────────── */
@@ -454,6 +469,14 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     m.lista.interior.color.set("#f3f0eb");
     m.lista.interior.roughness = 0.42;
     m.lista.vidrios.color.set("#151b1f");
+    // Vidrios del interior (la mampara de la ducha, la puerta de la bajada):
+    // claros y sin barniz. Con el ahumado de las ventanas la ducha se veía
+    // oscura y el reflejo de un plafón quedaba como un punto de luz suelto.
+    const vidrioInterior = m.lista.vidrios.clone();
+    Object.assign(vidrioInterior, { opacity: 0.14, roughness: 0.12, clearcoat: 0, specularIntensity: 0.35, depthWrite: false });
+    vidrioInterior.color.set("#e2eaec");
+    vidrioInterior.clippingPlanes = m.lista.vidrios.clippingPlanes;
+    m.lista.vidrioInterior = vidrioInterior;
     // Contornos de los modelos sin materiales (K64): grafito suave sobre el blanco.
     m.linea.color.set("#2a2d30");
     m.linea.opacity = 0.35;
@@ -475,7 +498,9 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     // cámara del reflejo del agua no dibuja: no suma costo al reflejo.
     if (modelo.aparte) {
       Object.entries(modelo.aparte.piezas).forEach(([nombre, m]) => {
-        m.material = mats.lista[materialDe(nombre)] || mats.lista.detalle;
+        // Las luces del techo llevan el material de los spots (crearSpots).
+        if (LUCES_DEL_TECHO.includes(nombre)) return;
+        m.material = materialDe(nombre) === "vidrios" ? mats.lista.vidrioInterior : mats.lista[materialDe(nombre)] || mats.lista.detalle;
         m.receiveShadow = true;
       });
       modelo.aparte.raiz.visible = true;
@@ -503,7 +528,76 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
       m.add(f);
       return f;
     }).filter(Boolean);
-    const quitarForros = () => forros.forEach(f => { f.removeFromParent(); f.geometry.dispose(); });
+    // Respaldo del techo del interior, la misma idea hacia arriba: los paneles
+    // del cielorraso tampoco vienen soldados y por las juntas se veía lo que
+    // hay encima (líneas oscuras o claras en el techo del salón). Dos copias de
+    // las caras horizontales 8 mm más arriba, una justo encima y otra corrida
+    // 1 cm de costado: por una junta que corre en la dirección de la mirada se
+    // ve también la de la primera copia. Las verticales no: corridas en su
+    // propio plano pelearían con la original. En Float32: las posiciones del
+    // GLB vienen cuantizadas a la caja de la pieza y lo más alto no se podría
+    // subir.
+    // La copia corrida de costado, sólo donde queda sobre el mismo techo: el
+    // forro del techo baja por algunas paredes (en el baño, hasta la banda
+    // tapizada) y la copia de sus cantos horizontales asomaba de la pared
+    // como una raya blanca.
+    const piezasTecho = ["techo", "panel@techo"].map(n => modelo.aparte?.piezas[n]).filter(Boolean);
+    const CELDA = 0.05, LADO = 0.007, celdas = new Map();
+    const celda = (x, z) => `${Math.floor(x / CELDA)},${Math.floor(z / CELDA)}`;
+    const caras = piezasTecho.map(m => {
+      m.updateMatrixWorld(true);
+      const g = m.geometry, idx = g.index, p = g.attributes.position;
+      const w = Array.from({ length: p.count }, (_, i) => new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld));
+      const tri = new THREE.Triangle(), normal = new THREE.Vector3(), lista = [];
+      for (let i = 0; i < (idx ? idx.count : p.count); i += 3) {
+        const v = [i, i + 1, i + 2].map(k => (idx ? idx.getX(k) : k));
+        const t = v.map(k => w[k]);
+        if (Math.abs(tri.set(...t).getNormal(normal).y) < 0.6) continue;
+        lista.push(v);
+        for (let x = Math.floor(Math.min(t[0].x, t[1].x, t[2].x) / CELDA); x <= Math.floor(Math.max(t[0].x, t[1].x, t[2].x) / CELDA); x++) {
+          for (let z = Math.floor(Math.min(t[0].z, t[1].z, t[2].z) / CELDA); z <= Math.floor(Math.max(t[0].z, t[1].z, t[2].z) / CELDA); z++) {
+            const k = `${x},${z}`;
+            (celdas.get(k) || celdas.set(k, []).get(k)).push(t);
+          }
+        }
+      }
+      return { m, w, lista };
+    });
+    // ¿Hay techo (una cara horizontal, a la misma altura) sobre este punto?
+    const sobreElTecho = q => (celdas.get(celda(q.x, q.z)) || []).some(([a, b, c]) => {
+      const d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z);
+      if (Math.abs(d) < 1e-12) return false;
+      const l1 = ((b.z - c.z) * (q.x - c.x) + (c.x - b.x) * (q.z - c.z)) / d;
+      const l2 = ((c.z - a.z) * (q.x - c.x) + (a.x - c.x) * (q.z - c.z)) / d;
+      const l3 = 1 - l1 - l2;
+      return l1 > -1e-6 && l2 > -1e-6 && l3 > -1e-6 && Math.abs(l1 * a.y + l2 * b.y + l3 * c.y - q.y) < 0.03;
+    });
+    const corrida = new THREE.Vector3(LADO, 0, LADO);
+    const respaldos = caras.flatMap(({ m, w, lista }) => {
+      const g = m.geometry;
+      const attrs = ["position", "normal", "uv"].filter(n => g.attributes[n]);
+      const copiar = elegidas => {
+        const datos = Object.fromEntries(attrs.map(n => [n, []]));
+        elegidas.forEach(v => v.forEach(k => attrs.forEach(a => {
+          const at = g.attributes[a];
+          for (let c = 0; c < at.itemSize; c++) datos[a].push(at.getComponent(k, c));
+        })));
+        return datos;
+      };
+      const deCostado = lista.filter(v => v.every(k => sobreElTecho(w[k].clone().add(corrida))));
+      const e = 1 / m.matrixWorld.getMaxScaleOnAxis();
+      return [[[0, 0.006, 0], copiar(lista)], [[LADO, 0.006, LADO], copiar(deCostado)]].map(([corrimiento, datos]) => {
+        const geo = new THREE.BufferGeometry();
+        attrs.forEach(a => geo.setAttribute(a, new THREE.Float32BufferAttribute(
+          a === "position" ? datos[a].map((x, i) => x + corrimiento[i % 3] * e) : datos[a], g.attributes[a].itemSize)));
+        const f = new THREE.Mesh(geo, m.material);
+        f.receiveShadow = true;
+        f.layers.set(1);
+        m.add(f);
+        return f;
+      });
+    });
+    const quitarForros = () => [...forros, ...respaldos].forEach(f => { f.removeFromParent(); f.geometry.dispose(); });
     if (modelo.lineas) {
       const extras = Object.values(modelo.piezas).map(m => {
         const b = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 32), mats.linea);
@@ -561,6 +655,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     e.brillo.dispose();
     e.spots.geo.dispose();
     e.spots.mat.dispose();
+    e.spots.difusor.dispose();
     if (e.deco.actual) { e.deco.actual.grupo.removeFromParent(); e.deco.actual.dispose(); }
   }, [extras]);
 
@@ -656,6 +751,7 @@ function Barco({ modelo, eleccion, balcones, luces, navegando, comun, indicador,
     e.interior.forEach(l => { l.intensity = fx.int * (0.35 + 1.1 * c.noche); });
     // Los spots del techo: prendidos adentro (blanco cálido; el resplandor los abre).
     e.spots.mat.color.set("#fff1dc").multiplyScalar(fx.int * (5 + 7 * c.noche));
+    e.spots.difusor.color.set("#fff4e8").multiplyScalar(fx.int * (0.7 + 1.5 * c.noche));
     e.spots.malla.visible = fx.int > 0.01;
     // Desde adentro los vidrios se ven claros (afuera van ahumados): por las
     // ventanas se ve el mar y el cielo.

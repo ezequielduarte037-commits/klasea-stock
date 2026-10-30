@@ -218,6 +218,7 @@ const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolS
 const ConsumiblesScreen = pantalla(() => import("@/features/consumibles/ConsumiblesScreen"));
 const ListaManianaScreen = pantalla(() => import("@/features/consumibles/lista/ListaManianaScreen"));
 const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
+const PiezaScreen = pantalla(() => import("@/features/piezas/PiezaScreen"));
 const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
 const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
 const MemoriaVivaScreen = pantalla(() => import("@/features/memorias/MemoriaVivaScreen"));
@@ -664,6 +665,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} onBienvenida={setBienvenida} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
+        {/* Pieza en 3D por link (un techo para el laminador): sin cuenta, directo a la pieza. */}
+        <Route path="/pieza/:token" element={<PiezaScreen />} />
         {/* Panel de cliente */}
         <Route path="/mi-panel" element={
           <RequireAuth session={session}>

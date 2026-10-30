@@ -16,7 +16,7 @@
    · La mesada de la cocina, de cuarzo pulido, refleja lo que tiene encima.
    · Tiras LED bajo las alacenas y el botiquín, con la luz que dejan en la
      pared y la mesada.
-   · La pantalla del televisor.
+   · La pantalla del televisor, prendida.
    Cada objeto se arma en metros, apoyado en y = 0, y va a su lugar
    (unidad.js); al final se juntan en una malla por material (pocos dibujos
    por cuadro). Todo va en la capa 1 (fuera del reflejo del agua) y sólo se
@@ -787,19 +787,24 @@ function texturaAnafe() {
   return tex;
 }
 
-// Lo que refleja una pantalla apagada: un degradé en diagonal, con una franja
-// más clara (la luz de la ventana), muy oscuro.
+// La pantalla del televisor, prendida: la imagen de la casa (un atardecer en
+// el mar con el logo de Klase A) dentro del marco negro fino del monitor, más
+// ancho abajo. Mientras baja la imagen, negra.
 function texturaPantalla() {
   const c = document.createElement("canvas");
-  c.width = 256; c.height = 160;
+  c.width = 1024; c.height = 608;
   const ctx = c.getContext("2d");
-  const g = ctx.createLinearGradient(0, 0, 256, 160);
-  g.addColorStop(0, "#3b4046"); g.addColorStop(0.32, "#1d2125"); g.addColorStop(0.42, "#2c3136");
-  g.addColorStop(0.55, "#121518"); g.addColorStop(1, "#050607");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 160);
+  ctx.fillStyle = "#050607";
+  ctx.fillRect(0, 0, c.width, c.height);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 12, 12, 1000, 563);
+    tex.needsUpdate = true;
+  };
+  img.src = "/textures/interior/tv.jpg";
   return tex;
 }
 
@@ -809,7 +814,7 @@ const ORDEN = { mascara: 10, bacha: 11, fondo: 12 };
 
 function crearMateriales() {
   const tejido = texturaTejido(), acolchado = texturaAcolchado();
-  const rayas = texturaFunda(), vitro = texturaAnafe(), reflejo = texturaPantalla();
+  const rayas = texturaFunda(), vitro = texturaAnafe(), pantalla = texturaPantalla();
   const tela = {
     vertexColors: true, roughness: 0.92, sheen: 1, sheenRoughness: 0.55, sheenColor: new THREE.Color("#ffffff"),
     normalMap: tejido, normalScale: new THREE.Vector2(0.35, 0.35), side: THREE.DoubleSide,
@@ -835,7 +840,8 @@ function crearMateriales() {
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     }),
     vitro: new THREE.MeshPhysicalMaterial({ map: vitro, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.03 }),
-    pantalla: new THREE.MeshPhysicalMaterial({ color: "#020304", roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, emissive: "#ffffff", emissiveMap: reflejo, emissiveIntensity: 1 }),
+    // Vidrio negro que refleja; la imagen es luz propia.
+    pantalla: new THREE.MeshPhysicalMaterial({ color: "#020304", roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, emissive: "#ffffff", emissiveMap: pantalla, emissiveIntensity: 1 }),
     // La boca de la bacha marca la plantilla donde la mesada se ve (pasa la
     // prueba de profundidad); no pinta nada.
     mascara: new THREE.MeshBasicMaterial({ ...plantilla, colorWrite: false, depthWrite: false, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }),
@@ -845,7 +851,7 @@ function crearMateriales() {
     bacha: new THREE.MeshStandardMaterial({ ...plantilla, vertexColors: true, metalness: 0.85, roughness: 0.32, side: THREE.BackSide, depthTest: false, depthWrite: false, stencilFunc: THREE.EqualStencilFunc }),
     fondo: new THREE.MeshStandardMaterial({ ...plantilla, vertexColors: true, metalness: 0.9, roughness: 0.25, depthTest: false, depthWrite: false, stencilFunc: THREE.EqualStencilFunc }),
   };
-  return { lista, texturas: [tejido, acolchado, rayas, vitro, reflejo] };
+  return { lista, texturas: [tejido, acolchado, rayas, vitro, pantalla] };
 }
 
 /* ─────────────── Tiras LED ─────────────── */

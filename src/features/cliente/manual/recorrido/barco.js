@@ -248,6 +248,9 @@ function piezasDe(raiz) {
 
 /* Mallas que no son un acabado propio sino parte de otro. */
 export const MATERIAL_DE = { costado: "casco" };
+// El cielorraso del interior y lo que cuelga de él (techo, …@techo): se ve
+// desde adentro (configurador), no desde arriba (recorrido).
+export const esDelTecho = nombre => nombre === "techo" || nombre.endsWith("@techo");
 // Las piezas que se mueven aparte llevan el lado en el nombre (teca@babor).
 export const materialDe = nombre => {
   const base = nombre.split("@")[0];
@@ -311,10 +314,18 @@ function separarPiezas(malla, nombre, datos, elegir) {
    parches grandes y lisos. Se pasan a una malla "cojin" con su propio acabado. */
 function separarCojines(malla, escala) {
   const tam = new THREE.Vector3();
+  const piezas = new Set();
+  // Más de 150 triángulos en menos de 60 cm (medidas reales del barco).
+  const grande = p => p.tri >= 150 && Math.max(...p.caja.getSize(tam).toArray()) / escala <= 0.6;
+  let cajas = null;
   return separarPiezas(malla, "cojin",
-    (p, vs) => { p.tri = (p.tri || 0) + 1; p.caja ||= new THREE.Box3(); vs.forEach(v => p.caja.expandByPoint(v)); },
-    // Más de 150 triángulos en menos de 60 cm (medidas reales del barco).
-    p => p.tri >= 150 && Math.max(...p.caja.getSize(tam).toArray()) / escala <= 0.6);
+    (p, vs) => { piezas.add(p); p.tri = (p.tri || 0) + 1; p.caja ||= new THREE.Box3(); vs.forEach(v => p.caja.expandByPoint(v)); },
+    // Los parches chicos de cada almohadón (costuras, puntas) van con él: si
+    // no, quedaban como tela, en rayitas claras sobre el almohadón.
+    p => {
+      cajas ||= [...piezas].filter(grande).map(q => q.caja.clone().expandByScalar(0.01 * escala));
+      return (p.cojin ??= grande(p) || cajas.some(c => c.containsBox(p.caja)));
+    });
 }
 
 /* Costado del casco. En el .3dm del K43 la parte de arriba del costado (la

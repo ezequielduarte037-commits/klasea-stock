@@ -28,7 +28,9 @@ export const ACABADOS = {
   // de piedra y loza.
   madera:   { color: "#ffffff", roughness: 0.46, tex: "roble", relieve: "grey_oak_veneer_01", m: 0.6, clearcoat: 0.3, clearcoatRoughness: 0.32 },
   piso:     { color: "#d8c2aa", roughness: 0.55, tex: "laminate_floor_02", relieve: "laminate_floor_02", m: 1.6, adelante: true },
-  tela:     { color: "#a9a298", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5, n: 1 },
+  // Los tapizados del interior (paneles del costado, cabeceras) están apoyados
+  // sobre la madera, en el mismo plano en el .3dm: se adelantan apenas.
+  tela:     { color: "#a9a298", roughness: 0.95, tex: "poly_wool_herringbone", relieve: "poly_wool_herringbone", m: 0.35, sheen: 0.5, n: 1, adelante: true },
   // Almohadones sueltos de camas y sillones: lino claro, como afuera.
   cojin:    { color: "#ece6dc", roughness: 0.95, relieve: "poly_wool_herringbone", m: 0.2, sheen: 0.8, n: 0.5 },
   techo:    { color: "#f6f4f0", roughness: 0.8 },
@@ -36,7 +38,19 @@ export const ACABADOS = {
   led:      { color: "#eeeae2", roughness: 0.4 },
   // Mesada: cuarzo pulido (en el configurador, con la placa de Purastone elegida).
   piedra:   { color: "#f2f0ec", roughness: 0.16, clearcoat: 0.8, clearcoatRoughness: 0.06 },
-  loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6 },
+  // Bacha e inodoro apoyados en la mesada y el piso, con el fondo en el mismo
+  // plano: se adelantan apenas.
+  loza:     { color: "#f7f7f5", roughness: 0.15, clearcoat: 0.6, adelante: true },
+  // Cielorraso del interior: blanco (techo) con paneles tapizados en tela gris
+  // clara, como en el barco.
+  panel:    { color: "#d9d6d0", roughness: 0.92, relieve: "poly_wool_herringbone", m: 0.3, sheen: 0.4, n: 0.6 },
+  // Monitor del salón (la imagen la pone el configurador), herrajes y luces de
+  // lectura negros, acero cepillado (heladera, bisagras, grifería) y el piso
+  // de gelcoat del baño.
+  tv:       { color: "#0b0c0e", roughness: 0.28, metalness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.08 },
+  herraje:  { color: "#1f2022", roughness: 0.4, metalness: 0.5, adelante: true },
+  acero:    { color: "#c4c6c8", metalness: 1, roughness: 0.34, adelante: true },
+  gelcoat:  { color: "#f0efeb", roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.35 },
   interior: { color: "#ebe8e3", roughness: 0.75 },
   // Forro del casco en el modelo interior: tapizado claro, liso.
   forro:    { color: "#efece7", roughness: 0.9 },
