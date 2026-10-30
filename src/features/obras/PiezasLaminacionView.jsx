@@ -1,5 +1,5 @@
 import { C } from "@/theme";
-﻿/**
+/**
  * PiezasLaminacionView v5
  *
  * CAMBIOS v5 (sobre v4):
@@ -45,17 +45,18 @@ import { C } from "@/theme";
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import Cargando from "@/components/ui/Cargando";
+import PiezasLaminacionFotos, { FotoPieza } from "./PiezasLaminacionFotos";
+import { PIEZAS_FOTOS_BUCKET as STORAGE_BUCKET } from "./piezasLaminacionFotosApi";
 
 const GLASS = {
   backdropFilter:"blur(24px) saturate(130%)",
   WebkitBackdropFilter:"blur(24px) saturate(130%)",
 };
 
-const STORAGE_BUCKET = "piezas-laminacion";
 
 const EST = {
   pendiente:  { label:"Pendiente",  color:C.t2,     bg:"rgba(113,113,122,.10)", border:"rgba(113,113,122,.22)" },
@@ -387,6 +388,10 @@ function PiezaFlowCard({ pieza, seg, imagenes=[], esGestion, saving, selected=fa
         <div style={{ fontSize:13, color:C.t0, fontWeight:600, lineHeight:1.3 }}>{pieza.desc}</div>
         {pieza.matriz && <div style={{ marginTop:4, fontSize:11, color:C.t2, lineHeight:1.35 }}>{pieza.matriz}</div>}
       </button>
+      {imagenes.length > 0 ? <FotoPieza key={imagenes[0].storage_path} foto={imagenes[0]} descripcion={pieza.desc} onClick={onDetalle} style={{ height:128 }} /> : null}
+      <button onClick={onDetalle} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, border:`1px ${imagenes.length ? "solid" : "dashed"} ${C.b0}`, borderRadius:7, background:C.s0, color:C.t1, cursor:"pointer", padding:"8px", fontSize:11, fontFamily:C.sans }}>
+        <IconCamera size={14} color="currentColor"/>{imagenes.length ? `Ver fotos (${imagenes.length}) · Agregar` : "Agregar fotos de referencia"}
+      </button>
       {(seg?.laminador || seg?.ubicacion || seg?.trayecto || fechaEnvio || fechaRecepcion) && (
         <div style={{ display:"grid", gap:3, paddingTop:6, borderTop:`1px solid ${C.b0}` }}>
           {seg?.laminador && <div style={{ fontSize:11, color:C.t2 }}>Laminador: <span style={{ color:C.t1 }}>{seg.laminador}</span></div>}
@@ -479,21 +484,8 @@ function resumenObraPiezas(obra, seguimientoPorObra) {
   };
 }
 
-function Lightbox({ url, onClose }) {
-  useEffect(() => {
-    const fn = e => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", fn);
-    return () => window.removeEventListener("keydown", fn);
-  }, [onClose]);
-  return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.94)", ...GLASS, display:"flex", alignItems:"center", justifyContent:"center", padding:20, cursor:"zoom-out" }}>
-      <img src={url} loading="lazy" alt="" style={{ maxWidth:"92vw", maxHeight:"88vh", borderRadius:8, objectFit:"contain", boxShadow:"0 32px 80px rgba(0,0,0,0.8)" }} />
-    </div>
-  );
-}
-
 // ─── modal pieza ─────────────────────────────────────────────────────────────
-function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSave, onClose }) {
+function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes=[], onImagenesChange, onSave, onClose }) {
   const [estado,         setEstadoRaw]    = useState(segRow?.estado ?? "pendiente");
   const [obs,            setObs]          = useState(segRow?.observaciones ?? "");
   const [ubicacion,      setUbicacion]    = useState(segRow?.ubicacion ?? "");
@@ -502,11 +494,8 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
   const [fechaEnvio,     setFechaEnvio]   = useState(segRow?.fecha_envio ? new Date(segRow.fecha_envio).toISOString().slice(0,10) : "");
   const [fechaRecepcion, setFechaRecepcion] = useState(segRow?.fecha_recepcion ? new Date(segRow.fecha_recepcion).toISOString().slice(0,10) : "");
   const [saving,    setSaving]    = useState(false);
-  const [imagenes,  setImagenes]  = useState(imgInit);
-  const [uploading, setUploading] = useState(false);
+  const [fotosBusy, setFotosBusy] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
-  const [lightbox,  setLightbox]  = useState(null);
-  const fileRef = useRef();
 
   function setEstado(val) {
     setEstadoRaw(val);
@@ -533,41 +522,6 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
     onSave();
   }
 
-  async function subirImagen(file) {
-    if (!file) return;
-    setUploading(true); setUploadErr("");
-    try {
-      const { data:{ session } } = await supabase.auth.getSession().catch(() => ({ data:{ session:null } }));
-      const user = session?.user ?? null;
-      const ext  = file.name.split(".").pop().toLowerCase();
-      const safe = pieza.pieza_id.replace(/\//g, "_");
-      const path = `${obraId}/${lineaKey ?? "x"}/${safe}/${Date.now()}.${ext}`;
-
-      const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { upsert:false });
-      if (upErr) { setUploadErr("Error al subir: " + upErr.message); setUploading(false); if (fileRef.current) fileRef.current.value=""; return; }
-
-      const { error: insErr } = await supabase.from("piezas_laminacion_imagenes").insert({
-        obra_id: obraId, pieza_id: pieza.pieza_id, pieza_num: pieza.num,
-        storage_path: path, nombre: file.name, created_by: user?.id ?? null,
-      });
-      if (insErr) {
-        await supabase.storage.from(STORAGE_BUCKET).remove([path]);
-        setUploadErr("Imagen subida pero no se pudo registrar: " + insErr.message);
-        setUploading(false); if (fileRef.current) fileRef.current.value=""; return;
-      }
-      const { data: signed } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(path, 3600);
-      setImagenes(prev => [...prev, { storage_path:path, nombre:file.name, url:signed?.signedUrl ?? null }]);
-    } catch(e) { setUploadErr("Error inesperado: " + e.message); }
-    setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
-  }
-
-  async function eliminarImagen(img) {
-    await supabase.storage.from(STORAGE_BUCKET).remove([img.storage_path]);
-    await supabase.from("piezas_laminacion_imagenes").delete().eq("storage_path", img.storage_path);
-    setImagenes(prev => prev.filter(i => i.storage_path !== img.storage_path));
-  }
-
   const showUbicacion = ["en_proceso","terminada","entregada"].includes(estado);
   const piezaLabel = pieza.sub != null ? `#${String(pieza.num).padStart(2,"0")} · ${pieza.sub}` : `#${String(pieza.num).padStart(2,"0")}`;
 
@@ -578,9 +532,9 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
   };
 
   return (
-    <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, zIndex:9100, background:"var(--overlay-strong)", ...GLASS, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto" }}>
-      {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
-      <div style={{ background:"var(--panel-solid)", border:`1px solid ${C.b1}`, borderRadius:14, width:"100%", maxWidth:540, fontFamily:C.sans, boxShadow:"0 32px 80px rgba(0,0,0,0.8)", animation:"plv-slideup .18s ease", marginBottom:40 }}>
+    <div onClick={e => e.target===e.currentTarget && !fotosBusy && !saving && onClose()} style={{ position:"fixed", inset:0, zIndex:9100, background:"var(--overlay-strong)", ...GLASS, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto" }}>
+
+      <div role="dialog" aria-modal="true" aria-label={`Detalle de ${pieza.desc}`} style={{ background:"var(--panel-solid)", border:`1px solid ${C.b1}`, borderRadius:14, width:"100%", maxWidth:720, fontFamily:C.sans, boxShadow:"0 32px 80px rgba(0,0,0,0.8)", animation:"plv-slideup .18s ease", marginBottom:40 }}>
 
         {/* header */}
         <div style={{ padding:"18px 20px 14px", borderBottom:`1px solid ${C.b0}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -591,11 +545,13 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
             </div>
             <div style={{ fontSize:17, fontWeight:600, color:C.t0, lineHeight:1.3 }}>{pieza.desc}</div>
           </div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 6px", marginLeft:10 }}>×</button>
+          <button onClick={onClose} disabled={fotosBusy || saving} aria-label="Cerrar detalle de pieza" style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", fontSize:20, lineHeight:1, padding:"2px 6px", marginLeft:10 }}>×</button>
         </div>
 
         {/* body */}
         <div style={{ padding:"18px 20px 22px", display:"flex", flexDirection:"column", gap:14 }}>
+
+          <PiezasLaminacionFotos pieza={pieza} obraId={obraId} lineaKey={lineaKey} imagenes={imagenes} onChange={onImagenesChange} onBusyChange={setFotosBusy} />
 
           {uploadErr && (
             <div style={{ padding:"8px 12px", borderRadius:7, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", fontSize:13, color:"#fca5a5" }}>
@@ -669,50 +625,10 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
               onFocus={e => e.currentTarget.style.borderColor="rgba(59,130,246,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
           </div>
 
-          {/* imágenes */}
-          <div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 600 }}>Imágenes ({imagenes.length})</label>
-              <button onClick={() => { setUploadErr(""); fileRef.current?.click(); }} disabled={uploading}
-                style={{ border:`1px solid ${C.b0}`, background:C.s0, color:uploading?C.t2:C.t0, padding:"4px 12px", borderRadius:6, cursor:uploading?"not-allowed":"pointer", fontSize:12, fontFamily:C.sans, display:"flex", alignItems:"center", gap:5 }}>
-                {uploading ? "↑ Subiendo…" : <><IconCamera size={12} color="currentColor"/> &nbsp;Agregar foto</>}
-              </button>
-              <input ref={fileRef} type="file" accept="image/*,image/heic,image/heif" style={{ display:"none" }}
-                onChange={e => { if (e.target.files?.[0]) subirImagen(e.target.files[0]); }} />
-            </div>
-
-            {imagenes.length === 0 && !uploading ? (
-              <div onClick={() => { setUploadErr(""); fileRef.current?.click(); }}
-                style={{ border:`1px dashed ${C.b0}`, borderRadius:10, padding:"24px 16px", textAlign:"center", color:C.t2, fontSize:13, cursor:"pointer", transition:"border-color .15s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}
-                onMouseEnter={e => e.currentTarget.style.borderColor=C.b1}
-                onMouseLeave={e => e.currentTarget.style.borderColor=C.b0}>
-                <IconCamera size={16} color={C.t2} /><span>Hacé click para agregar una imagen</span>
-              </div>
-            ) : (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))", gap:8 }}>
-                {imagenes.map((img,i) => (
-                  <div key={img.storage_path??i} style={{ position:"relative", borderRadius:8, overflow:"hidden", aspectRatio:"1", background:C.s1, border:`1px solid ${C.b0}` }}>
-                    {img.url
-                      ? <img src={img.url} loading="lazy" alt={img.nombre} onClick={() => setLightbox(img.url)} style={{ width:"100%", height:"100%", objectFit:"cover", cursor:"zoom-in", display:"block" }} />
-                      : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:C.t2 }}>sin preview</div>}
-                    <button onClick={() => eliminarImagen(img)} style={{ position:"absolute", top:4, right:4, background:"rgba(0,0,0,0.75)", border:"none", color:"#fff", width:20, height:20, borderRadius:"50%", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
-                    {img.nombre && <div style={{ position:"absolute", bottom:0, left:0, right:0, background:"rgba(0,0,0,0.65)", padding:"3px 5px", fontSize:10, color:"#ccc", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{img.nombre}</div>}
-                  </div>
-                ))}
-                <div onClick={() => { setUploadErr(""); fileRef.current?.click(); }}
-                  style={{ aspectRatio:"1", border:`1px dashed ${C.b0}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer", color:C.t2, transition:"border-color .15s" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor=C.b1}
-                  onMouseLeave={e => e.currentTarget.style.borderColor=C.b0}>
-                  <span style={{ fontSize:18 }}>+</span><span style={{ fontSize:10, letterSpacing:1 }}>FOTO</span>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* acciones */}
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", paddingTop:2 }}>
-            <button onClick={onClose} style={{ border:`1px solid ${C.b0}`, background:"transparent", color:C.t1, padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:C.sans }}>Cancelar</button>
-            <button onClick={guardar} disabled={saving} style={{ border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.15)", color:"#60a5fa", padding:"7px 20px", borderRadius:8, cursor:saving?"not-allowed":"pointer", fontSize:13, fontWeight:600, fontFamily:C.sans, opacity:saving?0.5:1 }}>
+            <button onClick={onClose} disabled={fotosBusy || saving} style={{ border:`1px solid ${C.b0}`, background:"transparent", color:C.t1, padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:C.sans }}>Cerrar</button>
+            <button onClick={guardar} disabled={saving || fotosBusy} style={{ border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.15)", color:"#60a5fa", padding:"7px 20px", borderRadius:8, cursor:saving?"not-allowed":"pointer", fontSize:13, fontWeight:600, fontFamily:C.sans, opacity:saving?0.5:1 }}>
               {saving ? "Guardando…" : "Guardar"}
             </button>
           </div>
@@ -745,7 +661,11 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   const lineaKey = useMemo(() => detectarLinea(obraSel), [obraSel]);
   const catalogo = useMemo(() => lineaKey ? CATALOGOS[lineaKey] : null, [lineaKey]);
 
+  // Sincroniza la selección inicial con las obras que llegan de la base.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!obraSelId && obras.length > 0) setObraSelId(obras[0].id); }, [obras, obraSelId]);
+  // Reinicia los filtros locales al cambiar de obra.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSelected(new Set()); setQ(""); setFiltroEst("todos"); setK52Variant(null); }, [obraSelId]);
 
   const cargarResumen = useCallback(async () => {
@@ -795,6 +715,8 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
     setLoading(false);
   }, [obraSelId]);
 
+  // Carga datos externos para la obra seleccionada.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargar(); }, [cargar]);
 
   useEffect(() => {
@@ -1150,8 +1072,6 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
         .plv-row td { transition:background .12s; }
         .plv-obra-btn { transition:all .15s; }
         .plv-obra-btn:hover { background:var(--panel)!important; }
-        .plv-thumb { transition:transform .18s,box-shadow .18s; cursor:zoom-in; }
-        .plv-thumb:hover { transform:scale(1.07); box-shadow:0 4px 16px rgba(0,0,0,.5); }
         .plv-qbtn { transition:all .13s; }
         .plv-qbtn:hover { opacity:.8; }
         .plv-check { accent-color:#3b82f6; cursor:pointer; width:13px; height:13px; }
@@ -1512,12 +1432,9 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
                               <td style={{ padding:"8px 12px", borderBottom:`1px solid var(--panel)`, verticalAlign:"middle" }}>
                                 <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-                                  {imgs.slice(0,3).map((img,i) =>
-                                    img.url ? <img key={i} src={img.url} loading="lazy" alt="" className="plv-thumb" onClick={() => setPiezaModal(pieza)}
-                                      style={{ width:28, height:28, borderRadius:5, objectFit:"cover", border:`1px solid ${C.b0}` }} /> : null
-                                  )}
+                                  {imgs.slice(0,3).map(img => <FotoPieza key={img.storage_path} foto={img} descripcion={pieza.desc} onClick={() => setPiezaModal(pieza)} style={{ width:72, height:56, flexShrink:0 }} />)}
                                   {imgs.length>3 && <span style={{ fontSize:10, color:C.t2, background:C.s1, border:`1px solid ${C.b0}`, borderRadius:5, padding:"2px 5px", fontFamily:C.mono }}>+{imgs.length-3}</span>}
-                                  <button onClick={() => setPiezaModal(pieza)}
+                                  <button onClick={() => setPiezaModal(pieza)} aria-label={`Agregar fotos de ${pieza.desc}`} title="Agregar fotos de referencia"
                                     style={{ background:"transparent", border:`1px dashed ${C.b0}`, color:C.t2, width:28, height:28, borderRadius:5, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"border-color .15s", flexShrink:0 }}
                                     onMouseEnter={e => e.currentTarget.style.borderColor=C.b1}
                                     onMouseLeave={e => e.currentTarget.style.borderColor=C.b0}>
@@ -1576,11 +1493,12 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
       {piezaModal && (
         <PiezaModal
-          pieza={piezaModal} lineaKey={lineaKey} obraId={obraSelId}
+          key={`${obraSelId}-${piezaModal.pieza_id}`} pieza={piezaModal} lineaKey={lineaKey} obraId={obraSelId}
           segRow={segMap[piezaModal.pieza_id]}
           imagenes={imagenesMap[piezaModal.pieza_id] ?? []}
+          onImagenesChange={fotos => setImagenesMap(prev => ({ ...prev, [piezaModal.pieza_id]:fotos }))}
           onSave={() => { setPiezaModal(null); showFlash("✓ Guardado"); cargar(); }}
-          onClose={() => setPiezaModal(null)}
+          onClose={() => { setPiezaModal(null); cargar(); }}
         />
       )}
     </>
