@@ -1752,6 +1752,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
         </button>
       </div>
 
+      {!editing && (material.links || []).some(link => link.kind === "documento") && <div style={{ padding: "0 12px 12px" }}><MaterialDocuments links={material.links} linea={linea} /></div>}
       {editing && (
         <div style={{ padding: "0 12px 12px", display: "grid", gap: 9 }}>
           <div>

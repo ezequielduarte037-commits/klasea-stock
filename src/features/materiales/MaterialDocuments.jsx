@@ -31,6 +31,7 @@ export default function MaterialDocuments({ materialId, links = [], linea = null
     {files.map(file => <div key={file.url} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       <FileText size={14} style={{ flexShrink: 0, color: C.blue }} />
       <a href={file.url} target="_blank" rel="noopener noreferrer" download={file.name} style={{ color: C.blue, fontSize: 12, overflowWrap: 'anywhere', flex: 1 }}>{file.name}{file.linea ? ` · K${file.linea}` : ''}</a>
+      <span style={{ fontSize: 10, color: C.t2, flexShrink: 0 }}>{file.name.split('.').pop()?.toUpperCase()}</span>
       {editable && <button type="button" aria-label={`Desvincular ${file.name}`} disabled={busy} onClick={() => remove(file.url)} style={button}><X size={12}/></button>}
     </div>)}
     {editable && <>
