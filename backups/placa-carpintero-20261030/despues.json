@@ -1,0 +1,26 @@
+{
+  "catalogo": {
+    "id": "ab27e43c-2dfa-4688-b2f8-72fe369db0a4",
+    "descripcion": "Placa de carpintero",
+    "precio_unitario": 88,
+    "moneda": "USD",
+    "unidad_medida": "placa"
+  },
+  "precioMaderas": {
+    "id": "ef9691bf-f68e-48f1-b5d8-b7f774f9fa89",
+    "catalogo": "maderas",
+    "material_id": "395ff7d0-622c-4bb9-8306-c057267dcd41",
+    "proveedor": null,
+    "precio_base": 88,
+    "moneda": "USD",
+    "unidad_precio": "placa",
+    "factor_unidad_matriz": 1,
+    "precio_unidad_matriz": 88,
+    "incluye_iva": false,
+    "fecha": "2026-10-30",
+    "fuente": "Precio informado por Ezequiel 30/10/2026",
+    "notas": "USD 88 por placa, tal como informado. IVA no discriminado.",
+    "created_at": "2026-10-30T10:33:34.150695+00:00",
+    "created_by": null
+  }
+}
