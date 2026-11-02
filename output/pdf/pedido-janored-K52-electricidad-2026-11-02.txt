@@ -1,0 +1,49 @@
+Pedido KlaseA · K52 Electricidad · Janored · 46 ítems
+Según su presupuesto 802/230 del 30/10/2026
+
+2 u - BASE PORTA FUSIBLE NH 500A (Base NH03 630A RT16-03)
+2 u - BASE PORTA FUSIBLE OMEGA (Portaf. Mega Max 500A)
+50 m - Cable 1x0,50 amarillo (Argenplas)
+50 m - Cable 1x0,50 negro (Argenplas)
+50 m - Cable 1x0,50 rojo (Argenplas)
+200 m - Cable 1x0,75 amarillo (Argenplas)
+200 m - Cable 1x0,75 naranja (Argenplas)
+100 m - Cable 1x0,75 violeta (Argenplas)
+20 m - Cable UTP (Prysmian cat5e exterior)
+80 m - Caño corrugado blanco 5/8 (HUF N320)
+30 m - Caño corrugado blanco 7/8 (HUF N320)
+30 m - Caño corrugado negro partido 1/2
+20 m - Caño corrugado negro partido 5/8
+1 u - Contactor tripolar 3x18A bobina 220V 1NA (CNC)
+200 u - Empalme preaislado amarillo 6 mm (LCT C14)
+200 u - Empalme preaislado azul 2,5 mm (LCT B16)
+300 u - Empalme preaislado rojo 1,5 mm (LCT A14)
+3 u - Estaño (bobina) (bobina de 250 g)
+10 u - Ficha RJ-45 (CDT3)
+2 u - Gabinete PVC Roker PRG 350-1 puerta de cristal (Roker PRG350-1)
+600 u - Placa de montaje blanca 30x35 mm (autoadhesiva PA natural)
+20 bolsas x100 - Precinto 150 x 3,5 mm
+15 bolsas x100 - Precinto 245 x 4,6 mm (250 mm)
+15 bolsas x100 - Precinto 300 x 5 mm
+1 u - Solenoide zm 403 12v (WZ ZM403)
+3 u - Tapa y bastidor Cambre tapa fume (Cambre 6993)
+20 u - Terminal de cobre 10 mm diámetro 6 (LCT SCC 10/2)
+20 u - Terminal de cobre 16 mm diámetro 3/8 (LCT SCC 16/3)
+20 u - Terminal de cobre 16 mm diámetro 5/16 (LCT SCC 16/2)
+20 u - Terminal de cobre 25 mm diámetro 1/2 (LCT SCC 25/4)
+20 u - Terminal de cobre 25 mm diámetro 3/8 (LCT SCC 25/3)
+30 u - Terminal de cobre 35 mm diámetro 1/2 (LCT SCC 35/3)
+30 u - Terminal de cobre 35 mm diámetro 3/8 (LCT SCC 35/2)
+40 u - Terminal de cobre 50 mm diámetro 1/2 (LCT SCC 50/3)
+40 u - Terminal de cobre 50 mm diámetro 3/8 (LCT SCC 50/2)
+50 u - Terminal de cobre 70 mm diámetro 3/8 (LCT SCC 70/1)
+30 u - Terminal de cobre 95 mm diámetro 3/8 (LCT SCC 95/0)
+300 u - Terminal preaislado ojal amarillo 5 mm (LCT C3)
+50 u - Terminal preaislado ojal amarillo 8 mm (LCT C5)
+50 u - Terminal preaislado ojal amarillo 10 mm (LCT C6)
+300 u - Terminal preaislado ojal azul 5 mm (LCT B4)
+100 u - Terminal preaislado ojal azul 6 mm (LCT B5)
+100 u - Terminal preaislado pala hembra amarillo 6 mm (LCT C15)
+5 m - Termo contraíble negro 2 mm
+5 m - Termo contraíble negro 8 mm
+5 m - Termo contraíble negro 10 mm (9 mm)
