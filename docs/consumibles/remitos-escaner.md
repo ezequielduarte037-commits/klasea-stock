@@ -27,9 +27,9 @@ recargar la página. Escanear o leer no modifica stock.
 
 Con Gemini, el PDF completo se envía por la vía nativa, que incluye imágenes y
 texto. Se elimina la dependencia inicial de `pdf-text`, actualmente obsoleto y
-redirigido a otro parser. Si falla la primera vía, se conserva la recuperación
-por OCR y el límite total de tiempo. Para modelos configurados sin PDF nativo
-se usa `cloudflare-ai` y se conserva el respaldo por OCR.
+redirigido a otro parser. Si falla la primera vía, se intenta el archivo completo
+con un segundo modelo, Gemini Flash por defecto, antes del respaldo por OCR.
+Para modelos configurados sin PDF nativo se usa `cloudflare-ai`.
 
 Referencia: [configuración oficial de PDF en OpenRouter](https://openrouter.ai/docs/guides/overview/multimodal/pdfs).
 
@@ -47,8 +47,33 @@ lectura quedan visibles en Ingresos; no se agregan líneas parciales al borrador
 - Prueba de interfaz con puente simulado: vinculación, lectura fallida,
   reintento del mismo archivo y marca de archivo ya cargado.
 
-No se contó con el remito original que falló ni se accionó la impresora física.
-Estas pruebas no confirman la causa exacta del incidente reportado.
+No se accionó la impresora física ni se contó con el archivo exacto del incidente.
+
+## Corrección del 2 de noviembre de 2026
+
+Los registros del servidor de las 14:40 y 14:43 (Argentina) muestran dos
+timeouts consecutivos en la lectura nativa. Consumían todo el plazo global de
+110 segundos; el OCR fallaba por falta de tiempo sin llegar a hacer una llamada.
+
+Se mantiene el límite global, con reservas por etapa:
+
+- Lectura principal: hasta 55 segundos, con un máximo de 35 por llamada.
+- Segundo modelo: hasta el segundo 90, con un máximo de 45 por llamada.
+- OCR: conserva al menos 20 segundos y hace un solo intento.
+
+Un timeout pasa al siguiente método sin repetir el mismo pedido bloqueado.
+Los JSON truncados, respuestas inválidas y fallos transitorios todavía pueden
+reintentarse dentro de la reserva de su etapa. Gemini Flash usa razonamiento
+desactivado para esta extracción. El modelo de respaldo se configura con
+`OPENROUTER_MODEL_PDF_FALLBACK`; no cambia el modelo de fotos, texto o chat.
+
+Las 52 pruebas de extracción, ingresos y puente pasan, incluidas las regresiones
+de agotamiento de tiempo. También se comprobó el respaldo contra OpenRouter real
+inyectando un timeout en el primer intento: el PDF de diagnóstico con códigos
+Rebollar devolvió sus dos renglones en 3 segundos y un remito escaneado real
+devolvió sus dos códigos y cantidades en 4 segundos. No se registraron ingresos
+ni se modificaron existencias. La función privada de diagnóstico se retiró
+después de la validación.
 
 La publicación requiere desplegar la aplicación y `extraer-comprobante`, que
 importa el helper compartido modificado:

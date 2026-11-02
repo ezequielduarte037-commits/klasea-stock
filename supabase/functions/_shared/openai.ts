@@ -15,6 +15,7 @@
 //   GROQ_API_KEY                  (obligatoria sólo para transcribir audios)
 //   OPENROUTER_BASE_URL           (opcional) default https://openrouter.ai/api/v1
 //   OPENROUTER_MODEL_EXTRACT      (opcional) default google/gemini-2.5-pro
+//   OPENROUTER_MODEL_PDF_FALLBACK (opcional) default google/gemini-2.5-flash
 //   OPENROUTER_MODEL_CHAT         (opcional) default openai/gpt-4o-mini
 //   OPENROUTER_MODEL_SOLICITUD    (opcional) modelo para leer la solicitud de
 //                                 pañol manuscrita; si no está, usa el de extract.
@@ -30,6 +31,7 @@ const OR_MODEL_EXTRACT = Deno.env.get("OPENROUTER_MODEL_EXTRACT") || "google/gem
 // Gemini puede leer el PDF original, incluido el escaneo. Evita depender del
 // parser externo (pdf-text fue retirado y redirige a otro servicio).
 const PDF_NATIVO = /^google\/gemini-/.test(OR_MODEL_EXTRACT);
+const OR_MODEL_PDF_FALLBACK = Deno.env.get("OPENROUTER_MODEL_PDF_FALLBACK") || "google/gemini-2.5-flash";
 // Chat conversacional de WhatsApp: mini alcanza y es mucho más barato.
 const OR_MODEL_CHAT = Deno.env.get("OPENROUTER_MODEL_CHAT") || "openai/gpt-4o-mini";
 // Letra manuscrita: por default el mismo que lee remitos, que es el que mejor
@@ -132,9 +134,12 @@ function groqAuth(): string {
 
 // La extracción puede devolver JSON cortado aun con HTTP 200. Se reintenta la
 // misma lectura antes de pasar a OCR, sin aceptar renglones parciales como éxito.
-async function pedirComprobante(body: Record<string, unknown>, operation: string, limite = Date.now() + 110_000): Promise<any> {
+async function pedirComprobante(
+  body: Record<string, unknown>, operation: string, limite = Date.now() + 110_000,
+  { timeoutMs = 60_000, intentos = 2, reintentarTimeout = true } = {},
+): Promise<any> {
   let maxTokens = Number(body.max_tokens || 8000);
-  for (let intento = 0; intento < 2; intento++) {
+  for (let intento = 0; intento < intentos; intento++) {
     let espera = 500;
     try {
       const restante = limite - Date.now();
@@ -144,7 +149,7 @@ async function pedirComprobante(body: Record<string, unknown>, operation: string
         headers: { Authorization: orAuth(), "Content-Type": "application/json",
           "HTTP-Referer": "https://klasea-stock.vercel.app", "X-Title": "Klase A Comprobantes" },
         body: JSON.stringify({ ...body, max_tokens: maxTokens }),
-        signal: AbortSignal.timeout(Math.min(60_000, restante)),
+        signal: AbortSignal.timeout(Math.min(timeoutMs, restante)),
       });
       if (!res.ok) {
         const raw = await res.text();
@@ -178,12 +183,16 @@ async function pedirComprobante(body: Record<string, unknown>, operation: string
       }
       return parsed;
     } catch (error) {
+      const agotado = error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name);
       const fallo = error instanceof OpenRouterRequestError ? error
-        : new OpenRouterRequestError(operation, null, String(error), "network_error");
+        : new OpenRouterRequestError(operation, null, String(error), agotado ? "timeout" : "network_error");
       const recuperable = fallo.code === "parser_rate_limited" || fallo.code === "invalid_response"
-        || fallo.code === "truncated_response" || fallo.code === "network_error"
+        || fallo.code === "truncated_response" || fallo.code === "network_error" || fallo.code === "timeout"
         || (fallo.status != null && shouldRetryOpenRouter(fallo.status));
-      if (intento === 1 || !recuperable) throw fallo;
+      // Un pedido que ya agotó su plazo no debe consumir también la reserva
+      // del siguiente método con otro intento idéntico.
+      if (intento === intentos - 1 || !recuperable || (fallo.code === "timeout" && !reintentarTimeout)
+        || limite - Date.now() < espera + 1000) throw fallo;
       console.warn(`[extraer-comprobante] ${operation}: reintento (${fallo.code || fallo.status})`);
       await new Promise((resolve) => setTimeout(resolve, espera));
     }
@@ -596,16 +605,20 @@ Formato:
   "dudas": ["lo que no pudiste resolver, frases cortas"]
 }`;
 
-  // Gemini lee texto e imágenes del PDF directamente. Para otros modelos se
-  // conserva el parser compatible. Mistral queda como recuperación si falla
-  // la primera vía, con el mismo límite de tiempo total.
+  // Reservar tiempo real para cada vía. Antes dos intentos nativos agotaban
+  // los 110 segundos y el OCR fallaba sin llegar a salir a la red.
+  const limitePrimario = limiteLectura - 55_000;
+  const limiteRespaldo = limiteLectura - 20_000;
   const enginePrimario = PDF_NATIVO ? "native" : "cloudflare-ai";
-  async function pedir(engine: "native" | "cloudflare-ai" | "mistral-ocr") {
+  async function pedir(
+    engine: "native" | "cloudflare-ai" | "mistral-ocr", model: string, limite: number,
+    options: { timeoutMs: number; intentos?: number; reintentarTimeout: boolean },
+  ) {
     return await pedirComprobante({
-        model: OR_MODEL_EXTRACT,
+        model,
         temperature: 0,
         max_tokens: 16000,
-        reasoning: { effort: "low" },
+        reasoning: /gemini-2\.5-flash(?:$|:)/.test(model) ? { enabled: false } : { effort: "low" },
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system + exhaustiveTableProtocol + (input.contexto || "") },
@@ -624,32 +637,46 @@ Formato:
           },
         ],
         plugins: [{ id: "file-parser", pdf: { engine } }],
-      }, `PDF [${engine}]`, limiteLectura);
+      }, `PDF [${engine}] ${model}`, limite, options);
   }
 
   let parsed: any;
   let errorLectura: unknown;
   try {
-    parsed = await pedir(enginePrimario);
+    parsed = await pedir(enginePrimario, OR_MODEL_EXTRACT, limitePrimario, { timeoutMs: 35_000, reintentarTimeout: false });
   } catch (error) {
     if (error instanceof OpenRouterRequestError && [401, 402, 403].includes(error.status || 0)) throw error;
-    console.error(`[extraerComprobantePDF] ${enginePrimario} falló, reintento con OCR`, error);
+    console.error(`[extraerComprobantePDF] ${enginePrimario} falló, intento con otro modelo`, error);
     errorLectura = error;
     parsed = null;
+  }
+
+  let lecturaVisual = PDF_NATIVO;
+  const necesitaProductos = (documento: any) => !documento || (documento.es_comprobante !== false && !documento.items?.length);
+  if (necesitaProductos(parsed)) {
+    const engineRespaldo = /^google\/gemini-/.test(OR_MODEL_PDF_FALLBACK) ? "native" : "cloudflare-ai";
+    try {
+      parsed = await pedir(engineRespaldo, OR_MODEL_PDF_FALLBACK, limiteRespaldo, { timeoutMs: 45_000, reintentarTimeout: false });
+      lecturaVisual = engineRespaldo === "native";
+    } catch (error) {
+      if (error instanceof OpenRouterRequestError && [401, 402, 403].includes(error.status || 0)) throw error;
+      console.error("[extraerComprobantePDF] modelo de respaldo falló", error);
+      errorLectura = error;
+    }
   }
 
   const sinItems = !parsed || !Array.isArray(parsed.items) || parsed.items.length === 0;
   // Un parser de texto puede omitir un logo con el nombre del emisor. La vía
   // nativa ya vio el PDF completo; no se paga otra lectura solo por ese dato.
   const proveedorConocido = String(input.proveedorConocido || "").trim();
-  const sinProveedor = !PDF_NATIVO && !proveedorConocido && (!parsed?.proveedor || esNuestroNombre(parsed.proveedor));
+  const sinProveedor = !lecturaVisual && !proveedorConocido && (!parsed?.proveedor || esNuestroNombre(parsed.proveedor));
 
   // Si la primera vía falló o no leyó productos, intentar OCR. Un documento
   // ajeno a compras se respeta: nunca inventar productos para llenarlo.
   if (!parsed || (parsed.es_comprobante !== false && (sinItems || sinProveedor))) {
     let ocr: any = null;
     try {
-      ocr = await pedir("mistral-ocr");
+      ocr = await pedir("mistral-ocr", OR_MODEL_PDF_FALLBACK, limiteLectura, { timeoutMs: 20_000, intentos: 1, reintentarTimeout: false });
     } catch (error) {
       console.error("[extraerComprobantePDF] OCR fallo", error);
       errorLectura = error;

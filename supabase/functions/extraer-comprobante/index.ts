@@ -252,8 +252,10 @@ serve(async (req) => {
     if (error instanceof OpenRouterRequestError) {
       const detalle = error.status === 402
         ? "El servicio de lectura no tiene crédito disponible. Avisá a administración para restablecerlo."
+        : error.code === "timeout"
+        ? "La lectura del archivo demoró demasiado y no llegó a completarse. Reintentá con el mismo archivo."
         : "El servicio de lectura no pudo completar el comprobante después de reintentar. Volvé a probar en unos instantes; si persiste, cargalo a mano.";
-      return json({ error: detalle }, 503);
+      return json({ error: detalle, codigo: error.code || "reading_failed" }, 503);
     }
     return json({ error: error instanceof Error ? error.message : "No se pudo leer el comprobante" }, 400);
   }

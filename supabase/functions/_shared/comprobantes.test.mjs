@@ -39,17 +39,17 @@ test('JSON inválido sin finish_reason length también se reintenta', async t =>
 test('saturación del parser informada como 400 se reintenta', async t => {
   await simular(t, [saturado, () => respuesta()], async () => assert.equal((await pdf()).numero, 'R-123'));
 });
-test('la secuencia real JSON inválido + OCR saturado conserva la causa y no accede a null.items', async t => {
-  await simular(t, [() => respuesta('null'), () => respuesta('null'), saturado, saturado], async llamadas => {
+test('JSON inválido y servicios saturados conservan la causa sin acceder a null.items', async t => {
+  await simular(t, [() => respuesta('null'), () => respuesta('null'), saturado, saturado, saturado], async llamadas => {
     await assert.rejects(pdf, e => e instanceof OpenRouterRequestError && e.code === 'parser_rate_limited');
-    assert.deepEqual(llamadas.map(x => x.plugins[0].pdf.engine), ['native', 'native', 'mistral-ocr', 'mistral-ocr']);
+    assert.deepEqual(llamadas.map(x => x.plugins[0].pdf.engine), ['native', 'native', 'native', 'native', 'mistral-ocr']);
   });
 });
-test('PDF escaneado: texto vacío y OCR recupera los renglones', async t => {
+test('PDF sin renglones: otro modelo recupera la lectura del archivo completo', async t => {
   await simular(t, [() => respuesta({ ...documento, items: [] }), () => respuesta()], async () => assert.equal((await pdf()).items[0].cantidad, 3));
 });
 test('PDF sin productos y OCR fallido no se devuelve como éxito vacío', async t => {
-  await simular(t, [() => respuesta({ ...documento, items: [] }), saturado, saturado], async () => {
+  await simular(t, [() => respuesta({ ...documento, items: [] }), saturado, saturado, saturado], async () => {
     await assert.rejects(pdf, e => e instanceof OpenRouterRequestError && e.code === 'parser_rate_limited');
   });
 });
@@ -77,7 +77,7 @@ test('una fila null de la IA reintenta la lectura completa en vez de fallar al n
   });
 });
 
-test('modelos sin PDF nativo conservan parser de texto compatible y recuperación por OCR', async t => {
+test('modelos sin PDF nativo conservan parser compatible y recuperación con modelo nativo', async t => {
   const getOriginal = Deno.env.get;
   Deno.env.get = (key) => key === 'OPENROUTER_MODEL_EXTRACT' ? 'openai/gpt-4o' : getOriginal(key);
   let extraerSinNativo;
@@ -85,7 +85,56 @@ test('modelos sin PDF nativo conservan parser de texto compatible y recuperació
   finally { Deno.env.get = getOriginal; }
   await simular(t, [() => respuesta({ ...documento, items: [] }), () => respuesta()], async llamadas => {
     assert.equal((await extraerSinNativo({ base64: 'fixture', proveedorConocido: 'Rebollar' })).items[0].codigo, 'M0047');
-    assert.deepEqual(llamadas.map(x => x.plugins[0].pdf.engine), ['cloudflare-ai', 'mistral-ocr']);
+    assert.deepEqual(llamadas.map(x => x.plugins[0].pdf.engine), ['cloudflare-ai', 'native']);
+  });
+});
+
+test('timeout del modelo principal cambia de modelo sin gastar el plazo en un reintento idéntico', async t => {
+  let ahora = Date.now();
+  t.mock.method(Date, 'now', () => ahora);
+  const plazos = [];
+  t.mock.method(AbortSignal, 'timeout', ms => { plazos.push(ms); return new AbortController().signal; });
+  await simular(t, [() => { ahora += 35_000; throw new DOMException('Signal timed out.', 'TimeoutError'); }, () => respuesta()], async llamadas => {
+    assert.equal((await pdf()).items[0].codigo, 'M0047');
+    assert.deepEqual(llamadas.map(x => x.model), ['google/gemini-2.5-pro', 'google/gemini-2.5-flash']);
+    assert.deepEqual(plazos, [35_000, 45_000]);
+    assert.deepEqual(llamadas[1].reasoning, { enabled: false });
+    assert.equal(llamadas[1].messages[1].content[1].file.file_data, llamadas[0].messages[1].content[1].file.file_data);
+  });
+});
+
+test('dos modelos agotados dejan una reserva efectiva para que el OCR sí alcance a ejecutarse', async t => {
+  let ahora = Date.now();
+  const inicio = ahora;
+  t.mock.method(Date, 'now', () => ahora);
+  const plazos = [];
+  t.mock.method(AbortSignal, 'timeout', ms => { plazos.push(ms); return new AbortController().signal; });
+  await simular(t, [
+    () => { ahora += 35_000; throw new DOMException('Signal timed out.', 'TimeoutError'); },
+    () => { ahora += 45_000; throw new DOMException('Signal timed out.', 'TimeoutError'); },
+    () => { ahora += 15_000; return respuesta(); },
+  ], async llamadas => {
+    assert.equal((await pdf()).numero, 'R-123');
+    assert.deepEqual(llamadas.map(x => x.plugins[0].pdf.engine), ['native', 'native', 'mistral-ocr']);
+    assert.deepEqual(plazos, [35_000, 45_000, 20_000]);
+    assert.ok(ahora - inicio < 110_000);
+  });
+});
+
+test('si todas las vías agotan su tiempo se informa timeout y no se inicia otro intento', async t => {
+  let ahora = Date.now();
+  t.mock.method(Date, 'now', () => ahora);
+  t.mock.method(AbortSignal, 'timeout', () => new AbortController().signal);
+  const agotar = ms => () => { ahora += ms; throw new DOMException('Signal timed out.', 'TimeoutError'); };
+  await simular(t, [agotar(35_000), agotar(45_000), agotar(20_000)], async llamadas => {
+    await assert.rejects(pdf, e => e instanceof OpenRouterRequestError && e.code === 'timeout');
+    assert.equal(llamadas.length, 3);
+  });
+});
+
+test('crédito agotado en el modelo de respaldo no dispara OCR adicional', async t => {
+  await simular(t, [() => { throw new DOMException('Signal timed out.', 'TimeoutError'); }, () => new Response('{"error":{"message":"Insufficient credits"}}', { status: 402 })], async () => {
+    await assert.rejects(pdf, e => e instanceof OpenRouterRequestError && e.status === 402);
   });
 });
 test('crédito agotado falla directamente, sin pagar otra vía de OCR', async t => {
