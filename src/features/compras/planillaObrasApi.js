@@ -230,8 +230,30 @@ function materialMeta(material, rubros, imagenes) {
   };
 }
 
-async function construirPlanillaDeLinea(linea) {
-  const obras = await traerTodo("produccion_obras", "id,codigo,linea_nombre,estado,fecha_inicio");
+const OBRAS_SELECT = "id,codigo,linea_nombre,estado,fecha_inicio";
+const MATERIALES_SELECT = "id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,categoria_id,es_consumible,es_requisito,activo,imagen_url,notas";
+const MODELO_SELECT = "material_id,modelo,cantidad,variante,producto_predeterminado_id";
+
+/**
+ * Lo que es igual para todas las líneas: obras, catálogo, matriz y el stock
+ * entero del pañol. Quien arma varias líneas juntas (el calendario de compras)
+ * lo trae una sola vez y se lo pasa a cada una; si no, cada línea volvería a
+ * leer todo el pañol.
+ */
+export function cargarBasePlanilla({ obrasSelect = OBRAS_SELECT } = {}) {
+  return Promise.all([
+    traerTodo("produccion_obras", obrasSelect),
+    traerTodo("panol_materiales", MATERIALES_SELECT),
+    traerTodo("panol_material_modelo", MODELO_SELECT),
+    traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT),
+    traerRubros(),
+    traerTodo("panol_material_imagenes", "material_id,url,created_at"),
+  ]).then(([obras, materiales, modelos, stockLedger, rubros, imagenesRows]) => ({ obras, materiales, modelos, stockLedger, rubros, imagenesRows }));
+}
+
+async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundarios = false } = {}) {
+  const base = basePromesa ? await basePromesa : null;
+  const obras = base ? base.obras : await traerTodo("produccion_obras", OBRAS_SELECT);
   const modeloElegido = normalizarModelo(linea);
   const lineasDisponibles = [...new Set(
     obras.map((o) => String(o.linea_nombre || "").trim()).filter(Boolean),
@@ -242,15 +264,17 @@ async function construirPlanillaDeLinea(linea) {
     .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true }));
   const obraIds = obrasDeLinea.map((obra) => obra.id);
   const idsDeObra = new Set(obraIds);
-  const secundariosPromise = fetchMaterialesSecundariosPlanilla({ linea, obras: obrasDeLinea });
+  const secundariosPromise = sinSecundarios
+    ? Promise.resolve({ filas: [], resumen: null })
+    : fetchMaterialesSecundariosPlanilla({ linea, obras: obrasDeLinea });
 
   const [materiales, modelos, ledger, stockLedger, rubros, imagenesRows, condicionantesRes, configuracionObras, exclusionesObras] = await Promise.all([
-    traerTodo("panol_materiales", "id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,categoria_id,es_consumible,es_requisito,activo,imagen_url,notas"),
-    traerTodo("panol_material_modelo", "material_id,modelo,cantidad,variante,producto_predeterminado_id"),
+    base ? base.materiales : traerTodo("panol_materiales", MATERIALES_SELECT),
+    base ? base.modelos : traerTodo("panol_material_modelo", MODELO_SELECT),
     traerLedgerPlanilla(obraIds),
-    traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT),
-    traerRubros(),
-    traerTodo("panol_material_imagenes", "material_id,url,created_at"),
+    base ? base.stockLedger : traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT),
+    base ? base.rubros : traerRubros(),
+    base ? base.imagenesRows : traerTodo("panol_material_imagenes", "material_id,url,created_at"),
     traerCondicionantesLinea(linea),
     traerConfiguracionObras(obraIds),
     traerExclusionesObras(obraIds),
@@ -715,7 +739,8 @@ async function construirPlanillaDeLinea(linea) {
  * las lecturas pesadas de Supabase. Deducuplicamos solamente solicitudes en
  * curso: cada recarga terminada sigue consultando datos frescos.
  */
-export async function calcularPlanillaDeLinea(linea) {
+export async function calcularPlanillaDeLinea(linea, { base = null, sinSecundarios = false } = {}) {
+  if (base) return construirPlanillaDeLinea(linea, base, { sinSecundarios });
   const clave = normalizarModelo(linea);
   const existente = planillasEnCurso.get(clave);
   if (existente) return existente;

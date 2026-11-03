@@ -1,5 +1,5 @@
 import { supabase } from "@/supabaseClient";
-import { rowDelta } from "@/features/panol/panolMovimientos";
+import { calcularPlanillaDeLinea, cargarBasePlanilla } from "@/features/compras/planillaObrasApi";
 import { claveProveedor, normalizarTexto } from "./calendario";
 
 // Tablas de 20261103200000_compras_calendario.sql.
@@ -33,8 +33,8 @@ async function traerOpcional(tabla, select) {
   return { filas: data ?? [], falta: false };
 }
 
-function lineaDeObra(obra) {
-  const m = String(obra.linea_nombre || "").toUpperCase().match(/^K(\d+)$/);
+function lineaDe(lineaNombre) {
+  const m = String(lineaNombre || "").toUpperCase().match(/^K(\d+)$/);
   return m ? m[1] : null;
 }
 
@@ -45,81 +45,110 @@ function mediana(valores) {
   return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
 }
 
+/**
+ * Lo que falta comprar sale de la planilla de cada línea, la misma cuenta que
+ * muestra la lista de la obra (configuraciones, exclusiones, modelo elegido,
+ * familias de productos, lo pedido y lo avisado). Así, cuando se hace el aviso
+ * de ingreso de un pedido, desaparece de acá y de la lista a la vez.
+ */
 export async function cargarDatosCalendario() {
-  const [obrasRaw, modelo, categorias, rubrosCfg, itemsCfg, plazosCfg, pedidos] = await Promise.all([
-    traerTodo(() => supabase.from("produccion_obras").select("id,codigo,linea_nombre,estado,desmolde_real,desmolde_estimado").neq("estado", "terminada")),
-    traerTodo(() => supabase.from("panol_material_modelo").select("material_id,modelo,cantidad,variante,material:panol_materiales!panol_material_modelo_material_id_fkey(id,descripcion,codigo,unidad_medida,proveedor,categoria_id,es_consumible,activo)")),
-    traerTodo(() => supabase.from("panol_categorias").select("id,nombre")),
+  const base = cargarBasePlanilla({ obrasSelect: "id,codigo,linea_nombre,estado,fecha_inicio,desmolde_real,desmolde_estimado" });
+  const [{ obras: obrasRaw, materiales, modelos }, rubrosCfg, itemsCfg, plazosCfg, pedidos] = await Promise.all([
+    base,
     traerOpcional("compras_calendario_rubros", "linea,categoria_id,semana,updated_at"),
     traerOpcional("compras_calendario_items", "linea,material_id,semana,nota"),
     traerOpcional("compras_plazos_proveedor", "proveedor,nombre,dias"),
     supabase.from("purchase_requests").select("proveedor,created_at,updated_at").eq("status", "recibido").limit(2000),
   ]);
 
-  const rubroDe = new Map(categorias.map((c) => [c.id, c.nombre]));
-  const lineasConMatriz = new Set(modelo.map((m) => String(m.modelo)));
-  const obras = obrasRaw
-    .map((o) => ({ id: o.id, codigo: o.codigo, linea: lineaDeObra(o), desmolde: o.desmolde_real || o.desmolde_estimado || null, desmoldeReal: !!o.desmolde_real }))
-    .filter((o) => o.linea && lineasConMatriz.has(o.linea));
-  const obraIds = obras.map((o) => o.id);
+  const catalogo = new Map(materiales.map((m) => [m.id, m]));
+  const lineasConMatriz = new Set(modelos.map((m) => String(m.modelo).toUpperCase().replace(/^K/, "")));
+  const desmoldeDe = new Map(obrasRaw.map((o) => [o.id, o.desmolde_real || o.desmolde_estimado || null]));
+  const lineas = [...new Set(obrasRaw.filter((o) => o.estado === "activa").map((o) => lineaDe(o.linea_nombre)).filter(Boolean))]
+    .filter((l) => lineasConMatriz.has(l))
+    .sort();
 
-  let fueraDelCalendario = 0;
-  const matriz = [];
-  for (const m of modelo) {
-    if (m.variante && m.variante !== "standard") continue;
-    const mat = m.material;
-    if (!mat || mat.activo === false) continue;
-    const rubro = rubroDe.get(mat.categoria_id) || "Sin rubro";
-    if (mat.es_consumible || RUBROS_FUERA.has(normalizarTexto(rubro))) { fueraDelCalendario += 1; continue; }
-    matriz.push({
-      linea: String(m.modelo), material_id: mat.id, descripcion: mat.descripcion, codigo: mat.codigo || "",
-      unidad: mat.unidad_medida || "unidad", proveedor: String(mat.proveedor || "").trim(),
-      categoria_id: mat.categoria_id, rubro, cantidad: Number(m.cantidad) || 0,
-    });
-  }
+  const planillas = await Promise.all(lineas.map((l) => calcularPlanillaDeLinea(`K${l}`, { base, sinSecundarios: true })));
 
-  const [filasObra, ledger] = obraIds.length ? await Promise.all([
-    traerTodo(() => supabase.from("panol_obra_materiales_snapshot").select("obra_id,material_id,requisito_material_id,cantidad,estado,descripcion").eq("source", "matriz").in("obra_id", obraIds)),
-    traerTodo(() => supabase.from("panol_obra_materiales_snapshot").select("obra_id,material_id,requisito_material_id,source,estado,recepcion_estado,cantidad,cantidad_egresada,created_at").in("estado", LEDGER_STATES).neq("source", "matriz")),
-  ]) : [[], []];
-
-  const obraFilas = new Map();
-  for (const f of filasObra) {
-    const id = f.requisito_material_id || f.material_id;
-    if (id) obraFilas.set(`${f.obra_id}|${id}`, { cantidad: f.cantidad, estado: f.estado, descripcion: f.descripcion });
-  }
-
-  const obraPorId = new Map(obras.map((o) => [o.id, o]));
-  const llegados = new Set();
+  const necesidades = [];
   const libre = new Map();
-  const primeraLlegada = new Map();
-  for (const r of ledger) {
-    if (r.obra_id) {
-      for (const id of [r.material_id, r.requisito_material_id]) {
-        if (!id) continue;
-        const k = `${r.obra_id}|${id}`;
-        llegados.add(k);
-        const prev = primeraLlegada.get(k);
-        if (!prev || r.created_at < prev) primeraLlegada.set(k, r.created_at);
-      }
-    } else if (r.material_id) {
-      libre.set(r.material_id, (libre.get(r.material_id) || 0) + rowDelta(r));
+  const matriz = [];
+  const obras = [];
+  let cubiertas = 0;
+  let fueraDelCalendario = 0;
+  planillas.forEach((planilla, i) => {
+    const linea = lineas[i];
+    const obraPorId = new Map();
+    for (const o of planilla.obras) {
+      const obra = { id: o.id, codigo: o.codigo, linea, desmolde: desmoldeDe.get(o.id) || null };
+      obraPorId.set(o.id, obra);
+      obras.push(obra);
     }
-  }
+    for (const fila of planilla.filas) {
+      if (fila.secundario || fila.esConsumible) continue;
+      const mat = catalogo.get(fila.id);
+      const rubro = fila.rubro || "Sin rubro";
+      if (RUBROS_FUERA.has(normalizarTexto(rubro))) { fueraDelCalendario += 1; continue; }
+      const celdas = Object.entries(fila.porObra).filter(([, c]) => c.desdeMatriz);
+      if (!celdas.length) continue;
+      matriz.push({ linea, material_id: fila.id, categoria_id: mat?.categoria_id || null, rubro, proveedor: String(fila.proveedor || "").trim() });
+      const libreKey = fila.familiaId || fila.id;
+      if (!libre.has(libreKey)) libre.set(libreKey, Number(fila.enPanolLibreFamilia ?? fila.enPanolLibre) || 0);
+      for (const [obraId, c] of celdas) {
+        const obra = obraPorId.get(obraId);
+        if (!obra) continue;
+        if (!(Number(c.pendiente) > 0) || c.avisoPendiente || c.pedidoAbierto) { cubiertas += 1; continue; }
+        const productoId = c.productoMaterialId || fila.id;
+        const producto = catalogo.get(productoId);
+        necesidades.push({
+          linea,
+          filaId: fila.id,
+          material_id: productoId,
+          requisito_material_id: c.requisitoId || fila.requisitoId || fila.id,
+          snapshotId: c.snapshotId || null,
+          descripcion: producto?.descripcion || fila.descripcion,
+          codigo: producto?.codigo || fila.codigo || "",
+          unidad: producto?.unidad_medida || fila.unidad || "unidad",
+          proveedor: String(producto?.proveedor || fila.proveedor || "").trim(),
+          categoria_id: mat?.categoria_id || null,
+          rubro,
+          obraId,
+          obra: obra.codigo,
+          desmolde: obra.desmolde,
+          cantidad: Number(c.pendiente),
+          sinModelo: c.requiereProductoConcreto === true && c.productoDefinido !== true,
+          libreKey,
+        });
+      }
+    }
+  });
 
   // Historia para sugerir semanas: cuándo llegó cada ítem de la matriz en los
   // barcos desmoldados desde que hay registro.
+  const obrasHistoria = obras.filter((o) => o.desmolde && o.desmolde >= DESMOLDE_DESDE_PARA_SUGERIR);
+  const ledger = obrasHistoria.length
+    ? await traerTodo(() => supabase.from("panol_obra_materiales_snapshot").select("obra_id,material_id,requisito_material_id,created_at").in("estado", LEDGER_STATES).neq("source", "matriz").in("obra_id", obrasHistoria.map((o) => o.id)))
+    : [];
+  const obraPorId = new Map(obras.map((o) => [o.id, o]));
   const matrizPorLinea = new Map();
   for (const m of matriz) {
     if (!matrizPorLinea.has(m.linea)) matrizPorLinea.set(m.linea, new Map());
     matrizPorLinea.get(m.linea).set(m.material_id, m);
   }
+  const primeraLlegada = new Map();
+  for (const r of ledger) {
+    for (const id of new Set([r.material_id, r.requisito_material_id])) {
+      if (!id) continue;
+      const k = `${r.obra_id}|${id}`;
+      const prev = primeraLlegada.get(k);
+      if (!prev || r.created_at < prev) primeraLlegada.set(k, r.created_at);
+    }
+  }
   const llegadas = [];
   for (const [k, at] of primeraLlegada) {
     const [obraId, matId] = k.split("|");
     const obra = obraPorId.get(obraId);
-    if (!obra?.desmolde || obra.desmolde < DESMOLDE_DESDE_PARA_SUGERIR) continue;
-    const item = matrizPorLinea.get(obra.linea)?.get(matId);
+    const item = obra && matrizPorLinea.get(obra.linea)?.get(matId);
     if (!item) continue;
     const semanas = (new Date(at) - new Date(`${obra.desmolde}T00:00:00`)) / (7 * 86400000);
     llegadas.push({ linea: obra.linea, categoria_id: item.categoria_id, semanas });
@@ -141,9 +170,9 @@ export async function cargarDatosCalendario() {
   return {
     obras,
     matriz,
-    obraFilas,
-    llegados,
+    necesidades,
     libre,
+    cubiertas,
     llegadas,
     medidos,
     plazoGeneral: Math.round(mediana(todos) ?? 21),

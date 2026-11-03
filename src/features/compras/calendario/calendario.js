@@ -4,12 +4,13 @@
  *   se necesita   = desmolde de la obra + semana del ítem o de su rubro
  *   comprar antes = se necesita − plazo del proveedor − margen
  *
- * Lo que ya llegó a la obra o ya está pedido no se vuelve a comprar, y lo que
- * hay libre en el pañol se usa antes de comprar (primero para la obra que lo
+ * Lo que falta sale de la misma cuenta que la lista de cada obra (la planilla
+ * de la línea): lo pedido o con aviso de ingreso ya no se vuelve a comprar, y
+ * lo que hay libre en el pañol se usa antes (primero para la obra que lo
  * necesita antes). Lo que en una obra en curso ya tendría que haber llegado y
- * el sistema no lo vio no se manda a comprar: va a "A confirmar", porque en los
- * barcos ya botados el 83 % de la matriz se puso sin pasar por el pañol
- * (03/11/2026) y comprarlo de nuevo sería un error.
+ * el sistema no lo vio no se manda a comprar solo, porque en los barcos ya
+ * botados el 83 % de la matriz se puso sin pasar por el pañol (03/11/2026) y
+ * comprarlo de nuevo sería un error: se ve sólo si se pide.
  */
 
 export const MARGEN_DIAS = 7;
@@ -138,151 +139,133 @@ function plazoDe(proveedor, { plazos, plazosSugeridos, plazoGeneral }) {
 }
 
 /**
- * Arma el calendario.
- *   matriz:   [{ linea, material_id, descripcion, codigo, unidad, proveedor, categoria_id, rubro, cantidad }]
- *   obras:    [{ id, codigo, linea, desmolde }]
- *   obraFilas: Map `${obraId}|${materialId}` → { cantidad, estado, descripcion }
- *   llegados: Set `${obraId}|${materialId}`
- *   libre:    Map materialId → cantidad libre en pañol
+ * Arma los pedidos: un proveedor, y dentro un pedido por obra. Así se cotiza y
+ * se compra en Klase A: los codos de bronce del 37 y los del 52 llegan juntos,
+ * pero el presupuesto es uno por barco.
+ *
+ *   necesidades: [{ linea, filaId, material_id, requisito_material_id, snapshotId,
+ *                   descripcion, codigo, unidad, proveedor, categoria_id, rubro,
+ *                   obraId, obra, desmolde, cantidad, sinModelo, libreKey }]
+ *                 Lo que la lista de cada obra todavía espera y nadie pidió ni avisó.
+ *   libre:       Map libreKey → cantidad libre en el pañol (de toda la familia)
+ *
+ * Un pedido entra a la vista si su ítem más urgente hay que pedirlo dentro de
+ * las semanas a la vista; entra entero, con lo que se necesita más adelante,
+ * porque se le pide todo junto al proveedor. Lo vencido (ya tendría que estar
+ * en el barco) queda afuera salvo que se pida verlo.
  */
-export function armarCalendario({
-  matriz = [], obras = [], obraFilas = new Map(), llegados = new Set(), libre = new Map(),
+export function armarPedidos({
+  necesidades = [], libre = new Map(),
   semanasItem = new Map(), semanasRubro = new Map(), sugeridas = new Map(),
   plazos = new Map(), plazosSugeridos = new Map(), plazoGeneral = 21,
-  hoy = new Date(), margen = MARGEN_DIAS, semanasALaVista = SEMANAS_A_LA_VISTA,
+  hoy = new Date(), margen = MARGEN_DIAS, semanasALaVista = SEMANAS_A_LA_VISTA, incluirVencidos = false,
 } = {}) {
   const hoyD = aFecha(hoy);
-  const porLinea = new Map();
-  for (const item of matriz) {
-    if (!porLinea.has(item.linea)) porLinea.set(item.linea, []);
-    porLinea.get(item.linea).push(item);
-  }
-
-  const necesidades = [];
-  const aConfirmar = new Map();
+  const fechadas = [];
   const sinFecha = new Map();
-  let cubiertas = 0;
+  const vencidos = new Map();
 
-  for (const obra of obras) {
-    if (!obra.desmolde) continue;
-    for (const item of porLinea.get(obra.linea) || []) {
-      const k = `${obra.id}|${item.material_id}`;
-      const fila = obraFilas.get(k);
-      const estado = fila?.estado || "pendiente";
-      if (llegados.has(k) || ["pedido", "comprado", "en_panol", "recibido", "parcial", "egresado"].includes(estado)) {
-        cubiertas += 1;
-        continue;
-      }
-      const cantidad = Number(fila?.cantidad ?? item.cantidad) || 0;
-      if (cantidad <= 0) continue;
-      const sem = semanaDe(item, { semanasItem, semanasRubro, sugeridas });
-      if (!sem) {
-        const s = sinFecha.get(item.categoria_id) || { rubro: item.rubro, linea: new Set(), items: 0 };
-        s.linea.add(item.linea);
-        s.items += 1;
-        sinFecha.set(item.categoria_id, s);
-        continue;
-      }
-      const necesita = sumarDias(obra.desmolde, sem.semana * 7);
-      if (necesita < hoyD) {
-        const a = aConfirmar.get(obra.id) || { obra: obra.codigo, items: 0, rubros: new Map() };
-        a.items += 1;
-        a.rubros.set(item.rubro || "Sin rubro", (a.rubros.get(item.rubro || "Sin rubro") || 0) + 1);
-        aConfirmar.set(obra.id, a);
-        continue;
-      }
-      const plazo = plazoDe(item.proveedor, { plazos, plazosSugeridos, plazoGeneral });
-      necesidades.push({
-        ...item,
-        descripcion: fila?.descripcion || item.descripcion,
-        obraId: obra.id,
-        obra: obra.codigo,
-        cantidad,
-        necesita,
-        comprarAntes: sumarDias(necesita, -(plazo.dias + margen)),
-        semana: sem.semana,
-        semanaFuente: sem.fuente,
-        plazo: plazo.dias,
-        plazoFuente: plazo.fuente,
-      });
+  for (const n of necesidades) {
+    if (!n.desmolde || !(Number(n.cantidad) > 0)) continue;
+    const sem = semanaDe({ linea: n.linea, material_id: n.filaId, categoria_id: n.categoria_id }, { semanasItem, semanasRubro, sugeridas });
+    if (!sem) {
+      const s = sinFecha.get(n.categoria_id) || { rubro: n.rubro, linea: new Set(), items: 0 };
+      s.linea.add(n.linea);
+      s.items += 1;
+      sinFecha.set(n.categoria_id, s);
+      continue;
     }
+    const necesita = sumarDias(n.desmolde, sem.semana * 7);
+    const vencido = necesita < hoyD;
+    if (vencido) {
+      const v = vencidos.get(n.obraId) || { obra: n.obra, items: 0 };
+      v.items += 1;
+      vencidos.set(n.obraId, v);
+      if (!incluirVencidos) continue;
+    }
+    const plazo = plazoDe(n.proveedor, { plazos, plazosSugeridos, plazoGeneral });
+    fechadas.push({
+      ...n,
+      cantidad: Number(n.cantidad),
+      necesita,
+      vencido,
+      comprarAntes: sumarDias(necesita, -(plazo.dias + margen)),
+      semana: sem.semana,
+      semanaFuente: sem.fuente,
+      plazo: plazo.dias,
+      plazoFuente: plazo.fuente,
+    });
   }
 
   // Lo libre del pañol se usa primero para lo que se necesita antes.
-  necesidades.sort((a, b) => a.necesita - b.necesita || String(a.obra).localeCompare(String(b.obra), "es", { numeric: true }));
+  fechadas.sort((a, b) => a.necesita - b.necesita || String(a.obra).localeCompare(String(b.obra), "es", { numeric: true }));
   const libreRestante = new Map([...libre.entries()].map(([k, v]) => [k, Math.max(0, Number(v) || 0)]));
   const aComprar = [];
   const conStock = [];
-  for (const n of necesidades) {
-    const hay = libreRestante.get(n.material_id) || 0;
+  for (const n of fechadas) {
+    const k = n.libreKey || n.material_id;
+    const hay = libreRestante.get(k) || 0;
     const usa = Math.min(hay, n.cantidad);
-    if (usa > 0) libreRestante.set(n.material_id, hay - usa);
+    if (usa > 0) libreRestante.set(k, hay - usa);
     if (usa >= n.cantidad - 0.0001) { conStock.push({ ...n, deStock: usa }); continue; }
-    aComprar.push({ ...n, deStock: usa, faltan: n.cantidad - usa });
+    aComprar.push({ ...n, deStock: usa, faltan: redondear(n.cantidad - usa) });
   }
 
-  // Agrupado: semana de compra → proveedor → producto (sumando obras).
-  const lunesHoy = inicioSemana(hoyD);
-  const limite = sumarDias(lunesHoy, semanasALaVista * 7);
-  const semanas = new Map();
-  let masAdelante = 0;
+  // proveedor → obra → ítems
+  const porProveedor = new Map();
   for (const n of aComprar) {
-    let clave;
-    let inicio;
-    if (n.comprarAntes < hoyD) { clave = "atrasado"; inicio = null; }
-    else if (n.comprarAntes >= limite) { masAdelante += 1; continue; }
-    else { inicio = inicioSemana(n.comprarAntes); clave = isoFecha(inicio); }
-    if (!semanas.has(clave)) semanas.set(clave, { clave, inicio, proveedores: new Map() });
-    const sem = semanas.get(clave);
-    const prov = n.proveedor || "Sin proveedor";
-    if (!sem.proveedores.has(prov)) sem.proveedores.set(prov, { proveedor: prov, plazo: n.plazo, plazoFuente: n.plazoFuente, productos: new Map() });
-    const p = sem.proveedores.get(prov);
-    if (!p.productos.has(n.material_id)) {
-      p.productos.set(n.material_id, {
-        material_id: n.material_id, linea: n.linea, descripcion: n.descripcion, codigo: n.codigo, unidad: n.unidad,
-        rubro: n.rubro, semana: n.semana, semanaFuente: n.semanaFuente, total: 0, deStock: 0, obras: [],
-        necesita: n.necesita, comprarAntes: n.comprarAntes,
-      });
+    const nombre = n.proveedor || "Sin proveedor";
+    const kProv = n.proveedor ? claveProveedor(n.proveedor) : "";
+    if (!porProveedor.has(kProv)) porProveedor.set(kProv, { clave: kProv, proveedor: nombre, plazo: n.plazo, plazoFuente: n.plazoFuente, pedidos: new Map() });
+    const prov = porProveedor.get(kProv);
+    if (!prov.pedidos.has(n.obraId)) {
+      prov.pedidos.set(n.obraId, { clave: `${kProv}|${n.obraId}`, obraId: n.obraId, obra: n.obra, linea: n.linea, desmolde: n.desmolde, comprarAntes: n.comprarAntes, necesita: n.necesita, items: [] });
     }
-    const prod = p.productos.get(n.material_id);
-    prod.total += n.faltan;
-    prod.deStock += n.deStock;
-    prod.obras.push({ obra: n.obra, cantidad: n.faltan, necesita: n.necesita });
-    if (n.necesita < prod.necesita) prod.necesita = n.necesita;
-    if (n.comprarAntes < prod.comprarAntes) prod.comprarAntes = n.comprarAntes;
+    const ped = prov.pedidos.get(n.obraId);
+    ped.items.push(n);
+    if (n.comprarAntes < ped.comprarAntes) ped.comprarAntes = n.comprarAntes;
+    if (n.necesita < ped.necesita) ped.necesita = n.necesita;
   }
 
-  const lista = [...semanas.values()]
-    .sort((a, b) => (a.clave === "atrasado" ? -1 : b.clave === "atrasado" ? 1 : a.inicio - b.inicio))
-    .map((s) => ({
-      clave: s.clave,
-      inicio: s.inicio,
-      proveedores: [...s.proveedores.values()]
-        .map((p) => ({ ...p, productos: [...p.productos.values()].sort((a, b) => a.comprarAntes - b.comprarAntes || a.descripcion.localeCompare(b.descripcion, "es")) }))
-        .sort((a, b) => (a.proveedor === "Sin proveedor") - (b.proveedor === "Sin proveedor") || b.productos.length - a.productos.length),
-    }));
+  const limite = sumarDias(inicioSemana(hoyD), semanasALaVista * 7);
+  let masAdelante = 0;
+  const proveedores = [];
+  for (const prov of porProveedor.values()) {
+    const pedidos = [];
+    for (const ped of prov.pedidos.values()) {
+      if (ped.comprarAntes >= limite) { masAdelante += 1; continue; }
+      ped.items.sort((a, b) => a.comprarAntes - b.comprarAntes || String(a.rubro).localeCompare(String(b.rubro), "es") || a.descripcion.localeCompare(b.descripcion, "es"));
+      ped.atrasado = ped.comprarAntes < hoyD;
+      pedidos.push(ped);
+    }
+    if (!pedidos.length) continue;
+    pedidos.sort((a, b) => a.comprarAntes - b.comprarAntes || String(a.obra).localeCompare(String(b.obra), "es", { numeric: true }));
+    proveedores.push({ ...prov, pedidos, comprarAntes: pedidos[0].comprarAntes });
+  }
+  proveedores.sort((a, b) => (!a.clave) - (!b.clave) || a.comprarAntes - b.comprarAntes || a.proveedor.localeCompare(b.proveedor, "es"));
 
+  const pedidosVisibles = proveedores.flatMap((p) => p.pedidos);
   return {
-    semanas: lista,
+    proveedores,
     conStock,
     masAdelante,
-    cubiertas,
-    aConfirmar: [...aConfirmar.values()].map((a) => ({ ...a, rubros: [...a.rubros.entries()].sort((x, y) => y[1] - x[1]) })).sort((a, b) => b.items - a.items),
+    vencidos: [...vencidos.values()].sort((a, b) => b.items - a.items),
     sinFecha: [...sinFecha.values()].map((s) => ({ ...s, linea: [...s.linea] })),
-    totalAComprar: aComprar.length,
+    totalPedidos: pedidosVisibles.length,
+    totalItems: pedidosVisibles.reduce((n, p) => n + p.items.length, 0),
+    pedidosAtrasados: pedidosVisibles.filter((p) => p.atrasado).length,
   };
 }
 
-/** Texto del pedido para mandar al proveedor. */
-export function textoPedido(proveedor, productos = []) {
-  const lineas = productos.map((p) => {
-    const obras = p.obras.map((o) => `${o.obra}: ${fmt(o.cantidad)}`).join(", ");
-    return `- ${p.descripcion}${p.codigo ? ` (${p.codigo})` : ""} × ${fmt(p.total)} ${p.unidad || "u"}  [${obras}]`;
-  });
-  return [`Pedido a ${proveedor}`, ...lineas].join("\n");
+/** Texto de un pedido (un proveedor, una obra) para mandar a cotizar. */
+export function textoPedido(proveedor, obra, items = []) {
+  const lineas = items.map((i) => `- ${fmt(i.faltan ?? i.cantidad)} ${i.unidad || "u"}  ${i.descripcion}${i.codigo ? ` (${i.codigo})` : ""}`);
+  return [`Pedido a ${proveedor} · Obra ${obra}`, ...lineas].join("\n");
 }
 
+const redondear = (n) => Math.round(Number(n || 0) * 100) / 100;
+
 function fmt(n) {
-  const v = Math.round(Number(n) * 100) / 100;
+  const v = redondear(n);
   return Number.isInteger(v) ? String(v) : String(v).replace(".", ",");
 }

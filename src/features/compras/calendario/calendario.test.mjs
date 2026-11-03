@@ -1,93 +1,103 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { armarCalendario, inicioSemana, isoFecha, sugerirPlazo, sugerirSemanasRubro, textoPedido } from "./calendario.js";
+import { armarPedidos, inicioSemana, isoFecha, sugerirPlazo, sugerirSemanasRubro, textoPedido } from "./calendario.js";
 
 const HOY = new Date(2026, 10, 3); // martes 03/11/2026
-const item = (extra = {}) => ({ linea: "52", material_id: "m1", descripcion: "Bomba achique", codigo: "B1", unidad: "unidad", proveedor: "Trimer", categoria_id: "mec", rubro: "Mecánica", cantidad: 2, ...extra });
+const nec = (extra = {}) => ({
+  linea: "52", filaId: "m1", material_id: "m1", requisito_material_id: "m1", snapshotId: null,
+  descripcion: "Codo bronce 1/2", codigo: "C12", unidad: "unidad", proveedor: "Iriarte",
+  categoria_id: "bro", rubro: "Broncería", obraId: "o1", obra: "52-28", desmolde: "2026-12-07",
+  cantidad: 10, sinModelo: false, libreKey: "m1", ...extra,
+});
 
 test("fecha de compra = desmolde + semana del rubro − plazo − margen", () => {
-  const r = armarCalendario({
-    matriz: [item()],
-    obras: [{ id: "o1", codigo: "52-28", linea: "52", desmolde: "2026-12-07" }],
-    semanasRubro: new Map([["52|mec", 2]]),
-    plazos: new Map([["trimer", 10]]),
+  const r = armarPedidos({
+    necesidades: [nec()],
+    semanasRubro: new Map([["52|bro", 2]]),
+    plazos: new Map([["iriarte", 10]]),
     hoy: HOY,
   });
-  const [sem] = r.semanas;
-  const prod = sem.proveedores[0].productos[0];
-  assert.equal(isoFecha(prod.necesita), "2026-12-21");
-  assert.equal(isoFecha(prod.comprarAntes), "2026-12-04"); // 21/12 − 10 − 7
-  assert.equal(sem.clave, "2026-11-30");
-  assert.equal(prod.semanaFuente, "rubro");
+  const ped = r.proveedores[0].pedidos[0];
+  assert.equal(isoFecha(ped.necesita), "2026-12-21");
+  assert.equal(isoFecha(ped.comprarAntes), "2026-12-04"); // 21/12 − 10 − 7
+  assert.equal(ped.items[0].semanaFuente, "rubro");
+  assert.equal(ped.atrasado, false);
+});
+
+test("un pedido por obra dentro de cada proveedor, aunque sea el mismo producto", () => {
+  const r = armarPedidos({
+    necesidades: [
+      nec({ linea: "37", obraId: "a", obra: "37-44", cantidad: 7, desmolde: "2026-11-30" }),
+      nec({ obraId: "b", obra: "52-28", cantidad: 10 }),
+      nec({ filaId: "m2", material_id: "m2", libreKey: "m2", descripcion: "Bomba", proveedor: "Trimer", categoria_id: "mec", obraId: "b", obra: "52-28" }),
+    ],
+    semanasRubro: new Map([["37|bro", 2], ["52|bro", 2], ["52|mec", 0]]),
+    plazos: new Map([["iriarte", 10], ["trimer", 10]]),
+    hoy: HOY,
+  });
+  const iriarte = r.proveedores.find((p) => p.proveedor === "Iriarte");
+  assert.deepEqual(iriarte.pedidos.map((p) => [p.obra, p.items.length, p.items[0].faltan]), [["37-44", 1, 7], ["52-28", 1, 10]]);
+  assert.equal(r.totalPedidos, 3);
 });
 
 test("la excepción del ítem manda sobre el rubro y la sugerencia sobre nada", () => {
-  const base = { matriz: [item()], obras: [{ id: "o1", codigo: "52-28", linea: "52", desmolde: "2027-02-01" }], hoy: HOY, plazos: new Map([["trimer", 10]]) };
-  const conItem = armarCalendario({ ...base, semanasRubro: new Map([["52|mec", 2]]), semanasItem: new Map([["52|m1", -4]]) });
-  assert.equal(conItem.semanas[0].proveedores[0].productos[0].semanaFuente, "item");
-  const sugerida = armarCalendario({ ...base, sugeridas: new Map([["52|mec", { semana: 0, fuente: "base" }]]) });
-  assert.equal(sugerida.semanas[0].proveedores[0].productos[0].semanaFuente, "sugerida");
-  const sinNada = armarCalendario(base);
-  assert.equal(sinNada.semanas.length, 0);
+  const base = { necesidades: [nec({ desmolde: "2027-02-01" })], hoy: HOY, plazos: new Map([["iriarte", 10]]), semanasALaVista: 30 };
+  const conItem = armarPedidos({ ...base, semanasRubro: new Map([["52|bro", 2]]), semanasItem: new Map([["52|m1", -4]]) });
+  assert.equal(conItem.proveedores[0].pedidos[0].items[0].semanaFuente, "item");
+  const sugerida = armarPedidos({ ...base, sugeridas: new Map([["52|bro", { semana: 0, fuente: "base" }]]) });
+  assert.equal(sugerida.proveedores[0].pedidos[0].items[0].semanaFuente, "sugerida");
+  const sinNada = armarPedidos(base);
+  assert.equal(sinNada.proveedores.length, 0);
   assert.equal(sinNada.sinFecha[0].items, 1);
 });
 
-test("lo llegado o pedido no se compra; lo vencido va a confirmar", () => {
-  const obras = [
-    { id: "a", codigo: "52-23", linea: "52", desmolde: "2026-01-12" },
-    { id: "b", codigo: "52-27", linea: "52", desmolde: "2026-10-28" },
-    { id: "c", codigo: "52-28", linea: "52", desmolde: "2027-02-01" },
-  ];
-  const r = armarCalendario({
-    matriz: [item(), item({ material_id: "m2", descripcion: "Filtro" })],
-    obras,
-    llegados: new Set(["c|m1"]),
-    obraFilas: new Map([["c|m2", { estado: "comprado" }]]),
-    semanasRubro: new Map([["52|mec", 4]]),
+test("lo vencido no se pide salvo que se quiera ver", () => {
+  const args = {
+    necesidades: [nec({ obraId: "v", obra: "52-23", desmolde: "2026-01-12" }), nec({ obraId: "f", obra: "52-28", desmolde: "2026-12-07" })],
+    semanasRubro: new Map([["52|bro", 2]]),
     hoy: HOY,
-  });
-  // 52-23 (vencido) y 52-27 (necesita 25/11, no vencido) — 52-28 ya cubierta.
-  assert.equal(r.cubiertas, 2);
-  assert.deepEqual(r.aConfirmar.map((a) => [a.obra, a.items]), [["52-23", 2]]);
-  assert.equal(r.totalAComprar, 2);
+  };
+  const r = armarPedidos(args);
+  assert.deepEqual(r.vencidos.map((v) => [v.obra, v.items]), [["52-23", 1]]);
+  assert.deepEqual(r.proveedores[0].pedidos.map((p) => p.obra), ["52-28"]);
+  const conVencidos = armarPedidos({ ...args, incluirVencidos: true });
+  assert.deepEqual(conVencidos.proveedores[0].pedidos.map((p) => [p.obra, p.atrasado]), [["52-23", true], ["52-28", false]]);
 });
 
 test("el stock libre cubre primero a la obra que lo necesita antes", () => {
-  const r = armarCalendario({
-    matriz: [item({ cantidad: 2 })],
-    obras: [
-      { id: "x", codigo: "52-28", linea: "52", desmolde: "2027-02-01" },
-      { id: "y", codigo: "52-27", linea: "52", desmolde: "2026-12-01" },
+  const r = armarPedidos({
+    necesidades: [
+      nec({ obraId: "x", obra: "52-28", cantidad: 2, desmolde: "2027-02-01" }),
+      nec({ obraId: "y", obra: "52-27", cantidad: 2, desmolde: "2026-12-01" }),
     ],
     libre: new Map([["m1", 3]]),
-    semanasRubro: new Map([["52|mec", 2]]),
-    plazos: new Map([["trimer", 10]]),
+    semanasRubro: new Map([["52|bro", 2]]),
+    plazos: new Map([["iriarte", 10]]),
     hoy: HOY,
     semanasALaVista: 30,
   });
   assert.deepEqual(r.conStock.map((n) => n.obra), ["52-27"]);
-  const prod = r.semanas[0].proveedores[0].productos[0];
-  assert.equal(prod.total, 1);
-  assert.equal(prod.deStock, 1);
-  assert.deepEqual(prod.obras.map((o) => o.obra), ["52-28"]);
+  const [ped] = r.proveedores[0].pedidos;
+  assert.equal(ped.obra, "52-28");
+  assert.equal(ped.items[0].faltan, 1);
+  assert.equal(ped.items[0].deStock, 1);
 });
 
-test("agrupa por proveedor y suma obras; lo atrasado va primero", () => {
-  const r = armarCalendario({
-    matriz: [item(), item({ material_id: "m3", proveedor: "", descripcion: "Sin prov" })],
-    obras: [
-      { id: "p", codigo: "52-27", linea: "52", desmolde: "2026-11-01" },
-      { id: "q", codigo: "52-28", linea: "52", desmolde: "2026-11-02" },
+test("el pedido entra entero si su ítem más urgente cae en la vista; sin proveedor va al final", () => {
+  const r = armarPedidos({
+    necesidades: [
+      nec({ desmolde: "2026-11-16" }),
+      nec({ filaId: "m3", material_id: "m3", libreKey: "m3", categoria_id: "gri", rubro: "Griferías", desmolde: "2026-11-16" }),
+      nec({ filaId: "m4", material_id: "m4", libreKey: "m4", proveedor: "", desmolde: "2026-11-16" }),
     ],
-    semanasRubro: new Map([["52|mec", 3]]),
-    plazos: new Map([["trimer", 30]]),
+    semanasRubro: new Map([["52|bro", 2], ["52|gri", 30]]),
+    plazos: new Map([["iriarte", 10]]),
     hoy: HOY,
+    semanasALaVista: 4,
   });
-  assert.equal(r.semanas[0].clave, "atrasado");
-  const trimer = r.semanas[0].proveedores.find((p) => p.proveedor === "Trimer");
-  assert.equal(trimer.productos[0].total, 4);
-  assert.deepEqual(trimer.productos[0].obras.map((o) => o.obra), ["52-27", "52-28"]);
-  assert.equal(r.semanas.flatMap((s) => s.proveedores).at(-1).proveedor, "Sin proveedor");
+  assert.equal(r.proveedores[0].proveedor, "Iriarte");
+  assert.equal(r.proveedores[0].pedidos[0].items.length, 2);
+  assert.equal(r.proveedores.at(-1).proveedor, "Sin proveedor");
 });
 
 test("sugerencias: con datos la mediana, sin datos la base del rubro", () => {
@@ -102,8 +112,8 @@ test("sugerencias: con datos la mediana, sin datos la base del rubro", () => {
   assert.deepEqual(sugerirPlazo("Iriarte", new Map(), 29), { dias: 29, fuente: "general" });
 });
 
-test("semana arranca el lunes y el texto del pedido lista las obras", () => {
+test("semana arranca el lunes y el texto del pedido es de una obra", () => {
   assert.equal(isoFecha(inicioSemana(new Date(2026, 10, 8))), "2026-11-02");
-  const t = textoPedido("Trimer", [{ descripcion: "Bomba", codigo: "B1", total: 3, unidad: "unidad", obras: [{ obra: "52-27", cantidad: 2 }, { obra: "52-28", cantidad: 1 }] }]);
-  assert.equal(t, "Pedido a Trimer\n- Bomba (B1) × 3 unidad  [52-27: 2, 52-28: 1]");
+  const t = textoPedido("Iriarte", "52-28", [{ descripcion: "Codo bronce 1/2", codigo: "C12", faltan: 10, unidad: "unidad" }, { descripcion: "Niple", cantidad: 2.5, unidad: "m" }]);
+  assert.equal(t, "Pedido a Iriarte · Obra 52-28\n- 10 unidad  Codo bronce 1/2 (C12)\n- 2,5 m  Niple");
 });

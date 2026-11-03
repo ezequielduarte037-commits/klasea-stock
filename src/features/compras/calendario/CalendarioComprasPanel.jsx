@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarDays, ChevronRight, Copy, Info, LoaderCircle, RotateCcw, Truck } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Copy, Info, LoaderCircle, RotateCcw, Truck } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import Cargando from "@/components/ui/Cargando";
-import { Aviso, Buscar, Cabecera, Grupo, Vacio } from "../ui";
+import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import { marcarAvisoPlanillaComoComprado } from "@/features/compras/planillaObrasApi";
+import { Aviso, Buscar, Cabecera, Vacio } from "../ui";
 import {
-  MARGEN_DIAS, SEMANAS_A_LA_VISTA, armarCalendario, claveProveedor, inicioSemana, isoFecha, sumarDias,
+  MARGEN_DIAS, armarPedidos, claveProveedor, inicioSemana, sumarDias,
   sugerirPlazo, sugerirSemanasRubro, textoPedido,
 } from "./calendario";
 import {
@@ -14,17 +16,21 @@ import {
 /**
  * Calendario de compras de los ítems estándar.
  *
- * Tres partes: el calendario (qué pedir cada semana y a quién), las semanas por
- * rubro (cuándo tiene que estar cada rubro en el pañol, contando desde el
- * desmolde) y los plazos de cada proveedor. Mientras algo no está cargado se
- * usa una sugerencia, que se ve en cursiva.
+ * Se arma como se compra: cada proveedor, y adentro un pedido por obra, porque
+ * los presupuestos son por barco aunque la mercadería llegue junta. Cuando un
+ * pedido se compró, «Ya lo compré» arma el aviso de ingreso al pañol y deja los
+ * renglones de la lista del barco en Comprado (lo mismo que la planilla de la
+ * línea). Las semanas por rubro y los plazos de cada proveedor deciden la fecha;
+ * mientras no están cargados se usa una sugerencia, que se ve en cursiva.
  */
 
 const VISTAS = [
-  ["calendario", "Calendario"],
+  ["calendario", "Pedidos"],
   ["rubros", "Semanas por rubro"],
   ["plazos", "Plazos por proveedor"],
 ];
+const HORIZONTES = [2, 4, 8, 12];
+const ITEMS_A_LA_VISTA = 8;
 
 function dm(fecha) {
   const d = new Date(fecha);
@@ -36,11 +42,12 @@ function fmt(n) {
   return Number.isInteger(v) ? v.toLocaleString("es-AR") : String(v).replace(".", ",");
 }
 
-function tituloSemana(sem, lunesHoy) {
-  if (sem.clave === "atrasado") return "Atrasado";
-  const fin = sumarDias(sem.inicio, 6);
-  if (isoFecha(sem.inicio) === isoFecha(lunesHoy)) return `Esta semana · ${dm(sem.inicio)} al ${dm(fin)}`;
-  return `Semana del ${dm(sem.inicio)} al ${dm(fin)}`;
+/** Cuándo hay que hacer el pedido, en palabras. */
+function urgencia(comprarAntes, hoy, lunesHoy) {
+  if (comprarAntes < hoy) return { tono: "rojo", texto: "Atrasado", detalle: `había que pedirlo antes del ${dm(comprarAntes)}` };
+  if (comprarAntes < sumarDias(lunesHoy, 7)) return { tono: "azul", texto: "Esta semana", detalle: `pedir antes del ${dm(comprarAntes)}` };
+  const semanas = Math.round((inicioSemana(comprarAntes) - lunesHoy) / (7 * 86400000));
+  return { tono: "neutro", texto: `En ${semanas} ${semanas === 1 ? "semana" : "semanas"}`, detalle: `pedir antes del ${dm(comprarAntes)}` };
 }
 
 const FUENTE_SEMANA = { item: "sólo este ítem", rubro: "del rubro", sugerida: "sugerida" };
@@ -78,6 +85,84 @@ function CampoNumero({ valor, sugerido, onGuardar, disabled, min = -52, max = 10
   );
 }
 
+/** Un pedido: un proveedor, una obra. */
+function TarjetaPedido({ proveedor, pedido, hoy, lunesHoy, editable, semanasItem, onSemanaItem, onCopiar, onComprado, sinProveedor }) {
+  const [todos, setTodos] = useState(false);
+  const u = urgencia(pedido.comprarAntes, hoy, lunesHoy);
+  const visibles = todos ? pedido.items : pedido.items.slice(0, ITEMS_A_LA_VISTA);
+  const resto = pedido.items.length - visibles.length;
+  const deStock = pedido.items.reduce((n, i) => n + (i.deStock > 0 ? 1 : 0), 0);
+  return (
+    <article className="cal-pedido" data-tono={u.tono}>
+      <header className="cal-ped-cab">
+        <div style={{ minWidth: 0 }}>
+          <div className="cal-ped-obra">
+            <b className="mono">{pedido.obra}</b>
+            <span className="cal-urg" data-tono={u.tono}>{u.texto}</span>
+          </div>
+          <div className="cal-ped-txt">
+            {pedido.items.length} {pedido.items.length === 1 ? "ítem" : "ítems"} · {u.detalle} · desmolde {dm(pedido.desmolde)}
+            {deStock > 0 && <> · <span className="cal-stock">{deStock} con parte del pañol</span></>}
+          </div>
+        </div>
+        <div className="cal-ped-acc">
+          <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => onCopiar(proveedor, pedido)} title="Copiar el pedido para pedir el presupuesto">
+            <Copy size={13} /> Copiar
+          </button>
+          {editable && (
+            <button type="button" className="ui-btn ui-btn-primario chico" onClick={() => onComprado(proveedor, pedido)} title={sinProveedor ? "Elegí a quién se lo compraste en el aviso" : "Arma el aviso de ingreso al pañol y deja todo comprado en la lista del barco"}>
+              <CheckCircle2 size={13} /> Ya lo compré
+            </button>
+          )}
+        </div>
+      </header>
+      <div className="cal-ped-items">
+        {visibles.map((x) => {
+          const kItem = `${x.linea}|${x.filaId}`;
+          return (
+            <div key={`${x.filaId}|${x.material_id}`} className="cal-item">
+              <div style={{ minWidth: 0 }}>
+                <div className="cal-nom" title={x.descripcion}>{x.descripcion}</div>
+                <div className="cal-meta">
+                  {x.codigo && <span className="mono">{x.codigo}</span>}
+                  <span>{x.rubro}</span>
+                  {x.sinModelo && <span className="cal-marca" title="En la lista del barco no está elegido el modelo: se avisa el genérico">sin modelo</span>}
+                  {x.vencido && <span className="cal-marca" data-tono="violeta" title="Ya tendría que estar en el barco: confirmá con la obra antes de comprarlo">¿ya está?</span>}
+                </div>
+              </div>
+              <div className="cal-cifra">
+                <b className="mono">{fmt(x.faltan)} <small>{x.unidad}</small></b>
+                {x.deStock > 0 && <small className="cal-stock">+{fmt(x.deStock)} del pañol</small>}
+              </div>
+              <div className="cal-cifra cal-cuando">
+                <b>{dm(x.necesita)}</b>
+                <small>
+                  <span className={x.semanaFuente === "sugerida" ? "cal-sug" : ""}>sem. {x.semana}</span> · {FUENTE_SEMANA[x.semanaFuente]}
+                </small>
+              </div>
+              {editable && (
+                <CampoNumero
+                  valor={semanasItem.has(kItem) ? semanasItem.get(kItem) : null}
+                  sugerido={null}
+                  ancho={52}
+                  titulo="Semana sólo para este ítem, desde el desmolde (vacío = la del rubro)"
+                  onGuardar={(v) => onSemanaItem(x.linea, x.filaId, v)}
+                />
+              )}
+            </div>
+          );
+        })}
+        {(resto > 0 || todos) && pedido.items.length > ITEMS_A_LA_VISTA && (
+          <button type="button" className="cal-mas" onClick={() => setTodos((v) => !v)}>
+            <ChevronDown size={14} style={{ transform: todos ? "rotate(180deg)" : "none" }} />
+            {todos ? "Ver menos" : `Ver los otros ${resto}`}
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export default function CalendarioComprasPanel({ profile }) {
   const toast = useToast();
   const puedeEditar = !!profile?.is_admin || ["admin", "compras", "oficina"].includes(profile?.role);
@@ -86,17 +171,23 @@ export default function CalendarioComprasPanel({ profile }) {
   const [error, setError] = useState("");
   const [vista, setVista] = useState("calendario");
   const [linea, setLinea] = useState("todas");
+  const [horizonte, setHorizonte] = useState(4);
   const [busqueda, setBusqueda] = useState("");
-  // Lo atrasado y la semana actual arrancan abiertos; cada proveedor se pliega
-  // o despliega solo, y eso queda anotado acá como "lo contrario de lo normal".
+  const [verVencidos, setVerVencidos] = useState(false);
+  // Cada proveedor arranca abierto si tiene algo atrasado o para esta semana;
+  // tocarlo lo invierte y queda anotado acá.
   const [invertidos, setInvertidos] = useState(() => new Set());
-  const [verConfirmar, setVerConfirmar] = useState(false);
+  const [avisoPrefill, setAvisoPrefill] = useState(null);
+  // Pedidos ya avisados en esta sesión: se esconden enseguida, sin esperar a
+  // que se vuelva a calcular todo.
+  const [hechos, setHechos] = useState(() => new Set());
 
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
       const d = await cargarDatosCalendario();
       setDatos(d);
+      setHechos(new Set());
       setError("");
     } catch (e) {
       setError(e.message || "No se pudo armar el calendario.");
@@ -111,6 +202,7 @@ export default function CalendarioComprasPanel({ profile }) {
   const rubros = useMemo(() => {
     const map = new Map();
     for (const m of datos?.matriz || []) {
+      if (!m.categoria_id) continue;
       const k = `${m.linea}|${m.categoria_id}`;
       if (!map.has(k)) map.set(k, { linea: m.linea, categoria_id: m.categoria_id, rubro: m.rubro, items: 0 });
       map.get(k).items += 1;
@@ -122,13 +214,22 @@ export default function CalendarioComprasPanel({ profile }) {
 
   const proveedores = useMemo(() => {
     const map = new Map();
-    for (const m of datos?.matriz || []) {
-      if (!m.proveedor) continue;
-      const k = claveProveedor(m.proveedor);
-      if (!map.has(k)) map.set(k, { clave: k, nombre: m.proveedor, items: 0, lineas: new Set() });
+    const sumar = (nombre, lin) => {
+      if (!nombre) return;
+      const k = claveProveedor(nombre);
+      if (!map.has(k)) map.set(k, { clave: k, nombre, items: 0, lineas: new Set() });
       const p = map.get(k);
       p.items += 1;
-      p.lineas.add(m.linea);
+      p.lineas.add(lin);
+    };
+    for (const m of datos?.matriz || []) sumar(m.proveedor, m.linea);
+    // El modelo elegido en una obra puede venir de otro proveedor que el genérico.
+    const vistos = new Set();
+    for (const n of datos?.necesidades || []) {
+      const k = `${n.linea}|${n.material_id}`;
+      if (n.material_id === n.filaId || vistos.has(k)) continue;
+      vistos.add(k);
+      if (!map.has(claveProveedor(n.proveedor))) sumar(n.proveedor, n.linea);
     }
     return [...map.values()].sort((a, b) => b.items - a.items);
   }, [datos]);
@@ -141,26 +242,26 @@ export default function CalendarioComprasPanel({ profile }) {
 
   const calendario = useMemo(() => {
     if (!datos) return null;
-    const matriz = linea === "todas" ? datos.matriz : datos.matriz.filter((m) => m.linea === linea);
-    const obras = linea === "todas" ? datos.obras : datos.obras.filter((o) => o.linea === linea);
-    return armarCalendario({
-      ...datos, matriz, obras, sugeridas, plazosSugeridos, hoy: new Date(),
+    const necesidades = linea === "todas" ? datos.necesidades : datos.necesidades.filter((n) => n.linea === linea);
+    return armarPedidos({
+      ...datos, necesidades, sugeridas, plazosSugeridos, hoy: new Date(), semanasALaVista: horizonte, incluirVencidos: verVencidos,
     });
-  }, [datos, linea, sugeridas, plazosSugeridos]);
+  }, [datos, linea, sugeridas, plazosSugeridos, horizonte, verVencidos]);
 
-  const semanasFiltradas = useMemo(() => {
+  const proveedoresVisibles = useMemo(() => {
     if (!calendario) return [];
     const q = busqueda.trim().toLowerCase();
-    if (!q) return calendario.semanas;
-    return calendario.semanas
-      .map((s) => ({
-        ...s,
-        proveedores: s.proveedores
-          .map((p) => ({ ...p, productos: p.productos.filter((x) => [x.descripcion, x.codigo, x.rubro, p.proveedor, ...x.obras.map((o) => o.obra)].some((c) => String(c || "").toLowerCase().includes(q))) }))
-          .filter((p) => p.productos.length),
+    const coincide = (...campos) => campos.some((c) => String(c || "").toLowerCase().includes(q));
+    return calendario.proveedores
+      .map((p) => ({
+        ...p,
+        pedidos: p.pedidos
+          .filter((ped) => !hechos.has(ped.clave))
+          .map((ped) => (!q || coincide(p.proveedor, ped.obra) ? ped : { ...ped, items: ped.items.filter((x) => coincide(x.descripcion, x.codigo, x.rubro)) }))
+          .filter((ped) => ped.items.length),
       }))
-      .filter((s) => s.proveedores.length);
-  }, [calendario, busqueda]);
+      .filter((p) => p.pedidos.length);
+  }, [calendario, busqueda, hechos]);
 
   function alternar(clave) {
     setInvertidos((prev) => {
@@ -232,16 +333,56 @@ export default function CalendarioComprasPanel({ profile }) {
     } catch (e) { toast.error(e.message || "No se pudieron guardar."); }
   }
 
-  function copiar(proveedor, productos) {
-    navigator.clipboard?.writeText(textoPedido(proveedor, productos))
-      .then(() => toast.success(`${productos.length} renglones copiados.`))
+  function copiarTexto(texto, mensaje) {
+    navigator.clipboard?.writeText(texto)
+      .then(() => toast.success(mensaje))
       .catch(() => toast.error("No se pudo copiar."));
   }
 
-  const lunesHoy = inicioSemana(new Date());
-  const atrasados = calendario?.semanas.find((s) => s.clave === "atrasado");
-  const nAtrasados = atrasados ? atrasados.proveedores.reduce((n, p) => n + p.productos.length, 0) : 0;
-  const nProductos = calendario ? calendario.semanas.reduce((n, s) => n + s.proveedores.reduce((m, p) => m + p.productos.length, 0), 0) : 0;
+  function copiarPedido(proveedor, pedido) {
+    copiarTexto(textoPedido(proveedor.proveedor, pedido.obra, pedido.items), `Pedido de la ${pedido.obra} copiado (${pedido.items.length} renglones).`);
+  }
+
+  // Todas las obras de un proveedor en un solo mensaje, pero cada una por
+  // separado: el presupuesto sigue siendo uno por barco.
+  function copiarProveedor(proveedor) {
+    const texto = proveedor.pedidos.map((ped) => textoPedido(proveedor.proveedor, ped.obra, ped.items)).join("\n\n");
+    copiarTexto(texto, `${proveedor.pedidos.length} pedidos copiados, uno por obra.`);
+  }
+
+  function abrirAviso(proveedor, pedido) {
+    const sinProveedor = !proveedor.clave;
+    setAvisoPrefill({
+      clave: pedido.clave,
+      titulo: sinProveedor ? `Compra · ${pedido.obra}` : `${proveedor.proveedor} · ${pedido.obra}`,
+      sede: "",
+      obraId: pedido.obraId,
+      obrasExtra: [],
+      prioridad: "media",
+      observaciones: `${sinProveedor ? "Comprado" : `Comprado a ${proveedor.proveedor}`} para la ${pedido.obra}. Aviso armado desde el calendario de compras.`,
+      origen: "obra_matriz",
+      items: pedido.items.map((x) => ({
+        descripcion: x.descripcion,
+        codigo: x.codigo || "",
+        cantidad: x.faltan,
+        unidad: x.unidad || "unidad",
+        material_id: x.material_id,
+        requisito_material_id: x.requisito_material_id,
+        obra_snapshot_item_id: x.snapshotId || null,
+        obra_id: pedido.obraId,
+        obra_codigo: pedido.obra,
+        proveedor: x.proveedor || "",
+        rubro: x.rubro || "",
+        es_adicional: false,
+      })),
+    });
+  }
+
+  const hoy = new Date(new Date().setHours(0, 0, 0, 0));
+  const lunesHoy = inicioSemana(hoy);
+  const nPedidos = proveedoresVisibles.reduce((n, p) => n + p.pedidos.length, 0);
+  const nAtrasados = proveedoresVisibles.reduce((n, p) => n + p.pedidos.filter((ped) => ped.comprarAntes < hoy).length, 0);
+  const nVencidos = calendario ? calendario.vencidos.reduce((n, v) => n + v.items, 0) : 0;
   const rubrosSinCargar = rubros.filter((r) => !datos?.semanasRubro.has(`${r.linea}|${r.categoria_id}`)).length;
   const provSinCargar = proveedores.filter((p) => !datos?.plazos.has(p.clave)).length;
   const editable = puedeEditar && !datos?.sinMigracion;
@@ -255,11 +396,11 @@ export default function CalendarioComprasPanel({ profile }) {
         acento="compras"
         sub={calendario ? (
           <>
-            <b className="mono">{fmt(nProductos)}</b> productos para pedir en las próximas {SEMANAS_A_LA_VISTA} semanas
+            <b className="mono">{fmt(nPedidos)}</b> pedidos para hacer en las próximas {horizonte} semanas, uno por proveedor y obra
             {nAtrasados > 0 && <> · <b className="mono t" data-tono="rojo">{fmt(nAtrasados)}</b> atrasados</>}
-            {" "}· se necesita = desmolde + semana del rubro · comprar antes = se necesita − plazo − {MARGEN_DIAS} días
+            {" "}· pedir antes = desmolde + semana del rubro − plazo del proveedor − {MARGEN_DIAS} días
           </>
-        ) : "Qué pedir cada semana para que los ítems estándar lleguen a tiempo a cada barco."}
+        ) : "Qué pedirle a cada proveedor para cada barco, y cuándo, para que los ítems estándar lleguen a tiempo."}
         acciones={(
           <button type="button" className="cmp-btn-ic" onClick={cargar} disabled={cargando} title="Volver a calcular" aria-label="Volver a calcular">
             {cargando ? <LoaderCircle size={15} className="spin" /> : <RotateCcw size={15} />}
@@ -282,7 +423,14 @@ export default function CalendarioComprasPanel({ profile }) {
             <button key={l} type="button" role="radio" aria-checked={linea === l} className={linea === l ? "on" : ""} onClick={() => setLinea(l)}>{l === "todas" ? "Todas" : `K${l}`}</button>
           ))}
         </div>
-        {vista !== "rubros" && <Buscar value={busqueda} onChange={setBusqueda} placeholder={vista === "plazos" ? "Proveedor…" : "Producto, proveedor u obra…"} />}
+        {vista === "calendario" && (
+          <div className="cmp-seg" role="radiogroup" aria-label="Semanas a la vista">
+            {HORIZONTES.map((h) => (
+              <button key={h} type="button" role="radio" aria-checked={horizonte === h} className={horizonte === h ? "on" : ""} onClick={() => setHorizonte(h)}>{h} sem.</button>
+            ))}
+          </div>
+        )}
+        {vista !== "rubros" && <Buscar value={busqueda} onChange={setBusqueda} placeholder={vista === "plazos" ? "Proveedor…" : "Proveedor, obra o producto…"} />}
       </div>
 
       {datos?.sinMigracion && (
@@ -293,7 +441,7 @@ export default function CalendarioComprasPanel({ profile }) {
       {error && <Aviso tono="rojo">{error}</Aviso>}
 
       {cargando && !datos ? (
-        <Cargando texto="Armando el calendario con la matriz, las obras y el pañol…" />
+        <Cargando texto="Armando los pedidos con la lista de cada obra y el pañol…" />
       ) : !calendario ? null : vista === "calendario" ? (
         <>
           {(rubrosSinCargar > 0 || provSinCargar > 0) && (
@@ -302,100 +450,68 @@ export default function CalendarioComprasPanel({ profile }) {
               {" "}Cargalos en las otras dos pestañas o tocá «Usar las sugeridas».
             </Aviso>
           )}
-          {!semanasFiltradas.length ? (
-            <Vacio icono={CalendarDays} titulo={busqueda ? "Nada coincide con la búsqueda" : "No hay nada para pedir en las próximas semanas"} texto={busqueda ? "Probá con otro término." : "Con las fechas cargadas, todo lo pendiente cae más adelante o ya está cubierto."} />
+          {!proveedoresVisibles.length ? (
+            <Vacio icono={CalendarDays} titulo={busqueda ? "Nada coincide con la búsqueda" : `No hay pedidos para hacer en las próximas ${horizonte} semanas`} texto={busqueda ? "Probá con otro término." : "Con las fechas cargadas, todo lo pendiente cae más adelante o ya está comprado o cubierto con el pañol."} />
           ) : (
-            <div className="cmp-grupos" style={{ gap: 16 }}>
-              {semanasFiltradas.map((sem) => (
-                <Grupo
-                  key={sem.clave}
-                  titulo={tituloSemana(sem, lunesHoy)}
-                  cuenta={sem.proveedores.reduce((n, p) => n + p.productos.length, 0)}
-                  tono={sem.clave === "atrasado" ? "rojo" : sem.inicio && isoFecha(sem.inicio) === isoFecha(lunesHoy) ? "azul" : "neutro"}
-                  texto={sem.clave === "atrasado" ? "ya pasó la fecha de compra pero todavía llega antes de que se necesite si se pide ya" : `${sem.proveedores.length} ${sem.proveedores.length === 1 ? "proveedor" : "proveedores"}`}
-                >
-                  <div className="cal-provs">
-                    {sem.proveedores.map((p) => {
-                      const clave = `${sem.clave}|${p.proveedor}`;
-                      const abiertoPorDefecto = sem.clave === "atrasado" || (sem.inicio && isoFecha(sem.inicio) === isoFecha(lunesHoy));
-                      const abierto = abiertoPorDefecto !== invertidos.has(clave);
-                      const obras = [...new Set(p.productos.flatMap((x) => x.obras.map((o) => o.obra)))];
-                      const sinProv = p.proveedor === "Sin proveedor";
-                      return (
-                        <section key={clave} className="cmp-bloque" style={{ borderColor: sinProv ? "var(--red-border)" : undefined }}>
-                          <div className="cmp-bloque-cab">
-                            <button type="button" className="cmp-repo-plegar" onClick={() => alternar(clave)} aria-expanded={abierto}>
-                              <ChevronRight size={16} className="chev" style={{ transform: abierto ? "rotate(90deg)" : "none" }} />
-                              <span className="cmp-bloque-ic" data-tono={sinProv ? "rojo" : "azul"}><Truck size={16} /></span>
-                              <span style={{ minWidth: 0 }}>
-                                <span className="cmp-bloque-tit" style={{ display: "block" }}>{p.proveedor}</span>
-                                <span className="cmp-bloque-txt" style={{ display: "block" }}>
-                                  {p.productos.length} {p.productos.length === 1 ? "producto" : "productos"} · {sinProv ? "sin proveedor en la ficha" : <>entrega en <span className={p.plazoFuente === "cargado" ? "" : "cal-sug"}>{p.plazo} días ({FUENTE_PLAZO[p.plazoFuente]})</span></>} · {obras.slice(0, 5).join(", ")}{obras.length > 5 ? ` +${obras.length - 5}` : ""}
-                                </span>
-                              </span>
-                            </button>
-                            {!sinProv && (
-                              <div className="der">
-                                <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => copiar(p.proveedor, p.productos)}><Copy size={13} /> Copiar pedido</button>
-                              </div>
-                            )}
-                          </div>
-                          {abierto && (
-                            <div className="cmp-bloque-cuerpo sin-pad">
-                              {p.productos.map((x) => {
-                                const kItem = `${x.linea}|${x.material_id}`;
-                                return (
-                                  <div key={x.material_id} className="cal-fila">
-                                    <div style={{ minWidth: 0 }}>
-                                      <div className="cal-nom">{x.descripcion}</div>
-                                      <div className="cal-meta">
-                                        {x.codigo && <span className="mono">{x.codigo}</span>}
-                                        <span>{x.rubro}</span>
-                                        <span>K{x.linea}</span>
-                                      </div>
-                                    </div>
-                                    <div className="cal-obras">
-                                      {x.obras.map((o) => <span key={o.obra} className="cal-obra" title={`Se necesita el ${dm(o.necesita)}`}>{o.obra} · <b className="mono">{fmt(o.cantidad)}</b></span>)}
-                                    </div>
-                                    <div className="cal-cifra">
-                                      <b className="mono">{fmt(x.total)} <small>{x.unidad}</small></b>
-                                      {x.deStock > 0 && <small className="cal-stock">+{fmt(x.deStock)} del pañol</small>}
-                                    </div>
-                                    <div className="cal-cifra">
-                                      <b>{dm(x.comprarAntes)}</b>
-                                      <small>pedir antes · se necesita {dm(x.necesita)}</small>
-                                    </div>
-                                    <div className="cal-semana">
-                                      <span className={x.semanaFuente === "sugerida" ? "cal-sug" : ""}>sem. {x.semana}</span>
-                                      <small>{FUENTE_SEMANA[x.semanaFuente]}</small>
-                                      {editable && (
-                                        <CampoNumero
-                                          valor={datos.semanasItem.has(kItem) ? datos.semanasItem.get(kItem) : null}
-                                          sugerido={null}
-                                          ancho={54}
-                                          titulo="Semana sólo para este ítem (vacío = la del rubro)"
-                                          onGuardar={(v) => onSemanaItem(x.linea, x.material_id, v)}
-                                        />
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </section>
-                      );
-                    })}
-                  </div>
-                </Grupo>
-              ))}
+            <div className="cal-provs">
+              {proveedoresVisibles.map((p) => {
+                const sinProv = !p.clave;
+                const clave = p.clave || "sin";
+                const u = urgencia(p.comprarAntes, hoy, lunesHoy);
+                const abiertoPorDefecto = u.tono !== "neutro";
+                const abierto = abiertoPorDefecto !== invertidos.has(clave);
+                const nItems = p.pedidos.reduce((n, ped) => n + ped.items.length, 0);
+                return (
+                  <section key={clave} className="cmp-bloque" style={{ borderColor: sinProv ? "var(--red-border)" : undefined }}>
+                    <div className="cmp-bloque-cab">
+                      <button type="button" className="cmp-repo-plegar" onClick={() => alternar(clave)} aria-expanded={abierto}>
+                        <ChevronRight size={16} className="chev" style={{ transform: abierto ? "rotate(90deg)" : "none" }} />
+                        <span className="cmp-bloque-ic" data-tono={sinProv ? "rojo" : "azul"}><Truck size={16} /></span>
+                        <span style={{ minWidth: 0 }}>
+                          <span className="cmp-bloque-tit" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            {p.proveedor}
+                            <span className="cal-urg" data-tono={u.tono}>{u.texto}</span>
+                          </span>
+                          <span className="cmp-bloque-txt" style={{ display: "block" }}>
+                            {p.pedidos.length} {p.pedidos.length === 1 ? "pedido" : "pedidos"} ({p.pedidos.map((ped) => ped.obra).join(", ")}) · {nItems} ítems · {sinProv ? "sin proveedor en la ficha" : <>entrega en <span className={p.plazoFuente === "cargado" ? "" : "cal-sug"}>{p.plazo} días ({FUENTE_PLAZO[p.plazoFuente]})</span></>}
+                          </span>
+                        </span>
+                      </button>
+                      {!sinProv && p.pedidos.length > 1 && (
+                        <div className="der">
+                          <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => copiarProveedor(p)} title="Copia todas las obras, cada una con su pedido"><Copy size={13} /> Copiar las {p.pedidos.length} obras</button>
+                        </div>
+                      )}
+                    </div>
+                    {abierto && (
+                      <div className="cmp-bloque-cuerpo cal-pedidos">
+                        {p.pedidos.map((ped) => (
+                          <TarjetaPedido
+                            key={ped.clave}
+                            proveedor={p}
+                            pedido={ped}
+                            hoy={hoy}
+                            lunesHoy={lunesHoy}
+                            editable={editable}
+                            sinProveedor={sinProv}
+                            semanasItem={datos.semanasItem}
+                            onSemanaItem={onSemanaItem}
+                            onCopiar={copiarPedido}
+                            onComprado={abrirAviso}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
 
           <div className="cal-pie">
-            {calendario.masAdelante > 0 && <span><b className="mono">{fmt(calendario.masAdelante)}</b> pedidos caen después de las {SEMANAS_A_LA_VISTA} semanas.</span>}
-            {calendario.conStock.length > 0 && <span><b className="mono">{fmt(calendario.conStock.length)}</b> se cubren con stock libre del pañol (no hay que comprarlos, sí reservarlos).</span>}
-            <span><b className="mono">{fmt(calendario.cubiertas)}</b> ya llegaron o están pedidos.</span>
+            {calendario.masAdelante > 0 && <span><b className="mono">{fmt(calendario.masAdelante)}</b> pedidos caen después de las {horizonte} semanas.</span>}
+            {calendario.conStock.length > 0 && <span><b className="mono">{fmt(calendario.conStock.length)}</b> se cubren con stock libre del pañol: no hay que comprarlos.</span>}
+            <span><b className="mono">{fmt(datos.cubiertas)}</b> renglones de las listas ya están pedidos, avisados o en el barco.</span>
           </div>
 
           {calendario.sinFecha.length > 0 && (
@@ -405,29 +521,21 @@ export default function CalendarioComprasPanel({ profile }) {
             </Aviso>
           )}
 
-          {calendario.aConfirmar.length > 0 && (
+          {nVencidos > 0 && (
             <section className="cmp-bloque">
               <div className="cmp-bloque-cab">
-                <button type="button" className="cmp-repo-plegar" onClick={() => setVerConfirmar((v) => !v)} aria-expanded={verConfirmar}>
-                  <ChevronRight size={16} className="chev" style={{ transform: verConfirmar ? "rotate(90deg)" : "none" }} />
-                  <span className="cmp-bloque-ic" data-tono="violeta"><AlertCircle size={16} /></span>
-                  <span style={{ minWidth: 0 }}>
-                    <span className="cmp-bloque-tit" style={{ display: "block" }}>A confirmar con la obra · {fmt(calendario.aConfirmar.reduce((n, a) => n + a.items, 0))} ítems</span>
-                    <span className="cmp-bloque-txt" style={{ display: "block" }}>Ya tendrían que estar en el barco y el sistema no los vio llegar. No se mandan a comprar solos: muchas veces se pusieron sin pasar por el pañol.</span>
-                  </span>
-                </button>
-              </div>
-              {verConfirmar && (
-                <div className="cmp-bloque-cuerpo sin-pad">
-                  {calendario.aConfirmar.map((a) => (
-                    <div key={a.obra} className="cal-fila cal-fila-conf">
-                      <div className="cal-nom">{a.obra}</div>
-                      <div className="cal-meta">{a.rubros.slice(0, 4).map(([r, n]) => `${r} ${n}`).join(" · ")}{a.rubros.length > 4 ? " …" : ""}</div>
-                      <div className="cal-cifra"><b className="mono">{fmt(a.items)}</b><small>ítems</small></div>
-                    </div>
-                  ))}
+                <span className="cmp-bloque-ic" data-tono="violeta"><AlertCircle size={16} /></span>
+                <div style={{ minWidth: 0 }}>
+                  <h2 className="cmp-bloque-tit">{fmt(nVencidos)} ítems ya tendrían que estar en el barco</h2>
+                  <p className="cmp-bloque-txt">
+                    {calendario.vencidos.slice(0, 8).map((v) => `${v.obra} (${v.items})`).join(" · ")}{calendario.vencidos.length > 8 ? " …" : ""}.
+                    {" "}El sistema no los vio llegar, pero muchas veces se pusieron sin pasar por el pañol: {verVencidos ? "están mezclados en los pedidos, marcados «¿ya está?»." : "por eso no se piden solos."}
+                  </p>
                 </div>
-              )}
+                <div className="der">
+                  <button type="button" className="ui-btn ui-btn-suave chico" onClick={() => setVerVencidos((v) => !v)}>{verVencidos ? "Sacarlos de los pedidos" : "Sumarlos a los pedidos"}</button>
+                </div>
+              </div>
             </section>
           )}
         </>
@@ -513,6 +621,26 @@ export default function CalendarioComprasPanel({ profile }) {
           </div>
         </section>
       )}
+
+      <EnviarAPanolModal
+        open={!!avisoPrefill}
+        profile={profile}
+        prefill={avisoPrefill}
+        showPrices={false}
+        requireCatalogLinks
+        onSaved={async (envioId) => {
+          await marcarAvisoPlanillaComoComprado(envioId);
+        }}
+        onClose={(saved) => {
+          const clave = avisoPrefill?.clave;
+          setAvisoPrefill(null);
+          if (saved && clave) {
+            setHechos((prev) => new Set(prev).add(clave));
+            toast.success("Listo: aviso de ingreso creado y la lista del barco quedó en Comprado.");
+            void cargar();
+          }
+        }}
+      />
     </div>
   );
 }
@@ -520,24 +648,35 @@ export default function CalendarioComprasPanel({ profile }) {
 const CSS = `
 .cal-root { display: grid; gap: 12px; }
 .cal-root .cal-cuenta { margin-left: 6px; font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--cyan); }
-.cal-root .cal-provs { display: grid; gap: 8px; }
-.cal-root .cal-fila { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(140px, 1.4fr) 110px 150px 150px; gap: 12px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--border); }
-.cal-root .cal-fila-conf { grid-template-columns: 90px minmax(0, 1fr) 80px; }
-.cal-root .cal-fila-prov { grid-template-columns: minmax(0, 1fr) auto; }
+.cal-root .cal-provs { display: grid; gap: 10px; }
+.cal-root .cal-urg { font-size: 10.5px; font-weight: 600; letter-spacing: .02em; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--dim); background: var(--panel-2); white-space: nowrap; }
+.cal-root .cal-urg[data-tono="rojo"] { color: var(--red); border-color: var(--red-border); background: var(--red-soft); }
+.cal-root .cal-urg[data-tono="azul"] { color: var(--blue); border-color: var(--blue-border); background: var(--blue-soft); }
+.cal-root .cal-pedidos { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 10px; align-items: start; }
+.cal-root .cal-pedido { border: 1px solid var(--border); border-radius: 12px; background: var(--panel-solid); overflow: hidden; }
+.cal-root .cal-pedido[data-tono="rojo"] { border-left: 3px solid var(--red); }
+.cal-root .cal-pedido[data-tono="azul"] { border-left: 3px solid var(--blue); }
+.cal-root .cal-ped-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+.cal-root .cal-ped-obra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cal-root .cal-ped-obra b { font-size: 16px; font-weight: 600; }
+.cal-root .cal-ped-txt { font-size: 11.5px; color: var(--dim); margin-top: 2px; }
+.cal-root .cal-ped-acc { display: flex; gap: 6px; flex-shrink: 0; }
+.cal-root .cal-ped-items { display: grid; }
+.cal-root .cal-item { display: grid; grid-template-columns: minmax(0, 1fr) 84px 92px auto; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); }
+.cal-root .cal-item:first-child { border-top: none; }
+.cal-root .cal-mas { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 7px; border: none; border-top: 1px solid var(--border); background: transparent; color: var(--blue); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cal-root .cal-marca { font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--cyan-border, var(--border)); color: var(--cyan); }
+.cal-root .cal-marca[data-tono="violeta"] { border-color: var(--violet-border, var(--border)); color: var(--violet); }
+.cal-root .cal-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--border); }
 .cal-root .cal-nom { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-root .cal-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--dim); margin-top: 2px; }
+.cal-root .cal-meta { display: flex; flex-wrap: wrap; gap: 3px 9px; font-size: 11px; color: var(--dim); margin-top: 1px; }
 .cal-root .cal-meta .mono { color: var(--blue); }
-.cal-root .cal-obras { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.cal-root .cal-obra { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--blue-border); background: var(--blue-soft); color: var(--blue); white-space: nowrap; }
 .cal-root .cal-cifra { display: grid; gap: 1px; }
-.cal-root .cal-cifra b { font-size: 13.5px; font-weight: 600; }
-.cal-root .cal-cifra small, .cal-root .cal-semana small, .cal-root .cal-celda small { font-size: 10.5px; color: var(--dim); }
+.cal-root .cal-cifra b { font-size: 13px; font-weight: 600; }
+.cal-root .cal-cifra small, .cal-root .cal-celda small { font-size: 10.5px; color: var(--dim); }
 .cal-root .cal-stock { color: var(--teal) !important; }
-.cal-root .cal-semana { display: grid; grid-template-columns: auto auto; gap: 2px 8px; align-items: center; justify-content: start; font-size: 12.5px; font-weight: 600; }
-.cal-root .cal-semana small { grid-column: 1; }
-.cal-root .cal-semana .cal-num { grid-column: 2; grid-row: 1 / span 2; }
 .cal-root .cal-sug { font-style: italic; color: var(--muted); font-weight: 500; }
-.cal-root .cal-num { height: 32px; padding: 4px 8px; font-family: "JetBrains Mono", monospace; font-size: 13px; text-align: right; }
+.cal-root .cal-num { height: 30px; padding: 4px 8px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; text-align: right; }
 .cal-root .cal-num.is-vacio::placeholder { color: var(--subtle); font-style: italic; }
 .cal-root .cal-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cal-root .cal-tabla th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); padding: 9px 14px; border-bottom: 1px solid var(--border); }
@@ -549,9 +688,12 @@ const CSS = `
 .cal-root .cal-pie { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--dim); padding: 2px 4px; }
 .cal-root .cal-pie b { color: var(--text); }
 @media (max-width: 900px) {
-  .cal-root .cal-fila { grid-template-columns: minmax(0, 1fr) auto; }
-  .cal-root .cal-fila .cal-obras { grid-column: 1 / -1; }
-  .cal-root .cal-fila-conf { grid-template-columns: 70px minmax(0, 1fr) auto; }
-  .cal-root .cal-fila-prov { grid-template-columns: minmax(0, 1fr) auto; }
+  .cal-root .cal-pedidos { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .cal-root .cal-ped-cab { flex-direction: column; }
+  .cal-root .cal-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .cal-root .cal-item .cal-cuando { grid-column: 1 / -1; display: flex; gap: 8px; align-items: baseline; }
+  .cal-root .cal-item .cal-num { display: none; }
 }
 `;
