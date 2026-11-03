@@ -1220,6 +1220,12 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   }
 
   const consumiblesOcultos = rows.length - rowsSinConsumibles.length;
+  // Los consumibles tienen su stock en Consumibles: acá figuraban "Crítico 0"
+  // aunque hubiera miles (3,5 × 16 FIX con 12.517 en Chubut, 03/11/2026).
+  const reposicionSinConsumibles = useMemo(
+    () => (consumibleIds?.size ? replenishmentCatalog.filter((material) => !consumibleIds.has(material.id)) : replenishmentCatalog),
+    [replenishmentCatalog, consumibleIds],
+  );
   // Lo que pañol ingresó sin ficha: Técnica lo crea o lo vincula desde la bandeja.
   const productosACrearCount = useMemo(() => (canNormalize ? productosACrear(rows).length + fichasPanolPorConfirmar(fichasPendientes, rows).length : 0), [canNormalize, rows, fichasPendientes]);
 
@@ -1234,7 +1240,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     sharedRows: rows,
     sharedObras: obras,
     sharedTransitRows: transitRows,
-    sharedReplenishmentCatalog: replenishmentCatalog,
+    sharedReplenishmentCatalog: reposicionSinConsumibles,
     sharedLoading: loading,
     onStockChange: cargar,
     onReceiveStock: (group) => {

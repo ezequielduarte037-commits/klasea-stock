@@ -100,6 +100,8 @@ import {
   rowInHistory,
   rowEgresoKind,
   rowEgresoQuantity,
+  necesitaReponer,
+  stockParaMinimo,
 } from "@/features/panol/stockGrupos";
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
@@ -654,8 +656,9 @@ function stockLevel(group) {
   const raw = group?.stockMinimo;
   const configured = raw !== null && raw !== undefined && raw !== "";
   const minimum = configured ? Math.max(0, qty(raw, 0)) : null;
-  const current = qty(group?.total, 0);
-  if (group?.negativo || current < 0) {
+  // El mínimo es del stock libre: lo reservado para una obra no se puede dar a otra.
+  const current = stockParaMinimo(group);
+  if (group?.negativo || qty(group?.total, 0) < 0) {
     return { key: "critico", label: "Crítico", color: C.red, bg: C.redL, border: C.redB, minimum, configured, faltante: minimum == null ? Math.abs(current) : Math.max(0, minimum - current) };
   }
   if (!configured) {
@@ -670,19 +673,11 @@ function stockLevel(group) {
   return { key: "ok", label: "OK", color: C.green, bg: C.greenL, border: C.greenB, minimum, configured: true, faltante: 0 };
 }
 
-const REPLENISHMENT_RECENT_MONTHS = 6;
-
 function groupOperationalBuckets(group) {
   const buckets = new Set();
   const current = qty(group?.total, 0);
-  const minimum = group?.stockMinimo == null || group.stockMinimo === "" ? null : Math.max(0, qty(group.stockMinimo, 0));
-  const recentCutoff = new Date();
-  recentCutoff.setMonth(recentCutoff.getMonth() - REPLENISHMENT_RECENT_MONTHS);
-  const recentlyMoved = !!group?.updatedAt && new Date(group.updatedAt) >= recentCutoff;
   const hasExistence = current > 0.0001;
-  const atConfiguredMinimum = current >= -0.0001 && minimum != null && minimum > 0 && current <= minimum + 0.0001;
-  const recentlyDepleted = current >= -0.0001 && current <= 0.0001 && recentlyMoved;
-  const needsReplenishment = atConfiguredMinimum || recentlyDepleted;
+  const needsReplenishment = necesitaReponer(group);
   const needsConcreteProduct = group?.esRequisito === true && (group.rows || []).some((row) => (
     rowCountsAsStock(row)
     && !row.opcion_material_id
@@ -694,7 +689,7 @@ function groupOperationalBuckets(group) {
   if (group?.inTransit) buckets.add("en_camino");
   if (!group?.ubicacion && (hasExistence || needsReplenishment || group?.inTransit)) buckets.add("sin_ubicacion");
   if (group?.negativo || needsConcreteProduct) buckets.add("reconciliar");
-  return { buckets, needsConcreteProduct, recentlyMoved, needsReplenishment };
+  return { buckets, needsConcreteProduct, needsReplenishment };
 }
 
 function StockLevelChip({ group, compact = false, hideUnset = false }) {
@@ -892,8 +887,12 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
     .join(" - ");
   const stockDetail = breakdown || (transitBreakdown ? `Por recibir ${transitBreakdown}` : group.egresado ? "Egresado - sin saldo" : "Sin stock cargado");
   const level = stockLevel(group);
+  // Fuera de la vista de obra la cifra grande es lo libre; lo reservado va aparte.
+  const libre = qty(group.stockLibre ?? group.total, 0);
+  const reservado = obraView ? 0 : qty(group.stockReservado, 0);
+  const shownQty = obraView ? group.total : libre;
   const visualLevel = obraView ? { color: group.egresado ? C.violet : group.negativo ? C.red : group.total > 0 ? C.green : C.dim, border: C.border, key: "ok" } : level;
-  const qtyColor = obraView ? visualLevel.color : group.egresado ? C.violet : level.configured || group.negativo ? level.color : group.total > 0 ? C.green : C.dim;
+  const qtyColor = obraView ? visualLevel.color : group.egresado ? C.violet : level.configured || group.negativo ? level.color : libre > 0 ? C.green : C.dim;
   const sinUbicacion = !group.ubicacion;
   const barcode = group.codigo_barra || materialBarcodeList(group.material)[0]?.codigo || group.codigos_barra?.[0]?.codigo || "";
   const codeLabel = group.codigo
@@ -923,8 +922,9 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
             <span title="Requisito de matriz: es generico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 750, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
           )}
           <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />
-          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 750, flexShrink: 0 }}>
-            {fmtQty(group.total)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 650, marginLeft: 3 }}>{group.unidad || "u"}</span>
+          <span title={reservado > 0.0001 ? `Libre ${fmtQty(libre)} · reservado ${fmtQty(reservado)}` : undefined} style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 750, flexShrink: 0 }}>
+            {fmtQty(shownQty)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 650, marginLeft: 3 }}>{group.unidad || "u"}</span>
+            {reservado > 0.0001 && <span style={{ color: C.blue, fontSize: 9.5, fontWeight: 650, marginLeft: 5 }}>+{fmtQty(reservado)} res.</span>}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
@@ -997,8 +997,9 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={40} />
         <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 700, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
         <div style={{ display: "grid", justifyItems: "end", gap: 1, flexShrink: 0 }}>
-          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 750, lineHeight: 1 }}>{fmtQty(group.total)}</span>
-          <span style={{ color: C.dim, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{group.unidad || "u"}</span>
+          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 750, lineHeight: 1 }}>{fmtQty(shownQty)}</span>
+          <span style={{ color: C.dim, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{obraView ? group.unidad || "u" : `${group.unidad || "u"} libre`}</span>
+          {reservado > 0.0001 && <span title={reservasLabel(group)} style={{ color: C.blue, fontFamily: C.mono, fontSize: 10, fontWeight: 650 }}>+{fmtQty(reservado)} res.</span>}
         </div>
       </div>
       {/* Fila 2: badges + ubicación / sin ubicación */}
@@ -1067,8 +1068,8 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
 
 // Grilla compartida por el encabezado y las filas. Una sola constante para que
 // no se desalineen cuando se toca una y se olvida la otra.
-const STOCK_ROW_COLS = "48px minmax(250px,2.35fr) minmax(100px,.85fr) 76px 112px 82px minmax(125px,1fr) 112px 116px";
-const STOCK_ROW_MIN = 1135;
+const STOCK_ROW_COLS = "48px minmax(250px,2.35fr) minmax(100px,.85fr) 76px minmax(120px,.9fr) 112px 82px minmax(125px,1fr) 112px 116px";
+const STOCK_ROW_MIN = 1270;
 const STOCK_ROW_COMPACT_COLS = "44px minmax(190px,2fr) 68px 88px minmax(105px,1fr) 96px";
 const STOCK_ROW_COMPACT_MIN = 620;
 const OBRA_ROW_COLS = "48px minmax(250px,2.35fr) minmax(100px,.85fr) 100px minmax(125px,1fr) 112px 116px";
@@ -1119,6 +1120,9 @@ function ProductTableStatus({ group, obraView = false }) {
     meta = { label: "Crítico", color: C.red, bg: C.redL, border: C.redB };
   } else if (level.key === "alerta") {
     meta = { label: "Stock bajo", color: C.violet, bg: C.violetL, border: C.violetB };
+  } else if (qty(group.stockLibre ?? group.total, 0) <= 0.0001 && qty(group.stockReservado, 0) > 0.0001) {
+    // Está en el pañol pero todo tiene obra: no se le puede dar a otro barco.
+    meta = { label: "Reservado", color: C.teal, bg: C.tealL, border: C.tealB };
   } else if (qty(group.total, 0) > 0) {
     meta = { label: "Disponible", color: C.green, bg: C.greenL, border: C.greenB };
   } else {
@@ -1168,6 +1172,34 @@ function productListVariantIdentity(group) {
   return { displayLabel: group.label, variantsMeta: "" };
 }
 
+function reservasLabel(group) {
+  return (group.reservas || [])
+    .map((r) => `${r.label}: ${fmtQty(r.available)}${r.obraEstado === "terminada" ? " (obra terminada)" : ""}`)
+    .join(" · ");
+}
+
+// Lo que está en pañol pero ya tiene dueño. Una obra terminada va en cian: es
+// un sobrante que se puede liberar.
+function ReservasCell({ group }) {
+  const reservas = group.reservas || [];
+  if (!reservas.length) return <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 12 }}>—</div>;
+  const visibles = reservas.slice(0, 2);
+  const resto = reservas.length - visibles.length;
+  return (
+    <div title={reservasLabel(group)} style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }}>
+      {visibles.map((r) => {
+        const terminada = r.obraEstado === "terminada";
+        return (
+          <span key={r.obraId} style={{ color: terminada ? C.cyan : C.blue, background: terminada ? C.cyanL : C.blueL, border: `1px solid ${terminada ? C.cyanB : C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 10.5, fontWeight: 650, whiteSpace: "nowrap" }}>
+            {r.label} · <span style={{ fontFamily: C.mono }}>{fmtQty(r.available)}</span>
+          </span>
+        );
+      })}
+      {resto > 0 && <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 650, padding: "2px 2px" }}>+{resto}</span>}
+    </div>
+  );
+}
+
 const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction, compact = false, obraView = false }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
@@ -1178,6 +1210,9 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
   // porque el valor está en verlo sin abrir: así se elige a cuál entrar.
   const sinUbicacion = !group.ubicacion;
   const descripcionPobre = String(displayLabel || "").trim().length < 12;
+  const libre = qty(group.stockLibre ?? group.total, 0);
+  const reservado = qty(group.stockReservado, 0);
+  const reservasTitle = reservasLabel(group);
 
   return (
     <div
@@ -1250,11 +1285,24 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
         </div>
       )}
 
-      <div style={{ textAlign: "right", paddingRight: 4 }}>
-        <div style={{ color: !obraView && level.key === "critico" ? level.color : C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
-          {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
+      {obraView ? (
+        <div style={{ textAlign: "right", paddingRight: 4 }}>
+          <div style={{ color: C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+            {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ textAlign: "right", paddingRight: 4 }}>
+          <div title="Libre: en el depósito, sin obra asignada" style={{ color: libre < -0.0001 || level.key === "critico" ? C.red : libre > 0.0001 ? C.text : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+            {fmtQty(libre)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
+          </div>
+          {compact && reservado > 0.0001 && (
+            <div title={reservasTitle} style={{ color: C.blue, fontFamily: C.mono, fontSize: 10, fontWeight: 650, marginTop: 2, whiteSpace: "nowrap" }}>+{fmtQty(reservado)} res.</div>
+          )}
+        </div>
+      )}
+
+      {!obraView && !compact && <ReservasCell group={group} />}
 
       {obraView ? null : compact ? (
         <div title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
@@ -4789,7 +4837,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 <span />
                 <span>Producto</span>
                 {!compactStockTable && <span>Rubro</span>}
-                <span style={{ textAlign: "right", paddingRight: 4 }}>{tableWorkspace ? "Saldo en obra" : "Stock"}</span>
+                <span style={{ textAlign: "right", paddingRight: 4 }}>{tableWorkspace ? "Saldo en obra" : "Libre"}</span>
                 {tableWorkspace ? (
                   <>
                     <span>Ubicación</span>
@@ -4804,6 +4852,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   </>
                 ) : (
                   <>
+                    <span>Reservado para obras</span>
                     <span>Mínimo</span>
                     <span>Faltante</span>
                     <span>Ubicación</span>

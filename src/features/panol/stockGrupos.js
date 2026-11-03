@@ -134,6 +134,46 @@ export function isTransitOnly(group) {
   return group.total <= 0.0001 && group.transitQty > 0 && !group.negativo;
 }
 
+// Stock libre = lo que está en el depósito sin obra; reservado = lo que está en
+// pañol asignado a una obra. Son cosas distintas: lo reservado no se puede dar
+// a otro barco, y lo que ya se entregó a su obra no vuelve a contar en ninguno.
+export function stockLibreYReservado(locations = []) {
+  let libre = 0;
+  let reservado = 0;
+  const reservas = [];
+  for (const loc of locations) {
+    const available = qty(loc.available, 0);
+    if (!loc.obraId) {
+      libre += available;
+    } else if (available > 0.0001) {
+      reservado += available;
+      reservas.push({ obraId: loc.obraId, label: loc.label, available, obraEstado: loc.obraEstado || "" });
+    }
+  }
+  reservas.sort((a, b) => b.available - a.available || String(a.label).localeCompare(String(b.label), "es", { numeric: true }));
+  return { libre, reservado, reservas };
+}
+
+// Lo que se compara contra el mínimo: el stock libre en el maestro, el saldo
+// del grupo cuando hay una obra filtrada.
+export function stockParaMinimo(group) {
+  if (group?.alcanceObra || group?.stockLibre == null) return qty(group?.total, 0);
+  return qty(group.stockLibre, 0);
+}
+
+// "Reponer" es sólo stock libre en su mínimo o por debajo. Antes entraba además
+// todo lo que quedaba en cero y se había movido en los últimos meses, así que
+// cada cosa comprada para un barco y entregada a ese barco aparecía "a reponer"
+// (207 de 318 el 03/11/2026). Sin mínimo el sistema no puede saber si algo se
+// repone: lo que le falta a una obra se ve en la lista de la obra.
+export function necesitaReponer(group) {
+  if (qty(group?.total, 0) < -0.0001) return false; // negativo: se reconcilia, no se compra
+  const raw = group?.stockMinimo;
+  const minimo = raw == null || raw === "" ? null : Math.max(0, qty(raw, 0));
+  if (minimo == null || minimo <= 0) return false;
+  return stockParaMinimo(group) <= minimo + 0.0001;
+}
+
 export function buildProductGroups(rows = [], fObra = "todas") {
   const map = new Map();
   for (const row of rows) {
@@ -299,8 +339,15 @@ export function buildProductGroups(rows = [], fObra = "todas") {
       }))
       .sort((a, b) => b.available - a.available || a.label.localeCompare(b.label, "es", { numeric: true }));
     const hasPositiveStock = locations.some((loc) => loc.available > 0.0001);
+    const libre = stockLibreYReservado(locations);
     return {
       ...group,
+      // Con una obra filtrada el grupo ya es sólo de esa obra: lo libre no
+      // está en la cuenta y compararlo contra el mínimo daría cualquier cosa.
+      alcanceObra: fObra !== "todas",
+      stockLibre: libre.libre,
+      stockReservado: libre.reservado,
+      reservas: libre.reservas,
       opciones: [...group.opcionMap.entries()]
         .filter(([name, agg]) => name && (Math.abs(agg.available) > 0.0001 || agg.transitQty > 0))
         .map(([name, agg]) => ({ nombre: name, available: agg.available, transitQty: agg.transitQty }))

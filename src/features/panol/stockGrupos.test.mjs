@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowDelta } from "./panolMovimientos.js";
-import { rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra } from "./stockGrupos.js";
+import { buildProductGroups, necesitaReponer, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra, stockParaMinimo } from "./stockGrupos.js";
 
 // Forma real del par registrado al liberar el faro del 52-24 el 21/10.
 const salida = {
@@ -72,4 +72,66 @@ test("material de una obra que salió a un destino sin obra se lee como reasigna
   // Lo liberado a stock que después se retira sigue siendo un egreso de stock.
   const liberadoYRetirado = { ...entrada, estado: "egresado", cantidad_egresada: 1, egreso_at: "2026-10-22T10:00:00Z" };
   assert.equal(rowIsReasignacionSinObra(liberadoYRetirado), false);
+});
+
+// ── Libre, reservado y "Reponer" (03/11/2026) ────────────────────────────────
+const ingreso = (extra = {}) => ({
+  material_id: "anafe", descripcion: "Anafe 2 hornallas", source: "remito", estado: "en_panol",
+  recepcion_estado: "recibido", cantidad: 1, stock_sede: "Pampa", created_at: "2026-10-20T10:00:00Z", ...extra,
+});
+
+test("separa lo libre de lo reservado para cada obra", () => {
+  const [group] = buildProductGroups([
+    ingreso({ id: "a", cantidad: 4 }),
+    ingreso({ id: "b", obra_id: "55-4", obra: { id: "55-4", codigo: "55-4", estado: "activa" } }),
+    ingreso({ id: "c", obra_id: "37-39", obra: { id: "37-39", codigo: "37-39", estado: "terminada" }, cantidad: 2 }),
+  ]);
+  assert.equal(group.total, 7);
+  assert.equal(group.stockLibre, 4);
+  assert.equal(group.stockReservado, 3);
+  assert.deepEqual(group.reservas.map((r) => [r.label, r.available, r.obraEstado]), [["37-39", 2, "terminada"], ["55-4", 1, "activa"]]);
+});
+
+test("lo entregado a su obra no pide reposición", () => {
+  const obra = { obra_id: "64-21", obra: { id: "64-21", codigo: "64-21", estado: "activa" } };
+  // Un retiro total deja el mismo renglón en "egresado": no suma ni resta.
+  const [group] = buildProductGroups([
+    ingreso({ id: "in", ...obra, estado: "egresado", egreso_at: "2026-10-28T10:00:00Z" }),
+  ]);
+  assert.equal(group.total, 0);
+  assert.equal(necesitaReponer(group), false);
+});
+
+test("con mínimo, se compara sólo el stock libre", () => {
+  const obra = { obra_id: "52-27", obra: { id: "52-27", codigo: "52-27", estado: "activa" } };
+  const [group] = buildProductGroups([
+    ingreso({ id: "libre", cantidad: 2, stock_minimo: 5 }),
+    ingreso({ id: "res", cantidad: 6, stock_minimo: 5, ...obra }),
+  ]);
+  assert.equal(group.total, 8);
+  assert.equal(stockParaMinimo(group), 2);
+  assert.equal(necesitaReponer(group), true);
+  assert.equal(necesitaReponer({ ...group, stockMinimo: 2 }), true);
+  assert.equal(necesitaReponer({ ...group, stockMinimo: 1 }), false);
+});
+
+test("sin mínimo no hay reposición aunque el libre quede en cero", () => {
+  const [group] = buildProductGroups([
+    ingreso({ id: "in" }),
+    ingreso({ id: "out", source: "egreso_producto", estado: "egresado", cantidad_egresada: 1, egreso_at: "2026-10-30T10:00:00Z" }),
+  ]);
+  assert.equal(group.stockLibre, 0);
+  assert.equal(necesitaReponer(group), false);
+});
+
+test("con una obra filtrada el mínimo mira el saldo del grupo", () => {
+  const obra = { obra_id: "55-1", obra: { id: "55-1", codigo: "55-1", estado: "activa" } };
+  const [group] = buildProductGroups([ingreso({ id: "r", cantidad: 3, stock_minimo: 2, ...obra })], "obra::55-1");
+  assert.equal(group.alcanceObra, true);
+  assert.equal(stockParaMinimo(group), 3);
+  assert.equal(necesitaReponer(group), false);
+});
+
+test("un negativo va a reconciliar, no a reponer", () => {
+  assert.equal(necesitaReponer({ total: -1, stockLibre: -1, stockMinimo: 5 }), false);
 });
