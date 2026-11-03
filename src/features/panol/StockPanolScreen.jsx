@@ -21,6 +21,7 @@ import { rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowI
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import PanelConsumiblesDeObra from "@/features/materiales/obra/PanelConsumiblesDeObra";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
+import ConteoDiarioPanel from "@/features/panol/conteo/ConteoDiarioPanel";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
 
@@ -366,6 +367,7 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
 
 const TABS = [
   { key: "maestro", label: "Inventario" },
+  { key: "conteo", label: "Conteo de hoy" },
   { key: "obra", label: "Por obra" },
   { key: "movimientos", label: "Movimientos" },
   { key: "traslados", label: "Entre sedes" },
@@ -1568,6 +1570,17 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
             {tab === "sobrantes" && (
               <ListaSobrantesObraPanel profile={profile} signOut={signOut} embedded />
+            )}
+
+            {tab === "conteo" && (
+              <ConteoDiarioPanel
+                rows={rowsSinConsumibles}
+                sedeLocked={sedeLocked}
+                profile={profile}
+                isMobile={isMobile}
+                toast={toast}
+                onStockChange={cargar}
+              />
             )}
           </div>
           {showNuevaObraExterna && (
