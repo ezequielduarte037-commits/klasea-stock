@@ -19,6 +19,7 @@ import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NE
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
 import { rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra } from "@/features/panol/stockGrupos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
+import PanelConsumiblesDeObra from "@/features/materiales/obra/PanelConsumiblesDeObra";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
@@ -1100,17 +1101,22 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     setTab(normalizedRequestedTab);
   }, [canNormalize, embedded, normalizedRequestedTab, requestedTab, requestedView, tab]);
 
+  // Todo el stock de pañol, también "Por obra", va sin consumibles: tienen su
+  // circuito propio (pedido de Ezequiel, 03/11/2026). Lo que una obra consumió
+  // se ve aparte, en "Consumibles consumidos".
+  const rowsSinConsumibles = useMemo(() => sinConsumibles(rows, consumibleIds), [rows, consumibleIds]);
+
   // ── Índice: filas agrupadas por obraId ──
   const rowsByObraId = useMemo(() => {
     const map = new Map();
-    for (const row of rows) {
+    for (const row of rowsSinConsumibles) {
       const id = rowObraId(row);
       if (!id) continue;
       if (!map.has(id)) map.set(id, []);
       map.get(id).push(row);
     }
     return map;
-  }, [rows]);
+  }, [rowsSinConsumibles]);
 
   // ── Obras agrupadas por modelo/línea ──
   const lineasVisibles = useMemo(() => {
@@ -1213,10 +1219,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     setSearchParams(nextParams, { replace: true });
   }
 
-  // Lo que ve el stock maestro y el historial: todo menos los consumibles.
-  // "Por obra" no se toca: adentro de un barco los consumibles van con el
-  // resto, separados por su rubro.
-  const rowsSinConsumibles = useMemo(() => sinConsumibles(rows, consumibleIds), [rows, consumibleIds]);
   const consumiblesOcultos = rows.length - rowsSinConsumibles.length;
   // Lo que pañol ingresó sin ficha: Técnica lo crea o lo vincula desde la bandeja.
   const productosACrearCount = useMemo(() => (canNormalize ? productosACrear(rows).length + fichasPanolPorConfirmar(fichasPendientes, rows).length : 0), [canNormalize, rows, fichasPendientes]);
@@ -1474,7 +1476,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                             {canSeePrices && consumido > 0 && <StatMini label="Consumido USD" value={fmtQty(consumido)} color={C.green} />}
                           </div>
                         </div>
-                        <StockWmsPanel key={`obra-${selObraId}`} {...wmsProps} tableWorkspace initialFObra={selObraLocationKey} />
+                        <div style={{ padding: isMobile ? "8px 12px 0" : "8px 18px 0", flexShrink: 0 }}>
+                          <PanelConsumiblesDeObra key={selObraId} obraId={selObraId} obraLabel={selObra.codigo} />
+                        </div>
+                        <StockWmsPanel key={`obra-${selObraId}`} {...wmsProps} sharedRows={rowsSinConsumibles} tableWorkspace initialFObra={selObraLocationKey} />
                       </>
                     );
                   })() : (

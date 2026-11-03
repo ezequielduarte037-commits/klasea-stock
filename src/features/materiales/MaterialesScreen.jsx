@@ -74,6 +74,8 @@ import BandejaTab from "./BandejaTab";
 import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
 import { obraThemeScope } from "./obra/obraListaPresentation";
 import { aporteDeFilaLedger, cantidadesDeFila, estadoObraForRow } from "./obra/estadoDeFila";
+import { esFilaDeConsumible } from "./obra/consumiblesDeObra";
+import PanelConsumiblesDeObra from "./obra/PanelConsumiblesDeObra";
 import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
 import PedidoObraModal from "./obra/PedidoObraModal";
 import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
@@ -4296,10 +4298,14 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   }, [addonRows, addons]);
 
   const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
+  // Los consumibles van por su circuito (Consumibles), no en la lista del barco:
+  // se ven aparte, en "Consumibles consumidos". Ninguno está en la matriz.
+  const consumibleIds = useMemo(() => new Set((materiales ?? []).filter((material) => material.es_consumible).map((material) => material.id)), [materiales]);
   const snapshotRows = useMemo(() => snapshot
+    .filter((row) => !esFilaDeConsumible(row, consumibleIds))
     .map((row) => snapshotRowToView(row, materialById, categorias))
     .filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId)),
-  [snapshot, materialById, categorias, exclusionMaterialIds]);
+  [snapshot, consumibleIds, materialById, categorias, exclusionMaterialIds]);
   const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
   const liveMergeKeys = useMemo(() => new Set(obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)), [obraRows]);
   const snapshotActivo = snapshot.length > 0;
@@ -5766,6 +5772,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
         </div>
         {flowMsg && <div role={flowMsg.type === "err" ? "alert" : "status"} style={{ fontSize: 12, color: flowMsg.type === "err" ? C.red : C.green, padding: "7px 9px", border: `1px solid ${flowMsg.type === "err" ? C.redB : C.greenB}`, borderRadius: 6 }}>{flowMsg.text}</div>}
+        <PanelConsumiblesDeObra key={obra.id} obraId={obra.id} obraLabel={obra.codigo} />
       </div>
       <ObraListaTable
         key={obra.id}

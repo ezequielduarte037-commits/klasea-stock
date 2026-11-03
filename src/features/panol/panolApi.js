@@ -1223,10 +1223,13 @@ export async function fetchPanolInTransitInventory() {
 
 // Sólo fichas con política de reposición. Esto evita volver a descargar el
 // catálogo completo dentro del stock maestro.
+// Sólo ítems de barco. Los consumibles tienen su propio stock (vista
+// `consumibles_stock`) y se reponen desde Consumibles: en el ledger de pañol
+// figuran en cero y caían en "Reponer" aunque tuvieran stock.
 export async function fetchPanolReplenishmentCatalog() {
   const { data, error } = await supabase
     .from("panol_materiales")
-    .select("id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,stock_minimo,ubicacion,ubicacion_obs,imagen_url,notas,activo")
+    .select("id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,stock_minimo,ubicacion,ubicacion_obs,imagen_url,notas,activo,es_consumible")
     .eq("activo", true)
     .not("stock_minimo", "is", null)
     .order("descripcion")
@@ -1235,7 +1238,9 @@ export async function fetchPanolReplenishmentCatalog() {
     if (isMissingColumn(error)) return [];
     throw error;
   }
-  return (data ?? []).map((material) => ({ ...material, unidad: material.unidad_medida || "unidad" }));
+  return (data ?? [])
+    .filter((material) => material.es_consumible !== true)
+    .map((material) => ({ ...material, unidad: material.unidad_medida || "unidad" }));
 }
 
 export function invalidatePanolCatalogFullCache() {
