@@ -28,6 +28,7 @@ import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
+import MinimumBatchEditor from "./MinimumBatchEditor";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
@@ -732,7 +733,7 @@ function MinimumEditor({ group, canEdit, onSave }) {
   }
 
   return (
-    <div onClick={(event) => event.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+    <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5 }}>
       <input
         className={`stock-minimum-input${dirty || focused || !valid ? " is-active" : ""}`}
         type="number"
@@ -3734,6 +3735,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [verArchivados, setVerArchivados] = useState(false);
   const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
+  const [minimumBatchGroups, setMinimumBatchGroups] = useState(null);
   // En el celular la tabla (más de 1.000 px) obliga a scrollear de costado:
   // arranca en tarjetas, que entran enteras.
   const [stockView, setStockView] = useState(() => {
@@ -4380,15 +4382,16 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
   }
 
-  const saveStockMinimum = useCallback(async (group, value) => {
+  const saveStockMinimum = useCallback(async (group, value, { silent = false } = {}) => {
     const materialId = group?.material?.id;
     try {
       await actualizarStockMinimoPanol(materialId, value);
       setRows((prev) => prev.map((row) => row.material_id === materialId ? { ...row, stock_minimo: value } : row));
       setCatalogRows((prev) => prev.map((material) => material.id === materialId ? { ...material, stock_minimo: value } : material));
-      toast?.success?.(value == null ? "Stock mínimo quitado." : `Stock mínimo guardado: ${fmtQty(value)} ${group.unidad || "u"}.`);
+      setReplenishmentCatalog((prev) => prev.map((material) => material.id === materialId ? { ...material, stock_minimo: value } : material));
+      if (!silent) toast?.success?.(value == null ? "Stock mínimo quitado." : `Stock mínimo guardado: ${fmtQty(value)} ${group.unidad || "u"}.`);
     } catch (error) {
-      toast?.error?.(error.message || "No se pudo guardar el stock mínimo.");
+      if (!silent) toast?.error?.(error.message || "No se pudo guardar el stock mínimo.");
       throw error;
     }
   }, [toast]);
@@ -4787,6 +4790,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {fmtQty(productGroups.length)} {productGroups.length === 1 ? "producto" : "productos"}{tableWorkspace ? ` · ${scope === "egresados" ? "salieron de esta obra" : "saldo de esta obra"}` : ""}
               </div>
             </div>
+            {stockManagement && !tableWorkspace && canReceive && (
+              <button type="button" disabled={loading || !productGroups.length} onClick={() => setMinimumBatchGroups(productGroups)} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>Editar mínimos</button>
+            )}
             {obraScoped && matrizArchivadas > 0 && (
               <button
                 type="button"
@@ -4951,6 +4957,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       </div>
       )}
 
+      {minimumBatchGroups && <MinimumBatchEditor groups={minimumBatchGroups} onSave={saveStockMinimum} onClose={() => setMinimumBatchGroups(null)} />}
       {/* El acceso vive en la barra superior: no tapa el pie del detalle ni la lista. */}
       {canReceive && cartOpen && (cart.length > 0 || savedCarts.length > 0) && (
         <CartDrawer
