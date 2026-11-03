@@ -180,6 +180,8 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
         </form>
       ) : yaContoEste ? (
         <div className="conteo-aviso">Ya lo contaste vos. El segundo conteo lo tiene que hacer otra persona.</div>
+      ) : abierto && !puedeContar ? (
+        <div className="conteo-dim">Todavía no se contó. Lo cuenta el pañol.</div>
       ) : (
         <div className="conteo-dim">{resultadoTexto(item)?.texto || "Este renglón ya está cerrado."}</div>
       )}
@@ -209,8 +211,10 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
 export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profile, isMobile = false, toast, onStockChange }) {
   const role = profile?.role;
   const uid = profile?.id;
-  const puedeContar = !!profile?.is_admin || ["admin", "panol", "tecnica", "oficina"].includes(role);
-  const puedeResolver = !!profile?.is_admin || ["admin", "oficina"].includes(role);
+  // Igual que la base: can_registrar_conteo_fisico (incluye compras vía
+  // is_panol_manager) y panol_conteo_puede_resolver.
+  const puedeContar = !!profile?.is_admin || ["admin", "panol", "tecnica", "oficina", "compras"].includes(role);
+  const puedeResolver = !!profile?.is_admin || ["admin", "oficina", "compras"].includes(role);
   const [sede, setSede] = useState(sedeLocked || "Chubut");
   const fecha = fechaLocal();
   const [lote, setLote] = useState(null);
@@ -381,7 +385,7 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
 }
 
 const CONTEO_CSS = `
-.conteo-root { display: grid; gap: 14px; padding: 4px 2px 24px; color: var(--text); }
+.conteo-root { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 14px; padding: 4px 2px 24px; color: var(--text); }
 .conteo-root .conteo-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
 .conteo-root .conteo-head-acciones { display: flex; align-items: center; gap: 8px; }
 .conteo-root .conteo-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
@@ -426,7 +430,7 @@ const CONTEO_CSS = `
 .conteo-root .conteo-numeros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .conteo-root .conteo-numeros span { display: grid; gap: 2px; font-size: 10.5px; color: var(--dim); }
 .conteo-root .conteo-numeros b { font-size: 16px; color: var(--text); }
-.conteo-root .conteo-hoja { position: fixed; inset: 0; z-index: 60; display: grid; align-items: end; }
+.conteo-root .conteo-hoja { position: fixed; inset: 0; z-index: 130; display: grid; align-items: end; }
 .conteo-root .conteo-hoja-fondo { position: absolute; inset: 0; border: 0; background: var(--overlay); }
 .conteo-root .conteo-hoja-cuerpo { position: relative; max-height: 92vh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
 .conteo-root .conteo-hoja-cuerpo .conteo-panel { border-radius: 18px 18px 14px 14px; }

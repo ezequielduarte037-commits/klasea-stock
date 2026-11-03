@@ -22,6 +22,8 @@ import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import PanelConsumiblesDeObra from "@/features/materiales/obra/PanelConsumiblesDeObra";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import ConteoDiarioPanel from "@/features/panol/conteo/ConteoDiarioPanel";
+import { fetchConteoLote } from "@/features/panol/conteo/conteoApi";
+import { fechaLocal } from "@/features/panol/conteo/conteoDiario";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
 
@@ -1222,6 +1224,21 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   }
 
   const consumiblesOcultos = rows.length - rowsSinConsumibles.length;
+
+  // Bandeja "Conteo de hoy" del inventario: cuánto falta contar en la sede.
+  const [conteoHoy, setConteoHoy] = useState(null);
+  useEffect(() => {
+    if (tab !== "maestro") return undefined;
+    let vivo = true;
+    fetchConteoLote(sedeLocked || "Chubut", fechaLocal())
+      .then((lote) => {
+        if (!vivo) return;
+        const items = lote?.items || [];
+        setConteoHoy({ armado: !!lote, total: items.length, pendientes: items.filter((item) => item.estado === "pendiente" || item.estado === "recontar").length });
+      })
+      .catch(() => { if (vivo) setConteoHoy(null); });
+    return () => { vivo = false; };
+  }, [sedeLocked, tab]);
   // Los consumibles tienen su stock en Consumibles: acá figuraban "Crítico 0"
   // aunque hubiera miles (3,5 × 16 FIX con 12.517 en Chubut, 03/11/2026).
   const reposicionSinConsumibles = useMemo(
@@ -1510,6 +1527,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 {...wmsProps}
                 sharedRows={rowsSinConsumibles}
                 stockMaster
+                conteoHoy={conteoHoy}
+                onOpenConteo={() => handleTabChange("conteo")}
                 initialScope={maestroScope}
                 initialQuery={requestedQuery}
                 initialMaterialId={requestedMaterialId}
