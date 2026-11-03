@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -3709,7 +3710,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false, conteoHoy = null, onOpenConteo }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false, conteoHoy = null, onOpenConteo, bandejasSlot = null }) {
   const searchInputRef = useRef(null);
   const productListRef = useRef(null);
   const loadMoreRef = useRef(null);
@@ -4450,6 +4451,44 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     if (!sedeLocked) setFSede("todas");
   }
 
+  // Las bandejas van al costado del título cuando la pantalla deja el lugar
+  // (bandejasSlot); si no, quedan debajo del buscador.
+  const bandejas = stockMaster ? (
+    <div aria-label="Bandejas de trabajo" className={`stock-bandejas${bandejasSlot ? " is-compacta" : ""}`}>
+      {conteoHoy && (
+        <button type="button" className="stock-bandeja" onClick={onOpenConteo} title={!conteoHoy.armado ? "Conteo de hoy: sin armar" : conteoHoy.pendientes ? `Conteo de hoy: ${conteoHoy.pendientes} de ${conteoHoy.total} por contar` : "Conteo de hoy: terminado"}>
+          <span className="stock-bandeja-n" style={{ color: conteoHoy.pendientes ? C.blue : C.green }}>{conteoHoy.armado ? conteoHoy.pendientes : "—"}</span>
+          <span className="stock-bandeja-l">Conteo de hoy</span>
+          <span className="stock-bandeja-s">{!conteoHoy.armado ? "sin armar" : conteoHoy.pendientes ? `de ${conteoHoy.total} por contar` : "terminado"}</span>
+        </button>
+      )}
+      {[
+        ["existencia", "Con stock", kpis.productos, "productos en pañol", C.green],
+        ["reponer", "Reponer", kpis.reponer || 0, "libre en su mínimo", C.red],
+        ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, "para ubicar", C.cyan],
+        ["sobrante", "Sobrantes", kpis.sobrantes, "de obras terminadas", C.cyan],
+        ["reconciliar", "Diferencias", kpis.negativos, "a reconciliar", C.violet],
+        ["en_camino", "En camino", kpis.enCamino, "por recibir", C.blue],
+      ].map(([key, label, count, sub, color]) => {
+        const active = scope === key && verifScope === "todos";
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`stock-bandeja${active ? " is-activa" : ""}`}
+            aria-pressed={active}
+            title={`${label}: ${fmtQty(count)} ${sub}`}
+            onClick={() => { setVerifScope("todos"); setScope(active ? "todos" : key); }}
+          >
+            <span className="stock-bandeja-n" style={{ color: count ? color : C.dim }}>{fmtQty(count)}</span>
+            <span className="stock-bandeja-l">{label}</span>
+            <span className="stock-bandeja-s">{sub}</span>
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
   return (
     <>
       <style>{`
@@ -4457,13 +4496,17 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         .stock-wms-root .stock-product-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
         .stock-wms-root .stock-minimum-input:not(.is-active):hover:not(:disabled){border-color:var(--border)!important;background:var(--panel-solid)!important}
         .stock-wms-chips { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; }
-        .stock-wms-root .stock-bandejas { display:grid; grid-template-columns:repeat(auto-fit, minmax(128px, 1fr)); gap:8px; min-width:0; }
-        .stock-wms-root .stock-bandeja { display:grid; gap:1px; justify-items:start; text-align:left; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--panel-solid); color:var(--text); font-family:inherit; cursor:pointer; transition:border-color .12s, background .12s; min-width:0; }
-        .stock-wms-root .stock-bandeja:hover { border-color:var(--border-2); background:var(--panel); }
-        .stock-wms-root .stock-bandeja.is-activa { border-color:var(--blue-border); background:var(--blue-soft); box-shadow:inset 0 0 0 1px var(--blue-border); }
-        .stock-wms-root .stock-bandeja-n { font-family:"JetBrains Mono", monospace; font-variant-numeric:tabular-nums; font-size:20px; font-weight:600; line-height:1.15; }
-        .stock-wms-root .stock-bandeja-l { font-size:12.5px; font-weight:600; }
-        .stock-wms-root .stock-bandeja-s { font-size:11px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+        .stock-bandejas { display:grid; grid-template-columns:repeat(auto-fit, minmax(112px, 1fr)); gap:6px; min-width:0; }
+        .stock-bandejas .stock-bandeja { display:grid; gap:0; justify-items:start; text-align:left; padding:6px 10px; border:1px solid var(--border); border-radius:10px; background:var(--panel-solid); color:var(--text); font-family:inherit; cursor:pointer; transition:border-color .12s, background .12s; min-width:0; min-height:0; }
+        .stock-bandejas .stock-bandeja:hover { border-color:var(--border-2); background:var(--panel); }
+        .stock-bandejas .stock-bandeja.is-activa { border-color:var(--blue-border); background:var(--blue-soft); box-shadow:inset 0 0 0 1px var(--blue-border); }
+        .stock-bandejas .stock-bandeja-n { font-family:"JetBrains Mono", monospace; font-variant-numeric:tabular-nums; font-size:16px; font-weight:600; line-height:1.2; }
+        .stock-bandejas .stock-bandeja-l { font-size:11.5px; font-weight:600; white-space:nowrap; }
+        .stock-bandejas .stock-bandeja-s { font-size:10.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+        .stock-bandejas.is-compacta { display:flex; flex-wrap:nowrap; gap:6px; justify-content:flex-end; }
+        .stock-bandejas.is-compacta .stock-bandeja { padding:5px 10px; min-width:84px; }
+        .stock-bandejas.is-compacta .stock-bandeja-n { font-size:15px; }
+        .stock-bandejas.is-compacta .stock-bandeja-s { display:none; }
         @media (max-width: 899px) {
           .stock-wms-chips {
             flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
@@ -4472,11 +4515,13 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           }
           .stock-wms-chips::-webkit-scrollbar { display: none; }
           .stock-wms-chips > * { flex-shrink: 0; }
-          .stock-wms-root .stock-bandejas { display:flex; overflow-x:auto; scrollbar-width:none; }
-          .stock-wms-root .stock-bandejas::-webkit-scrollbar { display:none; }
-          .stock-wms-root .stock-bandeja { flex:0 0 132px; }
+          .stock-bandejas { display:flex; overflow-x:auto; scrollbar-width:none; }
+          .stock-bandejas::-webkit-scrollbar { display:none; }
+          .stock-bandejas .stock-bandeja { flex:0 0 auto; min-width:92px; }
+          .stock-bandejas .stock-bandeja-s { display:none; }
         }
       `}</style>
+      {bandejas && bandejasSlot && createPortal(bandejas, bandejasSlot)}
       <div className="stock-wms-root" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "grid", gap: 7, flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -4616,40 +4661,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         </div>
         )}
 
-        {stockMaster && (
-          <div aria-label="Bandejas de trabajo" className="stock-bandejas">
-            {conteoHoy && (
-              <button type="button" className="stock-bandeja" onClick={onOpenConteo} title="Ir al conteo de hoy">
-                <span className="stock-bandeja-n" style={{ color: conteoHoy.pendientes ? C.blue : C.green }}>{conteoHoy.armado ? conteoHoy.pendientes : "—"}</span>
-                <span className="stock-bandeja-l">Conteo de hoy</span>
-                <span className="stock-bandeja-s">{!conteoHoy.armado ? "sin armar" : conteoHoy.pendientes ? `de ${conteoHoy.total} por contar` : "terminado"}</span>
-              </button>
-            )}
-            {[
-              ["existencia", "Con stock", kpis.productos, "productos en pañol", C.green],
-              ["reponer", "Reponer", kpis.reponer || 0, "libre en su mínimo", C.red],
-              ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, "para ubicar", C.cyan],
-              ["sobrante", "Sobrantes", kpis.sobrantes, "de obras terminadas", C.cyan],
-              ["reconciliar", "Diferencias", kpis.negativos, "a reconciliar", C.violet],
-              ["en_camino", "En camino", kpis.enCamino, "por recibir", C.blue],
-            ].map(([key, label, count, sub, color]) => {
-              const active = scope === key && verifScope === "todos";
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`stock-bandeja${active ? " is-activa" : ""}`}
-                  aria-pressed={active}
-                  onClick={() => { setVerifScope("todos"); setScope(active ? "todos" : key); }}
-                >
-                  <span className="stock-bandeja-n" style={{ color: count ? color : C.dim }}>{fmtQty(count)}</span>
-                  <span className="stock-bandeja-l">{label}</span>
-                  <span className="stock-bandeja-s">{sub}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {stockMaster && !bandejasSlot && bandejas}
 
         {/* La banda histórica de niveles queda disponible para otros usos del
             panel, pero el Stock maestro trabaja con las cubetas operativas. */}
@@ -4772,7 +4784,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
               <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750 }}>{mode === "egreso" ? "Elegir material para egresar" : tableWorkspace && scope === "egresados" ? "Egresados de la obra" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
               <div style={{ color: C.dim, fontSize: 11 }}>
-                {productGroups.length} resultados{hiddenProductCount ? ` · ${renderedProductGroups.length} visibles, el resto carga al bajar` : ""} · {tableWorkspace ? (scope === "egresados" ? "productos que salieron de esta obra" : "saldo de esta obra") : stockManagement && stockView === "lista" ? "editá los mínimos en la columna" : "click para egreso y kardex"}
+                {fmtQty(productGroups.length)} {productGroups.length === 1 ? "producto" : "productos"}{tableWorkspace ? ` · ${scope === "egresados" ? "salieron de esta obra" : "saldo de esta obra"}` : ""}
               </div>
             </div>
             {obraScoped && matrizArchivadas > 0 && (

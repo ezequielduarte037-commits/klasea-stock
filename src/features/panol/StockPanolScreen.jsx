@@ -1227,6 +1227,9 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
   // Bandeja "Conteo de hoy" del inventario: cuánto falta contar en la sede.
   const [conteoHoy, setConteoHoy] = useState(null);
+  // Al costado del título hay lugar para las bandejas del inventario en la PC.
+  const [bandejasSlot, setBandejasSlot] = useState(null);
+  const bandejasEnTitulo = !embedded && !isMobile && tab === "maestro" && inventoryView === "lista";
   useEffect(() => {
     if (tab !== "maestro") return undefined;
     let vivo = true;
@@ -1311,6 +1314,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               eyebrow="Pañol"
               title={screenTitle || "Stock de pañol"}
               subtitle={screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
+              actions={bandejasEnTitulo ? <div ref={setBandejasSlot} className="stock-bandejas-slot" /> : null}
             >
               <StockPanolTabs
                 tab={tab}
@@ -1529,6 +1533,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 stockMaster
                 conteoHoy={conteoHoy}
                 onOpenConteo={() => handleTabChange("conteo")}
+                bandejasSlot={bandejasEnTitulo ? bandejasSlot : null}
                 initialScope={maestroScope}
                 initialQuery={requestedQuery}
                 initialMaterialId={requestedMaterialId}
