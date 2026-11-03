@@ -706,14 +706,11 @@ function StockLevelChip({ group, compact = false, hideUnset = false }) {
   );
 }
 
-function MinimumEditor({ group, canEdit, onSave }) {
+function MinimumEditor({ group, canEdit, onSave, draftEntry, onDraftChange }) {
   const initial = group.stockMinimo == null ? "" : String(group.stockMinimo);
-  const [draft, setDraft] = useState(initial);
+  const draft = draftEntry?.text ?? initial;
   const [saving, setSaving] = useState(false);
   const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    setDraft(group.stockMinimo == null ? "" : String(group.stockMinimo));
-  }, [group.stockMinimo]);
   const normalizedDraft = draft.trim() === "" ? null : qty(draft, NaN);
   const normalizedCurrent = group.stockMinimo == null ? null : qty(group.stockMinimo, 0);
   const dirty = normalizedDraft !== normalizedCurrent;
@@ -740,7 +737,7 @@ function MinimumEditor({ group, canEdit, onSave }) {
         step="0.01"
         value={draft}
         disabled={!canEdit || saving}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => onDraftChange(group, event.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={(event) => {
@@ -1190,7 +1187,7 @@ function ReservasCell({ group }) {
   );
 }
 
-const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, onArchivarMatriz, primaryAction, compact = false, obraView = false }) {
+const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, minimumDraft, onMinimumDraftChange, onArchivarMatriz, primaryAction, compact = false, obraView = false }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
   const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
@@ -1293,7 +1290,7 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
         </div>
       ) : (
         <div style={{ display: "grid", gap: 2, justifyItems: "start" }}>
-          <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} />
+          <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} draftEntry={minimumDraft} onDraftChange={onMinimumDraftChange} />
           {level.faltante > 0 && (
             <span title={`Faltan ${fmtQty(level.faltante)} ${group.unidad || "u"} para el mínimo`} style={{ color: level.color, fontFamily: C.mono, fontSize: 10.5, fontWeight: 600, paddingLeft: 6, whiteSpace: "nowrap" }}>
               faltan {fmtQty(level.faltante)}
@@ -3735,6 +3732,22 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
   const [minimumListOrder, setMinimumListOrder] = useState(null);
+  const [minimumDrafts, setMinimumDrafts] = useState({});
+  const [savingMinimums, setSavingMinimums] = useState(false);
+  const minimumSavingRef = useRef(false);
+  const changeMinimumDraft = useCallback((group, text) => {
+    const id = group.material?.id;
+    if (!id) return;
+    const value = text.trim() === "" ? null : qty(text, NaN);
+    const current = group.stockMinimo == null ? null : qty(group.stockMinimo, 0);
+    const valid = value === null || (Number.isFinite(value) && value >= 0);
+    setMinimumDrafts((prev) => {
+      const next = { ...prev };
+      if (valid && value === current) delete next[id];
+      else next[id] = { group, text, value, valid };
+      return next;
+    });
+  }, []);
   // En el celular la tabla (más de 1.000 px) obliga a scrollear de costado:
   // arranca en tarjetas, que entran enteras.
   const [stockView, setStockView] = useState(() => {
@@ -4396,7 +4409,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
   }
 
-  const saveStockMinimum = useCallback(async (group, value) => {
+  const saveStockMinimum = useCallback(async (group, value, { silent = false } = {}) => {
     const materialId = group?.material?.id;
     try {
       await actualizarStockMinimoPanol(materialId, value);
@@ -4407,15 +4420,50 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       setRows((prev) => prev.map((row) => row.material_id === materialId ? { ...row, stock_minimo: value } : row));
       setCatalogRows((prev) => prev.map((material) => material.id === materialId ? { ...material, stock_minimo: value } : material));
       setReplenishmentCatalog((prev) => prev.map((material) => material.id === materialId ? { ...material, stock_minimo: value } : material));
+      setMinimumDrafts((prev) => {
+        if (prev[materialId]?.value !== value) return prev;
+        const next = { ...prev };
+        delete next[materialId];
+        return next;
+      });
       requestAnimationFrame(() => {
         if (list?.isConnected) { list.scrollTop = top; list.scrollLeft = left; }
       });
-      toast?.success?.(value == null ? "Stock mínimo quitado." : `Stock mínimo guardado: ${fmtQty(value)} ${group.unidad || "u"}.`);
+      if (!silent) toast?.success?.(value == null ? "Stock mínimo quitado." : `Stock mínimo guardado: ${fmtQty(value)} ${group.unidad || "u"}.`);
     } catch (error) {
-      toast?.error?.(error.message || "No se pudo guardar el stock mínimo.");
+      if (!silent) toast?.error?.(error.message || "No se pudo guardar el stock mínimo.");
       throw error;
     }
   }, [minimumFilterKey, productGroups, toast]);
+
+  const saveSingleMinimum = useCallback(async (group, value) => {
+    if (minimumSavingRef.current) return;
+    minimumSavingRef.current = true;
+    setSavingMinimums(true);
+    try { await saveStockMinimum(group, value); }
+    finally { minimumSavingRef.current = false; setSavingMinimums(false); }
+  }, [saveStockMinimum]);
+
+  const pendingMinimums = Object.values(minimumDrafts);
+  const invalidMinimums = pendingMinimums.some((entry) => !entry.valid);
+  async function saveAllMinimums() {
+    if (minimumSavingRef.current || !pendingMinimums.length || invalidMinimums) return;
+    minimumSavingRef.current = true;
+    setSavingMinimums(true);
+    let saved = 0;
+    const failures = [];
+    try {
+      for (const entry of pendingMinimums) {
+        try { await saveStockMinimum(entry.group, entry.value, { silent: true }); saved += 1; }
+        catch (error) { failures.push(`${entry.group.label}: ${error.message || "No se pudo guardar"}`); }
+      }
+      if (failures.length) toast?.error?.(`${saved} guardados. ${failures.length} quedaron pendientes: ${failures.join("; ")}`);
+      else toast?.success?.(`${saved} mínimos guardados.`);
+    } finally {
+      minimumSavingRef.current = false;
+      setSavingMinimums(false);
+    }
+  }
 
   function selectCatalogMaterial(material) {
     const group = emptyCatalogGroup(material, defaultSede, kindScope === "adicional");
@@ -4811,6 +4859,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {fmtQty(productGroups.length)} {productGroups.length === 1 ? "producto" : "productos"}{tableWorkspace ? ` · ${scope === "egresados" ? "salieron de esta obra" : "saldo de esta obra"}` : ""}
               </div>
             </div>
+            {stockManagement && !tableWorkspace && canReceive && (
+              <button type="button" onClick={saveAllMinimums} disabled={savingMinimums || !pendingMinimums.length || invalidMinimums} title={invalidMinimums ? "Revisá los mínimos: deben ser números mayores o iguales a cero" : "Guardar todos los mínimos modificados"} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${pendingMinimums.length ? C.greenB : C.border}`, background: pendingMinimums.length ? C.greenL : C.panelSolid, color: pendingMinimums.length ? C.green : C.dim, borderRadius: 8, padding: "6px 10px", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: savingMinimums || !pendingMinimums.length || invalidMinimums ? "default" : "pointer", opacity: savingMinimums || invalidMinimums ? 0.6 : 1 }}>
+                <Save size={13} /> {savingMinimums ? "Guardando…" : `Guardar todos${pendingMinimums.length ? ` (${pendingMinimums.length})` : ""}`}
+              </button>
+            )}
             {obraScoped && matrizArchivadas > 0 && (
               <button
                 type="button"
@@ -4887,7 +4940,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {renderedProductGroups.map((group) => {
                   const primaryAction = primaryActionFor(group);
                   return stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive} onSaveMinimum={saveStockMinimum} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} obraView={tableWorkspace} />
+                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive && !savingMinimums} onSaveMinimum={saveSingleMinimum} minimumDraft={minimumDrafts[group.material?.id]} onMinimumDraftChange={changeMinimumDraft} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} obraView={tableWorkspace} />
                     : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} obraView={tableWorkspace} />;
                 })}
                 {hiddenProductCount > 0 && (
