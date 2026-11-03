@@ -4859,7 +4859,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {fmtQty(productGroups.length)} {productGroups.length === 1 ? "producto" : "productos"}{tableWorkspace ? ` · ${scope === "egresados" ? "salieron de esta obra" : "saldo de esta obra"}` : ""}
               </div>
             </div>
-            {stockManagement && !tableWorkspace && canReceive && (
+            {stockManagement && !tableWorkspace && canReceive && (pendingMinimums.length > 0 || savingMinimums) && (
               <button type="button" onClick={saveAllMinimums} disabled={savingMinimums || !pendingMinimums.length || invalidMinimums} title={invalidMinimums ? "Revisá los mínimos: deben ser números mayores o iguales a cero" : "Guardar todos los mínimos modificados"} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${pendingMinimums.length ? C.greenB : C.border}`, background: pendingMinimums.length ? C.greenL : C.panelSolid, color: pendingMinimums.length ? C.green : C.dim, borderRadius: 8, padding: "6px 10px", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: savingMinimums || !pendingMinimums.length || invalidMinimums ? "default" : "pointer", opacity: savingMinimums || invalidMinimums ? 0.6 : 1 }}>
                 <Save size={13} /> {savingMinimums ? "Guardando…" : `Guardar todos${pendingMinimums.length ? ` (${pendingMinimums.length})` : ""}`}
               </button>
