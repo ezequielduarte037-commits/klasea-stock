@@ -28,7 +28,6 @@ import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
-import MinimumBatchEditor from "./MinimumBatchEditor";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
@@ -3735,7 +3734,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [verArchivados, setVerArchivados] = useState(false);
   const [orderBy, setOrderBy] = useState(showCatalogInventory || stockMaster ? "estado" : "default");
   const [renderLimit, setRenderLimit] = useState(PRODUCT_RENDER_BATCH);
-  const [minimumBatchGroups, setMinimumBatchGroups] = useState(null);
+  const [minimumListOrder, setMinimumListOrder] = useState(null);
   // En el celular la tabla (más de 1.000 px) obliga a scrollear de costado:
   // arranca en tarjetas, que entran enteras.
   const [stockView, setStockView] = useState(() => {
@@ -4192,7 +4191,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
   }, [archivandoLote, cargar, matrizPendientes, toast]);
 
-  const productGroups = useMemo(() => {
+  const filteredProductGroups = useMemo(() => {
     const withDraft = draftGroup && norm(q) && norm(draftGroup.label).includes(norm(q))
       ? [draftGroup, ...productGroupsBase.filter((group) => group.key !== draftGroup.key)]
       : productGroupsBase;
@@ -4226,6 +4225,21 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
     return sortProductGroups(base, orderBy);
   }, [draftGroup, obraScoped, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, tableWorkspace, verArchivados, verifScope]);
+
+  const minimumFilterKey = JSON.stringify([fCategoria, fObra, fProveedor, fSede, kindScope, orderBy, q, scope, stockView, verArchivados, verifScope, selectedKey]);
+  useEffect(() => { setMinimumListOrder(null); }, [minimumFilterKey]);
+  const productGroups = useMemo(() => {
+    if (minimumListOrder?.filterKey !== minimumFilterKey) return filteredProductGroups;
+    // Guardar un mínimo cambia el nivel de stock, pero no debe mover la fila
+    // que se está editando ni quitarla del filtro «Sin mínimo» a mitad de carga.
+    // El orden y los filtros se vuelven a aplicar al cambiar de vista o filtro.
+    const byKey = new Map([...productGroupsBase, ...filteredProductGroups].map((group) => [group.key, group]));
+    const pinned = new Set(minimumListOrder.keys);
+    return [
+      ...minimumListOrder.keys.map((key) => byKey.get(key)).filter(Boolean),
+      ...filteredProductGroups.filter((group) => !pinned.has(group.key)),
+    ];
+  }, [filteredProductGroups, minimumFilterKey, minimumListOrder, productGroupsBase]);
 
   // Renderizar cientos de tarjetas a la vez bloqueaba el hilo principal varios
   // segundos. Los cálculos y contadores siguen usando el conjunto completo;
@@ -4382,19 +4396,26 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
   }
 
-  const saveStockMinimum = useCallback(async (group, value, { silent = false } = {}) => {
+  const saveStockMinimum = useCallback(async (group, value) => {
     const materialId = group?.material?.id;
     try {
       await actualizarStockMinimoPanol(materialId, value);
+      const list = productListRef.current;
+      const top = list?.scrollTop;
+      const left = list?.scrollLeft;
+      setMinimumListOrder({ filterKey: minimumFilterKey, keys: productGroups.map((item) => item.key) });
       setRows((prev) => prev.map((row) => row.material_id === materialId ? { ...row, stock_minimo: value } : row));
       setCatalogRows((prev) => prev.map((material) => material.id === materialId ? { ...material, stock_minimo: value } : material));
       setReplenishmentCatalog((prev) => prev.map((material) => material.id === materialId ? { ...material, stock_minimo: value } : material));
-      if (!silent) toast?.success?.(value == null ? "Stock mínimo quitado." : `Stock mínimo guardado: ${fmtQty(value)} ${group.unidad || "u"}.`);
+      requestAnimationFrame(() => {
+        if (list?.isConnected) { list.scrollTop = top; list.scrollLeft = left; }
+      });
+      toast?.success?.(value == null ? "Stock mínimo quitado." : `Stock mínimo guardado: ${fmtQty(value)} ${group.unidad || "u"}.`);
     } catch (error) {
-      if (!silent) toast?.error?.(error.message || "No se pudo guardar el stock mínimo.");
+      toast?.error?.(error.message || "No se pudo guardar el stock mínimo.");
       throw error;
     }
-  }, [toast]);
+  }, [minimumFilterKey, productGroups, toast]);
 
   function selectCatalogMaterial(material) {
     const group = emptyCatalogGroup(material, defaultSede, kindScope === "adicional");
@@ -4790,9 +4811,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                 {fmtQty(productGroups.length)} {productGroups.length === 1 ? "producto" : "productos"}{tableWorkspace ? ` · ${scope === "egresados" ? "salieron de esta obra" : "saldo de esta obra"}` : ""}
               </div>
             </div>
-            {stockManagement && !tableWorkspace && canReceive && (
-              <button type="button" disabled={loading || !productGroups.length} onClick={() => setMinimumBatchGroups(productGroups)} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>Editar mínimos</button>
-            )}
             {obraScoped && matrizArchivadas > 0 && (
               <button
                 type="button"
@@ -4957,7 +4975,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       </div>
       )}
 
-      {minimumBatchGroups && <MinimumBatchEditor groups={minimumBatchGroups} onSave={saveStockMinimum} onClose={() => setMinimumBatchGroups(null)} />}
       {/* El acceso vive en la barra superior: no tapa el pie del detalle ni la lista. */}
       {canReceive && cartOpen && (cart.length > 0 || savedCarts.length > 0) && (
         <CartDrawer
