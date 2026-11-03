@@ -5,6 +5,8 @@ export function prepararIngreso(borrador, sede, id = () => crypto.randomUUID()) 
   if (borrador.envio) return borrador.envio;
   if (!["Chubut", "Pampa"].includes(sede)) throw new Error("Elegí la sede del pañol.");
   if (borrador.sinEmparejar?.length) throw new Error("Resolvé o descartá los renglones para revisar antes de confirmar.");
+  if (borrador.remitoLeido && !borrador.pedidoId && !borrador.sinPedido) throw new Error("Elegí el pedido de este remito o indicá que es un ingreso sin pedido.");
+  if (borrador.pedidoId && !borrador.lineas?.some((l) => l.pedidoItemId)) throw new Error("Ningún producto de este remito está vinculado al pedido elegido.");
   if (!borrador.lineas?.length || borrador.lineas.some((l) => !calcularLinea(l).valida)) {
     throw new Error("Revisá cantidades, factores y costos antes de confirmar.");
   }

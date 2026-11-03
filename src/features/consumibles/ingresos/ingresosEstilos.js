@@ -120,6 +120,10 @@ export const CSS_INGRESOS = `
 .ing .ing-pedidos { border: 1px solid var(--blue-border, var(--border)); background: var(--blue-soft, var(--panel-2)); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
 .ing .ing-pedidos h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
 .ing .ing-pedidos p { margin: 0; font-size: 13px; }
+.ing .ing-pedidos p + p { margin-top: 4px; }
+.ing .ing-pedido-opciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ing .ing-pedido-cambiar { margin-top: 8px; }
+.ing .ing-pedido-cambiar summary { cursor: pointer; color: var(--blue); font-size: 13px; padding: 6px 0; }
 .ing .ing-pedidos ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .ing .ing-pedidos li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--border); }
 .ing .ing-pedido-txt { display: grid; gap: 2px; min-width: 0; }

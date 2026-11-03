@@ -10,12 +10,14 @@ import { PROVEEDOR_POR_DEFECTO, renglonDesdeItem } from "./pedidosLogica";
 const COLS = "id,numero,sede,proveedor,estado,nota,created_at,pedido_at,cerrado_at,items:consumibles_pedido_items(id,material_id,cantidad,unidad_compra,factor,costo_compra_ars,nota,created_at)";
 
 /** Pedidos de la sede: el carrito, los que esperan mercadería y los últimos cerrados. */
-export async function fetchPedidos(sede, { limite = 40 } = {}) {
-  const { data, error } = await supabase
+export async function fetchPedidos(sede, { limite = 40, soloPendientes = false } = {}) {
+  let query = supabase
     .from("consumibles_pedidos")
     .select(COLS)
     .eq("sede", sede)
-    .neq("estado", "anulado")
+    .neq("estado", "anulado");
+  if (soloPendientes) query = query.eq("estado", "pedido");
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(limite);
   if (error) throw error;

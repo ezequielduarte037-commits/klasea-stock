@@ -105,14 +105,21 @@ export function incorporarLecturaRemito(borrador, leido, catalogo, escaneo = nul
   const filas = emparejarRenglones(leido.items, catalogo, { moneda: leido.moneda });
   if (!filas.length) throw new Error("No se encontraron productos en ese archivo. Probá con una foto más derecha y con luz, o cargalo a mano.");
   const ok = filas.filter((x) => x.item);
+  // "Recibir" precarga lo pedido. Al leer el primer remito, sólo se conserva
+  // lo efectivamente entregado: no sumar ni confirmar también esas cantidades.
+  const primeraLectura = !borrador.remitoLeido && !(borrador.lineas || []).some((l) => l.lecturaRemito);
+  const previas = primeraLectura && borrador.pedidoId
+    ? borrador.lineas.filter((l) => !l.pedidoItemId) : borrador.lineas;
   return {
     cantidad: filas.length,
     cargados: ok.length,
     borrador: {
       ...borrador,
       remito: borrador.remito || String(leido.numero || "").trim(),
-      proveedor: borrador.proveedor || String(leido.proveedor || "").trim(),
-      lineas: [...borrador.lineas, ...ok.map((x) => lineaDesdeRenglonRemito(x.item, x.renglon))],
+      proveedor: String(leido.proveedor || borrador.proveedor || "").trim(),
+      remitoLeido: true,
+      fechaRemito: borrador.fechaRemito || (/^\d{4}-\d{2}-\d{2}$/.test(String(leido.fecha || "")) ? leido.fecha : null),
+      lineas: [...previas, ...ok.map((x) => lineaDesdeRenglonRemito(x.item, x.renglon))],
       sinEmparejar: [...(borrador.sinEmparejar || []), ...filas.filter((x) => !x.item)],
       escaneos: [...(borrador.escaneos || []), ...(escaneo ? [escaneo.id] : [])],
     },

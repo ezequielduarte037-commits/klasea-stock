@@ -83,3 +83,36 @@ npx supabase functions deploy extraer-comprobante --project-ref fiwugzjeegzlgclf
 ```
 
 No hace falta reinstalar el puente si ya está funcionando la versión con carpetas.
+
+## Vinculación con pedidos al leer el remito (3 de noviembre de 2026)
+
+La lectura de IA sigue reconociendo códigos, productos y cantidades. Con ese
+resultado se consultan los pedidos confirmados de la sede y se vincula el remito
+al pedido pendiente del mismo proveedor con una coincidencia clara de productos.
+No se agrega otra llamada a IA ni se confunde el número de remito con el de pedido.
+CMR Insumos Industriales y Rebollar se reconocen como el mismo proveedor.
+
+Si hay dos pedidos con los mismos productos, se ofrecen para elegir: ni las
+cantidades ni elegir el más reciente prueban cuál corresponde a una entrega
+parcial. La pantalla muestra el pedido detectado y permite cambiarlo o registrar
+explícitamente un ingreso sin pedido. Si falla consultar pedidos, la lectura del
+remito queda conservada para reintentar la búsqueda.
+
+Cada producto coincidente conserva su cantidad entregada y recibe el
+`pedido_item_id` existente. La vista de recepción actualiza automáticamente
+cuánto llegó y cuánto falta; los productos extra se muestran como ingresos aparte.
+Antes de guardar se comprueba que el pedido y los renglones sigan pendientes.
+Los reintentos de envíos ya preparados conservan sus mismos identificadores.
+
+Al escanear después de pulsar **Recibir**, las cantidades precargadas del pedido
+se reemplazan por lo efectivamente leído del remito. No se suman ambas listas
+ni se reciben productos que no aparezcan en la entrega.
+
+También se reconocen coincidencias con pedidos que ya tienen todos sus productos
+recibidos: se avisa para revisar la recepción anterior y no volver a sumar stock.
+No se modificaron ingresos históricos ni se conciliaron existencias durante
+esta implementación. No requiere migraciones.
+
+Verificado con pruebas de lógica y navegación en la pantalla real con respuestas
+de servidor simuladas: detección automática, selección ambigua, entrega parcial,
+escaneo posterior a Recibir y aviso de pedido ya recibido.
