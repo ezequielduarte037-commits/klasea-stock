@@ -223,7 +223,7 @@ export const FILTROS_VACIOS = { q: "", status: "activos", priority: "todos", cre
 export const CLAVES_FILTRO = Object.keys(FILTROS_VACIOS);
 
 // ── Pestañas ────────────────────────────────────────────────────────────────
-export const TABS_GESTION = ["pendientes", "lista", "comprar", "avisos", "planilla", "matriz", "faltantes", "dashboard", "registro", "adicionales", "caja", "ruta"];
+export const TABS_GESTION = ["pendientes", "lista", "comprar", "calendario", "avisos", "planilla", "matriz", "faltantes", "dashboard", "registro", "adicionales", "caja", "ruta"];
 export const TABS_PEDIDOR = ["mine", "cc", "avisos"];
 
 // Para que los diálogos se dibujen adentro de la raíz del módulo (sus estilos

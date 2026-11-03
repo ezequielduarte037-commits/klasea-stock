@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   BarChart3,
   Bell,
+  CalendarDays,
   ChevronDown,
   Grid3x3,
   Inbox,
@@ -56,6 +57,7 @@ import Pedidos from "./vistas/Pedidos";
 import MisPedidos from "./vistas/MisPedidos";
 import Avisos from "./vistas/Avisos";
 import Tablero from "./vistas/Tablero";
+import CalendarioComprasPanel from "./calendario/CalendarioComprasPanel";
 import NuevoPedido from "./pedir/NuevoPedido";
 import { Cabecera } from "./ui";
 
@@ -64,6 +66,7 @@ const TABS_DIARIO = [
   { key: "pendientes", label: "Bandeja", corto: "Bandeja", Icon: Inbox, badge: "atencion" },
   { key: "lista", label: "Pedidos", corto: "Pedidos", Icon: LayoutList },
   { key: "comprar", label: "Qué comprar", corto: "Comprar", Icon: TrendingDown },
+  { key: "calendario", label: "Calendario", corto: "Calendario", Icon: CalendarDays },
   { key: "avisos", label: "Avisos", corto: "Avisos", Icon: Bell, badge: "avisos" },
 ];
 const TABS_MAS = [
@@ -97,7 +100,7 @@ const TABS_PEDIDOR_UI = [
   { key: "avisos", label: "Mis avisos", corto: "Avisos", Icon: Bell },
 ];
 // Solapas con tablas anchas: usan todo el ancho.
-const ANCHAS = new Set(["comprar", "planilla", "matriz", "faltantes", "registro", "adicionales", "caja", "ruta"]);
+const ANCHAS = new Set(["comprar", "calendario", "planilla", "matriz", "faltantes", "registro", "adicionales", "caja", "ruta"]);
 
 function leerMapaLeidos() {
   try { return JSON.parse(localStorage.getItem("pr_readMap") || "{}"); } catch { return {}; }
@@ -278,6 +281,8 @@ export default function PurchaseRequestsScreen({ profile }) {
           return <Tablero requests={requests} onAbrir={abrirPedido} />;
         case "comprar":
           return <ReposicionPanel />;
+        case "calendario":
+          return <CalendarioComprasPanel profile={profile} />;
         case "planilla":
           return (
             <PlanillaObrasPanel
