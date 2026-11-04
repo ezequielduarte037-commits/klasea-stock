@@ -3707,7 +3707,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false, conteoHoy = null, onOpenConteo, bandejasSlot = null }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false, conteoHoy = null, onOpenConteo, faltaObras = null, onOpenFaltas, bandejasSlot = null }) {
   const searchInputRef = useRef(null);
   const productListRef = useRef(null);
   const loadMoreRef = useRef(null);
@@ -4535,6 +4535,13 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <span className="stock-bandeja-n" style={{ color: conteoHoy.pendientes ? C.blue : C.green }}>{conteoHoy.armado ? conteoHoy.pendientes : "—"}</span>
           <span className="stock-bandeja-l">Conteo de hoy</span>
           <span className="stock-bandeja-s">{!conteoHoy.armado ? "sin armar" : conteoHoy.pendientes ? `de ${conteoHoy.total} por contar` : "terminado"}</span>
+        </button>
+      )}
+      {faltaObras && (
+        <button type="button" className="stock-bandeja" onClick={onOpenFaltas} title={`Falta para obras: ${faltaObras.productos} productos no alcanzan para las obras de las próximas semanas${faltaObras.atrasados ? ` (${faltaObras.atrasados} ya se tendrían que haber pedido)` : ""}`}>
+          <span className="stock-bandeja-n" style={{ color: faltaObras.productos ? C.red : C.green }}>{fmtQty(faltaObras.productos)}</span>
+          <span className="stock-bandeja-l">Falta para obras</span>
+          <span className="stock-bandeja-s">{faltaObras.atrasados ? `${faltaObras.atrasados} atrasados` : "próximas semanas"}</span>
         </button>
       )}
       {[

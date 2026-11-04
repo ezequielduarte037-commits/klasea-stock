@@ -24,6 +24,9 @@ import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
 import ConteoDiarioPanel from "@/features/panol/conteo/ConteoDiarioPanel";
 import { fetchConteoLote } from "@/features/panol/conteo/conteoApi";
 import { fechaLocal } from "@/features/panol/conteo/conteoDiario";
+import FaltaParaObrasPanel from "@/features/panol/faltantes/FaltaParaObrasPanel";
+import { cargarDatosFaltantes } from "@/features/panol/faltantes/faltantesApi";
+import { faltantesDesdeDatos } from "@/features/compras/calendario/calendario";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
 
@@ -370,6 +373,7 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
 const TABS = [
   { key: "maestro", label: "Inventario" },
   { key: "conteo", label: "Conteo" },
+  { key: "faltantes", label: "Falta para obras" },
   { key: "obra", label: "Por obra" },
   { key: "movimientos", label: "Movimientos" },
   { key: "traslados", label: "Entre sedes" },
@@ -1245,6 +1249,21 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       .catch(() => { if (vivo) setConteoHoy(null); });
     return () => { vivo = false; };
   }, [sedeLocked, tab]);
+  // Bandeja "Falta para obras": lo que se compra para cada barco no lleva
+  // mínimo; avisa cuando las obras que lo necesitan pronto superan lo libre.
+  const [faltaObras, setFaltaObras] = useState(null);
+  useEffect(() => {
+    if (tab !== "maestro") return undefined;
+    let vivo = true;
+    cargarDatosFaltantes()
+      .then((datos) => {
+        if (!vivo) return;
+        const r = faltantesDesdeDatos(datos, { hoy: new Date() });
+        setFaltaObras({ productos: r.faltan.length, atrasados: r.faltan.filter((p) => p.atrasado).length });
+      })
+      .catch(() => { if (vivo) setFaltaObras(null); });
+    return () => { vivo = false; };
+  }, [tab]);
   // Los consumibles tienen su stock en Consumibles: acá figuraban "Crítico 0"
   // aunque hubiera miles (3,5 × 16 FIX con 12.517 en Chubut, 03/11/2026).
   const reposicionSinConsumibles = useMemo(
@@ -1536,6 +1555,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 stockMaster
                 conteoHoy={conteoHoy}
                 onOpenConteo={() => handleTabChange("conteo")}
+                faltaObras={faltaObras}
+                onOpenFaltas={() => handleTabChange("faltantes")}
                 bandejasSlot={bandejasEnTitulo ? bandejasSlot : null}
                 initialScope={maestroScope}
                 initialQuery={requestedQuery}
@@ -1598,6 +1619,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {tab === "sobrantes" && (
               <ListaSobrantesObraPanel profile={profile} signOut={signOut} embedded />
             )}
+
+            {tab === "faltantes" && <FaltaParaObrasPanel isMobile={isMobile} />}
 
             {tab === "conteo" && (
               <ConteoDiarioPanel
