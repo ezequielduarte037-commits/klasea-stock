@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, ChevronRight, Copy, FileSpreadsheet, Minus, PackageCheck, Plus, RefreshCw, Search, Send, ShoppingCart, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, FileSpreadsheet, Minus, PackageCheck, Pencil, Plus, RefreshCw, Search, Send, ShoppingCart, Sparkles, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -11,7 +11,7 @@ import { armarPedidoSugerido, necesitaReponer } from "../stock/reposicion";
 import FotoConsumible from "../FotoConsumible";
 import { conPlazoLectura } from "../lecturas";
 import {
-  agregarAlCarrito, cambiarCantidad, cerrarPedido, confirmarPedido, fetchPedidos,
+  agregarAlCarrito, cambiarCantidad, cerrarPedido, confirmarPedido, corregirPedido, fetchPedidos,
   obtenerCarrito, quitarRenglon, reabrirPedido, vaciarCarrito,
 } from "./pedidosApi";
 import {
@@ -74,6 +74,7 @@ function Pedidos({ sede }) {
   const [catalogo, setCatalogo] = useState(null);
   const [pedidos, setPedidos] = useState([]);
   const [recibidos, setRecibidos] = useState(() => new Map());
+  const [conIngresos, setConIngresos] = useState(() => new Set());
   const [error, setError] = useState("");
   const [proveedor, setProveedor] = useState(PROVEEDOR_POR_DEFECTO);
   const [busqueda, setBusqueda] = useState("");
@@ -84,11 +85,13 @@ function Pedidos({ sede }) {
   const [tocando, setTocando] = useState(() => new Set()); // materiales con un cambio en curso
   const [nota, setNota] = useState("");
   const [abierto, setAbierto] = useState(null);
+  const [editando, setEditando] = useState(null);
 
   const cargarPedidos = useCallback(async () => {
-    const r = await fetchPedidos(sede);
+    const r = await fetchPedidos(sede, { conHistorial: true });
     setPedidos(r.pedidos);
     setRecibidos(r.recibidos);
+    setConIngresos(r.conIngresos);
   }, [sede]);
 
   const cargar = useCallback(async () => {
@@ -341,7 +344,7 @@ function Pedidos({ sede }) {
         <button type="button" className="ui-btn" onClick={sumarSugeridos} disabled={ocupado} title="Suma los productos de este proveedor que están en su mínimo o por debajo">
           <Sparkles size={15} /> Sumar los que faltan
         </button>
-        <button type="button" className="ui-btn ui-btn-icono" onClick={() => cargar().catch(() => toast.error("No se pudo actualizar."))} aria-label="Actualizar" title="Actualizar">
+        <button type="button" className="ui-btn ui-btn-icono" onClick={() => cargar().catch(() => toast.error("No se pudo actualizar."))} aria-label="Actualizar" title="Actualizar" disabled={!!editando}>
           <RefreshCw size={16} />
         </button>
         {otrosCarritos.length > 0 && (
@@ -457,7 +460,7 @@ function Pedidos({ sede }) {
                 {sinCosto > 0 && total > 0 && <span className="ped-dim"> · {sinCosto} sin precio</span>}
               </div>}
               <input className="ui-input" value={nota} maxLength={200} placeholder="Nota para el pedido (opcional)" onChange={(e) => setNota(e.target.value)} aria-label="Nota del pedido" />
-              <button type="button" className="ui-btn ui-btn-primario ped-confirmar" onClick={confirmarCarrito} disabled={ocupado || tocando.size > 0}><Send size={15} /> Confirmar pedido</button>
+              <button type="button" className="ui-btn ui-btn-primario ped-confirmar" onClick={confirmarCarrito} disabled={ocupado || tocando.size > 0 || !!editando}><Send size={15} /> Confirmar pedido</button>
               <div className="ped-carrito-btns">
                 <button type="button" className="ui-btn" onClick={() => copiarWhatsApp(carrito, lineas)}><Copy size={15} /> Copiar</button>
                 <button type="button" className="ui-btn ui-btn-fantasma" onClick={vaciar} disabled={ocupado}>Vaciar</button>
@@ -484,10 +487,12 @@ function Pedidos({ sede }) {
               const renglones = renglonesParaMostrar(p, porId, recibidos);
               const { total: totalP } = totalDePedido(renglones);
               const exp = abierto === p.id;
+              const enEdicion = editando === p.id;
+              const editable = p.estado === "pedido" && !renglones.some((r) => conIngresos.has(r.id));
               const pendientes = renglones.filter((r) => !r.completo).length;
               return (
                 <li key={p.id} className="ped-item ui-card">
-                  <button type="button" className="ped-item-cab" onClick={() => setAbierto(exp ? null : p.id)} aria-expanded={exp}>
+                  <button type="button" className="ped-item-cab" onClick={() => setAbierto(exp ? null : p.id)} aria-expanded={exp} disabled={!!editando}>
                     {exp ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     <span className="ped-item-tit">
                       <span>Pedido N° <span className="ped-num">{p.numero}</span> · {p.proveedor}</span>
@@ -495,7 +500,19 @@ function Pedidos({ sede }) {
                     </span>
                     <span className="ui-chip ped-estado" data-tono={TONO[estado]}>{estado === "completo" ? <Check size={13} /> : null}{ETIQUETA_ESTADO[estado] ?? estado}</span>
                   </button>
-                  {exp && (
+                  {exp && enEdicion && (
+                    <EditarPedido
+                      key={p.id} pedido={p} renglones={renglones} catalogo={catalogo}
+                      onCancelar={() => setEditando(null)}
+                      onGuardar={async (version, items, notaEditada) => {
+                        const cambios = await corregirPedido(p.id, version, items, notaEditada);
+                        setPedidos((prev) => prev.map((actual) => actual.id === p.id ? { ...actual, ...cambios } : actual));
+                        setEditando(null);
+                        toast.success(`Pedido N° ${p.numero} actualizado.`);
+                      }}
+                    />
+                  )}
+                  {exp && !enEdicion && (
                     <div className="ped-item-cuerpo">
                       <table className="ped-tabla">
                         <thead>
@@ -514,6 +531,9 @@ function Pedidos({ sede }) {
                       </table>
                       {p.nota && <p className="ped-dim" style={{ margin: "10px 0 0", fontSize: 13 }}>Nota: {p.nota}</p>}
                       <div className="ped-acciones">
+                        {editable && (
+                          <button type="button" className="ui-btn" onClick={() => setEditando(p.id)} disabled={ocupado}><Pencil size={15} /> Editar pedido</button>
+                        )}
                         {p.estado === "pedido" && estado !== "completo" && (
                           <button type="button" className="ui-btn ui-btn-primario" onClick={() => recibirEnIngresos(p)}><PackageCheck size={15} /> Recibir en Ingresos</button>
                         )}
@@ -535,6 +555,100 @@ function Pedidos({ sede }) {
         )}
       </section>
     </div>
+  );
+}
+
+function EditarPedido({ pedido, renglones, catalogo, onCancelar, onGuardar }) {
+  const [version] = useState(pedido.updated_at);
+  const [originales] = useState(() => new Map(renglones.map((r) => [r.material_id, r])));
+  const [filas, setFilas] = useState(() => renglones.map((r) => ({ ...r, cantidad: String(r.cantidad) })));
+  const [nota, setNota] = useState(pedido.nota ?? "");
+  const [busqueda, setBusqueda] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  const ids = new Set(filas.map((r) => r.material_id));
+  const sugerencias = busqueda.trim().length < 2 ? [] : catalogo
+    .filter((i) => !ids.has(i.id) && coincideBusqueda(i, busqueda))
+    .slice(0, 8);
+
+  const agregar = (item) => {
+    const fila = originales.get(item.id) ?? { ...renglonDesdeItem(item), descripcion: item.descripcion };
+    setFilas((prev) => [...prev, { ...fila, cantidad: String(fila.cantidad) }]);
+    setBusqueda("");
+  };
+
+  const guardar = async (e) => {
+    e.preventDefault();
+    if (guardando) return;
+    const items = filas.map(({ material_id, cantidad, unidad_compra, factor, costo_compra_ars }) => ({
+      material_id, cantidad: Number(cantidad.trim().replace(",", ".")), unidad_compra, factor, costo_compra_ars,
+    }));
+    if (!items.length || items.some((r) => !Number.isFinite(r.cantidad) || r.cantidad <= 0)) {
+      setError("Dejá al menos un producto y cargá cantidades mayores a cero.");
+      return;
+    }
+    setError("");
+    setGuardando(true);
+    try {
+      await onGuardar(version, items, nota);
+    } catch (err) {
+      setError(err.message || "No se pudo guardar la corrección.");
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <form className="ped-item-cuerpo" aria-label={`Editar pedido N° ${pedido.numero}`} onSubmit={guardar}>
+      <p className="ped-dim" style={{ margin: "4px 0 10px", fontSize: 13 }}>
+        Corregí las cantidades, los productos o la nota. Si ya lo enviaste al proveedor, podés volver a copiar el pedido corregido.
+      </p>
+      <ul className="ped-lineas" style={{ marginBottom: 10 }}>
+        {filas.map((r) => (
+          <li className="ped-linea" key={r.material_id}>
+            <span className="ped-linea-txt">
+              {r.descripcion}
+              <small className="ped-dim">{r.unidad_compra || r.unidad}{r.factor > 1 ? ` x${fmtCantidad(r.factor)}` : ""}</small>
+            </span>
+            <input
+              className="ui-input ped-num" style={{ width: 90, textAlign: "right" }} inputMode="decimal"
+              aria-label={`Cantidad de ${r.descripcion}`} value={r.cantidad} disabled={guardando}
+              onChange={(e) => setFilas((prev) => prev.map((l) => l.material_id === r.material_id ? { ...l, cantidad: e.target.value } : l))}
+            />
+            <button type="button" className="ui-btn ui-btn-icono ui-btn-fantasma" aria-label={`Quitar ${r.descripcion}`} disabled={guardando}
+              onClick={() => setFilas((prev) => prev.filter((l) => l.material_id !== r.material_id))}><X size={15} /></button>
+          </li>
+        ))}
+      </ul>
+      <div className="ped-buscar" style={{ marginBottom: 8 }}>
+        <Search size={16} className="ped-buscar-ico" />
+        <input
+          type="search" className="ui-input" placeholder="Buscar un producto para agregar" aria-label="Buscar un producto para agregar"
+          value={busqueda} disabled={guardando} onChange={(e) => setBusqueda(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+        />
+      </div>
+      {busqueda.trim().length >= 2 && (
+        <ul className="ped-lineas" style={{ marginBottom: 8 }}>
+          {sugerencias.map((i) => (
+            <li className="ped-linea" key={i.id}>
+              <span className="ped-linea-txt">{i.descripcion}<small className="ped-dim">{i.codigoEtiqueta}</small></span>
+              <button type="button" className="ui-btn" onClick={() => agregar(i)} disabled={guardando}><Plus size={15} /> Agregar</button>
+            </li>
+          ))}
+          {!sugerencias.length && <li className="ped-linea ped-dim">No hay productos para agregar con esa búsqueda.</li>}
+        </ul>
+      )}
+      <input
+        className="ui-input" style={{ width: "100%", boxSizing: "border-box" }}
+        aria-label="Nota del pedido" placeholder="Nota para el pedido (opcional)" maxLength={200}
+        value={nota} disabled={guardando} onChange={(e) => setNota(e.target.value)}
+      />
+      {error && <p role="alert" style={{ color: "var(--red)", marginBottom: 0 }}>{error}</p>}
+      <div className="ped-acciones">
+        <button type="submit" className="ui-btn ui-btn-primario" disabled={guardando}>{guardando ? "Guardando…" : "Guardar cambios"}</button>
+        <button type="button" className="ui-btn ui-btn-fantasma" onClick={onCancelar} disabled={guardando}>Cancelar</button>
+      </div>
+    </form>
   );
 }
 

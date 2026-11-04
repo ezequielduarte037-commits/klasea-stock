@@ -7,10 +7,10 @@ import { PROVEEDOR_POR_DEFECTO, renglonDesdeItem } from "./pedidosLogica";
  * ingresos vigentes de cada renglón (vista consumibles_pedido_items_recibido).
  */
 
-const COLS = "id,numero,sede,proveedor,estado,nota,created_at,pedido_at,cerrado_at,items:consumibles_pedido_items(id,material_id,cantidad,unidad_compra,factor,costo_compra_ars,nota,created_at)";
+const COLS = "id,numero,sede,proveedor,estado,nota,created_at,pedido_at,cerrado_at,updated_at,items:consumibles_pedido_items(id,material_id,cantidad,unidad_compra,factor,costo_compra_ars,nota,created_at)";
 
 /** Pedidos de la sede: el carrito, los que esperan mercadería y los últimos cerrados. */
-export async function fetchPedidos(sede, { limite = 40, soloPendientes = false } = {}) {
+export async function fetchPedidos(sede, { limite = 40, soloPendientes = false, conHistorial = false } = {}) {
   let query = supabase
     .from("consumibles_pedidos")
     .select(COLS)
@@ -24,15 +24,28 @@ export async function fetchPedidos(sede, { limite = 40, soloPendientes = false }
   const pedidos = data ?? [];
   const ids = pedidos.flatMap((p) => (p.items ?? []).map((i) => i.id));
   const recibidos = new Map();
+  const conIngresos = new Set();
   for (let i = 0; i < ids.length; i += 200) {
     const { data: filas, error: err } = await supabase
       .from("consumibles_pedido_items_recibido")
-      .select("pedido_item_id,recibido_entrega")
+      .select(conHistorial ? "pedido_item_id,recibido_entrega,tiene_movimientos" : "pedido_item_id,recibido_entrega")
       .in("pedido_item_id", ids.slice(i, i + 200));
     if (err) throw err;
-    for (const f of filas ?? []) recibidos.set(f.pedido_item_id, Number(f.recibido_entrega) || 0);
+    for (const f of filas ?? []) {
+      recibidos.set(f.pedido_item_id, Number(f.recibido_entrega) || 0);
+      if (f.tiene_movimientos) conIngresos.add(f.pedido_item_id);
+    }
   }
-  return { pedidos, recibidos };
+  return { pedidos, recibidos, conIngresos };
+}
+
+/** Guarda la corrección entera, con la versión que se abrió para editar. */
+export async function corregirPedido(pedidoId, version, items, nota) {
+  const { data, error } = await supabase.rpc("consumibles_corregir_pedido", {
+    p_pedido: pedidoId, p_version: version, p_items: items, p_nota: nota,
+  });
+  if (error) throw error;
+  return data;
 }
 
 /** El carrito de la sede para ese proveedor; si no hay, lo crea. */

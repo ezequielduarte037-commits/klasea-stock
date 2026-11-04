@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Minus, Plus, X } from "lucide-react";
+import { Check, Minus, Plus, X } from "lucide-react";
 import { C } from "@/theme";
 import { puedeVerPrecios } from "@/lib/permissions";
 import { SEDES, fetchCatalogo, fmtCantidad, fmtPesos, guardarSedeDelEquipo, indexarCodigos, normalizarCodigo, sedeDelEquipo } from "@/features/consumibles/api";
@@ -29,6 +29,7 @@ const field = {
   padding: "10px 11px", fontSize: 15, fontFamily: C.sans, outline: "none",
 };
 const lbl = { margin: "0 0 5px", color: C.dim, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" };
+const campoCantidad = { ...field, minWidth: 0, textAlign: "center", fontSize: 20, fontWeight: 600, padding: "7px 4px", flex: 1, marginRight: 6 };
 const qbtn = {
   width: 46, height: 40, background: C.panel, border: `1px solid ${C.border}`,
   color: C.text, borderRadius: 9, lineHeight: 1, padding: 0,
@@ -88,14 +89,25 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
   const [carrito, setCarrito] = useState(null);
   const [msg, setMsg] = useState(null); // { ok, text }
   const [ocupado, setOcupado] = useState(false);
+  const [edicion, setEdicion] = useState(null);
   const [buscar, setBuscar] = useState("");
   const [hecho, setHecho] = useState(null); // pedido recién confirmado
 
-  const foco = useCallback(() => { setTimeout(() => { if (codeRef.current) codeRef.current.focus(); }, 30); }, []);
+  const foco = useCallback(() => {
+    setTimeout(() => {
+      if (!codeRef.current) return;
+      const { scrollX, scrollY } = window;
+      codeRef.current.focus({ preventScroll: true });
+      // El Chrome viejo del colector puede ignorar preventScroll.
+      if (window.scrollX !== scrollX || window.scrollY !== scrollY) window.scrollTo(scrollX, scrollY);
+    }, 30);
+  }, []);
 
   const traerCarrito = useCallback(async () => {
     const { pedidos } = await fetchPedidos(sede, { limite: 20 });
-    setCarrito(pedidos.find((p) => p.estado === "borrador" && String(p.proveedor).toLowerCase() === PROVEEDOR.toLowerCase()) || null);
+    const actual = pedidos.find((p) => p.estado === "borrador" && String(p.proveedor).toLowerCase() === PROVEEDOR.toLowerCase()) || null;
+    setCarrito(actual);
+    return actual;
   }, [sede]);
 
   useEffect(() => {
@@ -131,7 +143,7 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
   });
 
   async function sumar(item) {
-    if (ocupado) return;
+    if (ocupado || edicion) return;
     setOcupado(true);
     try {
       let c = carrito;
@@ -168,9 +180,10 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
     setMsg({ ok: false, text: `El código ${raw} no es de ningún consumible. Buscalo por nombre abajo.` });
   }
 
-  async function fijar(linea, cantidad) {
+  async function fijar(linea, cantidad, manual = false) {
     if (ocupado) return;
     setOcupado(true);
+    let guardado = false;
     try {
       if (!(cantidad > 0)) {
         await quitarRenglon(linea.id);
@@ -178,17 +191,22 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
       } else {
         aplicar(await cambiarCantidad(linea.id, cantidad));
       }
+      guardado = true;
+      if (manual) setEdicion(null);
     } catch (err) {
       setMsg({ ok: false, text: err.message || "No se pudo cambiar la cantidad." });
-      await traerCarrito().catch(() => {});
+      try {
+        const actual = await traerCarrito();
+        if (manual && !actual?.items?.some((item) => item.id === linea.id)) cancelarEdicion();
+      } catch { /* se conserva lo escrito si no se pudo recargar */ }
     } finally {
       setOcupado(false);
-      foco();
+      if (!manual || guardado) foco();
     }
   }
 
   async function confirmar() {
-    if (!carrito || !lineas.length || ocupado) return;
+    if (!carrito || !lineas.length || ocupado || edicion) return;
     if (!window.confirm(`¿Confirmar el pedido a ${PROVEEDOR}? ${lineas.length} producto${lineas.length === 1 ? "" : "s"} para ${sede}.`)) return;
     setOcupado(true);
     try {
@@ -209,6 +227,15 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
     const ok = await copiar(textoWhatsApp({ pedido: hecho, renglones: hecho.renglones }));
     setMsg(ok ? { ok: true, text: "Texto copiado: pegalo en WhatsApp." } : { ok: false, text: "No se pudo copiar." });
   }
+
+  function cancelarEdicion() {
+    setEdicion(null);
+    foco();
+  }
+
+  const valorEditado = edicion?.valor.trim() ?? "";
+  const cantidadEditada = /^[0-9]+([.,][0-9]+)?$/.test(valorEditado) ? Number(valorEditado.replace(",", ".")) : NaN;
+  const cantidadValida = Number.isFinite(cantidadEditada) && cantidadEditada > 0;
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, paddingBottom: 78 }}>
@@ -247,17 +274,17 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
             <input
               ref={codeRef} defaultValue=""
               autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-              enterKeyHint="enter" placeholder="Escaneá…" disabled={catalogo == null}
+              enterKeyHint="enter" placeholder="Escaneá…" disabled={catalogo == null || !!edicion}
               style={{ ...field, flex: 1, fontSize: 19, marginRight: 6 }}
             />
-            <button type="submit" disabled={catalogo == null} style={{ ...qbtn, width: 62, fontFamily: C.sans, fontSize: 15, fontWeight: 600, background: C.blue, color: "var(--inverse-text)", border: "none" }}>OK</button>
+            <button type="submit" disabled={catalogo == null || !!edicion} style={{ ...qbtn, width: 62, fontFamily: C.sans, fontSize: 15, fontWeight: 600, background: C.blue, color: "var(--inverse-text)", border: "none" }}>OK</button>
           </div>
         </form>
 
         <div style={{ marginBottom: 10 }}>
           <input value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="O buscá por nombre…" style={field} autoComplete="off" />
           {sugerencias.map((s) => (
-            <button key={s.id} type="button" onClick={() => sumar(s)} disabled={ocupado}
+            <button key={s.id} type="button" onClick={() => sumar(s)} disabled={ocupado || !!edicion}
               style={{ display: "block", width: "100%", boxSizing: "border-box", textAlign: "left", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 10px", color: C.text, fontFamily: C.sans, marginTop: 5 }}>
               <b style={{ fontSize: 13.5, fontWeight: 600 }}>{s.descripcion}</b>
               <span style={{ float: "right", color: C.dim, fontSize: 11 }}>{s.codigoEtiqueta || ""}</span>
@@ -281,19 +308,43 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
                       {[l.codigoEtiqueta, l.codigoProveedor ? `Cód. ${l.codigoProveedor}` : null].filter(Boolean).join(" · ")}
                     </div>
                   </div>
-                  <button type="button" onClick={() => fijar(l, 0)} disabled={ocupado} aria-label={`Quitar ${l.descripcion}`}
+                  <button type="button" onClick={() => fijar(l, 0)} disabled={ocupado || !!edicion} aria-label={`Quitar ${l.descripcion}`}
                     style={{ width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", background: "none", border: "none", color: C.dim, padding: 0 }}>
                     <X size={18} />
                   </button>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", marginTop: 7 }}>
-                  <button type="button" onClick={() => fijar(l, Number(l.cantidad) - 1)} disabled={ocupado} aria-label="Uno menos" style={{ ...qbtn, marginRight: 6 }}><Minus size={18} /></button>
-                  <div style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 600, padding: "7px 4px", flex: 1, marginRight: 6 }}>{fmtCantidad(l.cantidad)}</div>
-                  <button type="button" onClick={() => fijar(l, Number(l.cantidad) + 1)} disabled={ocupado} aria-label="Uno más" style={{ ...qbtn, marginRight: 6 }}><Plus size={18} /></button>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (edicion?.id === l.id && cantidadValida) fijar(l, cantidadEditada, true);
+                }} style={{ display: "flex", alignItems: "center", marginTop: 7 }}>
+                  {edicion?.id === l.id ? (
+                    <>
+                      <button type="button" onClick={cancelarEdicion} disabled={ocupado} aria-label="Cancelar edición de cantidad" style={{ ...qbtn, marginRight: 6 }}><X size={18} /></button>
+                      <input
+                        aria-label={`Cantidad de ${l.descripcion}`} aria-invalid={!cantidadValida}
+                        inputMode="decimal" enterKeyHint="done" autoComplete="off" autoFocus
+                        value={edicion.valor} disabled={ocupado}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) => setEdicion({ id: l.id, valor: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === "Escape") cancelarEdicion(); }}
+                        style={{ ...campoCantidad, borderColor: C.blue }}
+                      />
+                      <button type="submit" disabled={ocupado || !cantidadValida} aria-label="Guardar cantidad"
+                        style={{ ...qbtn, marginRight: 6, color: cantidadValida ? C.green : C.dim, borderColor: cantidadValida ? C.greenB : C.border }}><Check size={18} /></button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => fijar(l, Number(l.cantidad) - 1)} disabled={ocupado || !!edicion} aria-label="Uno menos" style={{ ...qbtn, marginRight: 6 }}><Minus size={18} /></button>
+                      <button type="button" onClick={() => setEdicion({ id: l.id, valor: String(l.cantidad).replace(".", ",") })}
+                        disabled={ocupado || !!edicion} aria-label={`Editar cantidad de ${l.descripcion}`}
+                        style={{ ...campoCantidad, color: C.blue }}>{fmtCantidad(l.cantidad)}</button>
+                      <button type="button" onClick={() => fijar(l, Number(l.cantidad) + 1)} disabled={ocupado || !!edicion} aria-label="Uno más" style={{ ...qbtn, marginRight: 6 }}><Plus size={18} /></button>
+                    </>
+                  )}
                   <span style={{ fontSize: 11, color: C.dim, width: 54, textAlign: "right" }}>
                     {l.unidad_compra}{l.factor > 1 ? ` x${fmtCantidad(l.factor)}` : ""}
                   </span>
-                </div>
+                </form>
               </div>
             ))}
           </div>
@@ -301,11 +352,11 @@ function Pedido({ sede, verPrecios, onCambiarSede }) {
       </div>
 
       <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, padding: 9, background: C.panelSolid, borderTop: `1px solid ${C.border}` }}>
-        <button type="button" onClick={confirmar} disabled={!lineas.length || ocupado}
+        <button type="button" onClick={confirmar} disabled={!lineas.length || ocupado || !!edicion}
           style={{
             width: "100%", padding: "14px 10px", borderRadius: 11, border: "none",
-            background: lineas.length && !ocupado ? C.green : C.panel2,
-            color: lineas.length && !ocupado ? "var(--inverse-text)" : C.dim,
+            background: lineas.length && !ocupado && !edicion ? C.green : C.panel2,
+            color: lineas.length && !ocupado && !edicion ? "var(--inverse-text)" : C.dim,
             fontSize: 16, fontWeight: 600, fontFamily: C.sans,
           }}>
           {ocupado ? "Guardando…" : `Confirmar pedido${lineas.length ? ` (${lineas.length})` : ""}`}
