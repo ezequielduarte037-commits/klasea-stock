@@ -1,5 +1,5 @@
 import { supabase } from "@/supabaseClient";
-import { rowDelta } from "@/features/panol/panolMovimientos";
+import { rowDelta, rowSource } from "@/features/panol/panolMovimientos";
 import { fetchRequisitoProductos } from "@/features/materiales/productosAsignadosApi";
 import { findConditionProductReplacements } from "@/features/materiales/conditionProductReplacement";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
@@ -28,7 +28,9 @@ const normalizarModelo = (value) => String(value || "")
 async function traerTodo(tabla, select) {
   const filas = [];
   for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await supabase.from(tabla).select(select).range(desde, desde + 999);
+    let consulta = supabase.from(tabla).select(select);
+    if (tabla === "panol_obra_materiales_snapshot") consulta = consulta.order("id");
+    const { data, error } = await consulta.range(desde, desde + 999);
     if (error) throw error;
     if (!data?.length) break;
     filas.push(...data);
@@ -41,11 +43,13 @@ async function traerTodoDeObras(tabla, select, obraIds) {
   if (!obraIds.length) return [];
   const filas = [];
   for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await supabase
+    let consulta = supabase
       .from(tabla)
       .select(select)
-      .in("obra_id", obraIds)
-      .range(desde, desde + 999);
+      .in("obra_id", obraIds);
+    // Sin un orden único, una fila puede aparecer en dos páginas del ledger.
+    if (tabla === "panol_obra_materiales_snapshot") consulta = consulta.order("id");
+    const { data, error } = await consulta.range(desde, desde + 999);
     if (error) throw error;
     if (!data?.length) break;
     filas.push(...data);
@@ -211,7 +215,7 @@ function sumarOrigen(celda, origen) {
 }
 
 function sumarEstado(celda, fila) {
-  const cantidad = Number(fila.cantidad_egresada || fila.cantidad || 0);
+  const cantidad = Number((ESTADOS_EGRESADO.has(fila.estado) ? fila.cantidad_egresada : fila.cantidad) || fila.cantidad || 0);
   if (!cantidad) return;
   if (ESTADOS_EGRESADO.has(fila.estado)) celda.egresado += cantidad;
   else if (ESTADOS_EN_PANOL.has(fila.estado)) celda.enPanol += cantidad;
@@ -518,9 +522,22 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
         celda.egresado = 0;
         celda.enPanol = 0;
         celda.pendiente = 0;
-        for (const fila of snapshots) sumarEstado(celda, fila);
-        if (!item.soloConfiguracion && celda.pendiente > 0 && item.ajusteConfiguracion) {
-          celda.pendiente = redondear(Math.max(0, celda.pendiente + item.ajusteConfiguracion));
+        if (snapshots.some((fila) => clasificarOrigenSnapshot(fila) === "adicional")) {
+          for (const fila of snapshots) sumarEstado(celda, fila);
+          if (!item.soloConfiguracion && celda.pendiente > 0 && item.ajusteConfiguracion) {
+            celda.pendiente = redondear(Math.max(0, celda.pendiente + item.ajusteConfiguracion));
+          }
+        } else {
+          // Una transferencia reduce la reserva de la obra de origen. La
+          // entrega se cuenta cuando el material se retira para la obra.
+          for (const fila of snapshots) {
+            celda.enPanol += rowDelta(fila);
+            if (ESTADOS_EGRESADO.has(fila.estado) && !rowSource(fila).startsWith("transferencia_egreso")) {
+              sumarEstado(celda, fila);
+            }
+          }
+          celda.enPanol = redondear(Math.max(0, celda.enPanol));
+          celda.pendiente = redondear(Math.max(0, celda.requerido - celda.egresado - celda.enPanol));
         }
       }
       const existente = celdas.get(clave);
