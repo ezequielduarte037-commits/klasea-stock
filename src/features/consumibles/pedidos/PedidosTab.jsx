@@ -446,8 +446,9 @@ function Pedidos({ sede }) {
                 <li key={l.id} className="ped-linea">
                   <span className="ped-linea-txt">
                     <span>{l.descripcion}</span>
-                    <small className="ped-dim">{cantidadTexto(l)}{!verPrecios ? "" : l.subtotal != null ? ` · ${fmtPesos(l.subtotal)}` : " · sin precio"}</small>
+                    <small className="ped-dim">{l.unidad_compra || l.unidad}{l.factor > 1 ? ` x${fmtCantidad(l.factor)}` : ""}{!verPrecios ? "" : l.subtotal != null ? ` · ${fmtPesos(l.subtotal)}` : " · sin precio"}</small>
                   </span>
+                  <CantidadEditable linea={l} disabled={ocupado || tocando.has(l.material_id)} onFijar={(n) => fijar(l, n)} />
                   <button type="button" className="ui-btn ui-btn-fantasma ui-btn-icono" onClick={() => fijar(l, 0)} disabled={tocando.has(l.material_id)} aria-label={`Sacar ${l.descripcion}`} title="Sacar del carrito"><X size={15} /></button>
                 </li>
               ))}
@@ -660,10 +661,11 @@ function CantidadEditable({ linea, disabled, onFijar }) {
 
 function CampoCantidad({ linea, disabled, onFijar }) {
   const [valor, setValor] = useState(String(linea.cantidad));
-  const guardar = () => {
-    const n = Number(String(valor).replace(",", "."));
-    if (!Number.isFinite(n) || n < 0) { setValor(String(linea.cantidad)); return; }
-    if (n !== Number(linea.cantidad)) onFijar(n);
+  const guardar = async () => {
+    const texto = valor.trim();
+    const n = /^\d+(?:[.,]\d+)?$/.test(texto) ? Number(texto.replace(",", ".")) : NaN;
+    if (Number.isFinite(n) && n !== Number(linea.cantidad)) await onFijar(n);
+    setValor(String(linea.cantidad));
   };
   return (
     <input
@@ -672,7 +674,9 @@ function CampoCantidad({ linea, disabled, onFijar }) {
       value={valor}
       disabled={disabled}
       aria-label={`Cantidad de ${linea.descripcion}`}
-      onChange={(e) => setValor(e.target.value.replace(/[^\d.,]/g, ""))}
+      title="Editar cantidad · Enter para guardar"
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setValor(e.target.value)}
       onBlur={guardar}
       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
     />
