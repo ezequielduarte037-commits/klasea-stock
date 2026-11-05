@@ -50,13 +50,6 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M4 9V5.6h4L10.8 9" {...p}/>
       <path d="M6.2 5.6V3.2" {...p}/>
     </>,
-    // Reloj con una marca de alerta: lo que ya pasó su hora.
-    "/atrasos": <>
-      <circle cx="7" cy="8.5" r="5.5" {...p}/>
-      <path d="M7 5.5v3l2 1.5" {...p}/>
-      <path d="M14 3v4" {...p}/>
-      <circle cx="14" cy="9.6" r=".9" fill={color} stroke="none"/>
-    </>,
     "/semaforo": <>
       <rect x="4" y="1" width="8" height="14" rx="2" {...p}/>
       <circle cx="8" cy="4.5" r="1.5" fill={color} stroke="none"/>
@@ -882,7 +875,6 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {divider("compras")}
           {group(comprasGroup, SC.compras, 205)}
           {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
-          {(esCompras || esGestion) && item("/atrasos", "Atrasos", SC.compras, true, 215, "Todo lo que ya pasó su fecha: compras estándar, pedidos, avisos al pañol, faltantes, obras e hitos.")}
           {/* Atajos de Compras: una cuenta Compras con admin ya los tiene en Producción y Pañol. */}
           {esCompras && !esGestion && item("/consumibles?tab=solicitudes", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
           {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}

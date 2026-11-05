@@ -4,6 +4,7 @@ import { useToast } from "@/components/ui/Toast";
 import Cargando from "@/components/ui/Cargando";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { marcarAvisoPlanillaComoComprado } from "@/features/compras/planillaObrasApi";
+import TableroAtrasos, { CSS_ATRASOS } from "./TableroAtrasos";
 import { Aviso, Buscar, Cabecera, Vacio } from "../ui";
 import {
   armarPedidos, claveProveedor, inicioSemana, sumarDias, sugerirSemanasRubro, textoPedido,
@@ -25,6 +26,7 @@ import {
  */
 
 const VISTAS = [
+  ["atrasos", "Atrasos"],
   ["calendario", "Pedidos"],
   ["rubros", "Por rubro"],
   ["proveedores", "Por proveedor"],
@@ -175,7 +177,7 @@ export default function CalendarioComprasPanel({ profile }) {
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
-  const [vista, setVista] = useState("calendario");
+  const [vista, setVista] = useState("atrasos");
   const [linea, setLinea] = useState("todas");
   const [horizonte, setHorizonte] = useState(4);
   const [busqueda, setBusqueda] = useState("");
@@ -373,12 +375,12 @@ export default function CalendarioComprasPanel({ profile }) {
 
   return (
     <div className="cal-root">
-      <style>{CSS}</style>
+      <style>{CSS + CSS_ATRASOS}</style>
       <Cabecera
         eyebrow="Compras · Planificar"
         titulo="Calendario de"
         acento="compras"
-        sub={calendario ? (
+        sub={vista === "atrasos" ? "Lo de Compras que ya pasó su fecha. Tocá un proveedor o una obra para ver sus pedidos, o cualquier fila para ir a resolverla." : calendario ? (
           <>
             <b className="mono">{fmt(nPedidos)}</b> pedidos para hacer en las próximas {horizonte} semanas, uno por proveedor y obra
             {nAtrasados > 0 && <> · <b className="mono t" data-tono="rojo">{fmt(nAtrasados)}</b> atrasados</>}
@@ -414,7 +416,7 @@ export default function CalendarioComprasPanel({ profile }) {
             ))}
           </div>
         )}
-        {vista !== "rubros" && <Buscar value={busqueda} onChange={setBusqueda} placeholder={vista === "proveedores" ? "Proveedor…" : "Proveedor, obra o producto…"} />}
+        {["calendario", "proveedores"].includes(vista) && <Buscar value={busqueda} onChange={setBusqueda} placeholder={vista === "proveedores" ? "Proveedor…" : "Proveedor, obra o producto…"} />}
       </div>
 
       {datos?.sinMigracion && (
@@ -426,7 +428,14 @@ export default function CalendarioComprasPanel({ profile }) {
 
       {cargando && !datos ? (
         <Cargando texto="Armando los pedidos con la lista de cada obra y el pañol…" />
-      ) : !calendario ? null : vista === "calendario" ? (
+      ) : !calendario ? null : vista === "atrasos" ? (
+        <TableroAtrasos
+          calendario={calendario}
+          linea={linea}
+          onVerProveedor={(nombre) => { setBusqueda(nombre); setVista("calendario"); }}
+          onVerObra={(obra) => { setBusqueda(obra); setVista("calendario"); }}
+        />
+      ) : vista === "calendario" ? (
         <>
           {rubrosSinCargar > 0 && (
             <Aviso tono="cian" icono={Info}>
