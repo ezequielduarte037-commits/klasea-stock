@@ -145,7 +145,7 @@ async function traerTodo(armarConsulta) {
  *
  * `sede` define el campo `stock` de cada ítem; `stockPorSede` trae las dos.
  */
-export async function fetchCatalogo({ sede = null, incluirInactivos = false } = {}) {
+export async function fetchCatalogo({ sede = null, incluirInactivos = false, incluirStock = true } = {}) {
   const materiales = () => {
     let q = supabase
       .from("panol_materiales")
@@ -163,7 +163,7 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } = 
     traerTodo(materiales),
     traerTodo(() => supabase.from("panol_categorias").select("id,nombre,parent_id").order("id")),
     traerTodo(() => supabase.from("consumibles_config").select("*").order("material_id")),
-    traerTodo(() => supabase.from("consumibles_stock").select("*").order("material_id").order("sede")),
+    incluirStock ? traerTodo(() => supabase.from("consumibles_stock").select("*").order("material_id").order("sede")) : [],
   ]);
 
   const ids = mats.map((m) => m.id);

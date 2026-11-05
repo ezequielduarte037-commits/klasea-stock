@@ -83,6 +83,7 @@ function Ingresos({ sede }) {
 
   const [catalogo, setCatalogo] = useState(null);
   const [historial, setHistorial] = useState(null);
+  const [errorHistorial, setErrorHistorial] = useState("");
   const [errorCarga, setErrorCarga] = useState("");
   const [borrador, setBorrador] = useState(() => leerBorrador(sede));
   const [busqueda, setBusqueda] = useState("");
@@ -99,14 +100,21 @@ function Ingresos({ sede }) {
   const pedidoPedido = params.get("pedido");
 
   const cargarHistorial = useCallback(async () => {
-    const filas = await fetchMovimientos({
-      sede,
-      tipos: ["ingreso"],
-      desde: new Date(Date.now() - 120 * DIA_MS).toISOString(),
-      incluirAnulados: true,
-      limite: 3000,
-    });
-    setHistorial(filas);
+    setErrorHistorial("");
+    try {
+      const filas = await conPlazoLectura(fetchMovimientos({
+        sede,
+        tipos: ["ingreso"],
+        desde: new Date(Date.now() - 120 * DIA_MS).toISOString(),
+        incluirAnulados: true,
+        limite: 3000,
+      }), 25000);
+      setHistorial(filas);
+      return filas;
+    } catch (err) {
+      setErrorHistorial(err.message || String(err));
+      throw err;
+    }
   }, [sede]);
 
   const cargarPedidos = useCallback(async () => {
@@ -132,7 +140,10 @@ function Ingresos({ sede }) {
   }, [sede]);
 
   const cargar = useCallback(async () => {
-    const [cat] = await conPlazoLectura(Promise.all([fetchCatalogo({ sede }), cargarHistorial()]));
+    setErrorCarga("");
+    // El historial no bloquea la búsqueda ni el borrador del remito.
+    cargarHistorial().catch(() => {});
+    const cat = await conPlazoLectura(fetchCatalogo({ sede, incluirStock: false }), 25000);
     setCatalogo(cat);
     // Sin pedidos se carga el remito a mano como siempre: si esta lectura falla no frena el ingreso.
     cargarPedidos().catch(() => {});
@@ -332,10 +343,14 @@ function Ingresos({ sede }) {
       });
       if (!seguir) return;
     }
-    if (repetido && !borrador.envio) {
+    // Si el historial todavía no llegó, verificar duplicados antes de escribir.
+    const repetidoAlConfirmar = !borrador.envio && (historial == null || errorHistorial)
+      ? remitoRepetido(agruparIngresos(await cargarHistorial()), borrador.remito)
+      : repetido;
+    if (repetidoAlConfirmar && !borrador.envio) {
       const ok = await confirmar({
         title: "Ese remito ya se cargó",
-        message: `El remito ${repetido.remito} se cargó el ${fechaHora(repetido.fecha)}. Si lo cargás de nuevo, el stock entra dos veces.`,
+        message: `El remito ${repetidoAlConfirmar.remito} se cargó el ${fechaHora(repetidoAlConfirmar.fecha)}. Si lo cargás de nuevo, el stock entra dos veces.`,
         confirmLabel: "Cargarlo igual",
         tone: "danger",
       });
@@ -586,7 +601,8 @@ function Ingresos({ sede }) {
               <RefreshCw size={16} />
             </button>
           </header>
-          {historial == null ? (
+          {errorHistorial && <p className="ing-alerta" role="alert">No se pudieron actualizar los ingresos anteriores. {errorHistorial} Tocá Actualizar para reintentar.</p>}
+          {historial == null && errorHistorial ? null : historial == null ? (
             <Cargando compacto />
           ) : grupos.length === 0 ? (
             <p className="ing-dim">Todavía no se cargó ningún ingreso en {sede}.</p>
