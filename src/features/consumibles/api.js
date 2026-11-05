@@ -169,6 +169,26 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false, inc
   const ids = mats.map((m) => m.id);
   const codigos = await fetchCodigosDeBarra(ids);
 
+  return armarCatalogo(mats, cats, configs, stocks, codigos, sede);
+}
+
+/** Catálogo para remitos: una lectura, sin stock ni datos de gestión ajenos al ingreso. */
+export async function fetchCatalogoIngreso({ sede = null } = {}) {
+  const { data, error } = await supabase.rpc("consumibles_catalogo_ingresos");
+  if (error) throw error;
+  if (!data || ![data.materiales, data.categorias, data.configuraciones, data.codigos].every(Array.isArray)) {
+    throw new Error("El catálogo llegó incompleto. Probá de nuevo.");
+  }
+  const codigos = new Map();
+  for (const fila of data.codigos) {
+    const lista = codigos.get(fila.material_id) ?? [];
+    lista.push(fila.codigo);
+    codigos.set(fila.material_id, lista);
+  }
+  return armarCatalogo(data.materiales, data.categorias, data.configuraciones, [], codigos, sede);
+}
+
+function armarCatalogo(mats, cats, configs, stocks, codigos, sede) {
   const catById = new Map(cats.map((c) => [c.id, c]));
   const cfgById = new Map(configs.map((c) => [c.material_id, c]));
   const stockById = new Map();

@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import {
   anularMovimiento,
-  fetchCatalogo,
+  fetchCatalogoIngreso,
   fetchMovimientos,
   fmtCantidad,
   fmtPesos,
@@ -27,6 +27,7 @@ import { lineasDePedidoRecibido, pedidosPorRecibir } from "./pedidoRecibido";
 import { useVerPrecios } from "../verPrecios";
 import ScannerRemito from "./ScannerRemito";
 import { archiveScannerFile } from "@/features/panol/scannerBridge";
+import { guardarCatalogoIngreso, leerCatalogoIngreso } from "./catalogoIngresoCache";
 import PedidoDelRemito from "./PedidoDelRemito";
 import { asociarPedidoAlRemito, detectarPedidoRemito, quitarPedidoDelRemito, validarPedidoDelRemito, vincularRemitoPedido } from "./pedidoRemito";
 
@@ -81,7 +82,8 @@ function Ingresos({ sede }) {
   const buscarRef = useRef(null);
   const enviandoRef = useRef(false);
 
-  const [catalogo, setCatalogo] = useState(null);
+  const [catalogo, setCatalogo] = useState(() => leerCatalogoIngreso(sede));
+  const [catalogoVigente, setCatalogoVigente] = useState(false);
   const [historial, setHistorial] = useState(null);
   const [errorHistorial, setErrorHistorial] = useState("");
   const [errorCarga, setErrorCarga] = useState("");
@@ -141,10 +143,13 @@ function Ingresos({ sede }) {
 
   const cargar = useCallback(async () => {
     setErrorCarga("");
-    // El historial no bloquea la búsqueda ni el borrador del remito.
-    cargarHistorial().catch(() => {});
-    const cat = await conPlazoLectura(fetchCatalogo({ sede, incluirStock: false }), 25000);
+    setCatalogoVigente(false);
+    const cat = await conPlazoLectura(fetchCatalogoIngreso({ sede }), 25000);
     setCatalogo(cat);
+    setCatalogoVigente(true);
+    guardarCatalogoIngreso(sede, cat);
+    // Primero el catálogo: el historial no compite con su descarga al abrir.
+    cargarHistorial().catch(() => {});
     // Sin pedidos se carga el remito a mano como siempre: si esta lectura falla no frena el ingreso.
     cargarPedidos().catch(() => {});
     setErrorCarga("");
@@ -309,6 +314,10 @@ function Ingresos({ sede }) {
 
   const confirmarIngreso = async () => {
     if (enviandoRef.current || guardando || ocupado || lecturaRef.current) return;
+    if (!catalogoVigente && !borrador.envio) {
+      toast.warning("Esperá a que termine de actualizarse el catálogo antes de confirmar.");
+      return;
+    }
     if (faltaPedido) {
       toast.warning("Elegí el pedido de este remito o indicá que es un ingreso sin pedido.");
       return;
@@ -452,6 +461,11 @@ function Ingresos({ sede }) {
             <span className="ing-dim">Entra al stock de {sede}</span>
           </header>
 
+          {!catalogoVigente && <p className="ing-alerta" role="status">
+            {errorCarga ? "No se pudo actualizar el catálogo. Tu borrador está guardado; reintentá antes de confirmar." : "Actualizando el catálogo. Podés ir preparando el remito."}
+            {errorCarga && <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => cargar().catch((e) => setErrorCarga(e.message))}>Reintentar</button>}
+          </p>}
+
           {pedidos.length > 0 && !borrador.pedidoId && !borrador.remitoLeido && (
             <div className="ing-pedidos" role="region" aria-label="Pedidos en camino">
               <h3>Pedidos en camino ({pedidos.length})</h3>
@@ -587,7 +601,7 @@ function Ingresos({ sede }) {
               {(borrador.lineas.length > 0 || borrador.remito || sinEmparejar.length > 0) && (
                 <button type="button" className="ui-btn ui-btn-fantasma" onClick={descartar} disabled={ocupado || guardando || !!borrador.envio}>Descartar</button>
               )}
-              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarIngreso} disabled={ocupado || guardando || !validas || sinEmparejar.length > 0 || faltaPedido}>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={confirmarIngreso} disabled={ocupado || guardando || (!catalogoVigente && !borrador.envio) || !validas || sinEmparejar.length > 0 || faltaPedido}>
                 <PackageCheck size={17} /> {guardando ? "Cargando…" : borrador.envio ? "Reintentar el ingreso" : "Confirmar ingreso"}
               </button>
             </div>

@@ -11,10 +11,10 @@ const callback = fuente.slice(inicio, fin);
 function crearCarga({ historial, catalogo = Promise.resolve([{ id: "guante" }]) }) {
   let mostrado;
   let opciones;
-  const cargar = new Function("useCallback", "setErrorCarga", "cargarHistorial", "fetchCatalogo", "conPlazoLectura", "setCatalogo", "cargarPedidos", "sede", `${callback}; return cargar;`)(
+  const cargar = new Function("useCallback", "setErrorCarga", "cargarHistorial", "fetchCatalogoIngreso", "conPlazoLectura", "setCatalogo", "cargarPedidos", "sede", "setCatalogoVigente", "guardarCatalogoIngreso", `${callback}; return cargar;`)(
     (fn) => fn, () => {}, historial,
     (args) => { opciones = args; return catalogo; }, conPlazoLectura,
-    (cat) => { mostrado = cat; }, async () => {}, "Chubut",
+    (cat) => { mostrado = cat; }, async () => {}, "Chubut", () => {}, () => {},
   );
   return { cargar, mostrado: () => mostrado, opciones: () => opciones };
 }
@@ -23,7 +23,7 @@ test("permite cargar el remito aunque el historial no responda", async () => {
   const carga = crearCarga({ historial: () => new Promise(() => {}) });
   await conPlazoLectura(carga.cargar(), 1000);
   assert.deepEqual(carga.mostrado(), [{ id: "guante" }]);
-  assert.equal(carga.opciones().incluirStock, false);
+  assert.deepEqual(carga.opciones(), { sede: "Chubut" });
 });
 
 test("un fallo del historial no se presenta como error del catálogo", async () => {
