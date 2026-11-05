@@ -6,11 +6,10 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { marcarAvisoPlanillaComoComprado } from "@/features/compras/planillaObrasApi";
 import { Aviso, Buscar, Cabecera, Vacio } from "../ui";
 import {
-  MARGEN_DIAS, armarPedidos, claveProveedor, inicioSemana, sumarDias,
-  sugerirPlazo, sugerirSemanasRubro, textoPedido,
+  armarPedidos, claveProveedor, inicioSemana, sumarDias, sugerirSemanasRubro, textoPedido,
 } from "./calendario";
 import {
-  cargarDatosCalendario, guardarPlazo, guardarPlazos, guardarSemanaItem, guardarSemanaRubro, guardarSemanasRubro,
+  cargarDatosCalendario, guardarSemanaItem, guardarSemanaProveedor, guardarSemanaRubro, guardarSemanasRubro,
 } from "./calendarioApi";
 
 /**
@@ -20,14 +19,15 @@ import {
  * los presupuestos son por barco aunque la mercadería llegue junta. Cuando un
  * pedido se compró, «Ya lo compré» arma el aviso de ingreso al pañol y deja los
  * renglones de la lista del barco en Comprado (lo mismo que la planilla de la
- * línea). Las semanas por rubro y los plazos de cada proveedor deciden la fecha;
- * mientras no están cargados se usa una sugerencia, que se ve en cursiva.
+ * línea). La fecha es la semana de compra desde el desmolde: la del ítem, la del
+ * proveedor o la del rubro; mientras no hay ninguna se usa una sugerida, que se
+ * ve en cursiva.
  */
 
 const VISTAS = [
   ["calendario", "Pedidos"],
-  ["rubros", "Semanas por rubro"],
-  ["plazos", "Plazos por proveedor"],
+  ["rubros", "Por rubro"],
+  ["proveedores", "Por proveedor"],
 ];
 const HORIZONTES = [2, 4, 8, 12];
 const ITEMS_A_LA_VISTA = 8;
@@ -50,8 +50,14 @@ function urgencia(comprarAntes, hoy, lunesHoy) {
   return { tono: "neutro", texto: `En ${semanas} ${semanas === 1 ? "semana" : "semanas"}`, detalle: `pedir antes del ${dm(comprarAntes)}` };
 }
 
-const FUENTE_SEMANA = { item: "sólo este ítem", rubro: "del rubro", sugerida: "sugerida" };
-const FUENTE_PLAZO = { cargado: "cargado", sugerido: "sugerido", general: "general" };
+const FUENTE_SEMANA = { item: "sólo este ítem", proveedor: "del proveedor", rubro: "del rubro", sugerida: "sugerida" };
+
+/** −4 → "4 semanas antes del desmolde". */
+function semanaEnPalabras(semana) {
+  if (semana === 0) return "la semana del desmolde";
+  const n = Math.abs(semana);
+  return `${n} ${n === 1 ? "semana" : "semanas"} ${semana < 0 ? "antes" : "después"} del desmolde`;
+}
 
 /** Campo numérico que guarda al salir o con Enter; vacío = sin valor. */
 function CampoNumero({ valor, sugerido, onGuardar, disabled, min = -52, max = 104, ancho = 64, titulo }) {
@@ -135,9 +141,9 @@ function TarjetaPedido({ proveedor, pedido, hoy, lunesHoy, editable, semanasItem
                 {x.deStock > 0 && <small className="cal-stock">+{fmt(x.deStock)} del pañol</small>}
               </div>
               <div className="cal-cifra cal-cuando">
-                <b>{dm(x.necesita)}</b>
+                <b>{dm(x.comprarAntes)}</b>
                 <small>
-                  <span className={x.semanaFuente === "sugerida" ? "cal-sug" : ""}>sem. {x.semana}</span> · {FUENTE_SEMANA[x.semanaFuente]}
+                  <span className={x.semanaFuente === "sugerida" ? "cal-sug" : ""} title={semanaEnPalabras(x.semana)}>sem. {x.semana}</span> · {FUENTE_SEMANA[x.semanaFuente]}
                 </small>
               </div>
               {editable && (
@@ -234,19 +240,13 @@ export default function CalendarioComprasPanel({ profile }) {
     return [...map.values()].sort((a, b) => b.items - a.items);
   }, [datos]);
 
-  const plazosSugeridos = useMemo(() => {
-    const map = new Map();
-    for (const p of proveedores) map.set(p.clave, sugerirPlazo(p.nombre, datos?.medidos, datos?.plazoGeneral));
-    return map;
-  }, [proveedores, datos]);
-
   const calendario = useMemo(() => {
     if (!datos) return null;
     const necesidades = linea === "todas" ? datos.necesidades : datos.necesidades.filter((n) => n.linea === linea);
     return armarPedidos({
-      ...datos, necesidades, sugeridas, plazosSugeridos, hoy: new Date(), semanasALaVista: horizonte, incluirVencidos: verVencidos,
+      ...datos, necesidades, sugeridas, hoy: new Date(), semanasALaVista: horizonte, incluirVencidos: verVencidos,
     });
-  }, [datos, linea, sugeridas, plazosSugeridos, horizonte, verVencidos]);
+  }, [datos, linea, sugeridas, horizonte, verVencidos]);
 
   const proveedoresVisibles = useMemo(() => {
     if (!calendario) return [];
@@ -294,10 +294,10 @@ export default function CalendarioComprasPanel({ profile }) {
     } catch (e) { toast.error(e.message || "No se pudo guardar."); throw e; }
   }
 
-  async function onPlazo(nombre, dias) {
+  async function onSemanaProveedor(nombre, semana) {
     try {
-      await guardarPlazo(nombre, dias);
-      actualizarMapa("plazos", claveProveedor(nombre), dias);
+      await guardarSemanaProveedor(nombre, semana);
+      actualizarMapa("semanasProveedor", claveProveedor(nombre), semana);
     } catch (e) { toast.error(e.message || "No se pudo guardar."); throw e; }
   }
 
@@ -314,22 +314,6 @@ export default function CalendarioComprasPanel({ profile }) {
         return { ...prev, semanasRubro: map };
       });
       toast.success(`${filas.length} semanas cargadas. Ajustá las que no te cierren.`);
-    } catch (e) { toast.error(e.message || "No se pudieron guardar."); }
-  }
-
-  async function usarPlazosSugeridos() {
-    const filas = proveedores
-      .filter((p) => !datos.plazos.has(p.clave))
-      .map((p) => ({ nombre: p.nombre, dias: plazosSugeridos.get(p.clave)?.dias ?? datos.plazoGeneral }));
-    if (!filas.length) { toast.info?.("Todos los proveedores ya tienen plazo."); return; }
-    try {
-      await guardarPlazos(filas);
-      setDatos((prev) => {
-        const map = new Map(prev.plazos);
-        for (const f of filas) map.set(claveProveedor(f.nombre), f.dias);
-        return { ...prev, plazos: map };
-      });
-      toast.success(`${filas.length} plazos cargados. Corregí los que sepas.`);
     } catch (e) { toast.error(e.message || "No se pudieron guardar."); }
   }
 
@@ -384,7 +368,7 @@ export default function CalendarioComprasPanel({ profile }) {
   const nAtrasados = proveedoresVisibles.reduce((n, p) => n + p.pedidos.filter((ped) => ped.comprarAntes < hoy).length, 0);
   const nVencidos = calendario ? calendario.vencidos.reduce((n, v) => n + v.items, 0) : 0;
   const rubrosSinCargar = rubros.filter((r) => !datos?.semanasRubro.has(`${r.linea}|${r.categoria_id}`)).length;
-  const provSinCargar = proveedores.filter((p) => !datos?.plazos.has(p.clave)).length;
+  const provConSemana = proveedores.filter((p) => datos?.semanasProveedor.has(p.clave)).length;
   const editable = puedeEditar && !datos?.sinMigracion;
 
   return (
@@ -398,7 +382,7 @@ export default function CalendarioComprasPanel({ profile }) {
           <>
             <b className="mono">{fmt(nPedidos)}</b> pedidos para hacer en las próximas {horizonte} semanas, uno por proveedor y obra
             {nAtrasados > 0 && <> · <b className="mono t" data-tono="rojo">{fmt(nAtrasados)}</b> atrasados</>}
-            {" "}· pedir antes = desmolde + semana del rubro − plazo del proveedor − {MARGEN_DIAS} días
+            {" "}· comprar = desmolde + semana de compra (del ítem, del proveedor o del rubro)
           </>
         ) : "Qué pedirle a cada proveedor para cada barco, y cuándo, para que los ítems estándar lleguen a tiempo."}
         acciones={(
@@ -414,7 +398,7 @@ export default function CalendarioComprasPanel({ profile }) {
             <button key={k} type="button" role="tab" aria-selected={vista === k} className={vista === k ? "on" : ""} onClick={() => setVista(k)}>
               {l}
               {k === "rubros" && rubrosSinCargar > 0 && <span className="cal-cuenta">{rubrosSinCargar}</span>}
-              {k === "plazos" && provSinCargar > 0 && <span className="cal-cuenta">{provSinCargar}</span>}
+              {k === "proveedores" && provConSemana > 0 && <span className="cal-cuenta" title="Proveedores con semana propia">{provConSemana}</span>}
             </button>
           ))}
         </div>
@@ -430,12 +414,12 @@ export default function CalendarioComprasPanel({ profile }) {
             ))}
           </div>
         )}
-        {vista !== "rubros" && <Buscar value={busqueda} onChange={setBusqueda} placeholder={vista === "plazos" ? "Proveedor…" : "Proveedor, obra o producto…"} />}
+        {vista !== "rubros" && <Buscar value={busqueda} onChange={setBusqueda} placeholder={vista === "proveedores" ? "Proveedor…" : "Proveedor, obra o producto…"} />}
       </div>
 
       {datos?.sinMigracion && (
         <Aviso tono="rojo" icono={AlertCircle}>
-          <b>Todavía no se pueden guardar fechas ni plazos:</b> falta instalar el calendario en la base. Mientras tanto se calcula con las sugerencias.
+          <b>Todavía no se pueden guardar ni leer las semanas de compra:</b> falta instalar la última versión del calendario en la base. Mientras tanto se calcula con las sugerencias.
         </Aviso>
       )}
       {error && <Aviso tono="rojo">{error}</Aviso>}
@@ -444,10 +428,10 @@ export default function CalendarioComprasPanel({ profile }) {
         <Cargando texto="Armando los pedidos con la lista de cada obra y el pañol…" />
       ) : !calendario ? null : vista === "calendario" ? (
         <>
-          {(rubrosSinCargar > 0 || provSinCargar > 0) && (
+          {rubrosSinCargar > 0 && (
             <Aviso tono="cian" icono={Info}>
-              Lo que está en <i>cursiva</i> sale de una sugerencia: faltan {rubrosSinCargar > 0 && <><b>{rubrosSinCargar}</b> semanas por rubro</>}{rubrosSinCargar > 0 && provSinCargar > 0 && " y "}{provSinCargar > 0 && <><b>{provSinCargar}</b> plazos de proveedor</>}.
-              {" "}Cargalos en las otras dos pestañas o tocá «Usar las sugeridas».
+              Lo que está en <i>cursiva</i> sale de una sugerencia: faltan <b>{rubrosSinCargar}</b> semanas por rubro.
+              {" "}Cargalas en «Por rubro» (o una para todo un proveedor en «Por proveedor»), o tocá «Usar las sugeridas».
             </Aviso>
           )}
           {!proveedoresVisibles.length ? (
@@ -473,7 +457,7 @@ export default function CalendarioComprasPanel({ profile }) {
                             <span className="cal-urg" data-tono={u.tono}>{u.texto}</span>
                           </span>
                           <span className="cmp-bloque-txt" style={{ display: "block" }}>
-                            {p.pedidos.length} {p.pedidos.length === 1 ? "pedido" : "pedidos"} ({p.pedidos.map((ped) => ped.obra).join(", ")}) · {nItems} ítems · {sinProv ? "sin proveedor en la ficha" : <>entrega en <span className={p.plazoFuente === "cargado" ? "" : "cal-sug"}>{p.plazo} días ({FUENTE_PLAZO[p.plazoFuente]})</span></>}
+                            {p.pedidos.length} {p.pedidos.length === 1 ? "pedido" : "pedidos"} ({p.pedidos.map((ped) => ped.obra).join(", ")}) · {nItems} ítems · {sinProv ? "sin proveedor en la ficha" : p.semanaProveedor != null ? <>todo se compra {semanaEnPalabras(p.semanaProveedor)}</> : "cada ítem con la semana de su rubro"}
                           </span>
                         </span>
                       </button>
@@ -544,8 +528,8 @@ export default function CalendarioComprasPanel({ profile }) {
           <div className="cmp-bloque-cab">
             <span className="cmp-bloque-ic" data-tono="azul"><CalendarDays size={16} /></span>
             <div style={{ minWidth: 0 }}>
-              <h2 className="cmp-bloque-tit">Semana en que cada rubro tiene que estar en el pañol</h2>
-              <p className="cmp-bloque-txt">Contando desde el desmolde: 0 = la semana del desmolde, 4 = un mes después, −2 = dos semanas antes. Vacío usa la sugerencia (en gris).</p>
+              <h2 className="cmp-bloque-tit">Semana de compra de cada rubro</h2>
+              <p className="cmp-bloque-txt">Desde el desmolde: −13 = tres meses antes, −4 = un mes antes, 0 = la semana del desmolde, 4 = un mes después. Vacío usa la sugerencia (en gris). Lo de un proveedor con semana propia no usa esta.</p>
             </div>
             {editable && <div className="der"><button type="button" className="ui-btn ui-btn-suave chico" onClick={usarSemanasSugeridas}>Usar las sugeridas en los vacíos</button></div>}
           </div>
@@ -594,17 +578,16 @@ export default function CalendarioComprasPanel({ profile }) {
           <div className="cmp-bloque-cab">
             <span className="cmp-bloque-ic" data-tono="azul"><Truck size={16} /></span>
             <div style={{ minWidth: 0 }}>
-              <h2 className="cmp-bloque-tit">Días desde que se pide hasta que llega</h2>
-              <p className="cmp-bloque-txt">Vacío usa la sugerencia: lo medido en sus pedidos recibidos, o la mediana general ({datos.plazoGeneral} días sobre {datos.pedidosMedidos} pedidos).</p>
+              <h2 className="cmp-bloque-tit">Semana de compra de todo lo de un proveedor</h2>
+              <p className="cmp-bloque-txt">Desde el desmolde: −4 = un mes antes, 0 = la semana del desmolde. Manda sobre la del rubro; vacío = cada ítem con la de su rubro.</p>
             </div>
-            {editable && <div className="der"><button type="button" className="ui-btn ui-btn-suave chico" onClick={usarPlazosSugeridos}>Usar los sugeridos en los vacíos</button></div>}
           </div>
           <div className="cmp-bloque-cuerpo sin-pad">
             {proveedores
               .filter((p) => linea === "todas" || p.lineas.has(linea))
               .filter((p) => !busqueda.trim() || p.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
               .map((p) => {
-                const sug = plazosSugeridos.get(p.clave);
+                const valor = datos.semanasProveedor.has(p.clave) ? datos.semanasProveedor.get(p.clave) : null;
                 return (
                   <div key={p.clave} className="cal-fila cal-fila-prov">
                     <div style={{ minWidth: 0 }}>
@@ -612,8 +595,8 @@ export default function CalendarioComprasPanel({ profile }) {
                       <div className="cal-meta"><span>{p.items} ítems de matriz</span><span>{[...p.lineas].sort().map((l) => `K${l}`).join(", ")}</span></div>
                     </div>
                     <div className="cal-celda cal-celda-der">
-                      <CampoNumero valor={datos.plazos.has(p.clave) ? datos.plazos.get(p.clave) : null} sugerido={sug?.dias ?? null} min={0} max={365} disabled={!editable} titulo={sug ? `Sugerido: ${sug.dias} días (${sug.fuente})` : ""} onGuardar={(v) => onPlazo(p.nombre, v)} />
-                      <small>días · sug. {sug?.dias} ({sug?.fuente})</small>
+                      <CampoNumero valor={valor} sugerido={null} disabled={!editable} titulo="Semana de compra desde el desmolde (vacío = la de cada rubro)" onGuardar={(v) => onSemanaProveedor(p.nombre, v)} />
+                      <small>{valor == null ? "la de cada rubro" : semanaEnPalabras(valor)}</small>
                     </div>
                   </div>
                 );

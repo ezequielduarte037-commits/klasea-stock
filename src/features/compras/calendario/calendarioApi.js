@@ -2,7 +2,8 @@ import { supabase } from "@/supabaseClient";
 import { calcularPlanillaDeLinea, cargarBasePlanilla } from "@/features/compras/planillaObrasApi";
 import { claveProveedor, normalizarTexto } from "./calendario";
 
-// Tablas de 20261103200000_compras_calendario.sql.
+// Tablas de 20261103200000_compras_calendario.sql y 20261105120000 (semana de
+// compra por proveedor).
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
 // Laminación y madera van por su propio circuito de pedidos, y los consumibles
@@ -27,7 +28,8 @@ async function traerTodo(construir) {
 async function traerOpcional(tabla, select) {
   const { data, error } = await supabase.from(tabla).select(select).limit(5000);
   if (error) {
-    if (error.code === "42P01" || error.code === "PGRST205") return { filas: [], falta: true };
+    // 42703: falta la columna (la base todavía no tiene la última migración).
+    if (["42P01", "PGRST205", "42703"].includes(error.code)) return { filas: [], falta: true };
     throw error;
   }
   return { filas: data ?? [], falta: false };
@@ -38,13 +40,6 @@ function lineaDe(lineaNombre) {
   return m ? m[1] : null;
 }
 
-function mediana(valores) {
-  const v = [...valores].sort((a, b) => a - b);
-  if (!v.length) return null;
-  const m = Math.floor(v.length / 2);
-  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
-}
-
 /**
  * Lo que falta comprar sale de la planilla de cada línea, la misma cuenta que
  * muestra la lista de la obra (configuraciones, exclusiones, modelo elegido,
@@ -53,12 +48,11 @@ function mediana(valores) {
  */
 export async function cargarDatosCalendario() {
   const base = cargarBasePlanilla({ obrasSelect: "id,codigo,linea_nombre,estado,fecha_inicio,desmolde_real,desmolde_estimado" });
-  const [{ obras: obrasRaw, materiales, modelos }, rubrosCfg, itemsCfg, plazosCfg, pedidos] = await Promise.all([
+  const [{ obras: obrasRaw, materiales, modelos }, rubrosCfg, itemsCfg, proveedoresCfg] = await Promise.all([
     base,
     traerOpcional("compras_calendario_rubros", "linea,categoria_id,semana,updated_at"),
     traerOpcional("compras_calendario_items", "linea,material_id,semana,nota"),
-    traerOpcional("compras_plazos_proveedor", "proveedor,nombre,dias"),
-    supabase.from("purchase_requests").select("proveedor,created_at,updated_at").eq("status", "recibido").limit(2000),
+    traerOpcional("compras_plazos_proveedor", "proveedor,nombre,semana"),
   ]);
 
   const catalogo = new Map(materiales.map((m) => [m.id, m]));
@@ -154,19 +148,6 @@ export async function cargarDatosCalendario() {
     llegadas.push({ linea: obra.linea, categoria_id: item.categoria_id, semanas });
   }
 
-  // Plazos medidos en pedidos recibidos (pocos tienen proveedor cargado).
-  const medidos = new Map();
-  const todos = [];
-  for (const p of pedidos.data ?? []) {
-    const dias = (new Date(p.updated_at) - new Date(p.created_at)) / 86400000;
-    if (!Number.isFinite(dias) || dias < 0 || dias > 200) continue;
-    todos.push(dias);
-    const k = claveProveedor(p.proveedor);
-    if (!k) continue;
-    if (!medidos.has(k)) medidos.set(k, { dias: [] });
-    medidos.get(k).dias.push(dias);
-  }
-
   return {
     obras,
     matriz,
@@ -174,14 +155,11 @@ export async function cargarDatosCalendario() {
     libre,
     cubiertas,
     llegadas,
-    medidos,
-    plazoGeneral: Math.round(mediana(todos) ?? 21),
-    pedidosMedidos: todos.length,
     semanasRubro: new Map(rubrosCfg.filas.map((r) => [`${r.linea}|${r.categoria_id}`, r.semana])),
     semanasItem: new Map(itemsCfg.filas.map((r) => [`${r.linea}|${r.material_id}`, r.semana])),
-    plazos: new Map(plazosCfg.filas.map((r) => [r.proveedor, r.dias])),
+    semanasProveedor: new Map(proveedoresCfg.filas.filter((r) => r.semana != null).map((r) => [r.proveedor, r.semana])),
     fueraDelCalendario,
-    sinMigracion: rubrosCfg.falta || itemsCfg.falta || plazosCfg.falta,
+    sinMigracion: rubrosCfg.falta || itemsCfg.falta || proveedoresCfg.falta,
   };
 }
 
@@ -207,19 +185,12 @@ export async function guardarSemanaItem(linea, materialId, semana) {
   if (error) throw error;
 }
 
-export async function guardarPlazo(nombre, dias) {
+export async function guardarSemanaProveedor(nombre, semana) {
   const proveedor = claveProveedor(nombre);
   if (!proveedor) return;
-  const q = dias == null
+  const q = semana == null
     ? supabase.from("compras_plazos_proveedor").delete().eq("proveedor", proveedor)
-    : supabase.from("compras_plazos_proveedor").upsert({ proveedor, nombre: String(nombre).trim(), dias }, { onConflict: "proveedor" });
+    : supabase.from("compras_plazos_proveedor").upsert({ proveedor, nombre: String(nombre).trim(), semana }, { onConflict: "proveedor" });
   const { error } = await q;
-  if (error) throw error;
-}
-
-export async function guardarPlazos(filas = []) {
-  const payload = filas.map((f) => ({ proveedor: claveProveedor(f.nombre), nombre: String(f.nombre).trim(), dias: f.dias })).filter((f) => f.proveedor);
-  if (!payload.length) return;
-  const { error } = await supabase.from("compras_plazos_proveedor").upsert(payload, { onConflict: "proveedor" });
   if (error) throw error;
 }
