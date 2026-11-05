@@ -225,6 +225,7 @@ const MemoriaVivaScreen = pantalla(() => import("@/features/memorias/MemoriaViva
 const RevisionesScreen = pantalla(() => import("@/features/revisiones/RevisionesScreen"));
 const EquiposScreen = pantalla(() => import("@/features/equipos/EquiposScreen"));
 const SemaforoScreen = pantalla(() => import("@/features/semaforo/SemaforoScreen"));
+const AtrasosScreen = pantalla(() => import("@/features/atrasos/AtrasosScreen"));
 const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScreen"));
 const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScreen"));
 const PantallaEgresoScreen = pantalla(() => import("@/features/panol/PantallaEgresoScreen"));
@@ -738,6 +739,7 @@ export default function App() {
           <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
           <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
           <Route path="/compras-etapa" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><ComprasEtapasScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/atrasos"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><AtrasosScreen          {...A} /></RequireRole></RequireAuth>} />
           <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
           <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
           <Route path="/memorias/viva" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriaVivaScreen {...A} /></RequireRole></RequireAuth>} />

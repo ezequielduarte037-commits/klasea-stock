@@ -272,6 +272,12 @@ export const NAV_SECTIONS = [
     roles: ["admin", "oficina", "tecnica", "compras", "cadete"],
   },
   {
+    id: "atrasos", label: "Atrasos de hoy", modulo: "Compras", path: "/atrasos", Icon: CalendarDays,
+    hint: "Todo lo que ya pasó su fecha: compras estándar, pedidos, avisos, faltantes, obras e hitos.",
+    keywords: "atrasos atrasado vencido vencidos tablero dashboard demora tarde pendiente fecha",
+    roles: ["admin", "oficina", "tecnica", "compras"],
+  },
+  {
     id: "semaforo", label: "Semáforo", modulo: "Compras", path: "/semaforo", Icon: LayoutGrid,
     hint: "Estado visual de avance de compras por obra.",
     keywords: "semaforo tablero avance verde rojo estado obras riesgo",
