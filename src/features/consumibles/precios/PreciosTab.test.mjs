@@ -129,6 +129,26 @@ test("plan: no elige arbitrariamente entre dos códigos del mismo consumible", (
   assert.equal(plan.actualizaciones.length, 0);
 });
 
+test("precio por cartucho se conserva aunque se compre en cajas de doce", () => {
+  const plan = planDeCostos([producto("S0001", 11503.8, { id: "i", material_id: "m" })],
+    [{ material_id: "m", factor_compra: 12, factor_precio_lista: 1 }], [{ id: "m", es_consumible: true }]);
+  assert.equal(plan.actualizaciones[0].costo_unitario_ars, 11503.8);
+  assert.equal(plan.actualizaciones[0].factor_compra, 12);
+});
+
+test("precio de envase de cuatro kilos se convierte a kilos sin usar el contenido de otra compra", () => {
+  const plan = planDeCostos([producto("cola", 17725.4, { id: "i", material_id: "m" })],
+    [{ material_id: "m", factor_compra: 20, factor_precio_lista: 4 }], [{ id: "m", es_consumible: true }]);
+  assert.equal(plan.actualizaciones[0].costo_unitario_ars, 4431.35);
+});
+
+test("una presentación sin confirmar no se revaloriza aunque tenga costo y factor de caja", () => {
+  const plan = planDeCostos([producto("dudoso", 100, { id: "i", material_id: "m" })],
+    [{ material_id: "m", factor_compra: 12, precio_revision_pendiente: true }], [{ id: "m", es_consumible: true }]);
+  assert.equal(plan.actualizaciones.length, 0);
+  assert.equal(plan.omitidos.length, 1);
+});
+
 test("plan: rechaza factores inválidos y valores infinitos", () => {
   const items = [producto("a", 10, { id: "i1", material_id: "m1" }), producto("b", Infinity, { id: "i2", material_id: "m2" })];
   const plan = planDeCostos(items, [{ material_id: "m1", factor_compra: 0 }], ["m1", "m2"].map((id) => ({ id, es_consumible: true })));
@@ -140,6 +160,7 @@ test("plan: rechaza factores inválidos y valores infinitos", () => {
 // se pierde después de guardar, una caída a mitad del lote o un cambio de ficha.
 function baseFalsa(inicial = {}, { manager = true, fallar = () => null } = {}) {
   const tablas = structuredClone({ consumibles_listas: [], consumibles_lista_items: [], consumibles_config: [], panol_materiales: [], profiles: [], ...inicial });
+  for (const c of tablas.consumibles_config) c.precio_revision_pendiente ??= false;
   const llamadas = [];
   let secuencia = 0;
   const cliente = {
@@ -179,7 +200,7 @@ function baseFalsa(inicial = {}, { manager = true, fallar = () => null } = {}) {
                 if (existente) { if (!opciones.ignoreDuplicates) Object.assign(existente, dato); filas.push(existente); }
                 else {
                   const fila = { id: `auto-${++secuencia}`, ...dato };
-                  if (tabla === "consumibles_config") fila.factor_compra ??= null;
+                  if (tabla === "consumibles_config") { fila.factor_compra ??= null; fila.precio_revision_pendiente ??= false; }
                   tablas[tabla].push(fila);
                   filas.push(fila);
                 }
@@ -331,4 +352,24 @@ test("repositorio: informa cuántos se grabaron ante una falla parcial", async (
   await assert.rejects(api.aplicarCostos("l1", plan), (error) => error.actualizados === 1 && /1 de 2/.test(error.message));
   assert.equal(base.tablas.consumibles_config[0].costo_unitario_ars, 10);
   assert.equal(base.tablas.consumibles_config[1].costo_unitario_ars, undefined);
+});
+
+test("repositorio: una confirmación concurrente de presentación exige revisar el plan", async () => {
+  const base = baseCostos();
+  base.tablas.consumibles_config[0].factor_precio_lista = 1;
+  const api = crearPreciosRepositorio(base.cliente, base.asegurar);
+  const plan = await api.prepararCostos("l1");
+  base.tablas.consumibles_config[0].factor_precio_lista = 12;
+  await assert.rejects(api.aplicarCostos("l1", plan), /Cambiaron los vínculos/);
+  assert.equal(base.llamadas.some((l) => l.operacion === "update"), false);
+});
+
+test("repositorio: no pisa una presentación que queda pendiente justo antes de guardar", async () => {
+  const base = baseCostos();
+  const api = crearPreciosRepositorio(base.cliente, async () => {
+    base.tablas.consumibles_config[0].precio_revision_pendiente = true;
+  });
+  const plan = await api.prepararCostos("l1");
+  await assert.rejects(api.aplicarCostos("l1", plan), /Se actualizaron 0 de 2/);
+  assert.equal(base.tablas.consumibles_config[0].costo_unitario_ars, undefined);
 });

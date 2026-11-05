@@ -37,9 +37,10 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
     let cambios;
     try { cambios = cambiosDeFicha(f, inicial); }
     catch (e) { return toast.error(e.message); }
-    // Cambió el factor y hay costo de lista: el costo por unidad de entrega se recalcula.
-    if (cambios.config && "factor_compra" in cambios.config && item.config?.costo_lista_item_id && item.costoCompraArs != null) {
-      cambios.config.costo_unitario_ars = cambios.config.factor_compra ? Math.round((item.costoCompraArs / cambios.config.factor_compra) * 10000) / 10000 : null;
+    // El contenido de una caja cambia cantidades; sólo la base del precio cambia el costo.
+    if (cambios.config && "factor_precio_lista" in cambios.config && item.config?.costo_lista_item_id && item.costoCompraArs != null) {
+      cambios.config.costo_unitario_ars = Math.round((item.costoCompraArs / cambios.config.factor_precio_lista) * 10000) / 10000;
+      cambios.config.costo_actualizado_at = new Date().toISOString();
     }
     if (!Object.keys(cambios).length) {
       onCerrar();
@@ -179,6 +180,12 @@ export default function PanelEdicion({ item, puedeEditar, onCerrar, onGuardado, 
               </label>
             </div>
             <small className="cat-dim">El factor es cuántas unidades de entrega trae una de compra (caja x100 → 100).</small>
+            {verPrecios && <label className="cat-campo">
+              <span>El precio de lista cubre cuántas {f.unidad_entrega || "unidades"}</span>
+              <input className="ui-input" inputMode="decimal" value={f.factor_precio_lista} onChange={set("factor_precio_lista")} placeholder="Confirmar presentación del precio" />
+              <small className="cat-dim">Precio por pieza: 1. Precio por caja de 12: 12. Este dato es independiente de cuántas piezas trae la caja.</small>
+              {c.precio_revision_pendiente && <small role="status">Precio pendiente de confirmar: se conserva el costo actual y no se recalcula con listas hasta completar este dato.</small>}
+            </label>}
           </section>
 
           <section>

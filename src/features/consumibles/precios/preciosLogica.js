@@ -152,9 +152,9 @@ export function planDeCostos(items, configs, materiales) {
     vistos.add(item.material_id);
     const costo = numeroPrecio(item.costo_ars);
     const config = porMaterial.get(item.material_id);
-    const factor = numeroPrecio(config?.factor_compra);
-    if (!item.id || costo == null || costo < 0 || !consumibles.has(item.material_id)
-      || (config?.factor_compra != null && !(factor > 0))) {
+    const factor = numeroPrecio(config?.factor_precio_lista ?? config?.factor_compra);
+    if (config?.precio_revision_pendiente || !item.id || costo == null || costo < 0 || !consumibles.has(item.material_id)
+      || ((config?.factor_precio_lista ?? config?.factor_compra) != null && !(factor > 0))) {
       omitidos.push(item);
       continue;
     }
@@ -164,7 +164,8 @@ export function planDeCostos(items, configs, materiales) {
       continue;
     }
     actualizaciones.push({ material_id: item.material_id, codigo: item.codigo,
-      costo_unitario_ars: unitario, costo_lista_item_id: item.id, factor_compra: factor,
+      costo_unitario_ars: unitario, costo_lista_item_id: item.id, factor_compra: numeroPrecio(config?.factor_compra),
+      factor_precio_lista: numeroPrecio(config?.factor_precio_lista),
       sin_factor: factor == null });
   }
   // Dos códigos para el mismo producto requieren elegir en Catálogo: el orden

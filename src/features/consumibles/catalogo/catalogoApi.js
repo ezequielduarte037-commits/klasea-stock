@@ -72,6 +72,8 @@ export function configDesdeRenglon(renglon, unidadEntrega, proveedorNombre) {
     proveedor_codigo: renglon.codigo,
     unidad_compra: renglon.unidad_compra,
     factor_compra: factor,
+    factor_precio_lista: factor,
+    precio_revision_pendiente: factor == null,
     costo_unitario_ars: costoUnitario(renglon.costo_ars, factor),
     costo_lista_item_id: renglon.id,
     costo_actualizado_at: new Date().toISOString(),

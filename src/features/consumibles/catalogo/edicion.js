@@ -15,6 +15,7 @@ export function estadoInicial(item) {
     unidad_entrega: c.unidad_entrega ?? item.unidad ?? "unidad",
     unidad_compra: c.unidad_compra ?? "",
     factor_compra: aTexto(c.factor_compra),
+    factor_precio_lista: aTexto(c.factor_precio_lista ?? (c.precio_revision_pendiente ? null : c.factor_compra)),
     lote_compra: aTexto(c.lote_compra),
     stock_maximo: aTexto(c.stock_maximo),
     cupo_diario: aTexto(c.cupo_diario),
@@ -36,6 +37,12 @@ export function cambiosDeFicha(f, inicial) {
     if (texto(f[k]) !== texto(inicial[k])) config[k] = texto(f[k]) || null;
   }
   if (config.unidad_entrega === null) config.unidad_entrega = "unidad";
+  if (f.factor_precio_lista !== inicial.factor_precio_lista) {
+    const factor = numero(f.factor_precio_lista);
+    if (!(factor > 0)) throw new Error("Indicá cuántas unidades de entrega cubre el precio de lista.");
+    config.factor_precio_lista = factor;
+    config.precio_revision_pendiente = false;
+  }
   if (f.activo_mostrador !== inicial.activo_mostrador) config.activo_mostrador = f.activo_mostrador;
   for (const k of ["factor_compra", "lote_compra", "stock_maximo", "cupo_diario", "favorito_orden"]) {
     if (f[k] === inicial[k]) continue;

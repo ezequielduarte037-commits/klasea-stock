@@ -91,7 +91,7 @@ export function crearPreciosRepositorio(cliente, asegurarConfig) {
     for (let i = 0; i < ids.length; i += 200) {
       const lote = ids.slice(i, i + 200);
       const resultados = await Promise.all([
-        cliente.from("consumibles_config").select("material_id,factor_compra").in("material_id", lote),
+        cliente.from("consumibles_config").select("material_id,factor_compra,factor_precio_lista,precio_revision_pendiente").in("material_id", lote),
         cliente.from("panol_materiales").select("id,es_consumible").in("id", lote),
       ]);
       for (const r of resultados) if (r.error) throw r.error;
@@ -104,7 +104,7 @@ export function crearPreciosRepositorio(cliente, asegurarConfig) {
   async function aplicarCostos(listaId, plan, alAvanzar = () => {}) {
     await exigirManager();
     const fresco = await prepararCostos(listaId);
-    const firma = (p) => JSON.stringify(p.actualizaciones.map((r) => [r.material_id, r.costo_lista_item_id, r.costo_unitario_ars, r.factor_compra]));
+    const firma = (p) => JSON.stringify(p.actualizaciones.map((r) => [r.material_id, r.costo_lista_item_id, r.costo_unitario_ars, r.factor_compra, r.factor_precio_lista]));
     if (fresco.repetidos.length || firma(fresco) !== firma(plan)) throw new Error("Cambiaron los vínculos o los factores de compra. Revisá la cantidad y confirmá de nuevo.");
     const fecha = new Date().toISOString();
     let actualizados = 0;
@@ -119,6 +119,8 @@ export function crearPreciosRepositorio(cliente, asegurarConfig) {
         // No usamos un factor que Catálogo cambió mientras estaba abierto el
         // diálogo: se frena y se vuelve a calcular con la ficha actual.
         consulta = fila.factor_compra == null ? consulta.is("factor_compra", null) : consulta.eq("factor_compra", fila.factor_compra);
+        consulta = fila.factor_precio_lista == null ? consulta.is("factor_precio_lista", null) : consulta.eq("factor_precio_lista", fila.factor_precio_lista);
+        consulta = consulta.eq("precio_revision_pendiente", false);
         const { error } = await consulta.select("material_id").single();
         if (error) throw error;
         actualizados += 1;
