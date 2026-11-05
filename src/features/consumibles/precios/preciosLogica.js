@@ -165,7 +165,7 @@ export function planDeCostos(items, configs, materiales) {
     }
     actualizaciones.push({ material_id: item.material_id, codigo: item.codigo,
       costo_unitario_ars: unitario, costo_lista_item_id: item.id, factor_compra: numeroPrecio(config?.factor_compra),
-      factor_precio_lista: numeroPrecio(config?.factor_precio_lista),
+      factor_precio_lista: config ? numeroPrecio(config.factor_precio_lista) : 1,
       sin_factor: factor == null });
   }
   // Dos códigos para el mismo producto requieren elegir en Catálogo: el orden

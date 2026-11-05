@@ -200,7 +200,7 @@ function baseFalsa(inicial = {}, { manager = true, fallar = () => null } = {}) {
                 if (existente) { if (!opciones.ignoreDuplicates) Object.assign(existente, dato); filas.push(existente); }
                 else {
                   const fila = { id: `auto-${++secuencia}`, ...dato };
-                  if (tabla === "consumibles_config") { fila.factor_compra ??= null; fila.precio_revision_pendiente ??= false; }
+                  if (tabla === "consumibles_config") { fila.factor_compra ??= null; fila.factor_precio_lista ??= 1; fila.precio_revision_pendiente ??= false; }
                   tablas[tabla].push(fila);
                   filas.push(fila);
                 }

@@ -93,7 +93,7 @@ begin
       new.factor_precio_lista := coalesce(new.factor_precio_lista,new.factor_compra,1);
     end if;
   else
-    if new.precio_revision_pendiente and (
+    if new.precio_revision_pendiente and old.costo_lista_item_id is not null and (
       new.costo_unitario_ars is distinct from old.costo_unitario_ars or
       new.costo_lista_item_id is distinct from old.costo_lista_item_id or
       new.factor_precio_lista is distinct from old.factor_precio_lista
