@@ -13,6 +13,14 @@ test('un código repetido no aprueba un modelo o color distinto',()=>{
  assert.equal(materialMatchIsStrong(materialMatchScore(anterior,ingreso)),false);
  assert.equal(topMaterialMatches([anterior],ingreso).length,1);
 });
+test('un código que sólo contiene al otro sugiere pero no vincula solo (C42377 vs 4237, 05/11)',()=>{
+ const luz={codigo:'4237',descripcion:'Luz de lectura mediana',proveedor:'Flojumar'};
+ const cerradura={codigo:'C42377',descripcion:'Cerradura Magnetica de Inox para Puerta (grosor puerta (0.875-1")'};
+ assert.equal(materialMatchIsStrong(materialMatchScore(luz,cerradura)),false);
+ assert.equal(topMaterialMatches([luz],cerradura).length,1);
+ // Si además el nombre coincide, el texto manda.
+ assert.equal(materialMatchIsStrong(materialMatchScore(luz,{codigo:'C42377',descripcion:'Luz de lectura mediana'})),true);
+});
 test('modelos y códigos que coinciden siguen vinculándose automáticamente',()=>{
  const m={codigo:'RULE800',descripcion:'BOMBA RULE 800 GPH'};
  assert.equal(materialMatchIsStrong(materialMatchScore(m,{descripcion:m.descripcion,codigo:m.codigo})),true);

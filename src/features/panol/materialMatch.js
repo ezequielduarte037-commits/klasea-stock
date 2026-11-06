@@ -114,7 +114,14 @@ function rawMaterialMatchScore(material = {}, query = {}) {
   if (!queryText && !queryCode) return 0;
   if (queryCode && catalogCode && queryCode === catalogCode) return 120;
   if (queryCode && catalogBarcodes && catalogBarcodes.split(" ").includes(queryCode)) return 118;
-  if (queryCode && catalogCode && (catalogCode.includes(queryCode) || queryCode.includes(catalogCode))) return 102;
+  // Un código que sólo CONTIENE al otro es otro producto casi siempre: el
+  // "C42377" de Baron (cerradura magnética) contiene el "4237" de Flojumar (luz
+  // de lectura mediana). Con 102 el ingreso del 05/11/2026 lo vinculó solo y la
+  // ficha de la luz terminó renombrada como cerradura. Queda como sugerencia
+  // (por debajo de materialMatchIsStrong) salvo que el nombre también coincida.
+  if (queryCode && catalogCode && (catalogCode.includes(queryCode) || queryCode.includes(catalogCode))) {
+    return Math.max(80, rawMaterialMatchScore(material, fields.text));
+  }
 
   if (!queryText) return 0;
   if (description === queryText) return 112;
