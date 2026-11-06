@@ -1885,6 +1885,14 @@ export default function EnviarAPanolModal({
     }
     // El reparto por obra no puede superar la cantidad del ítem.
     const num = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
+    // Un renglón sin cantidad entraba igual: quedaba en el kardex como
+    // "Ingreso 0 unidad" y no sumaba stock (ventana 62538 del remito
+    // "vidrios k37", 05/11/2026). Se frena acá, diciendo cuál es.
+    const sinCantidad = items.find((it) => String(it.descripcion || it.material_id || "").trim() && !(num(it.cantidad) > 0));
+    if (sinCantidad) {
+      toast.warning(`Falta la cantidad de "${sinCantidad.descripcion || "un ítem"}".`);
+      return;
+    }
     const sobreAsignado = items.find((it) => Array.isArray(it.distribucion) && it.distribucion.reduce((s, d) => s + num(d.cantidad), 0) > num(it.cantidad) + 0.001);
     if (sobreAsignado) {
       toast.warning(`Repartiste más unidades de las que hay en "${sobreAsignado.descripcion || "un ítem"}". Ajustá el reparto por obra.`);
