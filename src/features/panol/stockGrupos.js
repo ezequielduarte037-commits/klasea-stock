@@ -23,6 +23,19 @@ export function norm(value = "") {
     .trim();
 }
 
+// Nombre de un movimiento: manda el actual de la ficha, como en la tarjeta del
+// stock. `historico` es la copia que se congeló al registrarlo (texto del
+// remito o nombre de ese día) y sólo se informa si es distinta: la manija
+// "MANIJA PUERTA K37" se renombró el 26/10 y sus egresos seguían saliendo con
+// el nombre viejo sin ningún aviso.
+export function nombreDeMovimiento(row = {}) {
+  const actual = String(row.descripcion_catalogo || "").trim();
+  const copia = String(row.descripcion || "").trim();
+  const nombre = actual || copia || "(sin descripción)";
+  const historico = actual && copia && norm(actual) !== norm(copia) ? copia : "";
+  return { nombre, historico };
+}
+
 export function codeKey(value = "") {
   return String(value ?? "").trim().toLowerCase();
 }

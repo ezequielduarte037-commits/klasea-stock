@@ -102,6 +102,7 @@ import {
   rowEgresoKind,
   rowEgresoQuantity,
   necesitaReponer,
+  nombreDeMovimiento,
   stockParaMinimo,
 } from "@/features/panol/stockGrupos";
 
@@ -1399,7 +1400,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const displayedDelta = isOut && rowHasRecordedEgreso(row) ? -rowEgresoQuantity(row) : delta;
   const label = isLocation ? "Ubicación" : isAssignment ? egresoMeta.label : isTransit ? "Tránsito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
   const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.violet : isOut ? egresoMeta.color : C.green;
-  const descripcion = row.descripcion || "(sin descripcion)";
+  const { nombre: descripcion, historico: descripcionHistorica } = nombreDeMovimiento(row);
   const variante = String(row.variante || "").trim();
   const ruta = (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`;
   const retira = rowMovimientoRetira(row);
@@ -1412,7 +1413,12 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
           <span style={{ color: labelColor, background: C.panel, border: `1px solid ${labelColor}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.3 }}>{yaAnulado ? "Anulado" : label}</span>
-          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3, overflowWrap: "anywhere" }}>{descripcion}</span>
+          <span
+            title={descripcionHistorica ? `${descripcion} · en este movimiento figura como: ${descripcionHistorica}` : undefined}
+            style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3, overflowWrap: "anywhere", borderBottom: descripcionHistorica ? `1px dotted ${C.border2}` : "none" }}
+          >
+            {descripcion}
+          </span>
           {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
         </div>
         <span style={{ flexShrink: 0, color: isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>

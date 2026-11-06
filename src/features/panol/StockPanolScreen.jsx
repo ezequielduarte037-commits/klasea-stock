@@ -17,7 +17,7 @@ import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/produ
 import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchFichasPanolPendientes, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
-import { rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra } from "@/features/panol/stockGrupos";
+import { nombreDeMovimiento, rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra } from "@/features/panol/stockGrupos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import PanelConsumiblesDeObra from "@/features/materiales/obra/PanelConsumiblesDeObra";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
@@ -546,7 +546,7 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
   const col = m.anulado ? C.dim : meta.color;
   const detalle = String(m.row.egreso_nota || m.row.stock_nota || m.row.notas || "").replace(/\[anulado\]/gi, "").trim();
   const esSalida = MOV_SALIDA.has(m.kind);
-  const desc = m.row.descripcion || "(sin descripción)";
+  const { nombre: desc, historico: descHistorica } = nombreDeMovimiento(m.row);
   const variant = String(m.row.variante || "").trim();
   const retira = rowMovimientoRetira(m.row);
   const usuario = rowMovimientoUsuario(m.row) || "sin registrar";
@@ -558,7 +558,14 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
           <MaterialThumb material={{ id: m.row.material_id, descripcion: desc, imagen_url: m.row.imagen_url }} size={42} showZoomBadge />
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{desc}</div>
+          {/* El nombre actual de la ficha; si el movimiento se registró con
+              otro, subrayado y el original al pasar el mouse (como la tarjeta). */}
+          <div
+            title={descHistorica ? `${desc} · en este movimiento figura como: ${descHistorica}` : undefined}
+            style={{ width: "fit-content", maxWidth: "100%", fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3, overflowWrap: "anywhere", borderBottom: descHistorica ? `1px dotted ${C.border2}` : "none" }}
+          >
+            {desc}
+          </div>
           <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
             <span>{fmtDate(m.fecha)}</span>
             {m.row.codigo && <span style={{ fontFamily: C.mono }}>{m.row.codigo}</span>}

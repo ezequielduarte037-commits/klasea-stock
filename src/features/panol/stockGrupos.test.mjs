@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowDelta } from "./panolMovimientos.js";
-import { buildProductGroups, necesitaReponer, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra, stockParaMinimo } from "./stockGrupos.js";
+import { buildProductGroups, necesitaReponer, nombreDeMovimiento, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra, stockParaMinimo } from "./stockGrupos.js";
 
 // Forma real del par registrado al liberar el faro del 52-24 el 21/10.
 const salida = {
@@ -134,4 +134,17 @@ test("con una obra filtrada el mínimo mira el saldo del grupo", () => {
 
 test("un negativo va a reconciliar, no a reponer", () => {
   assert.equal(necesitaReponer({ total: -1, stockLibre: -1, stockMinimo: 5 }), false);
+});
+
+test("el movimiento muestra el nombre actual y guarda el que tenía al registrarse", () => {
+  // Manija renombrada el 26/10: el egreso del 05/11 heredó el nombre viejo.
+  assert.deepEqual(
+    nombreDeMovimiento({ descripcion: "MANIJA PUERTA K37", descripcion_catalogo: "MANIJA K37/K55/K52" }),
+    { nombre: "MANIJA K37/K55/K52", historico: "MANIJA PUERTA K37" },
+  );
+  // Sólo mayúsculas o acentos distintos no es otro nombre.
+  assert.equal(nombreDeMovimiento({ descripcion: "Luz de lectura MEDIANA", descripcion_catalogo: "Luz de lectura mediana" }).historico, "");
+  // Sin ficha queda la copia del movimiento.
+  assert.deepEqual(nombreDeMovimiento({ descripcion: "Cerradura magnética" }), { nombre: "Cerradura magnética", historico: "" });
+  assert.equal(nombreDeMovimiento({}).nombre, "(sin descripción)");
 });
