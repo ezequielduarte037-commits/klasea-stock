@@ -605,6 +605,18 @@ export function rowIsAsignacionMirrorOut(row) {
   return rowSource(row) === "transferencia_egreso" && !rowIsLiberacionStock(row);
 }
 
+// La llegada de una reasignación que después se retiró. Una reasignación son
+// dos filas: la salida de la obra vieja (espejo, oculta) y la llegada a la
+// nueva, que es la que la muestra. Retirar esa unidad graba el egreso encima de
+// la llegada, y la fila pasaba a leerse como un egreso a secas: la reasignación
+// desaparecía del historial (soporte de TV 64-21 → 55-2, 06/11/2026). Es una
+// reasignación seguida de egreso, el mismo hecho que "Reasig. -> egreso".
+export function rowIsReasignacionRetirada(row) {
+  const obraId = rowObraId(row);
+  return rowSource(row) === "transferencia_ingreso" && !!obraId && !!row.obra_origen_id
+    && row.obra_origen_id !== obraId && !row.egreso_destino_obra_id && rowHasRecordedEgreso(row);
+}
+
 export function rowIsMovimientoEspejo(row) {
   // Una liberación se muestra desde la obra de origen. Su ingreso en stock
   // general conserva el saldo, pero no representa una segunda operación.
@@ -638,7 +650,7 @@ export function rowEgresoKind(row) {
   if (row.egreso_destino_obra_id || source.startsWith("transferencia_egreso")) {
     return rowObraId(row) ? "reasignacion_egreso" : "egreso_obra";
   }
-  if (rowIsReasignacionSinObra(row)) return "reasignacion_egreso";
+  if (rowIsReasignacionSinObra(row) || rowIsReasignacionRetirada(row)) return "reasignacion_egreso";
   return "egreso";
 }
 

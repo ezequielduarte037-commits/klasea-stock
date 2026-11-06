@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowDelta } from "./panolMovimientos.js";
-import { buildProductGroups, necesitaReponer, nombreDeMovimiento, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionSinObra, stockParaMinimo } from "./stockGrupos.js";
+import { buildProductGroups, necesitaReponer, nombreDeMovimiento, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionRetirada, rowIsReasignacionSinObra, stockParaMinimo } from "./stockGrupos.js";
 
 // Forma real del par registrado al liberar el faro del 52-24 el 21/10.
 const salida = {
@@ -147,4 +147,39 @@ test("el movimiento muestra el nombre actual y guarda el que tenía al registrar
   // Sin ficha queda la copia del movimiento.
   assert.deepEqual(nombreDeMovimiento({ descripcion: "Cerradura magnética" }), { nombre: "Cerradura magnética", historico: "" });
   assert.equal(nombreDeMovimiento({}).nombre, "(sin descripción)");
+});
+
+test("una reasignación que después se retira sigue viéndose como reasignación", () => {
+  // Soporte de TV, 06/11/2026: tomas lo reasigna del 64-21 al 55-2 y 43 s
+  // después lautaro lo egresa. El egreso queda grabado sobre la llegada.
+  const base = {
+    material_id: "soporte", cantidad: 1, stock_sede: "Chubut", created_at: "2026-11-06T11:38:16Z",
+  };
+  const salida = {
+    ...base, id: "salida", source: "transferencia_egreso", tipo_label: "Transferencia a obra",
+    estado: "egresado", recepcion_estado: "egresado", cantidad_egresada: 1,
+    obra_id: "64-21", obra_origen_id: "64-21", egreso_destino_obra_id: "55-2",
+  };
+  const llegada = {
+    ...base, id: "llegada", source: "transferencia_ingreso", tipo_label: "Transferencia recibida",
+    estado: "en_panol", recepcion_estado: "recibido", cantidad_egresada: 0,
+    obra_id: "55-2", obra_origen_id: "64-21", egreso_destino_obra_id: null,
+  };
+  const retirada = {
+    ...llegada, estado: "egresado", cantidad_egresada: 1, egreso_at: "2026-11-06T11:38:59Z",
+    retirado_por: "Curatitoli Damian",
+  };
+
+  // Antes del retiro: la llegada muestra la reasignación y la salida es espejo.
+  assert.equal(rowEgresoKind(llegada), "reasignacion");
+  assert.equal(rowIsMovimientoEspejo(salida), true);
+  assert.equal(rowIsReasignacionRetirada(llegada), false);
+
+  // Después: la misma fila es reasignación + egreso, no un egreso a secas.
+  assert.equal(rowIsReasignacionRetirada(retirada), true);
+  assert.equal(rowEgresoKind(retirada), "reasignacion_egreso");
+  assert.equal(rowInHistory(retirada), true);
+
+  // Una liberación a stock retirada después no es reasignación.
+  assert.equal(rowIsReasignacionRetirada({ ...retirada, obra_id: null }), false);
 });
