@@ -183,3 +183,18 @@ test("una reasignación que después se retira sigue viéndose como reasignació
   // Una liberación a stock retirada después no es reasignación.
   assert.equal(rowIsReasignacionRetirada({ ...retirada, obra_id: null }), false);
 });
+
+test("el egreso arranca sin cantidad y avisa el renglón vacío (reloj de combustible, 14/10)", async () => {
+  const { defaultEgresoQty, faltaCantidad, makeCartItem, renglonSinCantidad } = await import("./stockGrupos.js");
+  // Había 15 libres: antes la cantidad venía en 15 y se confirmó así.
+  assert.equal(defaultEgresoQty({ available: 15 }), "");
+  const linea = makeCartItem({ key: "reloj", label: "Reloj nivel combustible" }, { key: "stock", available: 15, sede: "Chubut" });
+  assert.equal(linea.cantidad, "");
+  assert.equal(faltaCantidad(""), true);
+  assert.equal(faltaCantidad("0"), true);
+  assert.equal(faltaCantidad("1"), false);
+  assert.equal(faltaCantidad("0,5"), false);
+  const escrita = { ...linea, key: "otro", cantidad: "1" };
+  assert.equal(renglonSinCantidad([escrita, linea]), linea);
+  assert.equal(renglonSinCantidad([escrita]), null);
+});

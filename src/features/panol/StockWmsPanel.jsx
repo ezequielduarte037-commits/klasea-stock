@@ -82,6 +82,9 @@ import {
   defaultLocation,
   buildProductGroups,
   defaultEgresoQty,
+  FALTA_CANTIDAD_EGRESO,
+  faltaCantidad,
+  renglonSinCantidad,
   cleanCartVariant,
   cartLineKey,
   cartBaseKey,
@@ -1645,7 +1648,11 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
   }, [cart, destinoObraId, movementKind, nota, obras, retiradoPor, retiroNfc.empleado, saving, sectorDestino]);
 
   function addCurrentToCart() {
-    if (!group || cantidadNum <= 0 || transitOnly) return;
+    if (!group || transitOnly) return;
+    if (faltaCantidad(cantidad)) {
+      toast.warning(FALTA_CANTIDAD_EGRESO);
+      return;
+    }
     if (isCatalogOnly || willGoNegative) {
       toast.warning("No hay stock suficiente. Registrá primero el ingreso o la recepción física.");
       return;
@@ -1715,6 +1722,11 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
     const sinProducto = cart.find((item) => item.esRequisito && !item.productoMaterialId);
     if (sinProducto) {
       toast.warning(`${sinProducto.label}: elegí el producto concreto antes de confirmar.`);
+      return;
+    }
+    const sinCantidad = renglonSinCantidad(cart);
+    if (sinCantidad) {
+      toast.warning(`${sinCantidad.label}: ${FALTA_CANTIDAD_EGRESO.toLowerCase()}`);
       return;
     }
     const sinStock = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
@@ -1850,9 +1862,9 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 5 }}>
               <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Cantidad</span>
-              <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.panelSolid, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
+              <input type="number" min="0.01" step="any" placeholder="Cantidad" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.panelSolid, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
             </label>
-            <button type="button" onClick={addCurrentToCart} disabled={!canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? "default" : "pointer", opacity: !canReceive || cantidadNum <= 0 || transitOnly || isCatalogOnly || willGoNegative ? 0.55 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
+            <button type="button" onClick={addCurrentToCart} disabled={!canReceive || transitOnly || isCatalogOnly || willGoNegative} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "10px 12px", cursor: !canReceive || transitOnly || isCatalogOnly || willGoNegative ? "default" : "pointer", opacity: !canReceive || transitOnly || isCatalogOnly || willGoNegative ? 0.55 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
               Agregar
             </button>
           </div>
@@ -1928,7 +1940,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                   </div>
                 )}
               </div>
-              <input type="number" min="0.01" step="any" value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ background: C.panelSolid, border: `1px solid ${qty(item.cantidad, 0) > item.available ? C.redB : C.border}`, color: C.text, borderRadius: 8, padding: "8px 7px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }} />
+              <input type="number" min="0.01" step="any" placeholder="Cant." value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ background: C.panelSolid, border: `1px solid ${qty(item.cantidad, 0) > item.available ? C.redB : C.border}`, color: C.text, borderRadius: 8, padding: "8px 7px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }} />
               <button type="button" onClick={() => removeCartItem(item.key)} title="Quitar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
                 <X size={13} />
               </button>
@@ -1998,7 +2010,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
   useEffect(() => {
     const available = selectedLocation?.available || 0;
-    setCantidad(action === "ingresar" ? "1" : String(available > 0 ? Number(available.toFixed(2)) : 1));
+    setCantidad(action === "ingresar" ? "1" : defaultEgresoQty({ available }));
     setSede(sedeLocked || selectedLocation?.sede || "Pampa");
   }, [action, selectedLocation, sedeLocked]);
 
@@ -2036,6 +2048,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
     if (!canReceive) return;
     if (!group) {
       toast.warning("Elegí un producto.");
+      return;
+    }
+    if (faltaCantidad(cantidad)) {
+      toast.warning(action === "ingresar" ? "Poné la cantidad que entra." : FALTA_CANTIDAD_EGRESO);
       return;
     }
     if (insufficientStock || transitOnly) {
@@ -2225,7 +2241,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
       <label style={{ display: "grid", gap: 5 }}>
         <span style={{ color: C.text, fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.9 }}>Cantidad</span>
-        <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 16, fontWeight: 700, fontFamily: C.mono, outline: "none" }} />
+        <input type="number" min="0.01" step="any" placeholder="Cantidad" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 16, fontWeight: 700, fontFamily: C.mono, outline: "none" }} />
       </label>
 
       {transitOnly && (
@@ -2268,7 +2284,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (opcional)" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
 
       {(() => {
-        const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || insufficientStock || (action === "asignar" && !destinoObraId);
+        const disabled = saving || !canReceive || transitOnly || insufficientStock || (action === "asignar" && !destinoObraId);
         return (
           <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 750, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
             {action === "egresar" ? <ArrowUpRight size={15} /> : action === "trasladar" ? <Truck size={15} /> : <PackagePlus size={15} />}
@@ -3389,6 +3405,11 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
       toast.warning(`${sinProducto.label}: elegí el producto concreto antes de confirmar.`);
       return;
     }
+    const sinCantidad = renglonSinCantidad(cart);
+    if (sinCantidad) {
+      toast.warning(`${sinCantidad.label}: ${FALTA_CANTIDAD_EGRESO.toLowerCase()}`);
+      return;
+    }
     const sinStock = cart.find((item) => item.catalogOnly || qty(item.cantidad, 0) > qty(item.available, 0) + 0.0001);
     if (sinStock) {
       toast.warning(`${sinStock.label}: no hay stock suficiente. Corregí la cantidad o registrá el ingreso primero.`);
@@ -3633,7 +3654,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                         </div>
                       )}
                     </div>
-                    <input type="number" min="0.01" step="any" value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ ...inp, fontFamily: C.mono, padding: "7px 8px", borderColor: excede ? C.violetB : C.border }} />
+                    <input type="number" min="0.01" step="any" placeholder="Cant." value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ ...inp, fontFamily: C.mono, padding: "7px 8px", borderColor: excede ? C.violetB : C.border }} />
                     <button type="button" onClick={() => removeCartItem(item.key)} title="Quitar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
                       <X size={13} />
                     </button>

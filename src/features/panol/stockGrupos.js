@@ -383,9 +383,24 @@ export function buildProductGroups(rows = [], fObra = "todas") {
   });
 }
 
-export function defaultEgresoQty(location) {
-  const available = qty(location?.available, 0);
-  return String(available > 0 ? Number(available.toFixed(2)) : 1);
+// La cantidad arranca VACÍA y el que egresa la escribe: el 14/10/2026 un egreso
+// de 1 reloj de combustible se confirmó con los 15 que había libres en Chubut,
+// porque la cantidad venía cargada con todo lo disponible. Sin cantidad, el
+// confirmar avisa con FALTA_CANTIDAD_EGRESO (el mostrador, que suma de a uno por
+// toque, pone su propia cantidad y no pasa por acá).
+export function defaultEgresoQty() {
+  return "";
+}
+
+export const FALTA_CANTIDAD_EGRESO = "Poné la cantidad que sale.";
+
+export function faltaCantidad(value) {
+  return !(qty(value, 0) > 0);
+}
+
+/** Primer renglón del carrito sin cantidad escrita, para avisar antes de confirmar. */
+export function renglonSinCantidad(cart = []) {
+  return cart.find((item) => faltaCantidad(item?.cantidad)) || null;
 }
 
 export function cleanCartVariant(value) {
