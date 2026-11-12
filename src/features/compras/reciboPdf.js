@@ -1,20 +1,21 @@
 import { jsPDF } from "jspdf";
+import { GRIS, PELO, TINTA, fuente, pelo, rotulo } from "../../lib/pdfKlasea.js";
 
 // Recibo imprimible de caja chica: el mismo papel que se llenaba a mano
 // ("Recibí de ... la cantidad de ... en concepto de ... Son $ ...") pero ya
 // completo. Lo único que queda por hacer arriba del papel es firmar.
 //
 // El papel va sin marca: ni logo, ni nombre de la empresa, ni pie. Quién
-// entrega el dinero se escribe (o no) en "Recibí de".
+// entrega el dinero se escribe (o no) en "Recibí de". Del papel de la casa
+// toma sólo la tipografía y las líneas.
 //
 // Salen dos copias por hoja (ORIGINAL y DUPLICADO) separadas por una línea de
 // corte: una la firma quien cobra y queda en la carpeta de la caja, la otra se
 // la lleva. Es exactamente el circuito que ya hacían con el talonario.
 
-const NAVY = [15, 23, 42];
-const MUTED = [110, 120, 135];
-const LINE = [190, 197, 208];
-const SOFT = [246, 248, 251];
+// Mismo papel que el resto (lib/pdfKlasea): rótulos espaciados, líneas de un
+// pelo, nada de cajas. Pero sin la cabecera de la casa: este papel no lleva
+// marca.
 
 /* ── Importe en letras ──────────────────────────────────────────────────────
    El número escrito con palabras es lo que hace que un recibo no se pueda
@@ -133,16 +134,14 @@ export function numeroRecibo({ fecha, semilla } = {}) {
 
 /* ── Dibujo ─────────────────────────────────────────────────────────────── */
 
-// Campo tipo talonario: etiqueta chica + valor sobre la línea.
-// El texto se achica antes que desbordar, y si aun así no entra usa una
-// segunda línea: un recibo con el concepto cortado no sirve como comprobante.
-// Devuelve la Y de la última línea escrita.
-function campo(doc, { x, y, w, label = "", value, size = 11, maxLineas = 1, lineHeight = 24 }) {
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  const etiqueta = String(label).toUpperCase();
-  const offset = etiqueta ? doc.getTextWidth(etiqueta) + 7 : 0;
-  const anchoTexto = w - offset - 2;
+// Campo de talonario: rótulo chiquito y espaciado arriba, el dato abajo sobre
+// su renglón. El texto se achica antes que desbordar, y si aun así no entra
+// usa los renglones siguientes (el concepto tiene cuatro, como el talonario
+// viejo): un recibo con el concepto cortado no sirve
+// como comprobante. Los renglones se dibujan aunque queden vacíos, así el
+// papel se ve igual siempre.
+function campo(doc, { x, y, w, label, value, size = 11.5, renglones = 1, lineHeight = 18 }) {
+  rotulo(doc, label, x, y, { tam: 6.6, espacio: 1.3 });
 
   // Los saltos de línea que escribió el usuario se respetan: si cargó dos
   // viajes en dos renglones, en el papel siguen siendo dos renglones.
@@ -154,155 +153,123 @@ function campo(doc, { x, y, w, label = "", value, size = 11, maxLineas = 1, line
   let fs = size;
   let lineas = [];
   while (true) {
-    doc.setFont("helvetica", "bold");
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(fs);
-    lineas = parrafos.flatMap((parrafo) => doc.splitTextToSize(parrafo, anchoTexto));
-    if (lineas.length <= maxLineas || fs <= 6.5) break;
+    lineas = parrafos.flatMap((parrafo) => doc.splitTextToSize(parrafo, w - 2));
+    if (lineas.length <= renglones || fs <= 7) break;
     fs -= 0.5;
   }
-  if (lineas.length > maxLineas) {
-    lineas = lineas.slice(0, maxLineas);
-    lineas[maxLineas - 1] = `${String(lineas[maxLineas - 1]).trimEnd()}…`;
-  }
-  if (!lineas.length) lineas = [""];
-
-  if (etiqueta) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...MUTED);
-    doc.text(etiqueta, x, y);
+  if (lineas.length > renglones) {
+    lineas = lineas.slice(0, renglones);
+    lineas[renglones - 1] = `${String(lineas[renglones - 1]).replace(/[\s.]+$/, "")}…`;
   }
 
-  lineas.forEach((linea, index) => {
-    const ly = y + index * lineHeight;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(fs);
-    doc.setTextColor(...NAVY);
-    doc.text(linea, index === 0 ? x + offset : x, ly);
-    doc.setDrawColor(...LINE);
-    doc.setLineWidth(0.7);
-    doc.line(x, ly + 4.5, x + w, ly + 4.5);
-  });
-
-  return y + (lineas.length - 1) * lineHeight;
+  for (let i = 0; i < renglones; i += 1) {
+    const ly = y + 16 + i * lineHeight;
+    if (lineas[i]) {
+      fuente(doc, "normal", fs, TINTA);
+      doc.text(lineas[i], x, ly);
+    }
+    pelo(doc, x, ly + 5, x + w, ly + 5, PELO, 0.5);
+  }
 }
 
 function lineaFirma(doc, { x, y, w, label }) {
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.7);
-  doc.line(x, y, x + w, y);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...MUTED);
-  doc.text(label.toUpperCase(), x + w / 2, y + 10, { align: "center" });
+  pelo(doc, x, y, x + w, y, TINTA, 0.5);
+  rotulo(doc, label, x + w / 2, y + 11, { tam: 6.2, espacio: 1.3, align: "center" });
+}
+
+// Un dato de referencia al costado del importe: rótulo arriba, valor abajo.
+// Si ni achicado entra, se corta con puntos suspensivos: que se vea que hay
+// más, en vez de perder media razón social sin aviso.
+function referencia(doc, { x, y, w, label, value }) {
+  const anchoRotulo = 90;
+  rotulo(doc, label, x, y, { tam: 6, espacio: 1.2 });
+  x += anchoRotulo;
+  w -= anchoRotulo;
+  let fs = 9.5;
+  fuente(doc, "normal", fs, TINTA);
+  const texto = String(value);
+  while (fs > 6.5 && doc.getTextWidth(texto) > w) {
+    fs -= 0.5;
+    doc.setFontSize(fs);
+  }
+  let valor = texto;
+  if (doc.getTextWidth(valor) > w) {
+    while (valor.length > 1 && doc.getTextWidth(`${valor}…`) > w) valor = valor.slice(0, -1);
+    valor = `${valor.trimEnd()}…`;
+  }
+  doc.text(valor, x, y);
 }
 
 function dibujarRecibo(doc, recibo, { y0, alto, copia }) {
   const pageW = doc.internal.pageSize.getWidth();
-  const M = 40;
+  const M = 52;
   const W = pageW - M * 2;
-  const inner = M + 18;
-  const innerW = W - 36;
+  const derecha = M + W;
 
-  // Marco
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.8);
-  doc.roundedRect(M, y0, W, alto, 9, 9, "S");
+  // Barra de arriba: qué copia es y el número. Sin marca: quién entrega el
+  // dinero se escribe (o no) en "Recibí de".
+  rotulo(doc, copia, M, y0 + 10, { color: TINTA, espacio: 1.6 });
+  rotulo(doc, `N.º  ${recibo.numero}`, derecha, y0 + 10, { color: TINTA, espacio: 1.2, align: "right" });
+  pelo(doc, M, y0 + 20, derecha, y0 + 20);
 
-  // Banda navy (esquinas de abajo cuadradas para que apoye en el cuerpo)
-  doc.setFillColor(...NAVY);
-  doc.roundedRect(M, y0, W, 48, 9, 9, "F");
-  doc.rect(M, y0 + 38, W, 10, "F");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(19);
-  doc.setTextColor(255, 255, 255);
-  doc.text("RECIBO", inner, y0 + 31);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text(recibo.numero, M + W - 18, y0 + 25, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(200, 210, 226);
-  doc.text(copia, M + W - 18, y0 + 38, { align: "right" });
-
-  // Lugar y fecha
-  let y = y0 + 70;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9.5);
-  doc.setTextColor(...MUTED);
+  // Título y, a la derecha, lugar y fecha.
+  fuente(doc, "normal", 30, TINTA);
+  doc.setCharSpace(1.5);
+  doc.text("RECIBO", M, y0 + 60);
+  doc.setCharSpace(0);
   const lugarFecha = [recibo.lugar, fmtFechaLarga(recibo.fecha)].filter(Boolean).join(", ");
-  doc.text(lugarFecha, M + W - 18, y, { align: "right" });
+  if (lugarFecha) {
+    rotulo(doc, "Lugar y fecha", derecha, y0 + 45, { tam: 6, espacio: 1.2, align: "right" });
+    fuente(doc, "normal", 10, TINTA);
+    doc.text(lugarFecha, derecha, y0 + 59, { align: "right" });
+  }
 
   // Cuerpo. Los renglones van en posiciones fijas: así el recibo se ve igual
-  // siempre, tenga el concepto un renglón o cuatro, y el importe nunca se
-  // acerca al renglón de la firma.
-  campo(doc, { x: inner, y: y0 + 94, w: innerW, label: "Recibí de", value: recibo.emisor });
-  campo(doc, { x: inner, y: y0 + 124, w: innerW, label: "La cantidad de", value: recibo.enLetras, size: 10.5, maxLineas: 2, lineHeight: 20 });
-  campo(doc, { x: inner, y: y0 + 170, w: innerW, label: "En concepto de", value: recibo.concepto, size: 11, maxLineas: 4, lineHeight: 19 });
+  // siempre, tenga el concepto un renglón o tres, y el importe nunca se
+  // acerca a las firmas.
+  campo(doc, { x: M, y: y0 + 84, w: W, label: "Recibí de", value: recibo.emisor });
+  campo(doc, { x: M, y: y0 + 118, w: W, label: "La cantidad de", value: recibo.enLetras, size: 10.5, renglones: 2, lineHeight: 16 });
+  campo(doc, { x: M, y: y0 + 168, w: W, label: "En concepto de", value: recibo.concepto, size: 11, renglones: 4, lineHeight: 15 });
 
-  // Importe en números: la caja del papel, en grande y sin lugar a dudas.
-  y = y0 + 244;
-  const boxW = 232;
-  const boxH = 42;
-  doc.setFillColor(...SOFT);
-  doc.setDrawColor(...LINE);
-  doc.roundedRect(inner, y, boxW, boxH, 7, 7, "FD");
-  doc.setFillColor(...NAVY);
-  doc.rect(inner, y + 7, 3.5, boxH - 14, "F");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...MUTED);
-  doc.text("SON", inner + 16, y + 16);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(19);
-  doc.setTextColor(...NAVY);
-  doc.text(fmtMoney(recibo.importe, recibo.moneda), inner + 16, y + 34);
+  // Importe en números, grande y sin lugar a dudas, como la cifra principal
+  // de una ficha técnica. Al lado, los datos para archivar el papel sin abrir
+  // el sistema.
+  const yImporte = y0 + 244;
+  const anchoImporte = 236;
+  pelo(doc, M, yImporte, derecha, yImporte, TINTA, 0.7);
+  rotulo(doc, "Son", M, yImporte + 15, { tam: 6.6, espacio: 1.3 });
+  let fs = 25;
+  fuente(doc, "normal", fs, TINTA);
+  const importe = fmtMoney(recibo.importe, recibo.moneda);
+  while (fs > 14 && doc.getTextWidth(importe) > anchoImporte - 12) {
+    fs -= 1;
+    doc.setFontSize(fs);
+  }
+  doc.text(importe, M, yImporte + 43);
 
-  // Datos de referencia al costado del importe: sirven para archivar el papel
-  // sin tener que abrir el sistema.
-  const refX = inner + boxW + 20;
   const refs = [
     recibo.proveedor ? ["Proveedor", recibo.proveedor] : null,
     recibo.centroCosto ? ["Centro de costo", recibo.centroCosto] : null,
     recibo.dni ? ["DNI / CUIT", recibo.dni] : null,
   ].filter(Boolean);
-  const refValorX = refX + 76;
-  const refValorW = inner + innerW - refValorX;
-  let ry = y + 12;
-  refs.slice(0, 3).forEach(([label, value]) => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...MUTED);
-    doc.text(label.toUpperCase(), refX, ry);
-    doc.setFont("helvetica", "bold");
-    let fs = 9;
-    doc.setFontSize(fs);
-    const texto = String(value);
-    while (fs > 6.5 && doc.getTextWidth(texto) > refValorW) {
-      fs -= 0.5;
-      doc.setFontSize(fs);
-    }
-    // Si ni achicado entra, se corta con puntos suspensivos: que se vea que
-    // hay más, en vez de perder media razón social sin aviso.
-    let valor = texto;
-    if (doc.getTextWidth(valor) > refValorW) {
-      while (valor.length > 1 && doc.getTextWidth(`${valor}…`) > refValorW) valor = valor.slice(0, -1);
-      valor = `${valor.trimEnd()}…`;
-    }
-    doc.setTextColor(...NAVY);
-    doc.text(valor, refValorX, ry);
-    ry += 14;
-  });
+  if (refs.length) {
+    const xRefs = M + anchoImporte;
+    pelo(doc, xRefs, yImporte + 8, xRefs, yImporte + 48, PELO, 0.5);
+    // Apilados: en fila no entra una razón social larga.
+    refs.forEach(([label, value], i) => {
+      referencia(doc, { x: xRefs + 18, y: yImporte + 16 + i * 14, w: derecha - xRefs - 18, label, value });
+    });
+  }
+  pelo(doc, M, yImporte + 56, derecha, yImporte + 56);
 
   // Firmas. Los dos renglones van vacíos a propósito: los completa de puño y
   // letra quien cobra, que es de lo que da fe el papel.
-  const firmaY = y0 + alto - 40;
-  const anchoFirma = (innerW - 28) / 2;
-  lineaFirma(doc, { x: inner, y: firmaY, w: anchoFirma - 20, label: "Firma" });
-  lineaFirma(doc, { x: inner + anchoFirma + 8, y: firmaY, w: anchoFirma - 20, label: "Aclaración" });
-
+  const firmaY = y0 + alto - 22;
+  const anchoFirma = (W - 40) / 2;
+  lineaFirma(doc, { x: M, y: firmaY, w: anchoFirma, label: "Firma" });
+  lineaFirma(doc, { x: M + anchoFirma + 40, y: firmaY, w: anchoFirma, label: "Aclaración" });
 }
 
 /* ── API ────────────────────────────────────────────────────────────────── */
@@ -341,15 +308,12 @@ export async function buildReciboPdf(input, { copias = 2 } = {}) {
     // Línea de corte entre las dos copias.
     const pageW = doc.internal.pageSize.getWidth();
     const yCorte = 46 + alto + 16;
-    doc.setDrawColor(...LINE);
-    doc.setLineWidth(0.6);
-    doc.setLineDashPattern([4, 4], 0);
+    doc.setDrawColor(...PELO);
+    doc.setLineWidth(0.5);
+    doc.setLineDashPattern([3, 4], 0);
     doc.line(28, yCorte, pageW - 28, yCorte);
     doc.setLineDashPattern([], 0);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
-    doc.setTextColor(...MUTED);
-    doc.text("cortar aquí", pageW / 2, yCorte - 4, { align: "center" });
+    rotulo(doc, "Cortar aquí", pageW / 2, yCorte - 5, { tam: 5.5, espacio: 1.2, color: GRIS, align: "center" });
   }
 
   const nombre = `recibo-${safePart(recibo.numero)}${recibo.proveedor ? `-${safePart(recibo.proveedor)}` : ""}.pdf`;
