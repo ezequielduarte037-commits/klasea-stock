@@ -6,7 +6,7 @@ import {
   Gem, Download, History, CalendarClock, RotateCcw, AlertTriangle, Send,
   Inbox as InboxIcon, Ship, Table2, FileText,
 } from "lucide-react";
-import { loadNavyLogo } from "@/lib/pdfLogo";
+import { loadNavyLogo, cargarMarcasPdf } from "@/lib/pdfLogo";
 
 import {
   MARM_CSS, T,
@@ -700,6 +700,7 @@ export default function MarmoleriaScreen({ profile }) {
         piezas: datos,
         lineaDe: (pieza) => nombreLinea.get(pieza.linea_id) ?? "",
         logo: await loadNavyLogo(),
+        logotipo: (await cargarMarcasPdf().catch(() => ({}))).logotipo || null,
       });
       doc.save(nombreArchivoMarmoleria());
     } catch (e) {

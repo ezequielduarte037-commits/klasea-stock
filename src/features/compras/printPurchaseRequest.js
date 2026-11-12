@@ -1,3 +1,4 @@
+import { CSS_PAPEL, FUENTES_PAPEL, fechaRotulo } from "@/lib/impresionKlasea";
 import DOMPurify from "dompurify";
 import {
   normalizePurchaseRequestAttachments,
@@ -149,14 +150,14 @@ export function buildPurchaseRequestHtml(request, logoUrl) {
   // para no dejar una columna de "-".
   const hasItemDest = printable.some((it) => String(it.destination || "").trim());
   const itemsHtml = printable.length
-    ? `<div class="items">
-        <h2 class="items-title">Ítems solicitados · ${printable.length}</h2>
-        <table>
+    ? `<section class="items">
+        <h2 class="kp-seccion">Ítems solicitados <span class="kp-cuenta">${printable.length}</span></h2>
+        <table class="kp-tabla">
           <thead>
             <tr>
               <th scope="col">Detalle</th>
-              <th scope="col">Cantidad</th>
-              ${hasItemDest ? '<th scope="col">Destino</th>' : ""}
+              <th scope="col" class="num cant">Cantidad</th>
+              ${hasItemDest ? '<th scope="col" class="dest">Destino</th>' : ""}
             </tr>
           </thead>
           <tbody>
@@ -168,18 +169,18 @@ export function buildPurchaseRequestHtml(request, logoUrl) {
                   ${httpUrl(it.link_url) ? `<div class="item-link"><a href="${esc(httpUrl(it.link_url))}" target="_blank" rel="noopener noreferrer">${esc(it.link_url)}</a></div>` : ""}
                   ${httpUrl(it.image_url) ? `<div class="item-link"><a href="${esc(httpUrl(it.image_url))}" target="_blank" rel="noopener noreferrer">Foto del ítem</a></div>` : ""}
                 </td>
-                <td class="item-qty">${esc(fmtItemQty(it))}</td>
-                ${hasItemDest ? `<td>${esc(it.destination || "-")}</td>` : ""}
+                <td class="num cant item-qty">${esc(fmtItemQty(it))}</td>
+                ${hasItemDest ? `<td class="dest apagado">${esc(it.destination || "-")}</td>` : ""}
               </tr>
             `).join("")}
           </tbody>
         </table>
-      </div>`
+      </section>`
     : "";
   const attachments = normalizePurchaseRequestAttachments(request).filter((row) => httpUrl(row.url));
   const attachmentsHtml = attachments.length
     ? `<div class="attachments">
-        <h2 class="items-title">Archivos adjuntos</h2>
+        <h2 class="kp-seccion">Archivos adjuntos</h2>
         ${attachments.map((attachment) => `
           <div class="attachment">
             <span>${esc(attachment.name || "Archivo adjunto")}</span>
@@ -191,101 +192,78 @@ export function buildPurchaseRequestHtml(request, logoUrl) {
 
   const absLogoUrl = logoUrl?.startsWith("/") ? window.location.origin + logoUrl : logoUrl;
 
+  const obra = request.project?.codigo ? ["Obra", request.project.codigo] : request.destino ? ["Destino", request.destino] : null;
+  const ficha = [
+    ["Solicitado por", usernameOf(request.creator)],
+    ["Fecha del pedido", fmtFull(request.created_at)],
+    obra,
+    request.needed_at ? ["Necesario para", fmtDate(request.needed_at)] : null,
+  ].filter(Boolean);
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(request.title)}</title>
+${FUENTES_PAPEL}
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.55;color:#202936;background:#f2f4f7}
-  .toolbar{max-width:210mm;margin:20px auto 12px;display:flex;flex-wrap:wrap;gap:10px;padding:0 12px}
-  .toolbar button{min-height:42px;padding:9px 16px;border:1px solid #c6ced8;border-radius:8px;background:#fff;color:#202936;font:600 14px 'Segoe UI',Arial,sans-serif;cursor:pointer}
-  .toolbar button.primary{background:#153c60;color:#fff;border-color:#153c60}
-  .toolbar button:focus-visible{outline:3px solid #5689c4;outline-offset:2px}
-  .toolbar button:disabled{opacity:.6;cursor:wait}
-  .toolbar p{flex:1 1 100%;font-size:12px;color:#536174}
-  .sheet{max-width:210mm;margin:0 auto 24px;padding:16mm 17mm;background:#fff;border:1px solid #dce1e7;border-radius:10px;box-shadow:0 4px 18px #2029360a}
-  a{color:#1a73e8}
+  ${CSS_PAPEL}
+  a{color:var(--kp-acento)}
   img{max-width:100%;height:auto}
-  .hdr{display:flex;align-items:center;gap:12px;margin-bottom:22px;padding-bottom:18px;border-bottom:2px solid #273f57}
-  .hdr-logo{height:38px;width:38px;object-fit:contain;display:block;filter:invert(1)}
-  .brand{font-size:16px;font-weight:700;letter-spacing:1px}
-  .eyebrow{font-size:11px;letter-spacing:1.2px;color:#536174;text-transform:uppercase}
-  .subj{font-size:24px;line-height:1.25;font-weight:700;margin-bottom:20px;overflow-wrap:anywhere}
-  .meta{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:24px;padding-bottom:22px;border-bottom:1px solid #dce1e7}
-  .meta div{min-width:0;font-size:14px;overflow-wrap:anywhere}
-  .meta .l{display:block;color:#536174;font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px}
-  .body{font-size:15px;line-height:1.65;margin-bottom:26px;overflow-wrap:anywhere}
+  .body{margin-top:22px;font-size:14.5px;line-height:1.65;overflow-wrap:anywhere}
   .body p{margin:0 0 8px}
   .body p:last-child{margin:0}
   .body ul,.body ol{padding-left:20px;margin:6px 0}
-  .body h1,.body h2,.body h3,.body h4{font-size:17px;margin:12px 0 8px}
-  .items{margin-top:16px}
-  .items-title{font-size:13px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-bottom:10px}
-  table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
-  th{text-align:left;color:#465366;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #9ca9b8;border-bottom:1px solid #9ca9b8;padding:10px 8px}
-  td{vertical-align:top;border-bottom:1px solid #dce1e7;padding:14px 8px;line-height:1.45;overflow-wrap:anywhere}
-  th:nth-child(2),td:nth-child(2){width:116px;text-align:right}
-  th:nth-child(3),td:nth-child(3){width:120px}
-  .item-desc{font-weight:600}
-  .item-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:#536174;margin-left:4px}
-  .item-notes{color:#536174;font-size:12px;margin-top:4px;white-space:pre-wrap}
+  .body h1,.body h2,.body h3,.body h4{font-size:16px;font-weight:500;margin:12px 0 8px}
+  .copia{margin-top:14px;font-size:12px;color:var(--kp-gris)}
+  .copia .kp-rotulo{margin-right:8px}
+  .kp-tabla .cant{width:116px}
+  .kp-tabla .dest{width:120px}
+  .item-desc{font-weight:500}
+  .item-code{font-family:'JetBrains Mono',ui-monospace,Consolas,monospace;font-size:11px;color:var(--kp-gris);margin-left:4px}
+  .item-notes{color:var(--kp-gris);font-size:12px;margin-top:4px;white-space:pre-wrap}
   .item-link{font-size:11px;margin-top:5px;overflow-wrap:anywhere}
-  .item-qty{font-size:16px;font-weight:700}
-  .attachments{margin-top:26px}
-  .attachment{padding:9px 0;border-bottom:1px solid #dce1e7;font-size:14px;overflow-wrap:anywhere}
-  .attachment span{font-weight:600}
+  .item-qty{font-size:16px;font-weight:400}
+  .attachment{padding:10px 0;border-bottom:1px solid var(--kp-pelo);font-size:14px;overflow-wrap:anywhere}
+  .attachment span{font-weight:500}
   .attachment a{display:block;font-size:11px;margin-top:3px;overflow-wrap:anywhere}
-  footer{font-size:10px;color:#536174;margin-top:30px;border-top:1px solid #dce1e7;padding-top:10px}
   @media screen and (max-width:560px){
-    .toolbar{margin-top:12px}.toolbar button{flex:1;padding:9px 10px;font-size:13px}
-    .sheet{padding:24px 20px;margin:0;border-radius:0;border-left:0;border-right:0}
-    .subj{font-size:22px}.meta{grid-template-columns:1fr;gap:12px}
-    th:nth-child(2),td:nth-child(2){width:90px}th:nth-child(3),td:nth-child(3){width:82px}
-    td{padding:12px 5px;font-size:13px}.item-qty{font-size:14px}
+    .kp-tabla .cant{width:84px}.kp-tabla .dest{width:80px}
+    .kp-tabla td{padding:10px 5px;font-size:13px}.item-qty{font-size:14px}
   }
-  @page{size:A4 portrait;margin:15mm}
   @media print{
-    body{background:#fff;font-size:11pt}
-    .toolbar{display:none!important}
-    .sheet{max-width:none;margin:0;padding:0;border:0;border-radius:0;box-shadow:none}
-    .hdr,.subj,.meta,.items-title{break-inside:avoid;page-break-inside:avoid}
-    .subj,.items-title{break-after:avoid;page-break-after:avoid}
-    thead{display:table-header-group}
-    tr,.attachment{break-inside:avoid;page-break-inside:avoid}
     .body p{orphans:3;widows:3}
+    .attachment{break-inside:avoid;page-break-inside:avoid}
   }
 </style>
 </head>
 <body>
-<div class="toolbar" aria-label="Compartir e imprimir el encargo">
-  <button type="button" id="copy-request">Copiar para WhatsApp</button>
-  <button type="button" id="print-request" class="primary">Imprimir / Guardar PDF</button>
+<div class="kp-botonera" aria-label="Compartir e imprimir el encargo">
+  <button type="button" id="copy-request" class="kp-boton">Copiar para WhatsApp</button>
+  <button type="button" id="print-request" class="kp-boton primario">Imprimir / Guardar PDF</button>
   <p id="copy-status" role="status">Copiá el texto para pegarlo en un chat, o guardá la ficha como PDF.</p>
 </div>
-<main class="sheet">
-<div class="hdr">
-  ${absLogoUrl ? `<img class="hdr-logo" src="${esc(absLogoUrl)}" alt="" />` : ""}
-  <div><div class="brand">KLASE A</div><div class="eyebrow">Encargo a Compras</div></div>
-</div>
+<main class="kp-hoja">
+<header class="kp-barra">
+  <span class="kp-rotulo">Compras</span>
+  ${absLogoUrl ? `<span class="kp-marca-caja"><img class="kp-marca" src="${esc(absLogoUrl)}" alt="Klase A" /></span>` : '<span class="kp-marca-texto">KLASE A</span>'}
+  <span class="kp-rotulo">${esc(fechaRotulo(request.created_at ? new Date(request.created_at) : new Date()))}</span>
+</header>
 
-<h1 class="subj">${esc(request.title || "Encargo sin título")}</h1>
+<p class="kp-eyebrow">Encargo a Compras</p>
+<h1 class="kp-titulo">${esc(request.title || "Encargo sin título")}</h1>
 
-<div class="meta">
-  <div><span class="l">Solicitado por</span> ${esc(usernameOf(request.creator))}</div>
-  <div><span class="l">Fecha del pedido</span> ${esc(fmtFull(request.created_at))}</div>
-  ${request.project?.codigo ? `<div><span class="l">Obra</span> ${esc(request.project.codigo)}</div>` : request.destino ? `<div><span class="l">Destino</span> ${esc(request.destino)}</div>` : ""}
-  ${request.needed_at ? `<div><span class="l">Necesario para</span> ${esc(fmtDate(request.needed_at))}</div>` : ""}
-  ${followers.length ? `<div><span class="l">En copia</span> ${ccList}</div>` : ""}
+<div class="kp-ficha">
+  ${ficha.map(([rotulo, valor]) => `<div><span class="kp-rotulo">${esc(rotulo)}</span><b class="chico">${esc(valor || "—")}</b></div>`).join("")}
 </div>
+${followers.length ? `<p class="copia"><span class="kp-rotulo">En copia</span>${ccList}</p>` : ""}
 
 ${request.description ? `<div class="body">${descriptionHtml(request.description)}</div>` : ""}
 
 ${itemsHtml}
 ${attachmentsHtml}
-<footer>Klase A · Encargo a Compras</footer>
+<footer class="kp-pie"><span>Klase A Yachts · Encargo a Compras</span><span>${esc(fmtFull(request.created_at))}</span></footer>
 </main>
 </body>
 </html>`;

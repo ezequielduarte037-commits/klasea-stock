@@ -1,4 +1,8 @@
 import { jsPDF } from "jspdf";
+import {
+  ACENTO, GRIS, GRIS_SUAVE, NIEBLA, PELO, ROJO, TINTA,
+  encabezado as encabezadoKlasea, encabezadoContinuacion as continuacionKlasea, fechaRotulo, pie, rotulo,
+} from "../../lib/pdfKlasea.js";
 
 /**
  * Lista de piezas para pasarle a la marmolería: todo lo que tiene plantilla
@@ -16,20 +20,17 @@ import { jsPDF } from "jspdf";
  * va en tinta y no en gris, y la que falta se marca "A confirmar" en rojo.
  */
 
-const NAVY = [14, 54, 83];
-const INK = [45, 48, 54];
-const MUTED = [108, 117, 132];
-const FAINT = [150, 157, 168];
-const RULE = [214, 220, 228];
-const HAIR = [233, 236, 241];
-const RED = [168, 50, 63];
-const RED_SOFT = [250, 236, 238];
-const CYAN = [14, 116, 144];
-const CYAN_SOFT = [228, 243, 247];
+// Paleta de la casa (lib/pdfKlasea): tinta, grises y un pelo de línea.
+const NAVY = TINTA;
+const INK = TINTA;
+const MUTED = GRIS;
+const RULE = PELO;
+const HAIR = NIEBLA;
+const RED = ROJO;
 
-const MARGEN = 40;
-const PIE = 46;
-const ARRIBA_CONTINUACION = 46;
+const MARGEN = 46;
+const PIE = 58;
+const ARRIBA_CONTINUACION = 80;
 
 const SIN_PIEDRA = "A confirmar";
 
@@ -174,7 +175,7 @@ function detalleBarco(barco) {
  * @param {{dataUrl: string, aspect?: number} | null} [opciones.logo]
  * @param {string} [opciones.fecha]  ISO; por defecto hoy
  */
-export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = hoyISO() }) {
+export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, logotipo = null, fecha = hoyISO() }) {
   const listado = armarListado(piezas, { lineaDe });
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const anchoHoja = doc.internal.pageSize.getWidth();
@@ -189,7 +190,6 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = h
     doc.setFontSize(tam);
     doc.setTextColor(...color);
   };
-  const texto = (contenido, x, y, extra = {}) => doc.text(contenido, x, y, { baseline: "top", ...extra });
   // Para renglones con tamaños distintos lado a lado: con "top" cada tamaño
   // queda a otra altura; sobre la línea de base quedan parejos.
   const renglon = (contenido, x, y, extra = {}) => doc.text(contenido, x, y, { baseline: "alphabetic", ...extra });
@@ -199,42 +199,22 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = h
     doc.line(x1, y1, x2, y2);
   };
   const etiqueta = (contenido, x, y, { align } = {}) => {
-    fuente("bold", 7, MUTED);
-    const mayus = contenido.toUpperCase();
-    const espacio = 0.6;
-    // jsPDF no cuenta el espaciado entre letras al alinear a la derecha, y la
-    // etiqueta se pasaba del margen: se corre a mano.
-    const desde = align === "right" ? x - doc.getTextWidth(mayus) - espacio * mayus.length : x;
-    texto(mayus, desde, y, { charSpace: espacio });
+    // Rótulo de la casa; `y` es la parte de arriba, como el resto de la hoja.
+    rotulo(doc, contenido, x, y + 5.5, { tam: 6.5, align });
   };
 
   // ── Encabezados ─────────────────────────────────────────────────────────
-  const encabezadoPrimera = () => {
-    doc.setFillColor(...NAVY);
-    doc.rect(0, 0, anchoHoja, 6, "F");
-    if (logo?.dataUrl) {
-      const w = 26;
-      doc.addImage(logo.dataUrl, "PNG", anchoHoja - MARGEN - w, 30, w, w * (logo.aspect || 1), undefined, "FAST");
-    }
-    fuente("bold", 19, INK);
-    texto(titulo, MARGEN, 34);
-    fuente("normal", 10, MUTED);
-    const datos = [
-      "Klase A Yachts",
-      hoy,
-      `${plural(listado.total, "pieza", "piezas")} en ${plural(listado.barcos.length, "barco", "barcos")}`,
-    ];
-    texto(datos.join("  ·  "), MARGEN, 59);
-    return 88;
-  };
+  const encabezadoPrimera = () => encabezadoKlasea(doc, {
+    seccion: "Marmolería",
+    derecha: fechaRotulo(fecha),
+    eyebrow: "Plantillas enviadas",
+    titulo,
+    detalle: `${plural(listado.total, "pieza", "piezas")} en ${plural(listado.barcos.length, "barco", "barcos")}`,
+    logo: logo?.dataUrl || null,
+    logotipo,
+  }) + 6;
 
-  const encabezadoContinuacion = () => {
-    doc.setFillColor(...NAVY);
-    doc.rect(0, 0, anchoHoja, 4, "F");
-    fuente("bold", 8.5, NAVY);
-    texto(`${titulo}  ·  ${hoy}`, MARGEN, 20);
-    return ARRIBA_CONTINUACION;
-  };
+  const encabezadoContinuacion = () => continuacionKlasea(doc, { seccion: "Marmolería", titulo, derecha: fechaRotulo(fecha) });
 
   const nuevaHoja = () => {
     doc.addPage();
@@ -258,10 +238,10 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = h
 
   const marcasDe = (pieza) => {
     const marcas = [];
-    if (pieza.rehacer) marcas.push({ texto: "Rehacer", color: RED, fondo: RED_SOFT });
-    if (pieza.urgencia === "Urgente") marcas.push({ texto: "Urgente", color: RED, fondo: RED_SOFT });
-    if (pieza.urgencia === "Alta") marcas.push({ texto: "Prioridad alta", color: CYAN, fondo: CYAN_SOFT });
-    if (pieza.opcional) marcas.push({ texto: "Opcional", color: MUTED, fondo: [241, 243, 246] });
+    if (pieza.rehacer) marcas.push({ texto: "Rehacer", color: RED });
+    if (pieza.urgencia === "Urgente") marcas.push({ texto: "Urgente", color: RED });
+    if (pieza.urgencia === "Alta") marcas.push({ texto: "Prioridad alta", color: ACENTO });
+    if (pieza.opcional) marcas.push({ texto: "Opcional", color: GRIS_SUAVE });
     return marcas;
   };
 
@@ -296,12 +276,14 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = h
       const arriba = ultima + 5;
       let x = cols.pieza.x;
       for (const marca of marcas) {
-        fuente("bold", 6.8, marca.color);
+        // Marca con borde de un pelo y letra espaciada: se lee sin gritar.
+        fuente("normal", 6.4, marca.color);
         const mayus = marca.texto.toUpperCase();
-        const w = doc.getTextWidth(mayus) + 0.5 * mayus.length + 8;
-        doc.setFillColor(...marca.fondo);
-        doc.roundedRect(x, arriba, w, 11, 2, 2, "F");
-        renglon(mayus, x + 4, arriba + 7.9, { charSpace: 0.5 });
+        const w = doc.getTextWidth(mayus) + 0.9 * mayus.length + 12;
+        doc.setDrawColor(...marca.color);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(x, arriba, w, 11, 5.5, 5.5, "S");
+        renglon(mayus, x + 6, arriba + 7.7, { charSpace: 0.9 });
         x += w + 4;
       }
       siguiente = arriba + 11 + 9.5;
@@ -321,15 +303,15 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = h
   };
 
   const cabeceraBarco = (barco, cols, { continua = false } = {}) => {
-    fuente("bold", 16, NAVY);
+    fuente("normal", 20, NAVY);
     renglon(barco.codigo, MARGEN, y + 15);
     const anchoCodigo = doc.getTextWidth(barco.codigo);
-    fuente("normal", 9.5, MUTED);
+    fuente("normal", 9, MUTED);
     const detalle = continua
       ? "continúa"
       : doc.splitTextToSize(detalleBarco(barco), ancho - anchoCodigo - 12)[0];
     renglon(detalle, MARGEN + anchoCodigo + 10, y + 15);
-    trazo(MARGEN, y + 23, MARGEN + ancho, y + 23, NAVY, 1.1);
+    trazo(MARGEN, y + 23, MARGEN + ancho, y + 23, NAVY, 0.7);
     etiqueta("Ambiente", cols.ambiente.x, y + 32);
     etiqueta("Pieza", cols.pieza.x, y + 32);
     etiqueta("Piedra", cols.piedra.x, y + 32);
@@ -375,14 +357,8 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = h
     trazo(MARGEN, y, MARGEN + ancho, y, RULE, 0.6);
   });
 
-  // ── Pie con "Página n de N" (recién ahora se sabe N) ───────────────────
-  const hojas = doc.getNumberOfPages();
-  for (let n = 1; n <= hojas; n += 1) {
-    doc.setPage(n);
-    fuente("normal", 7.5, FAINT);
-    texto(`Klase A Yachts  ·  ${titulo}  ·  ${hoy}`, MARGEN, altoHoja - 26);
-    texto(`Página ${n} de ${hojas}`, anchoHoja - MARGEN, altoHoja - 26, { align: "right" });
-  }
+  // ── Pie con "01 / 03" (recién ahora se sabe cuántas hojas son) ─────────
+  pie(doc, { izquierda: `${titulo}  ·  ${hoy}` });
 
   return doc;
 }

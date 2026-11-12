@@ -54,6 +54,7 @@ import logoKUrl from "@/assets/logos/logo-k.png";
 import { StatStrip } from "@/features/compras/comprasUI";
 import { C } from "@/theme";
 import { Cabecera } from "./ui";
+import { loadNavyWordmark } from "@/lib/pdfLogo";
 
 const emptyRow = {
   entry_date: new Date().toISOString().slice(0, 10),
@@ -1148,6 +1149,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
         compraDe: (item) => compraPorId.get(item.purchase_request_item_id) ?? null,
         incluirSinImporte,
         logo: await loadNavyLogo(),
+        marca: await loadNavyWordmark().catch(() => null),
         adjuntos,
       });
       descargarArchivo(bytes, nombreArchivoDetalle(selected));

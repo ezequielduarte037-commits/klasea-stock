@@ -107,7 +107,7 @@ test("los remitos extensos repiten datos de entrega y firmas sin perder filas en
     assert.match(text, /Firma de quien retira/);
     assert.match(text, /Juan/);
     if (text.includes("CONTINUACIÓN DEL REMITO")) assert.match(text, /OBSERVACIONES DE LA ENTREGA/);
-    else assert.match(text, /Cant\./);
+    else assert.match(text, /CANT\./); // El encabezado de la tabla va en rótulo (mayúsculas).
   }
   for (const conjunto of [pages.slice(0, mitad), pages.slice(mitad)]) {
     const text = conjunto.map((p) => p.join(" ")).join(" ");

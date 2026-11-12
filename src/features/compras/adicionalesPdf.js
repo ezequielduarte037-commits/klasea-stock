@@ -1,5 +1,9 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  ACENTO, GRIS, GRIS_SUAVE, MARGEN as MARGEN_CASA, PELO, TINTA,
+  anchoRotulo, cifras, encabezado as encabezadoKlasea, encabezadoContinuacion as continuacionKlasea, fechaRotulo, rotulo,
+} from "../../lib/pdfKlasea.js";
 
 /**
  * Detalle de adicionales para entregarle al cliente.
@@ -25,17 +29,16 @@ import autoTable from "jspdf-autotable";
  * archivo: el cliente las abre sin links externos ni archivos sueltos.
  */
 
-const NAVY = [14, 54, 83];
-const INK = [38, 42, 48];
-const MUTED = [108, 117, 132];
-const FAINT = [150, 157, 168];
-const RULE = [214, 220, 228];
-const HAIR = [232, 236, 241];
-const SOFT = [244, 246, 249];
+// Paleta y papel de la casa (lib/pdfKlasea). El acento sólo marca lo que se
+// puede tocar (los enlaces al anexo y a las copias).
+const NAVY = ACENTO;
+const INK = TINTA;
+const MUTED = GRIS;
+const HAIR = PELO;
 
-const MARGEN = 48;
-const PIE = 50;
-const ARRIBA_CONTINUACION = 54;
+const MARGEN = MARGEN_CASA;
+const PIE = 58;
+const ARRIBA_CONTINUACION = 80;
 
 const LETRAS_ANEXO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -289,7 +292,7 @@ async function cargarPdfLib() {
  * @returns {Promise<{ bytes: Uint8Array, paginas: number, avisos: string[] }>}
  */
 export async function construirDetalleAdicionales({
-  board, rows, compraDe, incluirSinImporte = true, logo = null, adjuntos = new Map(), fecha = hoyISO(),
+  board, rows, compraDe, incluirSinImporte = true, logo = null, marca = null, adjuntos = new Map(), fecha = hoyISO(),
 }) {
   const detalle = prepararDetalle(rows, { compraDe, incluirSinImporte });
   const avisos = [];
@@ -331,12 +334,7 @@ export async function construirDetalleAdicionales({
 
   /* Encabezados */
   const encabezadoContinuacion = () => {
-    doc.setFillColor(...NAVY);
-    doc.rect(0, 0, ancho, 6, "F");
-    fuente("bold", 8.5, NAVY);
-    doc.text(textoPdf(`Detalle de adicionales  ·  ${obra}`), MARGEN, 30);
-    fuente("normal", 8.5, MUTED);
-    doc.text(textoPdf(fechaLarga(fecha)), ancho - MARGEN, 30, { align: "right" });
+    continuacionKlasea(doc, { seccion: "Adicionales", titulo: textoPdf(obra), derecha: fechaRotulo(fecha) });
   };
 
   // Hojas que ya tienen su encabezado: la primera (marca) y las de
@@ -355,56 +353,33 @@ export async function construirDetalleAdicionales({
     return ARRIBA_CONTINUACION;
   };
 
-  // Primera hoja: marca como siempre (banda navy, K, KLASE A / YACHTS).
-  doc.setFillColor(...NAVY);
-  doc.rect(0, 0, ancho, 12, "F");
-  if (logo) doc.addImage(logo, "PNG", MARGEN, 34, 38, 38, undefined, "FAST");
-  fuente("bold", 21, NAVY);
-  doc.text("KLASE A", MARGEN + 50, 52);
-  fuente("bold", 7.5, MUTED);
-  doc.setCharSpace(3.6);
-  doc.text("YACHTS", MARGEN + 51.5, 65);
-  doc.setCharSpace(0);
-  fuente("normal", 9, MUTED);
-  doc.text(textoPdf(fechaLarga(fecha)), ancho - MARGEN, 52, { align: "right" });
+  // Primera hoja: la cabecera de la casa con el logotipo al centro, el barco
+  // en grande y los totales como ficha técnica (una cifra por moneda).
+  let y = encabezadoKlasea(doc, {
+    seccion: "Adicionales",
+    derecha: fechaRotulo(fecha),
+    eyebrow: "Detalle de adicionales",
+    titulo: textoPdf(obra ? `Embarcación ${obra}` : "Adicionales"),
+    subtitulo: textoPdf(descripcionObra),
+    detalle: textoPdf(NO_FACTURA),
+    logo,
+    logotipo: marca,
+  });
 
-  fuente("bold", 24, INK);
-  doc.text("Detalle de adicionales", MARGEN, 118);
-  fuente("normal", 11, INK);
-  let y = 140;
-  doc.text(textoPdf(`Embarcación ${obra}${descripcionObra ? `  ·  ${descripcionObra}` : ""}`), MARGEN, y);
-  y += 16;
-  fuente("normal", 9, MUTED);
-  doc.text(textoPdf(NO_FACTURA), MARGEN, y);
-  y += 22;
-
-  /* Totales, bien visibles y por moneda */
-  const cajas = detalle.monedas.map((m) => ({
-    titulo: m.moneda === "USD" ? "Total en dólares" : "Total en pesos",
-    valor: plata(m.total, m.moneda),
-    pie: plural(m.filas.length, "renglón", "renglones"),
-  }));
-  if (cajas.length) {
-    const separacion = 12;
-    const anchoCaja = (util - separacion * (cajas.length - 1)) / cajas.length;
-    cajas.forEach((caja, i) => {
-      const x = MARGEN + i * (anchoCaja + separacion);
-      doc.setFillColor(...(i === 0 ? NAVY : SOFT));
-      doc.roundedRect(x, y, anchoCaja, 66, 4, 4, "F");
-      fuente("bold", 7.5, i === 0 ? [190, 205, 220] : MUTED);
-      doc.setCharSpace(0.8);
-      doc.text(caja.titulo.toUpperCase(), x + 14, y + 19);
-      doc.setCharSpace(0);
-      fuente("bold", 19, i === 0 ? [255, 255, 255] : NAVY);
-      doc.text(caja.valor, x + 14, y + 43);
-      fuente("normal", 8.5, i === 0 ? [190, 205, 220] : MUTED);
-      doc.text(caja.pie, x + 14, y + 57);
-    });
-    y += 66 + 12;
+  if (detalle.monedas.length) {
+    y = cifras(doc, {
+      y,
+      items: detalle.monedas.map((m) => ({
+        rotulo: m.moneda === "USD" ? "Total en dólares" : "Total en pesos",
+        valor: plata(m.total, m.moneda),
+        nota: plural(m.filas.length, "renglón", "renglones"),
+      })),
+      tamValor: 21,
+    }) + 14;
     if (detalle.monedas.length > 1) {
       fuente("normal", 8.5, MUTED);
-      doc.text("Los importes en pesos y en dólares se informan por separado y no se suman entre sí.", MARGEN, y + 4);
-      y += 14;
+      doc.text("Los importes en pesos y en dólares se informan por separado y no se suman entre sí.", MARGEN, y);
+      y += 13;
     }
   } else {
     fuente("normal", 10, MUTED);
@@ -429,15 +404,31 @@ export async function construirDetalleAdicionales({
   const anchoDescripcion = (conImporte) => util - COL.numero - COL.cantidad - (conImporte ? COL.importe : 0);
   const enlacesAAnexo = []; // { pagina, y, h, anexo }
 
+  // Encabezado de tabla espaciado como rótulo: al alinear a la derecha o al
+  // centro se le suma al relleno lo que ocupa el espaciado.
+  const espaciarEncabezado = (data) => {
+    if (data.section !== "head") return;
+    const largo = String(data.cell.raw ?? "").length;
+    const extra = 0.9 * Math.max(largo - 1, 0);
+    const p = data.cell.styles.cellPadding;
+    if (data.cell.styles.halign === "right") data.cell.styles.cellPadding = { ...p, right: p.right + extra };
+    if (data.cell.styles.halign === "center") data.cell.styles.cellPadding = { ...p, right: p.right + extra / 2, left: p.left - extra / 2 };
+  };
+  // Línea de tinta bajo el encabezado y sobre el total; un pelo entre renglones.
+  const filetes = (data) => {
+    const { x, y: cy, width, height } = data.cell;
+    if (data.section === "head") trazo(x, cy + height, x + width, cy + height, INK, 0.7);
+    if (data.section === "body") trazo(x, cy + height, x + width, cy + height, HAIR, 0.45);
+    if (data.section === "foot") trazo(x, cy, x + width, cy, INK, 0.7);
+  };
+
   const tituloSeccion = (titulo, detalleDerecha, nota = "") => {
     const altoTitulo = nota ? 40 : 26;
     if (y + altoTitulo + 60 > fondo) y = nuevaHoja();
-    fuente("bold", 13, INK);
-    doc.text(textoPdf(titulo), MARGEN, y + 12);
-    if (detalleDerecha) {
-      fuente("normal", 9, MUTED);
-      doc.text(textoPdf(detalleDerecha), ancho - MARGEN, y + 12, { align: "right" });
-    }
+    const anchoTitulo = rotulo(doc, textoPdf(titulo), MARGEN, y + 12, { tam: 8, espacio: 1.6, color: INK });
+    const anchoDerecha = detalleDerecha ? anchoRotulo(doc, textoPdf(detalleDerecha)) : 0;
+    if (detalleDerecha) rotulo(doc, textoPdf(detalleDerecha), ancho - MARGEN, y + 12, { align: "right" });
+    trazo(MARGEN + anchoTitulo + 10, y + 9.5, ancho - MARGEN - (anchoDerecha ? anchoDerecha + 10 : 0), y + 9.5, HAIR, 0.5);
     if (nota) {
       fuente("normal", 8.5, MUTED);
       doc.text(textoPdf(nota), MARGEN, y + 27);
@@ -460,8 +451,8 @@ export async function construirDetalleAdicionales({
       if (conImporte) celdas.push(r.importe === 0 ? "Sin cargo" : plata(r.importe, moneda));
       return celdas;
     });
-    const cabecera = ["N°", "Descripción", "Cant."];
-    if (conImporte) cabecera.push("Importe");
+    const cabecera = ["N°", "DESCRIPCIÓN", "CANT."];
+    if (conImporte) cabecera.push("IMPORTE");
     const columnStyles = {
       0: { cellWidth: COL.numero, halign: "right", textColor: MUTED, fontSize: 8.5 },
       1: { cellWidth: anchoDesc },
@@ -487,15 +478,17 @@ export async function construirDetalleAdicionales({
       },
       // Borde del mismo color que el fondo: sin él quedaba una línea blanca
       // entre celda y celda del total.
-      headStyles: { fontStyle: "bold", fontSize: 8, textColor: MUTED, fillColor: SOFT, valign: "middle", lineColor: SOFT, lineWidth: 0.8 },
-      footStyles: { fontStyle: "bold", fontSize: 10.5, textColor: [255, 255, 255], fillColor: NAVY, valign: "middle", lineColor: NAVY, lineWidth: 0.8 },
+      headStyles: { fontStyle: "normal", fontSize: 6.4, textColor: MUTED, valign: "bottom", cellPadding: { top: 4, bottom: 7, left: 7, right: 7 } },
+      footStyles: { fontStyle: "bold", fontSize: 10.5, textColor: INK, valign: "middle", cellPadding: { top: 10, bottom: 10, left: 7, right: 7 } },
       columnStyles,
       didParseCell: (data) => {
         if (data.section === "head" && data.column.index === 3) data.cell.styles.halign = "right";
         if (data.section === "head" && data.column.index === 2) data.cell.styles.halign = "center";
         if (data.section === "foot" && data.column.index === 3) data.cell.styles.halign = "right";
+        espaciarEncabezado(data);
       },
       willDrawCell: (data) => {
+        if (data.section === "head") doc.setCharSpace(0.9);
         if (data.section !== "body" || data.column.index !== 1) return;
         const r = filas[data.row.index];
         if (r?.anexo) {
@@ -504,10 +497,8 @@ export async function construirDetalleAdicionales({
         }
       },
       didDrawCell: (data) => {
-        if (data.section === "body") {
-          // Filete entre renglones: más liviano que una grilla.
-          trazo(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height, HAIR, 0.6);
-        }
+        doc.setCharSpace(0);
+        filetes(data);
         if (data.section !== "body" || data.column.index !== 1) return;
         const r = filas[data.row.index];
         if (!r?.anexo || !r._lineasExtra?.length) return;
@@ -556,11 +547,8 @@ export async function construirDetalleAdicionales({
     paginaAnexo.set(anexo.letra, doc.internal.getCurrentPageInfo().pageNumber);
     anexo.pagina = doc.internal.getCurrentPageInfo().pageNumber;
 
-    fuente("bold", 8, MUTED);
-    doc.setCharSpace(0.8);
-    doc.text(`ANEXO ${anexo.letra}`, MARGEN, y + 8);
-    doc.setCharSpace(0);
-    fuente("bold", 17, INK);
+    rotulo(doc, `Anexo ${anexo.letra}`, MARGEN, y + 8, { tam: 7.5, espacio: 1.6 });
+    fuente("normal", 19, INK);
     const titulo = doc.splitTextToSize(textoPdf(`Desglose de “${r.descripcion}”`), util);
     doc.text(titulo, MARGEN, y + 30);
     y += 30 + (titulo.length - 1) * 20 + 16;
@@ -580,8 +568,8 @@ export async function construirDetalleAdicionales({
     }
 
     const conCopia = !!copia;
-    const head = [["N°", "Comprobante", "Fecha", "Importe"]];
-    if (conCopia) head[0].push("Copia");
+    const head = [["N°", "COMPROBANTE", "FECHA", "IMPORTE"]];
+    if (conCopia) head[0].push("COPIA");
     const body = r.desglose.comprobantes.map((c, i) => {
       const fila = [String(i + 1), textoPdf(c.numero || "-"), fechaCorta(c.fecha) || "-", c.importe == null ? "-" : plata(c.importe, r.moneda)];
       if (conCopia) fila.push(c.pagina ? "Ver copia ›" : "");
@@ -597,8 +585,8 @@ export async function construirDetalleAdicionales({
       theme: "plain",
       rowPageBreak: "avoid",
       styles: { font: "helvetica", fontSize: 9.5, textColor: INK, cellPadding: { top: 6, bottom: 6, left: 7, right: 7 } },
-      headStyles: { fontStyle: "bold", fontSize: 8, textColor: MUTED, fillColor: SOFT, lineColor: SOFT, lineWidth: 0.8 },
-      footStyles: { fontStyle: "bold", fontSize: 10.5, textColor: [255, 255, 255], fillColor: NAVY, lineColor: NAVY, lineWidth: 0.8 },
+      headStyles: { fontStyle: "normal", fontSize: 6.4, textColor: MUTED, cellPadding: { top: 4, bottom: 7, left: 7, right: 7 } },
+      footStyles: { fontStyle: "bold", fontSize: 10.5, textColor: INK, cellPadding: { top: 10, bottom: 10, left: 7, right: 7 } },
       columnStyles: {
         0: { cellWidth: 30, halign: "right", textColor: MUTED, fontSize: 8.5 },
         1: { cellWidth: "auto" },
@@ -607,12 +595,15 @@ export async function construirDetalleAdicionales({
         ...(conCopia ? { 4: { cellWidth: 76, halign: "right", textColor: NAVY, fontSize: 8.5 } } : {}),
       },
       didParseCell: (data) => {
-        if (data.column.index === 3 && data.section !== "body") data.cell.styles.halign = "right";
+        if (data.column.index >= 3 && data.section !== "body") data.cell.styles.halign = "right";
+        espaciarEncabezado(data);
+      },
+      willDrawCell: (data) => {
+        if (data.section === "head") doc.setCharSpace(0.9);
       },
       didDrawCell: (data) => {
-        if (data.section === "body") {
-          trazo(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height, HAIR, 0.6);
-        }
+        doc.setCharSpace(0);
+        filetes(data);
         if (!conCopia || data.section !== "body" || data.column.index !== 4) return;
         const c = r.desglose.comprobantes[data.row.index];
         if (!c?.pagina || c.pagina > copia.getPageCount()) return;
@@ -653,10 +644,10 @@ export async function construirDetalleAdicionales({
   const total = hojasPropias + hojasCopias;
   for (let n = 1; n <= hojasPropias; n += 1) {
     doc.setPage(n);
-    trazo(MARGEN, alto - 36, ancho - MARGEN, alto - 36, HAIR, 0.6);
-    fuente("normal", 7.5, FAINT);
-    doc.text(textoPdf(`Klase A Yachts  ·  ${NO_FACTURA}`), MARGEN, alto - 24);
-    doc.text(`Página ${n} de ${total}`, ancho - MARGEN, alto - 24, { align: "right" });
+    trazo(MARGEN, alto - 38, ancho - MARGEN, alto - 38, HAIR, 0.5);
+    rotulo(doc, textoPdf(`Klase A Yachts  ·  ${NO_FACTURA}`), MARGEN, alto - 28, { tam: 6, color: MUTED });
+    fuente("normal", 6.5, MUTED);
+    doc.text(`Página ${n} de ${total}`, ancho - MARGEN, alto - 28, { align: "right" });
   }
 
   let bytes = new Uint8Array(doc.output("arraybuffer"));

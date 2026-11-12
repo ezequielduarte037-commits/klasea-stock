@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Download, Eye, FileText, Plus, RefreshCw, Search, X } from "lucide-react";
-import { loadNavyLogo } from "@/lib/pdfLogo";
+import { cargarMarcasPdf, loadNavyLogo } from "@/lib/pdfLogo";
 import { T, PANEL, INP, INP_SM, EYEBROW, fmtFecha } from "./marmShared";
 import { hoyISO } from "./marmoleriaPdf";
 import { alternarPlantillaRemito, datosSolicitudRemito, depurarSeleccionRemito, MAX_PLANTILLAS_REMITO, numeroRemitoMarmoleria, plantillasPendientesRemito, validarRemitoMarmoleria } from "./remitosMarmoleria";
@@ -107,8 +107,11 @@ export default function RemitosView({ profile, piezas, unidades, lineas, unidadI
   }
   async function armarPdf(remito, descargar = false) {
     // Un error del logo no debe impedir recuperar una constancia ya guardada.
-    const logo = await loadNavyLogo().catch(() => null);
-    const doc = construirPdfRemitoMarmoleria({ remito, logo });
+    const [logo, marcas] = await Promise.all([
+      loadNavyLogo().catch(() => null),
+      cargarMarcasPdf().catch(() => ({})),
+    ]);
+    const doc = construirPdfRemitoMarmoleria({ remito, logo, logotipo: marcas.logotipo || null });
     const nombre = nombreArchivoRemitoMarmoleria(remito);
     if (descargar) doc.save(nombre);
     else setPreview({ doc, nombre });

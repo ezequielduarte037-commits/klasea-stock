@@ -1,7 +1,10 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { zipSync } from "fflate";
-import { loadNavyLogo } from "@/lib/pdfLogo";
+import { cargarMarcasPdf } from "@/lib/pdfLogo";
+import {
+  ABAJO, GRIS, GRIS_SUAVE, MARGEN, TINTA, encabezado, encabezadoContinuacion, fechaRotulo, pie, tablaKlasea,
+} from "@/lib/pdfKlasea";
 import { descargarXlsx, celdaRef } from "@/features/compras/xlsx";
 import {
   indiceProveedoresPorNombre,
@@ -26,9 +29,6 @@ import {
 const ARCHIVO_MAX = 60;
 const TEXTO_MAX_ITEMS = 45;
 
-const navy = [14, 54, 83];
-const ink = [45, 48, 54];
-const muted = [108, 117, 132];
 const XLSX_NAVY = "0E3653";
 const XLSX_HEADER = "F1F4F7";
 const XLSX_COMPLETAR = "EEF4FA";
@@ -234,8 +234,8 @@ function cargarLogoNavy() {
   // 20 veces. Si falla, la lista sale igual sin logo.
   if (logoCache === undefined)
     logoCache = Promise.resolve()
-      .then(loadNavyLogo)
-      .catch(() => null);
+      .then(cargarMarcasPdf)
+      .catch(() => ({ logo: null, logotipo: null }));
   return logoCache;
 }
 
@@ -247,61 +247,32 @@ export async function construirPedidoPdf({ proveedor, filas, opciones = {} }) {
 
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const left = 40;
+  const left = MARGEN;
   const ancho = pageWidth - left * 2;
-  const logo = await cargarLogoNavy();
+  const marcas = await cargarLogoNavy();
   // Muchos materiales del catálogo no tienen código: si no hay ninguno, la
   // columna se saca en vez de imprimir 60 guiones.
   const hayCodigo = filas.some((fila) => fila.codigo);
   const nombreProveedor = limpiar(proveedor?.nombre) || "Proveedor";
 
-  const encabezado = (compacto) => {
-    doc.setFillColor(...navy);
-    doc.rect(0, 0, pageWidth, compacto ? 4 : 6, "F");
-    if (compacto) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(...navy);
-      doc.text(`Precios a completar · ${nombreProveedor}`, left, 26);
-      return;
-    }
-    if (logo?.dataUrl) {
-      const w = 26;
-      doc.addImage(logo.dataUrl, "PNG", pageWidth - left - w, 26, w, w * (logo.aspect || 1));
-    }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(...ink);
-    doc.text("Precios a completar", left, 48);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(...muted);
-    doc.text(
-      `${nombreProveedor}  ·  ${fechaCorta(fecha)}  ·  ${filas.length} ítem${filas.length === 1 ? "" : "s"}`,
-      left,
-      65,
-    );
-  };
+  const y = encabezado(doc, {
+    seccion: "Compras",
+    derecha: fechaRotulo(fecha),
+    eyebrow: "Precios a completar",
+    titulo: nombreProveedor,
+    detalle: `${filas.length} ítem${filas.length === 1 ? "" : "s"}  ·  ${fechaCorta(fecha)}`,
+    logo: marcas.logo,
+    logotipo: marcas.logotipo,
+  });
 
-  const pie = (numero) => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(150, 157, 168);
-    doc.text(`Página ${numero}`, left, pageHeight - 20);
-    doc.text("Klase A Yachts", pageWidth - left, pageHeight - 20, { align: "right" });
-  };
-
-  encabezado(false);
-
-  const cabecera = ["#"];
+  const cabecera = [""];
   if (hayCodigo) cabecera.push("Código");
   cabecera.push("Descripción", "Unidad");
   if (mostrarUltimoPrecio) cabecera.push("Últ. precio");
   cabecera.push("Precio");
 
   const cuerpo = filas.map((fila, indice) => {
-    const row = [String(indice + 1)];
+    const row = [String(indice + 1).padStart(2, "0")];
     if (hayCodigo) row.push(fila.codigo || "—");
     row.push(descripcionFila(fila));
     row.push(limpiar(fila.material.unidad_medida) || "u.");
@@ -315,7 +286,7 @@ export async function construirPedidoPdf({ proveedor, filas, opciones = {} }) {
   // lo que sobra (es la columna que de verdad necesita aire).
   // "Un." tiene que aguantar "unidad" en una linea: con menos ancho se parte en
   // dos y cada renglon pasa a medir el doble (220 items = 11 hojas en vez de 7).
-  const w = { indice: 20, codigo: 56, unidad: 46, ultimo: 58, precio: 80 };
+  const w = { indice: 24, codigo: 56, unidad: 46, ultimo: 58, precio: 84 };
   const fijos =
     w.indice +
     w.unidad +
@@ -324,56 +295,48 @@ export async function construirPedidoPdf({ proveedor, filas, opciones = {} }) {
     (mostrarUltimoPrecio ? w.ultimo : 0);
   const columnStyles = {};
   let col = 0;
-  columnStyles[col++] = { cellWidth: w.indice, halign: "center", textColor: muted, fontSize: 8 };
-  if (hayCodigo) columnStyles[col++] = { cellWidth: w.codigo, fontSize: 8.5, textColor: muted };
-  columnStyles[col++] = { cellWidth: Math.max(130, ancho - fijos), fontStyle: "bold" };
-  columnStyles[col++] = { cellWidth: w.unidad, halign: "center", fontSize: 8.5, textColor: muted };
+  columnStyles[col++] = { cellWidth: w.indice, textColor: GRIS, fontSize: 8 };
+  if (hayCodigo) columnStyles[col++] = { cellWidth: w.codigo, fontSize: 8.5, textColor: GRIS };
+  columnStyles[col++] = { cellWidth: Math.max(130, ancho - fijos) };
+  columnStyles[col++] = { cellWidth: w.unidad, halign: "center", fontSize: 8.5, textColor: GRIS };
   if (mostrarUltimoPrecio)
-    columnStyles[col++] = { cellWidth: w.ultimo, halign: "right", fontSize: 8.5, textColor: muted };
+    columnStyles[col++] = { cellWidth: w.ultimo, halign: "right", fontSize: 8.5, textColor: GRIS };
   const colPrecio = col;
   columnStyles[col] = { cellWidth: w.precio };
 
-  autoTable(doc, {
-    startY: 82,
-    margin: { left, right: left, top: 40, bottom: 38 },
+  autoTable(doc, tablaKlasea({
+    startY: y + 4,
+    margin: { left, right: left, top: 80, bottom: ABAJO },
     head: [cabecera],
     body: cuerpo,
-    theme: "grid",
     rowPageBreak: "avoid",
     columnStyles,
     // Renglones altos: el proveedor escribe el precio a mano sobre el papel.
-    styles: {
-      font: "helvetica",
-      fontSize: 9,
-      cellPadding: { top: 8, right: 5, bottom: 8, left: 5 },
-      lineColor: [223, 228, 234],
-      lineWidth: 0.7,
-      textColor: ink,
-      valign: "middle",
-      overflow: "linebreak",
-    },
-    headStyles: {
-      fillColor: [241, 244, 247],
-      textColor: [31, 36, 43],
-      fontStyle: "bold",
-      fontSize: 8,
-      cellPadding: { top: 7, right: 5, bottom: 7, left: 5 },
-    },
+    styles: { fontSize: 9, cellPadding: { top: 9, right: 6, bottom: 9, left: 6 } },
     didParseCell: (data) => {
       // La única columna que completa el proveedor va marcada en el encabezado.
       if (data.section === "head" && data.column.index === colPrecio) {
-        data.cell.styles.fillColor = navy;
-        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.textColor = TINTA;
+        data.cell.styles.fontStyle = "bold";
       }
       if (data.section === "body" && String(data.cell.raw) === "—") {
-        data.cell.styles.textColor = [175, 182, 192];
+        data.cell.styles.textColor = GRIS_SUAVE;
       }
     },
-    didDrawPage: (data) => {
-      if (data.pageNumber > 1) encabezado(true);
-      pie(data.pageNumber);
+    // Donde va el precio, un renglón para escribir.
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== colPrecio) return;
+      const { x, y: cy, width, height } = data.cell;
+      doc.setDrawColor(...GRIS_SUAVE);
+      doc.setLineWidth(0.5);
+      doc.line(x + 8, cy + height - 7, x + width - 4, cy + height - 7);
     },
-  });
+    willDrawPage: (data) => {
+      if (data.pageNumber > 1) encabezadoContinuacion(doc, { seccion: "Precios a completar", titulo: nombreProveedor, derecha: fechaRotulo(fecha) });
+    },
+  }));
+
+  pie(doc, { izquierda: `Precios a completar  ·  ${nombreProveedor}` });
 
   return doc;
 }
