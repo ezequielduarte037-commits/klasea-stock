@@ -5,11 +5,10 @@
  * segundo conteo podría estar abierto); administración y Compras sí.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ClipboardList, MapPin, UserRound } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ClipboardList, MapPin, UserRound } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { MaterialThumb } from "@/features/materiales/MaterialExtras";
-import { fmtQty } from "@/features/panol/stockGrupos";
-import { ESTADOS_DIA, fechaLocal, resumenHistorial } from "@/features/panol/conteo/conteoDiario";
+import { ESTADOS_DIA, explicarConteo, fechaLocal, resumenHistorial, tieneDiferencia } from "@/features/panol/conteo/conteoDiario";
 import { ConteoSinMigracion, fetchHistorialConteo, fetchNombres } from "@/features/panol/conteo/conteoApi";
 import { Chip, EstadoChip } from "@/features/panol/conteo/conteoPiezas";
 import { TONOS, diaCorto, fechaCorta, hora, nombreLindo, primerNombre } from "@/features/panol/conteo/conteoFormato";
@@ -62,38 +61,47 @@ function Racha({ filas }) {
   );
 }
 
-function DetalleItem({ item, nombres, verNumeros }) {
+/**
+ * Un renglón contado con la explicación de qué pasó y el acceso al producto.
+ * Los números se ocultan sólo mientras falta el segundo conteo y quien mira
+ * no resuelve (el conteo es a ciegas).
+ */
+function RenglonExplicado({ item, nombres, verNumeros, onAbrirProducto, mostrarFecha = false }) {
   const m = item.material || {};
-  const unidad = item.unidad || m.unidad_medida || "";
+  const { texto, tono } = explicarConteo(item, {
+    nombre: (uid) => primerNombre(nombres, uid),
+    verNumeros: verNumeros || item.estado !== "recontar",
+  });
+  const fecha = item.lote?.fecha || (item.contado_at ? fechaLocal(item.contado_at) : null);
   return (
     <div className="hist-item">
       <MaterialThumb material={{ imagen_url: m.imagen_url, descripcion: m.descripcion }} size={34} />
       <div className="hist-item-texto">
         <span className="conteo-fila-nombre">{m.descripcion || "Material"}</span>
         <span className="conteo-fila-meta">
-          {m.codigo && <span className="conteo-mono">{m.codigo}</span>}
+          {mostrarFecha && fecha && <span>{diaCorto(fecha)}</span>}
           <span className="conteo-ubic"><MapPin size={11} /> {m.ubicacion || "sin ubicación"}</span>
+          {m.codigo && <span className="conteo-mono">{m.codigo}</span>}
           {item.contado_at && <span>{primerNombre(nombres, item.contado_por)} · {hora(item.contado_at)}</span>}
           {item.recontado_at && <span>2.º {primerNombre(nombres, item.recontado_por)} · {fechaLocal(item.recontado_at) !== fechaLocal(item.contado_at) ? `${fechaCorta(fechaLocal(item.recontado_at))} ` : ""}{hora(item.recontado_at)}</span>}
           {item.resuelto_at && <span>Resolvió {primerNombre(nombres, item.resuelto_por)}</span>}
         </span>
-        {verNumeros && item.contado != null && (
-          <span className="hist-item-numeros conteo-mono">
-            contó {fmtQty(item.contado)}
-            {item.recontado != null && ` · 2.º ${fmtQty(item.recontado)}`}
-            {item.teorico != null && ` · sistema ${fmtQty(item.teorico)}`}
-            {item.ajuste != null && Math.abs(item.ajuste) > 0.0001 && ` · ajuste ${item.ajuste > 0 ? "+" : ""}${fmtQty(item.ajuste)}`}
-            {unidad && ` ${unidad}`}
-          </span>
-        )}
-        {item.nota && <span className="conteo-dim">“{item.nota}”</span>}
+        {item.contado_at && <span className="hist-explicacion" style={{ borderColor: TONOS[tono][0] }}>{texto}</span>}
+        {item.nota && <span className="conteo-dim">Nota: “{item.nota}”</span>}
       </div>
-      <EstadoChip estado={item.estado} />
+      <div className="hist-item-lado">
+        {item.ajuste_anulado ? <Chip tono="red">Ajuste anulado</Chip> : <EstadoChip estado={item.estado} />}
+        {onAbrirProducto && item.material_id && (
+          <button type="button" className="ui-btn ui-btn-fantasma hist-ver" onClick={() => onAbrirProducto(item.material_id)} title="Abrir el producto en el inventario, con sus movimientos">
+            Ver producto <ArrowUpRight size={13} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-function FilaDia({ fila, nombres, verNumeros, abierta, onToggle }) {
+function FilaDia({ fila, nombres, verNumeros, abierta, onToggle, onAbrirProducto }) {
   const meta = ESTADOS_DIA[fila.estado];
   const pct = fila.asignados ? Math.round((fila.contados / fila.asignados) * 100) : 0;
   const deOtrosDias = fila.acciones.filter((accion) => accion.item.lote_id !== fila.lote?.id);
@@ -144,7 +152,7 @@ function FilaDia({ fila, nombres, verNumeros, abierta, onToggle }) {
               {fila.personas.length > 0 && ` ${fila.personas.map((p) => `${primerNombre(nombres, p.uid)}: ${p.conteo + p.segundo}`).join(" · ")}.`}
             </div>
           )}
-          {contadosPrimero.map((item) => <DetalleItem key={item.id} item={item} nombres={nombres} verNumeros={verNumeros} />)}
+          {contadosPrimero.map((item) => <RenglonExplicado key={item.id} item={item} nombres={nombres} verNumeros={verNumeros} onAbrirProducto={onAbrirProducto} />)}
           {deOtrosDias.length > 0 && (
             <>
               <div className="hist-subtitulo">También ese día, de listas anteriores</div>
@@ -161,7 +169,7 @@ function FilaDia({ fila, nombres, verNumeros, abierta, onToggle }) {
   );
 }
 
-export default function HistorialConteo({ sede, puedeResolver, toast }) {
+export default function HistorialConteo({ sede, puedeResolver, toast, onAbrirProducto }) {
   const [dias, setDias] = useState(30);
   // Lo traído queda marcado con su sede y período: si cambian, se muestra
   // "cargando" sin tener que vaciarlo antes.
@@ -180,7 +188,7 @@ export default function HistorialConteo({ sede, puedeResolver, toast }) {
     (async () => {
       try {
         const { lotes: data, inicio } = await fetchHistorialConteo(sede, sumarDias(hoy, -(dias - 1)));
-        const ids = data.flatMap((lote) => [lote.creado_por, ...lote.items.flatMap((item) => [item.contado_por, item.recontado_por, item.resuelto_por])]);
+        const ids = data.flatMap((lote) => [lote.creado_por, ...lote.items.flatMap((item) => [item.contado_por, item.recontado_por, item.resuelto_por, item.ajuste_anulado?.por])]);
         const conNombres = await fetchNombres(ids);
         if (!vivo) return;
         setNombres(conNombres);
@@ -196,6 +204,15 @@ export default function HistorialConteo({ sede, puedeResolver, toast }) {
   }, [dias, hoy, sede, toast]);
 
   const resumen = useMemo(() => (lotes ? resumenHistorial(lotes, { hoy, dias, inicio: datos.inicio }) : null), [datos.inicio, dias, hoy, lotes]);
+  // Todo lo que no dio igual en el período, lo último primero.
+  const diferencias = useMemo(() => {
+    if (!resumen) return [];
+    return lotes
+      .filter((lote) => lote.fecha >= resumen.desde)
+      .flatMap((lote) => lote.items.map((item) => ({ ...item, lote })))
+      .filter(tieneDiferencia)
+      .sort((a, b) => String(b.contado_at || "").localeCompare(String(a.contado_at || "")));
+  }, [lotes, resumen]);
 
   if (sinMigracion) {
     return (
@@ -259,6 +276,22 @@ export default function HistorialConteo({ sede, puedeResolver, toast }) {
           {resumen.filas.some((fila) => fila.habil) && <Racha filas={resumen.filas} />}
 
           <section className="conteo-seccion">
+            <div className="conteo-seccion-titulo">
+              <span>Ajustes y diferencias · {diferencias.length}</span>
+              <span className="conteo-seccion-detalle">lo que no dio igual al sistema y qué se hizo</span>
+            </div>
+            {diferencias.length ? (
+              <div className="hist-diferencias">
+                {diferencias.map((item) => (
+                  <RenglonExplicado key={item.id} item={item} nombres={nombres} verNumeros={puedeResolver} onAbrirProducto={onAbrirProducto} mostrarFecha />
+                ))}
+              </div>
+            ) : (
+              <div className="hist-vacio conteo-dim">En este período todo lo contado coincidió con el sistema.</div>
+            )}
+          </section>
+
+          <section className="conteo-seccion">
             <div className="conteo-seccion-titulo">Quién contó</div>
             {resumen.personas.length ? resumen.personas.map((p) => (
               <div key={p.uid || "anon"} className="hist-persona">
@@ -283,6 +316,7 @@ export default function HistorialConteo({ sede, puedeResolver, toast }) {
                 nombres={nombres}
                 verNumeros={puedeResolver}
                 abierta={abierta === fila.fecha}
+                onAbrirProducto={onAbrirProducto}
                 onToggle={() => setAbierta((prev) => (prev === fila.fecha ? null : fila.fecha))}
               />
             ))}
@@ -330,9 +364,13 @@ const HIST_CSS = `
 .conteo-root .hist-dia.is-abierta .hist-chevron { transform: rotate(180deg); }
 .conteo-root .hist-dia-detalle { display: grid; padding: 4px 12px 12px; background: var(--panel); }
 .conteo-root .hist-dia-resumen { padding: 6px 0 8px; }
-.conteo-root .hist-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.conteo-root .hist-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--border); }
+.conteo-root .hist-diferencias { display: grid; padding: 0 12px; }
+.conteo-root .hist-diferencias .hist-item:first-child { border-top: 0; }
+.conteo-root .hist-explicacion { margin-top: 3px; padding: 2px 0 2px 9px; border-left: 2px solid; font-size: 12.5px; line-height: 1.45; color: var(--text); max-width: 72ch; }
+.conteo-root .hist-item-lado { display: grid; justify-items: end; gap: 6px; }
+.conteo-root .hist-ver { min-height: 30px; padding: 0 8px; font-size: 11.5px; gap: 3px; color: var(--blue); white-space: nowrap; }
 .conteo-root .hist-item-texto { display: grid; gap: 2px; min-width: 0; }
-.conteo-root .hist-item-numeros { font-size: 11.5px; color: var(--muted); }
 .conteo-root .hist-subtitulo { padding: 10px 0 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); border-top: 1px solid var(--border); }
 .conteo-root .hist-accion { padding: 3px 0; }
 .conteo-root .hist-accion b { color: var(--text); font-weight: 500; }
@@ -349,5 +387,7 @@ const HIST_CSS = `
   .conteo-root .hist-dia-estado { grid-row: 1; grid-column: 2; }
   .conteo-root .hist-persona { grid-template-columns: 28px minmax(0, 1fr) auto; }
   .conteo-root .hist-persona-dato:nth-of-type(n+4) { display: none; }
+  .conteo-root .hist-item { grid-template-columns: 34px minmax(0, 1fr); }
+  .conteo-root .hist-item-lado { grid-column: 2; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; }
 }
 `;

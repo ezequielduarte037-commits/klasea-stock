@@ -9,7 +9,7 @@
  *   5 del resto (C, cada 180) · 3 por evento (negativo, ubicaciones que no
  *   cierran, ficha con problema). Lo que quedó sin contar ayer va primero.
  */
-import { qty, rowObraId, rowSede } from "../stockGrupos.js";
+import { fmtQty, qty, rowObraId, rowSede } from "../stockGrupos.js";
 import { rowDelta, rowMovementAt } from "../panolMovimientos.js";
 
 export const CONTEO_CUPOS = { evento: 3, A: 7, B: 5, C: 5 };
@@ -327,3 +327,93 @@ export const ESTADOS_DIA = {
   sin_lista: { label: "Sin lista", tono: "red" },
   sin_armar: { label: "Sin armar", tono: "dim" },
 };
+
+// ─── Qué pasó con un renglón, en palabras ────────────────────────────────────
+
+/** Diferencias que se ven en "Ajustes y diferencias" del historial. */
+export function tieneDiferencia(item = {}) {
+  return ["ajustado", "recontar", "revisar", "descartado"].includes(item.estado) || !!item.ajuste_anulado;
+}
+
+/** Motivo de una anulación a partir de la nota "[anulado] … Motivo reversion: …". */
+export function motivoAnulacion(nota = "") {
+  const texto = String(nota || "");
+  if (!texto.toLowerCase().includes("[anulado]")) return null;
+  const match = texto.match(/motivo reversi[oó]n:\s*([^|\n]+)/i);
+  return (match?.[1] || "").trim();
+}
+
+/**
+ * Una o dos frases que cuentan qué pasó: qué decía el sistema, quién contó
+ * cuánto, qué se hizo con el stock y en cuánto quedó.
+ *   nombre(uid) → "Tomas"
+ *   verNumeros: false para quien cuenta mientras falta un segundo conteo (el
+ *   conteo es a ciegas: no puede saber qué dio el primero ni qué dice el sistema).
+ */
+export function explicarConteo(item = {}, { nombre = () => "Alguien", verNumeros = true } = {}) {
+  const u = item.unidad && !/^unidad(es)?$/i.test(item.unidad) ? ` ${item.unidad}` : "";
+  const n = (x) => `${fmtQty(x)}${u}`;
+  const t = item.teorico == null ? null : Number(item.teorico);
+  const c = item.contado == null ? null : Number(item.contado);
+  const r = item.recontado == null ? null : Number(item.recontado);
+  const quien = nombre(item.contado_por);
+  const quien2 = nombre(item.recontado_por);
+  const resolvio = item.resuelto_at ? nombre(item.resuelto_por) : null;
+  const diferencia = (a, b) => {
+    const d = a - b;
+    if (d > 0) return `${n(d)} de más`;
+    return Math.abs(d) === 1 ? `faltaba ${n(1)}` : `faltaban ${n(-d)}`;
+  };
+  const cambio = (ajuste) => {
+    const uno = Math.abs(ajuste) === 1;
+    return ajuste > 0 ? `${uno ? "Se sumó" : "Se sumaron"} ${n(ajuste)}` : `${uno ? "Se descontó" : "Se descontaron"} ${n(-ajuste)}`;
+  };
+
+  let texto;
+  let tono = "dim";
+  if (item.estado === "pendiente" || c == null) {
+    return { texto: item.estado === "pasado" ? "No se contó ese día; pasó a la lista siguiente." : "Todavía no se contó.", tono: "dim" };
+  }
+  if (item.estado === "recontar") {
+    tono = "violet";
+    texto = verNumeros && t != null
+      ? `El sistema decía ${n(t)} y ${quien} contó ${n(c)} (${diferencia(c, t)}). Es mucha diferencia para corregirla sola: falta que otra persona lo cuente.`
+      : `${quien} lo contó y no coincidió con el sistema. Falta que otra persona lo cuente.`;
+    return { texto, tono };
+  }
+
+  const base = t == null ? "" : `El sistema decía ${n(t)}`;
+  const conteos = r == null
+    ? `${quien} contó ${n(c)}`
+    : `${quien} contó ${n(c)} y ${quien2} volvió a contar ${n(r)}`;
+
+  if (item.estado === "ok") {
+    tono = "green";
+    texto = resolvio
+      ? `${base}; ${conteos}. ${resolvio} lo dejó como estaba.`
+      : `${base} y ${conteos}: coincide. No se tocó el stock.`;
+  } else if (item.estado === "ajustado") {
+    tono = "blue";
+    const ajuste = Number(item.ajuste || 0);
+    const final = t == null ? null : t + ajuste;
+    const quedo = final == null ? "" : `: el sistema quedó en ${n(final)}`;
+    if (resolvio) texto = `${base}; ${conteos}. ${resolvio} lo dejó en ${n(final)}. ${cambio(ajuste)} al stock.`;
+    else if (r != null) texto = `${base}; ${conteos}, que confirma la diferencia (${diferencia(r, t)}). ${cambio(ajuste)}${quedo}.`;
+    else texto = `${base} y ${conteos} (${diferencia(c, t)}). Como la diferencia es chica, se corrigió sola. ${cambio(ajuste)}${quedo}.`;
+  } else if (item.estado === "revisar") {
+    tono = "red";
+    texto = `${base}; ${conteos}. Los conteos no coinciden entre sí, así que no se tocó el stock: lo resuelve Compras.`;
+  } else if (item.estado === "descartado") {
+    texto = `${base}; ${conteos}. ${resolvio || "Compras"} descartó la diferencia: el stock quedó como estaba.`;
+  } else {
+    texto = `${base}; ${conteos}.`;
+  }
+
+  if (item.ajuste_anulado) {
+    tono = "red";
+    const motivo = item.ajuste_anulado.motivo ? ` (motivo: «${item.ajuste_anulado.motivo}»)` : "";
+    const por = item.ajuste_anulado.por ? `${nombre(item.ajuste_anulado.por)} anuló` : "Después se anuló";
+    texto += ` ${por} ese ajuste${motivo}, así que el sistema volvió a ${t == null ? "lo que decía antes" : n(t)} y no coincide con lo contado.`;
+  }
+  return { texto: texto.replace(/^; /, ""), tono };
+}

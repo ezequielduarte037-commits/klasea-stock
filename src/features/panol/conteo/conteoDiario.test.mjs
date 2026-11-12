@@ -151,3 +151,21 @@ test("el historial arranca el día de la primera lista", async () => {
   assert.deepEqual(r.filas.map((f) => f.estado), ["sin_armar", "sin_contar"]);
   assert.equal(r.totales.diasHabiles, 1);
 });
+
+test("explica cada renglón con lo que decía el sistema, lo contado y en cuánto quedó", async () => {
+  const { explicarConteo, motivoAnulacion } = await import("./conteoDiario.js");
+  const nombre = (uid) => ({ t: "Tomas", l: "Lautaro", c: "Ezequiel" }[uid] || "Alguien");
+  const falta = explicarConteo({ estado: "ajustado", teorico: 3, contado: 2, contado_por: "t", ajuste: -1, unidad: "unidad" }, { nombre });
+  assert.equal(falta.texto, "El sistema decía 3 y Tomas contó 2 (faltaba 1). Como la diferencia es chica, se corrigió sola. Se descontó 1: el sistema quedó en 2.");
+  const sobra = explicarConteo({ estado: "ajustado", teorico: 0, contado: 2, contado_por: "t", ajuste: 2, ajuste_anulado: { motivo: "se duplico", por: "t" } }, { nombre });
+  assert.match(sobra.texto, /2 de más.*Se sumaron 2: el sistema quedó en 2\. Tomas anuló ese ajuste \(motivo: «se duplico»\), así que el sistema volvió a 0/);
+  assert.equal(sobra.tono, "red");
+  const revisar = explicarConteo({ estado: "revisar", teorico: 15, contado: 18, contado_por: "t", recontado: 3, recontado_por: "l" }, { nombre });
+  assert.equal(revisar.texto, "El sistema decía 15; Tomas contó 18 y Lautaro volvió a contar 3. Los conteos no coinciden entre sí, así que no se tocó el stock: lo resuelve Compras.");
+  const ciego = explicarConteo({ estado: "recontar", teorico: 3, contado: 1, contado_por: "t" }, { nombre, verNumeros: false });
+  assert.doesNotMatch(ciego.texto, /\d/);
+  const metros = explicarConteo({ estado: "ok", teorico: 4.5, contado: 4.5, contado_por: "t", unidad: "m" }, { nombre });
+  assert.equal(metros.texto, "El sistema decía 4,5 m y Tomas contó 4,5 m: coincide. No se tocó el stock.");
+  assert.equal(motivoAnulacion("Conteo diario 10/11\n[anulado] Revierte movimiento x - Motivo reversion: se duplico"), "se duplico");
+  assert.equal(motivoAnulacion("Conteo diario 10/11"), null);
+});

@@ -1,29 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, ClipboardList, MapPin, RefreshCw, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CheckCircle2, ClipboardList, MapPin, RefreshCw, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { buildProductGroups, fmtQty, rowSede } from "@/features/panol/stockGrupos";
 import {
-  CONTEO_CLASES, CONTEO_TOTAL, elegirConteoDelDia, exactitud, fechaLocal, ordenRecorrido, teoricoEnSede,
+  CONTEO_CLASES, CONTEO_TOTAL, elegirConteoDelDia, exactitud, explicarConteo, fechaLocal, ordenRecorrido, teoricoEnSede,
 } from "@/features/panol/conteo/conteoDiario";
 import {
   ConteoSinMigracion, crearLoteConteo, fetchConteoLote, fetchConteosAbiertos, fetchConteosRecientes,
-  fetchLedgerMaterial, fetchNombres, fetchUltimosConteos, registrarConteo, resolverConteo,
+  fetchLedgerMaterial, fetchNombres, fetchUltimosConteos, marcarAjustesAnulados, registrarConteo, resolverConteo,
 } from "@/features/panol/conteo/conteoApi";
-import { EstadoChip } from "@/features/panol/conteo/conteoPiezas";
+import { Chip, EstadoChip } from "@/features/panol/conteo/conteoPiezas";
 import { TONOS, fechaCorta, fechaLarga, hora, primerNombre } from "@/features/panol/conteo/conteoFormato";
 import HistorialConteo from "@/features/panol/conteo/HistorialConteo";
 
 const SEDES = ["Chubut", "Pampa"];
 const ABIERTOS = ["pendiente", "recontar", "revisar"];
-
-function resultadoTexto(item) {
-  if (item.estado === "ok") return { tono: "green", texto: "Coincide con el sistema." };
-  if (item.estado === "ajustado") return { tono: "blue", texto: `Diferencia chica: se ajustó el stock ${item.ajuste > 0 ? "+" : ""}${fmtQty(item.ajuste)}.` };
-  if (item.estado === "recontar") return { tono: "violet", texto: "No coincide. Lo tiene que volver a contar otra persona." };
-  if (item.estado === "revisar") return { tono: "red", texto: "Los dos conteos no cierran. Queda para que lo revise Compras." };
-  return null;
-}
 
 /** Quién lo contó y a qué hora, para la fila. */
 function quienTexto(item, nombres) {
@@ -49,12 +41,12 @@ function ItemFila({ item, activo, onOpen, nombres, mostrarFecha = false }) {
           {quien && <span className="conteo-quien">{quien}</span>}
         </span>
       </span>
-      <EstadoChip estado={item.estado} />
+      {item.ajuste_anulado ? <Chip tono="red">Ajuste anulado</Chip> : <EstadoChip estado={item.estado} />}
     </button>
   );
 }
 
-function PanelContar({ item, sede, uid, puedeContar, puedeResolver, siguiente, onSiguiente, onClose, onDone, toast }) {
+function PanelContar({ item, sede, uid, nombres, puedeContar, puedeResolver, siguiente, onSiguiente, onAbrirProducto, onClose, onDone, toast }) {
   const [valor, setValor] = useState("");
   const [nota, setNota] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -68,6 +60,15 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, siguiente, o
   const yaContoEste = esRecuento && item.contado_por === uid;
   const abierto = item.estado === "pendiente" || (esRecuento && !yaContoEste);
   const aRevisar = item.estado === "revisar" || (esRecuento && puedeResolver);
+  const explicar = (renglon) => {
+    const { texto, tono } = explicarConteo(renglon, {
+      nombre: (id) => primerNombre(nombres, id),
+      verNumeros: puedeResolver || renglon.estado !== "recontar",
+    });
+    // Que nadie "corrija" a mano un ajuste que ya se hizo solo.
+    const extra = renglon.estado === "ajustado" && !renglon.ajuste_anulado ? " El stock ya quedó corregido: no hace falta anular ni cargar nada." : "";
+    return { texto: texto + extra, tono };
+  };
 
   useEffect(() => {
     setValor(""); setNota(""); setResultado(null); setSistema(null);
@@ -102,7 +103,7 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, siguiente, o
       const rows = await fetchLedgerMaterial(item.material_id);
       const { total, libre } = teoricoEnSede(rows, item.material_id, sede);
       const nuevo = await registrarConteo(item.id, { contado, teorico: total, libre, nota: nota || null });
-      setResultado(resultadoTexto(nuevo));
+      setResultado(explicar(nuevo));
       onDone(nuevo);
     } catch (error) {
       toast?.error?.(error.message || "No se pudo guardar el conteo.");
@@ -158,8 +159,8 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, siguiente, o
 
       {resultado ? (
         <>
-          <div className="conteo-resultado" style={{ color: TONOS[resultado.tono][0], background: TONOS[resultado.tono][1], borderColor: TONOS[resultado.tono][2] }}>
-            <CheckCircle2 size={18} /> {resultado.texto}
+          <div className="conteo-resultado" style={{ background: TONOS[resultado.tono][1], borderColor: TONOS[resultado.tono][2] }}>
+            <CheckCircle2 size={18} style={{ color: TONOS[resultado.tono][0], flex: "0 0 auto" }} /> <span>{resultado.texto}</span>
           </div>
           {botonSiguiente || <div className="conteo-dim">No queda nada más por contar hoy. ¡Gracias!</div>}
         </>
@@ -196,7 +197,13 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, siguiente, o
       ) : abierto && !puedeContar ? (
         <div className="conteo-dim">Todavía no se contó. Lo cuenta el pañol.</div>
       ) : (
-        <div className="conteo-dim">{resultadoTexto(item)?.texto || "Este renglón ya está cerrado."}</div>
+        <div className="conteo-explicacion" style={{ borderColor: TONOS[explicar(item).tono][0] }}>{explicar(item).texto}</div>
+      )}
+
+      {item.contado_at && !abierto && onAbrirProducto && (
+        <button type="button" className="ui-btn ui-btn-fantasma conteo-ver" onClick={() => onAbrirProducto(item.material_id)}>
+          Ver el producto y sus movimientos <ArrowUpRight size={14} />
+        </button>
       )}
 
       {aRevisar && puedeResolver && !resultado && (
@@ -235,7 +242,7 @@ function Seccion({ titulo, detalle, children }) {
   );
 }
 
-export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profile, isMobile = false, toast, onStockChange }) {
+export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profile, isMobile = false, toast, onStockChange, vista: vistaUrl = null, onVista = null, onAbrirProducto = null }) {
   const role = profile?.role;
   const uid = profile?.id;
   // Igual que la base: can_registrar_conteo_fisico (incluye compras vía
@@ -243,7 +250,11 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
   const puedeContar = !!profile?.is_admin || ["admin", "panol", "tecnica", "oficina", "compras"].includes(role);
   const puedeResolver = !!profile?.is_admin || ["admin", "oficina", "compras"].includes(role);
   const [sede, setSede] = useState(sedeLocked || "Chubut");
-  const [vista, setVista] = useState("hoy");
+  // La vista va en la URL cuando la pantalla la maneja: así "Ver producto" y
+  // volver atrás deja el historial abierto.
+  const [vistaLocal, setVistaLocal] = useState("hoy");
+  const vista = vistaUrl || vistaLocal;
+  const setVista = (v) => (onVista ? onVista(v) : setVistaLocal(v));
   const fecha = fechaLocal();
   const [lote, setLote] = useState(null);
   const [abiertos, setAbiertos] = useState([]);
@@ -259,9 +270,10 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [l, a, r] = await Promise.all([fetchConteoLote(sede, fecha), fetchConteosAbiertos(sede), fetchConteosRecientes(sede)]);
-      setLote(l); setAbiertos(a); setRecientes(r); setSinMigracion(false);
-      const ids = [...(l?.items || []), ...a].flatMap((item) => [item.contado_por, item.recontado_por]);
+      const [l, a0, r] = await Promise.all([fetchConteoLote(sede, fecha), fetchConteosAbiertos(sede), fetchConteosRecientes(sede)]);
+      const [itemsLote, a] = await Promise.all([marcarAjustesAnulados(l?.items || []), marcarAjustesAnulados(a0)]);
+      setLote(l ? { ...l, items: itemsLote } : l); setAbiertos(a); setRecientes(r); setSinMigracion(false);
+      const ids = [uid, ...[...itemsLote, ...a].flatMap((item) => [item.contado_por, item.recontado_por, item.resuelto_por, item.ajuste_anulado?.por])];
       fetchNombres(ids).then(setNombres).catch(() => {});
     } catch (error) {
       if (error instanceof ConteoSinMigracion) setSinMigracion(true);
@@ -269,7 +281,7 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
     } finally {
       setCargando(false);
     }
-  }, [fecha, sede, toast]);
+  }, [fecha, sede, toast, uid]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -341,8 +353,10 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
       uid={uid}
       puedeContar={puedeContar}
       puedeResolver={puedeResolver}
+      nombres={nombres}
       siguiente={siguiente}
       onSiguiente={() => setSeleccion(siguiente)}
+      onAbrirProducto={onAbrirProducto}
       onClose={() => setSeleccion(null)}
       onDone={alTerminar}
       toast={toast}
@@ -389,7 +403,7 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
       {vista === "hoy" && lote && items.length > 0 && <div className="conteo-progreso"><i style={{ width: `${Math.round((contados / items.length) * 100)}%` }} /></div>}
 
       {vista === "historial" ? (
-        <HistorialConteo key={sede} sede={sede} puedeResolver={puedeResolver} toast={toast} />
+        <HistorialConteo key={sede} sede={sede} puedeResolver={puedeResolver} toast={toast} onAbrirProducto={onAbrirProducto} />
       ) : cargando && !lote ? (
         <Cargando texto="Trayendo el conteo de hoy" />
       ) : sinMigracion ? (
@@ -505,7 +519,9 @@ const CONTEO_CSS = `
 .conteo-root .conteo-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .conteo-root .conteo-botones .ui-btn { min-height: 42px; justify-content: center; }
 .conteo-root .conteo-aviso { padding: 10px 12px; border-radius: 10px; background: var(--violet-soft); border: 1px solid var(--violet-border); color: var(--text); font-size: 12.5px; }
-.conteo-root .conteo-resultado { display: flex; gap: 8px; align-items: center; padding: 12px; border: 1px solid; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.conteo-root .conteo-resultado { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid; border-radius: 10px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--text); }
+.conteo-root .conteo-explicacion { padding: 2px 0 2px 10px; border-left: 2px solid; font-size: 13px; line-height: 1.5; color: var(--text); }
+.conteo-root .conteo-ver { justify-self: start; min-height: 36px; gap: 4px; color: var(--blue); padding: 0 8px; }
 .conteo-root .conteo-revision { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
 .conteo-root .conteo-numeros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .conteo-root .conteo-numeros span { display: grid; gap: 2px; font-size: 10.5px; color: var(--dim); }

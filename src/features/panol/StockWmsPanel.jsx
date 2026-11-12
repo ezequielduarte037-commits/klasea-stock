@@ -4087,7 +4087,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         });
       return [...stockGroups, ...policyOnly]
         .map((group) => ({ ...group, ...groupOperationalBuckets(group) }))
-        .filter((group) => group.buckets.size > 0);
+        .filter((group) => group.buckets.size > 0 || (focusedMaterialId && group.material?.id === focusedMaterialId));
     }
     if (!showCatalogInventory || fObra !== "todas" || !["todos", "stock"].includes(kindScope)) return stockGroups;
     const stockedIds = new Set(stockGroups.map((group) => group.material?.id).filter(Boolean));
@@ -4220,7 +4220,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const base = (stockMaster || obraScoped) && !verArchivados && verifScope === "todos"
       ? conVerif.filter((group) => !esMatrizArchivada(group))
       : conVerif;
-    if (stockMaster && ["existencia", "reponer", "en_camino", "sin_ubicacion", "reconciliar", "sobrante"].includes(scope)) {
+    // Un producto abierto puntualmente (por ejemplo "Ver producto" desde el
+    // conteo) se muestra aunque no entre en la bandeja: un faltante del conteo
+    // suele quedar en 0 y "Con stock" lo escondía.
+    if (stockMaster && !focusedMaterialId && ["existencia", "reponer", "en_camino", "sin_ubicacion", "reconciliar", "sobrante"].includes(scope)) {
       return sortProductGroups(base.filter((group) => group.buckets?.has(scope)), orderBy);
     }
     if (tableWorkspace && scope === "con_saldo") return sortProductGroups(base.filter((group) => group.total > 0.0001), orderBy);
@@ -4237,7 +4240,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return sortProductGroups(base.filter((group) => stockLevel(group).key === scope), orderBy);
     }
     return sortProductGroups(base, orderBy);
-  }, [draftGroup, obraScoped, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, tableWorkspace, verArchivados, verifScope]);
+  }, [draftGroup, focusedMaterialId, obraScoped, orderBy, productGroupsBase, q, scope, selectedKey, stockMaster, tableWorkspace, verArchivados, verifScope]);
 
   const minimumFilterKey = JSON.stringify([fCategoria, fObra, fProveedor, fSede, kindScope, orderBy, q, scope, stockView, verArchivados, verifScope, selectedKey]);
   useEffect(() => { setMinimumListOrder(null); }, [minimumFilterKey]);

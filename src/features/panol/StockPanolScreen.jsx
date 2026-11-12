@@ -1199,6 +1199,9 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set("tab", key);
       if (key !== "maestro") nextParams.delete("view");
+      // El producto que abrió "Ver producto" (desde el conteo) no queda pegado
+      // al cambiar de pestaña: volver a Inventario muestra todo.
+      nextParams.delete("material");
       setSearchParams(nextParams, { replace: true });
     }
   }
@@ -1598,6 +1601,21 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
             {tab === "conteo" && (
               <ConteoDiarioPanel
+                vista={searchParams.get("conteo") === "historial" ? "historial" : "hoy"}
+                onVista={(vista) => {
+                  const nextParams = new URLSearchParams(searchParams);
+                  if (vista === "historial") nextParams.set("conteo", "historial");
+                  else nextParams.delete("conteo");
+                  setSearchParams(nextParams, { replace: true });
+                }}
+                onAbrirProducto={(materialId) => {
+                  // Entrada nueva en el historial del navegador: "atrás" vuelve al conteo.
+                  const nextParams = new URLSearchParams(searchParams);
+                  nextParams.set("tab", "maestro");
+                  nextParams.set("material", materialId);
+                  nextParams.delete("view");
+                  setSearchParams(nextParams);
+                }}
                 rows={rowsSinConsumibles}
                 sedeLocked={sedeLocked}
                 profile={profile}

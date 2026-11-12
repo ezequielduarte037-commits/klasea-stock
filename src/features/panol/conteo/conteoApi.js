@@ -1,4 +1,5 @@
 import { supabase } from "@/supabaseClient";
+import { motivoAnulacion } from "./conteoDiario.js";
 
 // Las tablas y funciones son de 20261103120000_panol_conteo_diario.sql.
 
@@ -125,7 +126,7 @@ export async function resolverConteo(itemId, { aplicar, cantidad = null, teorico
   return data;
 }
 
-const HISTORIAL_ITEM_SELECT = "id,lote_id,material_id,orden,clase,motivo,estado,unidad,teorico,contado,contado_por,contado_at,recontado,recontado_por,recontado_at,ajuste,resuelto_por,resuelto_at,nota,material:panol_materiales(id,descripcion,codigo,unidad_medida,ubicacion,imagen_url)";
+const HISTORIAL_ITEM_SELECT = "id,lote_id,material_id,orden,clase,motivo,estado,unidad,teorico,contado,contado_por,contado_at,recontado,recontado_por,recontado_at,ajuste,ajuste_snapshot_id,resuelto_por,resuelto_at,nota,material:panol_materiales(id,descripcion,codigo,unidad_medida,ubicacion,imagen_url)";
 
 /**
  * Las listas de una sede desde `desde` (AAAA-MM-DD), con sus renglones. Se trae
@@ -167,7 +168,7 @@ export async function fetchHistorialConteo(sede, desde) {
     if (!data || data.length < PAGINA) break;
   }
   const porLote = new Map(lotes.map((lote) => [lote.id, { ...lote, items: [] }]));
-  for (const item of items) porLote.get(item.lote_id)?.items.push(item);
+  for (const item of await marcarAjustesAnulados(items)) porLote.get(item.lote_id)?.items.push(item);
   for (const lote of porLote.values()) lote.items.sort((a, b) => a.orden - b.orden);
   return { lotes: [...porLote.values()], inicio };
 }
@@ -193,4 +194,47 @@ export async function fetchNombres(ids = []) {
     }
   }
   return new Map([...new Set(ids)].filter((id) => cacheNombres.has(id)).map((id) => [id, cacheNombres.get(id)]));
+}
+
+/**
+ * Marca los renglones cuyo ajuste se anuló después desde Movimientos
+ * ("Revertir"): la fila del ajuste queda con "[anulado] … Motivo reversion: …"
+ * y la del contramovimiento, con quién lo hizo. Agrega
+ * `ajuste_anulado: { motivo, por }`. Si la lectura falla, devuelve los
+ * renglones como estaban.
+ */
+export async function marcarAjustesAnulados(items = []) {
+  const ids = [...new Set(items.map((item) => item.ajuste_snapshot_id).filter(Boolean))];
+  if (!ids.length) return items;
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id,material_id,notas,egreso_nota,stock_nota")
+      .in("id", ids);
+    if (error) throw error;
+    const anulados = new Map();
+    for (const row of data ?? []) {
+      const motivo = motivoAnulacion([row.notas, row.egreso_nota, row.stock_nota].filter(Boolean).join(" | "));
+      if (motivo !== null) anulados.set(row.id, { motivo, por: null, material_id: row.material_id });
+    }
+    if (!anulados.size) return items;
+    const { data: reversiones } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("notas,egreso_nota,egreso_por")
+      .in("material_id", [...new Set([...anulados.values()].map((a) => a.material_id))])
+      .ilike("notas", "%Revierte movimiento%")
+      .limit(500);
+    for (const row of reversiones ?? []) {
+      const nota = `${row.notas || ""} ${row.egreso_nota || ""}`;
+      for (const [id, anulado] of anulados) {
+        if (!anulado.por && row.egreso_por && nota.includes(id)) anulado.por = row.egreso_por;
+      }
+    }
+    return items.map((item) => {
+      const anulado = anulados.get(item.ajuste_snapshot_id);
+      return anulado ? { ...item, ajuste_anulado: { motivo: anulado.motivo, por: anulado.por } } : item;
+    });
+  } catch {
+    return items;
+  }
 }
