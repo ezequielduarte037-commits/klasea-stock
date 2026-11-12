@@ -369,7 +369,7 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
 
 const TABS = [
   { key: "maestro", label: "Inventario" },
-  { key: "conteo", label: "Conteo de hoy" },
+  { key: "conteo", label: "Conteo" },
   { key: "obra", label: "Por obra" },
   { key: "movimientos", label: "Movimientos" },
   { key: "traslados", label: "Entre sedes" },

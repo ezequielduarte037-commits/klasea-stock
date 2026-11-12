@@ -124,3 +124,73 @@ export async function resolverConteo(itemId, { aplicar, cantidad = null, teorico
   if (error) lanzar(error);
   return data;
 }
+
+const HISTORIAL_ITEM_SELECT = "id,lote_id,material_id,orden,clase,motivo,estado,unidad,teorico,contado,contado_por,contado_at,recontado,recontado_por,recontado_at,ajuste,resuelto_por,resuelto_at,nota,material:panol_materiales(id,descripcion,codigo,unidad_medida,ubicacion,imagen_url)";
+
+/**
+ * Las listas de una sede desde `desde` (AAAA-MM-DD), con sus renglones. Se trae
+ * también la lista anterior a `desde`, porque un segundo conteo hecho dentro
+ * del período puede ser de un renglón de antes. `inicio` es la fecha de la
+ * primera lista de la sede (antes no había conteo diario).
+ */
+export async function fetchHistorialConteo(sede, desde) {
+  const { data: primera, error: primeraError } = await supabase
+    .from("panol_conteo_lotes")
+    .select("fecha")
+    .eq("sede", sede)
+    .order("fecha", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (primeraError) lanzar(primeraError);
+  const inicio = primera?.fecha || null;
+  const { data: lotes, error } = await supabase
+    .from("panol_conteo_lotes")
+    .select("id,sede,fecha,creado_por,created_at")
+    .eq("sede", sede)
+    .gte("fecha", sumarDiasIso(desde, -14))
+    .order("fecha", { ascending: false })
+    .limit(400);
+  if (error) lanzar(error);
+  if (!lotes?.length) return { lotes: [], inicio };
+  const ids = lotes.map((lote) => lote.id);
+  const items = [];
+  const PAGINA = 1000;
+  for (let desdeFila = 0; ; desdeFila += PAGINA) {
+    const { data, error: itemsError } = await supabase
+      .from("panol_conteo_items")
+      .select(HISTORIAL_ITEM_SELECT)
+      .in("lote_id", ids)
+      .order("id")
+      .range(desdeFila, desdeFila + PAGINA - 1);
+    if (itemsError) lanzar(itemsError);
+    items.push(...(data ?? []));
+    if (!data || data.length < PAGINA) break;
+  }
+  const porLote = new Map(lotes.map((lote) => [lote.id, { ...lote, items: [] }]));
+  for (const item of items) porLote.get(item.lote_id)?.items.push(item);
+  for (const lote of porLote.values()) lote.items.sort((a, b) => a.orden - b.orden);
+  return { lotes: [...porLote.values()], inicio };
+}
+
+function sumarDiasIso(fecha, n) {
+  const [y, m, d] = String(fecha).split("-").map(Number);
+  const f = new Date(y, m - 1, d + n);
+  return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
+}
+
+const cacheNombres = new Map();
+
+/** Nombre de usuario de cada id (contó, recontó, resolvió, armó la lista). */
+export async function fetchNombres(ids = []) {
+  const faltan = [...new Set(ids.filter((id) => id && !cacheNombres.has(id)))];
+  for (let i = 0; i < faltan.length; i += 200) {
+    try {
+      const { data, error } = await supabase.from("profiles").select("id,username").in("id", faltan.slice(i, i + 200));
+      if (error) throw error;
+      for (const p of data ?? []) cacheNombres.set(p.id, p.username || "");
+    } catch {
+      // Sin nombres la pantalla sigue andando: muestra "alguien".
+    }
+  }
+  return new Map([...new Set(ids)].filter((id) => cacheNombres.has(id)).map((id) => [id, cacheNombres.get(id)]));
+}

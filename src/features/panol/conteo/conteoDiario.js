@@ -178,3 +178,152 @@ export function exactitud(items = []) {
   const ok = cerrados.filter((item) => item.estado === "ok").length;
   return { cerrados: cerrados.length, ok, porcentaje: Math.round((ok / cerrados.length) * 100) };
 }
+
+// ─── Recorrido y historial ───────────────────────────────────────────────────
+
+const comparadorUbicacion = new Intl.Collator("es", { numeric: true, sensitivity: "base" });
+
+/**
+ * Orden para caminar el pañol: por ubicación (A1, A2… A10) y, sin ubicación,
+ * al final. Dentro de la misma ubicación respeta el orden de la lista.
+ */
+export function ordenRecorrido(items = []) {
+  return [...items].sort((a, b) => {
+    const ua = String(a.material?.ubicacion || "").trim();
+    const ub = String(b.material?.ubicacion || "").trim();
+    if (!ua !== !ub) return ua ? -1 : 1;
+    return comparadorUbicacion.compare(ua, ub) || (a.orden ?? 0) - (b.orden ?? 0);
+  });
+}
+
+/** Lo que hizo cada persona: primer conteo, segundo conteo o resolución. */
+export function accionesDeItems(items = []) {
+  const acciones = [];
+  for (const item of items) {
+    if (item.contado_at) acciones.push({ tipo: "conteo", uid: item.contado_por, at: item.contado_at, item });
+    if (item.recontado_at) acciones.push({ tipo: "segundo", uid: item.recontado_por, at: item.recontado_at, item });
+    if (item.resuelto_at) acciones.push({ tipo: "resuelto", uid: item.resuelto_por, at: item.resuelto_at, item });
+  }
+  return acciones.sort((a, b) => new Date(a.at) - new Date(b.at));
+}
+
+function sumarDias(fecha, n) {
+  const [y, m, d] = fecha.split("-").map(Number);
+  return fechaLocal(new Date(y, m - 1, d + n));
+}
+
+function diaDeSemana(fecha) {
+  const [y, m, d] = fecha.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+/**
+ * Resumen de los últimos `dias` días de una sede para ver si se está contando.
+ *   lotes: [{ id, fecha, creado_por, created_at, items: [...] }]
+ * Los días hábiles (lunes a viernes) aparecen siempre, aunque no se haya
+ * armado la lista; sábado y domingo sólo si hubo lista o algún conteo.
+ * Lo que se hizo se agrupa por el día en que se hizo (un segundo conteo de un
+ * renglón del lunes hecho el martes cuenta para el martes).
+ * `inicio` es la fecha de la primera lista de la sede: antes no había conteo
+ * diario y esos días no cuentan como "sin lista".
+ */
+export function resumenHistorial(lotes = [], { hoy = fechaLocal(), dias = 30, inicio = null } = {}) {
+  const hace = sumarDias(hoy, -(dias - 1));
+  const desde = inicio && inicio > hace ? inicio : hace;
+  const lotePorFecha = new Map(lotes.map((lote) => [lote.fecha, lote]));
+  const acciones = accionesDeItems(lotes.flatMap((lote) => lote.items || []))
+    .filter((accion) => {
+      const f = fechaLocal(accion.at);
+      return f >= desde && f <= hoy;
+    });
+  const accionesPorFecha = new Map();
+  for (const accion of acciones) {
+    const f = fechaLocal(accion.at);
+    if (!accionesPorFecha.has(f)) accionesPorFecha.set(f, []);
+    accionesPorFecha.get(f).push(accion);
+  }
+
+  const filas = [];
+  for (let f = hoy; f >= desde; f = sumarDias(f, -1)) {
+    const lote = lotePorFecha.get(f) || null;
+    const delDia = accionesPorFecha.get(f) || [];
+    const dow = diaDeSemana(f);
+    const habil = dow >= 1 && dow <= 5;
+    if (!habil && !lote && !delDia.length) continue;
+    const items = lote?.items || [];
+    const contados = items.filter((item) => item.contado_at).length;
+    const personas = new Map();
+    for (const accion of delDia) {
+      const p = personas.get(accion.uid) || { uid: accion.uid, conteo: 0, segundo: 0, resuelto: 0 };
+      p[accion.tipo] += 1;
+      personas.set(accion.uid, p);
+    }
+    let estado;
+    if (!lote) estado = f === hoy ? "sin_armar" : "sin_lista";
+    else if (items.length && contados >= items.length) estado = "completa";
+    else if (!contados) estado = f === hoy ? "por_empezar" : "sin_contar";
+    else estado = f === hoy ? "en_curso" : "incompleta";
+    filas.push({
+      fecha: f,
+      habil,
+      hoy: f === hoy,
+      lote,
+      estado,
+      asignados: items.length,
+      contados,
+      ok: items.filter((item) => item.estado === "ok").length,
+      ajustados: items.filter((item) => item.estado === "ajustado").length,
+      diferencias: items.filter((item) => ["recontar", "revisar"].includes(item.estado)).length,
+      primero: delDia[0]?.at || null,
+      ultimo: delDia[delDia.length - 1]?.at || null,
+      acciones: delDia,
+      personas: [...personas.values()].sort((a, b) => (b.conteo + b.segundo) - (a.conteo + a.segundo)),
+    });
+  }
+
+  const personas = new Map();
+  for (const accion of acciones) {
+    const p = personas.get(accion.uid) || { uid: accion.uid, conteo: 0, segundo: 0, resuelto: 0, dias: new Set(), ultimo: null };
+    p[accion.tipo] += 1;
+    p.dias.add(fechaLocal(accion.at));
+    p.ultimo = accion.at;
+    personas.set(accion.uid, p);
+  }
+
+  // Los días pasados son los que se pueden juzgar; hoy todavía está en curso.
+  const juzgables = filas.filter((fila) => fila.habil && !fila.hoy);
+  const lotesPeriodo = lotes.filter((lote) => lote.fecha >= desde && lote.fecha <= hoy);
+  const itemsPeriodo = lotesPeriodo.flatMap((lote) => lote.items || []);
+  const asignados = lotesPeriodo.filter((lote) => lote.fecha < hoy).reduce((sum, lote) => sum + (lote.items?.length || 0), 0);
+  const contadosPasados = lotesPeriodo.filter((lote) => lote.fecha < hoy).reduce((sum, lote) => sum + (lote.items || []).filter((item) => item.contado_at).length, 0);
+  return {
+    desde,
+    hoy,
+    filas,
+    personas: [...personas.values()]
+      .map((p) => ({ ...p, dias: p.dias.size }))
+      .sort((a, b) => (b.conteo + b.segundo) - (a.conteo + a.segundo)),
+    totales: {
+      diasHabiles: juzgables.length,
+      diasConLista: juzgables.filter((fila) => fila.lote).length,
+      diasCompletos: juzgables.filter((fila) => fila.estado === "completa").length,
+      diasSinContar: juzgables.filter((fila) => ["sin_lista", "sin_contar"].includes(fila.estado)).length,
+      asignados,
+      contados: contadosPasados,
+      cumplimiento: asignados ? Math.round((contadosPasados / asignados) * 100) : null,
+      exactitud: exactitud(itemsPeriodo),
+      ajustados: itemsPeriodo.filter((item) => item.estado === "ajustado").length,
+      abiertos: itemsPeriodo.filter((item) => ["recontar", "revisar"].includes(item.estado)).length,
+    },
+  };
+}
+
+export const ESTADOS_DIA = {
+  completa: { label: "Completa", tono: "green" },
+  incompleta: { label: "Incompleta", tono: "violet" },
+  en_curso: { label: "En curso", tono: "cyan" },
+  por_empezar: { label: "Sin empezar", tono: "cyan" },
+  sin_contar: { label: "No se contó", tono: "red" },
+  sin_lista: { label: "Sin lista", tono: "red" },
+  sin_armar: { label: "Sin armar", tono: "dim" },
+};

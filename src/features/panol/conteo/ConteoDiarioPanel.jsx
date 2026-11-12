@@ -1,62 +1,52 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ClipboardList, MapPin, RefreshCw, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardList, MapPin, RefreshCw, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { buildProductGroups, fmtQty, rowSede } from "@/features/panol/stockGrupos";
 import {
-  CONTEO_CLASES, CONTEO_ESTADOS, CONTEO_TOTAL, elegirConteoDelDia, exactitud, fechaLocal, teoricoEnSede,
+  CONTEO_CLASES, CONTEO_TOTAL, elegirConteoDelDia, exactitud, fechaLocal, ordenRecorrido, teoricoEnSede,
 } from "@/features/panol/conteo/conteoDiario";
 import {
   ConteoSinMigracion, crearLoteConteo, fetchConteoLote, fetchConteosAbiertos, fetchConteosRecientes,
-  fetchLedgerMaterial, fetchUltimosConteos, registrarConteo, resolverConteo,
+  fetchLedgerMaterial, fetchNombres, fetchUltimosConteos, registrarConteo, resolverConteo,
 } from "@/features/panol/conteo/conteoApi";
+import { EstadoChip } from "@/features/panol/conteo/conteoPiezas";
+import { TONOS, fechaCorta, fechaLarga, hora, primerNombre } from "@/features/panol/conteo/conteoFormato";
+import HistorialConteo from "@/features/panol/conteo/HistorialConteo";
 
 const SEDES = ["Chubut", "Pampa"];
-const TONOS = {
-  cyan: ["var(--cyan)", "var(--cyan-soft)", "var(--cyan-border)"],
-  green: ["var(--green)", "var(--green-soft)", "var(--green-border)"],
-  blue: ["var(--blue)", "var(--blue-soft)", "var(--blue-border)"],
-  violet: ["var(--violet)", "var(--violet-soft)", "var(--violet-border)"],
-  red: ["var(--red)", "var(--red-soft)", "var(--red-border)"],
-  dim: ["var(--dim)", "var(--panel-2)", "var(--border)"],
-};
-
-function fechaLarga(iso) {
-  const [y, m, d] = String(iso).split("-").map(Number);
-  const dia = new Date(y, m - 1, d).toLocaleDateString("es-AR", { weekday: "long" });
-  return `${dia} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
-}
-
-function fechaCorta(iso) {
-  return String(iso || "").split("-").reverse().slice(0, 2).join("/");
-}
-
-function EstadoChip({ estado }) {
-  const meta = CONTEO_ESTADOS[estado] || CONTEO_ESTADOS.pendiente;
-  const [color, bg, border] = TONOS[meta.tono];
-  return <span className="conteo-chip" style={{ color, background: bg, borderColor: border }}>{meta.label}</span>;
-}
+const ABIERTOS = ["pendiente", "recontar", "revisar"];
 
 function resultadoTexto(item) {
   if (item.estado === "ok") return { tono: "green", texto: "Coincide con el sistema." };
   if (item.estado === "ajustado") return { tono: "blue", texto: `Diferencia chica: se ajustó el stock ${item.ajuste > 0 ? "+" : ""}${fmtQty(item.ajuste)}.` };
   if (item.estado === "recontar") return { tono: "violet", texto: "No coincide. Lo tiene que volver a contar otra persona." };
-  if (item.estado === "revisar") return { tono: "red", texto: "Los dos conteos no cierran. Queda para que lo revise administración." };
+  if (item.estado === "revisar") return { tono: "red", texto: "Los dos conteos no cierran. Queda para que lo revise Compras." };
   return null;
 }
 
-function ItemFila({ item, activo, onOpen, mostrarFecha = false }) {
+/** Quién lo contó y a qué hora, para la fila. */
+function quienTexto(item, nombres) {
+  const partes = [];
+  if (item.contado_at) partes.push(`${primerNombre(nombres, item.contado_por)} ${hora(item.contado_at)}`);
+  if (item.recontado_at) partes.push(`2.º ${primerNombre(nombres, item.recontado_por)} ${hora(item.recontado_at)}`);
+  return partes.join(" · ");
+}
+
+function ItemFila({ item, activo, onOpen, nombres, mostrarFecha = false }) {
   const m = item.material || {};
+  const quien = quienTexto(item, nombres);
   return (
     <button type="button" className={`conteo-fila${activo ? " is-activa" : ""}`} onClick={() => onOpen(item)}>
       <MaterialThumb material={{ imagen_url: m.imagen_url, descripcion: m.descripcion }} size={40} />
       <span className="conteo-fila-texto">
         <span className="conteo-fila-nombre">{m.descripcion || "Material"}</span>
         <span className="conteo-fila-meta">
-          {m.codigo && <span className="conteo-mono">{m.codigo}</span>}
           <span className="conteo-ubic"><MapPin size={11} /> {m.ubicacion || "sin ubicación"}</span>
-          <span>{item.motivo || CONTEO_CLASES[item.clase]}</span>
+          {m.codigo && <span className="conteo-mono">{m.codigo}</span>}
+          {item.estado === "pendiente" && <span>{item.motivo || CONTEO_CLASES[item.clase]}</span>}
           {mostrarFecha && item.lote?.fecha && <span>del {fechaCorta(item.lote.fecha)}</span>}
+          {quien && <span className="conteo-quien">{quien}</span>}
         </span>
       </span>
       <EstadoChip estado={item.estado} />
@@ -64,13 +54,14 @@ function ItemFila({ item, activo, onOpen, mostrarFecha = false }) {
   );
 }
 
-function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onDone, toast }) {
+function PanelContar({ item, sede, uid, puedeContar, puedeResolver, siguiente, onSiguiente, onClose, onDone, toast }) {
   const [valor, setValor] = useState("");
   const [nota, setNota] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [sistema, setSistema] = useState(null);
   const inputRef = useRef(null);
+  const siguienteRef = useRef(null);
   const m = item.material || {};
   const unidad = item.unidad || m.unidad_medida || "unidad";
   const esRecuento = item.estado === "recontar";
@@ -84,7 +75,12 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
     return () => clearTimeout(t);
   }, [item.id]);
 
-  // Administración sí ve el número del sistema: para resolver hay que compararlo.
+  // Con el resultado a la vista, Enter pasa al siguiente.
+  useEffect(() => {
+    if (resultado) siguienteRef.current?.focus();
+  }, [resultado]);
+
+  // Compras sí ve el número del sistema: para resolver hay que compararlo.
   useEffect(() => {
     if (!aRevisar || !puedeResolver) return undefined;
     let vivo = true;
@@ -131,6 +127,17 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
     }
   }
 
+  const botonSiguiente = siguiente ? (
+    <button ref={siguienteRef} type="button" className="ui-btn ui-btn-primario conteo-siguiente" onClick={onSiguiente}>
+      <span className="conteo-siguiente-texto">
+        <span>Siguiente</span>
+        <b>{siguiente.material?.descripcion || "Material"}</b>
+      </span>
+      <span className="conteo-siguiente-ubic">{siguiente.material?.ubicacion || ""}</span>
+      <ArrowRight size={16} />
+    </button>
+  ) : null;
+
   return (
     <div className="conteo-panel">
       <div className="conteo-panel-top">
@@ -150,9 +157,12 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
       </div>
 
       {resultado ? (
-        <div className="conteo-resultado" style={{ color: TONOS[resultado.tono][0], background: TONOS[resultado.tono][1], borderColor: TONOS[resultado.tono][2] }}>
-          <CheckCircle2 size={18} /> {resultado.texto}
-        </div>
+        <>
+          <div className="conteo-resultado" style={{ color: TONOS[resultado.tono][0], background: TONOS[resultado.tono][1], borderColor: TONOS[resultado.tono][2] }}>
+            <CheckCircle2 size={18} /> {resultado.texto}
+          </div>
+          {botonSiguiente || <div className="conteo-dim">No queda nada más por contar hoy. ¡Gracias!</div>}
+        </>
       ) : abierto && puedeContar ? (
         <form onSubmit={confirmar} className="conteo-form">
           {esRecuento && <div className="conteo-aviso">El primer conteo no coincidió con el sistema. Contalo de nuevo desde cero.</div>}
@@ -179,7 +189,10 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
           </div>
         </form>
       ) : yaContoEste ? (
-        <div className="conteo-aviso">Ya lo contaste vos. El segundo conteo lo tiene que hacer otra persona.</div>
+        <>
+          <div className="conteo-aviso">Ya lo contaste vos. El segundo conteo lo tiene que hacer otra persona.</div>
+          {botonSiguiente}
+        </>
       ) : abierto && !puedeContar ? (
         <div className="conteo-dim">Todavía no se contó. Lo cuenta el pañol.</div>
       ) : (
@@ -188,7 +201,7 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
 
       {aRevisar && puedeResolver && !resultado && (
         <div className="conteo-revision">
-          <div className="conteo-eyebrow">Para administración</div>
+          <div className="conteo-eyebrow">Para Compras</div>
           <div className="conteo-numeros">
             <span>Sistema ahora<b className="conteo-mono">{sistema ? fmtQty(sistema.total) : "…"}</b></span>
             <span>Libre<b className="conteo-mono">{sistema ? fmtQty(sistema.libre) : "…"}</b></span>
@@ -208,6 +221,20 @@ function PanelContar({ item, sede, uid, puedeContar, puedeResolver, onClose, onD
   );
 }
 
+function Seccion({ titulo, detalle, children }) {
+  return (
+    <section className="conteo-seccion">
+      {titulo && (
+        <div className="conteo-seccion-titulo">
+          <span>{titulo}</span>
+          {detalle && <span className="conteo-seccion-detalle">{detalle}</span>}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
 export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profile, isMobile = false, toast, onStockChange }) {
   const role = profile?.role;
   const uid = profile?.id;
@@ -216,10 +243,12 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
   const puedeContar = !!profile?.is_admin || ["admin", "panol", "tecnica", "oficina", "compras"].includes(role);
   const puedeResolver = !!profile?.is_admin || ["admin", "oficina", "compras"].includes(role);
   const [sede, setSede] = useState(sedeLocked || "Chubut");
+  const [vista, setVista] = useState("hoy");
   const fecha = fechaLocal();
   const [lote, setLote] = useState(null);
   const [abiertos, setAbiertos] = useState([]);
   const [recientes, setRecientes] = useState([]);
+  const [nombres, setNombres] = useState(new Map());
   const [cargando, setCargando] = useState(true);
   const [sinMigracion, setSinMigracion] = useState(false);
   const [armando, setArmando] = useState(false);
@@ -232,6 +261,8 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
     try {
       const [l, a, r] = await Promise.all([fetchConteoLote(sede, fecha), fetchConteosAbiertos(sede), fetchConteosRecientes(sede)]);
       setLote(l); setAbiertos(a); setRecientes(r); setSinMigracion(false);
+      const ids = [...(l?.items || []), ...a].flatMap((item) => [item.contado_por, item.recontado_por]);
+      fetchNombres(ids).then(setNombres).catch(() => {});
     } catch (error) {
       if (error instanceof ConteoSinMigracion) setSinMigracion(true);
       else toast?.error?.(error.message || "No se pudo cargar el conteo.");
@@ -268,19 +299,39 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
   function alTerminar(nuevo) {
     const fusionar = (item) => (item.id === nuevo.id ? { ...item, ...nuevo } : item);
     setLote((prev) => (prev ? { ...prev, items: prev.items.map(fusionar) } : prev));
-    setAbiertos((prev) => prev.map(fusionar).filter((item) => ["pendiente", "recontar", "revisar"].includes(item.estado)));
+    setAbiertos((prev) => prev.map(fusionar).filter((item) => ABIERTOS.includes(item.estado)));
     setSeleccion((prev) => (prev ? fusionar(prev) : prev));
+    if (uid && !nombres.has(uid)) fetchNombres([uid]).then((m) => setNombres((prev) => new Map([...prev, ...m]))).catch(() => {});
     if (nuevo.ajuste_snapshot_id) onStockChange?.();
   }
 
   const items = lote?.items || [];
-  const hechos = items.filter((item) => item.estado !== "pendiente").length;
+  const contados = items.filter((item) => item.contado_at).length;
   const deOtrosDias = abiertos.filter((item) => item.lote_id !== lote?.id);
-  const recuentos = [...items.filter((item) => item.estado === "recontar"), ...deOtrosDias.filter((item) => item.estado === "recontar")];
+  const porContar = ordenRecorrido(items.filter((item) => item.estado === "pendiente"));
+  const recuentos = ordenRecorrido([...items, ...deOtrosDias].filter((item) => item.estado === "recontar"));
   const aRevisar = [...items, ...deOtrosDias].filter((item) => item.estado === "revisar");
+  const cerradosHoy = items
+    .filter((item) => !ABIERTOS.includes(item.estado))
+    .sort((a, b) => String(b.recontado_at || b.contado_at || "").localeCompare(String(a.recontado_at || a.contado_at || "")));
   const stats = exactitud(recientes);
-  const porHacer = (item) => (item.estado === "pendiente" || item.estado === "recontar" ? 0 : 1);
-  const pendientesPrimero = [...items].sort((a, b) => porHacer(a) - porHacer(b) || a.orden - b.orden);
+  const ultimoHoy = items.reduce((max, item) => {
+    const at = item.recontado_at || item.contado_at;
+    return at && (!max || at > max) ? at : max;
+  }, null);
+  const terminada = items.length > 0 && !porContar.length;
+
+  // Lo que sigue en el recorrido: lo que le queda a esta persona por contar,
+  // empezando después del que acaba de contar (sin volver al principio si hay más adelante).
+  const cola = [...porContar, ...recuentos.filter((item) => item.contado_por !== uid)];
+  const siguiente = (() => {
+    if (!seleccion || !cola.length) return null;
+    const resto = cola.filter((item) => item.id !== seleccion.id);
+    if (!resto.length) return null;
+    const recorrido = ordenRecorrido([...resto, seleccion]);
+    const pos = recorrido.findIndex((item) => item.id === seleccion.id);
+    return recorrido.slice(pos + 1).find((item) => item.id !== seleccion.id) || resto[0];
+  })();
 
   const panel = seleccion && (
     <PanelContar
@@ -290,10 +341,16 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
       uid={uid}
       puedeContar={puedeContar}
       puedeResolver={puedeResolver}
+      siguiente={siguiente}
+      onSiguiente={() => setSeleccion(siguiente)}
       onClose={() => setSeleccion(null)}
       onDone={alTerminar}
       toast={toast}
     />
+  );
+
+  const fila = (item, extra = {}) => (
+    <ItemFila key={item.id} item={item} activo={seleccion?.id === item.id} onOpen={setSeleccion} nombres={nombres} {...extra} />
   );
 
   return (
@@ -301,11 +358,24 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
       <style>{CONTEO_CSS}</style>
       <div className="conteo-head">
         <div>
-          <div className="conteo-eyebrow">Conteo de hoy · {fechaLarga(fecha)}</div>
-          <div className="conteo-titulo">{lote ? `${hechos} de ${items.length} contados` : "Lista del día"}</div>
-          <div className="conteo-dim">Se cuenta a ciegas: el sistema no muestra cuántos debería haber.</div>
+          <div className="conteo-eyebrow">{vista === "hoy" ? `Conteo de hoy · ${fechaLarga(fecha)}` : "Conteo diario"}</div>
+          <div className="conteo-titulo">
+            {vista === "historial" ? `Historial · ${sede}` : lote ? `${contados} de ${items.length} contados` : "Lista del día"}
+          </div>
+          <div className="conteo-dim">
+            {vista === "historial"
+              ? "Qué días se contó, cuánto y quién."
+              : terminada && ultimoHoy
+                ? `Lista terminada. Último conteo a las ${hora(ultimoHoy)}.`
+                : "Se cuenta a ciegas: el sistema no muestra cuántos debería haber."}
+          </div>
         </div>
         <div className="conteo-head-acciones">
+          <div className="ui-tabs" role="tablist" aria-label="Vista del conteo">
+            {[["hoy", "Hoy"], ["historial", "Historial"]].map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={vista === key} className={`ui-tab${vista === key ? " is-activa" : ""}`} onClick={() => { setVista(key); setSeleccion(null); }}>{label}</button>
+            ))}
+          </div>
           {!sedeLocked && (
             <div className="ui-tabs" role="tablist" aria-label="Sede">
               {SEDES.map((s) => (
@@ -313,12 +383,14 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
               ))}
             </div>
           )}
-          <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={cargando} aria-label="Actualizar"><RefreshCw size={15} /></button>
+          {vista === "hoy" && <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={cargando} aria-label="Actualizar"><RefreshCw size={15} /></button>}
         </div>
       </div>
-      {lote && items.length > 0 && <div className="conteo-progreso"><i style={{ width: `${Math.round((hechos / items.length) * 100)}%` }} /></div>}
+      {vista === "hoy" && lote && items.length > 0 && <div className="conteo-progreso"><i style={{ width: `${Math.round((contados / items.length) * 100)}%` }} /></div>}
 
-      {cargando && !lote ? (
+      {vista === "historial" ? (
+        <HistorialConteo key={sede} sede={sede} puedeResolver={puedeResolver} toast={toast} />
+      ) : cargando && !lote ? (
         <Cargando texto="Trayendo el conteo de hoy" />
       ) : sinMigracion ? (
         <div className="conteo-vacio">
@@ -343,30 +415,30 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
       ) : (
         <div className={`conteo-cuerpo${seleccion && !isMobile ? " con-panel" : ""}`}>
           <div className="conteo-listas">
-            <section className="conteo-seccion">
-              {pendientesPrimero.map((item) => (
-                <ItemFila key={item.id} item={item} activo={seleccion?.id === item.id} onOpen={setSeleccion} />
-              ))}
-            </section>
-            {recuentos.filter((item) => item.lote_id !== lote.id).length > 0 && (
-              <section className="conteo-seccion">
-                <div className="conteo-seccion-titulo">Segundo conteo de otros días</div>
-                {recuentos.filter((item) => item.lote_id !== lote.id).map((item) => (
-                  <ItemFila key={item.id} item={item} activo={seleccion?.id === item.id} onOpen={setSeleccion} mostrarFecha />
-                ))}
-              </section>
+            {porContar.length > 0 && (
+              <Seccion titulo={`Por contar · ${porContar.length}`} detalle="en orden de ubicación">
+                {porContar.map((item) => fila(item))}
+              </Seccion>
+            )}
+            {recuentos.length > 0 && (
+              <Seccion titulo={`Segundo conteo · ${recuentos.length}`} detalle="lo cuenta otra persona">
+                {recuentos.map((item) => fila(item, { mostrarFecha: item.lote_id !== lote.id }))}
+              </Seccion>
             )}
             {aRevisar.length > 0 && (
-              <section className="conteo-seccion">
-                <div className="conteo-seccion-titulo">A revisar {puedeResolver ? "" : "· lo resuelve administración"}</div>
-                {aRevisar.map((item) => (
-                  <ItemFila key={item.id} item={item} activo={seleccion?.id === item.id} onOpen={setSeleccion} mostrarFecha />
-                ))}
-              </section>
+              <Seccion titulo={`A revisar · ${aRevisar.length}`} detalle={puedeResolver ? "" : "lo resuelve Compras"}>
+                {aRevisar.map((item) => fila(item, { mostrarFecha: item.lote_id !== lote.id }))}
+              </Seccion>
+            )}
+            {cerradosHoy.length > 0 && (
+              <Seccion titulo={`Cerrados hoy · ${cerradosHoy.length}`}>
+                {cerradosHoy.map((item) => fila(item))}
+              </Seccion>
             )}
             {stats && (
               <div className="conteo-dim conteo-stats">
-                Últimos 30 días en {sede}: {stats.cerrados} contados · <b>{stats.porcentaje} %</b> coincidió con el sistema.
+                Últimos 30 días en {sede}: {stats.cerrados} contados · <b>{stats.porcentaje} %</b> coincidió con el sistema.{" "}
+                <button type="button" className="conteo-link" onClick={() => { setVista("historial"); setSeleccion(null); }}>Ver historial</button>
               </div>
             )}
           </div>
@@ -374,7 +446,7 @@ export default function ConteoDiarioPanel({ rows = [], sedeLocked = null, profil
         </div>
       )}
 
-      {panel && isMobile && (
+      {vista === "hoy" && panel && isMobile && (
         <div className="conteo-hoja" role="dialog" aria-modal="true">
           <button type="button" className="conteo-hoja-fondo" aria-label="Cerrar" onClick={() => setSeleccion(null)} />
           <div className="conteo-hoja-cuerpo">{panel}</div>
@@ -400,7 +472,15 @@ const CONTEO_CSS = `
 .conteo-root .conteo-cuerpo.con-panel { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); align-items: start; }
 .conteo-root .conteo-listas { display: grid; gap: 16px; min-width: 0; }
 .conteo-root .conteo-seccion { display: grid; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--panel-solid); }
-.conteo-root .conteo-seccion-titulo { padding: 9px 12px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); background: var(--panel); border-bottom: 1px solid var(--border); }
+.conteo-root .conteo-seccion-titulo { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; padding: 9px 12px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); background: var(--panel); border-bottom: 1px solid var(--border); }
+.conteo-root .conteo-seccion-detalle { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 11.5px; }
+.conteo-root .conteo-quien { color: var(--text); }
+.conteo-root .conteo-link { border: 0; background: none; padding: 0; color: var(--blue); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.conteo-root .conteo-siguiente { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; min-height: 52px; text-align: left; }
+.conteo-root .conteo-siguiente-texto { display: grid; gap: 1px; min-width: 0; }
+.conteo-root .conteo-siguiente-texto span { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
+.conteo-root .conteo-siguiente-texto b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conteo-root .conteo-siguiente-ubic { font-family: "JetBrains Mono", monospace; font-size: 12px; opacity: .85; }
 .conteo-root .conteo-fila { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 12px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; font-family: inherit; min-height: 58px; }
 .conteo-root .conteo-fila:last-child { border-bottom: 0; }
 .conteo-root .conteo-fila:hover { background: var(--panel); }

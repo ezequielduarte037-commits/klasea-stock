@@ -88,3 +88,66 @@ test("exactitud mira sólo lo cerrado", () => {
 test("la fecha del lote es la local", () => {
   assert.equal(fechaLocal(new Date(2026, 10, 3, 23, 30)), "2026-11-03");
 });
+
+test("el recorrido ordena por ubicación con números naturales y deja lo sin ubicación al final", async () => {
+  const { ordenRecorrido } = await import("./conteoDiario.js");
+  const items = [
+    { id: "a", orden: 1, material: { ubicacion: "A10" } },
+    { id: "b", orden: 2, material: { ubicacion: "" } },
+    { id: "c", orden: 3, material: { ubicacion: "A2" } },
+    { id: "d", orden: 4, material: { ubicacion: "a2" } },
+    { id: "e", orden: 5, material: { ubicacion: "B1" } },
+  ];
+  assert.deepEqual(ordenRecorrido(items).map((i) => i.id), ["c", "d", "a", "e", "b"]);
+});
+
+test("el historial marca días sin lista, incompletos y completos, y cuenta por persona", async () => {
+  const { resumenHistorial } = await import("./conteoDiario.js");
+  const item = (id, extra = {}) => ({ id, estado: "pendiente", ...extra });
+  const lotes = [
+    // Lunes 09/11: completa (2 de 2), uno ajustado.
+    { id: "l1", fecha: "2026-11-09", items: [
+      item("1", { estado: "ok", contado_por: "tomas", contado_at: "2026-11-09T10:00:00-03:00" }),
+      item("2", { estado: "ajustado", contado_por: "tomas", contado_at: "2026-11-09T11:30:00-03:00" }),
+    ] },
+    // Martes 10/11: 1 de 3; el segundo conteo lo hace lautaro el miércoles.
+    { id: "l2", fecha: "2026-11-10", items: [
+      item("3", { estado: "revisar", contado_por: "tomas", contado_at: "2026-11-10T09:00:00-03:00", recontado_por: "lautaro", recontado_at: "2026-11-11T08:15:00-03:00" }),
+      item("4", { estado: "pasado" }),
+      item("5", { estado: "pasado" }),
+    ] },
+    // Jueves 12/11 (hoy): armada, sin contar.
+    { id: "l3", fecha: "2026-11-12", items: [item("6"), item("7")] },
+  ];
+  const r = resumenHistorial(lotes, { hoy: "2026-11-12", dias: 7 });
+  // 06/11 (vie) a 12/11 (jue): sábado 7 y domingo 8 no aparecen.
+  assert.deepEqual(r.filas.map((f) => f.fecha), ["2026-11-12", "2026-11-11", "2026-11-10", "2026-11-09", "2026-11-06"]);
+  const porFecha = Object.fromEntries(r.filas.map((f) => [f.fecha, f]));
+  assert.equal(porFecha["2026-11-12"].estado, "por_empezar");
+  assert.equal(porFecha["2026-11-11"].estado, "sin_lista");
+  assert.equal(porFecha["2026-11-11"].personas[0].segundo, 1);
+  assert.equal(porFecha["2026-11-10"].estado, "incompleta");
+  assert.equal(porFecha["2026-11-10"].contados, 1);
+  assert.equal(porFecha["2026-11-09"].estado, "completa");
+  assert.equal(porFecha["2026-11-06"].estado, "sin_lista");
+  // Hoy no se juzga: 4 días hábiles pasados, 2 con lista, 1 completo.
+  assert.equal(r.totales.diasHabiles, 4);
+  assert.equal(r.totales.diasConLista, 2);
+  assert.equal(r.totales.diasCompletos, 1);
+  assert.equal(r.totales.diasSinContar, 2);
+  assert.equal(r.totales.asignados, 5);
+  assert.equal(r.totales.contados, 3);
+  assert.equal(r.totales.cumplimiento, 60);
+  const tomas = r.personas.find((p) => p.uid === "tomas");
+  assert.equal(tomas.conteo, 3);
+  assert.equal(tomas.dias, 2);
+});
+
+test("el historial arranca el día de la primera lista", async () => {
+  const { resumenHistorial } = await import("./conteoDiario.js");
+  const lotes = [{ id: "l1", fecha: "2026-11-11", items: [{ id: "1", estado: "pasado" }] }];
+  const r = resumenHistorial(lotes, { hoy: "2026-11-12", dias: 30, inicio: "2026-11-11" });
+  assert.equal(r.desde, "2026-11-11");
+  assert.deepEqual(r.filas.map((f) => f.estado), ["sin_armar", "sin_contar"]);
+  assert.equal(r.totales.diasHabiles, 1);
+});
