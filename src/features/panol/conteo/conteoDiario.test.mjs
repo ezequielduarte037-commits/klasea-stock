@@ -169,3 +169,14 @@ test("explica cada renglón con lo que decía el sistema, lo contado y en cuánt
   assert.equal(motivoAnulacion("Conteo diario 10/11\n[anulado] Revierte movimiento x - Motivo reversion: se duplico"), "se duplico");
   assert.equal(motivoAnulacion("Conteo diario 10/11"), null);
 });
+
+test("el segundo conteo dice por qué no se corrigió solo", async () => {
+  const { explicarConteo } = await import("./conteoDiario.js");
+  const nombre = () => "Tomas";
+  const pocas = explicarConteo({ estado: "recontar", teorico: 3, contado: 2, contado_por: "t", recuento_motivo: "pocas" }, { nombre });
+  assert.equal(pocas.texto, "El sistema decía 3 y Tomas contó 2 (faltaba 1). Hay pocas unidades: no se corrige solo aunque la diferencia sea chica. Falta que otra persona lo cuente, y para ajustar los dos conteos tienen que dar igual.");
+  const ciego = explicarConteo({ estado: "recontar", teorico: 3, contado: 2, contado_por: "t", recuento_motivo: "caro" }, { nombre, verNumeros: false });
+  assert.equal(ciego.texto, "Tomas lo contó y no coincidió con el sistema. Es un producto caro: no se corrige solo aunque la diferencia sea chica. Falta que otra persona lo cuente.");
+  const viejo = explicarConteo({ estado: "recontar", teorico: 3, contado: 1, contado_por: "t" }, { nombre });
+  assert.equal(viejo.texto, "El sistema decía 3 y Tomas contó 1 (faltaban 2). No se corrige solo. Falta que otra persona lo cuente.");
+});

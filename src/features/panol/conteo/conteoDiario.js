@@ -376,9 +376,17 @@ export function explicarConteo(item = {}, { nombre = () => "Alguien", verNumeros
   }
   if (item.estado === "recontar") {
     tono = "violet";
+    // Por qué no se corrigió solo (lo guarda la base desde el 12/11/2026).
+    const porQue = {
+      caro: "Es un producto caro: no se corrige solo aunque la diferencia sea chica.",
+      pocas: "Hay pocas unidades: no se corrige solo aunque la diferencia sea chica.",
+      reservado: "Falta algo que está separado para obras: no se corrige solo.",
+      grande: "Es mucha diferencia para corregirla sola.",
+    }[item.recuento_motivo] || "No se corrige solo.";
+    const exacto = ["caro", "pocas"].includes(item.recuento_motivo) ? ", y para ajustar los dos conteos tienen que dar igual" : "";
     texto = verNumeros && t != null
-      ? `El sistema decía ${n(t)} y ${quien} contó ${n(c)} (${diferencia(c, t)}). Es mucha diferencia para corregirla sola: falta que otra persona lo cuente.`
-      : `${quien} lo contó y no coincidió con el sistema. Falta que otra persona lo cuente.`;
+      ? `El sistema decía ${n(t)} y ${quien} contó ${n(c)} (${diferencia(c, t)}). ${porQue} Falta que otra persona lo cuente${exacto}.`
+      : `${quien} lo contó y no coincidió con el sistema. ${["caro", "pocas"].includes(item.recuento_motivo) ? `${porQue} ` : ""}Falta que otra persona lo cuente.`;
     return { texto, tono };
   }
 

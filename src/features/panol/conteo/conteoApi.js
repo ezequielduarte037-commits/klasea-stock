@@ -126,7 +126,7 @@ export async function resolverConteo(itemId, { aplicar, cantidad = null, teorico
   return data;
 }
 
-const HISTORIAL_ITEM_SELECT = "id,lote_id,material_id,orden,clase,motivo,estado,unidad,teorico,contado,contado_por,contado_at,recontado,recontado_por,recontado_at,ajuste,ajuste_snapshot_id,resuelto_por,resuelto_at,nota,material:panol_materiales(id,descripcion,codigo,unidad_medida,ubicacion,imagen_url)";
+const HISTORIAL_ITEM_SELECT = "id,lote_id,material_id,orden,clase,motivo,estado,unidad,teorico,contado,contado_por,contado_at,recontado,recontado_por,recontado_at,ajuste,ajuste_snapshot_id,recuento_motivo,resuelto_por,resuelto_at,nota,material:panol_materiales(id,descripcion,codigo,unidad_medida,ubicacion,imagen_url)";
 
 /**
  * Las listas de una sede desde `desde` (AAAA-MM-DD), con sus renglones. Se trae
