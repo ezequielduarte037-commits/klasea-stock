@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { C } from "@/theme";
+import TextoLibre from "@/components/ui/TextoLibre";
 import {
   discardMueblesOrdenTrabajoOverride,
   fetchMueblesMaterialCandidates,
@@ -509,7 +510,7 @@ export default function MueblesOrdenesTrabajoPanel({
                   <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1fr) 100px 100px", gap: 8 }}>
                     <label>
                       <span style={miniLabel}>Placas y terciados</span>
-                      <textarea disabled={!fieldsEditable} value={(draft.config?.placas || []).join("\n")} onChange={(event) => patchConfig("placas", event.target.value.split("\n").map((row) => row.trim()).filter(Boolean))} rows={3} placeholder="Una descripción por línea" style={{ ...field, resize: "vertical" }} />
+                      <TextoLibre multilinea disabled={!fieldsEditable} valor={(draft.config?.placas || []).join("\n")} onCambio={(texto) => patchConfig("placas", texto.split("\n").map((row) => row.trim()).filter(Boolean))} rows={3} placeholder="Una descripción por línea" style={{ ...field, resize: "vertical" }} />
                     </label>
                     <label><span style={miniLabel}>Tablones lenga</span><input disabled={!fieldsEditable} value={draft.config?.tablones?.lenga ?? ""} onChange={(event) => patchConfig("tablones", { ...(draft.config?.tablones || {}), lenga: event.target.value })} style={field} /></label>
                     <label><span style={miniLabel}>Tablones okumé</span><input disabled={!fieldsEditable} value={draft.config?.tablones?.okume ?? ""} onChange={(event) => patchConfig("tablones", { ...(draft.config?.tablones || {}), okume: event.target.value })} style={field} /></label>

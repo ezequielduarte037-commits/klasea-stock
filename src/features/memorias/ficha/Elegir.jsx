@@ -11,6 +11,7 @@ import {
 } from "../decisiones";
 import { PALETAS, buscarMuestra, claveSimple } from "../acabados";
 import { claveDeOpcion } from "../matriz";
+import TextoLibre from "@/components/ui/TextoLibre";
 import { Muestra } from "./Tarjetas";
 
 function Opcion({ op, on, onClick }) {
@@ -49,7 +50,7 @@ function Otro({ valor, placeholder, onCambio, activo }) {
   return (
     <label className={`mem-otro${activo ? " on" : ""}`}>
       <span>Otro</span>
-      <input className="ui-input" value={valor} onChange={(e) => onCambio(e.target.value)} placeholder={placeholder} />
+      <TextoLibre className="ui-input" valor={valor} onCambio={onCambio} placeholder={placeholder} />
     </label>
   );
 }
@@ -158,7 +159,7 @@ function CuerpoAmbientes({ d, valor, onValor }) {
                 </button>
               ))}
             </div>
-            <input className="ui-input chico" value={elegida ? "" : actual} onChange={(e) => poner(e.target.value)} placeholder={`Otra piedra para ${a.label.toLowerCase()}`} />
+            <TextoLibre className="ui-input chico" valor={elegida ? "" : actual} onCambio={poner} placeholder={`Otra piedra para ${a.label.toLowerCase()}`} />
           </div>
         );
       })}
@@ -190,7 +191,7 @@ function CuerpoLista({ d, valor, onValor, quitar }) {
           </button>
         ))}
       </div>
-      <textarea className="ui-input" rows={5} value={noLleva ? "" : texto} onChange={(e) => onValor(e.target.value)} placeholder={d.otro} />
+      <TextoLibre multilinea className="ui-input" rows={5} valor={noLleva ? "" : texto} onCambio={onValor} placeholder={d.otro} />
       <button type="button" className={`mem-no-lleva${noLleva ? " on" : ""}`} aria-pressed={noLleva} onClick={() => onValor(noLleva ? "" : NO_LLEVA)}>
         <Ban size={14} /> {NO_LLEVA}
       </button>

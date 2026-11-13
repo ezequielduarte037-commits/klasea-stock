@@ -235,7 +235,7 @@ export const CSS_MEMORIAS = `
 .mem-cliente-campo span, .mem-notas span { font-size: 12px; font-weight: 600; color: var(--dim); }
 .mem-cliente-campo .ui-input { min-height: 40px; font-size: 14.5px; }
 .mem-notas { padding: 14px 18px 0; }
-.mem-notas textarea.ui-input { min-height: 72px; padding: 10px 12px; line-height: 1.5; resize: vertical; font: inherit; font-size: 14px; }
+.mem-notas textarea.ui-input { min-height: 84px; max-height: 60vh; padding: 12px 14px; line-height: 1.6; resize: vertical; font: inherit; font-size: 14px; field-sizing: content; }
 
 /* Equipos */
 .mem-equipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start; padding: 14px 18px 16px; }
@@ -288,15 +288,41 @@ export const CSS_MEMORIAS = `
 .mem-switch:disabled { opacity: .5; cursor: default; }
 
 /* Adicionales */
-.mem-adic { display: grid; gap: 14px; padding: 14px 18px 18px; }
+.mem-adic { display: grid; gap: 16px; padding: 16px 18px 20px; }
+.mem-adic-bloque { display: grid; gap: 10px; }
+.mem-adic-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.mem-adic-filtro {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--muted);
+  font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color .15s, background .15s, color .15s;
+}
+.mem-adic-filtro:hover { color: var(--text); border-color: var(--border-2); }
+.mem-adic-filtro i { width: 7px; height: 7px; border-radius: 50%; background: var(--t, var(--muted)); }
+.mem-adic-filtro .n { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--subtle); }
+.mem-adic-filtro.on { color: var(--text); border-color: var(--border-2); background: var(--panel-solid-3); }
+.mem-adic-filtro.on[data-tono] { color: var(--t); border-color: var(--t-borde); background: var(--t-soft); }
+.mem-adic-filtro.on .n { color: inherit; }
 .mem-adic-lista { display: grid; border: 1px solid var(--border); border-radius: 14px; background: var(--panel-solid); overflow: hidden; }
-.mem-adic-fila { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); min-width: 0; }
-.mem-adic-fila:first-child { border-top: 0; }
-.mem-adic-fila .img { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; background: var(--panel-2) center/cover no-repeat; border: 1px solid var(--border); display: grid; place-items: center; color: var(--subtle); }
-.mem-adic-fila .txt { flex: 1; min-width: 0; }
-.mem-adic-fila .txt b { display: block; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mem-adic-fila .txt small { display: block; margin-top: 2px; font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mem-adic-fila .cant { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--muted); }
+.mem-adic-cab, .mem-adic-fila { display: grid; grid-template-columns: 40px minmax(0, 1fr) 72px 140px; gap: 14px; align-items: center; padding: 0 16px; min-width: 0; }
+.mem-adic-cab { min-height: 34px; background: var(--panel-2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--subtle); }
+.mem-adic-cab span:nth-child(3) { text-align: right; }
+.mem-adic-fila { padding-top: 13px; padding-bottom: 13px; border-top: 1px solid var(--border); }
+.mem-adic-cab + .mem-adic-fila { border-top: 0; }
+.mem-adic-fila:hover { background: color-mix(in srgb, var(--panel-2) 55%, transparent); }
+.mem-adic-fila .img { width: 40px; height: 40px; border-radius: 10px; background: var(--panel-2) center/cover no-repeat; border: 1px solid var(--border); display: grid; place-items: center; color: var(--subtle); }
+.mem-adic-fila .txt { min-width: 0; }
+.mem-adic-fila .txt b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.mem-adic-fila .txt small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; font-size: 12px; color: var(--dim); }
+.mem-adic-fila .txt small .tipo { color: var(--t); font-weight: 600; }
+.mem-adic-fila .txt small .nota { flex-basis: 100%; color: var(--muted); }
+.mem-adic-fila .cant { text-align: right; font-size: 12px; color: var(--dim); white-space: nowrap; }
+.mem-adic-fila .cant b { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--text); }
+.mem-adic-fila .est { min-width: 0; }
+.mem-adic-sueltos { display: grid; gap: 10px; padding: 14px 16px; border: 1px dashed var(--border-2); border-radius: 14px; }
+.mem-adic-sueltos .tit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13px; font-weight: 600; }
+.mem-adic-sueltos .tit .n { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--subtle); }
+.mem-adic-sueltos .tit small { flex-basis: 100%; font-size: 12px; font-weight: 400; color: var(--dim); }
+.mem-adic-sueltos .mem-chips-elegir { align-items: center; }
 .mem-adic-alta { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto auto; gap: 8px; align-items: center; padding: 12px; border: 1px solid var(--blue-border); border-radius: 14px; background: color-mix(in srgb, var(--blue) 5%, transparent); }
 .mem-adic-alta .ui-input { min-height: 38px; font-size: 13.5px; }
 .mem-adic-buscar { position: relative; min-width: 0; }
@@ -414,6 +440,11 @@ export const CSS_MEMORIAS = `
   .mem-seccion-cab .usan { margin-left: 0; width: 100%; }
   .mem-equipos { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 14px; }
   .mem-adic { padding: 12px 14px 16px; }
+  .mem-adic-cab { display: none; }
+  .mem-adic-fila { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 6px 12px; padding: 12px 14px; }
+  .mem-adic-fila .img { width: 36px; height: 36px; grid-row: span 2; align-self: start; }
+  .mem-adic-fila .est { grid-column: 2 / -1; }
+  .mem-adic-sueltos { padding: 12px 14px; }
   .mem-adic-alta { grid-template-columns: minmax(0, 1fr) 76px; }
   .mem-adic-alta > .seg-tipo, .mem-adic-alta > .ui-btn { grid-column: span 1; }
   .mem-opciones { margin: 0 14px 14px; }

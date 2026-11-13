@@ -368,7 +368,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
                       <span>Lo que pidió el cliente aparte</span>
                       <textarea
                         className="ui-input"
-                        rows={3}
+                        rows={Math.min(14, Math.max(3, String(datos.adicionales || "").split("\n").length + 1))}
                         value={datos.adicionales || ""}
                         onChange={(e) => cambiar("adicionales", e.target.value)}
                         placeholder="Griferías negras, sin parrilla en el cockpit, luces bajo agua, heladera 12 V…"

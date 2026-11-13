@@ -12,42 +12,54 @@ import { agregarAdicional, traerAdicionalesObra } from "../memoriasApi";
 import { sinTildes } from "../acabados";
 import { Estado } from "../ui";
 
-// Lo escrito en las notas ("Jacuzzi, Sin baúl, Tenderlift") que todavía no
-// está en la lista. Lo que empieza con "sin" o "no" es una aclaración, no algo
-// para comprar.
+// Lo escrito en las notas que todavía no está en la lista. Si las notas vienen
+// renglón por renglón, cada renglón es un pedido (puede tener comas o una "y"
+// adentro: "1 PLOTTER en Fly y 1 en Salón"); si es una sola línea ("Jacuzzi,
+// Sin baúl, Tenderlift") se separa por comas. Lo que empieza con "sin" o "no"
+// es una aclaración, no algo para comprar.
 function piezasSueltas(notas, lista) {
+  const texto = String(notas || "");
+  const renglones = texto.split(/\n+/).map((r) => r.trim()).filter(Boolean);
+  const piezas = renglones.length > 1
+    ? renglones.flatMap((r) => r.split(/\s*[;•]\s*/))
+    : texto.split(/[,;•·]+|\s+y\s+/i);
   const enLista = (lista || []).map((a) => sinTildes(a.descripcion));
   const vistas = new Set();
-  return String(notas || "")
-    .split(/[,;\n•·]+|\s+y\s+/i)
-    .map((p) => p.trim().replace(/\.$/, ""))
-    .filter((p) => p.length >= 3 && p.length <= 60 && !/^(sin|no)\b/i.test(p))
+  return piezas
+    .map((p) => p.trim().replace(/^[-–*]\s*/, "").replace(/\.$/, ""))
+    .filter((p) => p.length >= 3 && p.length <= 90 && !/^(sin|no)\b/i.test(p))
     .filter((p) => {
       const n = sinTildes(p);
       if (vistas.has(n)) return false;
       vistas.add(n);
       return !enLista.some((d) => d.includes(n) || (d.length >= 4 && n.includes(d)));
-    })
-    .slice(0, 8);
+    });
 }
 
+// Orden del circuito: primero lo que todavía hay que mover.
+const ORDEN_ESTADO = ["Falta comprar", "Pedido a Compras", "Comprado", "Llegó una parte", "En pañol", "A bordo"];
+const ordenEstado = (label) => {
+  const i = ORDEN_ESTADO.indexOf(label);
+  return i < 0 ? ORDEN_ESTADO.length : i;
+};
+
 function FilaAdicional({ adicional }) {
-  const detalle = [
-    adicional.tipo === "opcional" ? "Opcional" : "Adicional",
-    adicional.material_id ? "del catálogo" : null,
-    adicional.observaciones && adicional.observaciones !== "Cargado desde la memoria descriptiva" ? adicional.observaciones : null,
-  ].filter(Boolean).join(" · ");
+  const nota = adicional.observaciones && adicional.observaciones !== "Cargado desde la memoria descriptiva" ? adicional.observaciones : "";
   return (
     <div className="mem-adic-fila">
       <span className="img" style={adicional.imagen_url ? { backgroundImage: `url(${adicional.imagen_url})` } : undefined}>
-        {!adicional.imagen_url && <Package size={15} />}
+        {!adicional.imagen_url && <Package size={16} />}
       </span>
       <div className="txt">
-        <b>{adicional.descripcion}</b>
-        <small>{detalle}</small>
+        <b title={adicional.descripcion}>{adicional.descripcion}</b>
+        <small>
+          <span className="tipo" data-tono={adicional.tipo === "opcional" ? "azul" : "violeta"}>{adicional.tipo === "opcional" ? "Opcional" : "Adicional"}</span>
+          {adicional.material_id ? <span>Del catálogo</span> : <span>Escrito a mano</span>}
+          {nota && <span className="nota">{nota}</span>}
+        </small>
       </div>
-      <span className="cant">×{Number(adicional.cantidad || 1).toLocaleString("es-AR")}</span>
-      <Estado tono={adicional.estado.tono}>{adicional.estado.label}</Estado>
+      <span className="cant"><b>{Number(adicional.cantidad || 1).toLocaleString("es-AR")}</b> {adicional.unidad && adicional.unidad !== "unidad" ? adicional.unidad : "u."}</span>
+      <span className="est"><Estado tono={adicional.estado.tono}>{adicional.estado.label}</Estado></span>
     </div>
   );
 }
@@ -132,16 +144,28 @@ export default function Adicionales({ obra, notas }) {
   }, [catalogo, busqueda, material]);
   const sueltos = useMemo(() => (lista ? piezasSueltas(notas, lista) : []), [notas, lista]);
   const [verTodos, setVerTodos] = useState(false);
+  const [verSueltos, setVerSueltos] = useState(false);
+  const [filtro, setFiltro] = useState(null);
+  const ordenada = useMemo(
+    () => (lista || []).map((a, i) => ({ a, i })).sort((x, y) => ordenEstado(x.a.estado.label) - ordenEstado(y.a.estado.label) || x.i - y.i).map((x) => x.a),
+    [lista],
+  );
   const resumen = useMemo(() => {
     const porEstado = new Map();
-    for (const a of lista || []) {
+    for (const a of ordenada) {
       const actual = porEstado.get(a.estado.label) || { ...a.estado, n: 0 };
       actual.n += 1;
       porEstado.set(a.estado.label, actual);
     }
     return [...porEstado.values()];
-  }, [lista]);
-  const VISIBLES = 8;
+  }, [ordenada]);
+  const filtroVigente = resumen.some((e) => e.label === filtro) ? filtro : null;
+  const filtrada = filtroVigente ? ordenada.filter((a) => a.estado.label === filtroVigente) : ordenada;
+  const VISIBLES = 12;
+  const SUELTOS_VISIBLES = 8;
+  // Filtrando por estado se ve todo; sin filtro, las primeras y "Ver los N".
+  const hayMas = !filtroVigente && filtrada.length > VISIBLES + 2;
+  const visibles = hayMas && !verTodos ? filtrada.slice(0, VISIBLES) : filtrada;
 
   function escribir(valor) {
     setTexto(valor);
@@ -197,20 +221,35 @@ export default function Adicionales({ obra, notas }) {
       ) : error ? (
         <div className="mem-aviso" data-tono="rojo"><span className="txt">{error}</span></div>
       ) : lista.length ? (
-        <>
-          <div className="mem-sueltos">
-            <span>{lista.length} en la lista de la obra:</span>
-            {resumen.map((e) => <Estado key={e.label} tono={e.tono}>{e.label} · {e.n}</Estado>)}
+        <div className="mem-adic-bloque">
+          <div className="mem-adic-filtros" role="radiogroup" aria-label="Filtrar por estado">
+            <button type="button" role="radio" aria-checked={!filtroVigente} className={`mem-adic-filtro${!filtroVigente ? " on" : ""}`} onClick={() => setFiltro(null)}>
+              Todos <span className="n">{lista.length}</span>
+            </button>
+            {resumen.map((e) => (
+              <button
+                key={e.label}
+                type="button"
+                role="radio"
+                aria-checked={filtroVigente === e.label}
+                className={`mem-adic-filtro${filtroVigente === e.label ? " on" : ""}`}
+                data-tono={e.tono}
+                onClick={() => setFiltro(filtroVigente === e.label ? null : e.label)}
+              >
+                <i /> {e.label} <span className="n">{e.n}</span>
+              </button>
+            ))}
           </div>
           <div className="mem-adic-lista">
-            {(verTodos ? lista : lista.slice(0, VISIBLES)).map((a) => <FilaAdicional key={a.id} adicional={a} />)}
+            <div className="mem-adic-cab" aria-hidden="true"><span /><span>En la lista de {obra.codigo}</span><span>Cant.</span><span>Estado</span></div>
+            {visibles.map((a) => <FilaAdicional key={a.id} adicional={a} />)}
           </div>
-          {lista.length > VISIBLES && (
+          {hayMas && (
             <button type="button" className="mem-link" style={{ justifySelf: "start" }} onClick={() => setVerTodos((v) => !v)}>
-              {verTodos ? "Ver menos" : `Ver los ${lista.length}`}
+              {verTodos ? "Ver menos" : `Ver los ${filtrada.length}`}
             </button>
           )}
-        </>
+        </div>
       ) : (
         <div className="mem-sub">Todavía no hay adicionales en la lista de {obra.codigo}.</div>
       )}
@@ -283,13 +322,23 @@ export default function Adicionales({ obra, notas }) {
       </div>
 
       {sueltos.length > 0 && (
-        <div className="mem-sueltos">
-          <span>Escrito en las notas y todavía no está en la lista:</span>
-          {sueltos.map((p) => (
-            <button key={p} type="button" className="mem-sug-op" onClick={() => desdeNotas(p)} title="Pasarlo al campo para agregarlo a la obra">
-              <Plus size={12} /> {p}
-            </button>
-          ))}
+        <div className="mem-adic-sueltos">
+          <div className="tit">
+            Pedido en las notas y todavía no está en la lista <span className="n">{sueltos.length}</span>
+            <small>Tocá uno para pasarlo al campo de arriba y agregarlo a la obra.</small>
+          </div>
+          <div className="mem-chips-elegir">
+            {(verSueltos ? sueltos : sueltos.slice(0, SUELTOS_VISIBLES)).map((p) => (
+              <button key={p} type="button" className="mem-sug-op" onClick={() => desdeNotas(p)} title="Pasarlo al campo para agregarlo a la obra">
+                <Plus size={12} /> {p}
+              </button>
+            ))}
+            {sueltos.length > SUELTOS_VISIBLES && (
+              <button type="button" className="mem-link" onClick={() => setVerSueltos((v) => !v)}>
+                {verSueltos ? "Ver menos" : `y ${sueltos.length - SUELTOS_VISIBLES} más`}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
