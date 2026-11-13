@@ -48,8 +48,11 @@ export async function traerMemorias() {
 export async function traerPerfiles(ids) {
   const lista = [...new Set((ids || []).filter(Boolean))];
   if (!lista.length) return new Map();
-  const { data } = await supabase.from("profiles").select("id,username,nombre_completo").in("id", lista);
-  return new Map((data || []).map((p) => [p.id, p.nombre_completo || p.username || "Alguien"]));
+  // `profiles` sólo tiene username (nombre_completo es de `clientes`): pedir una
+  // columna que no existe hace fallar la consulta entera y no sale ningún nombre.
+  const { data, error } = await supabase.from("profiles").select("id,username").in("id", lista);
+  if (error) console.warn("[memorias] no se pudieron leer los usuarios:", error.message);
+  return new Map((data || []).map((p) => [p.id, p.username || "Alguien"]));
 }
 
 const vacio = (v) => (typeof v === "string" ? (v.trim() === "" ? null : v) : v);
