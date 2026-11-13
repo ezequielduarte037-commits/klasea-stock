@@ -52,7 +52,7 @@ export function Equipo({ campo, valor, nota, puedeNota, onValor, onNota }) {
         </div>
       </div>
       {v === "si" && puedeNota && (
-        <input className="ui-input" value={nota || ""} onChange={(e) => onNota(e.target.value)} placeholder="Modelo (opcional)" />
+        <input className="ui-input" value={nota || ""} onChange={(e) => onNota(e.target.value)} placeholder="Modelo" aria-label="Modelo" />
       )}
     </div>
   );

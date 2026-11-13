@@ -358,7 +358,7 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
                     {propios.map((c) => (
                       <label key={c.key} className="mem-cliente-campo" id={`mem-campo-${c.key}`}>
                         <span>{c.label}</span>
-                        <input className="ui-input" value={datos[c.key] || ""} onChange={(e) => cambiar(c.key, e.target.value)} placeholder={DECISIONES[c.key]?.placeholder || ""} autoComplete="off" />
+                        <input className="ui-input" value={datos[c.key] || ""} onChange={(e) => cambiar(c.key, e.target.value)} autoComplete="off" />
                       </label>
                     ))}
                   </div>
@@ -371,7 +371,6 @@ export default function Ficha({ ficha, anterior, siguiente, filas, columnas, per
                         rows={Math.min(14, Math.max(3, String(datos.adicionales || "").split("\n").length + 1))}
                         value={datos.adicionales || ""}
                         onChange={(e) => cambiar("adicionales", e.target.value)}
-                        placeholder="Griferías negras, sin parrilla en el cockpit, luces bajo agua, heladera 12 V…"
                       />
                     </label>
                     <Adicionales obra={obra} notas={datos.adicionales} />
@@ -474,7 +473,7 @@ function SeccionEquipos({ campos, datos, puedeNota, cambiar, obra, linea, exclui
         <div className="mem-serie">
           <div className="mem-serie-cab">
             <b>Viene de serie en la {linea}</b>
-            <small>Lo trae la matriz: no se pregunta ni sale en la hoja impresa. Tocá uno sólo si en este barco cambia (ej.: un faro más grande).</small>
+            <small>Lo trae la matriz. Tocá uno sólo si cambia en este barco.</small>
           </div>
           <div className="mem-chips-elegir">
             {deSerie.map((c) => {

@@ -264,7 +264,7 @@ export default function Adicionales({ obra, notas }) {
             onFocus={() => { ubicar(); setVerCatalogo(true); void traerCatalogo(); }}
             onBlur={() => setVerCatalogo(false)}
             onKeyDown={tecla}
-            placeholder="Nuevo adicional: buscalo en el catálogo o escribilo"
+            placeholder="Agregar producto"
             aria-label="Nuevo adicional"
             autoComplete="off"
           />
@@ -325,7 +325,6 @@ export default function Adicionales({ obra, notas }) {
         <div className="mem-adic-sueltos">
           <div className="tit">
             Pedido en las notas y todavía no está en la lista <span className="n">{sueltos.length}</span>
-            <small>Tocá uno para pasarlo al campo de arriba y agregarlo a la obra.</small>
           </div>
           <div className="mem-chips-elegir">
             {(verSueltos ? sueltos : sueltos.slice(0, SUELTOS_VISIBLES)).map((p) => (

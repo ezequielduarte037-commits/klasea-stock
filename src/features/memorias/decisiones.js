@@ -28,71 +28,64 @@ const TECHOS = {
 };
 
 export const DECISIONES = {
-  propietario: { tipo: "texto", label: "Propietario", placeholder: "Nombre del cliente" },
-  nombre_barco: { tipo: "texto", label: "Nombre del barco", placeholder: "Si ya lo eligieron" },
-  constructor: { tipo: "texto", label: "Constructor", placeholder: "Nombre" },
+  propietario: { tipo: "texto", label: "Propietario" },
+  nombre_barco: { tipo: "texto", label: "Nombre del barco" },
+  constructor: { tipo: "texto", label: "Constructor" },
 
   motorizacion: {
     tipo: "opciones", label: "Motorización",
     opciones: (linea) => MOTORES[linea] || [...new Set(Object.values(MOTORES).flat())],
-    otro: "Otra: cantidad, marca, potencia y transmisión",
   },
   grupo_electrogeno: {
     tipo: "lleva", label: "Grupo electrógeno",
     modelos: ["Kohler 7 kVA", "Kohler 9 kVA", "Onan 6 kVA", "Onan 9,5 kVA", "Onan 13,5 kVA", "Coldmaster", "Mase 6 kVA"],
-    otro: "Otro: marca y kVA",
   },
   color_casco: {
     tipo: "opciones", label: "Color de casco", paletas: ["pintura"], sinNoLleva: true,
     complementos: ["Fondo con antifouling", "Fondo convencional", "Con bandas"],
-    otro: "Otro color (código o muestra)",
   },
   cabina: {
     tipo: "opciones", label: "Techo",
     opciones: (linea) => (["K55", "K64", "K85"].includes(linea) ? TECHOS.grandes : TECHOS.base),
-    sinNoLleva: true, otro: "Otro",
+    sinNoLleva: true,
   },
-  teca_tipo: { tipo: "opciones", label: "Piso del cockpit", paletas: ["cubiertas"], otro: "Otro material" },
+  teca_tipo: { tipo: "opciones", label: "Piso del cockpit", paletas: ["cubiertas"] },
 
-  madera_muebles: { tipo: "opciones", label: "Madera de muebles", paletas: ["maderas"], sinNoLleva: true, otro: "Otra madera o melamina" },
-  piso: { tipo: "opciones", label: "Piso interior", paletas: ["pisos"], otro: "Otro piso: marca y código", nota: "Ej.: también en camarotes" },
-  alfombra: { tipo: "lleva", label: "Alfombra", modelos: ["Pallas 190", "Hard Twist 01", "Velour Plus", "Espartano HT05"], otro: "Otro modelo" },
+  madera_muebles: { tipo: "opciones", label: "Madera de muebles", paletas: ["maderas"], sinNoLleva: true },
+  piso: { tipo: "opciones", label: "Piso interior", paletas: ["pisos"] },
+  alfombra: { tipo: "lleva", label: "Alfombra", modelos: ["Pallas 190", "Hard Twist 01", "Velour Plus", "Espartano HT05"] },
   color_mesadas: {
     tipo: "ambientes", label: "Mesadas", paletas: ["piedras"],
     ambientes: [{ key: "cocina", label: "Cocina" }, { key: "banos", label: "Baños" }, { key: "cockpit", label: "Cockpit" }],
-    otro: "Otra piedra",
   },
 
-  tapiceria_mamparos: { tipo: "opciones", paletas: ["vinilos"], otro: "Otro: marca y color" },
-  tapiceria_dinette: { tipo: "opciones", paletas: ["vinilos", "telas"], otro: "Otro: marca y color" },
-  tapiceria_respaldos: { tipo: "opciones", paletas: ["telas", "vinilos"], otro: "Otro: marca y color" },
-  tapiceria_exterior: { tipo: "opciones", paletas: ["vinilos"], otro: "Otro: marca y color" },
-  color_acolchados: { tipo: "opciones", label: "Acolchados", paletas: ["telas"], otro: "Otra tela: marca y color" },
+  tapiceria_mamparos: { tipo: "opciones", paletas: ["vinilos"] },
+  tapiceria_dinette: { tipo: "opciones", paletas: ["vinilos", "telas"] },
+  tapiceria_respaldos: { tipo: "opciones", paletas: ["telas", "vinilos"] },
+  tapiceria_exterior: { tipo: "opciones", paletas: ["vinilos"] },
+  color_acolchados: { tipo: "opciones", label: "Acolchados", paletas: ["telas"] },
   color_cerramientos: {
     tipo: "opciones", label: "Cerramientos", paletas: ["lonas"],
-    complementos: ["Con mosquitero", "Con bimini"], otro: "Otro color de lona",
+    complementos: ["Con mosquitero", "Con bimini"],
   },
 
-  loneria_toldo_proa: { tipo: "lleva", label: "Toldo de proa", paletaModelos: "lonas", otro: "Otro color de lona" },
-  loneria_cobertor: { tipo: "lleva", label: "Cobertor", paletaModelos: "lonas", otro: "Otro color de lona" },
+  loneria_toldo_proa: { tipo: "lleva", label: "Toldo de proa", paletaModelos: "lonas" },
+  loneria_cobertor: { tipo: "lleva", label: "Cobertor", paletaModelos: "lonas" },
   loneria_otros: {
     tipo: "lista",
     sugeridos: ["Cerramiento de popa", "Cerramiento de proa", "Cubre tambucho", "Mosquitero", "Bimini"],
-    otro: "Qué más lleva de lonería",
   },
 
   electronica: {
     tipo: "lista", label: "Electrónica",
     sugeridos: ["Plotter Garmin", "Plotter Simrad", "VHF", "Piloto automático", "AIS", "Sonda", "Cámaras", "Joystick", "Lo trae el cliente"],
-    otro: "Equipos y modelos (uno por línea)",
   },
   audio: {
     tipo: "lista", label: "Audio",
     sugeridos: ["Equipo estándar", "Fusion", "JL Audio", "Parlantes en cockpit", "Parlantes en proa", "Subwoofer", "Potencia", "Luces LED RGB", "Lo trae el cliente"],
-    otro: "Equipo, parlantes y dónde van",
   },
-  tv_camarote: { tipo: "lleva", label: "TV camarote de popa", modelos: [], otro: "Pulgadas o modelo" },
-  tv_cockpit: { tipo: "lleva", label: "TV cockpit", modelos: [], otro: "Pulgadas o modelo" },
+  tv_camarote: { tipo: "lleva", label: "TV camarote de popa", modelos: [] },
+  tv_cockpit: { tipo: "lleva", label: "TV cockpit", modelos: [] },
 
   adicionales: { tipo: "notas", label: "Notas del cliente" },
 };

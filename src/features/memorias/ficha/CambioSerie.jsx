@@ -26,7 +26,6 @@ export default function CambioSerie({ campo, linea, cambio, puedeNota, onCambio,
               className="ui-input"
               value={noLleva ? "" : cambio || ""}
               onChange={(e) => onCambio(e.target.value)}
-              placeholder={`Ej.: ${campo.label.toLowerCase()} más grande, otro modelo, otra ubicación`}
               autoFocus
             />
           </label>

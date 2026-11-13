@@ -318,7 +318,7 @@ export default function MemoriaVivaScreen() {
                     className="ui-input"
                     value={busqueda}
                     onChange={(evento) => setBusqueda(evento.target.value)}
-                    placeholder="Buscar un campo, un valor o un material…"
+                    placeholder="Buscar"
                   />
                 </label>
                 {zonaActiva && (

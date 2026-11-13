@@ -46,11 +46,11 @@ function Grupos({ opciones, elegida, onElegir }) {
   });
 }
 
-function Otro({ valor, placeholder, onCambio, activo }) {
+function Otro({ valor, onCambio, activo }) {
   return (
     <label className={`mem-otro${activo ? " on" : ""}`}>
       <span>Otro</span>
-      <TextoLibre className="ui-input" valor={valor} onCambio={onCambio} placeholder={placeholder} />
+      <TextoLibre className="ui-input" valor={valor} onCambio={onCambio} aria-label="Otro" />
     </label>
   );
 }
@@ -66,7 +66,6 @@ function CuerpoOpciones({ campo, d, valor, linea, onValor }) {
       <Otro
         valor={l.eleccion ? "" : principal}
         activo={!l.eleccion && !!principal}
-        placeholder={d.otro}
         onCambio={(t) => onValor(armarOpciones(t, complementos))}
       />
       {d.complementos?.length > 0 && (
@@ -116,7 +115,7 @@ function CuerpoLleva({ d, valor, onValor }) {
               <Grupos opciones={modelos} elegida={elegido || ""} onElegir={(n) => onValor(armarLleva({ modelo: n }))} />
             </div>
           )}
-          <Otro valor={elegido ? "" : l.modelo} activo={!elegido && !!l.modelo} placeholder={d.otro} onCambio={(t) => onValor(armarLleva({ modelo: t }))} />
+          <Otro valor={elegido ? "" : l.modelo} activo={!elegido && !!l.modelo} onCambio={(t) => onValor(armarLleva({ modelo: t }))} />
         </>
       )}
     </>
@@ -137,7 +136,7 @@ function CuerpoAmbientes({ d, valor, onValor }) {
       <>
         <SegModo modo={modo} setModo={setModo} />
         <Grupos opciones={piedras} elegida={elegida} onElegir={(n) => onValor(n)} />
-        <Otro valor={elegida ? "" : actual} activo={!elegida && !!actual} placeholder={d.otro} onCambio={(t) => onValor(t)} />
+        <Otro valor={elegida ? "" : actual} activo={!elegida && !!actual} onCambio={(t) => onValor(t)} />
       </>
     );
   }
@@ -159,7 +158,7 @@ function CuerpoAmbientes({ d, valor, onValor }) {
                 </button>
               ))}
             </div>
-            <TextoLibre className="ui-input chico" valor={elegida ? "" : actual} onCambio={poner} placeholder={`Otra piedra para ${a.label.toLowerCase()}`} />
+            <Otro valor={elegida ? "" : actual} activo={!elegida && !!actual} onCambio={poner} />
           </div>
         );
       })}
@@ -191,7 +190,7 @@ function CuerpoLista({ d, valor, onValor, quitar }) {
           </button>
         ))}
       </div>
-      <TextoLibre multilinea className="ui-input" rows={5} valor={noLleva ? "" : texto} onCambio={onValor} placeholder={d.otro} />
+      <TextoLibre multilinea className="ui-input" rows={5} valor={noLleva ? "" : texto} onCambio={onValor} aria-label="Otros" />
       <button type="button" className={`mem-no-lleva${noLleva ? " on" : ""}`} aria-pressed={noLleva} onClick={() => onValor(noLleva ? "" : NO_LLEVA)}>
         <Ban size={14} /> {NO_LLEVA}
       </button>
@@ -264,7 +263,7 @@ export default function Elegir({ campo, seccion, valor, nota, puedeNota, linea, 
           {puedeNota && (
             <label className="mem-otro">
               <span>Nota</span>
-              <input className="ui-input" value={nota || ""} onChange={(e) => onNota(e.target.value)} placeholder={d.nota || "Aclaración, proveedor o pedido del cliente (opcional)"} />
+              <input className="ui-input" value={nota || ""} onChange={(e) => onNota(e.target.value)} />
             </label>
           )}
         </div>
