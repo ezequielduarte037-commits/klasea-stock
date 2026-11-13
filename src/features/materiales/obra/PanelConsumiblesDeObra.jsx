@@ -19,8 +19,8 @@ function fmtFecha(value) {
  * Apartado plegable con lo que se retiró de Consumibles para la obra. Los
  * consumibles no van en la lista del barco: acá sólo se consulta lo consumido.
  */
-export default function PanelConsumiblesDeObra({ obraId, obraLabel = "" }) {
-  const [abierto, setAbierto] = useState(false);
+export default function PanelConsumiblesDeObra({ obraId, obraLabel = "", abiertoInicial = false }) {
+  const [abierto, setAbierto] = useState(abiertoInicial);
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");

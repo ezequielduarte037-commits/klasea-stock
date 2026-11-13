@@ -72,12 +72,14 @@ import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
 import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
-import { obraThemeScope } from "./obra/obraListaPresentation";
+import { compararEtiquetaGrupo, obraThemeScope, ordenarFilas, rubroDeFila } from "./obra/obraListaPresentation";
 import { aporteDeFilaLedger, cantidadesDeFila, estadoObraForRow } from "./obra/estadoDeFila";
 import { esFilaDeConsumible } from "./obra/consumiblesDeObra";
 import PanelConsumiblesDeObra from "./obra/PanelConsumiblesDeObra";
 import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
 import PedidoObraModal from "./obra/PedidoObraModal";
+import CambioEstadoLoteModal from "./obra/CambioEstadoLoteModal";
+import { enParalelo } from "./obra/cambioEstadoLote";
 import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
 import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
@@ -3922,8 +3924,13 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   // Conjunto de etiquetas de estado elegidas en el filtro de la columna.
   // Vacío = todas, como una planilla sin filtro puesto.
   const [estadosSel, setEstadosSel] = useState(() => new Set());
-  const [groupBy, setGroupBy] = useState("rubro");
+  const [groupBy, setGroupBy] = useState("ninguno");
+  // Columna por la que se ordena la planilla. key vacía = rubro y nombre.
+  const [orden, setOrden] = useState({ key: "", dir: 1 });
   const [selected, setSelected] = useState(() => new Set());
+  const [loteOpen, setLoteOpen] = useState(false);
+  const [loteAvance, setLoteAvance] = useState(null);
+  const [masOpen, setMasOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [addons, setAddons] = useState([]);
   const [addonModalOpen, setAddonModalOpen] = useState(false);
@@ -4359,7 +4366,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   const rowsSinEstado = useMemo(() => {
     return rows
       .filter((row) => coincideProveedor(row.proveedor, proveedorFilter))
-      .filter((row) => !rubroFilter || row.rubro === rubroFilter)
+      .filter((row) => !rubroFilter || rubroDeFila(row) === rubroFilter)
       .filter((row) => {
         if (etapaFilter === "todos") return true;
         const etapas = etapasDeRow(row);
@@ -4396,13 +4403,6 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       });
   }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, etapaFilter, etapasDeRow]);
 
-  // Cuenta por etiqueta sobre toda la obra. La usan los números de arriba.
-  const conteoEstadoObra = useMemo(() => {
-    const m = new Map();
-    for (const row of rows) { const l = estadoMetaDeFila(row).label; m.set(l, (m.get(l) || 0) + 1); }
-    return m;
-  }, [rows]);
-
   // Las opciones del filtro de la columna Estado: las etiquetas que la columna
   // muestra de verdad, con su cuenta, en el orden del recorrido del material.
   const estadoOpciones = useMemo(() => {
@@ -4418,12 +4418,17 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     });
   }, [rowsSinEstado]);
 
-  const visibleRows = useMemo(
-    () => (estadosSel.size ? rowsSinEstado.filter((row) => estadosSel.has(estadoMetaDeFila(row).label)) : rowsSinEstado),
-    [rowsSinEstado, estadosSel],
-  );
+  // Orden de la planilla. Sin columna elegida va por rubro y nombre, que es como
+  // se lee una lista de barco; con columna, como una planilla.
+  const visibleRows = useMemo(() => {
+    const filtradas = estadosSel.size ? rowsSinEstado.filter((row) => estadosSel.has(estadoMetaDeFila(row).label)) : rowsSinEstado;
+    return ordenarFilasObra(filtradas, orden.key ? orden : { key: groupBy === "ninguno" ? "rubro" : "", dir: 1 });
+  }, [rowsSinEstado, estadosSel, orden, groupBy]);
 
   const groupedRows = useMemo(() => {
+    if (groupBy === "ninguno") {
+      return [{ label: "Todos los ítems", rows: visibleRows, plano: true }];
+    }
     const map = new Map();
     visibleRows.forEach((row) => {
       // Si está en varias etapas se agrupa por la primera (la más temprana del
@@ -4435,7 +4440,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           ? etapasRow.find((etapa) => etapa.id === etapaFilter)
           : etapasRow[0])
         : null;
-      const key = groupBy === "rubro" ? row.rubro
+      const key = groupBy === "rubro" ? rubroDeFila(row)
         : groupBy === "tipo" ? row.bucket.label
         : groupBy === "etapa" ? (etapaInfo?.nombre || "Sin asignar")
         : row.proveedor;
@@ -4454,11 +4459,14 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         group.sinPrecio += 1;
       }
     });
-    // Ordenar: grupos normales primero (por cantidad de ítems), adicionales al final
+    // Alfabético, con los "Sin …" al final, igual que el índice de la izquierda.
+    // Antes se mandaba al final todo grupo que tuviera un adicional, y como casi
+    // todos los rubros tienen uno el orden quedaba al azar (Vidrios primero,
+    // Electricidad al fondo). Lo de adicionales al final sólo vale agrupando
+    // por tipo, donde "Adicional" es un grupo en sí.
     return [...map.values()].sort((a, b) => {
-      if (a.esAddon && !b.esAddon) return 1;
-      if (!a.esAddon && b.esAddon) return -1;
-      return b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es");
+      if (groupBy === "tipo" && a.esAddon !== b.esAddon) return a.esAddon ? 1 : -1;
+      return compararEtiquetaGrupo(a.label, b.label);
     });
   }, [visibleRows, groupBy, etapaFilter, etapasDeRow]);
 
@@ -4589,7 +4597,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       estadosSel.size ? `estado ${[...estadosSel].join(" / ")}` : "",
       etapaFilter === "sin_asignar" ? "sin etapa de compra" : etapaElegida ? `etapa ${etapaElegida.nombre}` : "",
     ].filter(Boolean);
-    const grupos = groupedRows.map((group) => ({
+    // Sin agrupar en pantalla, el papel igual va por rubro: es como se tilda en el barco.
+    const gruposBase = groupBy === "ninguno"
+      ? [...visibleRows.reduce((map, row) => { const k = rubroDeFila(row); if (!map.has(k)) map.set(k, []); map.get(k).push(row); return map; }, new Map())]
+        .sort(([a], [b]) => compararEtiquetaGrupo(a, b)).map(([label, rowsGrupo]) => ({ label, rows: rowsGrupo }))
+      : groupedRows;
+    const grupos = gruposBase.map((group) => ({
       nombre: group.label,
       filas: group.rows.map((row) => {
         const cant = cantidadesDeFila(row);
@@ -4617,7 +4630,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       }),
     }));
     try {
-      exportarListaObraXlsx({ obra: obra.codigo, linea: lineaNombre, grupos, agrupadoPor: groupBy, filtros });
+      exportarListaObraXlsx({ obra: obra.codigo, linea: lineaNombre, grupos, agrupadoPor: groupBy === "ninguno" ? "rubro" : groupBy, filtros });
     } catch (e) {
       setFlowMsg({ type: "err", text: e?.message || "No se pudo armar el Excel." });
     }
@@ -4898,6 +4911,36 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       setFlowMsg({ type: "err", text: e?.message || "No se pudo cambiar el estado del item." });
     } finally {
       setEstadoBusy("");
+    }
+  }
+
+  // El mismo cambio que hace el detalle de un renglón, para muchos a la vez.
+  // Va de a 6 para no saturar la base y sigue aunque alguno falle: al final
+  // se dice cuántos quedaron y cuáles no se pudieron.
+  async function cambiarEstadoEnLote({ estado, nota, retiradoPor, filas }) {
+    if (!filas?.length || loteAvance) return;
+    setFlowMsg(null);
+    setLoteAvance({ hechos: 0, total: filas.length });
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const resultados = await enParalelo(filas, 6, async (row) => {
+        const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+        if (!snapId) throw new Error("sin renglón de obra");
+        await cambiarEstadoObraSnapshot(snapId, estado, nota, retiradoPor);
+      }, (hechos, total) => setLoteAvance({ hechos, total }));
+      const fallaron = filas.filter((_, i) => !resultados[i]?.ok);
+      await cargarSnapshot();
+      setSelected(new Set(fallaron.map((row) => row.id)));
+      setLoteOpen(false);
+      const etiqueta = SNAPSHOT_ESTADO_META[estado]?.label || estado;
+      const ok = filas.length - fallaron.length;
+      setFlowMsg(fallaron.length
+        ? { type: "err", text: `${ok} pasaron a ${etiqueta}. ${fallaron.length} no se pudieron (quedan tildados): ${fallaron.slice(0, 3).map((row) => row.descripcion).join(", ")}${fallaron.length > 3 ? "…" : ""}. ${resultados.find((r) => !r?.ok)?.error?.message || ""}`.trim() }
+        : { type: "ok", text: `${ok} ${ok === 1 ? "ítem pasó" : "ítems pasaron"} a ${etiqueta}.` });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo cambiar el estado." });
+    } finally {
+      setLoteAvance(null);
     }
   }
 
@@ -5365,8 +5408,16 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     const requisito = row.requisitoDescripcion && norm(row.requisitoDescripcion) !== norm(row.descripcion)
       ? row.requisitoDescripcion
       : "";
+    // Lo que le falta al barco, con el color de por qué falta: comprar (azul),
+    // está en compras (cian) o ya está en pañol y hay que ir a buscarlo (violeta).
+    const falta = faltaDeFila(row);
+    const faltaColor = cant.faltaComprar > 0 ? C.blue : cant.faltaEntregar > 0 ? C.violet : cant.enCompras > 0 ? C.cyan : C.muted;
+    const faltaTitle = falta
+      ? [cant.faltaComprar ? `${fmtQtyCorto(cant.faltaComprar)} por comprar` : "", cant.enCompras ? `${fmtQtyCorto(cant.enCompras)} en compras` : "", cant.faltaEntregar ? `${fmtQtyCorto(cant.faltaEntregar)} en pañol para retirar` : ""].filter(Boolean).join(" · ") || `Faltan ${fmtQtyCorto(falta)}`
+      : "Entregado completo";
     return {
-      status, cant, requisito,
+      status, cant, requisito, falta, faltaColor, faltaTitle, faltaTexto: fmtQtyCorto(falta),
+      necesarioCorto: fmtQtyCorto(cant.necesita), unidadCorta: unidadCorta(row.unidad),
       needed: qtyText(row.cantidad, row.unidad), received: fmtQtyCorto(cant.panol), delivered: fmtQtyCorto(cant.entregado),
       quantityTitle: `Necesario ${fmtQtyCorto(cant.necesita)} · recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`,
       imageMaterial: { ...(row.producto || material || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion },
@@ -5403,13 +5454,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       </div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.muted }}>Stock libre</span><span style={{ fontFamily: C.mono }}>{stockLibreLoading ? "Cargando…" : stockLibreInfo ? qtyText(stockLibreInfo.cantidad, stockLibreInfo.unidad) : "Sin disponibilidad informada"}</span></div>
       <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
-      <div aria-label="Estado actual del abastecimiento" style={{ display: "flex", gap: 4, padding: "12px 0" }}>{[["pedido", "Pedido"], ["comprado", "Comprado"], ["en_panol", "En pañol"], ["egresado", "Entregado"]].map(([key, label]) => <div key={key} style={{ flex: 1, textAlign: "center", color: estadoObraForRow(row) === key ? C.blue : C.muted, borderTop: `2px solid ${estadoObraForRow(row) === key ? C.blue : C.border}`, paddingTop: 7, fontSize: 11 }}>{label}{estadoObraForRow(row) === key ? " · actual" : ""}</div>)}</div>
+      <div aria-label="Estado actual del abastecimiento" style={{ display: "flex", gap: 4, padding: "12px 0" }}>{[["pendiente", "Pendiente"], ["pedido", "Pedido"], ["comprado", "Comprado"], ["en_panol", "En pañol"], ["egresado", "Entregado"]].map(([key, label]) => <div key={key} style={{ flex: 1, textAlign: "center", color: estadoObraForRow(row) === key ? C.blue : C.muted, borderTop: `2px solid ${estadoObraForRow(row) === key ? C.blue : C.border}`, paddingTop: 7, fontSize: 11 }}>{label}{estadoObraForRow(row) === key ? " · actual" : ""}</div>)}</div>
       {view.issue && <div style={{ color: C.red }}>{view.issue}</div>}
       {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
       {!!row.condicionantes?.length && <div style={{ display: "grid", gap: 5 }}><strong>Condicionantes</strong>{row.condicionantes.map((item) => <span key={`${item.id}-${item.condicionante}`} style={{ color: item.delta < 0 ? C.red : C.violet }}>{item.condicionante}: {item.label}</span>)}</div>}
       {productSpecEntries(row.especificaciones).map((item) => <div key={item.key}><span style={{ color: C.muted }}>{item.label}: </span>{item.value}</div>)}
       {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra && !row.productoCondicionante} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
-      <RecepcionDetalle row={row} />
     </div>;
     if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
       <div><strong style={{ fontSize: 12 }}>Estado y regularización</strong><div style={{ marginTop: 10 }}><ObraEstadoControl key={row.id} row={row} busy={estadoBusy === row.id || snapshotBusy} onChange={regularizarEstadoRow} /></div></div>
@@ -5536,43 +5586,37 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   return (
     <div className="obra-workspace" style={{ ...obraThemeScope, minWidth: 0 }}>
       <ObraWorkspaceStyles />
-      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "3px 0 7px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ minWidth: 160 }}>
-          <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", color: C.muted, cursor: "pointer", padding: "0 0 4px", fontSize: 11, fontFamily: C.sans }}>← {lineaNombre}</button>
-          <h2 style={{ margin: 0, fontSize: 20, lineHeight: 1.2, fontWeight: 600, color: C.text }}>Obra {obra.codigo}</h2>
-          <span style={{ fontSize: 11, color: C.muted }}>{kpis.items.toLocaleString("es-AR")} ítems · {snapshotStatus.label}</span>
+      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "8px 14px", padding: "2px 0 10px" }}>
+        <div style={{ minWidth: 0 }}>
+          <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", color: C.muted, cursor: "pointer", padding: "0 0 3px", fontSize: 11, fontFamily: C.sans }}>← {lineaNombre}</button>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: 22, lineHeight: 1.15, fontWeight: 700, color: C.text, letterSpacing: -0.2 }}>Obra {obra.codigo}</h2>
+            <span title={snapshotActivo ? "La lista de esta obra está fijada: los cambios de la matriz no la tocan hasta regenerarla." : "La lista sale de la matriz en vivo."} style={{ fontSize: 11, color: snapshotStatus.color, border: `1px solid ${snapshotStatus.border}`, borderRadius: 999, padding: "1px 8px" }}>{snapshotStatus.label}</span>
+          </div>
         </div>
-        {/* Cada número es un atajo al filtro de la columna Estado: cuenta las
-            mismas etiquetas que después vas a ver, así el número y el resultado
-            no se pueden despegar. */}
-        <div style={{ display: "flex", flex: "1 1 auto", gap: 3, flexWrap: "wrap" }}>
-          {[
-            ["Por comprar", ["Pendiente"], C.blue],
-            ["En compras", ["Pedido", "Comprado"], C.cyan],
-            ["Por entregar", ["En pañol", "Parcial"], C.violet],
-            ["Entregados", ["Entregado"], C.green],
-          ].map(([label, etiquetas, color]) => {
-            const value = etiquetas.reduce((sum, e) => sum + (conteoEstadoObra.get(e) || 0), 0);
-            const puesto = etiquetas.length === estadosSel.size && etiquetas.every((e) => estadosSel.has(e));
-            return <button key={label} type="button" aria-pressed={puesto} onClick={() => setEstadosSel(puesto ? new Set() : new Set(etiquetas))} style={{ display: "grid", gap: 3, border: "none", borderLeft: `1px solid ${C.border}`, borderBottom: `2px solid ${puesto ? color : "transparent"}`, background: "transparent", textAlign: "left", padding: "4px 13px", cursor: "pointer", fontFamily: C.sans }}><span style={{ display: "block", fontSize: 11, color: C.muted }}>{label}</span><strong style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 600, color }}>{value.toLocaleString("es-AR")}</strong></button>;
-          })}
-        </div>
-        <div style={{ fontSize: 11, color: C.muted, textAlign: "right" }}>
-          <div>Valorización parcial</div>
-          <div style={{ fontFamily: C.mono, color: C.text }}>{[kpis.usd ? fmtMoney(kpis.usd, "USD") : "", kpis.ars ? fmtMoney(kpis.ars, "ARS") : ""].filter(Boolean).join(" · ") || "Sin precios"}</div>
-          <span>{kpis.items ? Math.round((kpis.items - kpis.sinPrecio) / kpis.items * 100) : 0}% con precio</span>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={obraButton} title="Descargar la lista en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos. Sale lo que se ve con los filtros puestos."><FileSpreadsheet size={13} />Excel</button>
+          <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}><Plus size={13} />Adicional</button>
+          <div style={{ position: "relative" }}>
+            <button type="button" aria-haspopup="menu" aria-expanded={masOpen} onClick={() => setMasOpen((v) => !v)} style={{ ...obraButton, color: obraPanel ? C.blue : C.text }}><MoreHorizontal size={14} />Más</button>
+            {masOpen && <>
+              <div onClick={() => setMasOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+              <div role="menu" style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 41, minWidth: 250, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 9, boxShadow: "0 14px 40px var(--shadow)", padding: 5, display: "grid" }}>
+                {[
+                  ["config", <Settings2 key="i" size={13} />, "Configuración de la obra", `${condicionantesActivos.length} de ${condicionantesModelo.length}`],
+                  ["excluidos", <X key="i" size={13} />, "Ítems sacados de esta obra", exclusionesDetalle.length],
+                  ["consumibles", <PackagePlus key="i" size={13} />, "Consumibles consumidos", ""],
+                ].map(([key, icono, label, extra]) => <button key={key} type="button" role="menuitemcheckbox" aria-checked={obraPanel === key} onClick={() => { setObraPanel(obraPanel === key ? "" : key); setMasOpen(false); }} style={{ ...obraButton, border: "none", justifyContent: "flex-start", width: "100%", background: obraPanel === key ? C.blueL : "transparent", color: obraPanel === key ? C.blue : C.text }}>{icono}<span style={{ flex: 1, textAlign: "left" }}>{label}</span><span style={{ color: C.muted, fontFamily: C.mono, fontSize: 11 }}>{extra}</span></button>)}
+                {snapshotActivo && <><div style={{ borderTop: `1px solid ${C.border}`, margin: "4px 0" }} />
+                  <button type="button" role="menuitem" disabled={snapshotBusy} onClick={() => { setMasOpen(false); regenerarSnapshotObra(); }} style={{ ...obraButton, border: "none", justifyContent: "flex-start", width: "100%", background: "transparent" }}><RefreshCw size={13} />Regenerar lista</button></>}
+              </div>
+            </>}
+          </div>
         </div>
       </header>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", padding: "5px 0" }}>
-        <button type="button" onClick={() => setObraPanel(obraPanel === "config" ? "" : "config")} aria-expanded={obraPanel === "config"} style={{ ...obraButton, color: obraPanel === "config" ? C.blue : C.muted }}><Settings2 size={13} />Configuración · {condicionantesActivos.length}/{condicionantesModelo.length}</button>
-        <button type="button" onClick={() => setObraPanel(obraPanel === "excluidos" ? "" : "excluidos")} aria-expanded={obraPanel === "excluidos"} style={{ ...obraButton, color: C.muted }}>Excluidos · {exclusionesDetalle.length}</button>
-        <button type="button" aria-pressed={tipoFilter === "addon"} onClick={() => setTipoFilter(tipoFilter === "addon" ? "todos" : "addon")} style={{ ...obraButton, color: tipoFilter === "addon" ? C.violet : C.muted }}>Adicionales · {addonStats.total}</button>
-        {snapshotActivo && <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...obraButton, color: C.muted }}><RefreshCw size={12} />Regenerar lista</button>}
-        <div style={{ flex: 1 }} />
-        <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={obraButton} title="Descargar la lista en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos. Sale lo que se ve con los filtros puestos."><FileSpreadsheet size={13} />Exportar Excel</button>
-        <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}><Plus size={13} />Adicional</button>
-        {obraPanel && <button type="button" onClick={() => setObraPanel("")} style={obraButton} aria-label="Cerrar configuración"><X size={13} /></button>}
-      </div>
+      {obraPanel && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}><button type="button" onClick={() => setObraPanel("")} style={{ ...obraButton, border: "none", background: "transparent", color: C.muted }}><X size={13} />Cerrar panel</button></div>}
+      {obraPanel === "consumibles" && <div style={{ marginBottom: 10 }}><PanelConsumiblesDeObra key={obra.id} obraId={obra.id} obraLabel={obra.codigo} abiertoInicial /></div>}
       {obraPanel === "config" && !condicionantesModelo.length && <div style={{ color: C.muted, padding: 12, fontSize: 12 }}>Esta línea no tiene condicionantes cargados.</div>}
 
       {obraPanel === "config" && condicionantesModelo.length > 0 && (
@@ -5744,44 +5788,49 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gap: 5, padding: "2px 0 6px" }}>
+      <div style={{ display: "grid", gap: 6, padding: "0 0 8px" }}>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-          <div style={{ position: "relative", flex: "1 1 250px", minWidth: 160 }}>
+          <div style={{ position: "relative", flex: "1 1 260px", minWidth: 160 }}>
             <Search aria-hidden="true" size={14} style={{ position: "absolute", top: "50%", left: 10, transform: "translateY(-50%)", color: C.muted }} />
-            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar material, código o proveedor" style={{ ...INP, width: "100%", boxSizing: "border-box", paddingLeft: 32, height: 34, borderRadius: 6, fontSize: 12 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar material, código o proveedor" style={{ ...INP, width: "100%", boxSizing: "border-box", paddingLeft: 32, height: 34, borderRadius: 7, fontSize: 12 }} />
           </div>
           <select aria-label="Agrupar materiales" value={groupBy} onChange={(event) => setGroupBy(event.target.value)} style={obraSelect}>
-            <option value="rubro" style={OPT_ST}>Por rubro</option><option value="proveedor" style={OPT_ST}>Por proveedor</option><option value="etapa" style={OPT_ST}>Por etapa</option><option value="tipo" style={OPT_ST}>Por tipo</option>
+            <option value="ninguno" style={OPT_ST}>Sin agrupar</option><option value="rubro" style={OPT_ST}>Por rubro</option><option value="proveedor" style={OPT_ST}>Por proveedor</option><option value="etapa" style={OPT_ST}>Por etapa</option><option value="tipo" style={OPT_ST}>Por tipo</option>
           </select>
           <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} style={{ ...obraButton, color: activeObraFilterCount ? C.blue : C.muted }}><SlidersHorizontal size={13} />Filtros{activeObraFilterCount ? ` · ${activeObraFilterCount}` : ""}</button>
-          {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadosSel(new Set()); setEtapaFilter("todos"); }} style={obraButton}>Limpiar filtros</button>}
+          {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadosSel(new Set()); setEtapaFilter("todos"); }} style={{ ...obraButton, border: "none", background: "transparent", color: C.muted }}>Limpiar filtros</button>}
         </div>
         {filtersOpen && <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <select aria-label="Proveedor" value={proveedorFilter} onChange={(event) => setProveedorFilter(event.target.value)} style={{ ...obraSelect, maxWidth: "100%" }}><option value="" style={OPT_ST}>Todos los proveedores</option>{facets.proveedores.map((name) => <option key={name} value={name} style={OPT_ST}>{name}</option>)}</select>
-          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", "Adicionales"], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
+          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", `Adicionales · ${addonStats.total}`], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
           <select aria-label="Etapa de compra" value={etapaFilter} onChange={(event) => setEtapaFilter(event.target.value)} disabled={!!etapasObraError} style={{ ...obraSelect, maxWidth: "100%" }}><option value="todos" style={OPT_ST}>Todas las etapas · {asignadosCount} asignados</option><option value="sin_asignar" style={OPT_ST}>Sin asignar · {sinAsignarCount}</option>{etapasObra.map((etapa) => <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre} · {etapaStats.get(etapa.id) || 0}{etapa.fecha_compra ? ` · ${String(etapa.fecha_compra).slice(0, 10)}` : ""}</option>)}</select>
         </div>}
         {etapasObraError && <div role="alert" style={{ fontSize: 12, color: C.red }}>{etapasObraError} <button type="button" onClick={cargarEtapasObra} style={obraButton}>Reintentar etapas</button></div>}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "4px 7px", border: `1px solid ${selected.size ? C.blueB : C.border}`, borderRadius: 6, background: selected.size ? C.blueL : C.panel }}>
-          <span style={{ flex: "1 1 180px", fontSize: 12, color: C.text }}>{selected.size ? `${orderRows.length} seleccionados en el filtro` : `${orderRows.length} ${orderRows.length === 1 ? "ítem" : "ítems"} del filtro`}{selected.size > orderRows.length ? ` · ${selected.size - orderRows.length} fuera del filtro` : ""}</span>
-          {!!selected.size && <button type="button" onClick={() => setSelected(new Set())} style={obraButton}>Limpiar selección</button>}
-          <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
-          <CopiarOcProveedor lineas={ordenLineasDesdeMatriz(orderRows)} label="Copiar OC proveedor" style={{ ...obraButton, color: C.blue, borderColor: C.blueB, background: C.blueL }} />
-          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
-          {!soloPedirACompras && <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>}
-          <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
-        </div>
-        {flowMsg && <div role={flowMsg.type === "err" ? "alert" : "status"} style={{ fontSize: 12, color: flowMsg.type === "err" ? C.red : C.green, padding: "7px 9px", border: `1px solid ${flowMsg.type === "err" ? C.redB : C.greenB}`, borderRadius: 6 }}>{flowMsg.text}</div>}
-        <PanelConsumiblesDeObra key={obra.id} obraId={obra.id} obraLabel={obra.codigo} />
+        {flowMsg && <div role={flowMsg.type === "err" ? "alert" : "status"} style={{ fontSize: 12, color: flowMsg.type === "err" ? C.red : C.green, padding: "7px 9px", border: `1px solid ${flowMsg.type === "err" ? C.redB : C.greenB}`, borderRadius: 7 }}>{flowMsg.text}</div>}
       </div>
       <ObraListaTable
         key={obra.id}
-        groups={groupedRows} allRows={rows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
-        filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, [...estadosSel].sort(), etapaFilter, groupBy])}
+        groups={groupedRows} allRows={rows} visibleRows={visibleRows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
+        filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, [...estadosSel].sort(), etapaFilter, groupBy, orden])}
         selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={openActionsRowId}
         estadoOpciones={estadoOpciones} estadosSel={estadosSel} onEstados={setEstadosSel}
+        orden={orden} onOrden={setOrden}
+        valorizacion={{ texto: [kpis.usd ? fmtMoney(kpis.usd, "USD") : "", kpis.ars ? fmtMoney(kpis.ars, "ARS") : ""].filter(Boolean).join(" · "), conPrecio: kpis.items ? Math.round((kpis.items - kpis.sinPrecio) / kpis.items * 100) : 0 }}
         onImageUploaded={async () => { await onChanged?.(); await cargarSnapshot(); }}
+        accionesSeleccion={<>
+          <button type="button" onClick={() => setLoteOpen(true)} disabled={!!loteAvance || snapshotBusy} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}>Cambiar estado</button>
+          <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
+          <CopiarOcProveedor lineas={ordenLineasDesdeMatriz(orderRows)} label="OC proveedor" style={obraButton} />
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
+          {!soloPedirACompras && <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>}
+          <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
+        </>}
       />
+      {loteOpen && <CambioEstadoLoteModal
+        rows={visibleRows.filter((row) => selected.has(row.id))} estadoDe={estadoObraForRow} obraCodigo={obra.codigo}
+        busy={!!loteAvance} avance={loteAvance}
+        onCerrar={() => setLoteOpen(false)} onConfirmar={cambiarEstadoEnLote}
+      />}
       {detailRow && <ObraItemDrawer
         row={detailRow} view={getObraRowView(detailRow)} obraLabel={`${obra.codigo} · ${lineaNombre}`} tab={detailTab} onTab={setDetailTab}
         onClose={closeObraDetail} suspendEscape={!!(addonModalOpen || reassignAddon || pedidoConfirm || panolPrefill)}
@@ -5789,7 +5838,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         onNext={detailIndex >= 0 && detailIndex < visibleRows.length - 1 ? () => setOpenActionsRowId(visibleRows[detailIndex + 1].id) : null}
         editing={detailTab === "mas" && editingMaterialRowId === detailRow.id}
         renderContent={renderObraDetail}
-        footer={<div style={{ display: "flex", gap: 6 }}><button type="button" onClick={() => setDetailTab("compras")} style={{ ...obraButton, flex: 1, background: C.blueL, color: C.blue, borderColor: C.blueB }}>Estado y recepción</button><button type="button" onClick={() => setDetailTab("mas")} style={obraButton}>Más acciones</button></div>}
+        footer={null}
       />}
 
       <EnviarAPanolModal
@@ -6932,6 +6981,30 @@ function estadoMetaDeFila(row) {
 // El recorrido real de un material, para listar los estados en ese orden y no
 // alfabéticamente.
 const ORDEN_ETIQUETA_ESTADO = ["Pendiente", "Pedido", "Comprado", "En pañol", "Parcial", "Entregado"];
+
+// "unidad"/"unidades"/"unid" ocupan una columna entera para decir "u".
+function unidadCorta(unidad) {
+  const u = String(unidad || "").trim();
+  return /^(unidad(es)?|unid\.?|un\.?|u)$/i.test(u) ? "u" : u;
+}
+
+// Lo que le falta tener al barco: lo necesario menos lo que ya se le entregó.
+function faltaDeFila(row) {
+  const cant = cantidadesDeFila(row);
+  return Math.max(0, cant.necesita - cant.entregado);
+}
+
+function ordenarFilasObra(rows, orden) {
+  return ordenarFilas(rows, orden, {
+    rubro: (row) => `${rubroDeFila(row) === "Sin rubro" ? 1 : 0} ${rubroDeFila(row)} ${row.descripcion || ""}`,
+    material: (row) => row.descripcion || "",
+    proveedor: (row) => row.proveedor || "",
+    necesario: (row) => cantidadesDeFila(row).necesita,
+    falta: faltaDeFila,
+    estado: (row) => ORDEN_ETIQUETA_ESTADO.indexOf(estadoMetaDeFila(row).label),
+    precio: (row) => row.precio?.amount || null,
+  });
+}
 
 function condicionanteActivoEnObra(condicionante, overrides) {
   const override = overrides?.get?.(condicionante.id);

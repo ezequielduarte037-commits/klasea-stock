@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Filter, ListFilter, MoreHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Filter, MoreHorizontal, X } from "lucide-react";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { MaterialThumb } from "../MaterialExtras";
 import { coincideProveedor, nombresProveedor } from "../proveedorNombre";
-import { OBRA_PAGE_SIZE, obraPageNumbers, paginateObraGroups, toggleObraSelection, obraThemeScope } from "./obraListaPresentation";
+import { compararEtiquetaGrupo, paginateObraGroups, rubroDeFila, toggleObraSelection, obraThemeScope } from "./obraListaPresentation";
 
 const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, borderRadius: 6, background: C.panelSolid, color: C.text, minHeight: 32, padding: "5px 9px", fontFamily: C.sans, fontSize: 12, cursor: "pointer", transition: "background 150ms ease, border-color 150ms ease" };
 const muted = { color: C.muted, fontSize: 12 };
@@ -25,6 +25,8 @@ export function ObraWorkspaceStyles() {
     .obra-workspace .obra-filtro-solo:focus-visible { opacity: 1; }
     .obra-workspace .obra-data-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; background: var(--blue-soft) !important; }
     .obra-workspace .obra-scroll { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .obra-workspace .obra-chips { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); mask-image: linear-gradient(90deg, #000 92%, transparent); }
+    .obra-workspace .obra-chips::-webkit-scrollbar { display: none; }
     .obra-workspace .obra-data-row { transition: background 140ms ease; }
     .obra-workspace .obra-index-item { transition: background 150ms ease, color 150ms ease, transform 150ms ease; }
     .obra-workspace .obra-index-item:active { transform: translateX(2px); }
@@ -52,6 +54,9 @@ export function ObraWorkspaceStyles() {
       .obra-material-editor .material-editor-pair { grid-template-columns: minmax(0,1fr) !important; }
       .obra-material-editor .material-editor-fields, .obra-material-editor .material-links-row { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
     }
+    .obra-workspace .obra-selbar { animation: obra-fade-in 160ms cubic-bezier(.22,1,.36,1); }
+    @keyframes obra-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .obra-workspace .obra-chips > * { flex-shrink: 0; }
     .obra-drawer { animation: obra-drawer-in 160ms ease-out; }
     @keyframes obra-drawer-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
     @media (prefers-reduced-motion: reduce) { .obra-workspace *, .obra-drawer { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
@@ -171,7 +176,25 @@ function SelectionBox({ rows, selected, onToggle, label }) {
   </label>;
 }
 
-export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {} }) {
+const LOTE_FILAS = 200;
+
+function SortHeader({ label, k, orden, onOrden, align = "left", title }) {
+  const activo = orden?.key === k;
+  return <button type="button" onClick={() => onOrden(activo ? (orden.dir > 0 ? { key: k, dir: -1 } : { key: "", dir: 1 }) : { key: k, dir: 1 })}
+    aria-sort={activo ? (orden.dir > 0 ? "ascending" : "descending") : "none"} title={title || `Ordenar por ${label.toLowerCase()}`}
+    style={{ display: "inline-flex", alignItems: "center", gap: 3, width: "100%", justifyContent: align === "right" ? "flex-end" : "flex-start", border: "none", background: "transparent", padding: 0, minHeight: 30, font: "inherit", color: activo ? C.blue : "inherit", cursor: "pointer" }}>
+    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+    {activo ? (orden.dir > 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />) : <ArrowUpDown size={10} style={{ opacity: 0.35 }} />}
+  </button>;
+}
+
+/**
+ * La lista de una obra como planilla: una fila por material, columnas que se
+ * ordenan, filtro de Estado en el encabezado y el resumen al pie. Sin páginas:
+ * se van dibujando de a 200 a medida que se baja, así una obra de 700 ítems
+ * abre rápido y se puede tildar todo lo filtrado de un clic.
+ */
+export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion }) {
   const { isMobile } = useResponsive();
   const containerRef = useRef(null);
   const gridRef = useRef(null);
@@ -179,17 +202,15 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
   const [width, setWidth] = useState(1200);
   const [listHeight, setListHeight] = useState(600);
   const [indexMode, setIndexMode] = useState("rubro");
-  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const [limiteState, setLimiteState] = useState({ key: filterKey, n: LOTE_FILAS });
   const [closedGroups, setClosedGroups] = useState(() => new Set());
-  const [indexOpen, setIndexOpen] = useState(false);
-  const [jump, setJump] = useState("");
   useEffect(() => {
     const measure = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       setWidth(rect.width);
       const gridTop = gridRef.current?.getBoundingClientRect().top ?? rect.top;
-      setListHeight(Math.max(360, window.innerHeight - gridTop - 22));
+      setListHeight(Math.max(360, window.innerHeight - gridTop - 18));
     };
     const observer = new ResizeObserver(measure);
     if (containerRef.current) { observer.observe(containerRef.current); observer.observe(containerRef.current.parentElement); }
@@ -198,30 +219,30 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
   }, []);
   const narrow = isMobile || width < 860;
-  const phone = width < 520;
-  const compact = width < 1100;
-  const pagination = useMemo(() => paginateObraGroups(groups, pageState.key === filterKey ? pageState.page : 1), [groups, pageState, filterKey]);
-  const pageRows = useMemo(() => pagination.groups.flatMap((group) => group.rows), [pagination.groups]);
+  const phone = width < 560;
+  const compact = width < 1120;
+  const limite = limiteState.key === filterKey ? limiteState.n : LOTE_FILAS;
+  const plano = groups.length === 1 && groups[0].plano;
+  const recorte = useMemo(() => paginateObraGroups(groups, 1, limite), [groups, limite]);
   const indexEntries = useMemo(() => {
     const counts = new Map();
     allRows.forEach((row) => {
       if (indexMode === "rubro" && !coincideProveedor(row.proveedor, proveedor)) return;
-      if (indexMode === "proveedor" && rubro && row.rubro !== rubro) return;
+      if (indexMode === "proveedor" && rubro && rubroDeFila(row) !== rubro) return;
       const proveedoresFila = nombresProveedor(row.proveedor);
-      const names = indexMode === "proveedor"
-        ? (proveedoresFila.length ? proveedoresFila : ["Sin proveedor"])
-        : [row.rubro || "Sin rubro"];
+      const names = indexMode === "proveedor" ? (proveedoresFila.length ? proveedoresFila : ["Sin proveedor"]) : [rubroDeFila(row)];
       for (const name of names) counts.set(name, (counts.get(name) || 0) + 1);
     });
-    return [...counts].sort(([a], [b]) => a.localeCompare(b, "es"));
+    return [...counts].sort(([a], [b]) => compararEtiquetaGrupo(a, b));
   }, [allRows, indexMode, proveedor, rubro]);
   const indexValue = indexMode === "rubro" ? rubro : proveedor;
   const onIndexChange = indexMode === "rubro" ? onRubro : onProveedor;
-  const indexTotal = allRows.filter((row) => indexMode === "proveedor"
-    ? (!rubro || row.rubro === rubro)
-    : coincideProveedor(row.proveedor, proveedor)).length;
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [pagination.page, filterKey]);
-  function changePage(page) { setPageState({ key: filterKey, page }); setJump(""); }
+  const indexTotal = allRows.filter((row) => indexMode === "proveedor" ? (!rubro || rubroDeFila(row) === rubro) : coincideProveedor(row.proveedor, proveedor)).length;
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [filterKey]);
+  function onScroll(event) {
+    const el = event.currentTarget;
+    if (recorte.end < recorte.total && el.scrollTop + el.clientHeight > el.scrollHeight - 600) setLimiteState({ key: filterKey, n: limite + LOTE_FILAS });
+  }
   function selectRows(rows) { onSelectionChange((current) => toggleObraSelection(current, rows)); }
   function toggleGroup(label) { setClosedGroups((current) => { const next = new Set(current); next.has(label) ? next.delete(label) : next.add(label); return next; }); }
   function onRowKey(event, row) {
@@ -236,77 +257,108 @@ export function ObraListaTable({ groups, allRows, filterKey, rubro, onRubro, pro
       elements[Math.max(0, Math.min(elements.length - 1, next))]?.focus();
     }
   }
-  const columns = phone ? "44px minmax(0,1fr) 98px 44px" : narrow ? "44px minmax(0,1fr) 80px 98px 44px" : compact ? "34px minmax(180px,1fr) 86px 78px 78px 100px 32px" : "34px minmax(190px,1fr) 125px 86px 78px 78px 94px 100px 32px";
+  const tildadosVisibles = visibleRows.reduce((n, row) => n + (selected.has(row.id) ? 1 : 0), 0);
+  const tildadosFuera = selected.size - tildadosVisibles;
+  // Columnas: ☐ · Material · Proveedor · Nec. · Rec. · Entr. · Falta · Estado · Precio · ⋯
+  const columns = phone ? "40px minmax(0,1fr) 92px 40px"
+    : narrow ? "40px minmax(0,1fr) 64px 92px 40px"
+      : compact ? "34px minmax(200px,1fr) 70px 54px 54px 60px 96px 30px"
+        : "34px minmax(220px,1fr) minmax(110px,170px) 76px 58px 58px 62px 96px 92px 30px";
   const cell = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", padding: "0 8px" };
-  const index = <nav aria-label="Filtrar la obra por rubro o proveedor" className="obra-scroll" style={{ padding: "8px 6px", overflowY: "auto", minHeight: 0, maxHeight: narrow ? 280 : undefined, borderRight: narrow ? "none" : `1px solid ${C.border}`, background: C.panel }}>
-    <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: "100%", marginBottom: 8, fontWeight: 600, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>
-    {(indexMode === "rubro" ? proveedor : rubro) && <button type="button" onClick={() => indexMode === "rubro" ? onProveedor("") : onRubro("")} style={{ ...button, width: "100%", marginBottom: 6, color: C.blue, fontSize: 10 }} title="Quitar el otro filtro"><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{indexMode === "rubro" ? proveedor : rubro}</span><X size={12} /></button>}
-    {[["", indexTotal], ...indexEntries].map(([name, count]) => <button key={name} className="obra-index-item" type="button" aria-pressed={indexValue === name} onClick={() => { onIndexChange(name); setIndexOpen(false); }} style={{ ...button, display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", width: "100%", borderColor: "transparent", background: indexValue === name ? C.blueL : "transparent", color: indexValue === name ? C.blue : C.text, padding: "8px", marginBottom: 2 }}>
-      <span title={name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name || "Todos los ítems"}</span><span style={{ ...numberStyle, fontSize: 11, color: indexValue === name ? C.blue : C.muted }}>{count.toLocaleString("es-AR")}</span>
-    </button>)}
-  </nav>;
-  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.panelSolid }}>
-    {narrow && <button type="button" onClick={() => setIndexOpen(!indexOpen)} aria-expanded={indexOpen} style={{ ...button, margin: 8 }}><ListFilter size={14} />{indexValue || (indexMode === "rubro" ? "Rubros" : "Proveedores")}<ChevronDown size={14} /></button>}
-    {narrow && indexOpen && index}
-    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "184px minmax(0,1fr)", height: listHeight, minHeight: 360 }}>
+  const num = { ...cell, ...numberStyle };
+  const sub = { display: "block", fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 };
+  const indexItem = (name, count) => <button key={name || "__todos"} className="obra-index-item" type="button" aria-pressed={indexValue === name} onClick={() => onIndexChange(name)}
+    style={{ ...button, display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", width: narrow ? "auto" : "100%", flexShrink: 0, borderColor: narrow && indexValue !== name ? C.border : "transparent", background: indexValue === name ? C.blueL : "transparent", color: indexValue === name ? C.blue : C.muted, padding: narrow ? "4px 10px" : "6px 8px", marginBottom: narrow ? 0 : 1, borderRadius: narrow ? 999 : 6 }}>
+    <span title={name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: indexValue === name ? C.blue : C.text }}>{name || (indexMode === "rubro" ? "Todos los rubros" : "Todos")}</span><span style={{ ...numberStyle, fontSize: 10.5, color: indexValue === name ? C.blue : C.muted }}>{count.toLocaleString("es-AR")}</span>
+  </button>;
+  const modoIndice = <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: narrow ? "auto" : "100%", flexShrink: 0, marginBottom: narrow ? 0 : 6, fontWeight: 600, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>;
+  const index = narrow
+    ? <nav aria-label="Filtrar por rubro o proveedor" className="obra-chips" style={{ display: "flex", gap: 5, alignItems: "center", overflowX: "auto", padding: "8px 8px", borderBottom: `1px solid ${C.border}` }}>{modoIndice}{[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}</nav>
+    : <nav aria-label="Filtrar por rubro o proveedor" className="obra-scroll" style={{ padding: "8px 6px", overflowY: "auto", minHeight: 0, borderRight: `1px solid ${C.border}`, background: C.panel }}>
+      {modoIndice}
+      {(indexMode === "rubro" ? proveedor : rubro) && <button type="button" onClick={() => indexMode === "rubro" ? onProveedor("") : onRubro("")} style={{ ...button, width: "100%", marginBottom: 6, color: C.blue, fontSize: 11 }} title="Quitar el otro filtro"><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{indexMode === "rubro" ? proveedor : rubro}</span><X size={12} /></button>}
+      {[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}
+    </nav>;
+  const header = <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: 34, position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 500, letterSpacing: 0.2 }}>
+    <div role="columnheader"><SelectionBox rows={visibleRows} selected={selected} onToggle={() => selectRows(visibleRows)} label={`Tildar todo lo filtrado (${visibleRows.length} ítems)`} /></div>
+    <div role="columnheader" style={cell}><SortHeader label="Material" k="material" orden={orden} onOrden={onOrden} /></div>
+    {!compact && <div role="columnheader" style={cell}><SortHeader label="Proveedor" k="proveedor" orden={orden} onOrden={onOrden} /></div>}
+    {!narrow && <div role="columnheader" style={cell}><SortHeader label="Nec." k="necesario" orden={orden} onOrden={onOrden} align="right" title="Necesario para la obra" /></div>}
+    {!narrow && <><div role="columnheader" style={{ ...cell, textAlign: "right" }} title="Recibido en pañol">Rec.</div><div role="columnheader" style={{ ...cell, textAlign: "right" }} title="Entregado a la obra">Entr.</div></>}
+    {!phone && <div role="columnheader" style={cell}><SortHeader label="Falta" k="falta" orden={orden} onOrden={onOrden} align="right" title="Lo que le falta al barco: necesario menos entregado" /></div>}
+    <div role="columnheader" style={{ ...cell, padding: 0 }}><ObraColumnFilter label="Estado" options={estadoOpciones} selected={estadosSel} onChange={onEstados} align="right" /></div>
+    {!compact && <div role="columnheader" style={cell}><SortHeader label="Precio" k="precio" orden={orden} onOrden={onOrden} align="right" title="Precio unitario" /></div>}
+    <div role="columnheader" aria-label="Detalle" />
+  </div>;
+  const fila = (row) => {
+    const view = getRowView(row);
+    const active = selected.has(row.id);
+    const subtexto = [
+      plano && !rubro ? row.rubro : "",
+      compact ? (row.proveedor || "Sin proveedor") : "",
+      narrow ? `${view.necesarioCorto} ${view.unidadCorta}`.trim() : "",
+      view.origin,
+    ].filter(Boolean).join(" · ");
+    return <div key={row.id} role="row" tabIndex={0} className="obra-data-row" data-row-id={row.id} aria-selected={active} onKeyDown={(event) => onRowKey(event, row)} onDoubleClick={(event) => { if (!event.target.closest("button,input,a,select")) onOpen(row, event.currentTarget); }}
+      style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 52 : 38, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
+      <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Tildar ${row.descripcion}`} /></div>
+      <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 8, padding: "3px 6px" }}>
+        <MaterialThumb material={view.imageMaterial} size={narrow ? 36 : 24} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
+        <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
+          <span style={{ display: "block", fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+          {(subtexto || view.issue) && <span style={sub}>{view.issue && <span style={{ color: C.red }}>{view.issue}{subtexto ? " · " : ""}</span>}{subtexto}</span>}
+        </button>
+      </div>
+      {!compact && <div role="cell" title={row.proveedor} style={{ ...cell, whiteSpace: "nowrap", color: row.proveedor ? C.muted : C.dim }}>{row.proveedor || "—"}</div>}
+      {!narrow && <div role="cell" style={num} title={view.quantityTitle}>{view.necesarioCorto} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10.5 }}>{view.unidadCorta}</span></div>}
+      {!narrow && <><div role="cell" style={{ ...num, color: view.cant.panol ? C.muted : C.dim }}>{view.cant.panol ? view.received : "·"}</div><div role="cell" style={{ ...num, color: view.cant.entregado ? C.muted : C.dim }}>{view.cant.entregado ? view.delivered : "·"}</div></>}
+      {!phone && <div role="cell" style={{ ...num, color: view.falta ? view.faltaColor : C.dim, fontWeight: view.falta ? 600 : 400 }} title={view.faltaTitle}>{view.falta ? view.faltaTexto : "·"}</div>}
+      <div role="cell" style={{ ...cell, padding: "0 4px" }}><ObraStatusBadge status={view.status} /></div>
+      {!compact && <div role="cell" title={row.precio?.text} style={{ ...num, fontSize: 11, color: row.precio?.amount ? C.muted : C.dim }}>{row.precio?.amount ? row.precio.text : "—"}</div>}
+      <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 40 : 26, minHeight: narrow ? 40 : 30, background: "transparent", color: C.muted }}><MoreHorizontal size={15} /></button></div>
+    </div>;
+  };
+  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ position: "relative", minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.panelSolid }}>
+    {narrow && index}
+    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "176px minmax(0,1fr)", height: listHeight, minHeight: 360 }}>
       {!narrow && index}
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <div ref={scrollRef} className="obra-scroll" style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
-          <div key={`${filterKey}:${pagination.page}`} className="obra-page-content" role="table" aria-label="Materiales de la obra" aria-rowcount={pagination.total} style={{ minWidth: narrow ? 0 : 620, fontSize: 12 }}>
-            <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: 38, position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 600 }}>
-              <div role="columnheader"><SelectionBox rows={pageRows} selected={selected} onToggle={() => selectRows(pageRows)} label={`Seleccionar página (${pageRows.length} ítems)`} /></div>
-              <div role="columnheader" style={cell}>Material</div>
-              {!narrow && !compact && <div role="columnheader" style={cell}>Proveedor</div>}
-              {!phone && <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Necesario</div>}
-              {!narrow && <><div role="columnheader" style={{ ...cell, textAlign: "right" }}>Recibido</div><div role="columnheader" style={{ ...cell, textAlign: "right" }}>Entregado</div></>}
-              {!narrow && !compact && <div role="columnheader" style={{ ...cell, textAlign: "right" }}>Precio unit.</div>}
-              <div role="columnheader" style={{ ...cell, padding: 0 }}>
-                <ObraColumnFilter label="Estado" options={estadoOpciones} selected={estadosSel} onChange={onEstados} align="right" />
-              </div><div role="columnheader" aria-label="Detalle" />
-            </div>
-            {pagination.groups.map((group) => <Fragment key={group.label}>
-              <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 34, background: C.panel, borderBottom: `1px solid ${C.border}` }}>
-                <SelectionBox rows={group.allRows} selected={selected} onToggle={() => selectRows(group.allRows)} label={`Seleccionar grupo ${group.label} (${group.allRows.length} ítems filtrados)`} />
-                <button type="button" aria-expanded={!closedGroups.has(group.label)} onClick={() => toggleGroup(group.label)} style={{ ...button, border: "none", background: "transparent", flex: 1, justifyContent: "flex-start", minWidth: 0 }}>
-                  {closedGroups.has(group.label) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}<strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{group.label}</strong><span style={muted}>· {group.allRows.length}</span>
+        <div ref={scrollRef} onScroll={onScroll} className="obra-scroll" style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
+          <div key={filterKey} className="obra-page-content" role="table" aria-label="Materiales de la obra" aria-rowcount={recorte.total} style={{ minWidth: narrow ? 0 : 640, fontSize: 12 }}>
+            {header}
+            {recorte.groups.map((group) => <Fragment key={group.label}>
+              {!plano && <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 32, background: C.panel, borderBottom: `1px solid ${C.border}` }}>
+                <SelectionBox rows={group.allRows} selected={selected} onToggle={() => selectRows(group.allRows)} label={`Tildar ${group.label} (${group.allRows.length} ítems)`} />
+                <button type="button" aria-expanded={!closedGroups.has(group.label)} onClick={() => toggleGroup(group.label)} style={{ ...button, minHeight: 30, border: "none", background: "transparent", flex: 1, justifyContent: "flex-start", minWidth: 0 }}>
+                  {closedGroups.has(group.label) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{group.label}</span><span style={muted}>· {group.allRows.length}</span>
                 </button>
-              </div>
-              {!closedGroups.has(group.label) && group.rows.map((row) => {
-                const view = getRowView(row);
-                const active = selected.has(row.id);
-                return <div key={row.id} role="row" tabIndex={0} className="obra-data-row" data-row-id={row.id} aria-selected={active} onKeyDown={(event) => onRowKey(event, row)} onDoubleClick={(event) => { if (!event.target.closest("button,input,a,select")) onOpen(row, event.currentTarget); }} style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 56 : 42, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
-                  <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Seleccionar ${row.descripcion}`} /></div>
-                  <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 8, padding: "4px 6px" }}>
-                    <MaterialThumb material={view.imageMaterial} size={narrow ? 44 : 28} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
-                    <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
-                      <span style={{ display: "block", fontSize: 12, fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
-                      {phone && <span style={{ display: "block", fontSize: 11, color: C.muted, fontFamily: C.mono }}>Necesario: {view.needed}</span>}
-                      {(view.origin || view.issue || (compact && row.proveedor)) && <span style={{ display: "block", color: view.issue ? C.red : C.muted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[view.origin, view.issue || (compact ? row.proveedor : "")].filter(Boolean).join(" · ")}</span>}
-                    </button>
-                  </div>
-                  {!narrow && !compact && <div role="cell" title={row.proveedor} style={{ ...cell, color: C.muted, whiteSpace: "nowrap" }}>{row.proveedor || "Sin proveedor"}</div>}
-                  {!phone && <div role="cell" style={{ ...cell, ...numberStyle }} title={view.quantityTitle}>{view.needed}</div>}
-                  {!narrow && <><div role="cell" style={{ ...cell, ...numberStyle, color: C.muted }}>{view.received}</div><div role="cell" style={{ ...cell, ...numberStyle, color: C.muted }}>{view.delivered}</div></>}
-                  {!narrow && !compact && <div role="cell" title={row.precio?.text} style={{ ...cell, ...numberStyle, fontSize: 11, color: row.precio?.amount ? C.muted : C.violet }}>{row.precio?.amount ? row.precio.text : "Sin precio"}</div>}
-                  <div role="cell" style={{ ...cell, padding: "0 4px" }}><ObraStatusBadge status={view.status} /></div>
-                  <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 44 : 28, minHeight: narrow ? 44 : 32, background: "transparent" }}><MoreHorizontal size={15} /></button></div>
-                </div>;
-              })}
+              </div>}
+              {!closedGroups.has(group.label) && group.rows.map(fila)}
             </Fragment>)}
           </div>
-          {!pagination.total && <div style={{ padding: 36, textAlign: "center", color: C.muted }}>No hay ítems con esos filtros.</div>}
+          {recorte.end < recorte.total && <div style={{ padding: 14, textAlign: "center", ...muted }}>Mostrando {recorte.end.toLocaleString("es-AR")} de {recorte.total.toLocaleString("es-AR")} · seguí bajando</div>}
+          {!recorte.total && <div style={{ padding: 36, textAlign: "center", color: C.muted }}>No hay ítems con esos filtros.</div>}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "space-between", alignItems: "center", padding: "7px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>
-          <span aria-live="polite" data-testid="obra-page-range" style={{ ...muted, fontVariantNumeric: "tabular-nums" }}>{pagination.start.toLocaleString("es-AR")}–{pagination.end.toLocaleString("es-AR")} de {pagination.total.toLocaleString("es-AR")} · {OBRA_PAGE_SIZE} por página</span>
-          <nav className="obra-pagination" aria-label="Páginas de materiales" style={{ display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center", maxWidth: "100%" }}>
-            <button type="button" aria-label="Página anterior" disabled={pagination.page === 1} onClick={() => changePage(pagination.page - 1)} style={button}><ChevronLeft size={14} /></button>
-            {obraPageNumbers(pagination.page, pagination.pageCount).map((page, index, pages) => <Fragment key={page}>{index > 0 && page - pages[index - 1] > 1 && <span style={muted}>…</span>}<button type="button" aria-label={`Página ${page}`} aria-current={page === pagination.page ? "page" : undefined} onClick={() => changePage(page)} style={{ ...button, background: page === pagination.page ? C.blueL : "transparent", color: page === pagination.page ? C.blue : C.muted }}>{page}</button></Fragment>)}
-            <button type="button" aria-label="Página siguiente" disabled={pagination.page === pagination.pageCount} onClick={() => changePage(pagination.page + 1)} style={button}><ChevronRight size={14} /></button>
-            {!narrow && <form onSubmit={(event) => { event.preventDefault(); if (jump) changePage(Number(jump)); }}><input type="number" min={1} max={pagination.pageCount} value={jump} onChange={(event) => setJump(event.target.value)} aria-label="Ir a página" placeholder="Ir a…" style={{ ...button, boxSizing: "border-box", width: 65, padding: "5px" }} /></form>}
-          </nav>
+        <div className={narrow ? "obra-chips" : undefined} style={{ display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", whiteSpace: "nowrap", gap: "4px 6px", alignItems: "center", padding: "6px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, fontSize: 11.5 }}>
+          <span data-testid="obra-page-range" style={{ ...muted, fontVariantNumeric: "tabular-nums", marginRight: 4 }}>{recorte.total.toLocaleString("es-AR")} {recorte.total === 1 ? "ítem" : "ítems"}</span>
+          {estadoOpciones.map((op) => {
+            const on = estadosSel.size === 1 && estadosSel.has(op.value);
+            return <button key={op.value} type="button" aria-pressed={on} onClick={() => onEstados(on ? new Set() : new Set([op.value]))} title={on ? "Ver todos los estados" : `Ver sólo ${op.label}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${on ? "var(--border-2)" : "transparent"}`, background: on ? "var(--panel-2)" : "transparent", borderRadius: 6, padding: "2px 7px", minHeight: 26, color: on ? C.text : C.muted, font: "inherit", cursor: "pointer" }}>
+              <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 2, background: op.color }} />{op.label}<span style={{ ...numberStyle, color: on ? C.text : C.muted }}>{op.count.toLocaleString("es-AR")}</span>
+            </button>;
+          })}
+          <span style={{ flex: 1 }} />
+          {valorizacion?.texto && !phone && <span style={{ ...muted, fontSize: 11 }} title="Suma sólo lo que tiene precio cargado: con ítems sin precio el total de la obra es mayor.">Valorizado <span style={{ ...numberStyle, color: C.text }}>{valorizacion.texto}</span> · {valorizacion.conPrecio} % con precio</span>}
         </div>
       </div>
     </div>
+    {selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={narrow ? "obra-selbar obra-chips" : "obra-selbar"} style={{ position: "absolute", zIndex: 5, boxSizing: "border-box", ...(narrow ? { left: 8, right: 8, bottom: 52, overflowX: "auto", flexWrap: "nowrap" } : { left: "50%", bottom: 48, transform: "translateX(-50%)", width: "max-content", maxWidth: "calc(100% - 20px)", flexWrap: "wrap" }), display: "flex", alignItems: "center", gap: 6, padding: "7px 8px 7px 12px", background: C.panelSolid, border: `1px solid ${C.blueB}`, borderRadius: 10, boxShadow: "0 14px 40px var(--shadow)" }}>
+      <strong style={{ fontWeight: 600, fontSize: 12.5, color: C.text, marginRight: 4 }}>{tildadosVisibles.toLocaleString("es-AR")} {tildadosVisibles === 1 ? "tildado" : "tildados"}</strong>
+      {tildadosFuera > 0 && <span style={{ ...muted, fontSize: 11 }} title="Lo tildado que quedó afuera del filtro no entra en las acciones.">+{tildadosFuera} fuera del filtro</span>}
+      {accionesSeleccion}
+      <button type="button" onClick={() => onSelectionChange(new Set())} aria-label="Quitar selección" title="Quitar selección" style={{ ...button, background: "transparent", borderColor: "transparent", color: C.muted }}><X size={14} /></button>
+    </div>}
   </div>;
 }
 

@@ -52,3 +52,24 @@ test('compact pagination includes the current page, neighbors and ends with no d
   assert.deepEqual(obraPageNumbers(5, 32), [1, 4, 5, 6, 32]);
   assert.deepEqual(obraPageNumbers(32, 32), [1, 31, 32]);
 });
+
+test('"Sin rubro", "Sin categoría" y vacío son el mismo grupo', async () => {
+  const { rubroDeFila } = await import('./obraListaPresentation.js');
+  assert.equal(rubroDeFila({ rubro: '' }), 'Sin rubro');
+  assert.equal(rubroDeFila({ rubro: 'Sin categoría' }), 'Sin rubro');
+  assert.equal(rubroDeFila({ rubro: 'Electricidad' }), 'Electricidad');
+});
+
+test('los grupos van alfabéticos con los "Sin …" al final', async () => {
+  const { compararEtiquetaGrupo } = await import('./obraListaPresentation.js');
+  const orden = ['Vidrios', 'Sin rubro', 'Broncería', 'electricidad', 'Sin proveedor'].sort(compararEtiquetaGrupo);
+  assert.deepEqual(orden, ['Broncería', 'electricidad', 'Vidrios', 'Sin proveedor', 'Sin rubro']);
+});
+
+test('ordenar por columna deja lo vacío al final en las dos direcciones', async () => {
+  const { ordenarFilas } = await import('./obraListaPresentation.js');
+  const filas = [{ id: 1, precio: 5 }, { id: 2, precio: null }, { id: 3, precio: 2 }];
+  assert.deepEqual(ordenarFilas(filas, { key: 'precio', dir: 1 }).map((f) => f.id), [3, 1, 2]);
+  assert.deepEqual(ordenarFilas(filas, { key: 'precio', dir: -1 }).map((f) => f.id), [1, 3, 2]);
+  assert.equal(ordenarFilas(filas, { key: '' }), filas);
+});
