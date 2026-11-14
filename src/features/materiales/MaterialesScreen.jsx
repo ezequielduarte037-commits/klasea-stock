@@ -4928,6 +4928,19 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   // El mismo cambio que hace el detalle de un renglón, para muchos a la vez.
   // Va de a 6 para no saturar la base y sigue aunque alguno falle: al final
   // se dice cuántos quedaron y cuáles no se pudieron.
+  // El renglón guardado de la obra para una fila de la lista. Si no existe lo
+  // crea, igual que al asignar un producto. Pasa cuando lo único guardado de
+  // ese material son movimientos (un remito, un traslado): comparten la clave
+  // con el requisito y por eso la sincronización de la lista no lo agrega.
+  // Caso real: Plotter GPSMAP 1223 de la 52-24 (14/11), «sin renglón de obra».
+  async function snapshotIdParaEstado(row, saved) {
+    const id = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+    if (id || !obra?.id) return id;
+    const created = await ensureObraMaterialSnapshotRow(obra.id, row);
+    if (created?.id) setSnapshot((current) => current.some((item) => item.id === created.id) ? current : [...current, created]);
+    return created?.id || null;
+  }
+
   // Un toque desde el detalle, para ir marcando en el barco sin tildar.
   // Se puede volver atrás con «Cambiar estado» → Pendiente.
   const [instalandoId, setInstalandoId] = useState(null);
@@ -4941,8 +4954,8 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
-      const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
-      if (!snapId) throw new Error("Este renglón todavía no está en la lista guardada de la obra.");
+      const snapId = await snapshotIdParaEstado(row, saved);
+      if (!snapId) throw new Error("No se pudo encontrar ni crear el renglón de la obra.");
       const { estado, retiradoPor } = estadoParaGuardar("instalado");
       await cambiarEstadoObraSnapshot(snapId, estado, "", retiradoPor);
       await cargarSnapshot();
@@ -4961,8 +4974,8 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     try {
       const saved = await ensureSnapshotForFlow();
       const resultados = await enParalelo(filas, 6, async (row) => {
-        const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
-        if (!snapId) throw new Error("sin renglón de obra");
+        const snapId = await snapshotIdParaEstado(row, saved);
+        if (!snapId) throw new Error("no se pudo encontrar ni crear el renglón de la obra");
         await cambiarEstadoObraSnapshot(snapId, estado, nota, retiradoPor);
       }, (hechos, total) => setLoteAvance({ hechos, total }));
       const fallaron = filas.filter((_, i) => !resultados[i]?.ok);
