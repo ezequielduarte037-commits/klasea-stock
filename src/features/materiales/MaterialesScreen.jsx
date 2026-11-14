@@ -79,7 +79,7 @@ import PanelConsumiblesDeObra from "./obra/PanelConsumiblesDeObra";
 import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
 import PedidoObraModal from "./obra/PedidoObraModal";
 import CambioEstadoLoteModal from "./obra/CambioEstadoLoteModal";
-import { enParalelo } from "./obra/cambioEstadoLote";
+import { enParalelo, esInstalado, estadoParaGuardar } from "./obra/cambioEstadoLote";
 import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
 import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
@@ -4928,7 +4928,33 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   // El mismo cambio que hace el detalle de un renglón, para muchos a la vez.
   // Va de a 6 para no saturar la base y sigue aunque alguno falle: al final
   // se dice cuántos quedaron y cuáles no se pudieron.
-  async function cambiarEstadoEnLote({ estado, nota, retiradoPor, filas }) {
+  // Un toque desde el detalle, para ir marcando en el barco sin tildar.
+  // Se puede volver atrás con «Cambiar estado» → Pendiente.
+  const [instalandoId, setInstalandoId] = useState(null);
+  // El error va en el pie del detalle: en el celular el detalle tapa la pantalla
+  // y el aviso de arriba de la lista no se ve.
+  const [instalarError, setInstalarError] = useState(null);
+  async function marcarInstalado(row) {
+    if (!row || instalandoId) return;
+    setInstalandoId(row.id);
+    setInstalarError(null);
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+      if (!snapId) throw new Error("Este renglón todavía no está en la lista guardada de la obra.");
+      const { estado, retiradoPor } = estadoParaGuardar("instalado");
+      await cambiarEstadoObraSnapshot(snapId, estado, "", retiradoPor);
+      await cargarSnapshot();
+      setFlowMsg({ type: "ok", text: `${row.descripcion}: instalado.` });
+    } catch (e) {
+      setInstalarError({ id: row.id, text: e?.message || "No se pudo marcar como instalado." });
+    } finally {
+      setInstalandoId(null);
+    }
+  }
+
+  async function cambiarEstadoEnLote({ estado, etiqueta: etiquetaElegida, nota, retiradoPor, filas }) {
     if (!filas?.length || loteAvance) return;
     setFlowMsg(null);
     setLoteAvance({ hechos: 0, total: filas.length });
@@ -4943,7 +4969,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       await cargarSnapshot();
       setSelected(new Set(fallaron.map((row) => row.id)));
       setLoteOpen(false);
-      const etiqueta = SNAPSHOT_ESTADO_META[estado]?.label || estado;
+      const etiqueta = etiquetaElegida || SNAPSHOT_ESTADO_META[estado]?.label || estado;
       const ok = filas.length - fallaron.length;
       setFlowMsg(fallaron.length
         ? { type: "err", text: `${ok} pasaron a ${etiqueta}. ${fallaron.length} no se pudieron (quedan tildados): ${fallaron.slice(0, 3).map((row) => row.descripcion).join(", ")}${fallaron.length > 3 ? "…" : ""}. ${resultados.find((r) => !r?.ok)?.error?.message || ""}`.trim() }
@@ -5856,7 +5882,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         onNext={detailIndex >= 0 && detailIndex < visibleRows.length - 1 ? () => setOpenActionsRowId(visibleRows[detailIndex + 1].id) : null}
         editing={detailTab === "mas" && editingMaterialRowId === detailRow.id}
         renderContent={renderObraDetail}
-        footer={null}
+        footer={<>{instalarError?.id === detailRow.id && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{instalarError.text}</div>}{estadoObraForRow(detailRow) === "egresado" && esInstalado(detailRow)
+          ? <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.teal, fontSize: 13, fontWeight: 600, minHeight: 44 }}>Instalado en el barco</div>
+          : <button type="button" onClick={() => marcarInstalado(detailRow)} disabled={!!instalandoId || snapshotBusy}
+            style={{ ...obraButton, width: "100%", minHeight: 44, justifyContent: "center", fontSize: 13, fontWeight: 600, color: C.teal, borderColor: C.tealB, background: C.tealL }}>
+            {instalandoId === detailRow.id ? "Guardando…" : "Marcar instalado"}
+          </button>}</>}
       />}
 
       <EnviarAPanolModal
@@ -6993,12 +7024,15 @@ function estadoMetaDeFila(row) {
       title: `Recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}` };
   }
   const meta = recepcionMetaForRow(row);
+  if (estado === "egresado" && esInstalado(row)) {
+    return { label: "Instalado", color: C.teal, bg: C.tealL, border: C.tealB, title: "Se encontró puesto en el barco" };
+  }
   return { ...meta, label: estado === "pedido" ? "Pedido" : estado === "egresado" ? "Entregado" : meta.label };
 }
 
 // El recorrido real de un material, para listar los estados en ese orden y no
 // alfabéticamente.
-const ORDEN_ETIQUETA_ESTADO = ["Pendiente", "Pedido", "Comprado", "En pañol", "Parcial", "Entregado"];
+const ORDEN_ETIQUETA_ESTADO = ["Pendiente", "Pedido", "Comprado", "En pañol", "Parcial", "Entregado", "Instalado"];
 
 // "unidad"/"unidades"/"unid" ocupan una columna entera para decir "u".
 function unidadCorta(unidad) {
@@ -7556,6 +7590,7 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     egreso_at: row.egreso_at ?? null,
     egreso_nota: row.egreso_nota ?? null,
     egreso_por: row.egreso_por ?? null,
+    retirado_por: row.retirado_por ?? null,
     // Se lo llevaron a OTRA obra desde el stock de esta (egreso de producto o
     // reasignación con egreso, que guardan la obra de origen en obra_id).
     saleHaciaOtraObra: Boolean(row.egreso_destino_obra_id && row.obra_id && row.egreso_destino_obra_id !== row.obra_id),
@@ -7783,6 +7818,7 @@ function mergeSnapshotIntoLive(live, snapshot) {
     egreso_at: snapshot.egreso_at,
     egreso_nota: snapshot.egreso_nota,
     egreso_por: snapshot.egreso_por,
+    retirado_por: snapshot.retirado_por,
   };
 }
 

@@ -19,17 +19,41 @@ export const ESTADOS_LOTE = [
   { value: "pedido", label: "En compras" },
   { value: "comprado", label: "Comprado" },
   { value: "egresado", label: "Entregado" },
+  { value: "instalado", label: "Instalado" },
 ];
+
+/**
+ * "Instalado" = lo que se encontró puesto en el barco (pedido para la 52-24 y
+ * 52-25, que arrancaron antes del sistema). No es un estado más de la base:
+ * se guarda como egresado con esta marca en "quién lo retiró". Así cubre la
+ * falta igual que un entregado, no toca el stock si estaba pendiente y no hubo
+ * que cambiar la función de la base ni lo que Pañol y Compras leen del estado.
+ */
+export const RETIRO_INSTALADO = "Instalado en el barco";
+
+export function esInstalado(row) {
+  return String(row?.retirado_por || "").trim().toLowerCase() === RETIRO_INSTALADO.toLowerCase();
+}
+
+/** Lo que se le manda a la base para el estado elegido en pantalla. */
+export function estadoParaGuardar(estado, retiradoPor = "") {
+  if (estado === "instalado") return { estado: "egresado", retiradoPor: RETIRO_INSTALADO };
+  return { estado, retiradoPor };
+}
 
 export function planCambioEstadoLote(rows = [], estado, estadoDe) {
   const aplicar = [];
   const yaEstan = [];
   const descuentanStock = [];
+  const instalado = estado === "instalado";
   for (const row of rows) {
     const actual = estadoDe(row);
-    if (actual === estado) { yaEstan.push(row); continue; }
+    // Un entregado se puede pasar a instalado (cambia la marca); uno instalado
+    // ya está, y un entregado pasado a "Entregado" tampoco cambia nada.
+    const ya = instalado ? actual === "egresado" && esInstalado(row) : actual === estado;
+    if (ya) { yaEstan.push(row); continue; }
     aplicar.push(row);
-    if (estado === "egresado" && actual === "en_panol") descuentanStock.push(row);
+    if ((estado === "egresado" || instalado) && actual === "en_panol") descuentanStock.push(row);
   }
   return { aplicar, yaEstan, descuentanStock, pideQuienRetiro: estado === "egresado" && aplicar.length > 0 };
 }

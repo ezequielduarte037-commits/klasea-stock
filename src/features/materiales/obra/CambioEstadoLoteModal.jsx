@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { C } from "@/theme";
 import useDialogo from "@/features/consumibles/useDialogo";
 import { BTN, BTN_PRIMARY, INP, LBL } from "@/features/rrhh/ui";
-import { ESTADOS_LOTE, planCambioEstadoLote } from "./cambioEstadoLote";
+import { ESTADOS_LOTE, estadoParaGuardar, planCambioEstadoLote } from "./cambioEstadoLote";
 
 /**
  * Elegir un estado y aplicarlo a todos los renglones tildados. Antes de
@@ -14,7 +14,9 @@ import { ESTADOS_LOTE, planCambioEstadoLote } from "./cambioEstadoLote";
 export default function CambioEstadoLoteModal({ rows, estadoDe, obraCodigo, onCerrar, onConfirmar, busy, avance }) {
   const ref = useRef(null);
   useDialogo(ref, busy ? undefined : onCerrar);
-  const [estado, setEstado] = useState("egresado");
+  // Arranca en Instalado: hoy el uso es recorrer los barcos viejos (52-24,
+  // 52-25) y marcar lo que ya está puesto.
+  const [estado, setEstado] = useState("instalado");
   const [nota, setNota] = useState("");
   const [retira, setRetira] = useState("");
   const plan = useMemo(() => planCambioEstadoLote(rows, estado, estadoDe), [rows, estado, estadoDe]);
@@ -24,7 +26,7 @@ export default function CambioEstadoLoteModal({ rows, estadoDe, obraCodigo, onCe
 
   return createPortal(<div onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCerrar(); }} style={{ position: "fixed", inset: 0, zIndex: 5100, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 16 }}>
     <form ref={ref} role="dialog" aria-modal="true" aria-label="Cambiar estado de los tildados" tabIndex={-1}
-      onSubmit={(e) => { e.preventDefault(); if (puede) onConfirmar({ estado, nota, retiradoPor: retira, filas: plan.aplicar }); }}
+      onSubmit={(e) => { e.preventDefault(); if (puede) onConfirmar({ ...estadoParaGuardar(estado, retira), etiqueta: nombre, nota, filas: plan.aplicar }); }}
       style={{ width: "min(480px,100%)", boxSizing: "border-box", maxHeight: "90vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "var(--elev-2)", padding: 18, display: "grid", gap: 14, color: C.t0, fontFamily: C.sans }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
         <div>
@@ -45,7 +47,8 @@ export default function CambioEstadoLoteModal({ rows, estadoDe, obraCodigo, onCe
       <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.5, display: "grid", gap: 3 }}>
         <span><strong className="num" style={{ fontFamily: C.mono }}>{plan.aplicar.length}</strong> pasan a {nombre}.</span>
         {plan.yaEstan.length > 0 && <span style={{ color: C.t2 }}>{plan.yaEstan.length} ya estaban en {nombre} y no se tocan.</span>}
-        {plan.descuentanStock.length > 0 && <span style={{ color: C.violet }}>{plan.descuentanStock.length} están en pañol: al pasar a Entregado se descuentan del stock.</span>}
+        {plan.descuentanStock.length > 0 && <span style={{ color: C.violet }}>{plan.descuentanStock.length} están en pañol: al pasar a {nombre} se descuentan del stock.</span>}
+        {estado === "instalado" && <span style={{ color: C.t2 }}>Queda como entregado a la obra, con la marca «Instalado en el barco».</span>}
         <span style={{ color: C.t3, fontSize: 11 }}>«En pañol» no está acá porque suma stock: ese paso se hace de a uno o desde Ingresos.</span>
       </div>
 

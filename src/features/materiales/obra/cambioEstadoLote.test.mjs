@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ESTADOS_LOTE, enParalelo, planCambioEstadoLote } from "./cambioEstadoLote.js";
+import { ESTADOS_LOTE, RETIRO_INSTALADO, enParalelo, esInstalado, estadoParaGuardar, planCambioEstadoLote } from "./cambioEstadoLote.js";
 
 const estadoDe = (row) => row.estado;
 
@@ -39,4 +39,25 @@ test("enParalelo respeta el límite y junta los errores sin cortar", async () =>
   assert.equal(avances, 7);
   assert.equal(res.filter((r) => r.ok).length, 6);
   assert.equal(res[3].ok, false);
+});
+
+test("Instalado se guarda como egresado con la marca, sin pedir quién retiró", () => {
+  assert.deepEqual(estadoParaGuardar("instalado", "Juan"), { estado: "egresado", retiradoPor: RETIRO_INSTALADO });
+  assert.deepEqual(estadoParaGuardar("egresado", "Juan"), { estado: "egresado", retiradoPor: "Juan" });
+  assert.ok(esInstalado({ retirado_por: " instalado en el barco " }));
+  assert.ok(!esInstalado({ retirado_por: "Anterior al sistema" }));
+});
+
+test("Instalado: un entregado se puede pasar, uno ya instalado no se toca", () => {
+  const rows = [
+    { id: 1, estado: "pendiente" },
+    { id: 2, estado: "egresado", retirado_por: "Juan" },
+    { id: 3, estado: "egresado", retirado_por: RETIRO_INSTALADO },
+    { id: 4, estado: "en_panol" },
+  ];
+  const plan = planCambioEstadoLote(rows, "instalado", estadoDe);
+  assert.deepEqual(plan.aplicar.map((r) => r.id), [1, 2, 4]);
+  assert.deepEqual(plan.yaEstan.map((r) => r.id), [3]);
+  assert.deepEqual(plan.descuentanStock.map((r) => r.id), [4]);
+  assert.equal(plan.pideQuienRetiro, false);
 });
