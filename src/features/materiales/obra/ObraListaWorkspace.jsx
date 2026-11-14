@@ -220,6 +220,11 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   }, []);
   const narrow = isMobile || width < 860;
   const phone = width < 560;
+  // En el celular la lista corre con la página en vez de tener su propia caja
+  // con scroll: con el encabezado de la obra arriba quedaban ~300 px para
+  // renglones (cinco ítems) y había que arrastrar en dos lugares distintos.
+  const flujo = narrow;
+  const finRef = useRef(null);
   const compact = width < 1120;
   const limite = limiteState.key === filterKey ? limiteState.n : LOTE_FILAS;
   const plano = groups.length === 1 && groups[0].plano;
@@ -239,6 +244,17 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   const onIndexChange = indexMode === "rubro" ? onRubro : onProveedor;
   const indexTotal = allRows.filter((row) => indexMode === "proveedor" ? (!rubro || rubroDeFila(row) === rubro) : coincideProveedor(row.proveedor, proveedor)).length;
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [filterKey]);
+  // Con la lista corriendo en la página no hay onScroll propio: el próximo
+  // tramo se dibuja cuando el aviso del final se acerca a la pantalla.
+  const hayMas = recorte.end < recorte.total;
+  useEffect(() => {
+    if (!flujo || !hayMas || !finRef.current) return undefined;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setLimiteState({ key: filterKey, n: limite + LOTE_FILAS });
+    }, { rootMargin: "600px 0px" });
+    observer.observe(finRef.current);
+    return () => observer.disconnect();
+  }, [flujo, hayMas, filterKey, limite]);
   function onScroll(event) {
     const el = event.currentTarget;
     if (recorte.end < recorte.total && el.scrollTop + el.clientHeight > el.scrollHeight - 600) setLimiteState({ key: filterKey, n: limite + LOTE_FILAS });
@@ -305,8 +321,13 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
       <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 8, padding: "3px 6px" }}>
         <MaterialThumb material={view.imageMaterial} size={narrow ? 36 : 24} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
         <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+          {/* En el celular el nombre va en dos renglones: cortado en 20 letras no
+              se distingue "Buje de bronce 75x4…" de "Buje de bronce 90x…". */}
+          <span style={narrow
+            ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", fontSize: 12.5, fontWeight: 500, overflowWrap: "anywhere" }
+            : { display: "block", fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
           {(subtexto || view.issue) && <span style={sub}>{view.issue && <span style={{ color: C.red }}>{view.issue}{subtexto ? " · " : ""}</span>}{subtexto}</span>}
+          {view.stockLibre && <span style={{ ...sub, color: C.green }} title={view.stockLibre.title}>{view.stockLibre.texto}</span>}
         </button>
       </div>
       {!compact && <div role="cell" title={row.proveedor} style={{ ...cell, whiteSpace: "nowrap", color: row.proveedor ? C.muted : C.dim }}>{row.proveedor || "—"}</div>}
@@ -318,12 +339,20 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
       <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 40 : 26, minHeight: narrow ? 40 : 30, background: "transparent", color: C.muted }}><MoreHorizontal size={15} /></button></div>
     </div>;
   };
-  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ position: "relative", minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.panelSolid }}>
+  const barraSeleccion = selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={flujo ? "obra-selbar obra-chips" : "obra-selbar"} style={{ zIndex: 5, boxSizing: "border-box", ...(flujo ? { position: "sticky", bottom: 0, overflowX: "auto", flexWrap: "nowrap", borderRadius: 0, borderWidth: "1px 0 0", paddingBottom: "max(7px, env(safe-area-inset-bottom))" } : { position: "absolute", left: "50%", bottom: 48, transform: "translateX(-50%)", width: "max-content", maxWidth: "calc(100% - 20px)", flexWrap: "wrap", borderRadius: 10 }), display: "flex", alignItems: "center", gap: 6, padding: "7px 8px 7px 12px", background: C.panelSolid, border: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
+    <strong style={{ fontWeight: 600, fontSize: 12.5, color: C.text, marginRight: 4, whiteSpace: "nowrap" }}>{tildadosVisibles.toLocaleString("es-AR")} {tildadosVisibles === 1 ? "tildado" : "tildados"}</strong>
+    {tildadosFuera > 0 && <span style={{ ...muted, fontSize: 11, whiteSpace: "nowrap" }} title="Lo tildado que quedó afuera del filtro no entra en las acciones.">+{tildadosFuera} fuera del filtro</span>}
+    {accionesSeleccion}
+    <button type="button" onClick={() => onSelectionChange(new Set())} aria-label="Quitar selección" title="Quitar selección" style={{ ...button, background: "transparent", borderColor: "transparent", color: C.muted }}><X size={14} /></button>
+  </div>;
+  // overflow "clip" y no "hidden": "hidden" convierte la caja en el contenedor
+  // del sticky y el encabezado y el pie dejan de quedar pegados a la pantalla.
+  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ position: "relative", minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 10, overflow: flujo ? "clip" : "hidden", background: C.panelSolid }}>
     {narrow && index}
-    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "176px minmax(0,1fr)", height: listHeight, minHeight: 360 }}>
+    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "176px minmax(0,1fr)", height: flujo ? "auto" : listHeight, minHeight: flujo ? 0 : 360 }}>
       {!narrow && index}
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <div ref={scrollRef} onScroll={onScroll} className="obra-scroll" style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
+        <div ref={scrollRef} onScroll={flujo ? undefined : onScroll} className="obra-scroll" style={{ overflow: flujo ? "visible" : "auto", flex: 1, minHeight: 0 }}>
           <div key={filterKey} className="obra-page-content" role="table" aria-label="Materiales de la obra" aria-rowcount={recorte.total} style={{ minWidth: narrow ? 0 : 640, fontSize: 12 }}>
             {header}
             {recorte.groups.map((group) => <Fragment key={group.label}>
@@ -336,10 +365,11 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
               {!closedGroups.has(group.label) && group.rows.map(fila)}
             </Fragment>)}
           </div>
-          {recorte.end < recorte.total && <div style={{ padding: 14, textAlign: "center", ...muted }}>Mostrando {recorte.end.toLocaleString("es-AR")} de {recorte.total.toLocaleString("es-AR")} · seguí bajando</div>}
+          {recorte.end < recorte.total && <div ref={finRef} style={{ padding: 14, textAlign: "center", ...muted }}>Mostrando {recorte.end.toLocaleString("es-AR")} de {recorte.total.toLocaleString("es-AR")} · seguí bajando</div>}
           {!recorte.total && <div style={{ padding: 36, textAlign: "center", color: C.muted }}>No hay ítems con esos filtros.</div>}
         </div>
-        <div className={narrow ? "obra-chips" : undefined} style={{ display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", whiteSpace: "nowrap", gap: "4px 6px", alignItems: "center", padding: "6px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, fontSize: 11.5 }}>
+        {flujo && barraSeleccion}
+        {!(flujo && barraSeleccion) && <div className={narrow ? "obra-chips" : undefined} style={{ display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", whiteSpace: "nowrap", gap: "4px 6px", alignItems: "center", padding: "6px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, fontSize: 11.5, ...(flujo ? { position: "sticky", bottom: 0, zIndex: 3, paddingBottom: "max(6px, env(safe-area-inset-bottom))" } : {}) }}>
           <span data-testid="obra-page-range" style={{ ...muted, fontVariantNumeric: "tabular-nums", marginRight: 4 }}>{recorte.total.toLocaleString("es-AR")} {recorte.total === 1 ? "ítem" : "ítems"}</span>
           {estadoOpciones.map((op) => {
             const on = estadosSel.size === 1 && estadosSel.has(op.value);
@@ -350,15 +380,10 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
           })}
           <span style={{ flex: 1 }} />
           {valorizacion?.texto && !phone && <span style={{ ...muted, fontSize: 11 }} title="Suma sólo lo que tiene precio cargado: con ítems sin precio el total de la obra es mayor.">Valorizado <span style={{ ...numberStyle, color: C.text }}>{valorizacion.texto}</span> · {valorizacion.conPrecio} % con precio</span>}
-        </div>
+        </div>}
       </div>
     </div>
-    {selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={narrow ? "obra-selbar obra-chips" : "obra-selbar"} style={{ position: "absolute", zIndex: 5, boxSizing: "border-box", ...(narrow ? { left: 8, right: 8, bottom: 52, overflowX: "auto", flexWrap: "nowrap" } : { left: "50%", bottom: 48, transform: "translateX(-50%)", width: "max-content", maxWidth: "calc(100% - 20px)", flexWrap: "wrap" }), display: "flex", alignItems: "center", gap: 6, padding: "7px 8px 7px 12px", background: C.panelSolid, border: `1px solid ${C.blueB}`, borderRadius: 10, boxShadow: "0 14px 40px var(--shadow)" }}>
-      <strong style={{ fontWeight: 600, fontSize: 12.5, color: C.text, marginRight: 4 }}>{tildadosVisibles.toLocaleString("es-AR")} {tildadosVisibles === 1 ? "tildado" : "tildados"}</strong>
-      {tildadosFuera > 0 && <span style={{ ...muted, fontSize: 11 }} title="Lo tildado que quedó afuera del filtro no entra en las acciones.">+{tildadosFuera} fuera del filtro</span>}
-      {accionesSeleccion}
-      <button type="button" onClick={() => onSelectionChange(new Set())} aria-label="Quitar selección" title="Quitar selección" style={{ ...button, background: "transparent", borderColor: "transparent", color: C.muted }}><X size={14} /></button>
-    </div>}
+    {!flujo && barraSeleccion}
   </div>;
 }
 

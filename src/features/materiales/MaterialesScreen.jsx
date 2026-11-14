@@ -1,7 +1,7 @@
 import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileSpreadsheet, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileSpreadsheet, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, Warehouse, X } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import {
@@ -4360,6 +4360,17 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     return counts;
   }, [etapasObra, rows, etapasDeRow]);
 
+  // Stock libre de pañol (sin obra) para lo que todavía hay que comprar. Pedido
+  // para los barcos anteriores al sistema (52-24 antes de irse al río): antes de
+  // comprar, ver si el pañol ya lo tiene suelto y asignarlo a la obra.
+  const stockLibreDeFila = useCallback((row) => {
+    const info = stockLibreMap.get(stockLibreKeyForRow(row));
+    if (!info || !(toNum(info.cantidad) > 0)) return null;
+    if (!(cantidadesDeFila(row).faltaComprar > 0)) return null;
+    return info;
+  }, [stockLibreMap]);
+  const stockLibreCount = useMemo(() => rows.filter((row) => stockLibreDeFila(row)).length, [rows, stockLibreDeFila]);
+
   // Todo menos el estado. El filtro de la columna Estado cuenta sobre esto, como
   // en una planilla: los números que muestra ya tienen aplicado el resto de los
   // filtros, no son los de la obra entera.
@@ -4373,7 +4384,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         if (etapaFilter === "sin_asignar") return etapas.length === 0;
         return etapas.some((e) => e.id === etapaFilter);
       })
-      .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
+      .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : tipoFilter === "stock_libre" ? !!stockLibreDeFila(row) : row.bucket.key === tipoFilter))
       .filter((row) => matchesFlexibleSearch(
         deferredQ,
         row.descripcion,
@@ -4401,7 +4412,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           cantidadOrigenEtapa: true,
         };
       });
-  }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, etapaFilter, etapasDeRow]);
+  }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, etapaFilter, etapasDeRow, stockLibreDeFila]);
 
   // Las opciones del filtro de la columna Estado: las etiquetas que la columna
   // muestra de verdad, con su cuenta, en el orden del recorrido del material.
@@ -4587,7 +4598,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   // filtros es la lista completa de la obra. Los filtros puestos quedan
   // escritos arriba del papel, para que nadie lo tome por la lista entera.
   function exportarExcel() {
-    const tipos = { base: "Base", addon: "Adicionales", condicionante: "Condicionantes", linea_eje: "Línea eje", variante: "Variantes", sin_precio: "Sin precio", revisar: "A revisar" };
+    const tipos = { base: "Base", addon: "Adicionales", condicionante: "Condicionantes", linea_eje: "Línea eje", variante: "Variantes", sin_precio: "Sin precio", revisar: "A revisar", stock_libre: "Hay stock libre en pañol" };
     const etapaElegida = etapasObra.find((etapa) => etapa.id === etapaFilter);
     const filtros = [
       deferredQ.trim() ? `búsqueda “${deferredQ.trim()}”` : "",
@@ -5415,8 +5426,14 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     const faltaTitle = falta
       ? [cant.faltaComprar ? `${fmtQtyCorto(cant.faltaComprar)} por comprar` : "", cant.enCompras ? `${fmtQtyCorto(cant.enCompras)} en compras` : "", cant.faltaEntregar ? `${fmtQtyCorto(cant.faltaEntregar)} en pañol para retirar` : ""].filter(Boolean).join(" · ") || `Faltan ${fmtQtyCorto(falta)}`
       : "Entregado completo";
+    const libre = stockLibreDeFila(row);
+    const stockLibre = libre ? {
+      // Corto a propósito: en el celular la columna del nombre tiene ~20 letras.
+      texto: `Stock libre ${fmtQtyCorto(libre.cantidad)} ${unidadCorta(libre.unidad || row.unidad)}${toNum(libre.cantidad) < cant.faltaComprar ? ` de ${fmtQtyCorto(cant.faltaComprar)}` : ""}`,
+      title: `Stock libre en pañol${Object.entries(libre.sedes || {}).filter(([, n]) => toNum(n) > 0).map(([sede, n]) => ` · ${sede}: ${fmtQtyCorto(n)}`).join("")}. Se puede asignar a la obra en vez de comprarlo.`,
+    } : null;
     return {
-      status, cant, requisito, falta, faltaColor, faltaTitle, faltaTexto: fmtQtyCorto(falta),
+      status, cant, requisito, falta, faltaColor, faltaTitle, faltaTexto: fmtQtyCorto(falta), stockLibre,
       necesarioCorto: fmtQtyCorto(cant.necesita), unidadCorta: unidadCorta(row.unidad),
       needed: qtyText(row.cantidad, row.unidad), received: fmtQtyCorto(cant.panol), delivered: fmtQtyCorto(cant.entregado),
       quantityTitle: `Necesario ${fmtQtyCorto(cant.necesita)} · recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`,
@@ -5798,11 +5815,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
             <option value="ninguno" style={OPT_ST}>Sin agrupar</option><option value="rubro" style={OPT_ST}>Por rubro</option><option value="proveedor" style={OPT_ST}>Por proveedor</option><option value="etapa" style={OPT_ST}>Por etapa</option><option value="tipo" style={OPT_ST}>Por tipo</option>
           </select>
           <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} style={{ ...obraButton, color: activeObraFilterCount ? C.blue : C.muted }}><SlidersHorizontal size={13} />Filtros{activeObraFilterCount ? ` · ${activeObraFilterCount}` : ""}</button>
+          {stockLibreCount > 0 && <button type="button" aria-pressed={tipoFilter === "stock_libre"} onClick={() => setTipoFilter(tipoFilter === "stock_libre" ? "todos" : "stock_libre")} title="Lo que falta comprar y el pañol tiene sin obra asignada" style={{ ...obraButton, color: C.green, borderColor: tipoFilter === "stock_libre" ? C.green : C.greenB, background: tipoFilter === "stock_libre" ? C.greenL : obraButton.background }}><Warehouse size={13} />Hay en pañol · {stockLibreCount}</button>}
           {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadosSel(new Set()); setEtapaFilter("todos"); }} style={{ ...obraButton, border: "none", background: "transparent", color: C.muted }}>Limpiar filtros</button>}
         </div>
         {filtersOpen && <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <select aria-label="Proveedor" value={proveedorFilter} onChange={(event) => setProveedorFilter(event.target.value)} style={{ ...obraSelect, maxWidth: "100%" }}><option value="" style={OPT_ST}>Todos los proveedores</option>{facets.proveedores.map((name) => <option key={name} value={name} style={OPT_ST}>{name}</option>)}</select>
-          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", `Adicionales · ${addonStats.total}`], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
+          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", `Adicionales · ${addonStats.total}`], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"], ["stock_libre", `Hay en pañol sin obra · ${stockLibreCount}`]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
           <select aria-label="Etapa de compra" value={etapaFilter} onChange={(event) => setEtapaFilter(event.target.value)} disabled={!!etapasObraError} style={{ ...obraSelect, maxWidth: "100%" }}><option value="todos" style={OPT_ST}>Todas las etapas · {asignadosCount} asignados</option><option value="sin_asignar" style={OPT_ST}>Sin asignar · {sinAsignarCount}</option>{etapasObra.map((etapa) => <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre} · {etapaStats.get(etapa.id) || 0}{etapa.fecha_compra ? ` · ${String(etapa.fecha_compra).slice(0, 10)}` : ""}</option>)}</select>
         </div>}
         {etapasObraError && <div role="alert" style={{ fontSize: 12, color: C.red }}>{etapasObraError} <button type="button" onClick={cargarEtapasObra} style={obraButton}>Reintentar etapas</button></div>}
@@ -6985,7 +7003,9 @@ const ORDEN_ETIQUETA_ESTADO = ["Pendiente", "Pedido", "Comprado", "En pañol", "
 // "unidad"/"unidades"/"unid" ocupan una columna entera para decir "u".
 function unidadCorta(unidad) {
   const u = String(unidad || "").trim();
-  return /^(unidad(es)?|unid\.?|un\.?|u)$/i.test(u) ? "u" : u;
+  if (/^(unidad(es)?|unid\.?|un\.?|u)$/i.test(u)) return "u";
+  if (/^(metros?|mts?\.?|m)$/i.test(u)) return "m";
+  return u;
 }
 
 // Lo que le falta tener al barco: lo necesario menos lo que ya se le entregó.
